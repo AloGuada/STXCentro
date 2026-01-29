@@ -1,0 +1,60 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Fortify\TwoFactorAuthenticatable;
+use Spatie\Permission\Traits\HasRoles;
+
+class Usuario extends Authenticatable
+{
+    use HasFactory;
+    use HasRoles;
+    use HasUuids;
+    use Notifiable;
+    use TwoFactorAuthenticatable;
+
+    protected $table = 'usuarios';
+
+    /**
+     * @var list<string>
+     */
+    protected $fillable = [
+        'empleado',
+        'name',
+        'email',
+        'password',
+    ];
+
+    /**
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'remember_token',
+    ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'two_factor_confirmed_at' => 'datetime',
+        ];
+    }
+
+    public function departamentoComoManager(): HasOne
+    {
+        return $this->hasOne(Departamento::class, 'manager_usuario_id');
+    }
+}

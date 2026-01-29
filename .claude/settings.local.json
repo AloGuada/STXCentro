@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(composer require:*)",
+      "Bash(php artisan vendor:publish:*)",
+      "Bash(php artisan make:migration:*)",
+      "Bash(php artisan make:seeder:*)",
+      "Bash(php artisan migrate:fresh:*)",
+      "Bash(php artisan db:seed:*)",
+      "Bash(vendor/bin/pint:*)",
+      "Bash(php artisan test:*)",
+      "mcp__laravel-boost__application-info",
+      "Bash(cat:*)",
+      "mcp__laravel-boost__list-routes",
+      "mcp__laravel-boost__database-schema",
+      "mcp__laravel-boost__search-docs"
+    ]
+  }
+}
