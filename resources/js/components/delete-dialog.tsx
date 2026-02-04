@@ -10,7 +10,7 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { router } from '@inertiajs/react';
-import { Loader2Icon, Trash2Icon } from 'lucide-react';
+import { Trash2Icon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
@@ -45,12 +45,12 @@ export function DeleteDialog({
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
+            <DialogTrigger className="btn btn-error">
                 {trigger ?? (
-                    <Button variant="destructive">
+                    <>
                         <Trash2Icon className="size-4" />
                         Eliminar
-                    </Button>
+                    </>
                 )}
             </DialogTrigger>
             <DialogContent>
@@ -59,13 +59,10 @@ export function DeleteDialog({
                     <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <DialogClose asChild>
-                        <Button variant="outline" disabled={processing}>
-                            Cancelar
-                        </Button>
+                    <DialogClose className="btn btn-ghost">
+                        Cancelar
                     </DialogClose>
-                    <Button variant="destructive" onClick={handleDelete} disabled={processing}>
-                        {processing && <Loader2Icon className="size-4 animate-spin" />}
+                    <Button variant="error" onClick={handleDelete} loading={processing}>
                         Eliminar
                     </Button>
                 </DialogFooter>

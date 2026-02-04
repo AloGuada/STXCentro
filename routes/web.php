@@ -12,3 +12,4 @@ Route::get('dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 require __DIR__.'/admin.php';
+require __DIR__.'/intra.php';

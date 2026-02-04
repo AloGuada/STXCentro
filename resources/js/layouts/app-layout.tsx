@@ -1,8 +1,8 @@
-import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
+import AppDrawerLayout from '@/layouts/app/app-drawer-layout';
 import type { AppLayoutProps } from '@/types';
 
 export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => (
-    <AppLayoutTemplate breadcrumbs={breadcrumbs} {...props}>
+    <AppDrawerLayout breadcrumbs={breadcrumbs} {...props}>
         {children}
-    </AppLayoutTemplate>
+    </AppDrawerLayout>
 );

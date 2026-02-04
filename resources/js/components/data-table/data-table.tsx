@@ -1,5 +1,6 @@
-import { Button } from '@/components/ui/button';
+import { ButtonLink } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { PaginatedData } from '@/types/models';
 import { cn } from '@/lib/utils';
 import { Link, WhenVisible } from '@inertiajs/react';
 import { PlusIcon } from 'lucide-react';
@@ -13,35 +14,37 @@ export type Column<T> = {
     className?: string;
 };
 
-type DataTableProps<T> = {
+type DataTableProps<T extends { id: number | string }> = {
     columns: Column<T>[];
-    data: T[];
-    keyField: keyof T;
-    nextPageUrl?: string | null;
+    data: PaginatedData<T> | T[];
     searchable?: boolean;
     searchPlaceholder?: string;
     searchValue?: string;
     createHref?: string;
     createLabel?: string;
+    getRowHref?: (item: T) => string;
     onRowClick?: (item: T) => void;
     emptyMessage?: string;
     title?: string;
 };
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends { id: number | string }>({
     columns,
     data,
-    keyField,
-    nextPageUrl,
-    searchable = true,
+    searchable = false,
     searchPlaceholder = 'Buscar...',
     searchValue = '',
     createHref,
     createLabel = 'Crear',
+    getRowHref,
     onRowClick,
     emptyMessage = 'No hay registros',
     title,
 }: DataTableProps<T>) {
+    // Normalizar datos: soporta tanto array simple como PaginatedData
+    const items = Array.isArray(data) ? data : data.data;
+    const nextPageUrl = Array.isArray(data) ? null : data.links?.next;
+
     const getCellValue = (item: T, column: Column<T>): ReactNode => {
         if (column.render) {
             return column.render(item);
@@ -51,76 +54,87 @@ export function DataTable<T extends Record<string, unknown>>({
         return String(value);
     };
 
+    const renderRow = (item: T) => {
+        const rowClassName = cn(
+            'hover',
+            (getRowHref || onRowClick) && 'cursor-pointer',
+        );
+
+        if (getRowHref) {
+            return (
+                <tr key={String(item.id)} className={rowClassName}>
+                    {columns.map((column) => (
+                        <td key={String(column.key)} className={column.className}>
+                            <Link href={getRowHref(item)} className="block">
+                                {getCellValue(item, column)}
+                            </Link>
+                        </td>
+                    ))}
+                </tr>
+            );
+        }
+
+        return (
+            <tr
+                key={String(item.id)}
+                onClick={() => onRowClick?.(item)}
+                className={rowClassName}
+            >
+                {columns.map((column) => (
+                    <td key={String(column.key)} className={column.className}>
+                        {getCellValue(item, column)}
+                    </td>
+                ))}
+            </tr>
+        );
+    };
+
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-                {title && <h2 className="text-lg font-semibold">{title}</h2>}
-                <div className="flex flex-1 items-center justify-end gap-4">
-                    {searchable && (
-                        <SearchInput
-                            placeholder={searchPlaceholder}
-                            defaultValue={searchValue}
-                            className="max-w-xs"
-                        />
-                    )}
-                    {createHref && (
-                        <Button asChild>
-                            <Link href={createHref}>
+            {(title || searchable || createHref) && (
+                <div className="flex items-center justify-between gap-4">
+                    {title && <h2 className="text-lg font-semibold">{title}</h2>}
+                    <div className="flex flex-1 items-center justify-end gap-4">
+                        {searchable && (
+                            <SearchInput
+                                placeholder={searchPlaceholder}
+                                defaultValue={searchValue}
+                                className="max-w-xs"
+                            />
+                        )}
+                        {createHref && (
+                            <ButtonLink href={createHref} variant="primary">
                                 <PlusIcon className="size-4" />
                                 {createLabel}
-                            </Link>
-                        </Button>
-                    )}
+                            </ButtonLink>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
-            <div className="rounded-md border">
-                <table className="w-full">
+            <div className="overflow-x-auto rounded-box border border-base-300">
+                <table className="table">
                     <thead>
-                        <tr className="border-b bg-muted/50">
+                        <tr>
                             {columns.map((column) => (
-                                <th
-                                    key={String(column.key)}
-                                    className={cn(
-                                        'px-4 py-3 text-left text-sm font-medium',
-                                        column.className,
-                                    )}
-                                >
+                                <th key={String(column.key)} className={column.className}>
                                     {column.label}
                                 </th>
                             ))}
                         </tr>
                     </thead>
                     <tbody>
-                        {data.length === 0 ? (
+                        {items.length === 0 ? (
                             <tr>
                                 <td
                                     colSpan={columns.length}
-                                    className="text-muted-foreground px-4 py-8 text-center"
+                                    className="text-base-content/60 text-center py-8"
                                 >
                                     {emptyMessage}
                                 </td>
                             </tr>
                         ) : (
-                            data.map((item) => (
-                                <tr
-                                    key={String(item[keyField])}
-                                    onClick={() => onRowClick?.(item)}
-                                    className={cn(
-                                        'border-b transition-colors hover:bg-muted/50',
-                                        onRowClick && 'cursor-pointer',
-                                    )}
-                                >
-                                    {columns.map((column) => (
-                                        <td
-                                            key={String(column.key)}
-                                            className={cn('px-4 py-3 text-sm', column.className)}
-                                        >
-                                            {getCellValue(item, column)}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))
+                            items.map((item) => renderRow(item))
                         )}
                     </tbody>
                 </table>

@@ -12,3 +12,10 @@ export type NavItem = {
     icon?: LucideIcon | null;
     isActive?: boolean;
 };
+
+export type NavGroup = {
+    title: string;
+    icon?: LucideIcon | null;
+    items: NavItem[];
+    defaultOpen?: boolean;
+};

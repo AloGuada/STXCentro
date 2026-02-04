@@ -85,3 +85,61 @@ export type PaginatedData<T> = {
         total: number;
     };
 };
+
+// Intranet types
+export type TipoDocumento =
+    | 'manual_operativo'
+    | 'formato_proceso'
+    | 'protocolo'
+    | 'politica'
+    | 'instructivo_trabajo'
+    | 'procedimiento_especifico'
+    | 'procedimiento_general'
+    | 'plan_calidad'
+    | 'manual_gestion';
+
+export type SeccionEstatica = {
+    id: number;
+    slug: string;
+    titulo: string;
+    descripcion: string | null;
+    boton: string;
+    order: number;
+    activo: boolean;
+    media?: Media;
+    created_at: string;
+    updated_at: string;
+};
+
+export type Area = {
+    id: number;
+    descripcion: string;
+    parent_id: number | null;
+    parent?: Area;
+    children?: Area[];
+    order: number;
+    activo: boolean;
+    documentos?: Documento[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type Documento = {
+    id: number;
+    area_id: number;
+    media_id: number;
+    descripcion: string;
+    codigo: string | null;
+    tipo: TipoDocumento;
+    order: number;
+    activo: boolean;
+    area?: Area;
+    media?: Media;
+    created_at: string;
+    updated_at: string;
+};
+
+export type DocumentosPorTipo = Record<TipoDocumento, {
+    label: string;
+    documentos: Documento[];
+}>;

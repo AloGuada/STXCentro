@@ -1,32 +1,34 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useInitials } from '@/hooks/use-initials';
 import type { User } from '@/types';
 
-export function UserInfo({
-    user,
-    showEmail = false,
-}: {
+type Props = {
     user: User;
     showEmail?: boolean;
-}) {
-    const getInitials = useInitials();
+};
+
+export function UserInfo({ user, showEmail = true }: Props) {
+    // Obtener iniciales del nombre
+    const getInitials = (name: string) => {
+        return name
+            .split(' ')
+            .map((n) => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+    };
 
     return (
-        <>
-            <Avatar className="h-8 w-8 overflow-hidden rounded-full">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                    {getInitials(user.name)}
-                </AvatarFallback>
-            </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
+        <div className="flex items-center gap-3">
+            <div className="avatar placeholder">
+                <div className="bg-neutral text-neutral-content w-8 rounded-full">
+                    <span className="text-xs">{getInitials(user.name)}</span>
+                </div>
+            </div>
+            <div className="flex flex-col text-left">
+                <span className="text-sm font-medium leading-tight">{user.name}</span>
                 {showEmail && (
-                    <span className="truncate text-xs text-muted-foreground">
-                        {user.email}
-                    </span>
+                    <span className="text-xs text-base-content/60 leading-tight">{user.email}</span>
                 )}
             </div>
-        </>
+        </div>
     );
 }
