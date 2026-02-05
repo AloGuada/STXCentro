@@ -143,3 +143,108 @@ export type DocumentosPorTipo = Record<TipoDocumento, {
     label: string;
     documentos: Documento[];
 }>;
+
+// STI Types
+export type StiEquipo = {
+    id: number;
+    descripcion: string;
+    serie: string | null;
+    marca: string | null;
+    factor_criticidad: 'bajo' | 'medio' | 'alto' | 'critico';
+    periodicidad_mantenimiento: number | null;
+    tickets?: StiTicket[];
+    mantenimientos?: StiMantenimiento[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiTecnico = {
+    id: number;
+    descripcion: string;
+    activo: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiStatus = {
+    id: number;
+    descripcion: string;
+    orden: number;
+    detiene_tiempo: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiTicketHistorial = {
+    id: number;
+    ticket_id: number;
+    status_id: number;
+    status?: StiStatus;
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiTicket = {
+    id: number;
+    nombre_solicitante: string;
+    comentario: string;
+    tecnico_id: number | null;
+    equipo_id: number | null;
+    departamento_id: number;
+    firma_completado: string | null;
+    calificacion: number | null;
+    tecnico?: StiTecnico;
+    equipo?: StiEquipo;
+    departamento?: Departamento;
+    historial?: StiTicketHistorial[];
+    media?: Media[];
+    tags?: Tag[];
+    costos?: StiCostoMantenimiento[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiCostoMantenimiento = {
+    id: number;
+    descripcion: string;
+    cantidad: number;
+    costeable_id: number;
+    costeable_type: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiMantenimiento = {
+    id: number;
+    equipo_id: number;
+    fecha_programada: string;
+    descripcion: string | null;
+    tecnico_id: number;
+    status: 'pendiente' | 'realizado';
+    fecha_realizado: string | null;
+    equipo?: StiEquipo;
+    tecnico?: StiTecnico;
+    media?: Media[];
+    costos?: StiCostoMantenimiento[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiAsignacionActivo = {
+    id: number;
+    departamento_id: number;
+    equipo_id: number;
+    no_empleado: string;
+    empleado: string;
+    firma_empleado: string | null;
+    no_ti: string;
+    nombre_ti: string;
+    firma_ti: string | null;
+    fecha_inicial: string;
+    fecha_termino: string | null;
+    estado: 'activo' | 'devuelto' | 'transferido';
+    departamento?: Departamento;
+    equipo?: StiEquipo;
+    created_at: string;
+    updated_at: string;
+};

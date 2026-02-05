@@ -13,3 +13,4 @@ Route::get('dashboard', function () {
 
 require __DIR__.'/admin.php';
 require __DIR__.'/intra.php';
+require __DIR__.'/sti.php';

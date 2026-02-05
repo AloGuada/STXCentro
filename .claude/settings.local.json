@@ -23,7 +23,9 @@
       "Bash(npm install:*)",
       "Bash(php artisan migrate:*)",
       "Bash(npm search:*)",
-      "Bash(php artisan make:controller:*)"
+      "Bash(php artisan make:controller:*)",
+      "Bash(php artisan make:model:*)",
+      "Bash(php artisan:*)"
     ]
   }
 }

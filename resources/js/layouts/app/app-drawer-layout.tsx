@@ -4,6 +4,7 @@ import {
     Briefcase,
     Building,
     ChevronDown,
+    ClipboardList,
     File,
     Folder,
     FolderTree,
@@ -12,9 +13,13 @@ import {
     LayoutGrid,
     LogOut,
     MenuIcon,
+    Monitor,
+    Settings,
     Shield,
     Tag,
+    Ticket,
     Users,
+    Wrench,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import AppLogo from '@/components/app-logo';
@@ -58,6 +63,18 @@ const navGroups: NavGroup[] = [
             { title: 'Secciones', href: '/admin/intra/secciones', icon: File },
             { title: 'Áreas', href: '/admin/intra/areas', icon: FolderTree },
             { title: 'Documentos', href: '/admin/intra/documentos', icon: File },
+        ],
+    },
+    {
+        title: 'Soporte TI',
+        icon: Wrench,
+        items: [
+            { title: 'Tickets', href: '/admin/sti/tickets', icon: Ticket },
+            { title: 'Equipos', href: '/admin/sti/equipos', icon: Monitor },
+            { title: 'Técnicos', href: '/admin/sti/tecnicos', icon: Users },
+            { title: 'Mantenimientos', href: '/admin/sti/mantenimientos', icon: Settings },
+            { title: 'Asignaciones', href: '/admin/sti/asignacion-activos', icon: ClipboardList },
+            { title: 'Estados', href: '/admin/sti/status', icon: Tag },
         ],
     },
 ];
