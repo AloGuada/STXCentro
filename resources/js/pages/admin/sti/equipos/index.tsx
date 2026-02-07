@@ -1,7 +1,7 @@
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { PaginatedData, StiEquipo } from '@/types/models';
+import { CRITICIDAD_COLORS, CRITICIDAD_LABELS, type PaginatedData, type StiCriticidad, type StiEquipo } from '@/types/models';
 import { Head } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -10,14 +10,55 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Equipos', href: '/admin/sti/equipos' },
 ];
 
-const columns: Column<StiEquipo>[] = [
-    { key: 'descripcion', label: 'Descripción' },
+type EquipoWithCounts = StiEquipo & {
+    tickets_count: number;
+    mantenimientos_count: number;
+    total_costos: number;
+};
+
+const columns: Column<EquipoWithCounts>[] = [
+    { key: 'descripcion', label: 'Descripcion' },
     { key: 'serie', label: 'Serie', render: (equipo) => equipo.serie ?? '-' },
     { key: 'marca', label: 'Marca', render: (equipo) => equipo.marca ?? '-' },
+    {
+        key: 'factor_criticidad',
+        label: 'Criticidad',
+        render: (equipo) => {
+            const criticidad = equipo.factor_criticidad as StiCriticidad;
+            return (
+                <span className={`badge badge-sm ${CRITICIDAD_COLORS[criticidad] ?? ''}`}>
+                    {CRITICIDAD_LABELS[criticidad] ?? criticidad}
+                </span>
+            );
+        },
+    },
+    {
+        key: 'tickets_count',
+        label: 'Tickets',
+        render: (equipo) => (
+            <span className="font-mono text-sm">{equipo.tickets_count ?? 0}</span>
+        ),
+    },
+    {
+        key: 'mantenimientos_count',
+        label: 'Mantenimientos',
+        render: (equipo) => (
+            <span className="font-mono text-sm">{equipo.mantenimientos_count ?? 0}</span>
+        ),
+    },
+    {
+        key: 'total_costos',
+        label: 'Total Costos',
+        render: (equipo) => (
+            <span className="font-mono text-sm">
+                ${(equipo.total_costos ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+            </span>
+        ),
+    },
 ];
 
 type Props = {
-    equipos: PaginatedData<StiEquipo>;
+    equipos: PaginatedData<EquipoWithCounts>;
     filters: { search?: string };
 };
 

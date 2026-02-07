@@ -1,6 +1,5 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -29,52 +28,48 @@ export default function TagsCreate() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Nuevo Tag" />
 
-            <div className="mx-auto max-w-2xl p-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Nuevo Tag</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <FormField label="Nombre" htmlFor="name" error={errors.name} required>
+            <div className="p-6">
+                <div className="w-3/4">
+                    <h1 className="mb-6 text-2xl font-semibold">Nuevo Tag</h1>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <FormField label="Nombre" htmlFor="name" error={errors.name} required>
+                            <Input
+                                id="name"
+                                value={data.name}
+                                onChange={(e) => setData('name', e.target.value)}
+                                placeholder="Nombre del tag"
+                            />
+                        </FormField>
+
+                        <FormField label="Color" htmlFor="color" error={errors.color}>
+                            <div className="flex items-center gap-2">
                                 <Input
-                                    id="name"
-                                    value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
-                                    placeholder="Nombre del tag"
+                                    id="color"
+                                    type="color"
+                                    value={data.color}
+                                    onChange={(e) => setData('color', e.target.value)}
+                                    className="h-10 w-16 cursor-pointer p-1"
                                 />
-                            </FormField>
-
-                            <FormField label="Color" htmlFor="color" error={errors.color}>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        id="color"
-                                        type="color"
-                                        value={data.color}
-                                        onChange={(e) => setData('color', e.target.value)}
-                                        className="h-10 w-16 cursor-pointer p-1"
-                                    />
-                                    <Input
-                                        value={data.color}
-                                        onChange={(e) => setData('color', e.target.value)}
-                                        placeholder="#000000"
-                                        className="flex-1"
-                                    />
-                                </div>
-                            </FormField>
-
-                            <div className="flex justify-end gap-2">
-                                <Button variant="outline" asChild>
-                                    <Link href="/admin/tags">Cancelar</Link>
-                                </Button>
-                                <Button type="submit" disabled={processing}>
-                                    {processing && <Loader2Icon className="size-4 animate-spin" />}
-                                    Guardar
-                                </Button>
+                                <Input
+                                    value={data.color}
+                                    onChange={(e) => setData('color', e.target.value)}
+                                    placeholder="#000000"
+                                    className="flex-1"
+                                />
                             </div>
-                        </form>
-                    </CardContent>
-                </Card>
+                        </FormField>
+
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" asChild>
+                                <Link href="/admin/tags">Cancelar</Link>
+                            </Button>
+                            <Button type="submit" disabled={processing}>
+                                {processing && <Loader2Icon className="size-4 animate-spin" />}
+                                Guardar
+                            </Button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </AppLayout>
     );

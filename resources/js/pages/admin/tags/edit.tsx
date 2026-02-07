@@ -1,7 +1,6 @@
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -35,57 +34,55 @@ export default function TagsEdit({ tag }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Editar ${tag.name}`} />
 
-            <div className="mx-auto max-w-2xl p-6">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Editar Tag</CardTitle>
+            <div className="p-6">
+                <div className="w-3/4">
+                    <div className="mb-6 flex items-center justify-between">
+                        <h1 className="text-2xl font-semibold">Editar Tag</h1>
                         <DeleteDialog
                             title="Eliminar tag"
-                            description={`¿Estás seguro de eliminar el tag "${tag.name}"? Esta acción no se puede deshacer.`}
+                            description={`¿Estas seguro de eliminar el tag "${tag.name}"? Esta accion no se puede deshacer.`}
                             deleteUrl={`/admin/tags/${tag.id}`}
                         />
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <FormField label="Nombre" htmlFor="name" error={errors.name} required>
+                    </div>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <FormField label="Nombre" htmlFor="name" error={errors.name} required>
+                            <Input
+                                id="name"
+                                value={data.name}
+                                onChange={(e) => setData('name', e.target.value)}
+                                placeholder="Nombre del tag"
+                            />
+                        </FormField>
+
+                        <FormField label="Color" htmlFor="color" error={errors.color}>
+                            <div className="flex items-center gap-2">
                                 <Input
-                                    id="name"
-                                    value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
-                                    placeholder="Nombre del tag"
+                                    id="color"
+                                    type="color"
+                                    value={data.color}
+                                    onChange={(e) => setData('color', e.target.value)}
+                                    className="h-10 w-16 cursor-pointer p-1"
                                 />
-                            </FormField>
-
-                            <FormField label="Color" htmlFor="color" error={errors.color}>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        id="color"
-                                        type="color"
-                                        value={data.color}
-                                        onChange={(e) => setData('color', e.target.value)}
-                                        className="h-10 w-16 cursor-pointer p-1"
-                                    />
-                                    <Input
-                                        value={data.color}
-                                        onChange={(e) => setData('color', e.target.value)}
-                                        placeholder="#000000"
-                                        className="flex-1"
-                                    />
-                                </div>
-                            </FormField>
-
-                            <div className="flex justify-end gap-2">
-                                <Button variant="outline" asChild>
-                                    <Link href="/admin/tags">Cancelar</Link>
-                                </Button>
-                                <Button type="submit" disabled={processing}>
-                                    {processing && <Loader2Icon className="size-4 animate-spin" />}
-                                    Guardar
-                                </Button>
+                                <Input
+                                    value={data.color}
+                                    onChange={(e) => setData('color', e.target.value)}
+                                    placeholder="#000000"
+                                    className="flex-1"
+                                />
                             </div>
-                        </form>
-                    </CardContent>
-                </Card>
+                        </FormField>
+
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" asChild>
+                                <Link href="/admin/tags">Cancelar</Link>
+                            </Button>
+                            <Button type="submit" disabled={processing}>
+                                {processing && <Loader2Icon className="size-4 animate-spin" />}
+                                Guardar
+                            </Button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </AppLayout>
     );

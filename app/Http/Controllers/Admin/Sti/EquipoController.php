@@ -16,12 +16,26 @@ class EquipoController extends Controller
     public function index(Request $request): Response
     {
         $equipos = Equipo::query()
+            ->withCount(['tickets', 'mantenimientos'])
+            ->with(['tickets.costos', 'mantenimientos.costos'])
             ->when($request->search, fn ($q, $s) => $q->where('descripcion', 'like', "%{$s}%")
                 ->orWhere('serie', 'like', "%{$s}%")
                 ->orWhere('marca', 'like', "%{$s}%"))
             ->orderBy('descripcion')
             ->paginate(15)
             ->withQueryString();
+
+        // Calculate total costos for each equipo
+        $equipos->getCollection()->transform(function ($equipo) {
+            $ticketsCostos = $equipo->tickets->sum(fn ($t) => $t->costos->sum('cantidad'));
+            $mantenimientosCostos = $equipo->mantenimientos->sum(fn ($m) => $m->costos->sum('cantidad'));
+            $equipo->total_costos = $ticketsCostos + $mantenimientosCostos;
+
+            // Unset the loaded relations to reduce payload
+            unset($equipo->tickets, $equipo->mantenimientos);
+
+            return $equipo;
+        });
 
         return Inertia::render('admin/sti/equipos/index', [
             'equipos' => $equipos,
@@ -41,7 +55,6 @@ class EquipoController extends Controller
             'serie' => $request->serie,
             'marca' => $request->marca,
             'factor_criticidad' => $request->factor_criticidad,
-            'periodicidad_mantenimiento' => $request->periodicidad_mantenimiento,
         ]);
 
         return to_route('admin.sti.equipos.index');
@@ -70,7 +83,6 @@ class EquipoController extends Controller
             'serie' => $request->serie,
             'marca' => $request->marca,
             'factor_criticidad' => $request->factor_criticidad,
-            'periodicidad_mantenimiento' => $request->periodicidad_mantenimiento,
         ]);
 
         return to_route('admin.sti.equipos.index');

@@ -21,7 +21,13 @@ class Equipo extends Model
         'serie',
         'marca',
         'factor_criticidad',
-        'periodicidad_mantenimiento',
+    ];
+
+    public const CRITICIDAD_LABELS = [
+        1 => 'Bajo',
+        2 => 'Medio',
+        3 => 'Alto',
+        4 => 'Critico',
     ];
 
     /**
@@ -30,8 +36,13 @@ class Equipo extends Model
     protected function casts(): array
     {
         return [
-            'periodicidad_mantenimiento' => 'integer',
+            'factor_criticidad' => 'integer',
         ];
+    }
+
+    public function getCriticidadLabelAttribute(): string
+    {
+        return self::CRITICIDAD_LABELS[$this->factor_criticidad] ?? 'Desconocido';
     }
 
     public function tickets(): HasMany
@@ -47,5 +58,10 @@ class Equipo extends Model
     public function asignaciones(): HasMany
     {
         return $this->hasMany(AsignacionActivo::class, 'equipo_id');
+    }
+
+    public function planes(): HasMany
+    {
+        return $this->hasMany(Plan::class, 'equipo_id');
     }
 }

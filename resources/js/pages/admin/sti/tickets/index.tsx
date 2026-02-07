@@ -1,8 +1,9 @@
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { PaginatedData, StiTicket } from '@/types/models';
+import type { PaginatedData, StiStatus, StiTicket, StiTicketHistorial } from '@/types/models';
 import { Head } from '@inertiajs/react';
+import { CheckCircleIcon, ClockIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -10,7 +11,11 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Tickets', href: '/admin/sti/tickets' },
 ];
 
-const columns: Column<StiTicket>[] = [
+type TicketWithHistorial = StiTicket & {
+    historial?: (StiTicketHistorial & { status: StiStatus })[];
+};
+
+const columns: Column<TicketWithHistorial>[] = [
     { key: 'id', label: '#' },
     { key: 'nombre_solicitante', label: 'Solicitante' },
     {
@@ -24,19 +29,35 @@ const columns: Column<StiTicket>[] = [
         render: (ticket) => ticket.tecnico?.descripcion ?? 'Sin asignar',
     },
     {
-        key: 'equipo_id',
-        label: 'Equipo',
-        render: (ticket) => ticket.equipo?.descripcion ?? '-',
+        key: 'historial',
+        label: 'Estado',
+        render: (ticket) => {
+            const currentStatus = ticket.historial?.[0]?.status;
+            const isCompleted = currentStatus && currentStatus.orden >= 8;
+            return (
+                <span className={`badge gap-1 ${isCompleted ? 'badge-success' : 'badge-info'}`}>
+                    {isCompleted ? <CheckCircleIcon className="size-3" /> : <ClockIcon className="size-3" />}
+                    {currentStatus?.descripcion ?? 'Sin estado'}
+                </span>
+            );
+        },
     },
     {
         key: 'created_at',
         label: 'Fecha',
-        render: (ticket) => new Date(ticket.created_at).toLocaleDateString('es-MX'),
+        render: (ticket) =>
+            new Date(ticket.created_at).toLocaleString('es-MX', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            }),
     },
 ];
 
 type Props = {
-    tickets: PaginatedData<StiTicket>;
+    tickets: PaginatedData<TicketWithHistorial>;
     filters: { search?: string };
 };
 

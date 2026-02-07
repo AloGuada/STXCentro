@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Admin\Sti;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Sti\AsignacionActivoStoreRequest;
 use App\Http\Requests\Admin\Sti\AsignacionActivoUpdateRequest;
+use App\Http\Requests\Admin\Sti\MediaStoreRequest;
 use App\Models\Departamento;
+use App\Models\Media;
 use App\Models\Sti\AsignacionActivo;
 use App\Models\Sti\Equipo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -55,7 +58,7 @@ class AsignacionActivoController extends Controller
     public function edit(AsignacionActivo $asignacion_activo): Response
     {
         return Inertia::render('admin/sti/asignacion-activos/edit', [
-            'asignacion' => $asignacion_activo->load(['departamento', 'equipo']),
+            'asignacion' => $asignacion_activo->load(['departamento', 'equipo', 'media']),
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
             'equipos' => Equipo::orderBy('descripcion')->get(['id', 'descripcion', 'serie']),
         ]);
@@ -70,8 +73,40 @@ class AsignacionActivoController extends Controller
 
     public function destroy(AsignacionActivo $asignacion_activo): RedirectResponse
     {
+        // Eliminar archivos asociados
+        foreach ($asignacion_activo->media as $media) {
+            Storage::disk('public')->delete($media->path);
+        }
+        $asignacion_activo->media()->delete();
         $asignacion_activo->delete();
 
         return to_route('admin.sti.asignacion-activos.index')->with('success', 'Asignacion eliminada correctamente.');
+    }
+
+    public function storeMedia(MediaStoreRequest $request, AsignacionActivo $asignacion_activo): RedirectResponse
+    {
+        $file = $request->file('archivo');
+        $path = $file->store('sti/asignaciones', 'public');
+
+        $asignacion_activo->media()->create([
+            'descripcion' => $request->descripcion ?? $file->getClientOriginalName(),
+            'path' => $path,
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
+        ]);
+
+        return back()->with('success', 'Archivo subido correctamente.');
+    }
+
+    public function destroyMedia(AsignacionActivo $asignacion_activo, Media $media): RedirectResponse
+    {
+        if ($media->mediable_id !== $asignacion_activo->id || $media->mediable_type !== AsignacionActivo::class) {
+            abort(404);
+        }
+
+        Storage::disk('public')->delete($media->path);
+        $media->delete();
+
+        return back()->with('success', 'Archivo eliminado correctamente.');
     }
 }

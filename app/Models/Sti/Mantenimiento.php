@@ -6,6 +6,7 @@ use App\Models\Media;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Mantenimiento extends Model
@@ -20,6 +21,7 @@ class Mantenimiento extends Model
      */
     protected $fillable = [
         'equipo_id',
+        'plan_id',
         'fecha_programada',
         'descripcion',
         'tecnico_id',
@@ -33,7 +35,7 @@ class Mantenimiento extends Model
     protected function casts(): array
     {
         return [
-            'fecha_programada' => 'datetime',
+            'fecha_programada' => 'date',
             'fecha_realizado' => 'date',
         ];
     }
@@ -56,5 +58,24 @@ class Mantenimiento extends Model
     public function costos(): MorphMany
     {
         return $this->morphMany(CostoMantenimiento::class, 'costeable');
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class, 'plan_id');
+    }
+
+    public function checkEjecuciones(): HasMany
+    {
+        return $this->hasMany(CheckEjecucion::class, 'mantenimiento_id');
+    }
+
+    public function estaCompleto(): bool
+    {
+        if ($this->checkEjecuciones()->count() === 0) {
+            return true;
+        }
+
+        return $this->checkEjecuciones()->where('resultado', false)->count() === 0;
     }
 }

@@ -7,8 +7,10 @@ use App\Http\Requests\Sti\TicketPublicoStoreRequest;
 use App\Models\Departamento;
 use App\Models\Sti\Status;
 use App\Models\Sti\Ticket;
+use App\Models\Sti\TicketComentario;
 use App\Models\Sti\TicketHistorial;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -17,7 +19,7 @@ class TicketPublicoController extends Controller
     public function index(): Response
     {
         $tickets = Ticket::query()
-            ->with(['departamento', 'historial.status'])
+            ->with(['departamento', 'historial.status', 'comentarios'])
             ->whereHas('historial', function ($q) {
                 $q->whereIn('id', function ($sub) {
                     $sub->selectRaw('MAX(id)')
@@ -60,5 +62,31 @@ class TicketPublicoController extends Controller
         }
 
         return to_route('sti.ticket.create')->with('success', 'Ticket enviado correctamente. Un técnico se pondrá en contacto contigo.');
+    }
+
+    public function show(Ticket $ticket): Response
+    {
+        $ticket->load(['departamento', 'historial.status', 'comentarios']);
+
+        return Inertia::render('sti/ticket-show', [
+            'ticket' => $ticket,
+        ]);
+    }
+
+    public function storeComentario(Request $request, Ticket $ticket): RedirectResponse
+    {
+        $request->validate([
+            'comentario' => ['required', 'string', 'max:2000'],
+            'autor' => ['required', 'string', 'max:100'],
+        ]);
+
+        TicketComentario::create([
+            'ticket_id' => $ticket->id,
+            'comentario' => $request->comentario,
+            'autor' => $request->autor,
+            'tipo' => 'usuario',
+        ]);
+
+        return back()->with('success', 'Comentario enviado correctamente.');
     }
 }

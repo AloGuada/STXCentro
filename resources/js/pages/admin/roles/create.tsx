@@ -1,6 +1,5 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,74 +57,70 @@ export default function RolesCreate({ permissions }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Nuevo Rol" />
 
-            <div className="mx-auto max-w-2xl p-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Nuevo Rol</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <FormField label="Nombre" htmlFor="name" error={errors.name} required>
-                                <Input
-                                    id="name"
-                                    value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
-                                    placeholder="Nombre del rol"
-                                />
-                            </FormField>
+            <div className="p-6">
+                <div className="w-3/4">
+                    <h1 className="mb-6 text-2xl font-semibold">Nuevo Rol</h1>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <FormField label="Nombre" htmlFor="name" error={errors.name} required>
+                            <Input
+                                id="name"
+                                value={data.name}
+                                onChange={(e) => setData('name', e.target.value)}
+                                placeholder="Nombre del rol"
+                            />
+                        </FormField>
 
-                            <FormField
-                                label="Permisos"
-                                htmlFor="permissions"
-                                error={errors.permissions}
-                                description="Selecciona los permisos del rol"
-                            >
-                                <div className="space-y-4">
-                                    {Object.entries(groupedPermissions).map(([module, perms]) => (
-                                        <div key={module} className="rounded-lg border p-3">
-                                            <h4 className="mb-2 font-medium capitalize">{module}</h4>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {perms.map((permission) => (
-                                                    <div
-                                                        key={permission.id}
-                                                        className="flex items-center space-x-2"
+                        <FormField
+                            label="Permisos"
+                            htmlFor="permissions"
+                            error={errors.permissions}
+                            description="Selecciona los permisos del rol"
+                        >
+                            <div className="space-y-4">
+                                {Object.entries(groupedPermissions).map(([module, perms]) => (
+                                    <div key={module} className="rounded-lg border p-3">
+                                        <h4 className="mb-2 font-medium capitalize">{module}</h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {perms.map((permission) => (
+                                                <div
+                                                    key={permission.id}
+                                                    className="flex items-center space-x-2"
+                                                >
+                                                    <Checkbox
+                                                        id={`permission-${permission.id}`}
+                                                        checked={data.permissions.includes(permission.id)}
+                                                        onCheckedChange={() => togglePermission(permission.id)}
+                                                    />
+                                                    <Label
+                                                        htmlFor={`permission-${permission.id}`}
+                                                        className="cursor-pointer text-sm"
                                                     >
-                                                        <Checkbox
-                                                            id={`permission-${permission.id}`}
-                                                            checked={data.permissions.includes(permission.id)}
-                                                            onCheckedChange={() => togglePermission(permission.id)}
-                                                        />
-                                                        <Label
-                                                            htmlFor={`permission-${permission.id}`}
-                                                            className="cursor-pointer text-sm"
-                                                        >
-                                                            {permission.name}
-                                                        </Label>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                                        {permission.name}
+                                                    </Label>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                    {permissions.length === 0 && (
-                                        <p className="text-muted-foreground text-sm">
-                                            No hay permisos disponibles
-                                        </p>
-                                    )}
-                                </div>
-                            </FormField>
-
-                            <div className="flex justify-end gap-2">
-                                <Button variant="outline" asChild>
-                                    <Link href="/admin/roles">Cancelar</Link>
-                                </Button>
-                                <Button type="submit" disabled={processing}>
-                                    {processing && <Loader2Icon className="size-4 animate-spin" />}
-                                    Crear Rol
-                                </Button>
+                                    </div>
+                                ))}
+                                {permissions.length === 0 && (
+                                    <p className="text-muted-foreground text-sm">
+                                        No hay permisos disponibles
+                                    </p>
+                                )}
                             </div>
-                        </form>
-                    </CardContent>
-                </Card>
+                        </FormField>
+
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" asChild>
+                                <Link href="/admin/roles">Cancelar</Link>
+                            </Button>
+                            <Button type="submit" disabled={processing}>
+                                {processing && <Loader2Icon className="size-4 animate-spin" />}
+                                Crear Rol
+                            </Button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </AppLayout>
     );

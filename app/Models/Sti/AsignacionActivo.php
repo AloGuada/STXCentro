@@ -3,9 +3,11 @@
 namespace App\Models\Sti;
 
 use App\Models\Departamento;
+use App\Models\Media;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class AsignacionActivo extends Model
 {
@@ -50,5 +52,10 @@ class AsignacionActivo extends Model
     public function equipo(): BelongsTo
     {
         return $this->belongsTo(Equipo::class, 'equipo_id');
+    }
+
+    public function media(): MorphMany
+    {
+        return $this->morphMany(Media::class, 'mediable');
     }
 }

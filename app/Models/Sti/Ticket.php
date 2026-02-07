@@ -75,4 +75,9 @@ class Ticket extends Model
     {
         return $this->morphMany(CostoMantenimiento::class, 'costeable');
     }
+
+    public function comentarios(): HasMany
+    {
+        return $this->hasMany(TicketComentario::class, 'ticket_id')->orderBy('created_at', 'asc');
+    }
 }

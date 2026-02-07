@@ -1,16 +1,17 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AuthLayout from '@/layouts/auth-layout';
-import type { Departamento, PaginatedData, StiStatus, StiTicket, StiTicketHistorial } from '@/types/models';
+import type { Departamento, PaginatedData, StiStatus, StiTicket, StiTicketComentario, StiTicketHistorial } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
 import { ClockIcon, PlusIcon, TicketIcon } from 'lucide-react';
 
+type TicketWithRelations = StiTicket & {
+    departamento: Departamento;
+    historial: (StiTicketHistorial & { status: StiStatus })[];
+    comentarios: StiTicketComentario[];
+};
+
 type Props = {
-    tickets: PaginatedData<
-        StiTicket & {
-            departamento: Departamento;
-            historial: (StiTicketHistorial & { status: StiStatus })[];
-        }
-    >;
+    tickets: PaginatedData<TicketWithRelations>;
 };
 
 export default function TicketsPendientes({ tickets }: Props) {
@@ -27,9 +28,9 @@ export default function TicketsPendientes({ tickets }: Props) {
                                     <TicketIcon className="size-5" />
                                     Tickets de Soporte Pendientes
                                 </CardTitle>
-                                <CardDescription>Lista de tickets en proceso de atencion</CardDescription>
+                                <CardDescription>Lista de tickets en proceso de atencion. Haz clic en un ticket para ver su historial.</CardDescription>
                             </div>
-                            <Link href="/sti/ticket" className="btn btn-primary btn-sm">
+                            <Link href="/sti/ticket/nuevo" className="btn btn-primary btn-sm">
                                 <PlusIcon className="size-4" />
                                 Nuevo Ticket
                             </Link>
@@ -46,13 +47,14 @@ export default function TicketsPendientes({ tickets }: Props) {
                                             <th>Solicitante</th>
                                             <th>Departamento</th>
                                             <th>Estado</th>
+                                            <th></th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {tickets.data.map((ticket) => {
                                             const currentStatus = ticket.historial?.[0]?.status;
                                             return (
-                                                <tr key={ticket.id}>
+                                                <tr key={ticket.id} className="hover:bg-base-200">
                                                     <td className="font-mono">#{ticket.id}</td>
                                                     <td>
                                                         {new Date(ticket.created_at).toLocaleDateString('es-MX', {
@@ -68,6 +70,11 @@ export default function TicketsPendientes({ tickets }: Props) {
                                                             <ClockIcon className="size-3" />
                                                             {currentStatus?.descripcion ?? 'Pendiente'}
                                                         </span>
+                                                    </td>
+                                                    <td>
+                                                        <Link href={`/sti/ticket/${ticket.id}`} className="btn btn-ghost btn-xs">
+                                                            Ver
+                                                        </Link>
                                                     </td>
                                                 </tr>
                                             );

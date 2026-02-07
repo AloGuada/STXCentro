@@ -25,7 +25,12 @@
       "Bash(npm search:*)",
       "Bash(php artisan make:controller:*)",
       "Bash(php artisan make:model:*)",
-      "Bash(php artisan:*)"
+      "Bash(php artisan:*)",
+      "mcp__ide__getDiagnostics"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "laravel-boost"
+  ]
 }

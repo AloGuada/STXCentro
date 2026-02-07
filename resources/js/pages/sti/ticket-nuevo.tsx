@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import AuthLayout from '@/layouts/auth-layout';
 import type { Departamento } from '@/types/models';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { CheckCircle2Icon, Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
@@ -33,7 +33,13 @@ export default function TicketNuevo({ departamentos }: Props) {
         <AuthLayout title="Soporte TI" description="Reporta un problema o solicita ayuda">
             <Head title="Nuevo Ticket - Soporte TI" />
 
-            <div className="w-full max-w-md mx-auto">
+            <div className="mx-auto w-full max-w-md">
+                <div className="mb-4 text-center">
+                    <Link href="/sti/tickets" className="text-sm text-blue-600 hover:underline">
+                        ← Ver tickets pendientes
+                    </Link>
+                </div>
+
                 {flash?.success ? (
                     <Card className="border-success">
                         <CardContent className="pt-6">

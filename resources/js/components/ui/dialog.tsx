@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, type ComponentProps, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, type ComponentProps, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 type DialogContextType = {
@@ -23,7 +23,7 @@ type DialogProps = {
     onOpenChange?: (open: boolean) => void;
 };
 
-function Dialog({ children, open, onOpenChange }: DialogProps) {
+function Dialog({ children, open: isOpen, onOpenChange }: DialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     const openDialog = () => {
@@ -35,6 +35,18 @@ function Dialog({ children, open, onOpenChange }: DialogProps) {
         dialogRef.current?.close();
         onOpenChange?.(false);
     };
+
+    // Sincronizar el estado controlado con el diálogo nativo
+    useEffect(() => {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+
+        if (isOpen && !dialog.open) {
+            dialog.showModal();
+        } else if (!isOpen && dialog.open) {
+            dialog.close();
+        }
+    }, [isOpen]);
 
     return (
         <DialogContext.Provider value={{ dialogRef, open: openDialog, close: closeDialog }}>

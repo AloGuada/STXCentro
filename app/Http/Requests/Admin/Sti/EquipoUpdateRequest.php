@@ -20,8 +20,7 @@ class EquipoUpdateRequest extends FormRequest
             'descripcion' => ['required', 'string', 'max:255'],
             'serie' => ['nullable', 'string', 'max:255'],
             'marca' => ['nullable', 'string', 'max:255'],
-            'factor_criticidad' => ['required', 'string', 'in:bajo,medio,alto,critico'],
-            'periodicidad_mantenimiento' => ['nullable', 'integer', 'min:1'],
+            'factor_criticidad' => ['required', 'integer', 'in:1,2,3,4'],
         ];
     }
 

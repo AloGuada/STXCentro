@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import type { Media } from '@/types/models';
 import { router } from '@inertiajs/react';
-import { ImageIcon, Loader2Icon, Trash2Icon, UploadIcon } from 'lucide-react';
+import { ExternalLinkIcon, FileTextIcon, ImageIcon, Loader2Icon, Trash2Icon, UploadIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 type ImageUploadProps = {
@@ -45,6 +45,8 @@ export function ImageUpload({ media, storeUrl, destroyUrlPrefix, readOnly = fals
         });
     };
 
+    const isPdf = (mime: string) => mime === 'application/pdf';
+
     return (
         <div className="space-y-4">
             {media.length > 0 && (
@@ -52,11 +54,31 @@ export function ImageUpload({ media, storeUrl, destroyUrlPrefix, readOnly = fals
                     {media.map((item) => (
                         <div key={item.id} className="group relative overflow-hidden rounded-lg border">
                             {item.mime.startsWith('image/') ? (
-                                <img
-                                    src={`/storage/${item.path}`}
-                                    alt={item.descripcion}
-                                    className="aspect-square w-full object-cover"
-                                />
+                                <a
+                                    href={`/storage/${item.path}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block"
+                                >
+                                    <img
+                                        src={`/storage/${item.path}`}
+                                        alt={item.descripcion}
+                                        className="aspect-square w-full object-cover transition-transform hover:scale-105"
+                                    />
+                                </a>
+                            ) : isPdf(item.mime) ? (
+                                <a
+                                    href={`/storage/${item.path}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex aspect-square flex-col items-center justify-center bg-red-50 transition-colors hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30"
+                                >
+                                    <FileTextIcon className="size-12 text-red-500" />
+                                    <span className="mt-2 flex items-center gap-1 text-xs text-red-600">
+                                        <ExternalLinkIcon className="size-3" />
+                                        Ver PDF
+                                    </span>
+                                </a>
                             ) : (
                                 <div className="flex aspect-square items-center justify-center bg-gray-100 dark:bg-gray-800">
                                     <ImageIcon className="size-12 text-gray-400" />
@@ -91,7 +113,7 @@ export function ImageUpload({ media, storeUrl, destroyUrlPrefix, readOnly = fals
                     <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/*,application/pdf"
                         onChange={handleFileChange}
                         className="hidden"
                     />
@@ -106,13 +128,14 @@ export function ImageUpload({ media, storeUrl, destroyUrlPrefix, readOnly = fals
                         ) : (
                             <UploadIcon className="size-4" />
                         )}
-                        Subir imagen
+                        Subir archivo
                     </Button>
+                    <p className="mt-1 text-xs text-gray-500">Imagenes (JPG, PNG, GIF, WEBP) o PDF. Max 10MB.</p>
                 </div>
             )}
 
             {media.length === 0 && readOnly && (
-                <p className="text-sm text-gray-500">No hay imagenes registradas.</p>
+                <p className="text-sm text-gray-500">No hay archivos registrados.</p>
             )}
         </div>
     );

@@ -145,15 +145,31 @@ export type DocumentosPorTipo = Record<TipoDocumento, {
 }>;
 
 // STI Types
+export type StiCriticidad = 1 | 2 | 3 | 4;
+
+export const CRITICIDAD_LABELS: Record<StiCriticidad, string> = {
+    1: 'Bajo',
+    2: 'Medio',
+    3: 'Alto',
+    4: 'Critico',
+};
+
+export const CRITICIDAD_COLORS: Record<StiCriticidad, string> = {
+    1: 'badge-info',
+    2: 'badge-warning',
+    3: 'badge-error',
+    4: 'badge-error bg-red-700',
+};
+
 export type StiEquipo = {
     id: number;
     descripcion: string;
     serie: string | null;
     marca: string | null;
-    factor_criticidad: 'bajo' | 'medio' | 'alto' | 'critico';
-    periodicidad_mantenimiento: number | null;
+    factor_criticidad: StiCriticidad;
     tickets?: StiTicket[];
     mantenimientos?: StiMantenimiento[];
+    planes?: StiPlan[];
     created_at: string;
     updated_at: string;
 };
@@ -184,6 +200,16 @@ export type StiTicketHistorial = {
     updated_at: string;
 };
 
+export type StiTicketComentario = {
+    id: number;
+    ticket_id: number;
+    comentario: string;
+    autor: string;
+    tipo: 'usuario' | 'tecnico';
+    created_at: string;
+    updated_at: string;
+};
+
 export type StiTicket = {
     id: number;
     nombre_solicitante: string;
@@ -197,6 +223,7 @@ export type StiTicket = {
     equipo?: StiEquipo;
     departamento?: Departamento;
     historial?: StiTicketHistorial[];
+    comentarios?: StiTicketComentario[];
     media?: Media[];
     tags?: Tag[];
     costos?: StiCostoMantenimiento[];
@@ -217,15 +244,57 @@ export type StiCostoMantenimiento = {
 export type StiMantenimiento = {
     id: number;
     equipo_id: number;
+    plan_id: number | null;
     fecha_programada: string;
     descripcion: string | null;
-    tecnico_id: number;
+    tecnico_id: number | null;
     status: 'pendiente' | 'realizado';
     fecha_realizado: string | null;
     equipo?: StiEquipo;
     tecnico?: StiTecnico;
+    plan?: StiPlan;
     media?: Media[];
     costos?: StiCostoMantenimiento[];
+    check_ejecuciones?: StiCheckEjecucion[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiPlan = {
+    id: number;
+    equipo_id: number;
+    descripcion: string;
+    periodicidad: number;
+    fecha_inicial: string;
+    activo: boolean;
+    equipo?: StiEquipo;
+    checks?: StiCheck[];
+    mantenimientos?: StiMantenimiento[];
+    checks_count?: number;
+    mantenimientos_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiCheck = {
+    id: number;
+    plan_id: number;
+    descripcion: string;
+    orden: number;
+    plan?: StiPlan;
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiCheckEjecucion = {
+    id: number;
+    mantenimiento_id: number;
+    check_id: number;
+    resultado: boolean;
+    observaciones: string | null;
+    tecnico_id: number | null;
+    check?: StiCheck;
+    tecnico?: StiTecnico;
     created_at: string;
     updated_at: string;
 };
@@ -245,6 +314,7 @@ export type StiAsignacionActivo = {
     estado: 'activo' | 'devuelto' | 'transferido';
     departamento?: Departamento;
     equipo?: StiEquipo;
+    media?: Media[];
     created_at: string;
     updated_at: string;
 };

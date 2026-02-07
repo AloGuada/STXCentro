@@ -12,6 +12,7 @@ use App\Models\Sti\Equipo;
 use App\Models\Sti\Status;
 use App\Models\Sti\Tecnico;
 use App\Models\Sti\Ticket;
+use App\Models\Sti\TicketComentario;
 use App\Models\Sti\TicketHistorial;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -84,7 +85,7 @@ class TicketController extends Controller
 
     public function edit(Ticket $ticket): Response
     {
-        $ticket->load(['tecnico', 'equipo', 'departamento', 'historial.status', 'costos']);
+        $ticket->load(['tecnico', 'equipo', 'departamento', 'historial.status', 'costos', 'comentarios']);
 
         return Inertia::render('admin/sti/tickets/edit', [
             'ticket' => $ticket,
@@ -156,5 +157,21 @@ class TicketController extends Controller
         $costo->delete();
 
         return back()->with('success', 'Costo eliminado correctamente.');
+    }
+
+    public function storeComentario(Request $request, Ticket $ticket): RedirectResponse
+    {
+        $request->validate([
+            'comentario' => ['required', 'string', 'max:2000'],
+        ]);
+
+        TicketComentario::create([
+            'ticket_id' => $ticket->id,
+            'comentario' => $request->comentario,
+            'autor' => auth()->user()->name ?? 'Tecnico',
+            'tipo' => 'tecnico',
+        ]);
+
+        return back()->with('success', 'Comentario agregado correctamente.');
     }
 }

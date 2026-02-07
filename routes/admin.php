@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\Sti\AsignacionActivoController as StiAsignacionActivoController;
 use App\Http\Controllers\Admin\Sti\EquipoController as StiEquipoController;
 use App\Http\Controllers\Admin\Sti\MantenimientoController as StiMantenimientoController;
+use App\Http\Controllers\Admin\Sti\PlanController as StiPlanController;
 use App\Http\Controllers\Admin\Sti\StatusController as StiStatusController;
 use App\Http\Controllers\Admin\Sti\TecnicoController as StiTecnicoController;
 use App\Http\Controllers\Admin\Sti\TicketController as StiTicketController;
@@ -40,17 +41,30 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('tickets', StiTicketController::class);
         Route::resource('mantenimientos', StiMantenimientoController::class);
         Route::resource('asignacion-activos', StiAsignacionActivoController::class);
+        Route::post('asignacion-activos/{asignacion_activo}/media', [StiAsignacionActivoController::class, 'storeMedia'])->name('asignacion-activos.media.store');
+        Route::delete('asignacion-activos/{asignacion_activo}/media/{media}', [StiAsignacionActivoController::class, 'destroyMedia'])->name('asignacion-activos.media.destroy');
 
-        // Costos de tickets
+        // Costos y comentarios de tickets
         Route::post('tickets/{ticket}/costos', [StiTicketController::class, 'storeCosto'])->name('tickets.costos.store');
         Route::delete('tickets/{ticket}/costos/{costo}', [StiTicketController::class, 'destroyCosto'])->name('tickets.costos.destroy');
+        Route::post('tickets/{ticket}/comentarios', [StiTicketController::class, 'storeComentario'])->name('tickets.comentarios.store');
 
         // Mantenimientos: gantt, completar, media, costos
         Route::get('mantenimientos-gantt', [StiMantenimientoController::class, 'gantt'])->name('mantenimientos.gantt');
+        Route::get('mantenimientos-gantt-anual', [StiMantenimientoController::class, 'ganttAnual'])->name('mantenimientos.gantt-anual');
         Route::post('mantenimientos/{mantenimiento}/completar', [StiMantenimientoController::class, 'completar'])->name('mantenimientos.completar');
+        Route::post('mantenimientos/{mantenimiento}/checks/{checkEjecucion}/toggle', [StiMantenimientoController::class, 'toggleCheck'])->name('mantenimientos.checks.toggle');
         Route::post('mantenimientos/{mantenimiento}/media', [StiMantenimientoController::class, 'storeMedia'])->name('mantenimientos.media.store');
         Route::delete('mantenimientos/{mantenimiento}/media/{media}', [StiMantenimientoController::class, 'destroyMedia'])->name('mantenimientos.media.destroy');
         Route::post('mantenimientos/{mantenimiento}/costos', [StiMantenimientoController::class, 'storeCosto'])->name('mantenimientos.costos.store');
         Route::delete('mantenimientos/{mantenimiento}/costos/{costo}', [StiMantenimientoController::class, 'destroyCosto'])->name('mantenimientos.costos.destroy');
+
+        // Planes de mantenimiento
+        Route::resource('planes', StiPlanController::class)->parameters(['planes' => 'plan']);
+        Route::post('planes/{plan}/checks', [StiPlanController::class, 'storeCheck'])->name('planes.checks.store');
+        Route::put('planes/{plan}/checks/{check}', [StiPlanController::class, 'updateCheck'])->name('planes.checks.update');
+        Route::delete('planes/{plan}/checks/{check}', [StiPlanController::class, 'destroyCheck'])->name('planes.checks.destroy');
+        Route::post('planes/{plan}/reorder-checks', [StiPlanController::class, 'reorderChecks'])->name('planes.checks.reorder');
+        Route::post('planes/{plan}/generar-anio/{year}', [StiPlanController::class, 'generarMantenimientosAnio'])->name('planes.generar-anio');
     });
 });

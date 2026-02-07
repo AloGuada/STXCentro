@@ -17,7 +17,7 @@ class MediaStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'archivo' => ['required', 'file', 'image', 'max:5120'],
+            'archivo' => ['required', 'file', 'mimes:jpg,jpeg,png,gif,webp,pdf', 'max:10240'],
             'descripcion' => ['nullable', 'string', 'max:255'],
         ];
     }
@@ -30,8 +30,8 @@ class MediaStoreRequest extends FormRequest
         return [
             'archivo.required' => 'El archivo es obligatorio.',
             'archivo.file' => 'Debe ser un archivo válido.',
-            'archivo.image' => 'El archivo debe ser una imagen.',
-            'archivo.max' => 'La imagen no puede pesar más de 5MB.',
+            'archivo.mimes' => 'El archivo debe ser una imagen (JPG, PNG, GIF, WEBP) o PDF.',
+            'archivo.max' => 'El archivo no puede pesar más de 10MB.',
         ];
     }
 }

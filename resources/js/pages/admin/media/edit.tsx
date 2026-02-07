@@ -1,7 +1,6 @@
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -55,90 +54,89 @@ export default function MediaEdit({ media }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Editar ${media.descripcion}`} />
 
-            <div className="mx-auto max-w-2xl p-6">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Editar Archivo</CardTitle>
+            <div className="p-6">
+                <div className="w-3/4">
+                    <div className="mb-6 flex items-center justify-between">
+                        <h1 className="text-2xl font-semibold">Editar Archivo</h1>
                         <DeleteDialog
                             title="Eliminar archivo"
                             description={`¿Estas seguro de eliminar "${media.descripcion}"? Esta accion no se puede deshacer.`}
                             deleteUrl={`/admin/media/${media.id}`}
                         />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="mb-6 rounded-lg border p-4">
-                            <h4 className="mb-2 font-medium">Archivo actual</h4>
-                            <div className="text-muted-foreground space-y-1 text-sm">
-                                <p>Tipo: {media.mime}</p>
-                                <p>Tamano: {formatFileSize(media.size)}</p>
-                                <a
-                                    href={`/storage/${media.path}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-blue-600 hover:underline"
-                                >
-                                    Ver archivo
-                                    <ExternalLinkIcon className="size-3" />
-                                </a>
-                            </div>
+                    </div>
+
+                    <div className="mb-6 rounded-lg border p-4">
+                        <h4 className="mb-2 font-medium">Archivo actual</h4>
+                        <div className="text-muted-foreground space-y-1 text-sm">
+                            <p>Tipo: {media.mime}</p>
+                            <p>Tamano: {formatFileSize(media.size)}</p>
+                            <a
+                                href={`/storage/${media.path}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                            >
+                                Ver archivo
+                                <ExternalLinkIcon className="size-3" />
+                            </a>
                         </div>
+                    </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <FormField
-                                label="Descripcion"
-                                htmlFor="descripcion"
-                                error={errors.descripcion}
-                                required
-                            >
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <FormField
+                            label="Descripcion"
+                            htmlFor="descripcion"
+                            error={errors.descripcion}
+                            required
+                        >
+                            <Input
+                                id="descripcion"
+                                value={data.descripcion}
+                                onChange={(e) => setData('descripcion', e.target.value)}
+                                placeholder="Descripcion del archivo"
+                            />
+                        </FormField>
+
+                        <FormField
+                            label="Reemplazar archivo"
+                            htmlFor="file"
+                            error={errors.file}
+                            description="Dejar vacio para mantener el archivo actual"
+                        >
+                            <div className="space-y-2">
                                 <Input
-                                    id="descripcion"
-                                    value={data.descripcion}
-                                    onChange={(e) => setData('descripcion', e.target.value)}
-                                    placeholder="Descripcion del archivo"
+                                    id="file"
+                                    type="file"
+                                    onChange={handleFileChange}
+                                    className="cursor-pointer"
                                 />
-                            </FormField>
-
-                            <FormField
-                                label="Reemplazar archivo"
-                                htmlFor="file"
-                                error={errors.file}
-                                description="Dejar vacio para mantener el archivo actual"
-                            >
-                                <div className="space-y-2">
-                                    <Input
-                                        id="file"
-                                        type="file"
-                                        onChange={handleFileChange}
-                                        className="cursor-pointer"
-                                    />
-                                    {data.file && (
-                                        <p className="text-muted-foreground text-sm">
-                                            Nuevo archivo: {data.file.name}
-                                        </p>
-                                    )}
-                                    {progress && (
-                                        <div className="h-2 w-full rounded-full bg-gray-200">
-                                            <div
-                                                className="h-2 rounded-full bg-blue-600 transition-all"
-                                                style={{ width: `${progress.percentage}%` }}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            </FormField>
-
-                            <div className="flex justify-end gap-2">
-                                <Button variant="outline" asChild>
-                                    <Link href="/admin/media">Cancelar</Link>
-                                </Button>
-                                <Button type="submit" disabled={processing}>
-                                    {processing && <Loader2Icon className="size-4 animate-spin" />}
-                                    Guardar
-                                </Button>
+                                {data.file && (
+                                    <p className="text-muted-foreground text-sm">
+                                        Nuevo archivo: {data.file.name}
+                                    </p>
+                                )}
+                                {progress && (
+                                    <div className="h-2 w-full rounded-full bg-gray-200">
+                                        <div
+                                            className="h-2 rounded-full bg-blue-600 transition-all"
+                                            style={{ width: `${progress.percentage}%` }}
+                                        />
+                                    </div>
+                                )}
                             </div>
-                        </form>
-                    </CardContent>
-                </Card>
+                        </FormField>
+
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" asChild>
+                                <Link href="/admin/media">Cancelar</Link>
+                            </Button>
+                            <Button type="submit" disabled={processing}>
+                                {processing && <Loader2Icon className="size-4 animate-spin" />}
+                                Guardar
+                            </Button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </AppLayout>
     );
