@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { StiEquipo, StiPlan } from '@/types/models';
+import type { StiPlan } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { CalendarIcon, Loader2Icon, TrashIcon } from 'lucide-react';
+import { Loader2Icon, TrashIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -18,14 +18,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 type Props = {
     plan: StiPlan;
-    equipos: Pick<StiEquipo, 'id' | 'descripcion' | 'serie'>[];
 };
 
-export default function PlanesEdit({ plan, equipos }: Props) {
+export default function PlanesEdit({ plan }: Props) {
     const { data, setData, put, processing, errors } = useForm({
         descripcion: plan.descripcion,
         periodicidad: plan.periodicidad.toString(),
-        fecha_inicial: plan.fecha_inicial.split('T')[0],
         activo: plan.activo,
     });
 
@@ -38,12 +36,6 @@ export default function PlanesEdit({ plan, equipos }: Props) {
         if (!confirm('Eliminar este plan? Se eliminaran tambien los mantenimientos pendientes asociados.')) return;
         router.delete(`/admin/sti/planes/${plan.id}`);
     };
-
-    const handleGenerarAnio = (year: number) => {
-        router.post(`/admin/sti/planes/${plan.id}/generar-anio/${year}`, {}, { preserveScroll: true });
-    };
-
-    const currentYear = new Date().getFullYear();
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -61,11 +53,6 @@ export default function PlanesEdit({ plan, equipos }: Props) {
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <FormField label="Equipo" htmlFor="equipo">
-                                <Input id="equipo" value={plan.equipo?.descripcion ?? ''} disabled className="bg-gray-50" />
-                                <p className="mt-1 text-xs text-gray-500">El equipo no se puede cambiar despues de creado el plan.</p>
-                            </FormField>
-
                             <FormField label="Descripcion" htmlFor="descripcion" error={errors.descripcion} required>
                                 <Input
                                     id="descripcion"
@@ -82,15 +69,6 @@ export default function PlanesEdit({ plan, equipos }: Props) {
                                     min="1"
                                     value={data.periodicidad}
                                     onChange={(e) => setData('periodicidad', e.target.value)}
-                                />
-                            </FormField>
-
-                            <FormField label="Fecha Inicial" htmlFor="fecha_inicial" error={errors.fecha_inicial} required>
-                                <Input
-                                    id="fecha_inicial"
-                                    type="date"
-                                    value={data.fecha_inicial}
-                                    onChange={(e) => setData('fecha_inicial', e.target.value)}
                                 />
                             </FormField>
 
@@ -117,21 +95,6 @@ export default function PlanesEdit({ plan, equipos }: Props) {
                                 </Button>
                             </div>
                         </form>
-
-                        <div className="mt-6 border-t pt-6">
-                            <h2 className="mb-4 text-lg font-medium">Generar Mantenimientos</h2>
-                            <div className="flex flex-wrap gap-2">
-                                {[currentYear, currentYear + 1].map((year) => (
-                                    <Button key={year} variant="outline" size="sm" onClick={() => handleGenerarAnio(year)}>
-                                        <CalendarIcon className="mr-1 size-4" />
-                                        Generar {year}
-                                    </Button>
-                                ))}
-                            </div>
-                            <p className="mt-2 text-xs text-gray-500">
-                                Solo se generaran mantenimientos que no existan. Los mantenimientos existentes no se duplicaran.
-                            </p>
-                        </div>
                     </div>
 
                     <div>
@@ -148,7 +111,12 @@ export default function PlanesEdit({ plan, equipos }: Props) {
                                             href={`/admin/sti/mantenimientos/${mant.id}/edit`}
                                             className="flex items-center justify-between rounded-lg border p-3 transition hover:bg-gray-50"
                                         >
-                                            <span>{new Date(mant.fecha_programada).toLocaleDateString('es-MX')}</span>
+                                            <div>
+                                                <span>{new Date(mant.fecha_programada.split('T')[0] + 'T00:00:00').toLocaleDateString('es-MX')}</span>
+                                                {mant.equipo && (
+                                                    <span className="ml-2 text-sm text-gray-500">{mant.equipo.descripcion}</span>
+                                                )}
+                                            </div>
                                             <span
                                                 className={`badge badge-sm ${mant.status === 'realizado' ? 'badge-success' : 'badge-warning'}`}
                                             >

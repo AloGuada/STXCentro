@@ -7,10 +7,7 @@ use App\Http\Requests\Admin\Sti\PlanStoreRequest;
 use App\Http\Requests\Admin\Sti\PlanUpdateRequest;
 use App\Models\Sti\Check;
 use App\Models\Sti\CheckEjecucion;
-use App\Models\Sti\Equipo;
-use App\Models\Sti\Mantenimiento;
 use App\Models\Sti\Plan;
-use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,40 +19,32 @@ class PlanController extends Controller
     public function index(Request $request): Response
     {
         $planes = Plan::query()
-            ->with(['equipo'])
             ->withCount(['checks', 'mantenimientos' => fn ($q) => $q->where('status', 'pendiente')])
             ->when($request->search, fn ($q, $s) => $q->where('descripcion', 'like', "%{$s}%"))
-            ->when($request->equipo_id, fn ($q, $id) => $q->where('equipo_id', $id))
             ->orderBy('created_at', 'desc')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('admin/sti/planes/index', [
             'planes' => $planes,
-            'equipos' => Equipo::orderBy('descripcion')->get(['id', 'descripcion']),
-            'filters' => $request->only(['search', 'equipo_id']),
+            'filters' => $request->only(['search']),
         ]);
     }
 
     public function create(): Response
     {
-        return Inertia::render('admin/sti/planes/create', [
-            'equipos' => Equipo::orderBy('descripcion')->get(['id', 'descripcion', 'serie']),
-        ]);
+        return Inertia::render('admin/sti/planes/create');
     }
 
     public function store(PlanStoreRequest $request): RedirectResponse
     {
         return DB::transaction(function () use ($request) {
             $plan = Plan::create([
-                'equipo_id' => $request->equipo_id,
                 'descripcion' => $request->descripcion,
                 'periodicidad' => $request->periodicidad,
-                'fecha_inicial' => $request->fecha_inicial,
                 'activo' => $request->boolean('activo', true),
             ]);
 
-            // Crear checks iniciales si se proporcionaron
             if ($request->filled('checks')) {
                 foreach ($request->checks as $index => $checkData) {
                     $plan->checks()->create([
@@ -65,20 +54,16 @@ class PlanController extends Controller
                 }
             }
 
-            // Generar mantenimientos del año actual
-            $this->generarMantenimientosAnioInterno($plan, Carbon::parse($request->fecha_inicial)->year);
-
             return to_route('admin.sti.planes.edit', $plan);
         });
     }
 
     public function edit(Plan $plan): Response
     {
-        $plan->load(['equipo', 'checks', 'mantenimientos' => fn ($q) => $q->with('tecnico')->orderBy('fecha_programada')]);
+        $plan->load(['checks', 'mantenimientos' => fn ($q) => $q->with(['tecnico', 'equipo'])->orderBy('fecha_programada')]);
 
         return Inertia::render('admin/sti/planes/edit', [
             'plan' => $plan,
-            'equipos' => Equipo::orderBy('descripcion')->get(['id', 'descripcion', 'serie']),
         ]);
     }
 
@@ -87,7 +72,6 @@ class PlanController extends Controller
         $plan->update([
             'descripcion' => $request->descripcion,
             'periodicidad' => $request->periodicidad,
-            'fecha_inicial' => $request->fecha_inicial,
             'activo' => $request->boolean('activo', true),
         ]);
 
@@ -96,7 +80,6 @@ class PlanController extends Controller
 
     public function destroy(Plan $plan): RedirectResponse
     {
-        // Solo eliminar si no tiene mantenimientos realizados
         if ($plan->mantenimientos()->where('status', 'realizado')->exists()) {
             return back()->withErrors(['error' => 'No se puede eliminar un plan con mantenimientos realizados.']);
         }
@@ -121,7 +104,6 @@ class PlanController extends Controller
             'orden' => $maxOrden + 1,
         ]);
 
-        // Agregar este check a todos los mantenimientos pendientes del plan
         $mantenimientosPendientes = $plan->mantenimientos()->where('status', 'pendiente')->get();
         foreach ($mantenimientosPendientes as $mantenimiento) {
             CheckEjecucion::create([
@@ -157,7 +139,6 @@ class PlanController extends Controller
             abort(404);
         }
 
-        // Solo eliminar si no tiene ejecuciones con resultado true
         if ($check->ejecuciones()->where('resultado', true)->exists()) {
             return back()->withErrors(['error' => 'No se puede eliminar un check que ya fue completado en algún mantenimiento.']);
         }
@@ -182,74 +163,5 @@ class PlanController extends Controller
         }
 
         return back();
-    }
-
-    public function generarMantenimientosAnio(Plan $plan, int $year): RedirectResponse
-    {
-        $count = $this->generarMantenimientosAnioInterno($plan, $year);
-
-        return back()->with('success', "Se generaron {$count} mantenimientos para el año {$year}.");
-    }
-
-    private function generarMantenimientosAnioInterno(Plan $plan, int $year): int
-    {
-        $fechaInicial = Carbon::parse($plan->fecha_inicial);
-        $inicioAnio = Carbon::create($year, 1, 1);
-        $finAnio = Carbon::create($year, 12, 31);
-
-        // Si la fecha inicial es después del fin del año, no generar nada
-        if ($fechaInicial->gt($finAnio)) {
-            return 0;
-        }
-
-        // Calcular primera fecha de mantenimiento del año
-        if ($fechaInicial->year === $year) {
-            $fechaActual = $fechaInicial->copy();
-        } else {
-            // Calcular cuántos períodos completos hay desde fecha inicial hasta inicio del año
-            $diasDesdeInicio = $fechaInicial->diffInDays($inicioAnio);
-            $periodosCompletos = (int) floor($diasDesdeInicio / $plan->periodicidad);
-            $fechaActual = $fechaInicial->copy()->addDays($periodosCompletos * $plan->periodicidad);
-
-            // Si quedó antes del inicio del año, avanzar un período más
-            if ($fechaActual->lt($inicioAnio)) {
-                $fechaActual->addDays($plan->periodicidad);
-            }
-        }
-
-        $checksDelPlan = $plan->checks()->pluck('id');
-        $count = 0;
-
-        while ($fechaActual->lte($finAnio)) {
-            // Verificar si ya existe un mantenimiento para esta fecha
-            $existe = Mantenimiento::where('plan_id', $plan->id)
-                ->whereDate('fecha_programada', $fechaActual->toDateString())
-                ->exists();
-
-            if (! $existe) {
-                $mantenimiento = Mantenimiento::create([
-                    'equipo_id' => $plan->equipo_id,
-                    'plan_id' => $plan->id,
-                    'fecha_programada' => $fechaActual->toDateString(),
-                    'descripcion' => $plan->descripcion,
-                    'status' => 'pendiente',
-                ]);
-
-                // Crear check ejecuciones para cada check del plan
-                foreach ($checksDelPlan as $checkId) {
-                    CheckEjecucion::create([
-                        'mantenimiento_id' => $mantenimiento->id,
-                        'check_id' => $checkId,
-                        'resultado' => false,
-                    ]);
-                }
-
-                $count++;
-            }
-
-            $fechaActual->addDays($plan->periodicidad);
-        }
-
-        return $count;
     }
 }

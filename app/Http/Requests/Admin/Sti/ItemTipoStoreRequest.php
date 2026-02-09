@@ -4,7 +4,7 @@ namespace App\Http\Requests\Admin\Sti;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class PlanUpdateRequest extends FormRequest
+class ItemTipoStoreRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -18,8 +18,6 @@ class PlanUpdateRequest extends FormRequest
     {
         return [
             'descripcion' => ['required', 'string', 'max:255'],
-            'periodicidad' => ['required', 'integer', 'min:1'],
-            'activo' => ['boolean'],
         ];
     }
 
@@ -30,8 +28,7 @@ class PlanUpdateRequest extends FormRequest
     {
         return [
             'descripcion.required' => 'La descripción es obligatoria.',
-            'periodicidad.required' => 'La periodicidad es obligatoria.',
-            'periodicidad.min' => 'La periodicidad debe ser al menos 1 día.',
+            'descripcion.max' => 'La descripción no puede exceder 255 caracteres.',
         ];
     }
 }

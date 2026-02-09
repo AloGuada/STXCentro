@@ -5,6 +5,7 @@ namespace App\Models\Sti;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Equipo extends Model
 {
@@ -60,8 +61,13 @@ class Equipo extends Model
         return $this->hasMany(AsignacionActivo::class, 'equipo_id');
     }
 
-    public function planes(): HasMany
+    public function grupos(): HasMany
     {
-        return $this->hasMany(Plan::class, 'equipo_id');
+        return $this->hasMany(Grupo::class, 'equipo_id');
+    }
+
+    public function items(): HasManyThrough
+    {
+        return $this->hasManyThrough(Item::class, Grupo::class, 'equipo_id', 'id', 'id', 'item_id');
     }
 }

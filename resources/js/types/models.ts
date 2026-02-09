@@ -169,7 +169,9 @@ export type StiEquipo = {
     factor_criticidad: StiCriticidad;
     tickets?: StiTicket[];
     mantenimientos?: StiMantenimiento[];
-    planes?: StiPlan[];
+    mantenimientos_count?: number;
+    grupos?: StiGrupo[];
+    items?: StiItem[];
     created_at: string;
     updated_at: string;
 };
@@ -262,12 +264,10 @@ export type StiMantenimiento = {
 
 export type StiPlan = {
     id: number;
-    equipo_id: number;
     descripcion: string;
     periodicidad: number;
-    fecha_inicial: string;
+    fecha_inicial: string | null;
     activo: boolean;
-    equipo?: StiEquipo;
     checks?: StiCheck[];
     mantenimientos?: StiMantenimiento[];
     checks_count?: number;
@@ -315,6 +315,79 @@ export type StiAsignacionActivo = {
     departamento?: Departamento;
     equipo?: StiEquipo;
     media?: Media[];
+    created_at: string;
+    updated_at: string;
+};
+
+// STI Inventario Types
+export type StiItemEstado = 'disponible' | 'instalado' | 'dañado' | 'baja';
+
+export const ITEM_ESTADO_LABELS: Record<StiItemEstado, string> = {
+    disponible: 'Disponible',
+    instalado: 'Instalado',
+    dañado: 'Dañado',
+    baja: 'Baja',
+};
+
+export const ITEM_ESTADO_COLORS: Record<StiItemEstado, string> = {
+    disponible: 'badge-success',
+    instalado: 'badge-info',
+    dañado: 'badge-warning',
+    baja: 'badge-error',
+};
+
+export type StiItemAccion = 'recepcion' | 'instalacion' | 'retiro' | 'baja';
+
+export const ITEM_ACCION_LABELS: Record<StiItemAccion, string> = {
+    recepcion: 'Recepción',
+    instalacion: 'Instalación',
+    retiro: 'Retiro',
+    baja: 'Baja',
+};
+
+export type StiItemTipo = {
+    id: number;
+    descripcion: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiItem = {
+    id: number;
+    descripcion: string;
+    tipo_id: number;
+    costo: number;
+    no_serie: string | null;
+    estado: StiItemEstado;
+    tipo?: StiItemTipo;
+    grupo?: StiGrupo;
+    historial?: StiItemHistorial[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiGrupo = {
+    id: number;
+    equipo_id: number;
+    item_id: number;
+    equipo?: StiEquipo;
+    item?: StiItem;
+    created_at: string;
+    updated_at: string;
+};
+
+export type StiItemHistorial = {
+    id: number;
+    item_id: number;
+    equipo_id: number;
+    tecnico_id: number | null;
+    relacionable_type: string | null;
+    relacionable_id: number | null;
+    accion: StiItemAccion;
+    fecha: string;
+    observaciones: string | null;
+    equipo?: StiEquipo;
+    tecnico?: StiTecnico;
     created_at: string;
     updated_at: string;
 };

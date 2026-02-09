@@ -19,7 +19,7 @@ const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'O
 type Props = {
     mantenimientos: (StiMantenimiento & { equipo?: StiEquipo; plan?: StiPlan })[];
     equipos: Pick<StiEquipo, 'id' | 'descripcion'>[];
-    planes: (Pick<StiPlan, 'id' | 'equipo_id' | 'descripcion'> & { equipo?: StiEquipo })[];
+    planes: Pick<StiPlan, 'id' | 'descripcion'>[];
     year: number;
     filters: {
         year?: string;
@@ -97,7 +97,7 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
                                 <option value="">Todos los planes</option>
                                 {planes.map((plan) => (
                                     <option key={plan.id} value={plan.id}>
-                                        {plan.descripcion} ({plan.equipo?.descripcion})
+                                        {plan.descripcion}
                                     </option>
                                 ))}
                             </Select>

@@ -87,7 +87,7 @@ export default function MantenimientosEdit({ mantenimiento, equipos, tecnicos }:
                         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                             Este mantenimiento fue realizado el{' '}
                             <strong>
-                                {new Date(mantenimiento.fecha_realizado! + 'T00:00:00').toLocaleDateString('es-MX', {
+                                {new Date(mantenimiento.fecha_realizado!.split('T')[0] + 'T00:00:00').toLocaleDateString('es-MX', {
                                     day: 'numeric',
                                     month: 'long',
                                     year: 'numeric',

@@ -18,8 +18,8 @@ class DatabaseSeeder extends Seeder
 
         // Crear usuario de prueba con rol super-admin
         $user = User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'admin@steelex.com',
+            'name' => 'Sistemas STEELEX',
+            'email' => 'sistemas@steelex.com.mx',
             'password' => Hash::make('todoesacero'),
         ]);
 

@@ -35,7 +35,7 @@ const columns: Column<StiAsignacionActivo>[] = [
     {
         key: 'fecha_inicial',
         label: 'Fecha Asignacion',
-        render: (a) => new Date(a.fecha_inicial).toLocaleDateString('es-MX'),
+        render: (a) => new Date(a.fecha_inicial.split('T')[0] + 'T00:00:00').toLocaleDateString('es-MX'),
     },
     {
         key: 'estado',

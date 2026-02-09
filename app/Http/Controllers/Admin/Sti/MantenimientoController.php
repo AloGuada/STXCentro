@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Sti;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Sti\CostoStoreRequest;
+use App\Http\Requests\Admin\Sti\GenerarMantenimientosRequest;
 use App\Http\Requests\Admin\Sti\MantenimientoStoreRequest;
 use App\Http\Requests\Admin\Sti\MantenimientoUpdateRequest;
 use App\Http\Requests\Admin\Sti\MediaStoreRequest;
@@ -14,8 +15,10 @@ use App\Models\Sti\Equipo;
 use App\Models\Sti\Mantenimiento;
 use App\Models\Sti\Plan;
 use App\Models\Sti\Tecnico;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -34,7 +37,7 @@ class MantenimientoController extends Controller
 
         return Inertia::render('admin/sti/mantenimientos/index', [
             'mantenimientos' => $mantenimientos,
-            'planes' => Plan::with('equipo')->orderBy('descripcion')->get(['id', 'equipo_id', 'descripcion']),
+            'planes' => Plan::orderBy('descripcion')->get(['id', 'descripcion']),
             'filters' => $request->only(['search', 'plan_id']),
         ]);
     }
@@ -85,7 +88,6 @@ class MantenimientoController extends Controller
 
     public function destroy(Mantenimiento $mantenimiento): RedirectResponse
     {
-        // Eliminar archivos asociados
         foreach ($mantenimiento->media as $media) {
             Storage::disk('public')->delete($media->path);
         }
@@ -98,7 +100,6 @@ class MantenimientoController extends Controller
 
     public function completar(Request $request, Mantenimiento $mantenimiento): RedirectResponse
     {
-        // Verificar que todos los checks estén completos (si tiene plan)
         if ($mantenimiento->plan_id && ! $mantenimiento->estaCompleto()) {
             return back()->withErrors(['error' => 'Todos los checks deben estar completados antes de marcar como realizado.']);
         }
@@ -108,23 +109,26 @@ class MantenimientoController extends Controller
             'fecha_realizado' => now(),
         ]);
 
-        // Si tiene plan, verificar si es el último del año y generar siguiente año
         if ($mantenimiento->plan_id) {
             $plan = $mantenimiento->plan;
             $year = $mantenimiento->fecha_programada->year;
 
-            // Verificar si quedan mantenimientos pendientes del mismo plan en el año
             $pendientesAnio = Mantenimiento::where('plan_id', $plan->id)
+                ->where('equipo_id', $mantenimiento->equipo_id)
                 ->where('status', 'pendiente')
                 ->whereYear('fecha_programada', $year)
                 ->count();
 
             if ($pendientesAnio === 0 && $plan->activo) {
-                // Generar mantenimientos del siguiente año
-                $this->generarMantenimientosAnioInterno($plan, $year + 1);
+                $primerMant = Mantenimiento::where('plan_id', $plan->id)
+                    ->where('equipo_id', $mantenimiento->equipo_id)
+                    ->orderBy('fecha_programada')
+                    ->first();
+
+                $fechaInicial = $primerMant ? Carbon::parse($primerMant->fecha_programada) : Carbon::now();
+                $this->generarMantenimientosAnioInterno($plan, $mantenimiento->equipo_id, $year + 1, $fechaInicial);
             }
         } elseif ($request->boolean('crear_siguiente')) {
-            // Lógica anterior para mantenimientos sin plan
             $siguienteFecha = $request->fecha_siguiente
                 ? $request->fecha_siguiente
                 : now()->addDays(30);
@@ -161,6 +165,36 @@ class MantenimientoController extends Controller
         return back();
     }
 
+    public function programacion(Request $request): Response
+    {
+        $year = (int) $request->input('year', now()->year);
+
+        $equipos = Equipo::query()
+            ->withCount(['mantenimientos' => fn ($q) => $q->whereYear('fecha_programada', $year)])
+            ->orderBy('descripcion')
+            ->get();
+
+        return Inertia::render('admin/sti/mantenimientos/programacion', [
+            'equipos' => $equipos,
+            'planes' => Plan::where('activo', true)->orderBy('descripcion')->get(['id', 'descripcion', 'periodicidad']),
+            'year' => $year,
+        ]);
+    }
+
+    public function generar(GenerarMantenimientosRequest $request): RedirectResponse
+    {
+        $plan = Plan::findOrFail($request->plan_id);
+        $year = $request->year;
+        $fechaInicial = Carbon::parse($request->fecha_inicial);
+        $totalCount = 0;
+
+        DB::transaction(function () use ($plan, $request, $year, $fechaInicial, &$totalCount) {
+            $totalCount = $this->generarMantenimientosAnioInterno($plan, (int) $request->equipo_id, $year, $fechaInicial);
+        });
+
+        return back()->with('success', "Se generaron {$totalCount} mantenimientos para el año {$year}.");
+    }
+
     public function ganttAnual(Request $request): Response
     {
         $year = $request->input('year', now()->year);
@@ -177,16 +211,15 @@ class MantenimientoController extends Controller
             'mantenimientos' => $mantenimientos,
             'year' => (int) $year,
             'equipos' => Equipo::orderBy('descripcion')->get(['id', 'descripcion']),
-            'planes' => Plan::with('equipo')->where('activo', true)->orderBy('descripcion')->get(['id', 'equipo_id', 'descripcion']),
+            'planes' => Plan::where('activo', true)->orderBy('descripcion')->get(['id', 'descripcion']),
             'filters' => $request->only(['year', 'equipo_id', 'plan_id']),
         ]);
     }
 
-    private function generarMantenimientosAnioInterno(Plan $plan, int $year): int
+    private function generarMantenimientosAnioInterno(Plan $plan, int $equipoId, int $year, Carbon $fechaInicial): int
     {
-        $fechaInicial = \Carbon\Carbon::parse($plan->fecha_inicial);
-        $inicioAnio = \Carbon\Carbon::create($year, 1, 1);
-        $finAnio = \Carbon\Carbon::create($year, 12, 31);
+        $inicioAnio = Carbon::create($year, 1, 1);
+        $finAnio = Carbon::create($year, 12, 31);
 
         if ($fechaInicial->gt($finAnio)) {
             return 0;
@@ -209,12 +242,13 @@ class MantenimientoController extends Controller
 
         while ($fechaActual->lte($finAnio)) {
             $existe = Mantenimiento::where('plan_id', $plan->id)
+                ->where('equipo_id', $equipoId)
                 ->whereDate('fecha_programada', $fechaActual->toDateString())
                 ->exists();
 
             if (! $existe) {
                 $mantenimiento = Mantenimiento::create([
-                    'equipo_id' => $plan->equipo_id,
+                    'equipo_id' => $equipoId,
                     'plan_id' => $plan->id,
                     'fecha_programada' => $fechaActual->toDateString(),
                     'descripcion' => $plan->descripcion,

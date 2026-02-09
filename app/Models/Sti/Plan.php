@@ -4,7 +4,6 @@ namespace App\Models\Sti;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Plan extends Model
@@ -18,7 +17,6 @@ class Plan extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'equipo_id',
         'descripcion',
         'periodicidad',
         'fecha_inicial',
@@ -35,11 +33,6 @@ class Plan extends Model
             'periodicidad' => 'integer',
             'activo' => 'boolean',
         ];
-    }
-
-    public function equipo(): BelongsTo
-    {
-        return $this->belongsTo(Equipo::class, 'equipo_id');
     }
 
     public function checks(): HasMany

@@ -6,7 +6,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedData, StiMantenimiento, StiPlan } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
-import { CalendarIcon, CalendarRangeIcon } from 'lucide-react';
+import { CalendarIcon, CalendarRangeIcon, ClipboardListIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -28,12 +28,15 @@ const columns: Column<StiMantenimiento>[] = [
     {
         key: 'fecha_programada',
         label: 'Fecha Programada',
-        render: (m) => new Date(m.fecha_programada + 'T00:00:00').toLocaleDateString('es-MX'),
+        render: (m) => {
+            const [y, mth, d] = m.fecha_programada.split('T')[0].split('-')
+            return `${d}/${mth}/${y}`
+        }
     },
     {
         key: 'fecha_realizado',
         label: 'Fecha Realizado',
-        render: (m) => (m.fecha_realizado ? new Date(m.fecha_realizado + 'T00:00:00').toLocaleDateString('es-MX') : '-'),
+        render: (m) => (m.fecha_realizado ? new Date(m.fecha_realizado.split('T')[0] + 'T00:00:00').toLocaleDateString('es-MX') : '-'),
     },
     {
         key: 'status',
@@ -51,7 +54,7 @@ const columns: Column<StiMantenimiento>[] = [
 
 type Props = {
     mantenimientos: PaginatedData<StiMantenimiento>;
-    planes: (StiPlan & { equipo?: { descripcion: string } })[];
+    planes: Pick<StiPlan, 'id' | 'descripcion'>[];
     filters: { search?: string; plan_id?: string };
 };
 
@@ -72,12 +75,18 @@ export default function MantenimientosIndex({ mantenimientos, planes, filters }:
                         <option value="">Todos los planes</option>
                         {planes.map((plan) => (
                             <option key={plan.id} value={plan.id}>
-                                {plan.descripcion} ({plan.equipo?.descripcion})
+                                {plan.descripcion}
                             </option>
                         ))}
                     </Select>
 
                     <div className="flex gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href="/admin/sti/mantenimientos/programacion">
+                                <ClipboardListIcon className="mr-1 size-4" />
+                                Programacion
+                            </Link>
+                        </Button>
                         <Button variant="outline" size="sm" asChild>
                             <Link href="/admin/sti/mantenimientos-gantt">
                                 <CalendarIcon className="mr-1 size-4" />

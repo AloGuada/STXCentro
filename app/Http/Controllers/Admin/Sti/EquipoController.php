@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Sti\EquipoStoreRequest;
 use App\Http\Requests\Admin\Sti\EquipoUpdateRequest;
 use App\Models\Sti\Equipo;
+use App\Models\Sti\Item;
+use App\Models\Sti\Tecnico;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -62,17 +64,24 @@ class EquipoController extends Controller
 
     public function edit(Equipo $equipo): Response
     {
-        // Cargar historial de tickets y mantenimientos con costos
         $equipo->load([
             'tickets.historial.status',
             'tickets.costos',
             'tickets.tecnico',
             'mantenimientos.costos',
             'mantenimientos.tecnico',
+            'grupos.item.tipo',
         ]);
 
         return Inertia::render('admin/sti/equipos/edit', [
             'equipo' => $equipo,
+            'itemsDisponibles' => Item::query()
+                ->where('estado', 'disponible')
+                ->whereDoesntHave('grupo')
+                ->with('tipo')
+                ->orderBy('descripcion')
+                ->get(),
+            'tecnicos' => Tecnico::where('activo', true)->orderBy('descripcion')->get(),
         ]);
     }
 

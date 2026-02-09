@@ -1,9 +1,8 @@
 import { DataTable, type Column } from '@/components/data-table';
-import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { PaginatedData, StiEquipo, StiPlan } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
+import type { PaginatedData, StiPlan } from '@/types/models';
+import { Head } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -17,21 +16,11 @@ type PlanWithCounts = StiPlan & {
 };
 
 const columns: Column<PlanWithCounts>[] = [
-    {
-        key: 'equipo',
-        label: 'Equipo',
-        render: (plan) => plan.equipo?.descripcion ?? '-',
-    },
     { key: 'descripcion', label: 'Descripcion' },
     {
         key: 'periodicidad',
         label: 'Periodicidad',
         render: (plan) => `${plan.periodicidad} dias`,
-    },
-    {
-        key: 'fecha_inicial',
-        label: 'Fecha Inicial',
-        render: (plan) => new Date(plan.fecha_inicial).toLocaleDateString('es-MX'),
     },
     {
         key: 'checks_count',
@@ -56,33 +45,15 @@ const columns: Column<PlanWithCounts>[] = [
 
 type Props = {
     planes: PaginatedData<PlanWithCounts>;
-    equipos: Pick<StiEquipo, 'id' | 'descripcion'>[];
-    filters: { search?: string; equipo_id?: string };
+    filters: { search?: string };
 };
 
-export default function PlanesIndex({ planes, equipos, filters }: Props) {
+export default function PlanesIndex({ planes, filters }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Planes de Mantenimiento" />
 
             <div className="p-6">
-                <div className="mb-4 flex items-center gap-4">
-                    <Select
-                        value={filters.equipo_id ?? ''}
-                        onValueChange={(value) =>
-                            router.get('/admin/sti/planes', { ...filters, equipo_id: value || undefined }, { preserveState: true })
-                        }
-                        className="w-64"
-                    >
-                        <option value="">Todos los equipos</option>
-                        {equipos.map((equipo) => (
-                            <option key={equipo.id} value={equipo.id}>
-                                {equipo.descripcion}
-                            </option>
-                        ))}
-                    </Select>
-                </div>
-
                 <DataTable
                     columns={columns}
                     data={planes}

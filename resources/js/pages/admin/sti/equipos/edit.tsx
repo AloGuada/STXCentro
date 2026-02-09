@@ -5,9 +5,24 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { CRITICIDAD_LABELS, type StiCostoMantenimiento, type StiCriticidad, type StiEquipo, type StiMantenimiento, type StiStatus, type StiTicket, type StiTicketHistorial } from '@/types/models';
+import {
+    CRITICIDAD_LABELS,
+    ITEM_ESTADO_COLORS,
+    ITEM_ESTADO_LABELS,
+    type StiCostoMantenimiento,
+    type StiCriticidad,
+    type StiEquipo,
+    type StiGrupo,
+    type StiItem,
+    type StiItemTipo,
+    type StiMantenimiento,
+    type StiStatus,
+    type StiTecnico,
+    type StiTicket,
+    type StiTicketHistorial,
+} from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ClipboardListIcon, Loader2Icon, WrenchIcon } from 'lucide-react';
+import { ClipboardListIcon, Loader2Icon, PackageIcon, PackageMinusIcon, PackagePlusIcon, WrenchIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 
 type Props = {
@@ -19,11 +34,17 @@ type Props = {
         mantenimientos: (StiMantenimiento & {
             costos: StiCostoMantenimiento[];
         })[];
+        grupos: (StiGrupo & {
+            item: StiItem & { tipo: StiItemTipo };
+        })[];
     };
+    itemsDisponibles: (StiItem & { tipo: StiItemTipo })[];
+    tecnicos: StiTecnico[];
 };
 
-export default function EquiposEdit({ equipo }: Props) {
-    const [activeTab, setActiveTab] = useState<'datos' | 'tickets' | 'mantenimientos'>('datos');
+export default function EquiposEdit({ equipo, itemsDisponibles, tecnicos }: Props) {
+    const [activeTab, setActiveTab] = useState<'datos' | 'tickets' | 'mantenimientos' | 'inventario'>('datos');
+    const [retirarItemId, setRetirarItemId] = useState<number | null>(null);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -42,6 +63,42 @@ export default function EquiposEdit({ equipo }: Props) {
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         put(`/admin/sti/equipos/${equipo.id}`);
+    };
+
+    const asignarForm = useForm({
+        equipo_id: equipo.id.toString(),
+        item_id: '',
+        tecnico_id: '',
+        observaciones: '',
+    });
+
+    const retirarForm = useForm({
+        tecnico_id: '',
+        observaciones: '',
+    });
+
+    const handleAsignar = (e: FormEvent) => {
+        e.preventDefault();
+        if (!asignarForm.data.item_id) {
+            return;
+        }
+        asignarForm.post(`/admin/sti/items/${asignarForm.data.item_id}/asignar`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                asignarForm.reset('item_id', 'tecnico_id', 'observaciones');
+            },
+        });
+    };
+
+    const handleRetirar = (e: FormEvent, itemId: number) => {
+        e.preventDefault();
+        retirarForm.post(`/admin/sti/items/${itemId}/retirar`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setRetirarItemId(null);
+                retirarForm.reset();
+            },
+        });
     };
 
     const calcularTotalCostos = (costos: StiCostoMantenimiento[]) => {
@@ -77,6 +134,14 @@ export default function EquiposEdit({ equipo }: Props) {
                     >
                         <WrenchIcon className="mr-1 size-4" />
                         Mantenimientos ({equipo.mantenimientos?.length ?? 0})
+                    </button>
+                    <button
+                        type="button"
+                        className={`tab ${activeTab === 'inventario' ? 'tab-active' : ''}`}
+                        onClick={() => setActiveTab('inventario')}
+                    >
+                        <PackageIcon className="mr-1 size-4" />
+                        Inventario ({equipo.grupos?.length ?? 0})
                     </button>
                 </div>
 
@@ -249,7 +314,7 @@ export default function EquiposEdit({ equipo }: Props) {
                                                 <tr key={mant.id}>
                                                     <td>#{mant.id}</td>
                                                     <td>
-                                                        {new Date(mant.fecha_programada + 'T00:00:00').toLocaleDateString('es-MX', {
+                                                        {new Date(mant.fecha_programada.split('T')[0] + 'T00:00:00').toLocaleDateString('es-MX', {
                                                             day: 'numeric',
                                                             month: 'short',
                                                             year: 'numeric',
@@ -264,7 +329,7 @@ export default function EquiposEdit({ equipo }: Props) {
                                                     </td>
                                                     <td>
                                                         {mant.fecha_realizado
-                                                            ? new Date(mant.fecha_realizado + 'T00:00:00').toLocaleDateString('es-MX', {
+                                                            ? new Date(mant.fecha_realizado.split('T')[0] + 'T00:00:00').toLocaleDateString('es-MX', {
                                                                   day: 'numeric',
                                                                   month: 'short',
                                                                   year: 'numeric',
@@ -304,6 +369,210 @@ export default function EquiposEdit({ equipo }: Props) {
                             </div>
                         ) : (
                             <p className="text-sm text-gray-500">No hay mantenimientos registrados para este equipo.</p>
+                        )}
+                    </div>
+                )}
+
+                {/* Tab: Inventario */}
+                {activeTab === 'inventario' && (
+                    <div className="w-3/4 space-y-6">
+                        <h2 className="flex items-center gap-2 text-lg font-semibold">
+                            <PackageIcon className="size-5" />
+                            Items Asignados
+                        </h2>
+
+                        {/* Tabla de items asignados */}
+                        {equipo.grupos && equipo.grupos.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <table className="table table-zebra w-full">
+                                    <thead>
+                                        <tr>
+                                            <th>Descripcion</th>
+                                            <th>Tipo</th>
+                                            <th>No. Serie</th>
+                                            <th className="text-right">Costo</th>
+                                            <th>Estado</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {equipo.grupos.map((grupo) => (
+                                            <>
+                                                <tr key={grupo.id}>
+                                                    <td>
+                                                        <Link
+                                                            href={`/admin/sti/items/${grupo.item.id}/edit`}
+                                                            className="link link-hover"
+                                                        >
+                                                            {grupo.item.descripcion}
+                                                        </Link>
+                                                    </td>
+                                                    <td>{grupo.item.tipo?.descripcion ?? '-'}</td>
+                                                    <td className="font-mono text-sm">{grupo.item.no_serie ?? '-'}</td>
+                                                    <td className="text-right font-mono">
+                                                        ${Number(grupo.item.costo).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                    </td>
+                                                    <td>
+                                                        <span className={`badge badge-sm ${ITEM_ESTADO_COLORS[grupo.item.estado] ?? ''}`}>
+                                                            {ITEM_ESTADO_LABELS[grupo.item.estado] ?? grupo.item.estado}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                setRetirarItemId(retirarItemId === grupo.item.id ? null : grupo.item.id)
+                                                            }
+                                                        >
+                                                            <PackageMinusIcon className="size-4" />
+                                                            Retirar
+                                                        </Button>
+                                                    </td>
+                                                </tr>
+                                                {retirarItemId === grupo.item.id && (
+                                                    <tr key={`retirar-${grupo.id}`}>
+                                                        <td colSpan={6}>
+                                                            <form
+                                                                onSubmit={(e) => handleRetirar(e, grupo.item.id)}
+                                                                className="flex items-end gap-4 rounded-lg bg-base-200 p-4"
+                                                            >
+                                                                <FormField
+                                                                    label="Tecnico"
+                                                                    htmlFor={`retirar_tecnico_${grupo.item.id}`}
+                                                                    error={retirarForm.errors.tecnico_id}
+                                                                >
+                                                                    <Select
+                                                                        id={`retirar_tecnico_${grupo.item.id}`}
+                                                                        value={retirarForm.data.tecnico_id}
+                                                                        onValueChange={(value) => retirarForm.setData('tecnico_id', value)}
+                                                                        placeholder="Seleccionar tecnico"
+                                                                    >
+                                                                        <option value="">Sin tecnico</option>
+                                                                        {tecnicos.map((tecnico) => (
+                                                                            <option key={tecnico.id} value={tecnico.id}>
+                                                                                {tecnico.descripcion}
+                                                                            </option>
+                                                                        ))}
+                                                                    </Select>
+                                                                </FormField>
+                                                                <FormField
+                                                                    label="Observaciones"
+                                                                    htmlFor={`retirar_obs_${grupo.item.id}`}
+                                                                    error={retirarForm.errors.observaciones}
+                                                                >
+                                                                    <Input
+                                                                        id={`retirar_obs_${grupo.item.id}`}
+                                                                        value={retirarForm.data.observaciones}
+                                                                        onChange={(e) => retirarForm.setData('observaciones', e.target.value)}
+                                                                        placeholder="Observaciones opcionales"
+                                                                    />
+                                                                </FormField>
+                                                                <Button type="submit" variant="destructive" disabled={retirarForm.processing}>
+                                                                    {retirarForm.processing && <Loader2Icon className="size-4 animate-spin" />}
+                                                                    Confirmar
+                                                                </Button>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    onClick={() => {
+                                                                        setRetirarItemId(null);
+                                                                        retirarForm.reset();
+                                                                    }}
+                                                                >
+                                                                    Cancelar
+                                                                </Button>
+                                                            </form>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colSpan={3} className="text-right font-medium">
+                                                Total:
+                                            </td>
+                                            <td className="text-right font-mono font-bold">
+                                                $
+                                                {equipo.grupos
+                                                    .reduce((sum, g) => sum + Number(g.item.costo), 0)
+                                                    .toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td colSpan={2}></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500">No hay items asignados a este equipo.</p>
+                        )}
+
+                        {/* Asignar item */}
+                        <div className="divider" />
+                        <h2 className="flex items-center gap-2 text-lg font-semibold">
+                            <PackagePlusIcon className="size-5" />
+                            Asignar Item
+                        </h2>
+                        {asignarForm.errors.asignar && (
+                            <div className="alert alert-error mb-4">
+                                <span>{asignarForm.errors.asignar}</span>
+                            </div>
+                        )}
+                        {itemsDisponibles.length > 0 ? (
+                            <form onSubmit={handleAsignar} className="space-y-4">
+                                <FormField label="Item" htmlFor="asignar_item_id" required>
+                                    <Select
+                                        id="asignar_item_id"
+                                        value={asignarForm.data.item_id}
+                                        onValueChange={(value) => asignarForm.setData('item_id', value)}
+                                        placeholder="Seleccionar item"
+                                    >
+                                        {itemsDisponibles.map((item) => (
+                                            <option key={item.id} value={item.id}>
+                                                {item.descripcion} ({item.tipo?.descripcion}){item.no_serie ? ` - ${item.no_serie}` : ''}
+                                            </option>
+                                        ))}
+                                    </Select>
+                                </FormField>
+
+                                <FormField label="Tecnico" htmlFor="asignar_tecnico_id">
+                                    <Select
+                                        id="asignar_tecnico_id"
+                                        value={asignarForm.data.tecnico_id}
+                                        onValueChange={(value) => asignarForm.setData('tecnico_id', value)}
+                                        placeholder="Seleccionar tecnico"
+                                    >
+                                        <option value="">Sin tecnico</option>
+                                        {tecnicos.map((tecnico) => (
+                                            <option key={tecnico.id} value={tecnico.id}>
+                                                {tecnico.descripcion}
+                                            </option>
+                                        ))}
+                                    </Select>
+                                </FormField>
+
+                                <FormField label="Observaciones" htmlFor="asignar_observaciones">
+                                    <Input
+                                        id="asignar_observaciones"
+                                        value={asignarForm.data.observaciones}
+                                        onChange={(e) => asignarForm.setData('observaciones', e.target.value)}
+                                        placeholder="Observaciones opcionales"
+                                    />
+                                </FormField>
+
+                                <div className="flex justify-end">
+                                    <Button type="submit" disabled={asignarForm.processing || !asignarForm.data.item_id}>
+                                        {asignarForm.processing && <Loader2Icon className="size-4 animate-spin" />}
+                                        <PackagePlusIcon className="size-4" />
+                                        Asignar
+                                    </Button>
+                                </div>
+                            </form>
+                        ) : (
+                            <p className="text-sm text-gray-500">No hay items disponibles para asignar.</p>
                         )}
                     </div>
                 )}

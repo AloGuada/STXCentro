@@ -4,6 +4,7 @@ import {
     Briefcase,
     Building,
     CalendarCheck,
+    CalendarRange,
     ChevronDown,
     ClipboardList,
     File,
@@ -11,10 +12,12 @@ import {
     FolderTree,
     Globe,
     Image,
+    Layers,
     LayoutGrid,
     LogOut,
     MenuIcon,
     Monitor,
+    Package,
     Settings,
     Shield,
     Tag,
@@ -75,6 +78,9 @@ const navGroups: NavGroup[] = [
             { title: 'Técnicos', href: '/admin/sti/tecnicos', icon: Users },
             { title: 'Planes', href: '/admin/sti/planes', icon: CalendarCheck },
             { title: 'Mantenimientos', href: '/admin/sti/mantenimientos', icon: Settings },
+            { title: 'Programacion', href: '/admin/sti/mantenimientos/programacion', icon: CalendarRange },
+            { title: 'Inventario', href: '/admin/sti/items', icon: Package },
+            { title: 'Tipos Item', href: '/admin/sti/items-tipos', icon: Layers },
             { title: 'Asignaciones', href: '/admin/sti/asignacion-activos', icon: ClipboardList },
             { title: 'Estados', href: '/admin/sti/status', icon: Tag },
         ],
@@ -87,7 +93,7 @@ const mainNavItems: NavItem[] = [
 ];
 
 const footerNavItems: NavItem[] = [
-    { title: 'NADA UTIL', href: 'https://github.com/laravel/react-starter-kit', icon: Folder },
+    { title: '---', href: 'https://github.com/laravel/react-starter-kit', icon: Folder },
 ];
 
 function SidebarMenuItem({ item, isActive }: { item: NavItem; isActive: boolean }) {
