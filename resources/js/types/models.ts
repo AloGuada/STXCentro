@@ -376,6 +376,118 @@ export type StiGrupo = {
     updated_at: string;
 };
 
+// Produccion Types
+export type Pieza = {
+    id: number;
+    obra_id: number;
+    marca: string;
+    descripcion: string;
+    longitud: number | null;
+    peso: number;
+    cantidad: number;
+    version: number;
+    obra?: Obra;
+    marca_grupos?: ProdMarcaGrupo[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdGrupoPrecio = {
+    id: number;
+    descripcion: string;
+    precio: number;
+    marca_grupos_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdMarcaGrupo = {
+    id: number;
+    pieza_id: number;
+    grupo_precio_id: number;
+    pieza?: Pieza;
+    grupo_precio?: ProdGrupoPrecio;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdGrupo = {
+    id: number;
+    descripcion: string;
+    empleados?: ProdEmpleadoGrupo[];
+    empleados_count?: number;
+    fabricados_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdEmpleadoGrupo = {
+    id: number;
+    grupo_id: number;
+    nombre: string;
+    no_empleado: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdTipo = {
+    id: number;
+    descripcion: string;
+    orden: number;
+    desgloce: boolean;
+    pagos_extra_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdDestajo = {
+    id: number;
+    semana: number;
+    cerrada: boolean;
+    cantidad: number | null;
+    fecha_cierre: string | null;
+    fabricados?: ProdFabricado[];
+    pagos_extra?: ProdPagoExtra[];
+    fabricados_count?: number;
+    pagos_extra_count?: number;
+    fabricados_sum_total_calculado?: number | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdFabricado = {
+    id: number;
+    destajo_id: number;
+    dest_grupo_id: number | null;
+    pieza_id: number;
+    cantidad: number;
+    porcentual: number;
+    precio_unitario_aplicado: number;
+    total_calculado: number;
+    saldo_pendiente: number;
+    pieza?: Pieza;
+    destajo?: ProdDestajo;
+    dest_grupo?: ProdGrupo;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdPagoExtra = {
+    id: number;
+    destajo_id: number;
+    dest_grupo_id: number | null;
+    tipo_id: number;
+    descripcion: string | null;
+    precio: number;
+    dias: number;
+    personas: number;
+    tipo?: ProdTipo;
+    destajo?: ProdDestajo;
+    dest_grupo?: ProdGrupo;
+    created_at: string;
+    updated_at: string;
+};
+
 export type StiItemHistorial = {
     id: number;
     item_id: number;

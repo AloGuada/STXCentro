@@ -18,7 +18,7 @@ class DepartamentoFactory extends Factory
     public function definition(): array
     {
         return [
-            'descripcion' => fake()->unique()->department(),
+            'descripcion' => fake()->unique()->word(),
             'manager' => fake()->name(),
             'manager_usuario_id' => null,
         ];

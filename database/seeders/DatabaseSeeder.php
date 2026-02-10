@@ -13,8 +13,11 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Primero ejecutar el seeder de roles y permisos
-        $this->call(RolesAndPermissionsSeeder::class);
+        // Primero ejecutar los seeders de catálogos
+        $this->call([
+            RolesAndPermissionsSeeder::class,
+            ProdTipoSeeder::class,
+        ]);
 
         // Crear usuario de prueba con rol super-admin
         $user = User::factory()->create([

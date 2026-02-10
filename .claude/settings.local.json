@@ -26,7 +26,8 @@
       "Bash(php artisan make:controller:*)",
       "Bash(php artisan make:model:*)",
       "Bash(php artisan:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(gh auth:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

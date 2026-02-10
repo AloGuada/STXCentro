@@ -7,6 +7,8 @@ import {
     CalendarRange,
     ChevronDown,
     ClipboardList,
+    DollarSign,
+    Factory,
     File,
     Folder,
     FolderTree,
@@ -18,6 +20,7 @@ import {
     MenuIcon,
     Monitor,
     Package,
+    Puzzle,
     Settings,
     Shield,
     Tag,
@@ -56,6 +59,7 @@ const navGroups: NavGroup[] = [
         icon: Folder,
         items: [
             { title: 'Obras', href: '/admin/obras', icon: Briefcase },
+            { title: 'Piezas', href: '/admin/prod/piezas', icon: Puzzle },
             { title: 'Media', href: '/admin/media', icon: Image },
             { title: 'Tags', href: '/admin/tags', icon: Tag },
         ],
@@ -67,6 +71,16 @@ const navGroups: NavGroup[] = [
             { title: 'Secciones', href: '/admin/intra/secciones', icon: File },
             { title: 'Áreas', href: '/admin/intra/areas', icon: FolderTree },
             { title: 'Documentos', href: '/admin/intra/documentos', icon: File },
+        ],
+    },
+    {
+        title: 'Produccion',
+        icon: Factory,
+        items: [
+            { title: 'Destajos', href: '/admin/prod/destajos', icon: DollarSign },
+            { title: 'Grupos', href: '/admin/prod/grupos', icon: Users },
+            { title: 'Grupo Precios', href: '/admin/prod/grupo-precios', icon: Layers },
+            { title: 'Tipos Pago', href: '/admin/prod/tipos', icon: Tag },
         ],
     },
     {

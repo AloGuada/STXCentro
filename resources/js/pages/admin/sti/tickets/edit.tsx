@@ -46,7 +46,7 @@ export default function TicketsEdit({ ticket, tecnicos, equipos, departamentos, 
         departamento_id: ticket.departamento_id.toString(),
         status_id: currentStatusId,
         firma_completado: ticket.firma_completado ?? '',
-        calificacion: ticket.calificacion ?? 0,
+        calificacion: ticket.calificacion || null,
     });
 
     const handleSubmit = (e: FormEvent) => {

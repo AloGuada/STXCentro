@@ -106,11 +106,11 @@ class TicketController extends Controller
             'departamento_id' => $request->departamento_id,
         ];
 
-        // Agregar firma y calificación si se proporcionan
-        if ($request->has('firma_completado')) {
+        // Agregar firma y calificación solo si se proporcionan valores reales
+        if ($request->filled('firma_completado')) {
             $updateData['firma_completado'] = $request->firma_completado;
         }
-        if ($request->has('calificacion')) {
+        if ($request->filled('calificacion')) {
             $updateData['calificacion'] = $request->calificacion;
         }
 
