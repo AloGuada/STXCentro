@@ -4,17 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Obra, Pieza } from '@/types/models';
+import type { Concepto, Obra } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon, UploadIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 
 type Props = {
-    obra: Obra & { piezas: Pieza[] };
+    obra: Obra & { conceptos: Concepto[] };
 };
 
 export default function ObrasEdit({ obra }: Props) {
-    const [activeTab, setActiveTab] = useState<'datos' | 'piezas'>('datos');
+    const [activeTab, setActiveTab] = useState<'datos' | 'conceptos'>('datos');
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -40,7 +40,7 @@ export default function ObrasEdit({ obra }: Props) {
         e.preventDefault();
         if (!csvForm.data.csv_file) return;
 
-        csvForm.post(`/admin/obras/${obra.id}/import-piezas`, {
+        csvForm.post(`/admin/obras/${obra.id}/import-conceptos`, {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => csvForm.reset('csv_file'),
@@ -56,8 +56,8 @@ export default function ObrasEdit({ obra }: Props) {
                     <button type="button" className={`tab ${activeTab === 'datos' ? 'tab-active' : ''}`} onClick={() => setActiveTab('datos')}>
                         Datos
                     </button>
-                    <button type="button" className={`tab ${activeTab === 'piezas' ? 'tab-active' : ''}`} onClick={() => setActiveTab('piezas')}>
-                        Piezas ({obra.piezas?.length ?? 0})
+                    <button type="button" className={`tab ${activeTab === 'conceptos' ? 'tab-active' : ''}`} onClick={() => setActiveTab('conceptos')}>
+                        Conceptos ({obra.conceptos?.length ?? 0})
                     </button>
                 </div>
 
@@ -108,46 +108,48 @@ export default function ObrasEdit({ obra }: Props) {
                     </div>
                 )}
 
-                {activeTab === 'piezas' && (
+                {activeTab === 'conceptos' && (
                     <div className="space-y-6">
-                        <h2 className="text-lg font-semibold">Piezas de la Obra</h2>
+                        <h2 className="text-lg font-semibold">Conceptos de la Obra</h2>
 
-                        {obra.piezas && obra.piezas.length > 0 ? (
+                        {obra.conceptos && obra.conceptos.length > 0 ? (
                             <div className="overflow-x-auto">
                                 <table className="table table-zebra w-full">
                                     <thead>
                                         <tr>
                                             <th>Marca</th>
                                             <th>Descripcion</th>
-                                            <th className="text-right">Longitud</th>
-                                            <th className="text-right">Peso (kg)</th>
-                                            <th className="text-right">Cantidad</th>
+                                            <th className="text-right">Peso Unit. (kg)</th>
                                             <th className="text-right">Version</th>
+                                            <th>Activo</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {obra.piezas.map((pieza) => (
-                                            <tr key={pieza.id} className="hover cursor-pointer" onClick={() => window.location.href = `/admin/prod/piezas/${pieza.id}/edit`}>
-                                                <td className="font-medium">{pieza.marca}</td>
-                                                <td>{pieza.descripcion}</td>
-                                                <td className="text-right font-mono text-sm">{pieza.longitud != null ? Number(pieza.longitud).toFixed(2) : '-'}</td>
-                                                <td className="text-right font-mono text-sm">{Number(pieza.peso).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                                                <td className="text-right font-mono text-sm">{pieza.cantidad}</td>
-                                                <td className="text-right font-mono text-sm">{pieza.version}</td>
+                                        {obra.conceptos.map((concepto) => (
+                                            <tr key={concepto.id} className="hover cursor-pointer" onClick={() => window.location.href = `/admin/prod/conceptos/${concepto.id}/edit`}>
+                                                <td className="font-medium">{concepto.marca}</td>
+                                                <td>{concepto.descripcion}</td>
+                                                <td className="text-right font-mono text-sm">{Number(concepto.peso_unitario).toLocaleString('es-MX', { minimumFractionDigits: 3 })}</td>
+                                                <td className="text-right font-mono text-sm">{concepto.version}</td>
+                                                <td>
+                                                    <span className={`badge badge-sm ${concepto.activo ? 'badge-success' : 'badge-ghost'}`}>
+                                                        {concepto.activo ? 'Si' : 'No'}
+                                                    </span>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
                         ) : (
-                            <p className="text-sm text-gray-500">No hay piezas registradas para esta obra.</p>
+                            <p className="text-sm text-gray-500">No hay conceptos registrados para esta obra.</p>
                         )}
 
                         <div className="divider" />
 
-                        <h2 className="text-lg font-semibold">Importar Piezas desde CSV</h2>
+                        <h2 className="text-lg font-semibold">Importar Conceptos desde CSV</h2>
                         <p className="text-sm text-gray-500">
-                            Formato esperado: PLANO (marca), CONCEPTO (descripcion), LARGO (longitud), KG.UNIT. (peso), CANT. (cantidad), OBSERVACIONES (version).
+                            Formato esperado: PLANO (marca), CONCEPTO (descripcion), KG.UNIT. (peso_unitario), OBSERVACIONES (version).
                             Si la marca ya existe, solo se actualiza si la version importada es mayor.
                         </p>
 

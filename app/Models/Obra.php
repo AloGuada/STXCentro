@@ -20,8 +20,13 @@ class Obra extends Model
         'descripcion',
     ];
 
-    public function piezas(): HasMany
+    public function conceptos(): HasMany
     {
-        return $this->hasMany(Pieza::class, 'obra_id');
+        return $this->hasMany(Concepto::class, 'obra_id');
+    }
+
+    public function gruposPrecios(): HasMany
+    {
+        return $this->hasMany(Prod\GrupoPrecio::class, 'obra_id');
     }
 }

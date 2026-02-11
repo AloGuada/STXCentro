@@ -1,212 +1,142 @@
-import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Obra, Pieza, ProdGrupoPrecio, ProdMarcaGrupo } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Loader2Icon, PlusIcon, TrashIcon } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import type { Concepto, Obra, ProdGrupoPrecio, ProdGrupoPrecioConcepto } from '@/types/models';
+import { Head, router } from '@inertiajs/react';
+import { TrashIcon } from 'lucide-react';
+import { useState } from 'react';
 
 type Props = {
-    obra: Obra & { piezas: Pieza[] };
-    grupoPrecios: (ProdGrupoPrecio & { marca_grupos_count: number })[];
-    marcaGrupos: (ProdMarcaGrupo & { pieza: Pieza; grupo_precio: ProdGrupoPrecio })[];
+    obra: Obra & { conceptos: Concepto[] };
+    grupoPrecios: (ProdGrupoPrecio & { grupo_precio_conceptos_count: number })[];
+    grupoPrecioConceptos: (ProdGrupoPrecioConcepto & { concepto: Concepto; grupo_precio: ProdGrupoPrecio })[];
 };
 
-export default function GrupoPreciosShow({ obra, grupoPrecios, marcaGrupos }: Props) {
-    const [selectedGrupoId, setSelectedGrupoId] = useState('');
-    const [selectedPiezaIds, setSelectedPiezaIds] = useState<number[]>([]);
-
+export default function GrupoPreciosShow({ obra, grupoPrecios, grupoPrecioConceptos }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Produccion', href: '/admin/prod/destajos' },
+        { title: 'Produccion', href: '/admin/prod/cortes' },
         { title: 'Grupo Precios', href: '/admin/prod/grupo-precios' },
-        { title: `Obra ${obra.no}`, href: '#' },
+        { title: `Obra ${obra.no}`, href: `/admin/prod/grupo-precios/obra/${obra.id}` },
     ];
 
-    const assignForm = useForm<{ pieza_ids: number[] }>({
-        pieza_ids: [],
-    });
+    const [selectedConcepto, setSelectedConcepto] = useState('');
+    const [selectedGrupo, setSelectedGrupo] = useState('');
 
-    const handleAssign = (e: FormEvent) => {
-        e.preventDefault();
-        if (!selectedGrupoId || selectedPiezaIds.length === 0) return;
+    const assignedConceptoIds = new Set(grupoPrecioConceptos.map((gpc) => gpc.concepto_id));
+    const unassignedConceptos = obra.conceptos.filter((c) => !assignedConceptoIds.has(c.id));
 
-        assignForm.transform(() => ({ pieza_ids: selectedPiezaIds }));
-        assignForm.post(`/admin/prod/grupo-precios/${selectedGrupoId}/assign-piezas`, {
+    const handleAssign = () => {
+        if (!selectedConcepto || !selectedGrupo) return;
+        router.post('/admin/prod/grupo-precio-conceptos', {
+            concepto_id: selectedConcepto,
+            grupo_precio_id: selectedGrupo,
+        }, {
             preserveScroll: true,
-            onSuccess: () => setSelectedPiezaIds([]),
+            onSuccess: () => { setSelectedConcepto(''); setSelectedGrupo(''); },
         });
     };
 
-    const handleRemoveMarcaGrupo = (marcaGrupoId: number) => {
-        router.delete(`/admin/prod/marca-grupo/${marcaGrupoId}`, { preserveScroll: true });
+    const handleRemove = (id: number) => {
+        router.delete(`/admin/prod/grupo-precio-conceptos/${id}`, { preserveScroll: true });
     };
 
-    const assignedPiezaIds = marcaGrupos
-        .filter((mg) => mg.grupo_precio_id.toString() === selectedGrupoId)
-        .map((mg) => mg.pieza_id);
-
-    const availablePiezas = obra.piezas?.filter((p) => !assignedPiezaIds.includes(p.id)) ?? [];
-
-    const togglePieza = (piezaId: number) => {
-        setSelectedPiezaIds((prev) => (prev.includes(piezaId) ? prev.filter((id) => id !== piezaId) : [...prev, piezaId]));
-    };
-
-    const toggleAllPiezas = () => {
-        const allSelected = availablePiezas.every((p) => selectedPiezaIds.includes(p.id));
-        if (allSelected) {
-            setSelectedPiezaIds((prev) => prev.filter((id) => !availablePiezas.some((p) => p.id === id)));
-        } else {
-            setSelectedPiezaIds((prev) => [...new Set([...prev, ...availablePiezas.map((p) => p.id)])]);
-        }
-    };
-
-    // Agrupar marcaGrupos por grupo_precio
-    const marcaGruposByGrupo = grupoPrecios
-        .map((gp) => ({
-            grupoPrecio: gp,
-            items: marcaGrupos.filter((mg) => mg.grupo_precio_id === gp.id),
-        }))
-        .filter((g) => g.items.length > 0);
+    const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`Grupo Precios - Obra ${obra.no}`} />
+            <Head title={`Precios Obra ${obra.no}`} />
 
-            <div className="space-y-6 p-6">
-                <div>
-                    <h1 className="text-2xl font-semibold">Obra {obra.no}</h1>
-                    <p className="text-sm text-gray-500">{obra.descripcion}</p>
-                </div>
+            <div className="p-6">
+                <h1 className="mb-2 text-2xl font-semibold">Obra {obra.no} - {obra.descripcion}</h1>
+                <p className="mb-6 text-sm text-gray-500">{obra.conceptos.length} conceptos</p>
 
-                {/* Asignaciones existentes */}
-                {marcaGruposByGrupo.length > 0 ? (
-                    marcaGruposByGrupo.map((group) => (
-                        <div key={group.grupoPrecio.id}>
-                            <h3 className="mb-2 text-sm font-semibold text-gray-500">
-                                {group.grupoPrecio.descripcion} - ${Number(group.grupoPrecio.precio).toFixed(2)}/kg
-                            </h3>
-                            <div className="overflow-x-auto">
-                                <table className="table table-zebra w-full">
-                                    <thead>
-                                        <tr>
-                                            <th>Marca</th>
-                                            <th>Descripcion</th>
-                                            <th className="text-right">Peso (kg)</th>
-                                            <th className="text-right">Cantidad</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {group.items.map((mg) => (
-                                            <tr key={mg.id}>
-                                                <td className="font-medium">{mg.pieza?.marca}</td>
-                                                <td>{mg.pieza?.descripcion}</td>
-                                                <td className="text-right font-mono text-sm">{Number(mg.pieza?.peso).toFixed(2)}</td>
-                                                <td className="text-right font-mono text-sm">{mg.pieza?.cantidad}</td>
-                                                <td>
-                                                    <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveMarcaGrupo(mg.id)}>
-                                                        <TrashIcon className="size-4 text-error" />
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    ))
-                ) : (
-                    <p className="text-sm text-gray-500">No hay piezas asignadas a grupos de precios en esta obra.</p>
-                )}
-
-                {/* Asignar piezas */}
-                <div className="divider" />
-                <h2 className="text-lg font-semibold">Asignar Piezas a Grupo de Precios</h2>
-
-                <div className="w-64">
-                    <FormField label="Grupo de Precios" htmlFor="gp_select">
-                        <Select
-                            id="gp_select"
-                            value={selectedGrupoId}
-                            onValueChange={(value) => {
-                                setSelectedGrupoId(value);
-                                setSelectedPiezaIds([]);
-                            }}
-                            placeholder="Seleccionar grupo"
-                        >
+                {/* Grupos de precio de esta obra */}
+                <div className="mb-6">
+                    <h2 className="mb-2 text-lg font-medium">Grupos de Precio</h2>
+                    {grupoPrecios.length === 0 ? (
+                        <p className="text-sm text-gray-500">No hay grupos de precio para esta obra.</p>
+                    ) : (
+                        <div className="space-y-1">
                             {grupoPrecios.map((gp) => (
-                                <option key={gp.id} value={gp.id}>
-                                    {gp.descripcion} (${Number(gp.precio).toFixed(2)}/kg)
-                                </option>
+                                <div key={gp.id} className="flex items-center justify-between rounded border p-2">
+                                    <span className="font-medium">{gp.descripcion}</span>
+                                    <div className="flex items-center gap-4 text-sm">
+                                        <span className="font-mono">${fmt(gp.precio_kilo)}/kg</span>
+                                        <span className="text-gray-500">{gp.grupo_precio_conceptos_count} conceptos</span>
+                                    </div>
+                                </div>
                             ))}
-                        </Select>
-                    </FormField>
+                        </div>
+                    )}
                 </div>
 
-                {selectedGrupoId && (
-                    <>
-                        {availablePiezas.length > 0 ? (
-                            <form onSubmit={handleAssign}>
-                                <div className="overflow-x-auto">
-                                    <table className="table w-full">
-                                        <thead>
-                                            <tr>
-                                                <th>
-                                                    <input
-                                                        type="checkbox"
-                                                        className="checkbox checkbox-sm"
-                                                        checked={availablePiezas.length > 0 && availablePiezas.every((p) => selectedPiezaIds.includes(p.id))}
-                                                        onChange={toggleAllPiezas}
-                                                    />
-                                                </th>
-                                                <th>Marca</th>
-                                                <th>Descripcion</th>
-                                                <th className="text-right">Peso (kg)</th>
-                                                <th className="text-right">Cantidad</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {availablePiezas.map((pieza) => (
-                                                <tr key={pieza.id} className="hover cursor-pointer" onClick={() => togglePieza(pieza.id)}>
-                                                    <td>
-                                                        <input
-                                                            type="checkbox"
-                                                            className="checkbox checkbox-sm"
-                                                            checked={selectedPiezaIds.includes(pieza.id)}
-                                                            onChange={() => togglePieza(pieza.id)}
-                                                        />
-                                                    </td>
-                                                    <td className="font-medium">{pieza.marca}</td>
-                                                    <td>{pieza.descripcion}</td>
-                                                    <td className="text-right font-mono text-sm">{Number(pieza.peso).toFixed(2)}</td>
-                                                    <td className="text-right font-mono text-sm">{pieza.cantidad}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                {/* Asignaciones */}
+                <div className="mb-6">
+                    <h2 className="mb-2 text-lg font-medium">Asignaciones</h2>
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b text-left">
+                                <th className="py-2">Concepto</th>
+                                <th className="py-2">Grupo Precio</th>
+                                <th className="py-2 text-right">$/kg</th>
+                                <th className="py-2 w-12"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {grupoPrecioConceptos.map((gpc) => (
+                                <tr key={gpc.id} className="border-b">
+                                    <td className="py-2">{gpc.concepto?.marca} - {gpc.concepto?.descripcion}</td>
+                                    <td className="py-2">{gpc.grupo_precio?.descripcion}</td>
+                                    <td className="py-2 text-right font-mono">${fmt(gpc.grupo_precio?.precio_kilo ?? 0)}</td>
+                                    <td className="py-2">
+                                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemove(gpc.id)}>
+                                            <TrashIcon className="size-3 text-red-500" />
+                                        </Button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {grupoPrecioConceptos.length === 0 && (
+                                <tr><td colSpan={4} className="py-4 text-center text-gray-500">Sin asignaciones</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
 
-                                <div className="mt-4">
-                                    <Button type="submit" disabled={assignForm.processing || selectedPiezaIds.length === 0}>
-                                        {assignForm.processing ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
-                                        Asignar {selectedPiezaIds.length} pieza{selectedPiezaIds.length !== 1 ? 's' : ''}
-                                    </Button>
-                                </div>
-                            </form>
-                        ) : (
-                            <p className="text-sm text-gray-500">Todas las piezas de esta obra ya estan asignadas a este grupo.</p>
-                        )}
-                    </>
+                {/* Nueva asignacion */}
+                {unassignedConceptos.length > 0 && grupoPrecios.length > 0 && (
+                    <div>
+                        <h3 className="mb-2 text-sm font-medium">Nueva Asignacion</h3>
+                        <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                                <Select
+                                    value={selectedConcepto}
+                                    onValueChange={setSelectedConcepto}
+                                    placeholder="Concepto"
+                                >
+                                    {unassignedConceptos.map((c) => (
+                                        <option key={c.id} value={c.id}>{c.marca} - {c.descripcion}</option>
+                                    ))}
+                                </Select>
+                            </div>
+                            <div className="w-48">
+                                <Select
+                                    value={selectedGrupo}
+                                    onValueChange={setSelectedGrupo}
+                                    placeholder="Grupo precio"
+                                >
+                                    {grupoPrecios.map((gp) => (
+                                        <option key={gp.id} value={gp.id}>{gp.descripcion}</option>
+                                    ))}
+                                </Select>
+                            </div>
+                            <Button onClick={handleAssign} disabled={!selectedConcepto || !selectedGrupo}>
+                                Asignar
+                            </Button>
+                        </div>
+                    </div>
                 )}
-
-                <div className="flex justify-start pt-4">
-                    <Button variant="outline" asChild>
-                        <Link href="/admin/prod/grupo-precios">Volver</Link>
-                    </Button>
-                </div>
             </div>
         </AppLayout>
     );

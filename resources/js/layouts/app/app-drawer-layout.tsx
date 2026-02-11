@@ -26,6 +26,7 @@ import {
     Tag,
     Ticket,
     Users,
+    HardHat,
     Wrench,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -59,7 +60,7 @@ const navGroups: NavGroup[] = [
         icon: Folder,
         items: [
             { title: 'Obras', href: '/admin/obras', icon: Briefcase },
-            { title: 'Piezas', href: '/admin/prod/piezas', icon: Puzzle },
+            { title: 'Conceptos', href: '/admin/prod/conceptos', icon: Puzzle },
             { title: 'Media', href: '/admin/media', icon: Image },
             { title: 'Tags', href: '/admin/tags', icon: Tag },
         ],
@@ -77,10 +78,17 @@ const navGroups: NavGroup[] = [
         title: 'Produccion',
         icon: Factory,
         items: [
-            { title: 'Destajos', href: '/admin/prod/destajos', icon: DollarSign },
-            { title: 'Grupos', href: '/admin/prod/grupos', icon: Users },
+            { title: 'Registros', href: '/admin/prod/registros', icon: ClipboardList },
+            { title: 'Cortes', href: '/admin/prod/cortes', icon: DollarSign },
+            { title: 'Grupos Trabajo', href: '/admin/prod/grupos-trabajo', icon: Users },
             { title: 'Grupo Precios', href: '/admin/prod/grupo-precios', icon: Layers },
-            { title: 'Tipos Pago', href: '/admin/prod/tipos', icon: Tag },
+        ],
+    },
+    {
+        title: 'Infraestructura',
+        icon: HardHat,
+        items: [
+            { title: 'Recorridos', href: '/admin/infra/recorridos', icon: ClipboardList },
         ],
     },
     {

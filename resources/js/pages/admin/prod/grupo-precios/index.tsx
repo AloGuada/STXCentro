@@ -6,33 +6,31 @@ import { Head } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Produccion', href: '/admin/prod/destajos' },
+    { title: 'Produccion', href: '/admin/prod/cortes' },
     { title: 'Grupo Precios', href: '/admin/prod/grupo-precios' },
 ];
 
-type ObraWithCounts = Obra & {
-    piezas_count: number;
-};
+type ObraRow = Obra & { conceptos_count: number };
 
-const columns: Column<ObraWithCounts>[] = [
+const columns: Column<ObraRow>[] = [
     { key: 'no', label: 'No. Obra' },
     { key: 'descripcion', label: 'Descripcion' },
     {
-        key: 'piezas_count',
-        label: 'Piezas',
-        render: (obra) => <span className="font-mono text-sm">{obra.piezas_count ?? 0}</span>,
+        key: 'conceptos_count',
+        label: 'Conceptos',
+        render: (o) => <span className="font-mono text-sm">{o.conceptos_count}</span>,
     },
 ];
 
 type Props = {
-    obras: PaginatedData<ObraWithCounts>;
+    obras: PaginatedData<ObraRow>;
     filters: { search?: string };
 };
 
 export default function GrupoPreciosIndex({ obras, filters }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Grupo Precios - Obras" />
+            <Head title="Grupo de Precios" />
 
             <div className="p-6">
                 <DataTable
@@ -40,11 +38,11 @@ export default function GrupoPreciosIndex({ obras, filters }: Props) {
                     data={obras}
                     searchable
                     searchValue={filters.search}
-                    searchPlaceholder="Buscar obra..."
+                    searchPlaceholder="Buscar obras..."
                     createHref="/admin/prod/grupo-precios/create"
                     createLabel="Nuevo Grupo Precio"
                     emptyMessage="No hay obras registradas"
-                    getRowHref={(obra) => `/admin/prod/grupo-precios/obra/${obra.id}`}
+                    getRowHref={(o) => `/admin/prod/grupo-precios/obra/${o.id}`}
                 />
             </div>
         </AppLayout>

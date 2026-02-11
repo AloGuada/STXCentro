@@ -1,9 +1,9 @@
 <?php
 
+use App\Models\Concepto;
 use App\Models\Obra;
-use App\Models\Pieza;
 use App\Models\Prod\GrupoPrecio;
-use App\Models\Prod\MarcaGrupo;
+use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\User;
 
 beforeEach(function () {
@@ -26,8 +26,8 @@ describe('admin grupo precios', function () {
 
     test('showByObra page can be rendered', function () {
         $obra = Obra::factory()->create();
-        Pieza::factory()->count(2)->create(['obra_id' => $obra->id]);
-        GrupoPrecio::factory()->create();
+        Concepto::factory()->count(2)->create(['obra_id' => $obra->id]);
+        GrupoPrecio::factory()->create(['obra_id' => $obra->id]);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.prod.grupo-precios.show-by-obra', $obra));
@@ -37,20 +37,24 @@ describe('admin grupo precios', function () {
             ->component('admin/prod/grupo-precios/show')
             ->has('obra')
             ->has('grupoPrecios')
-            ->has('marcaGrupos')
+            ->has('grupoPrecioConceptos')
         );
     });
 
     test('grupo precio can be stored', function () {
+        $obra = Obra::factory()->create();
+
         $response = $this->actingAs($this->user)
             ->post(route('admin.prod.grupo-precios.store'), [
+                'obra_id' => $obra->id,
                 'descripcion' => 'Precio Normal',
-                'precio' => 15.50,
+                'precio_kilo' => 15.5000,
             ]);
 
         $response->assertRedirect(route('admin.prod.grupo-precios.index'));
 
-        $this->assertDatabaseHas('prod_grupo_precios', [
+        $this->assertDatabaseHas('prod_grupos_precio', [
+            'obra_id' => $obra->id,
             'descripcion' => 'Precio Normal',
         ]);
     });
@@ -60,13 +64,14 @@ describe('admin grupo precios', function () {
 
         $response = $this->actingAs($this->user)
             ->put(route('admin.prod.grupo-precios.update', $gp), [
+                'obra_id' => $gp->obra_id,
                 'descripcion' => 'Updated',
-                'precio' => 20,
+                'precio_kilo' => 20.0000,
             ]);
 
         $response->assertRedirect(route('admin.prod.grupo-precios.index'));
 
-        $this->assertDatabaseHas('prod_grupo_precios', [
+        $this->assertDatabaseHas('prod_grupos_precio', [
             'id' => $gp->id,
             'descripcion' => 'Updated',
         ]);
@@ -79,24 +84,22 @@ describe('admin grupo precios', function () {
             ->delete(route('admin.prod.grupo-precios.destroy', $gp));
 
         $response->assertRedirect(route('admin.prod.grupo-precios.index'));
-        $this->assertDatabaseMissing('prod_grupo_precios', ['id' => $gp->id]);
+        $this->assertDatabaseMissing('prod_grupos_precio', ['id' => $gp->id]);
     });
 
-    test('grupo precio cannot be deleted with marca grupos', function () {
+    test('grupo precio cannot be deleted with conceptos assigned', function () {
         $gp = GrupoPrecio::factory()->create();
-        MarcaGrupo::factory()->create(['grupo_precio_id' => $gp->id]);
+        GrupoPrecioConcepto::factory()->create(['grupo_precio_id' => $gp->id]);
 
         $response = $this->actingAs($this->user)
             ->delete(route('admin.prod.grupo-precios.destroy', $gp));
 
         $response->assertSessionHasErrors(['error']);
-        $this->assertDatabaseHas('prod_grupo_precios', ['id' => $gp->id]);
+        $this->assertDatabaseHas('prod_grupos_precio', ['id' => $gp->id]);
     });
 
-    test('edit page loads obras with piezas', function () {
+    test('edit page loads obras', function () {
         $gp = GrupoPrecio::factory()->create();
-        $obra = Obra::factory()->create();
-        Pieza::factory()->count(2)->create(['obra_id' => $obra->id]);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.prod.grupo-precios.edit', $gp));
@@ -109,33 +112,63 @@ describe('admin grupo precios', function () {
         );
     });
 
-    test('piezas can be bulk assigned to grupo precio', function () {
-        $gp = GrupoPrecio::factory()->create();
+    test('conceptos can be bulk assigned to grupo precio', function () {
         $obra = Obra::factory()->create();
-        $piezas = Pieza::factory()->count(3)->create(['obra_id' => $obra->id]);
+        $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id]);
+        $conceptos = Concepto::factory()->count(3)->create(['obra_id' => $obra->id]);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.prod.grupo-precios.assign-piezas', $gp), [
-                'pieza_ids' => $piezas->pluck('id')->toArray(),
+            ->post(route('admin.prod.grupo-precios.assign-conceptos', $gp), [
+                'concepto_ids' => $conceptos->pluck('id')->toArray(),
             ]);
 
         $response->assertRedirect();
 
-        expect(MarcaGrupo::where('grupo_precio_id', $gp->id)->count())->toBe(3);
+        expect(GrupoPrecioConcepto::where('grupo_precio_id', $gp->id)->count())->toBe(3);
     });
 
     test('bulk assign does not duplicate existing assignments', function () {
-        $gp = GrupoPrecio::factory()->create();
-        $pieza = Pieza::factory()->create();
-        MarcaGrupo::create(['pieza_id' => $pieza->id, 'grupo_precio_id' => $gp->id]);
+        $obra = Obra::factory()->create();
+        $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id]);
+        $concepto = Concepto::factory()->create(['obra_id' => $obra->id]);
+        GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.prod.grupo-precios.assign-piezas', $gp), [
-                'pieza_ids' => [$pieza->id],
+            ->post(route('admin.prod.grupo-precios.assign-conceptos', $gp), [
+                'concepto_ids' => [$concepto->id],
             ]);
 
         $response->assertRedirect();
 
-        expect(MarcaGrupo::where('grupo_precio_id', $gp->id)->count())->toBe(1);
+        expect(GrupoPrecioConcepto::where('grupo_precio_id', $gp->id)->count())->toBe(1);
+    });
+
+    test('pivot concepto can be stored', function () {
+        $obra = Obra::factory()->create();
+        $concepto = Concepto::factory()->create(['obra_id' => $obra->id]);
+        $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id]);
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.prod.grupo-precio-conceptos.store'), [
+                'concepto_id' => $concepto->id,
+                'grupo_precio_id' => $gp->id,
+            ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('prod_grupo_precio_conceptos', [
+            'concepto_id' => $concepto->id,
+            'grupo_precio_id' => $gp->id,
+        ]);
+    });
+
+    test('pivot concepto can be destroyed', function () {
+        $gpc = GrupoPrecioConcepto::factory()->create();
+
+        $response = $this->actingAs($this->user)
+            ->delete(route('admin.prod.grupo-precio-conceptos.destroy', $gpc));
+
+        $response->assertRedirect();
+        $this->assertDatabaseMissing('prod_grupo_precio_conceptos', ['id' => $gpc->id]);
     });
 });

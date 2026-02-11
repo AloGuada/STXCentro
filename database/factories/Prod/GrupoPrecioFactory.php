@@ -2,6 +2,7 @@
 
 namespace Database\Factories\Prod;
 
+use App\Models\Obra;
 use App\Models\Prod\GrupoPrecio;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -18,8 +19,9 @@ class GrupoPrecioFactory extends Factory
     public function definition(): array
     {
         return [
+            'obra_id' => Obra::factory(),
             'descripcion' => fake()->words(2, true),
-            'precio' => fake()->randomFloat(2, 5, 50),
+            'precio_kilo' => fake()->randomFloat(4, 1, 50),
         ];
     }
 }

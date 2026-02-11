@@ -377,113 +377,258 @@ export type StiGrupo = {
 };
 
 // Produccion Types
-export type Pieza = {
+export type Concepto = {
     id: number;
     obra_id: number;
     marca: string;
     descripcion: string;
-    longitud: number | null;
-    peso: number;
-    cantidad: number;
+    peso_unitario: number;
     version: number;
+    activo: boolean;
     obra?: Obra;
-    marca_grupos?: ProdMarcaGrupo[];
+    grupo_precio_conceptos?: ProdGrupoPrecioConcepto[];
     created_at: string;
     updated_at: string;
 };
 
 export type ProdGrupoPrecio = {
     id: number;
+    obra_id: number;
     descripcion: string;
-    precio: number;
-    marca_grupos_count?: number;
+    precio_kilo: number;
+    obra?: Obra;
+    grupo_precio_conceptos_count?: number;
+    conceptos?: Concepto[];
     created_at: string;
     updated_at: string;
 };
 
-export type ProdMarcaGrupo = {
+export type ProdGrupoPrecioConcepto = {
     id: number;
-    pieza_id: number;
     grupo_precio_id: number;
-    pieza?: Pieza;
+    concepto_id: number;
     grupo_precio?: ProdGrupoPrecio;
+    concepto?: Concepto;
     created_at: string;
     updated_at: string;
 };
 
-export type ProdGrupo = {
+export type ProdGrupoTrabajo = {
     id: number;
     descripcion: string;
-    empleados?: ProdEmpleadoGrupo[];
+    linea: number;
+    modulo: number;
+    activo: boolean;
+    empleados?: ProdGrupoEmpleado[];
     empleados_count?: number;
-    fabricados_count?: number;
     created_at: string;
     updated_at: string;
 };
 
-export type ProdEmpleadoGrupo = {
+export type ProdGrupoEmpleado = {
     id: number;
-    grupo_id: number;
+    grupo_trabajo_id: number;
     nombre: string;
     no_empleado: string | null;
+    porcentaje: number;
     created_at: string;
     updated_at: string;
 };
 
-export type ProdTipo = {
+export type ProdRegistro = {
     id: number;
-    descripcion: string;
-    orden: number;
-    desgloce: boolean;
-    pagos_extra_count?: number;
+    fecha: string;
+    concepto_id: number;
+    grupo_trabajo_id: number;
+    cantidad: number;
+    concepto?: Concepto;
+    grupo_trabajo?: ProdGrupoTrabajo;
     created_at: string;
     updated_at: string;
 };
 
-export type ProdDestajo = {
+export type ProdCorte = {
     id: number;
     semana: number;
-    cerrada: boolean;
-    cantidad: number | null;
+    fecha_inicio: string;
+    fecha_fin: string;
+    cerrado: boolean;
     fecha_cierre: string | null;
-    fabricados?: ProdFabricado[];
-    pagos_extra?: ProdPagoExtra[];
-    fabricados_count?: number;
-    pagos_extra_count?: number;
-    fabricados_sum_total_calculado?: number | null;
+    liquidaciones?: ProdLiquidacion[];
+    liquidaciones_count?: number;
     created_at: string;
     updated_at: string;
 };
 
-export type ProdFabricado = {
+export type ProdLiquidacion = {
     id: number;
-    destajo_id: number;
-    dest_grupo_id: number | null;
-    pieza_id: number;
+    corte_id: number;
+    grupo_trabajo_id: number;
+    total_kilos: number;
+    total_produccion: number;
+    total_extras: number;
+    total_final: number;
+    generado_en: string;
+    generado_por: string;
+    corte?: ProdCorte;
+    grupo_trabajo?: ProdGrupoTrabajo;
+    generador?: Usuario;
+    detalles?: ProdLiquidacionDetalle[];
+    extras?: ProdExtra[];
+    empleados?: ProdLiquidacionEmpleado[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdLiquidacionDetalle = {
+    id: number;
+    liquidacion_id: number;
+    concepto_id: number;
+    grupo_precio_id: number;
     cantidad: number;
-    porcentual: number;
-    precio_unitario_aplicado: number;
-    total_calculado: number;
-    saldo_pendiente: number;
-    pieza?: Pieza;
-    destajo?: ProdDestajo;
-    dest_grupo?: ProdGrupo;
+    kilos: number;
+    precio_kilo_aplicado: number;
+    total: number;
     created_at: string;
     updated_at: string;
 };
 
-export type ProdPagoExtra = {
+export type ProdExtra = {
     id: number;
-    destajo_id: number;
-    dest_grupo_id: number | null;
-    tipo_id: number;
-    descripcion: string | null;
-    precio: number;
-    dias: number;
-    personas: number;
-    tipo?: ProdTipo;
-    destajo?: ProdDestajo;
-    dest_grupo?: ProdGrupo;
+    liquidacion_id: number;
+    descripcion: string;
+    monto: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdLiquidacionEmpleado = {
+    id: number;
+    liquidacion_id: number;
+    nombre: string;
+    no_empleado: string | null;
+    porcentaje: number;
+    monto_asignado: number;
+    created_at: string;
+    updated_at: string;
+};
+
+// Infraestructura Types
+export type InfraCompresor = {
+    id: number;
+    usuario_id: string | null;
+    compresor_1_status: boolean;
+    compresor_1_presion_aire: number | null;
+    compresor_1_tiempo_trabajo: number | null;
+    compresor_1_tiempo_marcha: number | null;
+    compresor_1_kwhr: number | null;
+    compresor_2_status: boolean;
+    compresor_2_presion_aire: number | null;
+    compresor_2_tiempo_trabajo: number | null;
+    compresor_2_tiempo_marcha: number | null;
+    compresor_2_kwhr: number | null;
+    compresor_3_status: boolean;
+    compresor_3_presion_aire: number | null;
+    compresor_3_tiempo_trabajo: number | null;
+    compresor_3_tiempo_marcha: number | null;
+    compresor_3_kwhr: number | null;
+    observaciones: string | null;
+    usuario?: Usuario;
+    created_at: string;
+    updated_at: string;
+};
+
+export type InfraBomba = {
+    id: number;
+    usuario_id: string | null;
+    bomba_posos_1: boolean;
+    bomba_posos_2: boolean;
+    bomba_planta_1: boolean;
+    bomba_planta_2: boolean;
+    bomba_planta_3: boolean;
+    nivel_salmuera: number | null;
+    nivel_tinaco: number | null;
+    nivel_sisterna: number | null;
+    presion_tuberia: number | null;
+    nivel_hipoclorito: number | null;
+    nivel_anticongelante: number | null;
+    aceite_del_motor: number | null;
+    tanque_diesel: number | null;
+    voltaje_bateria: number | null;
+    bomba_jockey: boolean;
+    bomba_electrica: boolean;
+    bomba_diesel: boolean;
+    presion_tuberia_incendio: number | null;
+    observaciones: string | null;
+    usuario?: Usuario;
+    created_at: string;
+    updated_at: string;
+};
+
+export type InfraTransformador = {
+    id: number;
+    usuario_id: string | null;
+    linea_A: number | null;
+    linea_A_max: number | null;
+    date_A: string | null;
+    linea_B: number | null;
+    linea_B_max: number | null;
+    date_B: string | null;
+    linea_C: number | null;
+    linea_C_max: number | null;
+    date_C: string | null;
+    total_1: number | null;
+    total_5: number | null;
+    lectura_5y5: number | null;
+    lectura_301: number | null;
+    lectura_302: number | null;
+    lectura_303: number | null;
+    lectura_310: number | null;
+    observaciones: string | null;
+    usuario?: Usuario;
+    created_at: string;
+    updated_at: string;
+};
+
+export type InfraTanque = {
+    id: number;
+    usuario_id: string | null;
+    pa_sistema_oxigeno: number | null;
+    presion_sistema_oxigeno: number | null;
+    presion_tanque_oxigeno: number | null;
+    lt_tanque_oxigeno: number | null;
+    kg_tanque_oxigeno: number | null;
+    pa_sistema_argon: number | null;
+    presion_sistema_argon: number | null;
+    presion_tanque_argon: number | null;
+    lt_tanque_argon: number | null;
+    kg_tanque_argon: number | null;
+    pa_sistema_co2: number | null;
+    presion_sistema_co2: number | null;
+    presion_tanque_co2: number | null;
+    lt_tanque_co2: number | null;
+    kg_tanque_co2: number | null;
+    pa_sistema_lp: number | null;
+    presion_sistema_lp: number | null;
+    presion_tanque_lp: number | null;
+    numero_tanque_lp: number | null;
+    lt_tanque_lp: number | null;
+    kg_tanque_lp: number | null;
+    observaciones: string | null;
+    usuario?: Usuario;
+    created_at: string;
+    updated_at: string;
+};
+
+export type InfraPtar = {
+    id: number;
+    usuario_id: string | null;
+    soplador_activa: boolean;
+    bomba_activa: boolean;
+    nivel_cloro: number | null;
+    trampa_solida: boolean;
+    observaciones: string | null;
+    usuario?: Usuario;
     created_at: string;
     updated_at: string;
 };
