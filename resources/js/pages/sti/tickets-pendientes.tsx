@@ -1,5 +1,4 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import AuthLayout from '@/layouts/auth-layout';
 import type { Departamento, PaginatedData, StiStatus, StiTicket, StiTicketComentario, StiTicketHistorial } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
 import { ClockIcon, PlusIcon, TicketIcon } from 'lucide-react';
@@ -16,10 +15,10 @@ type Props = {
 
 export default function TicketsPendientes({ tickets }: Props) {
     return (
-        <AuthLayout title="Tickets Pendientes" description="Estado de los tickets de soporte">
+        <div className="flex min-h-svh flex-col items-center bg-background p-6 pt-10 md:p-10">
             <Head title="Tickets Pendientes - Soporte TI" />
 
-            <div className="mx-auto w-full max-w-4xl">
+            <div className="mx-auto w-full max-w-5xl">
                 <Card>
                     <CardHeader>
                         <div className="flex items-center justify-between">
@@ -105,6 +104,6 @@ export default function TicketsPendientes({ tickets }: Props) {
                     </CardContent>
                 </Card>
             </div>
-        </AuthLayout>
+        </div>
     );
 }
