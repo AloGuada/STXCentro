@@ -10,11 +10,13 @@ use App\Models\Departamento;
 use App\Models\Media;
 use App\Models\Sti\AsignacionActivo;
 use App\Models\Sti\Equipo;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class AsignacionActivoController extends Controller
 {
@@ -96,6 +98,35 @@ class AsignacionActivoController extends Controller
         ]);
 
         return back()->with('success', 'Archivo subido correctamente.');
+    }
+
+    public function generarPdf(AsignacionActivo $asignacion_activo): HttpResponse
+    {
+        $asignacion_activo->load([
+            'departamento',
+            'equipo.items.tipo',
+            'equipo.items.media',
+        ]);
+
+        $items = $asignacion_activo->equipo?->items ?? collect();
+        $itemPrincipal = $items->firstWhere('principal', true);
+        $itemsAccesorios = $items->where('accesorio', true)->values();
+
+        $pdf = Pdf::loadView('pdf.sti.responsiva-equipo', [
+            'asignacion' => $asignacion_activo,
+            'equipo' => $asignacion_activo->equipo,
+            'itemPrincipal' => $itemPrincipal,
+            'itemsAccesorios' => $itemsAccesorios,
+            'items' => $items,
+        ])->setPaper('letter', 'portrait')
+            ->setOption('margin-top', 30)
+            ->setOption('margin-bottom', 60)
+            ->setOption('margin-left', 60)
+            ->setOption('margin-right', 60);
+
+        $filename = 'responsiva-equipo-'.$asignacion_activo->id.'.pdf';
+
+        return $pdf->download($filename);
     }
 
     public function destroyMedia(AsignacionActivo $asignacion_activo, Media $media): RedirectResponse

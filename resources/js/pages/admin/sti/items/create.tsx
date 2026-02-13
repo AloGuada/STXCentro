@@ -27,6 +27,8 @@ export default function ItemsCreate({ tipos }: Props) {
         costo: 0,
         no_serie: '',
         estado: 'disponible' as StiItemEstado,
+        principal: false,
+        accesorio: false,
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -101,6 +103,27 @@ export default function ItemsCreate({ tipos }: Props) {
                                 ))}
                             </Select>
                         </FormField>
+
+                        <div className="flex gap-6">
+                            <label className="flex cursor-pointer items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    className="checkbox"
+                                    checked={data.principal}
+                                    onChange={(e) => setData('principal', e.target.checked)}
+                                />
+                                <span className="label-text">Principal</span>
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    className="checkbox"
+                                    checked={data.accesorio}
+                                    onChange={(e) => setData('accesorio', e.target.checked)}
+                                />
+                                <span className="label-text">Accesorio</span>
+                            </label>
+                        </div>
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>

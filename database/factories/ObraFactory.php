@@ -20,6 +20,10 @@ class ObraFactory extends Factory
         return [
             'no' => fake()->unique()->regexify('[0-9]{4}'),
             'descripcion' => fake()->words(4, true),
+            'fecha_inicio' => fake()->optional()->date(),
+            'fecha_fin' => fake()->optional()->date(),
+            'presupuesto_total' => fake()->randomFloat(2, 0, 10000000),
+            'estatus' => fake()->randomElement(['planificacion', 'en_proceso', 'activa', 'suspendida', 'completada', 'cancelada']),
         ];
     }
 }

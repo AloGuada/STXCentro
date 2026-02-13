@@ -54,6 +54,42 @@ class RolesAndPermissionsSeeder extends Seeder
             'intra.secciones.eliminar',
         ];
 
+        // Crear permisos del módulo Costos
+        $costosPermissions = [
+            'costos.proveedores.ver',
+            'costos.proveedores.crear',
+            'costos.proveedores.editar',
+            'costos.proveedores.eliminar',
+            'costos.tipo-rubros.ver',
+            'costos.tipo-rubros.crear',
+            'costos.tipo-rubros.editar',
+            'costos.tipo-rubros.eliminar',
+            'costos.rubros.ver',
+            'costos.rubros.crear',
+            'costos.rubros.editar',
+            'costos.rubros.eliminar',
+            'costos.tipo-solicitudes.ver',
+            'costos.tipo-solicitudes.crear',
+            'costos.tipo-solicitudes.editar',
+            'costos.tipo-solicitudes.eliminar',
+            'costos.obra-rubros.ver',
+            'costos.obra-rubros.crear',
+            'costos.obra-rubros.editar',
+            'costos.obra-rubros.eliminar',
+            'costos.aprobaciones.ver',
+            'costos.aprobaciones.crear',
+            'costos.aprobaciones.editar',
+            'costos.aprobaciones.eliminar',
+            'costos.solicitudes-pago.ver',
+            'costos.solicitudes-pago.crear',
+            'costos.solicitudes-pago.editar',
+            'costos.solicitudes-pago.eliminar',
+            'costos.afectaciones.ver',
+            'costos.afectaciones.crear',
+            'costos.afectaciones.editar',
+            'costos.afectaciones.eliminar',
+        ];
+
         // Crear permisos Core
         $corePermissions = [
             'usuarios.ver',
@@ -72,7 +108,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'roles.asignar',
         ];
 
-        $allPermissions = array_merge($stiPermissions, $intraPermissions, $corePermissions);
+        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $corePermissions);
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
@@ -83,6 +119,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $adminSti = Role::firstOrCreate(['name' => 'admin-sti', 'guard_name' => 'web']);
         $tecnicoSti = Role::firstOrCreate(['name' => 'tecnico-sti', 'guard_name' => 'web']);
         $adminIntranet = Role::firstOrCreate(['name' => 'admin-intranet', 'guard_name' => 'web']);
+        $adminCostos = Role::firstOrCreate(['name' => 'admin-costos', 'guard_name' => 'web']);
         $empleado = Role::firstOrCreate(['name' => 'empleado', 'guard_name' => 'web']);
 
         // Super admin tiene todos los permisos
@@ -103,6 +140,9 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Admin Intranet tiene todos los permisos de intranet
         $adminIntranet->syncPermissions($intraPermissions);
+
+        // Admin Costos tiene todos los permisos de costos
+        $adminCostos->syncPermissions($costosPermissions);
 
         // Empleado tiene permisos básicos de lectura
         $empleado->syncPermissions([

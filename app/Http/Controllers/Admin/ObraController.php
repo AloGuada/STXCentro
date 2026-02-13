@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\ConceptoImportCsvRequest;
 use App\Http\Requests\Admin\ObraStoreRequest;
 use App\Http\Requests\Admin\ObraUpdateRequest;
 use App\Models\Concepto;
+use App\Models\Costos\Rubro;
 use App\Models\Obra;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,10 +45,14 @@ class ObraController extends Controller
 
     public function edit(Obra $obra): Response
     {
-        $obra->load(['conceptos' => fn ($q) => $q->orderBy('marca')]);
+        $obra->load([
+            'conceptos' => fn ($q) => $q->orderBy('marca'),
+            'obraRubros.rubro.tipoRubro',
+        ]);
 
         return Inertia::render('admin/obras/edit', [
             'obra' => $obra,
+            'rubros' => Rubro::query()->with('tipoRubro')->orderBy('codigo')->get(),
         ]);
     }
 

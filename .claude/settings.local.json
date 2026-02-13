@@ -54,7 +54,13 @@
       "Bash(powershell -Command \"[System.Text.Encoding]::UTF8.GetString\\([System.Convert]::FromBase64String\\(\\(\\(gh api repos/steelexdev/infrabook/contents/resources/js/pages/Sistemas/Compresores.tsx --jq ''.content''\\) -join ''''\\)\\)\\)\")",
       "Bash(powershell -Command \"[System.Text.Encoding]::UTF8.GetString\\([System.Convert]::FromBase64String\\(\\(\\(gh api repos/steelexdev/infrabook/contents/resources/js/pages/Sistemas/Tanques.tsx --jq ''.content''\\) -join ''''\\)\\)\\)\")",
       "Bash(powershell -Command \"[System.Text.Encoding]::UTF8.GetString\\([System.Convert]::FromBase64String\\(\\(\\(gh api repos/steelexdev/infrabook/contents/resources/js/pages/Sistemas/Transformadores.tsx --jq ''.content''\\) -join ''''\\)\\)\\)\")",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(git checkout:*)",
+      "Bash(powershell:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(dir:*)",
+      "Bash(python:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

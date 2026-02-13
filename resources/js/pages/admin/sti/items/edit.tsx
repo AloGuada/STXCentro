@@ -1,5 +1,6 @@
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
+import { ImageUpload } from '@/components/sti/image-upload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -9,6 +10,7 @@ import {
     ITEM_ACCION_LABELS,
     ITEM_ESTADO_COLORS,
     ITEM_ESTADO_LABELS,
+    type Media,
     type StiItem,
     type StiItemAccion,
     type StiItemEstado,
@@ -20,12 +22,12 @@ import { Loader2Icon, MonitorIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 
 type Props = {
-    item: StiItem & { historial: StiItemHistorial[] };
+    item: StiItem & { historial: StiItemHistorial[]; media: Media[] };
     tipos: StiItemTipo[];
 };
 
 export default function ItemsEdit({ item, tipos }: Props) {
-    const [activeTab, setActiveTab] = useState<'datos' | 'historial'>('datos');
+    const [activeTab, setActiveTab] = useState<'datos' | 'historial' | 'imagenes'>('datos');
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -40,6 +42,8 @@ export default function ItemsEdit({ item, tipos }: Props) {
         costo: Number(item.costo),
         no_serie: item.no_serie ?? '',
         estado: item.estado,
+        principal: item.principal,
+        accesorio: item.accesorio,
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -69,6 +73,13 @@ export default function ItemsEdit({ item, tipos }: Props) {
                         onClick={() => setActiveTab('historial')}
                     >
                         Historial ({item.historial?.length ?? 0})
+                    </button>
+                    <button
+                        type="button"
+                        className={`tab ${activeTab === 'imagenes' ? 'tab-active' : ''}`}
+                        onClick={() => setActiveTab('imagenes')}
+                    >
+                        Imagenes ({item.media?.length ?? 0})
                     </button>
                 </div>
 
@@ -161,6 +172,27 @@ export default function ItemsEdit({ item, tipos }: Props) {
                                     </Select>
                                 </FormField>
 
+                                <div className="flex gap-6">
+                                    <label className="flex cursor-pointer items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            className="checkbox"
+                                            checked={data.principal}
+                                            onChange={(e) => setData('principal', e.target.checked)}
+                                        />
+                                        <span className="label-text">Principal</span>
+                                    </label>
+                                    <label className="flex cursor-pointer items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            className="checkbox"
+                                            checked={data.accesorio}
+                                            onChange={(e) => setData('accesorio', e.target.checked)}
+                                        />
+                                        <span className="label-text">Accesorio</span>
+                                    </label>
+                                </div>
+
                                 <div className="flex justify-end gap-2">
                                     <Button variant="outline" asChild>
                                         <Link href="/admin/sti/items">Cancelar</Link>
@@ -172,6 +204,18 @@ export default function ItemsEdit({ item, tipos }: Props) {
                                 </div>
                             </form>
                         </div>
+                    </div>
+                )}
+
+                {/* Tab: Imagenes */}
+                {activeTab === 'imagenes' && (
+                    <div className="w-3/4">
+                        <h2 className="mb-4 text-lg font-semibold">Imagenes del Item</h2>
+                        <ImageUpload
+                            media={item.media ?? []}
+                            storeUrl={`/admin/sti/items/${item.id}/media`}
+                            destroyUrlPrefix={`/admin/sti/items/${item.id}/media`}
+                        />
                     </div>
                 )}
 

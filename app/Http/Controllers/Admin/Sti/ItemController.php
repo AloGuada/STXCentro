@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Admin\Sti;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Sti\ItemStoreRequest;
 use App\Http\Requests\Admin\Sti\ItemUpdateRequest;
+use App\Http\Requests\Admin\Sti\MediaStoreRequest;
+use App\Models\Media;
 use App\Models\Sti\Grupo;
 use App\Models\Sti\Item;
 use App\Models\Sti\ItemHistorial;
 use App\Models\Sti\ItemTipo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -50,6 +53,8 @@ class ItemController extends Controller
             'costo' => $request->costo,
             'no_serie' => $request->no_serie,
             'estado' => $request->estado,
+            'principal' => $request->boolean('principal'),
+            'accesorio' => $request->boolean('accesorio'),
         ]);
 
         return to_route('admin.sti.items.index');
@@ -63,6 +68,7 @@ class ItemController extends Controller
             'historial' => fn ($q) => $q->orderByDesc('fecha'),
             'historial.equipo',
             'historial.tecnico',
+            'media',
         ]);
 
         return Inertia::render('admin/sti/items/edit', [
@@ -79,6 +85,8 @@ class ItemController extends Controller
             'costo' => $request->costo,
             'no_serie' => $request->no_serie,
             'estado' => $request->estado,
+            'principal' => $request->boolean('principal'),
+            'accesorio' => $request->boolean('accesorio'),
         ]);
 
         return to_route('admin.sti.items.edit', $item);
@@ -128,6 +136,33 @@ class ItemController extends Controller
         ]);
 
         return back();
+    }
+
+    public function storeMedia(MediaStoreRequest $request, Item $item): RedirectResponse
+    {
+        $file = $request->file('archivo');
+        $path = $file->store('sti/items', 'public');
+
+        $item->media()->create([
+            'descripcion' => $request->descripcion ?? $file->getClientOriginalName(),
+            'path' => $path,
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
+        ]);
+
+        return back()->with('success', 'Archivo subido correctamente.');
+    }
+
+    public function destroyMedia(Item $item, Media $media): RedirectResponse
+    {
+        if ($media->mediable_id !== $item->id || $media->mediable_type !== Item::class) {
+            abort(404);
+        }
+
+        Storage::disk('public')->delete($media->path);
+        $media->delete();
+
+        return back()->with('success', 'Archivo eliminado correctamente.');
     }
 
     public function retirar(Request $request, Item $item): RedirectResponse

@@ -36,10 +36,26 @@ export type Departamento = {
     updated_at: string;
 };
 
+export type ObraEstatus = 'planificacion' | 'en_proceso' | 'activa' | 'suspendida' | 'completada' | 'cancelada';
+
+export const OBRA_ESTATUS_LABELS: Record<ObraEstatus, string> = {
+    planificacion: 'Planificación',
+    en_proceso: 'En Proceso',
+    activa: 'Activa',
+    suspendida: 'Suspendida',
+    completada: 'Completada',
+    cancelada: 'Cancelada',
+};
+
 export type Obra = {
     id: number;
     no: string;
     descripcion: string;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+    presupuesto_total: number;
+    estatus: ObraEstatus;
+    obra_rubros?: CostosObraRubro[];
     created_at: string;
     updated_at: string;
 };
@@ -359,9 +375,12 @@ export type StiItem = {
     costo: number;
     no_serie: string | null;
     estado: StiItemEstado;
+    principal: boolean;
+    accesorio: boolean;
     tipo?: StiItemTipo;
     grupo?: StiGrupo;
     historial?: StiItemHistorial[];
+    media?: Media[];
     created_at: string;
     updated_at: string;
 };
@@ -645,6 +664,261 @@ export type StiItemHistorial = {
     observaciones: string | null;
     equipo?: StiEquipo;
     tecnico?: StiTecnico;
+    created_at: string;
+    updated_at: string;
+};
+
+// Costos Types
+export type Proveedor = {
+    id: number;
+    codigo: string;
+    razon_social: string;
+    nombre_comercial: string | null;
+    rfc: string;
+    direccion: string | null;
+    telefono: string | null;
+    email: string | null;
+    contacto_nombre: string | null;
+    tiene_acceso_portal: boolean;
+    maneja_credito: boolean;
+    limite_credito: number;
+    dias_credito_default: number;
+    departamento_id: number | null;
+    tipo_proveedor: string | null;
+    activo: boolean;
+    departamento?: Departamento;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosTipoRubro = {
+    id: number;
+    descripcion: string;
+    rubros_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosRubro = {
+    id: number;
+    codigo: string;
+    descripcion: string;
+    tipo_rubro_id: number;
+    departamento_id: number | null;
+    tipo_rubro?: CostosTipoRubro;
+    departamento?: Departamento;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosTipoSolicitud = {
+    id: number;
+    titulo: string;
+    descripcion: string | null;
+    rubros: boolean;
+    documentos?: CostosDocumento[];
+    documentos_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosDocumento = {
+    id: number;
+    tipo_solicitud_id: number;
+    titulo: string;
+    multiple: boolean;
+    texto: string | null;
+    texto_adicional: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosObraRubro = {
+    id: number;
+    obra_id: number;
+    rubro_id: number;
+    presupuestado: number;
+    acumulado: number;
+    rubro?: CostosRubro;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosAprobacionDepartamento = {
+    id: number;
+    departamento_id: number;
+    nivel: number;
+    nombre_nivel: string;
+    aprobador_id: string | null;
+    activo: boolean;
+    departamento?: Departamento;
+    aprobador?: Usuario;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosSolicitudPagoEstatus = 'borrador' | 'pendiente_firma' | 'aprobada' | 'pagada' | 'cancelada';
+
+export const SOLICITUD_PAGO_ESTATUS_LABELS: Record<CostosSolicitudPagoEstatus, string> = {
+    borrador: 'Borrador',
+    pendiente_firma: 'Pendiente Firma',
+    aprobada: 'Aprobada',
+    pagada: 'Pagada',
+    cancelada: 'Cancelada',
+};
+
+export const SOLICITUD_PAGO_ESTATUS_COLORS: Record<CostosSolicitudPagoEstatus, string> = {
+    borrador: 'badge-ghost',
+    pendiente_firma: 'badge-warning',
+    aprobada: 'badge-success',
+    pagada: 'badge-info',
+    cancelada: 'badge-error',
+};
+
+export type CostosSolicitudPago = {
+    id: number;
+    folio: string;
+    solicitante_id: string;
+    departamento_id: number;
+    proveedor_id: number | null;
+    tipo_solicitud_id: number;
+    concepto: string;
+    justificacion: string | null;
+    monto_total: number;
+    tipo_pago: string;
+    fecha_pago_solicitada: string | null;
+    fecha_pago_realizada: string | null;
+    referencia_pago: string | null;
+    estatus: CostosSolicitudPagoEstatus;
+    solicitante?: Usuario;
+    departamento?: Departamento;
+    proveedor?: Proveedor;
+    tipo_solicitud?: CostosTipoSolicitud;
+    detalles?: CostosSolicitudPagoDetalle[];
+    archivos?: CostosSolicitudArchivo[];
+    aprobaciones?: CostosAprobacionSolicitud[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosSolicitudPagoDetalle = {
+    id: number;
+    solicitud_id: number;
+    obra_rubro_id: number;
+    concepto: string;
+    cantidad: number;
+    precio_unitario: number;
+    subtotal: number;
+    obra_rubro?: CostosObraRubro;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosSolicitudArchivo = {
+    id: number;
+    solicitud_id: number;
+    archivo_id: number;
+    ruta_archivo: string;
+    nombre_original: string;
+    tags: Record<string, string> | null;
+    documento?: CostosDocumento;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosAprobacionSolicitud = {
+    id: number;
+    solicitud_id: number;
+    nivel: number;
+    aprobador_id: string | null;
+    estatus: string;
+    fecha_respuesta: string | null;
+    observaciones: string | null;
+    aprobador?: Usuario;
+    created_at: string;
+    updated_at: string;
+};
+
+// Afectaciones Presupuestales Types
+export type CostosAfectacionEstatus = 'borrador' | 'pendiente_firma' | 'aprobada' | 'cancelada';
+
+export const AFECTACION_ESTATUS_LABELS: Record<CostosAfectacionEstatus, string> = {
+    borrador: 'Borrador',
+    pendiente_firma: 'Pendiente Firma',
+    aprobada: 'Aprobada',
+    cancelada: 'Cancelada',
+};
+
+export const AFECTACION_ESTATUS_COLORS: Record<CostosAfectacionEstatus, string> = {
+    borrador: 'badge-ghost',
+    pendiente_firma: 'badge-warning',
+    aprobada: 'badge-success',
+    cancelada: 'badge-error',
+};
+
+export type CostosAfectacionPresupuestal = {
+    id: number;
+    folio: string;
+    fecha: string;
+    tipo_origen: string;
+    descripcion: string;
+    monto_total: number;
+    estatus: CostosAfectacionEstatus;
+    proveedor_id: number | null;
+    departamento_id: number;
+    creado_por: string | Usuario;
+    aprobado_por: string | Usuario | null;
+    fecha_aprobacion: string | null;
+    pdf_formato_path: string | null;
+    pdf_firmado_path: string | null;
+    departamento?: Departamento;
+    proveedor?: Proveedor;
+    detalles?: CostosAfectacionDetalle[];
+    historial?: CostosAfectacionHistorial[];
+    rubros_afectados?: CostosRubroAfectado[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosAfectacionDetalle = {
+    id: number;
+    afectacion_id: number;
+    obra_rubro_id: number;
+    concepto: string;
+    cantidad: number;
+    precio_unitario: number;
+    monto: number;
+    obra_rubro?: CostosObraRubro;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosAfectacionHistorial = {
+    id: number;
+    afectacion_id: number;
+    estatus_anterior: string;
+    estatus_nuevo: string;
+    fecha: string;
+    usuario_id: string | null;
+    observaciones: string | null;
+    usuario?: Usuario;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosRubroAfectado = {
+    id: number;
+    entrada_type: string;
+    entrada_id: number;
+    obra_rubro_id: number;
+    monto: number;
+    sobre_giro: boolean;
+    descripcion: string | null;
+    tipo_movimiento: string;
+    estatus: string;
+    usuario_aplica_id: string | null;
+    fecha_aplicacion: string | null;
+    obra_rubro?: CostosObraRubro;
     created_at: string;
     updated_at: string;
 };

@@ -19,6 +19,10 @@ class ObraUpdateRequest extends FormRequest
         return [
             'no' => ['required', 'string', 'max:50'],
             'descripcion' => ['required', 'string', 'max:255'],
+            'fecha_inicio' => ['nullable', 'date'],
+            'fecha_fin' => ['nullable', 'date', 'after_or_equal:fecha_inicio'],
+            'presupuesto_total' => ['nullable', 'numeric', 'min:0'],
+            'estatus' => ['nullable', 'string', 'in:planificacion,en_proceso,activa,suspendida,completada,cancelada'],
         ];
     }
 

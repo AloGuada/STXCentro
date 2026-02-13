@@ -1,0 +1,382 @@
+<?php
+
+namespace App\Http\Controllers\Admin\Costos;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Costos\SolicitudPagoStoreRequest;
+use App\Http\Requests\Admin\Costos\SolicitudPagoUpdateRequest;
+use App\Models\Costos\AprobacionDepartamento;
+use App\Models\Costos\ObraRubro;
+use App\Models\Costos\SolicitudArchivo;
+use App\Models\Costos\SolicitudPago;
+use App\Models\Costos\SolicitudPagoDetalle;
+use App\Models\Costos\TipoSolicitud;
+use App\Models\Departamento;
+use App\Models\Obra;
+use App\Models\Proveedor;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
+
+class SolicitudPagoController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        $solicitudes = SolicitudPago::query()
+            ->with(['departamento', 'proveedor', 'solicitante'])
+            ->when($request->search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('folio', 'like', "%{$search}%")
+                        ->orWhere('concepto', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
+        return Inertia::render('admin/costos/solicitudes-pago/index', [
+            'solicitudes' => $solicitudes,
+            'filters' => $request->only('search', 'estatus'),
+        ]);
+    }
+
+    public function create(): Response
+    {
+        return Inertia::render('admin/costos/solicitudes-pago/create', [
+            'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
+            'proveedores' => Proveedor::where('activo', true)->orderBy('razon_social')->get(['id', 'razon_social', 'nombre_comercial']),
+            'tipoSolicitudes' => TipoSolicitud::with('documentos')->orderBy('titulo')->get(),
+            'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
+            'obraRubros' => ObraRubro::with('rubro')->get(),
+        ]);
+    }
+
+    public function store(SolicitudPagoStoreRequest $request): RedirectResponse
+    {
+        $warnings = [];
+
+        DB::transaction(function () use ($request, &$warnings) {
+            $solicitud = SolicitudPago::create([
+                ...$request->safe()->except('detalles'),
+                'solicitante_id' => $request->user()->id,
+                'estatus' => 'borrador',
+            ]);
+
+            $montoTotal = 0;
+
+            foreach ($request->input('detalles', []) as $detalle) {
+                $subtotal = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
+                $solicitud->detalles()->create([
+                    'obra_rubro_id' => $detalle['obra_rubro_id'],
+                    'concepto' => $detalle['concepto'],
+                    'cantidad' => $detalle['cantidad'],
+                    'precio_unitario' => $detalle['precio_unitario'],
+                    'subtotal' => $subtotal,
+                ]);
+                $montoTotal += $subtotal;
+
+                // Check budget
+                $obraRubro = ObraRubro::find($detalle['obra_rubro_id']);
+                if ($obraRubro) {
+                    $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
+                    if ($subtotal > $disponible) {
+                        $warnings[] = "El rubro {$obraRubro->rubro?->codigo} excede el presupuesto disponible.";
+                    }
+                }
+            }
+
+            $solicitud->update(['monto_total' => $montoTotal]);
+        });
+
+        $redirect = to_route('admin.costos.solicitudes-pago.index');
+
+        if (count($warnings) > 0) {
+            $redirect->with('warning', implode(' ', $warnings));
+        }
+
+        return $redirect;
+    }
+
+    public function show(SolicitudPago $solicitudPago): Response
+    {
+        $solicitudPago->load([
+            'solicitante',
+            'departamento',
+            'proveedor',
+            'tipoSolicitud.documentos',
+            'detalles.obraRubro.rubro',
+            'archivos.documento',
+            'aprobaciones.aprobador',
+        ]);
+
+        return Inertia::render('admin/costos/solicitudes-pago/show', [
+            'solicitud' => $solicitudPago,
+        ]);
+    }
+
+    public function edit(SolicitudPago $solicitudPago): Response|RedirectResponse
+    {
+        if ($solicitudPago->estatus !== 'borrador') {
+            return to_route('admin.costos.solicitudes-pago.show', $solicitudPago);
+        }
+
+        $solicitudPago->load(['detalles.obraRubro.rubro', 'tipoSolicitud']);
+
+        return Inertia::render('admin/costos/solicitudes-pago/edit', [
+            'solicitud' => $solicitudPago,
+            'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
+            'proveedores' => Proveedor::where('activo', true)->orderBy('razon_social')->get(['id', 'razon_social', 'nombre_comercial']),
+            'tipoSolicitudes' => TipoSolicitud::with('documentos')->orderBy('titulo')->get(),
+            'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
+            'obraRubros' => ObraRubro::with('rubro')->get(),
+        ]);
+    }
+
+    public function update(SolicitudPagoUpdateRequest $request, SolicitudPago $solicitudPago): RedirectResponse
+    {
+        if ($solicitudPago->estatus !== 'borrador') {
+            return back()->withErrors(['estatus' => 'Solo se pueden editar solicitudes en borrador.']);
+        }
+
+        $warnings = [];
+
+        DB::transaction(function () use ($request, $solicitudPago, &$warnings) {
+            $solicitudPago->update($request->safe()->except('detalles'));
+
+            // Sync detalles (same pattern as TipoSolicitudController)
+            $incomingIds = collect($request->input('detalles', []))
+                ->pluck('id')
+                ->filter()
+                ->all();
+
+            $solicitudPago->detalles()
+                ->whereNotIn('id', $incomingIds)
+                ->delete();
+
+            $montoTotal = 0;
+
+            foreach ($request->input('detalles', []) as $detalle) {
+                $subtotal = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
+
+                if (! empty($detalle['id'])) {
+                    SolicitudPagoDetalle::where('id', $detalle['id'])->update([
+                        'obra_rubro_id' => $detalle['obra_rubro_id'],
+                        'concepto' => $detalle['concepto'],
+                        'cantidad' => $detalle['cantidad'],
+                        'precio_unitario' => $detalle['precio_unitario'],
+                        'subtotal' => $subtotal,
+                    ]);
+                } else {
+                    $solicitudPago->detalles()->create([
+                        'obra_rubro_id' => $detalle['obra_rubro_id'],
+                        'concepto' => $detalle['concepto'],
+                        'cantidad' => $detalle['cantidad'],
+                        'precio_unitario' => $detalle['precio_unitario'],
+                        'subtotal' => $subtotal,
+                    ]);
+                }
+
+                $montoTotal += $subtotal;
+
+                // Check budget
+                $obraRubro = ObraRubro::find($detalle['obra_rubro_id']);
+                if ($obraRubro) {
+                    $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
+                    if ($subtotal > $disponible) {
+                        $warnings[] = "El rubro {$obraRubro->rubro?->codigo} excede el presupuesto disponible.";
+                    }
+                }
+            }
+
+            $solicitudPago->update(['monto_total' => $montoTotal]);
+        });
+
+        $redirect = to_route('admin.costos.solicitudes-pago.index');
+
+        if (count($warnings) > 0) {
+            $redirect->with('warning', implode(' ', $warnings));
+        }
+
+        return $redirect;
+    }
+
+    public function destroy(SolicitudPago $solicitudPago): RedirectResponse
+    {
+        if ($solicitudPago->estatus !== 'borrador') {
+            return back()->withErrors(['estatus' => 'Solo se pueden eliminar solicitudes en borrador.']);
+        }
+
+        $solicitudPago->delete();
+
+        return to_route('admin.costos.solicitudes-pago.index');
+    }
+
+    public function storeArchivo(Request $request, SolicitudPago $solicitudPago): RedirectResponse
+    {
+        $request->validate([
+            'archivo' => ['required', 'file', 'max:10240'],
+            'archivo_id' => ['required', 'exists:costos_documentos,id'],
+        ]);
+
+        $file = $request->file('archivo');
+        $path = $file->store("costos/solicitudes/{$solicitudPago->id}", 'public');
+
+        $solicitudPago->archivos()->create([
+            'archivo_id' => $request->input('archivo_id'),
+            'ruta_archivo' => $path,
+            'nombre_original' => $file->getClientOriginalName(),
+        ]);
+
+        return back()->with('success', 'Archivo subido correctamente.');
+    }
+
+    public function destroyArchivo(SolicitudPago $solicitudPago, SolicitudArchivo $solicitudArchivo): RedirectResponse
+    {
+        if ($solicitudArchivo->solicitud_id !== $solicitudPago->id) {
+            abort(404);
+        }
+
+        Storage::disk('public')->delete($solicitudArchivo->ruta_archivo);
+        $solicitudArchivo->delete();
+
+        return back()->with('success', 'Archivo eliminado correctamente.');
+    }
+
+    public function generarPdf(SolicitudPago $solicitudPago): HttpResponse
+    {
+        $solicitudPago->load([
+            'solicitante',
+            'departamento',
+            'proveedor',
+            'tipoSolicitud',
+            'detalles.obraRubro.rubro',
+        ]);
+
+        $cadenaAprobacion = AprobacionDepartamento::where('departamento_id', $solicitudPago->departamento_id)
+            ->where('activo', true)
+            ->orderBy('nivel')
+            ->with('aprobador')
+            ->get();
+
+        // Cambiar estatus a pendiente_firma
+        if ($solicitudPago->estatus === 'borrador') {
+            $solicitudPago->update(['estatus' => 'pendiente_firma']);
+
+            // Crear registros de aprobación
+            foreach ($cadenaAprobacion as $nivel) {
+                $solicitudPago->aprobaciones()->create([
+                    'nivel' => $nivel->nivel,
+                    'aprobador_id' => $nivel->aprobador_id,
+                    'estatus' => 'pendiente',
+                ]);
+            }
+        }
+
+        $pdf = Pdf::loadView('pdf.costos.formato-solicitud-pago', [
+            'solicitud' => $solicitudPago,
+            'cadenaAprobacion' => $cadenaAprobacion,
+        ])->setPaper('letter', 'portrait')
+            ->setOption('margin-top', 30)
+            ->setOption('margin-bottom', 60)
+            ->setOption('margin-left', 60)
+            ->setOption('margin-right', 60);
+
+        $filename = "solicitud-pago-{$solicitudPago->folio}.pdf";
+
+        return $pdf->download($filename);
+    }
+
+    public function uploadFirmado(Request $request, SolicitudPago $solicitudPago): RedirectResponse
+    {
+        $request->validate([
+            'archivo' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+        ]);
+
+        if ($solicitudPago->estatus !== 'pendiente_firma') {
+            return back()->withErrors(['estatus' => 'La solicitud debe estar en pendiente de firma.']);
+        }
+
+        $path = $request->file('archivo')->store('costos/firmados', 'public');
+        $solicitudPago->update([
+            'comprobante_aprobacion_presupuesto' => $path,
+            'estatus' => 'aprobada',
+        ]);
+
+        // Marcar aprobaciones
+        $solicitudPago->aprobaciones()->update([
+            'estatus' => 'aprobada',
+            'fecha_respuesta' => now(),
+        ]);
+
+        // Aplicar impacto presupuestal + crear rubros afectados
+        foreach ($solicitudPago->detalles as $detalle) {
+            ObraRubro::where('id', $detalle->obra_rubro_id)
+                ->increment('acumulado', (float) $detalle->subtotal);
+
+            $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
+            $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
+
+            $solicitudPago->rubrosAfectados()->create([
+                'obra_rubro_id' => $detalle->obra_rubro_id,
+                'monto' => $detalle->subtotal,
+                'sobre_giro' => $disponible < 0,
+                'descripcion' => $detalle->concepto,
+                'tipo_movimiento' => 'cargo',
+                'estatus' => 'aplicado',
+                'usuario_aplica_id' => $request->user()->id,
+                'fecha_aplicacion' => now(),
+            ]);
+        }
+
+        return back()->with('success', 'Solicitud aprobada correctamente.');
+    }
+
+    public function cancelar(SolicitudPago $solicitudPago): RedirectResponse
+    {
+        if (! in_array($solicitudPago->estatus, ['pendiente_firma', 'aprobada'])) {
+            return back()->withErrors(['estatus' => 'Solo se pueden cancelar solicitudes pendientes o aprobadas.']);
+        }
+
+        // Revertir impacto si estaba aprobada
+        if ($solicitudPago->estatus === 'aprobada') {
+            foreach ($solicitudPago->detalles as $detalle) {
+                ObraRubro::where('id', $detalle->obra_rubro_id)
+                    ->decrement('acumulado', (float) $detalle->subtotal);
+            }
+
+            $solicitudPago->rubrosAfectados()->create([
+                'obra_rubro_id' => $solicitudPago->detalles->first()?->obra_rubro_id ?? 0,
+                'monto' => $solicitudPago->monto_total,
+                'descripcion' => 'Cancelación de solicitud',
+                'tipo_movimiento' => 'abono',
+                'estatus' => 'cancelado',
+                'usuario_aplica_id' => auth()->id(),
+                'fecha_aplicacion' => now(),
+            ]);
+        }
+
+        $solicitudPago->update(['estatus' => 'cancelada']);
+
+        return back()->with('success', 'Solicitud cancelada.');
+    }
+
+    public function marcarPagada(SolicitudPago $solicitudPago): RedirectResponse
+    {
+        if ($solicitudPago->estatus !== 'aprobada') {
+            return back()->withErrors(['estatus' => 'Solo se pueden marcar como pagadas solicitudes aprobadas.']);
+        }
+
+        $solicitudPago->update([
+            'estatus' => 'pagada',
+            'fecha_pago_realizada' => now(),
+        ]);
+
+        return back()->with('success', 'Solicitud marcada como pagada.');
+    }
+}

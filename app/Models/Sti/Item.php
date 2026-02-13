@@ -2,11 +2,13 @@
 
 namespace App\Models\Sti;
 
+use App\Models\Media;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Item extends Model
 {
@@ -24,6 +26,8 @@ class Item extends Model
         'costo',
         'no_serie',
         'estado',
+        'principal',
+        'accesorio',
     ];
 
     public const ESTADO_LABELS = [
@@ -54,6 +58,8 @@ class Item extends Model
     {
         return [
             'costo' => 'decimal:2',
+            'principal' => 'boolean',
+            'accesorio' => 'boolean',
         ];
     }
 
@@ -70,5 +76,10 @@ class Item extends Model
     public function historial(): HasMany
     {
         return $this->hasMany(ItemHistorial::class, 'item_id');
+    }
+
+    public function media(): MorphMany
+    {
+        return $this->morphMany(Media::class, 'mediable');
     }
 }
