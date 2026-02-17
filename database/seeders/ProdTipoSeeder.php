@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\Prod\Tipo;
+use App\Models\Prod\TipoPagoExtra;
 use Illuminate\Database\Seeder;
 
 class ProdTipoSeeder extends Seeder
@@ -21,7 +21,7 @@ class ProdTipoSeeder extends Seeder
         ];
 
         foreach ($tipos as $tipo) {
-            Tipo::updateOrCreate(
+            TipoPagoExtra::updateOrCreate(
                 ['descripcion' => $tipo['descripcion']],
                 $tipo
             );
