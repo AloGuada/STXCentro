@@ -9,7 +9,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Departamento, Media, StiAsignacionActivo, StiEquipo } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
+import { FileTextIcon, Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 type Props = {
@@ -53,11 +53,19 @@ export default function AsignacionActivosEdit({ asignacion, departamentos, equip
                 <div className="w-3/4">
                     <div className="mb-6 flex items-center justify-between">
                         <h1 className="text-2xl font-semibold">Editar Asignacion #{asignacion.id}</h1>
-                        <DeleteDialog
-                            title="Eliminar asignacion"
-                            description={`Estas seguro de eliminar la asignacion #${asignacion.id}? Esta accion no se puede deshacer.`}
-                            deleteUrl={`/admin/sti/asignacion-activos/${asignacion.id}`}
-                        />
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" asChild>
+                                <a href={`/admin/sti/asignacion-activos/${asignacion.id}/pdf`} target="_blank" rel="noopener noreferrer">
+                                    <FileTextIcon className="size-4" />
+                                    Generar PDF
+                                </a>
+                            </Button>
+                            <DeleteDialog
+                                title="Eliminar asignacion"
+                                description={`Estas seguro de eliminar la asignacion #${asignacion.id}? Esta accion no se puede deshacer.`}
+                                deleteUrl={`/admin/sti/asignacion-activos/${asignacion.id}`}
+                            />
+                        </div>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">

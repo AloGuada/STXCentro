@@ -54,6 +54,74 @@ class RolesAndPermissionsSeeder extends Seeder
             'intra.secciones.eliminar',
         ];
 
+        // Crear permisos del módulo Costos
+        $costosPermissions = [
+            'costos.proveedores.ver',
+            'costos.proveedores.crear',
+            'costos.proveedores.editar',
+            'costos.proveedores.eliminar',
+            'costos.tipo-rubros.ver',
+            'costos.tipo-rubros.crear',
+            'costos.tipo-rubros.editar',
+            'costos.tipo-rubros.eliminar',
+            'costos.rubros.ver',
+            'costos.rubros.crear',
+            'costos.rubros.editar',
+            'costos.rubros.eliminar',
+            'costos.tipo-solicitudes.ver',
+            'costos.tipo-solicitudes.crear',
+            'costos.tipo-solicitudes.editar',
+            'costos.tipo-solicitudes.eliminar',
+            'costos.obra-rubros.ver',
+            'costos.obra-rubros.crear',
+            'costos.obra-rubros.editar',
+            'costos.obra-rubros.eliminar',
+            'costos.aprobaciones.ver',
+            'costos.aprobaciones.crear',
+            'costos.aprobaciones.editar',
+            'costos.aprobaciones.eliminar',
+            'costos.solicitudes-pago.ver',
+            'costos.solicitudes-pago.crear',
+            'costos.solicitudes-pago.editar',
+            'costos.solicitudes-pago.eliminar',
+            'costos.afectaciones.ver',
+            'costos.afectaciones.crear',
+            'costos.afectaciones.editar',
+            'costos.afectaciones.eliminar',
+        ];
+
+        // Crear permisos del módulo Produccion
+        $prodPermissions = [
+            'prod.registros.ver',
+            'prod.registros.crear',
+            'prod.registros.eliminar',
+            'prod.cortes.ver',
+            'prod.cortes.crear',
+            'prod.cortes.cerrar',
+            'prod.grupos-trabajo.ver',
+            'prod.grupos-trabajo.crear',
+            'prod.grupos-trabajo.editar',
+            'prod.grupos-trabajo.eliminar',
+            'prod.grupo-precios.ver',
+            'prod.grupo-precios.crear',
+            'prod.grupo-precios.editar',
+            'prod.grupo-precios.eliminar',
+            'prod.tipos-pago-extra.ver',
+            'prod.tipos-pago-extra.crear',
+            'prod.tipos-pago-extra.editar',
+            'prod.tipos-pago-extra.eliminar',
+            'prod.conceptos.ver',
+            'prod.conceptos.crear',
+            'prod.conceptos.editar',
+            'prod.conceptos.eliminar',
+        ];
+
+        // Crear permisos del módulo Infraestructura
+        $infraPermissions = [
+            'infra.recorridos.ver',
+            'infra.recorridos.crear',
+        ];
+
         // Crear permisos Core
         $corePermissions = [
             'usuarios.ver',
@@ -72,7 +140,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'roles.asignar',
         ];
 
-        $allPermissions = array_merge($stiPermissions, $intraPermissions, $corePermissions);
+        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $corePermissions);
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
@@ -83,16 +151,19 @@ class RolesAndPermissionsSeeder extends Seeder
         $adminSti = Role::firstOrCreate(['name' => 'admin-sti', 'guard_name' => 'web']);
         $tecnicoSti = Role::firstOrCreate(['name' => 'tecnico-sti', 'guard_name' => 'web']);
         $adminIntranet = Role::firstOrCreate(['name' => 'admin-intranet', 'guard_name' => 'web']);
+        $adminCostos = Role::firstOrCreate(['name' => 'admin-costos', 'guard_name' => 'web']);
+        $adminProduccion = Role::firstOrCreate(['name' => 'admin-produccion', 'guard_name' => 'web']);
+        $adminInfra = Role::firstOrCreate(['name' => 'admin-infra', 'guard_name' => 'web']);
         $empleado = Role::firstOrCreate(['name' => 'empleado', 'guard_name' => 'web']);
 
         // Super admin tiene todos los permisos
-        $superAdmin->syncPermissions($allPermissions);
+        $superAdmin->givePermissionTo($allPermissions);
 
         // Admin STI tiene todos los permisos STI
-        $adminSti->syncPermissions($stiPermissions);
+        $adminSti->givePermissionTo($stiPermissions);
 
         // Técnico STI tiene permisos limitados de STI
-        $tecnicoSti->syncPermissions([
+        $tecnicoSti->givePermissionTo([
             'sti.tickets.ver',
             'sti.tickets.crear',
             'sti.tickets.editar',
@@ -102,10 +173,19 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
 
         // Admin Intranet tiene todos los permisos de intranet
-        $adminIntranet->syncPermissions($intraPermissions);
+        $adminIntranet->givePermissionTo($intraPermissions);
+
+        // Admin Costos tiene todos los permisos de costos
+        $adminCostos->givePermissionTo($costosPermissions);
+
+        // Admin Produccion tiene todos los permisos de produccion
+        $adminProduccion->givePermissionTo($prodPermissions);
+
+        // Admin Infra tiene todos los permisos de infraestructura
+        $adminInfra->givePermissionTo($infraPermissions);
 
         // Empleado tiene permisos básicos de lectura
-        $empleado->syncPermissions([
+        $empleado->givePermissionTo([
             'intra.areas.ver',
             'intra.documentos.ver',
             'intra.secciones.ver',

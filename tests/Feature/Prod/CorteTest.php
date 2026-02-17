@@ -8,7 +8,9 @@ use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Liquidacion;
+use App\Models\Prod\PagoExtra;
 use App\Models\Prod\Registro;
+use App\Models\Prod\TipoPagoExtra;
 use App\Models\User;
 
 beforeEach(function () {
@@ -170,48 +172,78 @@ describe('admin cortes', function () {
         $response->assertSessionHasErrors(['error']);
     });
 
-    test('extras can be added to liquidacion', function () {
-        $corte = Corte::factory()->cerrado()->create();
-        $liquidacion = Liquidacion::factory()->create([
+    test('cerrar includes pagos extra in totals', function () {
+        $obra = Obra::factory()->create();
+        $concepto = Concepto::factory()->create([
+            'obra_id' => $obra->id,
+            'peso_unitario' => 10.000,
+        ]);
+        $gp = GrupoPrecio::factory()->create([
+            'obra_id' => $obra->id,
+            'precio_kilo' => 5.0000,
+        ]);
+        GrupoPrecioConcepto::create([
+            'concepto_id' => $concepto->id,
+            'grupo_precio_id' => $gp->id,
+        ]);
+
+        $grupo = GrupoTrabajo::factory()->create();
+        $corte = Corte::factory()->create([
+            'fecha_inicio' => '2026-02-03',
+            'fecha_fin' => '2026-02-09',
+        ]);
+
+        Registro::factory()->create([
+            'fecha' => '2026-02-05',
+            'concepto_id' => $concepto->id,
+            'grupo_trabajo_id' => $grupo->id,
+            'cantidad' => 20,
+        ]);
+
+        $tipo = TipoPagoExtra::create([
+            'descripcion' => 'Bono',
+            'orden' => 1,
+            'desgloce' => false,
+        ]);
+
+        PagoExtra::create([
+            'descripcion' => 'Bono semanal',
+            'tipo_id' => $tipo->id,
             'corte_id' => $corte->id,
-            'total_produccion' => 1000,
-            'total_extras' => 0,
-            'total_final' => 1000,
+            'grupo_trabajo_id' => $grupo->id,
+            'precio' => 100.00,
+            'dias' => 2,
+            'personas' => 1,
         ]);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.prod.cortes.liquidaciones.extras.store', [$corte, $liquidacion]), [
-                'descripcion' => 'Bono extra',
-                'monto' => 200.00,
-            ]);
+            ->post(route('admin.prod.cortes.cerrar', $corte));
 
         $response->assertRedirect();
 
-        $liquidacion->refresh();
+        // 20 piezas * 10 kg/u = 200 kg * 5 $/kg = 1000 produccion
+        // extras: 100 * 2 * 1 = 200
+        $liquidacion = Liquidacion::where('corte_id', $corte->id)->first();
+        expect($liquidacion)->not->toBeNull();
+        expect((float) $liquidacion->total_produccion)->toBe(1000.0);
         expect((float) $liquidacion->total_extras)->toBe(200.0);
         expect((float) $liquidacion->total_final)->toBe(1200.0);
     });
 
-    test('extras can be removed from liquidacion', function () {
-        $corte = Corte::factory()->cerrado()->create();
-        $liquidacion = Liquidacion::factory()->create([
-            'corte_id' => $corte->id,
-            'total_produccion' => 1000,
-            'total_extras' => 200,
-            'total_final' => 1200,
-        ]);
-        $extra = $liquidacion->extras()->create([
-            'descripcion' => 'Bono extra',
-            'monto' => 200.00,
+    test('show page includes preview for open corte', function () {
+        $corte = Corte::factory()->create([
+            'fecha_inicio' => '2026-02-03',
+            'fecha_fin' => '2026-02-09',
         ]);
 
         $response = $this->actingAs($this->user)
-            ->delete(route('admin.prod.cortes.liquidaciones.extras.destroy', [$corte, $liquidacion, $extra]));
+            ->get(route('admin.prod.cortes.show', $corte));
 
-        $response->assertRedirect();
-
-        $liquidacion->refresh();
-        expect((float) $liquidacion->total_extras)->toBe(0.0);
-        expect((float) $liquidacion->total_final)->toBe(1000.0);
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('admin/prod/cortes/show')
+            ->has('registrosPreview')
+            ->has('pagosExtraPreview')
+        );
     });
 });

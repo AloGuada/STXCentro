@@ -1,8 +1,10 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import { OBRA_ESTATUS_LABELS, type ObraEstatus } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
@@ -17,6 +19,10 @@ export default function ObrasCreate() {
     const { data, setData, post, processing, errors } = useForm({
         no: '',
         descripcion: '',
+        fecha_inicio: '',
+        fecha_fin: '',
+        presupuesto_total: '0',
+        estatus: 'planificacion' as ObraEstatus,
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -32,14 +38,24 @@ export default function ObrasCreate() {
                 <div className="w-3/4">
                     <h1 className="mb-6 text-2xl font-semibold">Nueva Obra</h1>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <FormField label="Numero" htmlFor="no" error={errors.no} required>
-                            <Input
-                                id="no"
-                                value={data.no}
-                                onChange={(e) => setData('no', e.target.value)}
-                                placeholder="Ej: OBR-001"
-                            />
-                        </FormField>
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Numero" htmlFor="no" error={errors.no} required>
+                                <Input
+                                    id="no"
+                                    value={data.no}
+                                    onChange={(e) => setData('no', e.target.value)}
+                                    placeholder="Ej: OBR-001"
+                                />
+                            </FormField>
+
+                            <FormField label="Estatus" htmlFor="estatus" error={errors.estatus}>
+                                <Select id="estatus" value={data.estatus} onValueChange={(value) => setData('estatus', value as ObraEstatus)}>
+                                    {(Object.keys(OBRA_ESTATUS_LABELS) as ObraEstatus[]).map((key) => (
+                                        <option key={key} value={key}>{OBRA_ESTATUS_LABELS[key]}</option>
+                                    ))}
+                                </Select>
+                            </FormField>
+                        </div>
 
                         <FormField
                             label="Descripcion"
@@ -54,6 +70,37 @@ export default function ObrasCreate() {
                                 placeholder="Descripcion de la obra"
                             />
                         </FormField>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <FormField label="Fecha Inicio" htmlFor="fecha_inicio" error={errors.fecha_inicio}>
+                                <Input
+                                    id="fecha_inicio"
+                                    type="date"
+                                    value={data.fecha_inicio}
+                                    onChange={(e) => setData('fecha_inicio', e.target.value)}
+                                />
+                            </FormField>
+
+                            <FormField label="Fecha Fin" htmlFor="fecha_fin" error={errors.fecha_fin}>
+                                <Input
+                                    id="fecha_fin"
+                                    type="date"
+                                    value={data.fecha_fin}
+                                    onChange={(e) => setData('fecha_fin', e.target.value)}
+                                />
+                            </FormField>
+
+                            <FormField label="Presupuesto Total" htmlFor="presupuesto_total" error={errors.presupuesto_total}>
+                                <Input
+                                    id="presupuesto_total"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={data.presupuesto_total}
+                                    onChange={(e) => setData('presupuesto_total', e.target.value)}
+                                />
+                            </FormField>
+                        </div>
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>

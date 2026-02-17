@@ -10,15 +10,24 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Grupo Precios', href: '/admin/prod/grupo-precios' },
 ];
 
-type ObraRow = Obra & { conceptos_count: number };
+type ObraRow = Obra & { conceptos_count: number; conceptos_sin_precio_count: number };
 
 const columns: Column<ObraRow>[] = [
     { key: 'no', label: 'No. Obra' },
     { key: 'descripcion', label: 'Descripcion' },
     {
-        key: 'conceptos_count',
-        label: 'Conceptos',
-        render: (o) => <span className="font-mono text-sm">{o.conceptos_count}</span>,
+        key: 'id',
+        label: 'Sin Precio',
+        render: (obra) => (
+            <span className={`badge ${obra.conceptos_sin_precio_count > 0 ? 'badge-warning' : 'badge-success'}`}>
+                {obra.conceptos_sin_precio_count}
+            </span>
+        ),
+    },
+    {
+        key: 'estatus',
+        label: 'Total Piezas',
+        render: (obra) => <span className="font-mono text-sm">{obra.conceptos_count}</span>,
     },
 ];
 
@@ -38,11 +47,9 @@ export default function GrupoPreciosIndex({ obras, filters }: Props) {
                     data={obras}
                     searchable
                     searchValue={filters.search}
-                    searchPlaceholder="Buscar obras..."
-                    createHref="/admin/prod/grupo-precios/create"
-                    createLabel="Nuevo Grupo Precio"
+                    searchPlaceholder="Buscar obra..."
                     emptyMessage="No hay obras registradas"
-                    getRowHref={(o) => `/admin/prod/grupo-precios/obra/${o.id}`}
+                    getRowHref={(obra) => `/admin/prod/grupo-precios/obra/${obra.id}`}
                 />
             </div>
         </AppLayout>

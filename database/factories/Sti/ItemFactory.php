@@ -24,6 +24,8 @@ class ItemFactory extends Factory
             'costo' => fake()->randomFloat(2, 50, 5000),
             'no_serie' => fake()->unique()->regexify('[A-Z]{2}[0-9]{8}'),
             'estado' => 'disponible',
+            'principal' => false,
+            'accesorio' => false,
         ];
     }
 

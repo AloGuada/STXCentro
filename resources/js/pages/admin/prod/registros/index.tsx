@@ -4,7 +4,7 @@ import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Concepto, Obra, PaginatedData, ProdGrupoTrabajo, ProdRegistro } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -43,7 +43,7 @@ const columns: Column<RegistroRow>[] = [
 type Props = {
     registros: PaginatedData<RegistroRow>;
     gruposTrabajo: ProdGrupoTrabajo[];
-    filters: { grupo_trabajo_id?: string; fecha_inicio?: string; fecha_fin?: string };
+    filters: { grupo_trabajo_id?: string; fecha_inicio?: string; fecha_fin?: string; semana?: string };
 };
 
 export default function RegistrosIndex({ registros, gruposTrabajo, filters }: Props) {
@@ -56,6 +56,12 @@ export default function RegistrosIndex({ registros, gruposTrabajo, filters }: Pr
             <Head title="Registros" />
 
             <div className="p-6">
+                {/* Tabs */}
+                <div className="tabs tabs-bordered mb-4">
+                    <Link href="/admin/prod/registros" className="tab tab-active">Registros</Link>
+                    <Link href="/admin/prod/pagos-extra" className="tab">Pagos Extra</Link>
+                </div>
+
                 <div className="mb-4 flex flex-wrap items-center gap-4">
                     <div className="w-48">
                         <Select
@@ -69,11 +75,28 @@ export default function RegistrosIndex({ registros, gruposTrabajo, filters }: Pr
                             ))}
                         </Select>
                     </div>
+                    <div className="w-24">
+                        <Input
+                            type="number"
+                            min="1"
+                            max="53"
+                            value={filters.semana ?? ''}
+                            onChange={(e) => applyFilters({
+                                semana: e.target.value || undefined,
+                                fecha_inicio: e.target.value ? undefined : filters.fecha_inicio,
+                                fecha_fin: e.target.value ? undefined : filters.fecha_fin,
+                            })}
+                            placeholder="Semana"
+                        />
+                    </div>
                     <div className="w-40">
                         <Input
                             type="date"
                             value={filters.fecha_inicio ?? ''}
-                            onChange={(e) => applyFilters({ fecha_inicio: e.target.value || undefined })}
+                            onChange={(e) => applyFilters({
+                                fecha_inicio: e.target.value || undefined,
+                                semana: e.target.value ? undefined : filters.semana,
+                            })}
                             placeholder="Desde"
                         />
                     </div>
@@ -81,7 +104,10 @@ export default function RegistrosIndex({ registros, gruposTrabajo, filters }: Pr
                         <Input
                             type="date"
                             value={filters.fecha_fin ?? ''}
-                            onChange={(e) => applyFilters({ fecha_fin: e.target.value || undefined })}
+                            onChange={(e) => applyFilters({
+                                fecha_fin: e.target.value || undefined,
+                                semana: e.target.value ? undefined : filters.semana,
+                            })}
                             placeholder="Hasta"
                         />
                     </div>

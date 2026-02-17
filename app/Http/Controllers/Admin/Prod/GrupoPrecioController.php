@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Prod;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Prod\GrupoPrecioStoreRequest;
 use App\Http\Requests\Admin\Prod\GrupoPrecioUpdateRequest;
+use App\Models\Concepto;
 use App\Models\Obra;
 use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
@@ -18,7 +19,10 @@ class GrupoPrecioController extends Controller
     public function index(Request $request): Response
     {
         $obras = Obra::query()
-            ->withCount('conceptos')
+            ->withCount([
+                'conceptos as conceptos_count' => fn ($q) => $q->where('activo', true),
+                'conceptos as conceptos_sin_precio_count' => fn ($q) => $q->where('activo', true)->whereDoesntHave('grupoPrecioConceptos'),
+            ])
             ->when($request->search, fn ($q, $s) => $q->where('no', 'like', "%{$s}%")
                 ->orWhere('descripcion', 'like', "%{$s}%"))
             ->orderBy('no')
@@ -31,10 +35,11 @@ class GrupoPrecioController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
         return Inertia::render('admin/prod/grupo-precios/create', [
             'obras' => Obra::orderBy('no')->get(),
+            'obraId' => $request->obra_id,
         ]);
     }
 
@@ -46,28 +51,29 @@ class GrupoPrecioController extends Controller
             'precio_kilo' => $request->precio_kilo,
         ]);
 
-        return to_route('admin.prod.grupo-precios.index');
+        return to_route('admin.prod.grupo-precios.show-by-obra', $request->obra_id);
     }
 
     public function showByObra(Obra $obra): Response
     {
-        $obra->load(['conceptos' => fn ($q) => $q->where('activo', true)->orderBy('marca')]);
-
         $grupoPrecios = GrupoPrecio::query()
             ->where('obra_id', $obra->id)
+            ->with(['grupoPrecioConceptos.concepto'])
             ->withCount('grupoPrecioConceptos')
             ->orderBy('descripcion')
             ->get();
 
-        $grupoPrecioConceptos = GrupoPrecioConcepto::query()
-            ->whereHas('concepto', fn ($q) => $q->where('obra_id', $obra->id))
-            ->with(['concepto', 'grupoPrecio'])
+        $unassignedConceptos = Concepto::query()
+            ->where('obra_id', $obra->id)
+            ->where('activo', true)
+            ->whereDoesntHave('grupoPrecioConceptos')
+            ->orderBy('marca')
             ->get();
 
         return Inertia::render('admin/prod/grupo-precios/show', [
             'obra' => $obra,
             'grupoPrecios' => $grupoPrecios,
-            'grupoPrecioConceptos' => $grupoPrecioConceptos,
+            'unassignedConceptos' => $unassignedConceptos,
         ]);
     }
 
@@ -106,7 +112,7 @@ class GrupoPrecioController extends Controller
             'precio_kilo' => $request->precio_kilo,
         ]);
 
-        return to_route('admin.prod.grupo-precios.index');
+        return to_route('admin.prod.grupo-precios.show-by-obra', $grupoPrecio->obra_id);
     }
 
     public function destroy(GrupoPrecio $grupoPrecio): RedirectResponse
@@ -115,8 +121,9 @@ class GrupoPrecioController extends Controller
             return back()->withErrors(['error' => 'No se puede eliminar un grupo de precios que tiene conceptos asignados.']);
         }
 
+        $obraId = $grupoPrecio->obra_id;
         $grupoPrecio->delete();
 
-        return to_route('admin.prod.grupo-precios.index');
+        return to_route('admin.prod.grupo-precios.show-by-obra', $obraId);
     }
 }

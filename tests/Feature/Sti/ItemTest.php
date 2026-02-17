@@ -88,6 +88,49 @@ describe('admin items', function () {
         ]);
     });
 
+    test('item can be stored with principal and accesorio', function () {
+        $tipo = ItemTipo::factory()->create();
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.sti.items.store'), [
+                'descripcion' => 'Monitor Dell 27"',
+                'tipo_id' => $tipo->id,
+                'costo' => 5000,
+                'no_serie' => 'DLL98765432',
+                'estado' => 'disponible',
+                'principal' => true,
+                'accesorio' => false,
+            ]);
+
+        $response->assertRedirect(route('admin.sti.items.index'));
+        $this->assertDatabaseHas('sti_items', [
+            'descripcion' => 'Monitor Dell 27"',
+            'principal' => true,
+            'accesorio' => false,
+        ]);
+    });
+
+    test('item can be updated with principal and accesorio', function () {
+        $item = Item::factory()->create(['principal' => false, 'accesorio' => false]);
+
+        $response = $this->actingAs($this->user)
+            ->put(route('admin.sti.items.update', $item), [
+                'descripcion' => $item->descripcion,
+                'tipo_id' => $item->tipo_id,
+                'costo' => $item->costo,
+                'no_serie' => $item->no_serie,
+                'estado' => $item->estado,
+                'principal' => false,
+                'accesorio' => true,
+            ]);
+
+        $response->assertRedirect(route('admin.sti.items.edit', $item));
+        $this->assertDatabaseHas('sti_items', [
+            'id' => $item->id,
+            'accesorio' => true,
+        ]);
+    });
+
     test('edit page can be rendered with relations', function () {
         $item = Item::factory()->create();
 

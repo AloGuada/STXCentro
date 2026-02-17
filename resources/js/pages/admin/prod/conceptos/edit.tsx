@@ -1,24 +1,25 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Concepto, Obra } from '@/types/models';
-import { Head, Link, useForm, router } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 type Props = {
-    concepto: Concepto;
-    obras: Obra[];
+    concepto: Concepto & { obra: Obra };
 };
 
-export default function ConceptosEdit({ concepto, obras }: Props) {
+export default function ConceptosEdit({ concepto }: Props) {
+    const obra = concepto.obra;
+
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/cortes' },
         { title: 'Conceptos', href: '/admin/prod/conceptos' },
+        { title: `${obra.no} - ${obra.descripcion}`, href: `/admin/prod/conceptos/obra/${obra.id}` },
         { title: concepto.marca, href: `/admin/prod/conceptos/${concepto.id}/edit` },
     ];
 
@@ -49,23 +50,9 @@ export default function ConceptosEdit({ concepto, obras }: Props) {
             <div className="p-6">
                 <div className="w-3/4">
                     <h1 className="mb-6 text-2xl font-semibold">Editar Concepto</h1>
+                    <p className="mb-4 text-sm text-gray-500">Obra: {obra.no} - {obra.descripcion}</p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <FormField label="Obra" htmlFor="obra_id" error={errors.obra_id} required>
-                            <Select
-                                id="obra_id"
-                                value={data.obra_id}
-                                onValueChange={(value) => setData('obra_id', value)}
-                                placeholder="Seleccionar obra"
-                            >
-                                {obras.map((obra) => (
-                                    <option key={obra.id} value={obra.id}>
-                                        {obra.no} - {obra.descripcion}
-                                    </option>
-                                ))}
-                            </Select>
-                        </FormField>
-
                         <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
                             <Input
                                 id="marca"
@@ -123,7 +110,7 @@ export default function ConceptosEdit({ concepto, obras }: Props) {
                             </Button>
                             <div className="flex gap-2">
                                 <Button variant="outline" asChild>
-                                    <Link href="/admin/prod/conceptos">Cancelar</Link>
+                                    <Link href={`/admin/prod/conceptos/obra/${obra.id}`}>Cancelar</Link>
                                 </Button>
                                 <Button type="submit" disabled={processing}>
                                     {processing && <Loader2Icon className="size-4 animate-spin" />}

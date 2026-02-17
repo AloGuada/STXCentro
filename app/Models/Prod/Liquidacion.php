@@ -63,11 +63,6 @@ class Liquidacion extends Model
         return $this->hasMany(LiquidacionDetalle::class, 'liquidacion_id');
     }
 
-    public function extras(): HasMany
-    {
-        return $this->hasMany(Extra::class, 'liquidacion_id');
-    }
-
     public function empleados(): HasMany
     {
         return $this->hasMany(LiquidacionEmpleado::class, 'liquidacion_id');

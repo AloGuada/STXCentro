@@ -22,6 +22,8 @@ class ItemStoreRequest extends FormRequest
             'costo' => ['required', 'numeric', 'min:0'],
             'no_serie' => ['nullable', 'string', 'max:255'],
             'estado' => ['required', 'in:disponible,instalado,dañado,baja'],
+            'principal' => ['boolean'],
+            'accesorio' => ['boolean'],
         ];
     }
 

@@ -11,8 +11,13 @@ beforeEach(function () {
 });
 
 describe('admin grupo precios', function () {
-    test('index page shows obras', function () {
-        Obra::factory()->count(3)->create();
+    test('index page shows obras with conceptos counts', function () {
+        $obra = Obra::factory()->create();
+        $concepto = Concepto::factory()->create(['obra_id' => $obra->id, 'activo' => true]);
+        Concepto::factory()->create(['obra_id' => $obra->id, 'activo' => true]);
+
+        $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id]);
+        GrupoPrecioConcepto::factory()->create(['grupo_precio_id' => $gp->id, 'concepto_id' => $concepto->id]);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.prod.grupo-precios.index'));
@@ -20,13 +25,12 @@ describe('admin grupo precios', function () {
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/prod/grupo-precios/index')
-            ->has('obras.data', 3)
+            ->has('obras.data', 1)
         );
     });
 
-    test('showByObra page can be rendered', function () {
+    test('show by obra page can be rendered', function () {
         $obra = Obra::factory()->create();
-        Concepto::factory()->count(2)->create(['obra_id' => $obra->id]);
         GrupoPrecio::factory()->create(['obra_id' => $obra->id]);
 
         $response = $this->actingAs($this->user)
@@ -37,7 +41,7 @@ describe('admin grupo precios', function () {
             ->component('admin/prod/grupo-precios/show')
             ->has('obra')
             ->has('grupoPrecios')
-            ->has('grupoPrecioConceptos')
+            ->has('unassignedConceptos')
         );
     });
 
@@ -51,7 +55,7 @@ describe('admin grupo precios', function () {
                 'precio_kilo' => 15.5000,
             ]);
 
-        $response->assertRedirect(route('admin.prod.grupo-precios.index'));
+        $response->assertRedirect(route('admin.prod.grupo-precios.show-by-obra', $obra));
 
         $this->assertDatabaseHas('prod_grupos_precio', [
             'obra_id' => $obra->id,
@@ -69,7 +73,7 @@ describe('admin grupo precios', function () {
                 'precio_kilo' => 20.0000,
             ]);
 
-        $response->assertRedirect(route('admin.prod.grupo-precios.index'));
+        $response->assertRedirect(route('admin.prod.grupo-precios.show-by-obra', $gp->obra_id));
 
         $this->assertDatabaseHas('prod_grupos_precio', [
             'id' => $gp->id,
@@ -83,7 +87,7 @@ describe('admin grupo precios', function () {
         $response = $this->actingAs($this->user)
             ->delete(route('admin.prod.grupo-precios.destroy', $gp));
 
-        $response->assertRedirect(route('admin.prod.grupo-precios.index'));
+        $response->assertRedirect(route('admin.prod.grupo-precios.show-by-obra', $gp->obra_id));
         $this->assertDatabaseMissing('prod_grupos_precio', ['id' => $gp->id]);
     });
 

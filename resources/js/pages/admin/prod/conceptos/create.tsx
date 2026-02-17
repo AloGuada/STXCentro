@@ -1,7 +1,6 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Obra } from '@/types/models';
@@ -9,20 +8,21 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Produccion', href: '/admin/prod/cortes' },
-    { title: 'Conceptos', href: '/admin/prod/conceptos' },
-    { title: 'Nuevo Concepto', href: '/admin/prod/conceptos/create' },
-];
-
 type Props = {
-    obras: Obra[];
+    obra: Obra;
 };
 
-export default function ConceptosCreate({ obras }: Props) {
+export default function ConceptosCreate({ obra }: Props) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Produccion', href: '/admin/prod/cortes' },
+        { title: 'Conceptos', href: '/admin/prod/conceptos' },
+        { title: `${obra.no} - ${obra.descripcion}`, href: `/admin/prod/conceptos/obra/${obra.id}` },
+        { title: 'Nuevo Concepto', href: `/admin/prod/conceptos/create?obra_id=${obra.id}` },
+    ];
+
     const { data, setData, post, processing, errors } = useForm({
-        obra_id: '',
+        obra_id: String(obra.id),
         marca: '',
         descripcion: '',
         peso_unitario: '',
@@ -42,23 +42,9 @@ export default function ConceptosCreate({ obras }: Props) {
             <div className="p-6">
                 <div className="w-3/4">
                     <h1 className="mb-6 text-2xl font-semibold">Nuevo Concepto</h1>
+                    <p className="mb-4 text-sm text-gray-500">Obra: {obra.no} - {obra.descripcion}</p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <FormField label="Obra" htmlFor="obra_id" error={errors.obra_id} required>
-                            <Select
-                                id="obra_id"
-                                value={data.obra_id}
-                                onValueChange={(value) => setData('obra_id', value)}
-                                placeholder="Seleccionar obra"
-                            >
-                                {obras.map((obra) => (
-                                    <option key={obra.id} value={obra.id}>
-                                        {obra.no} - {obra.descripcion}
-                                    </option>
-                                ))}
-                            </Select>
-                        </FormField>
-
                         <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
                             <Input
                                 id="marca"
@@ -104,7 +90,7 @@ export default function ConceptosCreate({ obras }: Props) {
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>
-                                <Link href="/admin/prod/conceptos">Cancelar</Link>
+                                <Link href={`/admin/prod/conceptos/obra/${obra.id}`}>Cancelar</Link>
                             </Button>
                             <Button type="submit" disabled={processing}>
                                 {processing && <Loader2Icon className="size-4 animate-spin" />}

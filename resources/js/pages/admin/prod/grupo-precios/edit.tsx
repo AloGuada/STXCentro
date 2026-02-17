@@ -19,6 +19,7 @@ export default function GrupoPreciosEdit({ grupoPrecio, obras }: Props) {
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/cortes' },
         { title: 'Grupo Precios', href: '/admin/prod/grupo-precios' },
+        { title: `Obra`, href: `/admin/prod/grupo-precios/obra/${grupoPrecio.obra_id}` },
         { title: grupoPrecio.descripcion, href: `/admin/prod/grupo-precios/${grupoPrecio.id}/edit` },
     ];
 
@@ -35,7 +36,9 @@ export default function GrupoPreciosEdit({ grupoPrecio, obras }: Props) {
 
     const handleDelete = () => {
         if (confirm('Estas seguro de eliminar este grupo de precios?')) {
-            router.delete(`/admin/prod/grupo-precios/${grupoPrecio.id}`);
+            router.delete(`/admin/prod/grupo-precios/${grupoPrecio.id}`, {
+                preserveScroll: false,
+            });
         }
     };
 
@@ -88,7 +91,7 @@ export default function GrupoPreciosEdit({ grupoPrecio, obras }: Props) {
                             </Button>
                             <div className="flex gap-2">
                                 <Button variant="outline" asChild>
-                                    <Link href="/admin/prod/grupo-precios">Cancelar</Link>
+                                    <Link href={`/admin/prod/grupo-precios/obra/${grupoPrecio.obra_id}`}>Cancelar</Link>
                                 </Button>
                                 <Button type="submit" disabled={processing}>
                                     {processing && <Loader2Icon className="size-4 animate-spin" />}

@@ -4,11 +4,10 @@ namespace App\Http\Controllers\Admin\Prod;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Prod\CorteStoreRequest;
-use App\Http\Requests\Admin\Prod\ExtraStoreRequest;
 use App\Models\Prod\Corte;
-use App\Models\Prod\Extra;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\Liquidacion;
+use App\Models\Prod\PagoExtra;
 use App\Models\Prod\Registro;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,14 +53,38 @@ class CorteController extends Controller
         $corte->load([
             'liquidaciones.grupoTrabajo',
             'liquidaciones.detalles',
-            'liquidaciones.extras',
             'liquidaciones.empleados',
             'liquidaciones.generador',
         ]);
 
-        return Inertia::render('admin/prod/cortes/show', [
-            'corte' => $corte,
-        ]);
+        $data = ['corte' => $corte];
+
+        if (! $corte->cerrado) {
+            $registros = Registro::query()
+                ->with(['concepto.obra', 'grupoTrabajo'])
+                ->whereBetween('fecha', [$corte->fecha_inicio, $corte->fecha_fin])
+                ->get()
+                ->groupBy('grupo_trabajo_id');
+
+            $pagosExtra = PagoExtra::query()
+                ->with(['tipo', 'grupoTrabajo'])
+                ->where('corte_id', $corte->id)
+                ->get()
+                ->groupBy('grupo_trabajo_id');
+
+            $data['registrosPreview'] = $registros;
+            $data['pagosExtraPreview'] = $pagosExtra;
+        } else {
+            $pagosExtra = PagoExtra::query()
+                ->with(['tipo', 'grupoTrabajo'])
+                ->where('corte_id', $corte->id)
+                ->get()
+                ->groupBy('grupo_trabajo_id');
+
+            $data['pagosExtraPreview'] = $pagosExtra;
+        }
+
+        return Inertia::render('admin/prod/cortes/show', $data);
     }
 
     public function destroy(Corte $corte): RedirectResponse
@@ -71,6 +94,7 @@ class CorteController extends Controller
         }
 
         $corte->liquidaciones()->delete();
+        $corte->pagosExtra()->delete();
         $corte->delete();
 
         return to_route('admin.prod.cortes.index');
@@ -92,7 +116,19 @@ class CorteController extends Controller
             // Group by grupo_trabajo_id
             $porGrupo = $registros->groupBy('grupo_trabajo_id');
 
-            foreach ($porGrupo as $grupoTrabajoId => $registrosGrupo) {
+            // Get all pagos extra for this corte grouped by grupo_trabajo_id
+            $pagosExtraPorGrupo = PagoExtra::query()
+                ->where('corte_id', $corte->id)
+                ->get()
+                ->groupBy('grupo_trabajo_id');
+
+            // Collect all grupo_trabajo_ids from both registros and pagos extra
+            $allGrupoIds = $porGrupo->keys()->merge($pagosExtraPorGrupo->keys())->unique();
+
+            foreach ($allGrupoIds as $grupoTrabajoId) {
+                $registrosGrupo = $porGrupo->get($grupoTrabajoId, collect());
+                $pagosExtraGrupo = $pagosExtraPorGrupo->get($grupoTrabajoId, collect());
+
                 $totalKilos = 0;
                 $totalProduccion = 0;
                 $detallesData = [];
@@ -129,14 +165,17 @@ class CorteController extends Controller
                     ];
                 }
 
+                // Calculate total extras
+                $totalExtras = $pagosExtraGrupo->sum(fn ($pe) => $pe->precio * $pe->dias * $pe->personas);
+
                 // Create liquidacion
                 $liquidacion = Liquidacion::create([
                     'corte_id' => $corte->id,
                     'grupo_trabajo_id' => $grupoTrabajoId,
                     'total_kilos' => $totalKilos,
                     'total_produccion' => $totalProduccion,
-                    'total_extras' => 0,
-                    'total_final' => $totalProduccion,
+                    'total_extras' => $totalExtras,
+                    'total_final' => $totalProduccion + $totalExtras,
                     'generado_en' => now(),
                     'generado_por' => auth()->id(),
                 ]);
@@ -147,10 +186,15 @@ class CorteController extends Controller
                 }
 
                 // Snapshot empleados
-                $grupoTrabajo = $registrosGrupo->first()->grupoTrabajo;
+                $grupoTrabajo = $registrosGrupo->isNotEmpty()
+                    ? $registrosGrupo->first()->grupoTrabajo
+                    : \App\Models\Prod\GrupoTrabajo::with('empleados')->find($grupoTrabajoId);
+
                 if ($grupoTrabajo) {
+                    $totalFinal = $totalProduccion + $totalExtras;
+
                     foreach ($grupoTrabajo->empleados as $empleado) {
-                        $montoAsignado = round($totalProduccion * ($empleado->porcentaje / 100), 2);
+                        $montoAsignado = round($totalFinal * ($empleado->porcentaje / 100), 2);
 
                         $liquidacion->empleados()->create([
                             'nombre' => $empleado->nombre,
@@ -169,44 +213,5 @@ class CorteController extends Controller
 
             return back();
         });
-    }
-
-    public function storeExtra(ExtraStoreRequest $request, Corte $corte, Liquidacion $liquidacion): RedirectResponse
-    {
-        if ($liquidacion->corte_id !== $corte->id) {
-            abort(404);
-        }
-
-        $extra = $liquidacion->extras()->create([
-            'descripcion' => $request->descripcion,
-            'monto' => $request->monto,
-        ]);
-
-        // Recalculate totals
-        $totalExtras = $liquidacion->extras()->sum('monto');
-        $liquidacion->update([
-            'total_extras' => $totalExtras,
-            'total_final' => $liquidacion->total_produccion + $totalExtras,
-        ]);
-
-        return back();
-    }
-
-    public function destroyExtra(Corte $corte, Liquidacion $liquidacion, Extra $extra): RedirectResponse
-    {
-        if ($liquidacion->corte_id !== $corte->id || $extra->liquidacion_id !== $liquidacion->id) {
-            abort(404);
-        }
-
-        $extra->delete();
-
-        // Recalculate totals
-        $totalExtras = $liquidacion->extras()->sum('monto');
-        $liquidacion->update([
-            'total_extras' => $totalExtras,
-            'total_final' => $liquidacion->total_produccion + $totalExtras,
-        ]);
-
-        return back();
     }
 }

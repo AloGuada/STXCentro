@@ -18,11 +18,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 type Props = {
     obras: Obra[];
+    obraId?: string;
 };
 
-export default function GrupoPreciosCreate({ obras }: Props) {
+export default function GrupoPreciosCreate({ obras, obraId }: Props) {
     const { data, setData, post, processing, errors } = useForm({
-        obra_id: '',
+        obra_id: obraId ?? '',
         descripcion: '',
         precio_kilo: '',
     });
@@ -79,7 +80,7 @@ export default function GrupoPreciosCreate({ obras }: Props) {
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>
-                                <Link href="/admin/prod/grupo-precios">Cancelar</Link>
+                                <Link href={data.obra_id ? `/admin/prod/grupo-precios/obra/${data.obra_id}` : '/admin/prod/grupo-precios'}>Cancelar</Link>
                             </Button>
                             <Button type="submit" disabled={processing}>
                                 {processing && <Loader2Icon className="size-4 animate-spin" />}
