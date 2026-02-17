@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolesAndPermissionsSeeder::class,
             StiStatusSeeder::class,
+            ProdTipoSeeder::class,
         ]);
 
         // Crear usuario de prueba con rol super-admin

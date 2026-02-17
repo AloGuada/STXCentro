@@ -28,6 +28,7 @@ class SolicitudPagoController extends Controller
     public function index(Request $request): Response
     {
         $solicitudes = SolicitudPago::query()
+            ->where('solicitante_id', auth()->id())
             ->with(['departamento', 'proveedor', 'solicitante'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -60,12 +61,13 @@ class SolicitudPagoController extends Controller
     public function store(SolicitudPagoStoreRequest $request): RedirectResponse
     {
         $warnings = [];
+        $solicitud = null;
 
-        DB::transaction(function () use ($request, &$warnings) {
+        DB::transaction(function () use ($request, &$warnings, &$solicitud) {
             $solicitud = SolicitudPago::create([
-                ...$request->safe()->except('detalles'),
+                ...$request->safe()->except(['detalles', 'archivos']),
                 'solicitante_id' => $request->user()->id,
-                'estatus' => 'borrador',
+                'estatus' => 'pendiente_firma',
             ]);
 
             $montoTotal = 0;
@@ -91,10 +93,42 @@ class SolicitudPagoController extends Controller
                 }
             }
 
+            // Process uploaded files
+            if ($request->hasFile('archivos')) {
+                $textos = $request->input('archivos_texto', []);
+                foreach ($request->file('archivos') as $documentoId => $files) {
+                    $fileList = is_array($files) ? $files : [$files];
+                    foreach ($fileList as $index => $file) {
+                        $path = $file->store("costos/solicitudes/{$solicitud->id}", 'public');
+                        $solicitud->archivos()->create([
+                            'archivo_id' => $documentoId,
+                            'ruta_archivo' => $path,
+                            'nombre_original' => $file->getClientOriginalName(),
+                            'texto_adicional' => $textos[$documentoId][$index] ?? null,
+                        ]);
+                    }
+                }
+            }
+
             $solicitud->update(['monto_total' => $montoTotal]);
+
+            // Crear cadena de aprobaciones del departamento
+            $cadenaAprobacion = AprobacionDepartamento::where('departamento_id', $solicitud->departamento_id)
+                ->with('permiso')
+                ->get()
+                ->sortBy('permiso.nivel')
+                ->values();
+
+            foreach ($cadenaAprobacion as $nivel) {
+                $solicitud->aprobaciones()->create([
+                    'nivel' => $nivel->permiso->nivel,
+                    'aprobador_id' => $nivel->aprobador_id,
+                    'estatus' => 'pendiente',
+                ]);
+            }
         });
 
-        $redirect = to_route('admin.costos.solicitudes-pago.index');
+        $redirect = to_route('admin.costos.solicitudes-pago.show', $solicitud);
 
         if (count($warnings) > 0) {
             $redirect->with('warning', implode(' ', $warnings));
@@ -126,7 +160,7 @@ class SolicitudPagoController extends Controller
             return to_route('admin.costos.solicitudes-pago.show', $solicitudPago);
         }
 
-        $solicitudPago->load(['detalles.obraRubro.rubro', 'tipoSolicitud']);
+        $solicitudPago->load(['detalles.obraRubro.rubro', 'tipoSolicitud.documentos', 'archivos.documento']);
 
         return Inertia::render('admin/costos/solicitudes-pago/edit', [
             'solicitud' => $solicitudPago,
@@ -222,6 +256,7 @@ class SolicitudPagoController extends Controller
         $request->validate([
             'archivo' => ['required', 'file', 'max:10240'],
             'archivo_id' => ['required', 'exists:costos_documentos,id'],
+            'texto_adicional' => ['nullable', 'string', 'max:255'],
         ]);
 
         $file = $request->file('archivo');
@@ -231,9 +266,27 @@ class SolicitudPagoController extends Controller
             'archivo_id' => $request->input('archivo_id'),
             'ruta_archivo' => $path,
             'nombre_original' => $file->getClientOriginalName(),
+            'texto_adicional' => $request->input('texto_adicional'),
         ]);
 
         return back()->with('success', 'Archivo subido correctamente.');
+    }
+
+    public function updateArchivo(Request $request, SolicitudPago $solicitudPago, SolicitudArchivo $solicitudArchivo): RedirectResponse
+    {
+        if ($solicitudArchivo->solicitud_id !== $solicitudPago->id) {
+            abort(404);
+        }
+
+        $request->validate([
+            'texto_adicional' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $solicitudArchivo->update([
+            'texto_adicional' => $request->input('texto_adicional'),
+        ]);
+
+        return back()->with('success', 'Archivo actualizado correctamente.');
     }
 
     public function destroyArchivo(SolicitudPago $solicitudPago, SolicitudArchivo $solicitudArchivo): RedirectResponse
@@ -259,10 +312,10 @@ class SolicitudPagoController extends Controller
         ]);
 
         $cadenaAprobacion = AprobacionDepartamento::where('departamento_id', $solicitudPago->departamento_id)
-            ->where('activo', true)
-            ->orderBy('nivel')
-            ->with('aprobador')
-            ->get();
+            ->with(['permiso', 'aprobador'])
+            ->get()
+            ->sortBy('permiso.nivel')
+            ->values();
 
         // Cambiar estatus a pendiente_firma
         if ($solicitudPago->estatus === 'borrador') {
@@ -271,7 +324,7 @@ class SolicitudPagoController extends Controller
             // Crear registros de aprobación
             foreach ($cadenaAprobacion as $nivel) {
                 $solicitudPago->aprobaciones()->create([
-                    'nivel' => $nivel->nivel,
+                    'nivel' => $nivel->permiso->nivel,
                     'aprobador_id' => $nivel->aprobador_id,
                     'estatus' => 'pendiente',
                 ]);
@@ -314,25 +367,8 @@ class SolicitudPagoController extends Controller
             'fecha_respuesta' => now(),
         ]);
 
-        // Aplicar impacto presupuestal + crear rubros afectados
-        foreach ($solicitudPago->detalles as $detalle) {
-            ObraRubro::where('id', $detalle->obra_rubro_id)
-                ->increment('acumulado', (float) $detalle->subtotal);
-
-            $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
-            $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
-
-            $solicitudPago->rubrosAfectados()->create([
-                'obra_rubro_id' => $detalle->obra_rubro_id,
-                'monto' => $detalle->subtotal,
-                'sobre_giro' => $disponible < 0,
-                'descripcion' => $detalle->concepto,
-                'tipo_movimiento' => 'cargo',
-                'estatus' => 'aplicado',
-                'usuario_aplica_id' => $request->user()->id,
-                'fecha_aplicacion' => now(),
-            ]);
-        }
+        // Aplicar impacto presupuestal
+        $solicitudPago->aplicarImpactoPresupuestal($request->user()->id);
 
         return back()->with('success', 'Solicitud aprobada correctamente.');
     }

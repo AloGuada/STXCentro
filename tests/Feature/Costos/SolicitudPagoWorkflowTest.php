@@ -2,6 +2,7 @@
 
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
+use App\Models\Costos\Permiso;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
 use App\Models\Departamento;
@@ -16,10 +17,10 @@ beforeEach(function () {
 describe('admin costos solicitud pago workflow', function () {
     test('generar pdf changes estatus to pendiente_firma', function () {
         $departamento = Departamento::factory()->create();
+        $permiso = Permiso::factory()->create(['nivel' => 1, 'descripcion' => 'Jefe Depto']);
         AprobacionDepartamento::factory()->create([
             'departamento_id' => $departamento->id,
-            'nivel' => 1,
-            'nombre_nivel' => 'Jefe Depto',
+            'permiso_id' => $permiso->id,
         ]);
 
         $solicitud = SolicitudPago::factory()->create([
@@ -40,15 +41,15 @@ describe('admin costos solicitud pago workflow', function () {
 
     test('generar pdf creates aprobaciones from cadena departamento', function () {
         $departamento = Departamento::factory()->create();
+        $permiso1 = Permiso::factory()->create(['nivel' => 1, 'descripcion' => 'Jefe Depto']);
+        $permiso2 = Permiso::factory()->create(['nivel' => 2, 'descripcion' => 'Gerente']);
         AprobacionDepartamento::factory()->create([
             'departamento_id' => $departamento->id,
-            'nivel' => 1,
-            'nombre_nivel' => 'Jefe Depto',
+            'permiso_id' => $permiso1->id,
         ]);
         AprobacionDepartamento::factory()->create([
             'departamento_id' => $departamento->id,
-            'nivel' => 2,
-            'nombre_nivel' => 'Gerente',
+            'permiso_id' => $permiso2->id,
         ]);
 
         $solicitud = SolicitudPago::factory()->create([

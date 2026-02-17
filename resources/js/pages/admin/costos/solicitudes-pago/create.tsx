@@ -5,8 +5,8 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosObraRubro, CostosTipoSolicitud, Departamento, Obra, Proveedor } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { AlertTriangleIcon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { type FormEvent, useMemo } from 'react';
+import { AlertTriangleIcon, FileTextIcon, Loader2Icon, PlusIcon, Trash2Icon, UploadIcon } from 'lucide-react';
+import { type FormEvent, useMemo, useRef } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -36,20 +36,26 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
         proveedor_id: string;
         tipo_solicitud_id: string;
         concepto: string;
-        justificacion: string;
         tipo_pago: string;
+        tipo_moneda: string;
         fecha_pago_solicitada: string;
         detalles: DetalleForm[];
+        archivos: Record<string, File[]>;
+        archivos_texto: Record<string, string[]>;
     }>({
         departamento_id: '',
         proveedor_id: '',
         tipo_solicitud_id: '',
         concepto: '',
-        justificacion: '',
         tipo_pago: 'transferencia',
+        tipo_moneda: 'mxn',
         fecha_pago_solicitada: '',
         detalles: [],
+        archivos: {},
+        archivos_texto: {},
     });
+
+    const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
     const selectedTipo = useMemo(
         () => tipoSolicitudes.find((t) => t.id === Number(data.tipo_solicitud_id)),
@@ -84,6 +90,17 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
             return null;
         }
         return Number(or.presupuestado) - Number(or.acumulado);
+    };
+
+    const formatMoney = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+
+    const getRubroOptionLabel = (or: CostosObraRubro) => {
+        const disp = Number(or.presupuestado) - Number(or.acumulado);
+        const prefix = `${or.rubro?.codigo} - ${or.rubro?.descripcion}`;
+        if (disp <= 0) {
+            return `${prefix}  |  SOBREGIRO: -$${formatMoney(Math.abs(disp))}`;
+        }
+        return `${prefix}  |  Disp: $${formatMoney(disp)}`;
     };
 
     const handleSubmit = (e: FormEvent) => {
@@ -144,17 +161,7 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                 />
                             </FormField>
 
-                            <FormField label="Justificación" htmlFor="justificacion" error={errors.justificacion}>
-                                <textarea
-                                    id="justificacion"
-                                    className="textarea textarea-bordered w-full"
-                                    value={data.justificacion}
-                                    onChange={(e) => setData('justificacion', e.target.value)}
-                                    rows={2}
-                                />
-                            </FormField>
-
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-3 gap-4">
                                 <FormField label="Tipo de Pago" htmlFor="tipo_pago" error={errors.tipo_pago} required>
                                     <select
                                         id="tipo_pago"
@@ -165,6 +172,19 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                         <option value="transferencia">Transferencia</option>
                                         <option value="cheque">Cheque</option>
                                         <option value="efectivo">Efectivo</option>
+                                    </select>
+                                </FormField>
+
+                                <FormField label="Moneda" htmlFor="tipo_moneda" error={errors.tipo_moneda} required>
+                                    <select
+                                        id="tipo_moneda"
+                                        className="select select-bordered w-full"
+                                        value={data.tipo_moneda}
+                                        onChange={(e) => setData('tipo_moneda', e.target.value)}
+                                    >
+                                        <option value="mxn">MXN</option>
+                                        <option value="usd">USD</option>
+                                        <option value="eur">EUR</option>
                                     </select>
                                 </FormField>
 
@@ -241,22 +261,50 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                                     <option value="">Seleccionar rubro</option>
                                                     {obraRubros.map((or) => (
                                                         <option key={or.id} value={or.id}>
-                                                            {or.rubro?.codigo} - {or.rubro?.descripcion}
+                                                            {getRubroOptionLabel(or)}
                                                         </option>
                                                     ))}
                                                 </select>
                                             </FormField>
 
-                                            {disponible !== null && (
-                                                <p className={`text-xs ${excede ? 'text-error' : 'text-base-content/60'}`}>
-                                                    Disponible: ${disponible.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                                    {excede && (
-                                                        <span className="inline-flex items-center gap-1 ml-2">
-                                                            <AlertTriangleIcon className="size-3" /> Excede presupuesto
-                                                        </span>
-                                                    )}
-                                                </p>
-                                            )}
+                                            {disponible !== null && (() => {
+                                                const or = obraRubros.find((r) => r.id === Number(det.obra_rubro_id));
+                                                const presupuestado = or ? Number(or.presupuestado) : 0;
+                                                const porcentajeUsado = presupuestado > 0 ? ((presupuestado - disponible) / presupuestado) * 100 : 0;
+                                                const sobregiro = disponible <= 0;
+
+                                                return (
+                                                    <div className={`rounded-lg px-3 py-2 text-xs ${sobregiro ? 'bg-error/10 border border-error/30' : excede ? 'bg-warning/10 border border-warning/30' : 'bg-base-200'}`}>
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className={sobregiro ? 'text-error font-semibold' : excede ? 'text-warning font-semibold' : 'text-base-content/70'}>
+                                                                {sobregiro ? (
+                                                                    <span className="inline-flex items-center gap-1">
+                                                                        <AlertTriangleIcon className="size-3" /> SOBREGIRO: -${formatMoney(Math.abs(disponible))}
+                                                                    </span>
+                                                                ) : (
+                                                                    <>Disponible: ${formatMoney(disponible)}</>
+                                                                )}
+                                                            </span>
+                                                            <span className="text-base-content/50">
+                                                                Presupuestado: ${formatMoney(presupuestado)}
+                                                            </span>
+                                                        </div>
+                                                        {presupuestado > 0 && (
+                                                            <div className="w-full bg-base-300 rounded-full h-1.5">
+                                                                <div
+                                                                    className={`h-1.5 rounded-full ${sobregiro ? 'bg-error' : porcentajeUsado > 80 ? 'bg-warning' : 'bg-success'}`}
+                                                                    style={{ width: `${Math.min(porcentajeUsado, 100)}%` }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        {excede && !sobregiro && (
+                                                            <p className="text-warning mt-1 inline-flex items-center gap-1">
+                                                                <AlertTriangleIcon className="size-3" /> El subtotal (${formatMoney(subtotal)}) excede el disponible
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
 
                                             <FormField label="Concepto" htmlFor={`det_concepto_${index}`} error={errors[`detalles.${index}.concepto` as keyof typeof errors]} required>
                                                 <Input
@@ -307,6 +355,118 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                         Total: ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Sección 4: Documentos (condicional) */}
+                        {selectedTipo?.documentos && selectedTipo.documentos.length > 0 && (
+                            <div className="space-y-4">
+                                <h2 className="text-lg font-medium border-b border-base-300 pb-2">Documentos</h2>
+                                {selectedTipo.documentos.map((doc) => {
+                                    const docKey = String(doc.id);
+                                    const files = data.archivos[docKey] ?? [];
+                                    const canAdd = doc.multiple || files.length === 0;
+
+                                    return (
+                                        <div key={doc.id} className="rounded-lg border border-base-300 p-4">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div>
+                                                    <h4 className="font-medium">
+                                                        {doc.titulo}
+                                                        {doc.multiple && <span className="ml-2 badge badge-sm badge-ghost">Múltiple</span>}
+                                                    </h4>
+                                                    {doc.texto && <p className="text-xs text-base-content/60">{doc.texto}</p>}
+                                                </div>
+                                            </div>
+
+                                            {files.length > 0 && (
+                                                <div className="space-y-2 mb-3">
+                                                    {files.map((file, fileIdx) => (
+                                                        <div key={fileIdx} className="rounded bg-base-200 p-2 space-y-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    <FileTextIcon className="size-4 text-base-content/60" />
+                                                                    <span className="text-sm">{file.name}</span>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-ghost btn-sm text-error"
+                                                                    onClick={() => {
+                                                                        const updatedArchivos = { ...data.archivos };
+                                                                        const updatedTextos = { ...data.archivos_texto };
+                                                                        const newFiles = [...files];
+                                                                        const newTextos = [...(data.archivos_texto[docKey] ?? [])];
+                                                                        newFiles.splice(fileIdx, 1);
+                                                                        newTextos.splice(fileIdx, 1);
+                                                                        if (newFiles.length === 0) {
+                                                                            delete updatedArchivos[docKey];
+                                                                            delete updatedTextos[docKey];
+                                                                        } else {
+                                                                            updatedArchivos[docKey] = newFiles;
+                                                                            updatedTextos[docKey] = newTextos;
+                                                                        }
+                                                                        setData({ ...data, archivos: updatedArchivos, archivos_texto: updatedTextos });
+                                                                    }}
+                                                                >
+                                                                    <Trash2Icon className="size-4" />
+                                                                </button>
+                                                            </div>
+                                                            {doc.texto_adicional && doc.texto && (
+                                                                <Input
+                                                                    placeholder={doc.texto}
+                                                                    value={data.archivos_texto[docKey]?.[fileIdx] ?? ''}
+                                                                    onChange={(e) => {
+                                                                        const updatedTextos = { ...data.archivos_texto };
+                                                                        const textos = [...(updatedTextos[docKey] ?? [])];
+                                                                        textos[fileIdx] = e.target.value;
+                                                                        updatedTextos[docKey] = textos;
+                                                                        setData('archivos_texto', updatedTextos);
+                                                                    }}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {canAdd && (
+                                                <div>
+                                                    <input
+                                                        ref={(el) => { fileInputRefs.current[docKey] = el; }}
+                                                        type="file"
+                                                        className="hidden"
+                                                        multiple={doc.multiple}
+                                                        onChange={(e) => {
+                                                            const files = e.target.files;
+                                                            if (files && files.length > 0) {
+                                                                const currentFiles = data.archivos[docKey] ?? [];
+                                                                const currentTextos = data.archivos_texto[docKey] ?? [];
+                                                                const newFiles = Array.from(files);
+                                                                setData({
+                                                                    ...data,
+                                                                    archivos: { ...data.archivos, [docKey]: [...currentFiles, ...newFiles] },
+                                                                    archivos_texto: { ...data.archivos_texto, [docKey]: [...currentTextos, ...newFiles.map(() => '')] },
+                                                                });
+                                                            }
+                                                            if (fileInputRefs.current[docKey]) {
+                                                                fileInputRefs.current[docKey]!.value = '';
+                                                            }
+                                                        }}
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => fileInputRefs.current[docKey]?.click()}
+                                                    >
+                                                        <UploadIcon className="size-4" />
+                                                        {files.length > 0 ? 'Agregar otro archivo' : 'Seleccionar archivo'}
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
 

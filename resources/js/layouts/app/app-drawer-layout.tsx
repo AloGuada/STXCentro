@@ -9,6 +9,7 @@ import {
     CalendarRange,
     CheckSquare,
     ChevronDown,
+    ClipboardCheck,
     ClipboardList,
     DollarSign,
     Factory,
@@ -38,6 +39,7 @@ import type { ReactNode } from 'react';
 import AppLogo from '@/components/app-logo';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { UserInfo } from '@/components/user-info';
+import { useCan } from '@/hooks/use-can';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
@@ -55,17 +57,17 @@ const navGroups: NavGroup[] = [
         icon: Shield,
         defaultOpen: true,
         items: [
-            { title: 'Usuarios', href: '/admin/usuarios', icon: Users },
-            { title: 'Roles', href: '/admin/roles', icon: Shield },
-            { title: 'Departamentos', href: '/admin/departamentos', icon: Building },
+            { title: 'Usuarios', href: '/admin/usuarios', icon: Users, permission: 'usuarios.ver' },
+            { title: 'Roles', href: '/admin/roles', icon: Shield, permission: 'roles.ver' },
+            { title: 'Departamentos', href: '/admin/departamentos', icon: Building, permission: 'departamentos.ver' },
         ],
     },
     {
         title: 'Catálogos',
         icon: Folder,
         items: [
-            { title: 'Obras', href: '/admin/obras', icon: Briefcase },
-            { title: 'Conceptos', href: '/admin/prod/conceptos', icon: Puzzle },
+            { title: 'Obras', href: '/admin/obras', icon: Briefcase, permission: 'obras.ver' },
+            { title: 'Conceptos', href: '/admin/prod/conceptos', icon: Puzzle, permission: 'prod.conceptos.ver' },
             { title: 'Media', href: '/admin/media', icon: Image },
             { title: 'Tags', href: '/admin/tags', icon: Tag },
         ],
@@ -74,56 +76,58 @@ const navGroups: NavGroup[] = [
         title: 'Intranet',
         icon: Globe,
         items: [
-            { title: 'Secciones', href: '/admin/intra/secciones', icon: File },
-            { title: 'Áreas', href: '/admin/intra/areas', icon: FolderTree },
-            { title: 'Documentos', href: '/admin/intra/documentos', icon: File },
+            { title: 'Secciones', href: '/admin/intra/secciones', icon: File, permission: 'intra.secciones.ver' },
+            { title: 'Áreas', href: '/admin/intra/areas', icon: FolderTree, permission: 'intra.areas.ver' },
+            { title: 'Documentos', href: '/admin/intra/documentos', icon: File, permission: 'intra.documentos.ver' },
         ],
     },
     {
         title: 'Produccion',
         icon: Factory,
         items: [
-            { title: 'Registros', href: '/admin/prod/registros', icon: ClipboardList },
-            { title: 'Cortes', href: '/admin/prod/cortes', icon: DollarSign },
-            { title: 'Grupos Trabajo', href: '/admin/prod/grupos-trabajo', icon: Users },
-            { title: 'Grupo Precios', href: '/admin/prod/grupo-precios', icon: Layers },
+            { title: 'Registros', href: '/admin/prod/registros', icon: ClipboardList, permission: 'prod.registros.ver' },
+            { title: 'Cortes', href: '/admin/prod/cortes', icon: DollarSign, permission: 'prod.cortes.ver' },
+            { title: 'Grupos Trabajo', href: '/admin/prod/grupos-trabajo', icon: Users, permission: 'prod.grupos-trabajo.ver' },
+            { title: 'Grupo Precios', href: '/admin/prod/grupo-precios', icon: Layers, permission: 'prod.grupo-precios.ver' },
+            { title: 'Tipos Pago Extra', href: '/admin/prod/tipos-pago-extra', icon: Layers, permission: 'prod.tipos-pago-extra.ver' },
         ],
     },
     {
         title: 'Costos',
         icon: BadgeDollarSign,
         items: [
-            { title: 'Proveedores', href: '/admin/proveedores', icon: Building },
-            { title: 'Tipo Rubros', href: '/admin/costos/tipo-rubros', icon: Layers },
-            { title: 'Rubros', href: '/admin/costos/rubros', icon: BookOpen },
-            { title: 'Tipo Solicitudes', href: '/admin/costos/tipo-solicitudes', icon: File },
-            { title: 'Presupuestos', href: '/admin/costos/presupuestos', icon: Calculator },
-            { title: 'Solicitudes Pago', href: '/admin/costos/solicitudes-pago', icon: FileText },
-            { title: 'Aprobadores', href: '/admin/costos/aprobaciones-departamento', icon: CheckSquare },
-            { title: 'Afectaciones', href: '/admin/costos/afectaciones', icon: TrendingDown },
+            { title: 'Proveedores', href: '/admin/proveedores', icon: Building, permission: 'costos.proveedores.ver' },
+            { title: 'Tipo Rubros', href: '/admin/costos/tipo-rubros', icon: Layers, permission: 'costos.tipo-rubros.ver' },
+            { title: 'Rubros', href: '/admin/costos/rubros', icon: BookOpen, permission: 'costos.rubros.ver' },
+            { title: 'Tipo Solicitudes', href: '/admin/costos/tipo-solicitudes', icon: File, permission: 'costos.tipo-solicitudes.ver' },
+            { title: 'Presupuestos', href: '/admin/costos/presupuestos', icon: Calculator, permission: 'costos.obra-rubros.ver' },
+            { title: 'Solicitudes Pago', href: '/admin/costos/solicitudes-pago', icon: FileText, permission: 'costos.solicitudes-pago.ver' },
+            { title: 'Niveles Aprobacion', href: '/admin/costos/permisos', icon: CheckSquare, permission: 'costos.aprobaciones.ver' },
+            { title: 'Mis Aprobaciones', href: '/admin/costos/aprobaciones', icon: ClipboardCheck, permission: 'costos.aprobaciones.ver' },
+            { title: 'Afectaciones', href: '/admin/costos/afectaciones', icon: TrendingDown, permission: 'costos.afectaciones.ver' },
         ],
     },
     {
         title: 'Infraestructura',
         icon: HardHat,
         items: [
-            { title: 'Recorridos', href: '/admin/infra/recorridos', icon: ClipboardList },
+            { title: 'Recorridos', href: '/admin/infra/recorridos', icon: ClipboardList, permission: 'infra.recorridos.ver' },
         ],
     },
     {
         title: 'Soporte TI',
         icon: Wrench,
         items: [
-            { title: 'Tickets', href: '/admin/sti/tickets', icon: Ticket },
-            { title: 'Equipos', href: '/admin/sti/equipos', icon: Monitor },
-            { title: 'Técnicos', href: '/admin/sti/tecnicos', icon: Users },
-            { title: 'Planes', href: '/admin/sti/planes', icon: CalendarCheck },
-            { title: 'Mantenimientos', href: '/admin/sti/mantenimientos', icon: Settings },
-            { title: 'Programacion', href: '/admin/sti/mantenimientos/programacion', icon: CalendarRange },
-            { title: 'Inventario', href: '/admin/sti/items', icon: Package },
-            { title: 'Tipos Item', href: '/admin/sti/items-tipos', icon: Layers },
-            { title: 'Asignaciones', href: '/admin/sti/asignacion-activos', icon: ClipboardList },
-            { title: 'Estados', href: '/admin/sti/status', icon: Tag },
+            { title: 'Tickets', href: '/admin/sti/tickets', icon: Ticket, permission: 'sti.tickets.ver' },
+            { title: 'Equipos', href: '/admin/sti/equipos', icon: Monitor, permission: 'sti.equipos.ver' },
+            { title: 'Técnicos', href: '/admin/sti/tecnicos', icon: Users, permission: 'sti.tecnicos.ver' },
+            { title: 'Planes', href: '/admin/sti/planes', icon: CalendarCheck, permission: 'sti.mantenimientos.ver' },
+            { title: 'Mantenimientos', href: '/admin/sti/mantenimientos', icon: Settings, permission: 'sti.mantenimientos.ver' },
+            { title: 'Programacion', href: '/admin/sti/mantenimientos/programacion', icon: CalendarRange, permission: 'sti.mantenimientos.programar' },
+            { title: 'Inventario', href: '/admin/sti/items', icon: Package, permission: 'sti.equipos.ver' },
+            { title: 'Tipos Item', href: '/admin/sti/items-tipos', icon: Layers, permission: 'sti.equipos.ver' },
+            { title: 'Asignaciones', href: '/admin/sti/asignacion-activos', icon: ClipboardList, permission: 'sti.equipos.ver' },
+            { title: 'Estados', href: '/admin/sti/status', icon: Tag, permission: 'sti.equipos.ver' },
         ],
     },
 ];
@@ -180,6 +184,11 @@ function SidebarMenuGroup({ group }: { group: NavGroup }) {
 function SidebarContent() {
     const { auth } = usePage<SharedData>().props;
     const { isCurrentUrl } = useCurrentUrl();
+    const { can } = useCan();
+
+    const filteredGroups = navGroups
+        .map((g) => ({ ...g, items: g.items.filter((i) => !i.permission || can(i.permission)) }))
+        .filter((g) => g.items.length > 0);
 
     return (
         <div className="flex h-full flex-col">
@@ -202,7 +211,7 @@ function SidebarContent() {
                 ))}
 
                 {/* Grupos con submenús */}
-                {navGroups.map((group) => (
+                {filteredGroups.map((group) => (
                     <SidebarMenuGroup key={group.title} group={group} />
                 ))}
 

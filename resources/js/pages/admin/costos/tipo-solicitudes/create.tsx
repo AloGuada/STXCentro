@@ -18,7 +18,7 @@ type DocForm = {
     titulo: string;
     multiple: boolean;
     texto: string;
-    texto_adicional: string;
+    texto_adicional: boolean;
 };
 
 export default function TipoSolicitudesCreate() {
@@ -35,7 +35,7 @@ export default function TipoSolicitudesCreate() {
     });
 
     const addDocumento = () => {
-        setData('documentos', [...data.documentos, { titulo: '', multiple: false, texto: '', texto_adicional: '' }]);
+        setData('documentos', [...data.documentos, { titulo: '', multiple: false, texto: '', texto_adicional: false }]);
     };
 
     const removeDocumento = (index: number) => {
@@ -112,9 +112,10 @@ export default function TipoSolicitudesCreate() {
                                 <FormField label="Texto" htmlFor={`doc_texto_${index}`}>
                                     <Input id={`doc_texto_${index}`} value={doc.texto} onChange={(e) => updateDocumento(index, 'texto', e.target.value)} />
                                 </FormField>
-                                <FormField label="Texto Adicional" htmlFor={`doc_texto_adicional_${index}`}>
-                                    <Input id={`doc_texto_adicional_${index}`} value={doc.texto_adicional} onChange={(e) => updateDocumento(index, 'texto_adicional', e.target.value)} />
-                                </FormField>
+                                <label className="label cursor-pointer justify-start gap-2">
+                                    <input type="checkbox" className="checkbox checkbox-sm" checked={doc.texto_adicional} onChange={(e) => updateDocumento(index, 'texto_adicional', e.target.checked)} />
+                                    <span className="label-text">Requiere información adicional por archivo</span>
+                                </label>
                             </div>
                         ))}
 

@@ -17,6 +17,7 @@ class SolicitudArchivo extends Model
         'archivo_id',
         'ruta_archivo',
         'nombre_original',
+        'texto_adicional',
         'tags',
     ];
 

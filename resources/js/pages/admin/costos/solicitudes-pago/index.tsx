@@ -4,6 +4,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { CostosSolicitudPago, CostosSolicitudPagoEstatus, PaginatedData } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
+import { FileDown } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -42,6 +43,21 @@ const columns: Column<CostosSolicitudPago>[] = [
         key: 'created_at',
         label: 'Fecha',
         render: (row) => new Date(row.created_at).toLocaleDateString(),
+    },
+    {
+        key: 'acciones',
+        label: '',
+        render: (row) =>
+            row.estatus !== 'borrador' ? (
+                <a
+                    href={`/admin/costos/solicitudes-pago/${row.id}/pdf`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="btn btn-ghost btn-xs"
+                    title="Descargar PDF"
+                >
+                    <FileDown className="size-4" />
+                </a>
+            ) : null,
     },
 ];
 

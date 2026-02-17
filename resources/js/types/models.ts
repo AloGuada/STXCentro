@@ -493,7 +493,7 @@ export type ProdLiquidacion = {
     grupo_trabajo?: ProdGrupoTrabajo;
     generador?: Usuario;
     detalles?: ProdLiquidacionDetalle[];
-    extras?: ProdExtra[];
+    pagos_extra?: ProdPagoExtra[];
     empleados?: ProdLiquidacionEmpleado[];
     created_at: string;
     updated_at: string;
@@ -512,11 +512,28 @@ export type ProdLiquidacionDetalle = {
     updated_at: string;
 };
 
-export type ProdExtra = {
+export type ProdTipoPagoExtra = {
     id: number;
-    liquidacion_id: number;
     descripcion: string;
-    monto: number;
+    orden: number;
+    desgloce: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdPagoExtra = {
+    id: number;
+    descripcion: string;
+    tipo_id: number;
+    corte_id: number;
+    grupo_trabajo_id: number;
+    precio: number;
+    dias: number;
+    personas: number;
+    monto?: number;
+    tipo?: ProdTipoPagoExtra;
+    corte?: ProdCorte;
+    grupo_trabajo?: ProdGrupoTrabajo;
     created_at: string;
     updated_at: string;
 };
@@ -728,7 +745,7 @@ export type CostosDocumento = {
     titulo: string;
     multiple: boolean;
     texto: string | null;
-    texto_adicional: string | null;
+    texto_adicional: boolean;
     created_at: string;
     updated_at: string;
 };
@@ -744,13 +761,20 @@ export type CostosObraRubro = {
     updated_at: string;
 };
 
+export type CostosPermiso = {
+    id: number;
+    descripcion: string;
+    nivel: number;
+    created_at: string;
+    updated_at: string;
+};
+
 export type CostosAprobacionDepartamento = {
     id: number;
     departamento_id: number;
-    nivel: number;
-    nombre_nivel: string;
+    permiso_id: number;
     aprobador_id: string | null;
-    activo: boolean;
+    permiso?: CostosPermiso;
     departamento?: Departamento;
     aprobador?: Usuario;
     created_at: string;
@@ -775,6 +799,14 @@ export const SOLICITUD_PAGO_ESTATUS_COLORS: Record<CostosSolicitudPagoEstatus, s
     cancelada: 'badge-error',
 };
 
+export type CostosTipoMoneda = 'mxn' | 'usd' | 'eur';
+
+export const TIPO_MONEDA_LABELS: Record<CostosTipoMoneda, string> = {
+    mxn: 'MXN',
+    usd: 'USD',
+    eur: 'EUR',
+};
+
 export type CostosSolicitudPago = {
     id: number;
     folio: string;
@@ -783,9 +815,9 @@ export type CostosSolicitudPago = {
     proveedor_id: number | null;
     tipo_solicitud_id: number;
     concepto: string;
-    justificacion: string | null;
     monto_total: number;
     tipo_pago: string;
+    tipo_moneda: CostosTipoMoneda;
     fecha_pago_solicitada: string | null;
     fecha_pago_realizada: string | null;
     referencia_pago: string | null;
@@ -820,6 +852,7 @@ export type CostosSolicitudArchivo = {
     archivo_id: number;
     ruta_archivo: string;
     nombre_original: string;
+    texto_adicional: string | null;
     tags: Record<string, string> | null;
     documento?: CostosDocumento;
     created_at: string;
@@ -835,6 +868,7 @@ export type CostosAprobacionSolicitud = {
     fecha_respuesta: string | null;
     observaciones: string | null;
     aprobador?: Usuario;
+    solicitud?: CostosSolicitudPago;
     created_at: string;
     updated_at: string;
 };

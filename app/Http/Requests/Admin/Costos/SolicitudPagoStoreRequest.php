@@ -21,14 +21,17 @@ class SolicitudPagoStoreRequest extends FormRequest
             'proveedor_id' => ['nullable', 'exists:proveedores,id'],
             'tipo_solicitud_id' => ['required', 'exists:costos_tipo_solicitud,id'],
             'concepto' => ['required', 'string'],
-            'justificacion' => ['nullable', 'string'],
             'tipo_pago' => ['required', 'string', 'in:transferencia,cheque,efectivo'],
+            'tipo_moneda' => ['required', 'string', 'in:mxn,usd,eur'],
             'fecha_pago_solicitada' => ['nullable', 'date'],
             'detalles' => ['nullable', 'array'],
             'detalles.*.obra_rubro_id' => ['required', 'exists:costos_obra_rubros,id'],
             'detalles.*.concepto' => ['required', 'string', 'max:255'],
             'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],
             'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
+            'archivos' => ['nullable', 'array'],
+            'archivos.*' => ['nullable', 'array'],
+            'archivos.*.*' => ['file', 'max:10240'],
         ];
     }
 

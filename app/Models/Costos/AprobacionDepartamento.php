@@ -22,26 +22,18 @@ class AprobacionDepartamento extends Model
      */
     protected $fillable = [
         'departamento_id',
-        'nivel',
-        'nombre_nivel',
+        'permiso_id',
         'aprobador_id',
-        'activo',
     ];
-
-    /**
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'nivel' => 'integer',
-            'activo' => 'boolean',
-        ];
-    }
 
     public function departamento(): BelongsTo
     {
         return $this->belongsTo(Departamento::class);
+    }
+
+    public function permiso(): BelongsTo
+    {
+        return $this->belongsTo(Permiso::class);
     }
 
     public function aprobador(): BelongsTo

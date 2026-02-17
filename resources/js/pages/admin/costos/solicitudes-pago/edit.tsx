@@ -1,3 +1,4 @@
+import { DocumentoUpload } from '@/components/costos/documento-upload';
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
@@ -39,8 +40,8 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
         proveedor_id: string;
         tipo_solicitud_id: string;
         concepto: string;
-        justificacion: string;
         tipo_pago: string;
+        tipo_moneda: string;
         fecha_pago_solicitada: string;
         detalles: DetalleForm[];
     }>({
@@ -48,8 +49,8 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
         proveedor_id: solicitud.proveedor_id ? String(solicitud.proveedor_id) : '',
         tipo_solicitud_id: String(solicitud.tipo_solicitud_id),
         concepto: solicitud.concepto,
-        justificacion: solicitud.justificacion ?? '',
         tipo_pago: solicitud.tipo_pago,
+        tipo_moneda: solicitud.tipo_moneda ?? 'mxn',
         fecha_pago_solicitada: solicitud.fecha_pago_solicitada ?? '',
         detalles: (solicitud.detalles ?? []).map((d) => ({
             id: d.id,
@@ -93,6 +94,17 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
             return null;
         }
         return Number(or.presupuestado) - Number(or.acumulado);
+    };
+
+    const formatMoney = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+
+    const getRubroOptionLabel = (or: CostosObraRubro) => {
+        const disp = Number(or.presupuestado) - Number(or.acumulado);
+        const prefix = `${or.rubro?.codigo} - ${or.rubro?.descripcion}`;
+        if (disp <= 0) {
+            return `${prefix}  |  SOBREGIRO: -$${formatMoney(Math.abs(disp))}`;
+        }
+        return `${prefix}  |  Disp: $${formatMoney(disp)}`;
     };
 
     const handleSubmit = (e: FormEvent) => {
@@ -160,17 +172,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                                 />
                             </FormField>
 
-                            <FormField label="Justificación" htmlFor="justificacion" error={errors.justificacion}>
-                                <textarea
-                                    id="justificacion"
-                                    className="textarea textarea-bordered w-full"
-                                    value={data.justificacion}
-                                    onChange={(e) => setData('justificacion', e.target.value)}
-                                    rows={2}
-                                />
-                            </FormField>
-
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-3 gap-4">
                                 <FormField label="Tipo de Pago" htmlFor="tipo_pago" error={errors.tipo_pago} required>
                                     <select
                                         id="tipo_pago"
@@ -181,6 +183,19 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                                         <option value="transferencia">Transferencia</option>
                                         <option value="cheque">Cheque</option>
                                         <option value="efectivo">Efectivo</option>
+                                    </select>
+                                </FormField>
+
+                                <FormField label="Moneda" htmlFor="tipo_moneda" error={errors.tipo_moneda} required>
+                                    <select
+                                        id="tipo_moneda"
+                                        className="select select-bordered w-full"
+                                        value={data.tipo_moneda}
+                                        onChange={(e) => setData('tipo_moneda', e.target.value)}
+                                    >
+                                        <option value="mxn">MXN</option>
+                                        <option value="usd">USD</option>
+                                        <option value="eur">EUR</option>
                                     </select>
                                 </FormField>
 
@@ -248,22 +263,50 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                                                     <option value="">Seleccionar rubro</option>
                                                     {obraRubros.map((or) => (
                                                         <option key={or.id} value={or.id}>
-                                                            {or.rubro?.codigo} - {or.rubro?.descripcion}
+                                                            {getRubroOptionLabel(or)}
                                                         </option>
                                                     ))}
                                                 </select>
                                             </FormField>
 
-                                            {disponible !== null && (
-                                                <p className={`text-xs ${excede ? 'text-error' : 'text-base-content/60'}`}>
-                                                    Disponible: ${disponible.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                                    {excede && (
-                                                        <span className="inline-flex items-center gap-1 ml-2">
-                                                            <AlertTriangleIcon className="size-3" /> Excede presupuesto
-                                                        </span>
-                                                    )}
-                                                </p>
-                                            )}
+                                            {disponible !== null && (() => {
+                                                const or = obraRubros.find((r) => r.id === Number(det.obra_rubro_id));
+                                                const presupuestado = or ? Number(or.presupuestado) : 0;
+                                                const porcentajeUsado = presupuestado > 0 ? ((presupuestado - disponible) / presupuestado) * 100 : 0;
+                                                const sobregiro = disponible <= 0;
+
+                                                return (
+                                                    <div className={`rounded-lg px-3 py-2 text-xs ${sobregiro ? 'bg-error/10 border border-error/30' : excede ? 'bg-warning/10 border border-warning/30' : 'bg-base-200'}`}>
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className={sobregiro ? 'text-error font-semibold' : excede ? 'text-warning font-semibold' : 'text-base-content/70'}>
+                                                                {sobregiro ? (
+                                                                    <span className="inline-flex items-center gap-1">
+                                                                        <AlertTriangleIcon className="size-3" /> SOBREGIRO: -${formatMoney(Math.abs(disponible))}
+                                                                    </span>
+                                                                ) : (
+                                                                    <>Disponible: ${formatMoney(disponible)}</>
+                                                                )}
+                                                            </span>
+                                                            <span className="text-base-content/50">
+                                                                Presupuestado: ${formatMoney(presupuestado)}
+                                                            </span>
+                                                        </div>
+                                                        {presupuestado > 0 && (
+                                                            <div className="w-full bg-base-300 rounded-full h-1.5">
+                                                                <div
+                                                                    className={`h-1.5 rounded-full ${sobregiro ? 'bg-error' : porcentajeUsado > 80 ? 'bg-warning' : 'bg-success'}`}
+                                                                    style={{ width: `${Math.min(porcentajeUsado, 100)}%` }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        {excede && !sobregiro && (
+                                                            <p className="text-warning mt-1 inline-flex items-center gap-1">
+                                                                <AlertTriangleIcon className="size-3" /> El subtotal (${formatMoney(subtotal)}) excede el disponible
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
 
                                             <FormField label="Concepto" htmlFor={`det_concepto_${index}`} required>
                                                 <Input
@@ -325,6 +368,22 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                             </Button>
                         </div>
                     </form>
+
+                    {/* Sección Documentos (fuera del form, usa su propio POST) */}
+                    {solicitud.tipo_solicitud?.documentos && solicitud.tipo_solicitud.documentos.length > 0 && (
+                        <div className="mt-8 space-y-4">
+                            <h2 className="text-lg font-medium border-b border-base-300 pb-2">Documentos</h2>
+                            {solicitud.tipo_solicitud.documentos.map((doc) => (
+                                <DocumentoUpload
+                                    key={doc.id}
+                                    documento={doc}
+                                    archivos={solicitud.archivos ?? []}
+                                    storeUrl={`/admin/costos/solicitudes-pago/${solicitud.id}/archivos`}
+                                    destroyUrlPrefix={`/admin/costos/solicitudes-pago/${solicitud.id}/archivos`}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </AppLayout>

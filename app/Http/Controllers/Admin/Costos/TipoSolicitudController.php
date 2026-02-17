@@ -46,7 +46,7 @@ class TipoSolicitudController extends Controller
                         'titulo' => $doc['titulo'],
                         'multiple' => $doc['multiple'] ?? false,
                         'texto' => $doc['texto'] ?? null,
-                        'texto_adicional' => $doc['texto_adicional'] ?? null,
+                        'texto_adicional' => $doc['texto_adicional'] ?? false,
                     ]);
                 }
             }
@@ -82,14 +82,14 @@ class TipoSolicitudController extends Controller
                         'titulo' => $doc['titulo'],
                         'multiple' => $doc['multiple'] ?? false,
                         'texto' => $doc['texto'] ?? null,
-                        'texto_adicional' => $doc['texto_adicional'] ?? null,
+                        'texto_adicional' => $doc['texto_adicional'] ?? false,
                     ]);
                 } else {
                     $tipoSolicitud->documentos()->create([
                         'titulo' => $doc['titulo'],
                         'multiple' => $doc['multiple'] ?? false,
                         'texto' => $doc['texto'] ?? null,
-                        'texto_adicional' => $doc['texto_adicional'] ?? null,
+                        'texto_adicional' => $doc['texto_adicional'] ?? false,
                     ]);
                 }
             }

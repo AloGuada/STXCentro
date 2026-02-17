@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -38,8 +39,18 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
-            'auth' => [
+            'auth' => fn () => [
                 'user' => $request->user(),
+                'permissions' => $request->user()
+                    ? DB::table('role_has_permissions')
+                        ->join('permissions', 'permissions.id', '=', 'role_has_permissions.permission_id')
+                        ->join('model_has_roles', 'model_has_roles.role_id', '=', 'role_has_permissions.role_id')
+                        ->where('model_has_roles.model_uuid', $request->user()->getKey())
+                        ->pluck('permissions.name')
+                        ->unique()
+                        ->values()
+                        ->toArray()
+                    : [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

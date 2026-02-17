@@ -42,4 +42,9 @@ class Corte extends Model
     {
         return $this->hasMany(Liquidacion::class, 'corte_id');
     }
+
+    public function pagosExtra(): HasMany
+    {
+        return $this->hasMany(PagoExtra::class, 'corte_id');
+    }
 }

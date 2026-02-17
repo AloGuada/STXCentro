@@ -60,7 +60,8 @@
       "Bash(powershell:*)",
       "WebFetch(domain:github.com)",
       "Bash(dir:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(php:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

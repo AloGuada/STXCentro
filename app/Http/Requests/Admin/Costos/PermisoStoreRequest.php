@@ -4,7 +4,7 @@ namespace App\Http\Requests\Admin\Costos;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class AprobacionDepartamentoStoreRequest extends FormRequest
+class PermisoStoreRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -17,11 +17,8 @@ class AprobacionDepartamentoStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'departamento_id' => ['required', 'exists:departamentos,id'],
+            'descripcion' => ['required', 'string', 'max:255'],
             'nivel' => ['required', 'integer', 'min:1'],
-            'nombre_nivel' => ['required', 'string', 'max:255'],
-            'aprobador_id' => ['nullable', 'exists:usuarios,id'],
-            'activo' => ['boolean'],
         ];
     }
 
@@ -31,9 +28,8 @@ class AprobacionDepartamentoStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'departamento_id.required' => 'El departamento es obligatorio.',
+            'descripcion.required' => 'La descripcion es obligatoria.',
             'nivel.required' => 'El nivel es obligatorio.',
-            'nombre_nivel.required' => 'El nombre del nivel es obligatorio.',
         ];
     }
 }

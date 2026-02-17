@@ -3,6 +3,7 @@
 namespace Database\Factories\Costos;
 
 use App\Models\Costos\AprobacionDepartamento;
+use App\Models\Costos\Permiso;
 use App\Models\Departamento;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -21,10 +22,8 @@ class AprobacionDepartamentoFactory extends Factory
     {
         return [
             'departamento_id' => Departamento::factory(),
-            'nivel' => fake()->numberBetween(1, 5),
-            'nombre_nivel' => fake()->randomElement(['Jefe Depto', 'Gerente', 'Director', 'Contralor']),
+            'permiso_id' => Permiso::factory(),
             'aprobador_id' => User::factory(),
-            'activo' => true,
         ];
     }
 }

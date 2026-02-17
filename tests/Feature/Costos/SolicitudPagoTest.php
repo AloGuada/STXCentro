@@ -13,7 +13,7 @@ beforeEach(function () {
 
 describe('admin costos solicitudes pago', function () {
     test('index page can be rendered', function () {
-        SolicitudPago::factory()->count(3)->create();
+        SolicitudPago::factory()->count(3)->create(['solicitante_id' => $this->user->id]);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.costos.solicitudes-pago.index'));
@@ -22,6 +22,19 @@ describe('admin costos solicitudes pago', function () {
         $response->assertInertia(fn ($page) => $page
             ->component('admin/costos/solicitudes-pago/index')
             ->has('solicitudes.data', 3)
+        );
+    });
+
+    test('index only shows solicitudes of the logged-in user', function () {
+        SolicitudPago::factory()->count(2)->create(['solicitante_id' => $this->user->id]);
+        SolicitudPago::factory()->count(3)->create(); // other users
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.costos.solicitudes-pago.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->has('solicitudes.data', 2)
         );
     });
 
@@ -48,13 +61,15 @@ describe('admin costos solicitudes pago', function () {
                 'tipo_solicitud_id' => $tipoSolicitud->id,
                 'concepto' => 'Compra de materiales',
                 'tipo_pago' => 'transferencia',
+                'tipo_moneda' => 'mxn',
             ]);
 
-        $response->assertRedirect(route('admin.costos.solicitudes-pago.index'));
+        $solicitud = SolicitudPago::latest('id')->first();
+        $response->assertRedirect(route('admin.costos.solicitudes-pago.show', $solicitud));
         $this->assertDatabaseHas('costos_solicitudes_pago', [
             'concepto' => 'Compra de materiales',
             'solicitante_id' => $this->user->id,
-            'estatus' => 'borrador',
+            'estatus' => 'pendiente_firma',
         ]);
     });
 
@@ -69,6 +84,7 @@ describe('admin costos solicitudes pago', function () {
                 'tipo_solicitud_id' => $tipoSolicitud->id,
                 'concepto' => 'Compra materiales',
                 'tipo_pago' => 'cheque',
+                'tipo_moneda' => 'usd',
                 'detalles' => [
                     [
                         'obra_rubro_id' => $obraRubro->id,
@@ -79,7 +95,8 @@ describe('admin costos solicitudes pago', function () {
                 ],
             ]);
 
-        $response->assertRedirect(route('admin.costos.solicitudes-pago.index'));
+        $solicitudCreated = SolicitudPago::latest('id')->first();
+        $response->assertRedirect(route('admin.costos.solicitudes-pago.show', $solicitudCreated));
 
         $solicitud = SolicitudPago::latest('id')->first();
         expect($solicitud->detalles)->toHaveCount(1);
@@ -140,6 +157,7 @@ describe('admin costos solicitudes pago', function () {
                 'tipo_solicitud_id' => $solicitud->tipo_solicitud_id,
                 'concepto' => 'Updated concepto',
                 'tipo_pago' => 'efectivo',
+                'tipo_moneda' => 'eur',
                 'detalles' => [
                     [
                         'id' => $detalle->id,
@@ -171,6 +189,7 @@ describe('admin costos solicitudes pago', function () {
                 'tipo_solicitud_id' => $solicitud->tipo_solicitud_id,
                 'concepto' => 'Should not update',
                 'tipo_pago' => 'efectivo',
+                'tipo_moneda' => 'mxn',
             ]);
 
         $response->assertSessionHasErrors(['estatus']);
@@ -190,6 +209,6 @@ describe('admin costos solicitudes pago', function () {
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.solicitudes-pago.store'), []);
 
-        $response->assertSessionHasErrors(['departamento_id', 'tipo_solicitud_id', 'concepto', 'tipo_pago']);
+        $response->assertSessionHasErrors(['departamento_id', 'tipo_solicitud_id', 'concepto', 'tipo_pago', 'tipo_moneda']);
     });
 });

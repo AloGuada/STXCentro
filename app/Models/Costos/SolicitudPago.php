@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -31,9 +32,9 @@ class SolicitudPago extends Model
         'proveedor_id',
         'tipo_solicitud_id',
         'concepto',
-        'justificacion',
         'monto_total',
         'tipo_pago',
+        'tipo_moneda',
         'fecha_pago_solicitada',
         'fecha_pago_realizada',
         'referencia_pago',
@@ -110,5 +111,32 @@ class SolicitudPago extends Model
     public function rubrosAfectados(): MorphMany
     {
         return $this->morphMany(RubroAfectado::class, 'entrada');
+    }
+
+    /**
+     * Aplica el impacto presupuestal: incrementa acumulado en obra_rubros y crea rubros afectados.
+     */
+    public function aplicarImpactoPresupuestal(?string $userId = null): void
+    {
+        $userId = $userId ?? Auth::id();
+
+        foreach ($this->detalles as $detalle) {
+            ObraRubro::where('id', $detalle->obra_rubro_id)
+                ->increment('acumulado', (float) $detalle->subtotal);
+
+            $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
+            $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
+
+            $this->rubrosAfectados()->create([
+                'obra_rubro_id' => $detalle->obra_rubro_id,
+                'monto' => $detalle->subtotal,
+                'sobre_giro' => $disponible < 0,
+                'descripcion' => $detalle->concepto,
+                'tipo_movimiento' => 'cargo',
+                'estatus' => 'aplicado',
+                'usuario_aplica_id' => $userId,
+                'fecha_aplicacion' => now(),
+            ]);
+        }
     }
 }

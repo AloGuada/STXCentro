@@ -11,8 +11,9 @@ beforeEach(function () {
 });
 
 describe('admin conceptos', function () {
-    test('index page can be rendered', function () {
-        Concepto::factory()->count(3)->create();
+    test('index page shows obras', function () {
+        $obra = Obra::factory()->create();
+        Concepto::factory()->count(3)->create(['obra_id' => $obra->id]);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.prod.conceptos.index'));
@@ -20,32 +21,36 @@ describe('admin conceptos', function () {
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/prod/conceptos/index')
-            ->has('conceptos.data', 3)
+            ->has('obras.data')
         );
     });
 
-    test('index can filter by obra', function () {
+    test('show by obra lists conceptos', function () {
         $obra = Obra::factory()->create();
         Concepto::factory()->count(2)->create(['obra_id' => $obra->id]);
         Concepto::factory()->create();
 
         $response = $this->actingAs($this->user)
-            ->get(route('admin.prod.conceptos.index', ['obra_id' => $obra->id]));
+            ->get(route('admin.prod.conceptos.show-by-obra', $obra));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
-            ->has('conceptos.data', 2)
+            ->component('admin/prod/conceptos/show')
+            ->has('conceptos', 2)
+            ->has('obra')
         );
     });
 
     test('create page can be rendered', function () {
+        $obra = Obra::factory()->create();
+
         $response = $this->actingAs($this->user)
-            ->get(route('admin.prod.conceptos.create'));
+            ->get(route('admin.prod.conceptos.create', ['obra_id' => $obra->id]));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/prod/conceptos/create')
-            ->has('obras')
+            ->has('obra')
         );
     });
 
@@ -62,7 +67,7 @@ describe('admin conceptos', function () {
                 'activo' => true,
             ]);
 
-        $response->assertRedirect(route('admin.prod.conceptos.index'));
+        $response->assertRedirect(route('admin.prod.conceptos.show-by-obra', $obra));
 
         $this->assertDatabaseHas('conceptos', [
             'obra_id' => $obra->id,
@@ -82,7 +87,7 @@ describe('admin conceptos', function () {
                 'peso_unitario' => 10.000,
             ]);
 
-        $response->assertRedirect(route('admin.prod.conceptos.index'));
+        $response->assertRedirect(route('admin.prod.conceptos.show-by-obra', $obra));
 
         $this->assertDatabaseHas('conceptos', [
             'marca' => 'MK-002',
@@ -104,7 +109,7 @@ describe('admin conceptos', function () {
                 'activo' => false,
             ]);
 
-        $response->assertRedirect(route('admin.prod.conceptos.index'));
+        $response->assertRedirect(route('admin.prod.conceptos.show-by-obra', $concepto->obra_id));
 
         $this->assertDatabaseHas('conceptos', [
             'id' => $concepto->id,
@@ -120,7 +125,7 @@ describe('admin conceptos', function () {
         $response = $this->actingAs($this->user)
             ->delete(route('admin.prod.conceptos.destroy', $concepto));
 
-        $response->assertRedirect(route('admin.prod.conceptos.index'));
+        $response->assertRedirect(route('admin.prod.conceptos.show-by-obra', $concepto->obra_id));
         $this->assertDatabaseMissing('conceptos', ['id' => $concepto->id]);
     });
 
@@ -145,6 +150,123 @@ describe('admin conceptos', function () {
             ]);
 
         $response->assertSessionHasErrors(['marca', 'descripcion']);
+    });
+});
+
+describe('conceptos csv import from show-by-obra', function () {
+    test('csv imports with new format correctly', function () {
+        $obra = Obra::factory()->create();
+
+        $csvContent = "ID de Marca,Marca,Descripción,cantidad,Peso(T),Revisión de documentos,(Long_Ensamble)\n";
+        $csvContent .= "1,MK-100,Viga principal,10,0.0255,REV 1,3.50\n";
+        $csvContent .= "2,MK-101,Columna,5,0.015,REV 2,2.00\n";
+
+        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.prod.conceptos.import-csv', $obra), [
+                'csv_file' => $file,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('conceptos', [
+            'obra_id' => $obra->id,
+            'marca' => 'MK-100',
+            'descripcion' => 'Viga principal',
+            'peso_unitario' => 25.500, // 0.0255 T * 1000
+            'version' => 1,
+        ]);
+
+        $this->assertDatabaseHas('conceptos', [
+            'obra_id' => $obra->id,
+            'marca' => 'MK-101',
+            'peso_unitario' => 15.000, // 0.015 T * 1000
+            'version' => 2,
+        ]);
+
+        expect(Concepto::where('obra_id', $obra->id)->count())->toBe(2);
+    });
+
+    test('csv import converts tons to kilos and extracts REV version', function () {
+        $obra = Obra::factory()->create();
+
+        $csvContent = "ID de Marca,Marca,Descripción,cantidad,Peso(T),Revisión de documentos,(Long_Ensamble)\n";
+        $csvContent .= "1,MK-200,Placa base,4,1.5,REV 3,1.00\n";
+
+        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.conceptos.import-csv', $obra), [
+                'csv_file' => $file,
+            ]);
+
+        $this->assertDatabaseHas('conceptos', [
+            'obra_id' => $obra->id,
+            'marca' => 'MK-200',
+            'peso_unitario' => 1500.000, // 1.5 T * 1000
+            'version' => 3,
+        ]);
+    });
+
+    test('csv import dedup only updates higher version', function () {
+        $obra = Obra::factory()->create();
+        Concepto::factory()->create([
+            'obra_id' => $obra->id,
+            'marca' => 'MK-100',
+            'descripcion' => 'Original',
+            'peso_unitario' => 25.500,
+            'version' => 3,
+        ]);
+
+        // Lower version should NOT update
+        $csvContent = "ID de Marca,Marca,Descripción,cantidad,Peso(T),Revisión de documentos,(Long_Ensamble)\n";
+        $csvContent .= "1,MK-100,Updated lower,10,0.030,REV 2,3.50\n";
+
+        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.conceptos.import-csv', $obra), [
+                'csv_file' => $file,
+            ]);
+
+        $this->assertDatabaseHas('conceptos', [
+            'obra_id' => $obra->id,
+            'marca' => 'MK-100',
+            'descripcion' => 'Original',
+            'version' => 3,
+        ]);
+
+        // Higher version SHOULD update
+        $csvContent2 = "ID de Marca,Marca,Descripción,cantidad,Peso(T),Revisión de documentos,(Long_Ensamble)\n";
+        $csvContent2 .= "1,MK-100,Updated higher,10,0.050,REV 5,4.00\n";
+
+        $file2 = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent2);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.conceptos.import-csv', $obra), [
+                'csv_file' => $file2,
+            ]);
+
+        $this->assertDatabaseHas('conceptos', [
+            'obra_id' => $obra->id,
+            'marca' => 'MK-100',
+            'descripcion' => 'Updated higher',
+            'peso_unitario' => 50.000,
+            'version' => 5,
+        ]);
+
+        expect(Concepto::where('obra_id', $obra->id)->where('marca', 'MK-100')->count())->toBe(1);
+    });
+
+    test('csv import requires file', function () {
+        $obra = Obra::factory()->create();
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.prod.conceptos.import-csv', $obra), []);
+
+        $response->assertSessionHasErrors(['csv_file']);
     });
 });
 

@@ -27,6 +27,7 @@ class Documento extends Model
     {
         return [
             'multiple' => 'boolean',
+            'texto_adicional' => 'boolean',
         ];
     }
 

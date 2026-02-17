@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
-import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS } from '@/types/models';
+import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 import { Loader2Icon } from 'lucide-react';
@@ -153,6 +153,10 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                                     <p className="font-medium capitalize">{solicitud.tipo_pago}</p>
                                 </div>
                                 <div>
+                                    <span className="text-sm text-base-content/60">Moneda</span>
+                                    <p className="font-medium">{TIPO_MONEDA_LABELS[solicitud.tipo_moneda] ?? solicitud.tipo_moneda}</p>
+                                </div>
+                                <div>
                                     <span className="text-sm text-base-content/60">Fecha Pago Solicitada</span>
                                     <p className="font-medium">{solicitud.fecha_pago_solicitada ? new Date(solicitud.fecha_pago_solicitada).toLocaleDateString() : '-'}</p>
                                 </div>
@@ -168,12 +172,6 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                                 <span className="text-sm text-base-content/60">Concepto</span>
                                 <p>{solicitud.concepto}</p>
                             </div>
-                            {solicitud.justificacion && (
-                                <div>
-                                    <span className="text-sm text-base-content/60">Justificación</span>
-                                    <p>{solicitud.justificacion}</p>
-                                </div>
-                            )}
                         </div>
 
                         {/* Detalles table */}
@@ -249,19 +247,25 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {solicitud.aprobaciones.map((a) => (
-                                            <tr key={a.id}>
-                                                <td>{a.nivel}</td>
-                                                <td>{a.aprobador?.name ?? 'Sin asignar'}</td>
-                                                <td>
-                                                    <span className={`badge ${a.estatus === 'aprobada' ? 'badge-success' : a.estatus === 'rechazada' ? 'badge-error' : 'badge-warning'}`}>
-                                                        {a.estatus}
-                                                    </span>
-                                                </td>
-                                                <td>{a.fecha_respuesta ? new Date(a.fecha_respuesta).toLocaleDateString() : '-'}</td>
-                                                <td>{a.observaciones ?? '-'}</td>
-                                            </tr>
-                                        ))}
+                                        {solicitud.aprobaciones.map((a) => {
+                                            const esTurnoActual = a.estatus === 'pendiente' && !solicitud.aprobaciones?.some(
+                                                (otra) => otra.estatus === 'pendiente' && otra.nivel < a.nivel
+                                            );
+                                            return (
+                                                <tr key={a.id} className={esTurnoActual ? 'bg-warning/10' : ''}>
+                                                    <td>{a.nivel}</td>
+                                                    <td>{a.aprobador?.name ?? 'Sin asignar'}</td>
+                                                    <td>
+                                                        <span className={`badge ${a.estatus === 'aprobada' ? 'badge-success' : a.estatus === 'rechazada' ? 'badge-error' : a.estatus === 'cancelada' ? 'badge-ghost' : 'badge-warning'}`}>
+                                                            {a.estatus}
+                                                        </span>
+                                                        {esTurnoActual && <span className="ml-2 text-xs text-warning">Turno actual</span>}
+                                                    </td>
+                                                    <td>{a.fecha_respuesta ? new Date(a.fecha_respuesta).toLocaleDateString() : '-'}</td>
+                                                    <td>{a.observaciones ?? '-'}</td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

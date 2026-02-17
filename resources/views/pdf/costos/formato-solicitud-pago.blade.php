@@ -216,15 +216,15 @@
             <td style="text-transform: capitalize;">{{ $solicitud->tipo_pago }}</td>
         </tr>
         <tr>
+            <td class="label">Moneda</td>
+            <td>{{ strtoupper($solicitud->tipo_moneda ?? 'mxn') }}</td>
+            <td class="label">&nbsp;</td>
+            <td>&nbsp;</td>
+        </tr>
+        <tr>
             <td class="label">Concepto</td>
             <td colspan="3">{{ $solicitud->concepto }}</td>
         </tr>
-        @if($solicitud->justificacion)
-        <tr>
-            <td class="label">Justificacion</td>
-            <td colspan="3">{{ $solicitud->justificacion }}</td>
-        </tr>
-        @endif
     </table>
 
     {{-- Detalles --}}
@@ -267,7 +267,7 @@
             @foreach($cadenaAprobacion as $nivel)
             <td>
                 <div class="sig-name">{{ $nivel->aprobador?->name ?? '________________' }}</div>
-                <div class="sig-role">{{ $nivel->nombre_nivel }} (Nivel {{ $nivel->nivel }})</div>
+                <div class="sig-role">{{ $nivel->permiso->descripcion }} (Nivel {{ $nivel->permiso->nivel }})</div>
             </td>
             @endforeach
         </tr>

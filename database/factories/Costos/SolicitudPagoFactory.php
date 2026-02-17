@@ -27,9 +27,9 @@ class SolicitudPagoFactory extends Factory
             'proveedor_id' => Proveedor::factory(),
             'tipo_solicitud_id' => TipoSolicitud::factory(),
             'concepto' => fake()->sentence(),
-            'justificacion' => fake()->optional()->paragraph(),
             'monto_total' => fake()->randomFloat(2, 100, 50000),
             'tipo_pago' => fake()->randomElement(['transferencia', 'cheque', 'efectivo']),
+            'tipo_moneda' => fake()->randomElement(['mxn', 'usd', 'eur']),
             'fecha_pago_solicitada' => fake()->optional()->date(),
             'estatus' => 'borrador',
         ];

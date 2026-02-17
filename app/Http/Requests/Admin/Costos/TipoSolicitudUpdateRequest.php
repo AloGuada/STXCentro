@@ -25,7 +25,7 @@ class TipoSolicitudUpdateRequest extends FormRequest
             'documentos.*.titulo' => ['required', 'string', 'max:255'],
             'documentos.*.multiple' => ['boolean'],
             'documentos.*.texto' => ['nullable', 'string'],
-            'documentos.*.texto_adicional' => ['nullable', 'string'],
+            'documentos.*.texto_adicional' => ['nullable', 'boolean'],
         ];
     }
 

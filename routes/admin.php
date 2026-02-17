@@ -1,8 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\Costos\AfectacionPresupuestalController as CostosAfectacionPresupuestalController;
-use App\Http\Controllers\Admin\Costos\AprobacionDepartamentoController as CostosAprobacionDepartamentoController;
+use App\Http\Controllers\Admin\Costos\AprobacionController as CostosAprobacionController;
 use App\Http\Controllers\Admin\Costos\ObraRubroController as CostosObraRubroController;
+use App\Http\Controllers\Admin\Costos\PermisoController as CostosPermisoController;
 use App\Http\Controllers\Admin\Costos\PresupuestoController as CostosPresupuestoController;
 use App\Http\Controllers\Admin\Costos\RubroController as CostosRubroController;
 use App\Http\Controllers\Admin\Costos\SolicitudPagoController as CostosSolicitudPagoController;
@@ -20,7 +21,9 @@ use App\Http\Controllers\Admin\Prod\CorteController as ProdCorteController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioConceptoController as ProdGrupoPrecioConceptoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioController as ProdGrupoPrecioController;
 use App\Http\Controllers\Admin\Prod\GrupoTrabajoController as ProdGrupoTrabajoController;
+use App\Http\Controllers\Admin\Prod\PagoExtraController as ProdPagoExtraController;
 use App\Http\Controllers\Admin\Prod\RegistroController as ProdRegistroController;
+use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtraController;
 use App\Http\Controllers\Admin\ProveedorController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\Sti\AsignacionActivoController as StiAsignacionActivoController;
@@ -55,9 +58,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     // Produccion admin routes
     Route::prefix('prod')->name('prod.')->group(function () {
+        Route::get('conceptos/obra/{obra}', [ProdConceptoController::class, 'showByObra'])->name('conceptos.show-by-obra');
+        Route::post('conceptos/obra/{obra}/import-csv', [ProdConceptoController::class, 'importCsv'])->name('conceptos.import-csv');
         Route::resource('conceptos', ProdConceptoController::class)->parameters(['conceptos' => 'concepto']);
-        Route::resource('grupo-precios', ProdGrupoPrecioController::class)->parameters(['grupo-precios' => 'grupoPrecio']);
         Route::get('grupo-precios/obra/{obra}', [ProdGrupoPrecioController::class, 'showByObra'])->name('grupo-precios.show-by-obra');
+        Route::resource('grupo-precios', ProdGrupoPrecioController::class)->parameters(['grupo-precios' => 'grupoPrecio'])->except(['show']);
         Route::post('grupo-precios/{grupoPrecio}/assign-conceptos', [ProdGrupoPrecioController::class, 'assignConceptos'])->name('grupo-precios.assign-conceptos');
 
         // Pivot concepto-grupo precio
@@ -69,14 +74,16 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('grupos-trabajo/{grupoTrabajo}/empleados', [ProdGrupoTrabajoController::class, 'storeEmpleado'])->name('grupos-trabajo.empleados.store');
         Route::delete('grupos-trabajo/{grupoTrabajo}/empleados/{empleado}', [ProdGrupoTrabajoController::class, 'destroyEmpleado'])->name('grupos-trabajo.empleados.destroy');
 
-        // Registros
+        // Catalogos
+        Route::resource('tipos-pago-extra', ProdTipoPagoExtraController::class)->parameters(['tipos-pago-extra' => 'tipoPagoExtra']);
+
+        // Registros y Pagos Extra
         Route::resource('registros', ProdRegistroController::class)->parameters(['registros' => 'registro'])->except(['edit', 'update']);
+        Route::resource('pagos-extra', ProdPagoExtraController::class)->parameters(['pagos-extra' => 'pagoExtra'])->except(['edit', 'update', 'show']);
 
         // Cortes y liquidaciones
         Route::resource('cortes', ProdCorteController::class)->except(['edit', 'update'])->parameters(['cortes' => 'corte']);
         Route::post('cortes/{corte}/cerrar', [ProdCorteController::class, 'cerrar'])->name('cortes.cerrar');
-        Route::post('cortes/{corte}/liquidaciones/{liquidacion}/extras', [ProdCorteController::class, 'storeExtra'])->name('cortes.liquidaciones.extras.store');
-        Route::delete('cortes/{corte}/liquidaciones/{liquidacion}/extras/{extra}', [ProdCorteController::class, 'destroyExtra'])->name('cortes.liquidaciones.extras.destroy');
     });
 
     // Infraestructura admin routes
@@ -92,14 +99,22 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('tipo-rubros', CostosTipoRubroController::class)->parameters(['tipo-rubros' => 'tipoRubro']);
         Route::resource('rubros', CostosRubroController::class)->parameters(['rubros' => 'rubro']);
         Route::resource('tipo-solicitudes', CostosTipoSolicitudController::class)->parameters(['tipo-solicitudes' => 'tipoSolicitud']);
-        Route::resource('aprobaciones-departamento', CostosAprobacionDepartamentoController::class)->parameters(['aprobaciones-departamento' => 'aprobacionDepartamento']);
+        Route::resource('permisos', CostosPermisoController::class)->parameters(['permisos' => 'permiso']);
+        Route::post('permisos/{permiso}/sync-departamentos', [CostosPermisoController::class, 'syncDepartamentos'])->name('permisos.sync-departamentos');
         Route::resource('solicitudes-pago', CostosSolicitudPagoController::class)->parameters(['solicitudes-pago' => 'solicitudPago']);
         Route::post('solicitudes-pago/{solicitudPago}/archivos', [CostosSolicitudPagoController::class, 'storeArchivo'])->name('solicitudes-pago.archivos.store');
+        Route::patch('solicitudes-pago/{solicitudPago}/archivos/{solicitudArchivo}', [CostosSolicitudPagoController::class, 'updateArchivo'])->name('solicitudes-pago.archivos.update');
         Route::delete('solicitudes-pago/{solicitudPago}/archivos/{solicitudArchivo}', [CostosSolicitudPagoController::class, 'destroyArchivo'])->name('solicitudes-pago.archivos.destroy');
         Route::get('solicitudes-pago/{solicitudPago}/pdf', [CostosSolicitudPagoController::class, 'generarPdf'])->name('solicitudes-pago.pdf');
         Route::post('solicitudes-pago/{solicitudPago}/upload-firmado', [CostosSolicitudPagoController::class, 'uploadFirmado'])->name('solicitudes-pago.upload-firmado');
         Route::post('solicitudes-pago/{solicitudPago}/cancelar', [CostosSolicitudPagoController::class, 'cancelar'])->name('solicitudes-pago.cancelar');
         Route::post('solicitudes-pago/{solicitudPago}/marcar-pagada', [CostosSolicitudPagoController::class, 'marcarPagada'])->name('solicitudes-pago.marcar-pagada');
+
+        // Aprobaciones digitales
+        Route::get('aprobaciones', [CostosAprobacionController::class, 'index'])->name('aprobaciones.index');
+        Route::get('aprobaciones/{aprobacionSolicitud}', [CostosAprobacionController::class, 'show'])->name('aprobaciones.show');
+        Route::post('aprobaciones/{aprobacionSolicitud}/aprobar', [CostosAprobacionController::class, 'aprobar'])->name('aprobaciones.aprobar');
+        Route::post('aprobaciones/{aprobacionSolicitud}/rechazar', [CostosAprobacionController::class, 'rechazar'])->name('aprobaciones.rechazar');
 
         // Afectaciones presupuestales
         Route::resource('afectaciones', CostosAfectacionPresupuestalController::class)->parameters(['afectaciones' => 'afectacion']);
