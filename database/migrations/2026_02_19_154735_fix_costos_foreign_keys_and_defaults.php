@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,18 +10,12 @@ return new class extends Migration
     {
         $driver = Schema::getConnection()->getDriverName();
 
-        // 1. Fix obra_id FK en costos_ordenes_compra (puede haberse perdido con ->change() en MySQL)
+        // 1. Fix obra_id FK en costos_ordenes_compra (puede haberse perdido con ->change())
         if ($driver !== 'sqlite') {
-            $fkExists = DB::select("
-                SELECT CONSTRAINT_NAME
-                FROM information_schema.KEY_COLUMN_USAGE
-                WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'costos_ordenes_compra'
-                  AND COLUMN_NAME = 'obra_id'
-                  AND REFERENCED_TABLE_NAME = 'obras'
-            ");
+            $fkExists = collect(Schema::getForeignKeys('costos_ordenes_compra'))
+                ->contains(fn (array $fk) => $fk['columns'] === ['obra_id'] && $fk['foreign_table'] === 'obras');
 
-            if (empty($fkExists)) {
+            if (! $fkExists) {
                 Schema::table('costos_ordenes_compra', function (Blueprint $table) {
                     $table->foreign('obra_id')->references('id')->on('obras')->nullOnDelete();
                 });
