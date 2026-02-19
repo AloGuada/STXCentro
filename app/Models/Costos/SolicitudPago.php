@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -59,16 +60,16 @@ class SolicitudPago extends Model
     {
         static::creating(function (self $solicitud) {
             if (empty($solicitud->folio)) {
-                $year = now()->year;
+                $prefix = sprintf('SP-%s%s', now()->format('Y'), now()->format('m'));
                 $last = DB::table('costos_solicitudes_pago')
-                    ->where('folio', 'like', "SP-{$year}-%")
+                    ->where('folio', 'like', "{$prefix}%")
                     ->max('folio');
 
                 $next = $last
-                    ? ((int) substr($last, -4)) + 1
+                    ? ((int) substr($last, -2)) + 1
                     : 1;
 
-                $solicitud->folio = sprintf('SP-%d-%04d', $year, $next);
+                $solicitud->folio = sprintf('%s%02d', $prefix, $next);
             }
         });
     }
@@ -106,6 +107,11 @@ class SolicitudPago extends Model
     public function aprobaciones(): HasMany
     {
         return $this->hasMany(AprobacionSolicitud::class, 'solicitud_id');
+    }
+
+    public function pago(): MorphOne
+    {
+        return $this->morphOne(Pago::class, 'pagable');
     }
 
     public function rubrosAfectados(): MorphMany

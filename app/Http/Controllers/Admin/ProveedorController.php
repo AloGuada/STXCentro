@@ -50,13 +50,20 @@ class ProveedorController extends Controller
     {
         return Inertia::render('admin/proveedores/edit', [
             'proveedor' => $proveedor->load('departamento'),
+            'tienePassword' => (bool) $proveedor->password,
             'departamentos' => Departamento::query()->orderBy('descripcion')->get(),
         ]);
     }
 
     public function update(ProveedorUpdateRequest $request, Proveedor $proveedor): RedirectResponse
     {
-        $proveedor->update($request->validated());
+        $data = $request->validated();
+
+        if (empty($data['password'])) {
+            unset($data['password']);
+        }
+
+        $proveedor->update($data);
 
         return to_route('admin.proveedores.index');
     }

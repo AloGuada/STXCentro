@@ -56,16 +56,16 @@ class AfectacionPresupuestal extends Model
     {
         static::creating(function (self $afectacion) {
             if (empty($afectacion->folio)) {
-                $year = now()->year;
+                $prefix = sprintf('AF-%s%s', now()->format('Y'), now()->format('m'));
                 $last = DB::table('costos_afectaciones_presupuestales')
-                    ->where('folio', 'like', "AF-{$year}-%")
+                    ->where('folio', 'like', "{$prefix}%")
                     ->max('folio');
 
                 $next = $last
-                    ? ((int) substr($last, -4)) + 1
+                    ? ((int) substr($last, -2)) + 1
                     : 1;
 
-                $afectacion->folio = sprintf('AF-%d-%04d', $year, $next);
+                $afectacion->folio = sprintf('%s%02d', $prefix, $next);
             }
         });
     }

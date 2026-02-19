@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\Costos\SolicitudPagoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoUpdateRequest;
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
+use App\Models\Costos\Pago;
 use App\Models\Costos\SolicitudArchivo;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
@@ -147,6 +148,7 @@ class SolicitudPagoController extends Controller
             'detalles.obraRubro.rubro',
             'archivos.documento',
             'aprobaciones.aprobador',
+            'pago',
         ]);
 
         return Inertia::render('admin/costos/solicitudes-pago/show', [
@@ -402,17 +404,34 @@ class SolicitudPagoController extends Controller
         return back()->with('success', 'Solicitud cancelada.');
     }
 
-    public function marcarPagada(SolicitudPago $solicitudPago): RedirectResponse
+    public function crearPago(Request $request, SolicitudPago $solicitudPago): RedirectResponse
     {
         if ($solicitudPago->estatus !== 'aprobada') {
-            return back()->withErrors(['estatus' => 'Solo se pueden marcar como pagadas solicitudes aprobadas.']);
+            return back()->withErrors(['estatus' => 'Solo se pueden crear pagos para solicitudes aprobadas.']);
         }
 
-        $solicitudPago->update([
-            'estatus' => 'pagada',
-            'fecha_pago_realizada' => now(),
+        // Si ya existe un pago, redirigir al existente
+        if ($solicitudPago->pago) {
+            return to_route('admin.costos.pagos.show', $solicitudPago->pago);
+        }
+
+        $request->validate([
+            'tipo_pago' => ['required', 'in:contado,credito'],
+            'fecha_pago_programada' => ['required', 'date'],
+            'fecha_pago_maxima' => ['nullable', 'date', 'after_or_equal:fecha_pago_programada'],
         ]);
 
-        return back()->with('success', 'Solicitud marcada como pagada.');
+        $pago = Pago::create([
+            'pagable_type' => SolicitudPago::class,
+            'pagable_id' => $solicitudPago->id,
+            'monto_pago' => $solicitudPago->monto_total,
+            'moneda' => $solicitudPago->tipo_moneda ?? 'mxn',
+            'tipo_pago' => $request->input('tipo_pago'),
+            'fecha_pago_programada' => $request->input('fecha_pago_programada'),
+            'fecha_pago_maxima' => $request->input('fecha_pago_maxima'),
+            'estatus' => 'pendiente',
+        ]);
+
+        return to_route('admin.costos.pagos.show', $pago);
     }
 }

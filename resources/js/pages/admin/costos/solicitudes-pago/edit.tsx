@@ -12,6 +12,7 @@ import { type FormEvent, useMemo } from 'react';
 
 type DetalleForm = {
     id?: number;
+    obra_id: string;
     obra_rubro_id: string;
     concepto: string;
     cantidad: string;
@@ -52,13 +53,17 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
         tipo_pago: solicitud.tipo_pago,
         tipo_moneda: solicitud.tipo_moneda ?? 'mxn',
         fecha_pago_solicitada: solicitud.fecha_pago_solicitada ?? '',
-        detalles: (solicitud.detalles ?? []).map((d) => ({
-            id: d.id,
-            obra_rubro_id: String(d.obra_rubro_id),
-            concepto: d.concepto,
-            cantidad: String(d.cantidad),
-            precio_unitario: String(d.precio_unitario),
-        })),
+        detalles: (solicitud.detalles ?? []).map((d) => {
+            const matchedObraRubro = obraRubros.find((or) => or.id === d.obra_rubro_id);
+            return {
+                id: d.id,
+                obra_id: matchedObraRubro ? String(matchedObraRubro.obra_id) : '',
+                obra_rubro_id: String(d.obra_rubro_id),
+                concepto: d.concepto,
+                cantidad: String(d.cantidad),
+                precio_unitario: String(d.precio_unitario),
+            };
+        }),
     });
 
     const selectedTipo = useMemo(
@@ -67,7 +72,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
     );
 
     const addDetalle = () => {
-        setData('detalles', [...data.detalles, { obra_rubro_id: '', concepto: '', cantidad: '1', precio_unitario: '0' }]);
+        setData('detalles', [...data.detalles, { obra_id: '', obra_rubro_id: '', concepto: '', cantidad: '1', precio_unitario: '0' }]);
     };
 
     const removeDetalle = (index: number) => {
@@ -77,6 +82,9 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
     const updateDetalle = (index: number, field: keyof DetalleForm, value: string) => {
         const updated = [...data.detalles];
         updated[index] = { ...updated[index], [field]: value };
+        if (field === 'obra_id') {
+            updated[index].obra_rubro_id = '';
+        }
         setData('detalles', updated);
     };
 
@@ -253,21 +261,40 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                                                 </button>
                                             </div>
 
-                                            <FormField label="Rubro" htmlFor={`det_rubro_${index}`} required>
-                                                <select
-                                                    id={`det_rubro_${index}`}
-                                                    className="select select-bordered w-full"
-                                                    value={det.obra_rubro_id}
-                                                    onChange={(e) => updateDetalle(index, 'obra_rubro_id', e.target.value)}
-                                                >
-                                                    <option value="">Seleccionar rubro</option>
-                                                    {obraRubros.map((or) => (
-                                                        <option key={or.id} value={or.id}>
-                                                            {getRubroOptionLabel(or)}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </FormField>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <FormField label="Obra" htmlFor={`det_obra_${index}`} required>
+                                                    <select
+                                                        id={`det_obra_${index}`}
+                                                        className="select select-bordered w-full"
+                                                        value={det.obra_id}
+                                                        onChange={(e) => updateDetalle(index, 'obra_id', e.target.value)}
+                                                    >
+                                                        <option value="">Seleccionar obra</option>
+                                                        {obras.map((o) => (
+                                                            <option key={o.id} value={o.id}>{o.no} - {o.descripcion}</option>
+                                                        ))}
+                                                    </select>
+                                                </FormField>
+
+                                                <FormField label="Rubro" htmlFor={`det_rubro_${index}`} required>
+                                                    <select
+                                                        id={`det_rubro_${index}`}
+                                                        className="select select-bordered w-full"
+                                                        value={det.obra_rubro_id}
+                                                        onChange={(e) => updateDetalle(index, 'obra_rubro_id', e.target.value)}
+                                                        disabled={!det.obra_id}
+                                                    >
+                                                        <option value="">{det.obra_id ? 'Seleccionar rubro' : 'Seleccione obra primero'}</option>
+                                                        {obraRubros
+                                                            .filter((or) => or.obra_id === Number(det.obra_id))
+                                                            .map((or) => (
+                                                                <option key={or.id} value={or.id}>
+                                                                    {getRubroOptionLabel(or)}
+                                                                </option>
+                                                            ))}
+                                                    </select>
+                                                </FormField>
+                                            </div>
 
                                             {disponible !== null && (() => {
                                                 const or = obraRubros.find((r) => r.id === Number(det.obra_rubro_id));

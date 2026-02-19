@@ -30,6 +30,8 @@ export default function ProveedoresCreate({ departamentos }: Props) {
         email: '',
         contacto_nombre: '',
         tiene_acceso_portal: false,
+        password: '',
+        password_confirmation: '',
         maneja_credito: false,
         limite_credito: '0',
         dias_credito_default: '0',
@@ -116,12 +118,36 @@ export default function ProveedoresCreate({ departamentos }: Props) {
                         </div>
 
                         <div className="divider" />
+                        <h2 className="text-lg font-medium">Acceso al Portal</h2>
+                        <label className="label cursor-pointer gap-2 w-fit">
+                            <input type="checkbox" className="checkbox" checked={data.tiene_acceso_portal} onChange={(e) => setData('tiene_acceso_portal', e.target.checked)} />
+                            <span className="label-text">Tiene acceso al portal</span>
+                        </label>
+
+                        {data.tiene_acceso_portal && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField label="Contraseña" htmlFor="password" error={errors.password} required>
+                                    <Input
+                                        id="password"
+                                        type="password"
+                                        value={data.password}
+                                        onChange={(e) => setData('password', e.target.value)}
+                                    />
+                                </FormField>
+                                <FormField label="Confirmar Contraseña" htmlFor="password_confirmation" error={errors.password_confirmation} required>
+                                    <Input
+                                        id="password_confirmation"
+                                        type="password"
+                                        value={data.password_confirmation}
+                                        onChange={(e) => setData('password_confirmation', e.target.value)}
+                                    />
+                                </FormField>
+                            </div>
+                        )}
+
+                        <div className="divider" />
                         <h2 className="text-lg font-medium">Crédito</h2>
                         <div className="flex items-center gap-6">
-                            <label className="label cursor-pointer gap-2">
-                                <input type="checkbox" className="checkbox" checked={data.tiene_acceso_portal} onChange={(e) => setData('tiene_acceso_portal', e.target.checked)} />
-                                <span className="label-text">Tiene acceso al portal</span>
-                            </label>
                             <label className="label cursor-pointer gap-2">
                                 <input type="checkbox" className="checkbox" checked={data.maneja_credito} onChange={(e) => setData('maneja_credito', e.target.checked)} />
                                 <span className="label-text">Maneja crédito</span>

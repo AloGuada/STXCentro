@@ -4,7 +4,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 import { Loader2Icon } from 'lucide-react';
 
@@ -51,16 +51,22 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
         });
     };
 
+    const [showCrearPago, setShowCrearPago] = useState(false);
+    const crearPagoForm = useForm({
+        tipo_pago: 'contado',
+        fecha_pago_programada: '',
+        fecha_pago_maxima: '',
+    });
+
     const handleCancelar = () => {
         if (confirm('¿Estás seguro de cancelar esta solicitud?')) {
             router.post(`/admin/costos/solicitudes-pago/${solicitud.id}/cancelar`);
         }
     };
 
-    const handleMarcarPagada = () => {
-        if (confirm('¿Marcar esta solicitud como pagada?')) {
-            router.post(`/admin/costos/solicitudes-pago/${solicitud.id}/marcar-pagada`);
-        }
+    const handleCrearPago = (e: React.FormEvent) => {
+        e.preventDefault();
+        crearPagoForm.post(`/admin/costos/solicitudes-pago/${solicitud.id}/crear-pago`);
     };
 
     return (
@@ -101,11 +107,18 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                                 </div>
                             </>
                         )}
-                        {solicitud.estatus === 'aprobada' && (
+                        {solicitud.estatus === 'aprobada' && !solicitud.pago && (
                             <>
-                                <Button onClick={handleMarcarPagada}>Marcar como Pagada</Button>
+                                <Button onClick={() => setShowCrearPago(true)}>Crear Pago</Button>
                                 <Button variant="destructive" onClick={handleCancelar}>Cancelar</Button>
                             </>
+                        )}
+                        {solicitud.pago && (
+                            <Button asChild>
+                                <Link href={`/admin/costos/pagos/${solicitud.pago.id}`}>
+                                    Ver Pago ({solicitud.pago.folio})
+                                </Link>
+                            </Button>
                         )}
                         <Button variant="outline" asChild>
                             <Link href="/admin/costos/solicitudes-pago">Volver</Link>
@@ -274,6 +287,57 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                         )}
                     </div>
                 </div>
+
+                {/* Modal Crear Pago */}
+                {showCrearPago && (
+                    <div className="modal modal-open">
+                        <div className="modal-box">
+                            <h3 className="text-lg font-bold">Crear Pago</h3>
+                            <form onSubmit={handleCrearPago} className="mt-4 space-y-4">
+                                <div className="form-control">
+                                    <label className="label"><span className="label-text">Tipo de Pago</span></label>
+                                    <select
+                                        className="select select-bordered"
+                                        value={crearPagoForm.data.tipo_pago}
+                                        onChange={(e) => crearPagoForm.setData('tipo_pago', e.target.value)}
+                                    >
+                                        <option value="contado">Contado</option>
+                                        <option value="credito">Crédito</option>
+                                    </select>
+                                </div>
+                                <div className="form-control">
+                                    <label className="label"><span className="label-text">Fecha Pago Programada</span></label>
+                                    <input
+                                        type="date"
+                                        className="input input-bordered"
+                                        value={crearPagoForm.data.fecha_pago_programada}
+                                        onChange={(e) => crearPagoForm.setData('fecha_pago_programada', e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                {crearPagoForm.data.tipo_pago === 'credito' && (
+                                    <div className="form-control">
+                                        <label className="label"><span className="label-text">Fecha Pago Maxima</span></label>
+                                        <input
+                                            type="date"
+                                            className="input input-bordered"
+                                            value={crearPagoForm.data.fecha_pago_maxima}
+                                            onChange={(e) => crearPagoForm.setData('fecha_pago_maxima', e.target.value)}
+                                        />
+                                    </div>
+                                )}
+                                <div className="modal-action">
+                                    <button type="button" className="btn" onClick={() => setShowCrearPago(false)}>Cancelar</button>
+                                    <Button type="submit" disabled={crearPagoForm.processing}>
+                                        {crearPagoForm.processing && <Loader2Icon className="size-4 animate-spin" />}
+                                        Crear Pago
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                        <div className="modal-backdrop" onClick={() => setShowCrearPago(false)}></div>
+                    </div>
+                )}
             </div>
         </AppLayout>
     );

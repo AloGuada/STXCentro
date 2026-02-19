@@ -12,7 +12,7 @@ class ProveedorStoreRequest extends FormRequest
     }
 
     /**
-     * @return array<string, array<int, string>>
+     * @return array<string, array<int, mixed>>
      */
     public function rules(): array
     {
@@ -23,9 +23,10 @@ class ProveedorStoreRequest extends FormRequest
             'rfc' => ['required', 'string', 'max:13', 'unique:proveedores,rfc'],
             'direccion' => ['nullable', 'string'],
             'telefono' => ['nullable', 'string', 'max:50'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'email' => [$this->boolean('tiene_acceso_portal') ? 'required' : 'nullable', 'email', 'max:255'],
             'contacto_nombre' => ['nullable', 'string', 'max:255'],
             'tiene_acceso_portal' => ['boolean'],
+            'password' => [$this->boolean('tiene_acceso_portal') ? 'required' : 'nullable', 'string', 'min:8', 'confirmed'],
             'maneja_credito' => ['boolean'],
             'limite_credito' => ['nullable', 'numeric', 'min:0'],
             'dias_credito_default' => ['nullable', 'integer', 'min:0'],
@@ -46,6 +47,10 @@ class ProveedorStoreRequest extends FormRequest
             'razon_social.required' => 'La razón social es obligatoria.',
             'rfc.required' => 'El RFC es obligatorio.',
             'rfc.unique' => 'Este RFC ya está registrado.',
+            'email.required' => 'El email es obligatorio cuando el proveedor tiene acceso al portal.',
+            'password.required' => 'La contraseña es obligatoria cuando el proveedor tiene acceso al portal.',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+            'password.confirmed' => 'La confirmación de contraseña no coincide.',
         ];
     }
 }

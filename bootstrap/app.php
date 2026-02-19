@@ -21,6 +21,22 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        $middleware->redirectGuestsTo(function ($request) {
+            if ($request->is('portal/*') || $request->is('portal')) {
+                return route('portal.login');
+            }
+
+            return route('login');
+        });
+
+        $middleware->redirectUsersTo(function ($request) {
+            if ($request->is('portal/*')) {
+                return route('portal.dashboard');
+            }
+
+            return '/dashboard';
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

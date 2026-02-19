@@ -12,10 +12,11 @@ import type { FormEvent } from 'react';
 
 type Props = {
     proveedor: Proveedor;
+    tienePassword: boolean;
     departamentos: Departamento[];
 };
 
-export default function ProveedoresEdit({ proveedor, departamentos }: Props) {
+export default function ProveedoresEdit({ proveedor, tienePassword, departamentos }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Proveedores', href: '/admin/proveedores' },
@@ -32,6 +33,8 @@ export default function ProveedoresEdit({ proveedor, departamentos }: Props) {
         email: proveedor.email ?? '',
         contacto_nombre: proveedor.contacto_nombre ?? '',
         tiene_acceso_portal: proveedor.tiene_acceso_portal,
+        password: '',
+        password_confirmation: '',
         maneja_credito: proveedor.maneja_credito,
         limite_credito: String(proveedor.limite_credito),
         dias_credito_default: String(proveedor.dias_credito_default),
@@ -125,12 +128,42 @@ export default function ProveedoresEdit({ proveedor, departamentos }: Props) {
                         </div>
 
                         <div className="divider" />
+                        <h2 className="text-lg font-medium">Acceso al Portal</h2>
+                        <label className="label cursor-pointer gap-2 w-fit">
+                            <input type="checkbox" className="checkbox" checked={data.tiene_acceso_portal} onChange={(e) => setData('tiene_acceso_portal', e.target.checked)} />
+                            <span className="label-text">Tiene acceso al portal</span>
+                        </label>
+
+                        {data.tiene_acceso_portal && (
+                            <>
+                                {tienePassword && (
+                                    <p className="text-sm text-base-content/60">El proveedor ya tiene una contraseña. Deja los campos vacíos para mantenerla.</p>
+                                )}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField label={tienePassword ? 'Nueva Contraseña' : 'Contraseña'} htmlFor="password" error={errors.password} required={!tienePassword}>
+                                        <Input
+                                            id="password"
+                                            type="password"
+                                            value={data.password}
+                                            onChange={(e) => setData('password', e.target.value)}
+                                            placeholder={tienePassword ? 'Dejar vacío para no cambiar' : ''}
+                                        />
+                                    </FormField>
+                                    <FormField label="Confirmar Contraseña" htmlFor="password_confirmation" error={errors.password_confirmation} required={!tienePassword}>
+                                        <Input
+                                            id="password_confirmation"
+                                            type="password"
+                                            value={data.password_confirmation}
+                                            onChange={(e) => setData('password_confirmation', e.target.value)}
+                                        />
+                                    </FormField>
+                                </div>
+                            </>
+                        )}
+
+                        <div className="divider" />
                         <h2 className="text-lg font-medium">Crédito</h2>
                         <div className="flex items-center gap-6">
-                            <label className="label cursor-pointer gap-2">
-                                <input type="checkbox" className="checkbox" checked={data.tiene_acceso_portal} onChange={(e) => setData('tiene_acceso_portal', e.target.checked)} />
-                                <span className="label-text">Tiene acceso al portal</span>
-                            </label>
                             <label className="label cursor-pointer gap-2">
                                 <input type="checkbox" className="checkbox" checked={data.maneja_credito} onChange={(e) => setData('maneja_credito', e.target.checked)} />
                                 <span className="label-text">Maneja crédito</span>

@@ -757,6 +757,7 @@ export type CostosObraRubro = {
     presupuestado: number;
     acumulado: number;
     rubro?: CostosRubro;
+    obra?: Obra;
     created_at: string;
     updated_at: string;
 };
@@ -829,6 +830,7 @@ export type CostosSolicitudPago = {
     detalles?: CostosSolicitudPagoDetalle[];
     archivos?: CostosSolicitudArchivo[];
     aprobaciones?: CostosAprobacionSolicitud[];
+    pago?: CostosPago;
     created_at: string;
     updated_at: string;
 };
@@ -953,6 +955,176 @@ export type CostosRubroAfectado = {
     usuario_aplica_id: string | null;
     fecha_aplicacion: string | null;
     obra_rubro?: CostosObraRubro;
+    created_at: string;
+    updated_at: string;
+};
+
+// Ordenes de Compra Types
+export type CostosOrdenCompraEstatus = 'pendiente_factura' | 'pendiente_entrega' | 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
+
+export const ORDEN_COMPRA_ESTATUS_LABELS: Record<CostosOrdenCompraEstatus, string> = {
+    pendiente_factura: 'Pend. Factura',
+    pendiente_entrega: 'Pend. Entrega',
+    pendiente_aprobacion: 'Pend. Aprobación',
+    pendiente_pago: 'Pend. Pago',
+    pagada: 'Pagada',
+    cancelada: 'Cancelada',
+};
+
+export const ORDEN_COMPRA_ESTATUS_COLORS: Record<CostosOrdenCompraEstatus, string> = {
+    pendiente_factura: 'badge-warning',
+    pendiente_entrega: 'badge-info',
+    pendiente_aprobacion: 'badge-accent',
+    pendiente_pago: 'badge-primary',
+    pagada: 'badge-success',
+    cancelada: 'badge-error',
+};
+
+export type CostosOrdenCompra = {
+    id: number;
+    folio: string;
+    referencia: string | null;
+    proveedor_id: number;
+    obra_id: number | null;
+    departamento_id: number;
+    creado_por: string;
+    moneda: CostosTipoMoneda;
+    total: number;
+    fecha_entrega_esperada: string | null;
+    notas: string | null;
+    archivo_path: string | null;
+    estatus: CostosOrdenCompraEstatus;
+    pdf_formato_path: string | null;
+    pdf_firmado_path: string | null;
+    proveedor?: Proveedor;
+    obra?: Obra;
+    departamento?: Departamento;
+    creador?: Usuario;
+    detalles?: CostosOrdenCompraDetalle[];
+    facturas?: CostosFactura[];
+    rubros_afectados?: CostosRubroAfectado[];
+    facturas_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosOrdenCompraDetalle = {
+    id: number;
+    orden_compra_id: number;
+    obra_rubro_id: number;
+    monto: number;
+    obra_rubro?: CostosObraRubro;
+    created_at: string;
+    updated_at: string;
+};
+
+// Facturas Types
+export type CostosFacturaEstatus = 'pendiente_entrega' | 'pendiente_pago' | 'pagada' | 'cancelada';
+
+export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
+    pendiente_entrega: 'Pendiente Entrega',
+    pendiente_pago: 'Pendiente Pago',
+    pagada: 'Pagada',
+    cancelada: 'Cancelada',
+};
+
+export const FACTURA_ESTATUS_COLORS: Record<CostosFacturaEstatus, string> = {
+    pendiente_entrega: 'badge-warning',
+    pendiente_pago: 'badge-primary',
+    pagada: 'badge-success',
+    cancelada: 'badge-error',
+};
+
+export type CostosFactura = {
+    id: number;
+    folio: string;
+    orden_compra_id: number;
+    proveedor_id: number;
+    uuid_fiscal: string | null;
+    folio_fiscal: string | null;
+    ruta_xml: string | null;
+    ruta_pdf: string | null;
+    subtotal: number;
+    iva: number;
+    total: number;
+    moneda: string;
+    fecha_factura: string | null;
+    estatus: CostosFacturaEstatus;
+    notas: string | null;
+    aprobada_costos: boolean;
+    aprobada_costos_por: string | null;
+    aprobada_costos_at: string | null;
+    aceptada_contabilidad: boolean;
+    aceptada_contabilidad_por: string | null;
+    aceptada_contabilidad_at: string | null;
+    orden_compra?: CostosOrdenCompra;
+    proveedor?: Proveedor;
+    entregas?: CostosEntrega[];
+    pago?: CostosPago;
+    aprobada_costos_por_usuario?: Usuario;
+    aceptada_contabilidad_por_usuario?: Usuario;
+    created_at: string;
+    updated_at: string;
+};
+
+// Entregas Types
+export type CostosEntrega = {
+    id: number;
+    factura_id: number;
+    recibido_por: string;
+    fecha_entrega: string;
+    observaciones: string | null;
+    archivo_path: string | null;
+    recibidor?: Usuario;
+    created_at: string;
+    updated_at: string;
+};
+
+// Pagos Types
+export type CostosPagoEstatus = 'pendiente' | 'programado' | 'parcial' | 'pagado';
+
+export const PAGO_ESTATUS_LABELS: Record<CostosPagoEstatus, string> = {
+    pendiente: 'Pendiente',
+    programado: 'Programado',
+    parcial: 'Parcial',
+    pagado: 'Pagado',
+};
+
+export const PAGO_ESTATUS_COLORS: Record<CostosPagoEstatus, string> = {
+    pendiente: 'badge-warning',
+    programado: 'badge-info',
+    parcial: 'badge-accent',
+    pagado: 'badge-success',
+};
+
+export type CostosPagoTipoPago = 'contado' | 'credito';
+
+export const PAGO_TIPO_PAGO_LABELS: Record<CostosPagoTipoPago, string> = {
+    contado: 'Contado',
+    credito: 'Crédito',
+};
+
+export type CostosPago = {
+    id: number;
+    folio: string;
+    pagable_type: string;
+    pagable_id: number;
+    monto_pago: number;
+    moneda: string;
+    tipo_cambio: number;
+    tipo_pago: CostosPagoTipoPago;
+    fecha_pago_programada: string | null;
+    fecha_pago_maxima: string | null;
+    fecha_pago_realizada: string | null;
+    referencia_pago: string | null;
+    ruta_comprobante: string | null;
+    estatus: CostosPagoEstatus;
+    notas: string | null;
+    pago_padre_id: number | null;
+    numero_parcialidad: number | null;
+    pagable?: CostosSolicitudPago | CostosFactura;
+    pago_padre?: CostosPago;
+    pagos_parciales?: CostosPago[];
     created_at: string;
     updated_at: string;
 };

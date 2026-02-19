@@ -15,6 +15,7 @@ import {
     Factory,
     File,
     FileText,
+    FileCheck,
     Folder,
     FolderTree,
     Globe,
@@ -26,8 +27,10 @@ import {
     Monitor,
     Package,
     Puzzle,
+    Receipt,
     Settings,
     Shield,
+    ShoppingCart,
     Tag,
     Ticket,
     TrendingDown,
@@ -35,7 +38,7 @@ import {
     HardHat,
     Wrench,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import AppLogo from '@/components/app-logo';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { UserInfo } from '@/components/user-info';
@@ -105,6 +108,10 @@ const navGroups: NavGroup[] = [
             { title: 'Niveles Aprobacion', href: '/admin/costos/permisos', icon: CheckSquare, permission: 'costos.aprobaciones.ver' },
             { title: 'Mis Aprobaciones', href: '/admin/costos/aprobaciones', icon: ClipboardCheck, permission: 'costos.aprobaciones.ver' },
             { title: 'Afectaciones', href: '/admin/costos/afectaciones', icon: TrendingDown, permission: 'costos.afectaciones.ver' },
+            { title: 'Ordenes Compra', href: '/admin/costos/ordenes-compra', icon: ShoppingCart, permission: 'costos.ordenes-compra.ver' },
+            { title: 'Facturas', href: '/admin/costos/facturas', icon: Receipt, permission: 'costos.facturas.ver' },
+            { title: 'Pagos', href: '/admin/costos/pagos', icon: DollarSign, permission: 'costos.pagos.ver' },
+            { title: 'Cuentas Internas', href: '/admin/costos/cuentas-internas', icon: Users, permission: 'costos.cuentas-internas.ver' },
         ],
     },
     {
@@ -156,14 +163,18 @@ function SidebarMenuItem({ item, isActive }: { item: NavItem; isActive: boolean 
     );
 }
 
-function SidebarMenuGroup({ group }: { group: NavGroup }) {
+function SidebarMenuGroup({ group, isOpen, onToggle }: { group: NavGroup; isOpen: boolean; onToggle: () => void }) {
     const { isCurrentUrl } = useCurrentUrl();
-    const hasActiveItem = group.items.some((item) => isCurrentUrl(item.href));
 
     return (
         <li>
-            <details open={group.defaultOpen || hasActiveItem}>
-                <summary>
+            <details open={isOpen}>
+                <summary
+                    onClick={(e) => {
+                        e.preventDefault();
+                        onToggle();
+                    }}
+                >
                     {group.icon && <group.icon className="size-4" />}
                     {group.title}
                 </summary>
@@ -190,6 +201,13 @@ function SidebarContent() {
         .map((g) => ({ ...g, items: g.items.filter((i) => !i.permission || can(i.permission)) }))
         .filter((g) => g.items.length > 0);
 
+    // Determinar grupo inicial abierto: el que tiene un item activo, o el defaultOpen
+    const initialGroup = filteredGroups.find((g) => g.items.some((i) => isCurrentUrl(i.href)))?.title
+        ?? filteredGroups.find((g) => g.defaultOpen)?.title
+        ?? null;
+
+    const [openGroup, setOpenGroup] = useState<string | null>(initialGroup);
+
     return (
         <div className="flex h-full flex-col">
             {/* Logo */}
@@ -210,9 +228,14 @@ function SidebarContent() {
                     />
                 ))}
 
-                {/* Grupos con submenús */}
+                {/* Grupos con submenús — accordion: solo uno abierto */}
                 {filteredGroups.map((group) => (
-                    <SidebarMenuGroup key={group.title} group={group} />
+                    <SidebarMenuGroup
+                        key={group.title}
+                        group={group}
+                        isOpen={openGroup === group.title}
+                        onToggle={() => setOpenGroup(openGroup === group.title ? null : group.title)}
+                    />
                 ))}
 
                 {/* Divider */}

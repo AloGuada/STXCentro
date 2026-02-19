@@ -2,7 +2,12 @@
 
 use App\Http\Controllers\Admin\Costos\AfectacionPresupuestalController as CostosAfectacionPresupuestalController;
 use App\Http\Controllers\Admin\Costos\AprobacionController as CostosAprobacionController;
+use App\Http\Controllers\Admin\Costos\CuentaInternaController as CostosCuentaInternaController;
+use App\Http\Controllers\Admin\Costos\EntregaController as CostosEntregaController;
+use App\Http\Controllers\Admin\Costos\FacturaAdminController as CostosFacturaAdminController;
 use App\Http\Controllers\Admin\Costos\ObraRubroController as CostosObraRubroController;
+use App\Http\Controllers\Admin\Costos\OrdenCompraController as CostosOrdenCompraController;
+use App\Http\Controllers\Admin\Costos\PagoController as CostosPagoController;
 use App\Http\Controllers\Admin\Costos\PermisoController as CostosPermisoController;
 use App\Http\Controllers\Admin\Costos\PresupuestoController as CostosPresupuestoController;
 use App\Http\Controllers\Admin\Costos\RubroController as CostosRubroController;
@@ -108,7 +113,24 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('solicitudes-pago/{solicitudPago}/pdf', [CostosSolicitudPagoController::class, 'generarPdf'])->name('solicitudes-pago.pdf');
         Route::post('solicitudes-pago/{solicitudPago}/upload-firmado', [CostosSolicitudPagoController::class, 'uploadFirmado'])->name('solicitudes-pago.upload-firmado');
         Route::post('solicitudes-pago/{solicitudPago}/cancelar', [CostosSolicitudPagoController::class, 'cancelar'])->name('solicitudes-pago.cancelar');
-        Route::post('solicitudes-pago/{solicitudPago}/marcar-pagada', [CostosSolicitudPagoController::class, 'marcarPagada'])->name('solicitudes-pago.marcar-pagada');
+        Route::post('solicitudes-pago/{solicitudPago}/crear-pago', [CostosSolicitudPagoController::class, 'crearPago'])->name('solicitudes-pago.crear-pago');
+
+        // Ordenes de Compra
+        Route::resource('ordenes-compra', CostosOrdenCompraController::class)->only(['index', 'create', 'store', 'show', 'destroy'])->parameters(['ordenes-compra' => 'ordenCompra']);
+        Route::post('ordenes-compra/{ordenCompra}/cancelar', [CostosOrdenCompraController::class, 'cancelar'])->name('ordenes-compra.cancelar');
+
+        // Facturas
+        Route::resource('facturas', CostosFacturaAdminController::class)->only(['index', 'show'])->parameters(['facturas' => 'factura']);
+        Route::post('facturas/{factura}/entregas', [CostosEntregaController::class, 'store'])->name('facturas.entregas.store');
+        Route::post('facturas/{factura}/aprobar-costos', [CostosFacturaAdminController::class, 'aprobarCostos'])->name('facturas.aprobar-costos');
+        Route::post('facturas/{factura}/aceptar-contabilidad', [CostosFacturaAdminController::class, 'aceptarContabilidad'])->name('facturas.aceptar-contabilidad');
+
+        // Pagos
+        Route::resource('pagos', CostosPagoController::class)->only(['index', 'show'])->parameters(['pagos' => 'pago']);
+        Route::post('pagos/{pago}/programar', [CostosPagoController::class, 'programar'])->name('pagos.programar');
+        Route::get('pagos/{pago}/parcializar', [CostosPagoController::class, 'showParcializar'])->name('pagos.parcializar.show');
+        Route::post('pagos/{pago}/parcializar', [CostosPagoController::class, 'parcializar'])->name('pagos.parcializar');
+        Route::post('pagos/{pago}/upload-comprobante', [CostosPagoController::class, 'uploadComprobante'])->name('pagos.upload-comprobante');
 
         // Aprobaciones digitales
         Route::get('aprobaciones', [CostosAprobacionController::class, 'index'])->name('aprobaciones.index');
@@ -125,6 +147,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // Presupuestos (vista por obra)
         Route::get('presupuestos', [CostosPresupuestoController::class, 'index'])->name('presupuestos.index');
         Route::get('presupuestos/{obra}/edit', [CostosPresupuestoController::class, 'edit'])->name('presupuestos.edit');
+
+        // Cuentas Internas
+        Route::get('cuentas-internas', [CostosCuentaInternaController::class, 'index'])->name('cuentas-internas.index');
+        Route::post('cuentas-internas', [CostosCuentaInternaController::class, 'store'])->name('cuentas-internas.store');
+        Route::delete('cuentas-internas/{usuario}/{rol}', [CostosCuentaInternaController::class, 'destroy'])->name('cuentas-internas.destroy');
 
         Route::post('obra-rubros', [CostosObraRubroController::class, 'store'])->name('obra-rubros.store');
         Route::put('obra-rubros/{obraRubro}', [CostosObraRubroController::class, 'update'])->name('obra-rubros.update');

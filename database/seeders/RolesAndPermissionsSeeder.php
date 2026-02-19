@@ -88,6 +88,24 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.afectaciones.crear',
             'costos.afectaciones.editar',
             'costos.afectaciones.eliminar',
+            'costos.pagos.ver',
+            'costos.pagos.crear',
+            'costos.pagos.editar',
+            'costos.pagos.eliminar',
+            'costos.ordenes-compra.ver',
+            'costos.ordenes-compra.crear',
+            'costos.ordenes-compra.editar',
+            'costos.ordenes-compra.eliminar',
+            'costos.ordenes-compra.aprobar',
+            'costos.ordenes-compra.cancelar',
+            'costos.facturas.ver',
+            'costos.facturas.recibir',
+            'costos.facturas.aprobar',
+            'costos.entregas.crear',
+            'costos.pagos.programar',
+            'costos.facturas.aceptar-contabilidad',
+            'costos.cuentas-internas.ver',
+            'costos.cuentas-internas.editar',
         ];
 
         // Crear permisos del módulo Produccion
@@ -154,6 +172,9 @@ class RolesAndPermissionsSeeder extends Seeder
         $adminCostos = Role::firstOrCreate(['name' => 'admin-costos', 'guard_name' => 'web']);
         $adminProduccion = Role::firstOrCreate(['name' => 'admin-produccion', 'guard_name' => 'web']);
         $adminInfra = Role::firstOrCreate(['name' => 'admin-infra', 'guard_name' => 'web']);
+        $compras = Role::firstOrCreate(['name' => 'compras', 'guard_name' => 'web']);
+        $almacen = Role::firstOrCreate(['name' => 'almacen', 'guard_name' => 'web']);
+        $contabilidad = Role::firstOrCreate(['name' => 'contabilidad', 'guard_name' => 'web']);
         $empleado = Role::firstOrCreate(['name' => 'empleado', 'guard_name' => 'web']);
 
         // Super admin tiene todos los permisos
@@ -183,6 +204,36 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Admin Infra tiene todos los permisos de infraestructura
         $adminInfra->givePermissionTo($infraPermissions);
+
+        // Compras tiene permisos de ordenes de compra y facturas
+        $compras->givePermissionTo([
+            'costos.ordenes-compra.ver',
+            'costos.ordenes-compra.crear',
+            'costos.ordenes-compra.editar',
+            'costos.ordenes-compra.eliminar',
+            'costos.ordenes-compra.aprobar',
+            'costos.ordenes-compra.cancelar',
+            'costos.facturas.ver',
+            'costos.proveedores.ver',
+            'costos.proveedores.editar',
+        ]);
+
+        // Almacen tiene permisos de recepcion
+        $almacen->givePermissionTo([
+            'costos.ordenes-compra.ver',
+            'costos.facturas.ver',
+            'costos.facturas.recibir',
+            'costos.entregas.crear',
+        ]);
+
+        // Contabilidad acepta facturas, crea pagos y los programa
+        $contabilidad->givePermissionTo([
+            'costos.pagos.ver',
+            'costos.pagos.programar',
+            'costos.pagos.editar',
+            'costos.facturas.ver',
+            'costos.facturas.aceptar-contabilidad',
+        ]);
 
         // Empleado tiene permisos básicos de lectura
         $empleado->givePermissionTo([
