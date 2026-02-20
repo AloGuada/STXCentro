@@ -68,15 +68,19 @@ class Compresor extends Model
      */
     public static function horasLaboradasMensuales(int $year): array
     {
+        $monthExpr = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%m', created_at)"
+            : "to_char(created_at, 'MM')";
+
         $rows = static::query()
             ->select(
-                DB::raw("strftime('%m', created_at) as mes"),
+                DB::raw("{$monthExpr} as mes"),
                 DB::raw('MAX(compresor_1_tiempo_marcha) - MIN(compresor_1_tiempo_marcha) as c1'),
                 DB::raw('MAX(compresor_2_tiempo_marcha) - MIN(compresor_2_tiempo_marcha) as c2'),
                 DB::raw('MAX(compresor_3_tiempo_marcha) - MIN(compresor_3_tiempo_marcha) as c3'),
             )
             ->whereYear('created_at', $year)
-            ->groupBy(DB::raw("strftime('%m', created_at)"))
+            ->groupBy(DB::raw($monthExpr))
             ->orderBy('mes')
             ->get();
 

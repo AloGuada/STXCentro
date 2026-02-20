@@ -69,15 +69,19 @@ class Transformador extends Model
      */
     public static function consumosMensuales(int $year): array
     {
+        $monthExpr = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%m', created_at)"
+            : "to_char(created_at, 'MM')";
+
         $rows = static::query()
             ->select(
-                DB::raw("strftime('%m', created_at) as mes"),
+                DB::raw("{$monthExpr} as mes"),
                 DB::raw('SUM(total_1) as total_1'),
                 DB::raw('SUM(total_5) as total_5'),
                 DB::raw('SUM(lectura_5y5) as lectura_5y5'),
             )
             ->whereYear('created_at', $year)
-            ->groupBy(DB::raw("strftime('%m', created_at)"))
+            ->groupBy(DB::raw($monthExpr))
             ->orderBy('mes')
             ->get();
 

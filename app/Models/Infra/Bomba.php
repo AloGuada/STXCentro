@@ -78,15 +78,19 @@ class Bomba extends Model
     public static function estadisticasMensuales(int $year): array
     {
         // Paso 1: promediar presion_tuberia por día
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+        $dayExpr = $isSqlite ? "strftime('%Y-%m-%d', created_at)" : "to_char(created_at, 'YYYY-MM-DD')";
+        $monthExpr = $isSqlite ? "strftime('%m', created_at)" : "to_char(created_at, 'MM')";
+
         $dailyAvgs = static::query()
             ->select(
-                DB::raw("strftime('%Y-%m-%d', created_at) as dia"),
-                DB::raw("strftime('%m', created_at) as mes"),
+                DB::raw("{$dayExpr} as dia"),
+                DB::raw("{$monthExpr} as mes"),
                 DB::raw('AVG(presion_tuberia) as avg_dia'),
             )
             ->whereYear('created_at', $year)
             ->whereNotNull('presion_tuberia')
-            ->groupBy(DB::raw("strftime('%Y-%m-%d', created_at)"), DB::raw("strftime('%m', created_at)"))
+            ->groupBy(DB::raw($dayExpr), DB::raw($monthExpr))
             ->get();
 
         // Agrupar promedios diarios por mes
