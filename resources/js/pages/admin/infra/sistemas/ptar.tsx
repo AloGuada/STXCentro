@@ -81,7 +81,7 @@ export default function PtarCreate({ fecha, turno }: Props) {
                                                 checked={data.trampa_solida}
                                                 onChange={(e) => setData('trampa_solida', e.target.checked)}
                                             />
-                                            <span className="label-text">Trampa Solida</span>
+                                            <span className="label-text">Trampa Sólidos {data.trampa_solida ? '(Limpio)' : '(Sucio)'}</span>
                                         </label>
                                     </div>
                                 </div>

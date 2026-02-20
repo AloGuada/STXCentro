@@ -20,7 +20,21 @@ function formatMes(mes: string): string {
     return MESES[idx] ?? mes;
 }
 
+function hasData(data: Record<string, unknown>[], keys: string[]): boolean {
+    return data.some((row) => keys.some((k) => Number(row[k]) !== 0));
+}
+
+function EmptyChart() {
+    return (
+        <div className="flex h-[300px] items-center justify-center text-base-content/50">
+            <p>Sin datos para este periodo</p>
+        </div>
+    );
+}
+
 function CompresoresChart({ data }: { data: InfraChartCompresor[] }) {
+    if (!hasData(data, ['c1', 'c2', 'c3'])) return <EmptyChart />;
+
     return (
         <ResponsiveContainer width="100%" height={300}>
             <LineChart data={data}>
@@ -38,6 +52,8 @@ function CompresoresChart({ data }: { data: InfraChartCompresor[] }) {
 }
 
 function BombasChart({ data }: { data: InfraChartBomba[] }) {
+    if (!hasData(data, ['avg_presion', 'max_presion', 'min_presion'])) return <EmptyChart />;
+
     return (
         <ResponsiveContainer width="100%" height={300}>
             <LineChart data={data}>
@@ -55,6 +71,8 @@ function BombasChart({ data }: { data: InfraChartBomba[] }) {
 }
 
 function TransformadoresChart({ data }: { data: InfraChartTransformador[] }) {
+    if (!hasData(data, ['total_1', 'total_5', 'lectura_5y5'])) return <EmptyChart />;
+
     return (
         <ResponsiveContainer width="100%" height={300}>
             <LineChart data={data}>
@@ -72,6 +90,8 @@ function TransformadoresChart({ data }: { data: InfraChartTransformador[] }) {
 }
 
 function TanquesChart({ data }: { data: InfraChartTanque[] }) {
+    if (!hasData(data, ['oxigeno_acum', 'argon_acum', 'co2_acum', 'lp_acum'])) return <EmptyChart />;
+
     return (
         <ResponsiveContainer width="100%" height={300}>
             <LineChart data={data}>

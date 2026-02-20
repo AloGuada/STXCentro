@@ -154,7 +154,7 @@ class DashboardService
             $detalles[] = 'Bomba OFF';
         }
         if (! $p->trampa_solida) {
-            $detalles[] = 'Trampa OFF';
+            $detalles[] = 'Trampa sucia';
         }
         if (! $this->inRange($p->nivel_cloro, 30, 100)) {
             $detalles[] = "Cloro: {$p->nivel_cloro}% (30-100)";

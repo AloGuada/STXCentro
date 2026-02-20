@@ -81,8 +81,8 @@ export default function PtarShow({ data, fecha, turno }: Props) {
                             <Campo label="Bomba">
                                 <StatusBadge activo={data.bomba_activa} />
                             </Campo>
-                            <Campo label="Trampa Solidos">
-                                <StatusBadge activo={data.trampa_solida} />
+                            <Campo label="Trampa Sólidos">
+                                <span className={`badge ${data.trampa_solida ? 'badge-success' : 'badge-error'}`}>{data.trampa_solida ? 'Limpio' : 'Sucio'}</span>
                             </Campo>
                             <Campo label="Nivel Cloro">
                                 <Valor valor={data.nivel_cloro} unidad="%" />
