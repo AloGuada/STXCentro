@@ -1,18 +1,12 @@
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { InfraCompresor } from '@/types/models';
+import type { InfraCompresor, InfraTurno } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Infraestructura', href: '/admin/infra/recorridos' },
-    { title: 'Recorridos', href: '/admin/infra/recorridos' },
-    { title: 'Compresores', href: '#' },
-];
 
 type Props = {
     data: InfraCompresor | null;
     fecha: string;
+    turno: InfraTurno | null;
 };
 
 function StatusBadge({ activo }: { activo: boolean }) {
@@ -30,7 +24,13 @@ function Valor({ valor, unidad }: { valor: number | null; unidad?: string }) {
     );
 }
 
-export default function CompresoresShow({ data, fecha }: Props) {
+export default function CompresoresShow({ data, fecha, turno }: Props) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Infraestructura', href: '/admin/infra/recorridos' },
+        { title: 'Recorridos', href: '/admin/infra/recorridos' },
+        { title: `Compresores${turno ? ` - ${turno.nombre}` : ''}`, href: '#' },
+    ];
     if (!data) {
         return (
             <AppLayout breadcrumbs={breadcrumbs}>
@@ -63,7 +63,7 @@ export default function CompresoresShow({ data, fecha }: Props) {
 
             <div className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-semibold">Compresores - {fecha}</h1>
+                    <h1 className="text-2xl font-semibold">Compresores - {fecha}{turno ? ` (${turno.nombre})` : ''}</h1>
                     <Link href={`/admin/infra/recorridos?fecha=${fecha}`} className="btn btn-sm btn-outline">
                         Volver
                     </Link>

@@ -37,6 +37,7 @@ class BombaFactory extends Factory
             'bomba_diesel' => fake()->boolean(),
             'presion_tuberia_incendio' => fake()->randomFloat(2, 30, 60),
             'observaciones' => fake()->optional()->sentence(),
+            'infra_turno_id' => null,
         ];
     }
 }

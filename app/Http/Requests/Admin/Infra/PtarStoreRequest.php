@@ -22,6 +22,7 @@ class PtarStoreRequest extends FormRequest
             'nivel_cloro' => ['nullable', 'numeric', 'min:0'],
             'trampa_solida' => ['boolean'],
             'observaciones' => ['nullable', 'string'],
+            'infra_turno_id' => ['nullable', 'integer', 'exists:infra_turnos,id'],
             'fecha' => ['nullable', 'date'],
         ];
     }

@@ -40,6 +40,7 @@ class TanqueFactory extends Factory
             'lt_tanque_lp' => fake()->randomFloat(2, 0, 10000),
             'kg_tanque_lp' => fake()->randomFloat(2, 0, 5000),
             'observaciones' => fake()->optional()->sentence(),
+            'infra_turno_id' => null,
         ];
     }
 }

@@ -34,6 +34,7 @@ class CompresorFactory extends Factory
             'compresor_3_tiempo_marcha' => fake()->randomFloat(2, 0, 24),
             'compresor_3_kwhr' => fake()->randomFloat(2, 0, 500),
             'observaciones' => fake()->optional()->sentence(),
+            'infra_turno_id' => null,
         ];
     }
 }

@@ -23,6 +23,7 @@ class PtarFactory extends Factory
             'nivel_cloro' => fake()->randomFloat(2, 0, 100),
             'trampa_solida' => fake()->boolean(),
             'observaciones' => fake()->optional()->sentence(),
+            'infra_turno_id' => null,
         ];
     }
 }

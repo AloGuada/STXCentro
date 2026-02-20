@@ -3,18 +3,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import type { InfraTurno } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Infraestructura', href: '/admin/infra/recorridos' },
-    { title: 'Recorridos', href: '/admin/infra/recorridos' },
-    { title: 'Registrar PTAR', href: '#' },
-];
+type Props = {
+    fecha: string;
+    turno: InfraTurno | null;
+};
 
-export default function PtarCreate({ fecha }: { fecha: string }) {
+export default function PtarCreate({ fecha, turno }: Props) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Infraestructura', href: '/admin/infra/recorridos' },
+        { title: 'Recorridos', href: '/admin/infra/recorridos' },
+        { title: `Registrar PTAR${turno ? ` - ${turno.nombre}` : ''}`, href: '#' },
+    ];
     const { data, setData, post, processing, errors } = useForm({
         soplador_activa: false,
         bomba_activa: false,
@@ -26,7 +31,9 @@ export default function PtarCreate({ fecha }: { fecha: string }) {
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        post('/admin/infra/recorridos?sistema=ptar&fecha=' + fecha);
+        const params = new URLSearchParams({ sistema: 'ptar', fecha });
+        if (turno?.id) params.set('turno_id', String(turno.id));
+        post('/admin/infra/recorridos?' + params.toString());
     };
 
     return (
@@ -35,7 +42,9 @@ export default function PtarCreate({ fecha }: { fecha: string }) {
 
             <div className="p-6">
                 <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Registrar PTAR</h1>
+                    <h1 className="mb-6 text-2xl font-semibold">
+                        Registrar PTAR{turno ? ` - ${turno.nombre}` : ''}
+                    </h1>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="card bg-base-100 border border-base-300 shadow-sm">

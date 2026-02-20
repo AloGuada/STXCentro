@@ -33,6 +33,7 @@ class CompresorStoreRequest extends FormRequest
             'compresor_3_tiempo_marcha' => ['nullable', 'numeric', 'min:0'],
             'compresor_3_kwhr' => ['nullable', 'numeric', 'min:0'],
             'observaciones' => ['nullable', 'string'],
+            'infra_turno_id' => ['nullable', 'integer', 'exists:infra_turnos,id'],
             'fecha' => ['nullable', 'date'],
         ];
     }

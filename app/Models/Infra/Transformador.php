@@ -6,6 +6,7 @@ use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class Transformador extends Model
 {
@@ -36,6 +37,7 @@ class Transformador extends Model
         'lectura_303',
         'lectura_310',
         'observaciones',
+        'infra_turno_id',
     ];
 
     /**
@@ -53,5 +55,47 @@ class Transformador extends Model
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'usuario_id');
+    }
+
+    public function turno(): BelongsTo
+    {
+        return $this->belongsTo(Turno::class, 'infra_turno_id');
+    }
+
+    /**
+     * SUM de total_1, total_5, lectura_5y5 agrupado por año-mes.
+     *
+     * @return array<int, array{mes: string, total_1: float, total_5: float, lectura_5y5: float}>
+     */
+    public static function consumosMensuales(int $year): array
+    {
+        $rows = static::query()
+            ->select(
+                DB::raw("strftime('%m', created_at) as mes"),
+                DB::raw('SUM(total_1) as total_1'),
+                DB::raw('SUM(total_5) as total_5'),
+                DB::raw('SUM(lectura_5y5) as lectura_5y5'),
+            )
+            ->whereYear('created_at', $year)
+            ->groupBy(DB::raw("strftime('%m', created_at)"))
+            ->orderBy('mes')
+            ->get();
+
+        $meses = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $key = str_pad((string) $m, 2, '0', STR_PAD_LEFT);
+            $meses[$key] = ['mes' => $key, 'total_1' => 0, 'total_5' => 0, 'lectura_5y5' => 0];
+        }
+
+        foreach ($rows as $row) {
+            $meses[$row->mes] = [
+                'mes' => $row->mes,
+                'total_1' => round((float) $row->total_1, 2),
+                'total_5' => round((float) $row->total_5, 2),
+                'lectura_5y5' => round((float) $row->lectura_5y5, 2),
+            ];
+        }
+
+        return array_values($meses);
     }
 }

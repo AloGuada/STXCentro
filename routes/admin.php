@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\Costos\TipoRubroController as CostosTipoRubroCont
 use App\Http\Controllers\Admin\Costos\TipoSolicitudController as CostosTipoSolicitudController;
 use App\Http\Controllers\Admin\DepartamentoController;
 use App\Http\Controllers\Admin\Infra\RecorridoController as InfraRecorridoController;
+use App\Http\Controllers\Admin\Infra\TurnoController as InfraTurnoController;
 use App\Http\Controllers\Admin\Intra\AreaController as IntraAreaController;
 use App\Http\Controllers\Admin\Intra\DocumentoController as IntraDocumentoController;
 use App\Http\Controllers\Admin\Intra\SeccionEstaticaController;
@@ -97,6 +98,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('recorridos/show', [InfraRecorridoController::class, 'show'])->name('recorridos.show');
         Route::get('recorridos/create', [InfraRecorridoController::class, 'create'])->name('recorridos.create');
         Route::post('recorridos', [InfraRecorridoController::class, 'store'])->name('recorridos.store');
+        Route::resource('turnos', InfraTurnoController::class)->parameters(['turnos' => 'turno']);
     });
 
     // Costos admin routes

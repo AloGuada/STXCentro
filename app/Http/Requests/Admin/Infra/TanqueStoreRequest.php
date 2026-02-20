@@ -39,6 +39,7 @@ class TanqueStoreRequest extends FormRequest
             'lt_tanque_lp' => ['nullable', 'numeric', 'min:0'],
             'kg_tanque_lp' => ['nullable', 'numeric', 'min:0'],
             'observaciones' => ['nullable', 'string'],
+            'infra_turno_id' => ['nullable', 'integer', 'exists:infra_turnos,id'],
             'fecha' => ['nullable', 'date'],
         ];
     }

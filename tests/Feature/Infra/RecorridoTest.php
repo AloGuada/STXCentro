@@ -2,6 +2,8 @@
 
 use App\Models\Infra\Bomba;
 use App\Models\Infra\Compresor;
+use App\Models\Infra\Turno;
+use App\Models\Infra\TurnoDia;
 use App\Models\User;
 
 beforeEach(function () {
@@ -17,10 +19,48 @@ describe('infra recorridos index', function () {
         $response->assertInertia(fn ($page) => $page
             ->component('admin/infra/recorridos/index')
             ->has('fecha')
+            ->has('turnoData')
+            ->has('estados')
+            ->has('estados.compresores')
+            ->has('estados.bombas')
+            ->has('estados.tanques')
+            ->has('estados.ptar')
+            ->has('estados.transformadores')
         );
     });
 
-    test('index page shows existing records for the date', function () {
+    test('index returns turnoData with configured turnos', function () {
+        // Create turno for today's day of week
+        $today = now();
+        $turno = Turno::factory()->create(['nombre' => 'R1 Matutino', 'activo' => true, 'orden' => 1]);
+        TurnoDia::factory()->create([
+            'infra_turno_id' => $turno->id,
+            'dia_semana' => $today->dayOfWeekIso,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.infra.recorridos.index', ['fecha' => $today->toDateString()]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->has('turnoData', 1)
+            ->where('turnoData.0.turno.nombre', 'R1 Matutino')
+        );
+    });
+
+    test('index returns virtual turno when no turnos configured', function () {
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.infra.recorridos.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->has('turnoData', 1)
+            ->where('turnoData.0.turno.nombre', 'Recorrido')
+            ->where('turnoData.0.turno.id', null)
+        );
+    });
+
+    test('index shows existing records for the date', function () {
         Compresor::factory()->create();
         Bomba::factory()->create();
 
@@ -29,11 +69,11 @@ describe('infra recorridos index', function () {
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
-            ->where('compresores.id', fn ($id) => $id > 0)
-            ->where('bombas.id', fn ($id) => $id > 0)
-            ->where('transformador', null)
-            ->where('tanques', null)
-            ->where('ptar', null)
+            ->where('turnoData.0.compresores.id', fn ($id) => $id > 0)
+            ->where('turnoData.0.bombas.id', fn ($id) => $id > 0)
+            ->where('turnoData.0.transformador', null)
+            ->where('turnoData.0.tanques', null)
+            ->where('turnoData.0.ptar', null)
         );
     });
 
@@ -62,6 +102,26 @@ describe('infra recorridos show', function () {
         $response->assertInertia(fn ($page) => $page
             ->component('admin/infra/recorridos/compresores')
             ->has('data')
+            ->has('turno')
+        );
+    });
+
+    test('show page filters by turno_id', function () {
+        $turno = Turno::factory()->create();
+        Compresor::factory()->create(['infra_turno_id' => $turno->id]);
+        Compresor::factory()->create(['infra_turno_id' => null]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.infra.recorridos.show', [
+                'sistema' => 'compresores',
+                'fecha' => now()->toDateString(),
+                'turno_id' => $turno->id,
+            ]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('data.infra_turno_id', $turno->id)
+            ->where('turno.id', $turno->id)
         );
     });
 
@@ -128,6 +188,7 @@ describe('infra recorridos create', function () {
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/infra/sistemas/compresores')
+            ->has('turno')
         );
     });
 
@@ -150,6 +211,21 @@ describe('infra recorridos create', function () {
             ->component('admin/infra/sistemas/ptar')
         );
     });
+
+    test('create page passes turno when turno_id provided', function () {
+        $turno = Turno::factory()->create(['nombre' => 'R1 Matutino']);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.infra.recorridos.create', [
+                'sistema' => 'compresores',
+                'turno_id' => $turno->id,
+            ]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('turno.nombre', 'R1 Matutino')
+        );
+    });
 });
 
 describe('infra recorridos store', function () {
@@ -168,6 +244,24 @@ describe('infra recorridos store', function () {
         $this->assertDatabaseHas('infra_compresores', [
             'compresor_1_status' => true,
             'observaciones' => 'Test observaciones',
+        ]);
+    });
+
+    test('store associates infra_turno_id to the record', function () {
+        $turno = Turno::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.infra.recorridos.store', [
+                'sistema' => 'compresores',
+                'turno_id' => $turno->id,
+            ]), [
+                'compresor_1_status' => true,
+                'compresor_2_status' => false,
+                'compresor_3_status' => false,
+            ]);
+
+        $this->assertDatabaseHas('infra_compresores', [
+            'infra_turno_id' => $turno->id,
         ]);
     });
 
@@ -254,6 +348,19 @@ describe('infra recorridos store', function () {
         $this->assertDatabaseHas('infra_ptar', [
             'usuario_id' => $this->user->id,
         ]);
+    });
+
+    test('legacy records with turno_id null still appear', function () {
+        // Legacy record without turno
+        Compresor::factory()->create(['infra_turno_id' => null]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.infra.recorridos.index', ['fecha' => now()->toDateString()]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('turnoData.0.compresores.id', fn ($id) => $id > 0)
+        );
     });
 });
 

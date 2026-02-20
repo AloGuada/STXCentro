@@ -119,6 +119,7 @@ const navGroups: NavGroup[] = [
         icon: HardHat,
         items: [
             { title: 'Recorridos', href: '/admin/infra/recorridos', icon: ClipboardList, permission: 'infra.recorridos.ver' },
+            { title: 'Turnos', href: '/admin/infra/turnos', icon: Settings, permission: 'infra.recorridos.ver' },
         ],
     },
     {

@@ -3,18 +3,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import type { InfraTurno } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Infraestructura', href: '/admin/infra/recorridos' },
-    { title: 'Recorridos', href: '/admin/infra/recorridos' },
-    { title: 'Registrar Tanques de Gas', href: '#' },
-];
+type Props = {
+    fecha: string;
+    turno: InfraTurno | null;
+};
 
-export default function TanquesCreate({ fecha }: { fecha: string }) {
+export default function TanquesCreate({ fecha, turno }: Props) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Infraestructura', href: '/admin/infra/recorridos' },
+        { title: 'Recorridos', href: '/admin/infra/recorridos' },
+        { title: `Registrar Tanques de Gas${turno ? ` - ${turno.nombre}` : ''}`, href: '#' },
+    ];
     const { data, setData, post, processing, errors } = useForm({
         pa_sistema_oxigeno: '',
         presion_sistema_oxigeno: '',
@@ -43,7 +48,9 @@ export default function TanquesCreate({ fecha }: { fecha: string }) {
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        post('/admin/infra/recorridos?sistema=tanques&fecha=' + fecha);
+        const params = new URLSearchParams({ sistema: 'tanques', fecha });
+        if (turno?.id) params.set('turno_id', String(turno.id));
+        post('/admin/infra/recorridos?' + params.toString());
     };
 
     const gases = [
@@ -59,7 +66,9 @@ export default function TanquesCreate({ fecha }: { fecha: string }) {
 
             <div className="p-6">
                 <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Registrar Tanques de Gas</h1>
+                    <h1 className="mb-6 text-2xl font-semibold">
+                        Registrar Tanques de Gas{turno ? ` - ${turno.nombre}` : ''}
+                    </h1>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {gases.map((gas) => (

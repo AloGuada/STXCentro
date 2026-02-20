@@ -24,6 +24,7 @@ class Ptar extends Model
         'nivel_cloro',
         'trampa_solida',
         'observaciones',
+        'infra_turno_id',
     ];
 
     /**
@@ -41,5 +42,10 @@ class Ptar extends Model
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'usuario_id');
+    }
+
+    public function turno(): BelongsTo
+    {
+        return $this->belongsTo(Turno::class, 'infra_turno_id');
     }
 }

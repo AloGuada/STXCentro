@@ -3,18 +3,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import type { InfraTurno } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Infraestructura', href: '/admin/infra/recorridos' },
-    { title: 'Recorridos', href: '/admin/infra/recorridos' },
-    { title: 'Registrar Transformadores', href: '#' },
-];
+type Props = {
+    fecha: string;
+    turno: InfraTurno | null;
+};
 
-export default function TransformadoresCreate({ fecha }: { fecha: string }) {
+export default function TransformadoresCreate({ fecha, turno }: Props) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Infraestructura', href: '/admin/infra/recorridos' },
+        { title: 'Recorridos', href: '/admin/infra/recorridos' },
+        { title: `Registrar Transformadores${turno ? ` - ${turno.nombre}` : ''}`, href: '#' },
+    ];
     const { data, setData, post, processing, errors } = useForm({
         linea_a: '',
         linea_a_max: '',
@@ -38,13 +43,15 @@ export default function TransformadoresCreate({ fecha }: { fecha: string }) {
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        post('/admin/infra/recorridos?sistema=transformadores&fecha=' + fecha);
+        const params = new URLSearchParams({ sistema: 'transformadores', fecha });
+        if (turno?.id) params.set('turno_id', String(turno.id));
+        post('/admin/infra/recorridos?' + params.toString());
     };
 
     const lineas = [
-        { key: 'a', label: 'Linea A' },
-        { key: 'b', label: 'Linea B' },
-        { key: 'c', label: 'Linea C' },
+        { key: 'a', label: 'Linea A', numKwh: '11', numKmax: '41', numFecha: '71', numHora: 'A81' },
+        { key: 'b', label: 'Linea B', numKwh: '12', numKmax: '42', numFecha: '72', numHora: '82' },
+        { key: 'c', label: 'Linea C', numKwh: '13', numKmax: '43', numFecha: '73', numHora: '83' },
     ] as const;
 
     return (
@@ -53,7 +60,9 @@ export default function TransformadoresCreate({ fecha }: { fecha: string }) {
 
             <div className="p-6">
                 <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Registrar Transformadores</h1>
+                    <h1 className="mb-6 text-2xl font-semibold">
+                        Registrar Transformadores{turno ? ` - ${turno.nombre}` : ''}
+                    </h1>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Lineas A, B, C */}
@@ -63,7 +72,7 @@ export default function TransformadoresCreate({ fecha }: { fecha: string }) {
                                     <h2 className="card-title text-lg">{linea.label}</h2>
                                     <div className="grid grid-cols-3 gap-4">
                                         <FormField
-                                            label="Lectura"
+                                            label={`${linea.numKwh} - kW/h Actual`}
                                             htmlFor={`linea_${linea.key}`}
                                             error={errors[`linea_${linea.key}` as keyof typeof errors]}
                                         >
@@ -75,11 +84,11 @@ export default function TransformadoresCreate({ fecha }: { fecha: string }) {
                                                 onChange={(e) =>
                                                     setData(`linea_${linea.key}` as keyof typeof data, e.target.value as never)
                                                 }
-                                                placeholder="kW/h"
+                                                placeholder="0.0"
                                             />
                                         </FormField>
                                         <FormField
-                                            label="Maximo"
+                                            label={`${linea.numKmax} - kW/h Máximo`}
                                             htmlFor={`linea_${linea.key}_max`}
                                             error={errors[`linea_${linea.key}_max` as keyof typeof errors]}
                                         >
@@ -91,11 +100,11 @@ export default function TransformadoresCreate({ fecha }: { fecha: string }) {
                                                 onChange={(e) =>
                                                     setData(`linea_${linea.key}_max` as keyof typeof data, e.target.value as never)
                                                 }
-                                                placeholder="kW/h"
+                                                placeholder="0.0"
                                             />
                                         </FormField>
                                         <FormField
-                                            label="Fecha/Hora"
+                                            label={`${linea.numFecha} - Fecha | ${linea.numHora} - Hora`}
                                             htmlFor={`date_${linea.key}`}
                                             error={errors[`date_${linea.key}` as keyof typeof errors]}
                                         >
@@ -136,7 +145,7 @@ export default function TransformadoresCreate({ fecha }: { fecha: string }) {
                                             onChange={(e) => setData('total_5', e.target.value)}
                                         />
                                     </FormField>
-                                    <FormField label="Lectura 5y5" htmlFor="lectura_5y5" error={errors.lectura_5y5}>
+                                    <FormField label="Solar (5y5)" htmlFor="lectura_5y5" error={errors.lectura_5y5}>
                                         <Input
                                             id="lectura_5y5"
                                             type="number"

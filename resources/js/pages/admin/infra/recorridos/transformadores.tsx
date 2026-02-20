@@ -1,18 +1,12 @@
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { InfraTransformador } from '@/types/models';
+import type { InfraTurno, InfraTransformador } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Infraestructura', href: '/admin/infra/recorridos' },
-    { title: 'Recorridos', href: '/admin/infra/recorridos' },
-    { title: 'Transformadores', href: '#' },
-];
 
 type Props = {
     data: InfraTransformador | null;
     fecha: string;
+    turno: InfraTurno | null;
 };
 
 function Valor({ valor, unidad }: { valor: number | null; unidad?: string }) {
@@ -35,7 +29,13 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
     );
 }
 
-export default function TransformadoresShow({ data, fecha }: Props) {
+export default function TransformadoresShow({ data, fecha, turno }: Props) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Infraestructura', href: '/admin/infra/recorridos' },
+        { title: 'Recorridos', href: '/admin/infra/recorridos' },
+        { title: `Transformadores${turno ? ` - ${turno.nombre}` : ''}`, href: '#' },
+    ];
     if (!data) {
         return (
             <AppLayout breadcrumbs={breadcrumbs}>
@@ -68,7 +68,7 @@ export default function TransformadoresShow({ data, fecha }: Props) {
 
             <div className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-semibold">Transformadores - {fecha}</h1>
+                    <h1 className="text-2xl font-semibold">Transformadores - {fecha}{turno ? ` (${turno.nombre})` : ''}</h1>
                     <Link href={`/admin/infra/recorridos?fecha=${fecha}`} className="btn btn-sm btn-outline">
                         Volver
                     </Link>

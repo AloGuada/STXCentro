@@ -35,6 +35,7 @@ class TransformadorFactory extends Factory
             'lectura_303' => fake()->randomFloat(2, 0, 1000),
             'lectura_310' => fake()->randomFloat(2, 0, 1000),
             'observaciones' => fake()->optional()->sentence(),
+            'infra_turno_id' => null,
         ];
     }
 }

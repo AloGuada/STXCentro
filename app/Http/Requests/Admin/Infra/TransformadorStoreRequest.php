@@ -34,6 +34,7 @@ class TransformadorStoreRequest extends FormRequest
             'lectura_303' => ['nullable', 'numeric', 'min:0'],
             'lectura_310' => ['nullable', 'numeric', 'min:0'],
             'observaciones' => ['nullable', 'string'],
+            'infra_turno_id' => ['nullable', 'integer', 'exists:infra_turnos,id'],
             'fecha' => ['nullable', 'date'],
         ];
     }

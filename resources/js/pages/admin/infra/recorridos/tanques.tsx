@@ -1,18 +1,12 @@
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { InfraTanque } from '@/types/models';
+import type { InfraTanque, InfraTurno } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Infraestructura', href: '/admin/infra/recorridos' },
-    { title: 'Recorridos', href: '/admin/infra/recorridos' },
-    { title: 'Tanques de Gas', href: '#' },
-];
 
 type Props = {
     data: InfraTanque | null;
     fecha: string;
+    turno: InfraTurno | null;
 };
 
 function Valor({ valor, unidad }: { valor: number | null; unidad?: string }) {
@@ -26,7 +20,13 @@ function Valor({ valor, unidad }: { valor: number | null; unidad?: string }) {
     );
 }
 
-export default function TanquesShow({ data, fecha }: Props) {
+export default function TanquesShow({ data, fecha, turno }: Props) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Infraestructura', href: '/admin/infra/recorridos' },
+        { title: 'Recorridos', href: '/admin/infra/recorridos' },
+        { title: `Tanques de Gas${turno ? ` - ${turno.nombre}` : ''}`, href: '#' },
+    ];
     if (!data) {
         return (
             <AppLayout breadcrumbs={breadcrumbs}>
@@ -92,7 +92,7 @@ export default function TanquesShow({ data, fecha }: Props) {
 
             <div className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-semibold">Tanques de Gas - {fecha}</h1>
+                    <h1 className="text-2xl font-semibold">Tanques de Gas - {fecha}{turno ? ` (${turno.nombre})` : ''}</h1>
                     <Link href={`/admin/infra/recorridos?fecha=${fecha}`} className="btn btn-sm btn-outline">
                         Volver
                     </Link>

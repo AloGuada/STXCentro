@@ -553,6 +553,7 @@ export type ProdLiquidacionEmpleado = {
 export type InfraCompresor = {
     id: number;
     usuario_id: string | null;
+    infra_turno_id: number | null;
     compresor_1_status: boolean;
     compresor_1_presion_aire: number | null;
     compresor_1_tiempo_trabajo: number | null;
@@ -577,6 +578,7 @@ export type InfraCompresor = {
 export type InfraBomba = {
     id: number;
     usuario_id: string | null;
+    infra_turno_id: number | null;
     bomba_posos_1: boolean;
     bomba_posos_2: boolean;
     bomba_planta_1: boolean;
@@ -604,6 +606,7 @@ export type InfraBomba = {
 export type InfraTransformador = {
     id: number;
     usuario_id: string | null;
+    infra_turno_id: number | null;
     linea_A: number | null;
     linea_A_max: number | null;
     date_A: string | null;
@@ -629,6 +632,7 @@ export type InfraTransformador = {
 export type InfraTanque = {
     id: number;
     usuario_id: string | null;
+    infra_turno_id: number | null;
     pa_sistema_oxigeno: number | null;
     presion_sistema_oxigeno: number | null;
     presion_tanque_oxigeno: number | null;
@@ -659,6 +663,7 @@ export type InfraTanque = {
 export type InfraPtar = {
     id: number;
     usuario_id: string | null;
+    infra_turno_id: number | null;
     soplador_activa: boolean;
     bomba_activa: boolean;
     nivel_cloro: number | null;
@@ -667,6 +672,80 @@ export type InfraPtar = {
     usuario?: Usuario;
     created_at: string;
     updated_at: string;
+};
+
+export type InfraTurno = {
+    id: number | null;
+    nombre: string;
+    hora_inicio: string | null;
+    hora_fin: string | null;
+    orden: number;
+    activo?: boolean;
+    dias_semana?: InfraTurnoDia[];
+};
+
+export type InfraTurnoDia = {
+    id: number;
+    infra_turno_id: number;
+    dia_semana: number;
+};
+
+export type InfraTurnoData = {
+    turno: InfraTurno;
+    compresores: InfraCompresor | null;
+    bombas: InfraBomba | null;
+    transformador: InfraTransformador | null;
+    tanques: InfraTanque | null;
+    ptar: InfraPtar | null;
+};
+
+// Infra Dashboard Types
+export type InfraEstadoIndicador = {
+    label: string;
+    estado: boolean | null;
+    tooltip: string;
+};
+
+export type InfraEstados = {
+    compresores: InfraEstadoIndicador[];
+    bombas: InfraEstadoIndicador[];
+    tanques: InfraEstadoIndicador[];
+    ptar: InfraEstadoIndicador[];
+    transformadores: InfraEstadoIndicador[];
+};
+
+export type InfraChartCompresor = {
+    mes: string;
+    c1: number;
+    c2: number;
+    c3: number;
+};
+
+export type InfraChartBomba = {
+    mes: string;
+    avg_presion: number;
+    stddev: number;
+    max_presion: number;
+    min_presion: number;
+};
+
+export type InfraChartTransformador = {
+    mes: string;
+    total_1: number;
+    total_5: number;
+    lectura_5y5: number;
+};
+
+export type InfraChartTanque = {
+    mes: string;
+    oxigeno: number;
+    argon: number;
+    co2: number;
+    lp: number;
+    oxigeno_acum: number;
+    argon_acum: number;
+    co2_acum: number;
+    lp_acum: number;
 };
 
 export type StiItemHistorial = {

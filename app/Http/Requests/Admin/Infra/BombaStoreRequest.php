@@ -36,6 +36,7 @@ class BombaStoreRequest extends FormRequest
             'bomba_diesel' => ['boolean'],
             'presion_tuberia_incendio' => ['nullable', 'numeric', 'min:0'],
             'observaciones' => ['nullable', 'string'],
+            'infra_turno_id' => ['nullable', 'integer', 'exists:infra_turnos,id'],
             'fecha' => ['nullable', 'date'],
         ];
     }
