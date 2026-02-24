@@ -74,7 +74,8 @@
       "mcp__laravel-boost__browser-logs",
       "Bash(python3 -c \" import sys, json data = json.load\\(sys.stdin\\) tables = data[0][''text''] parsed = json.loads\\(tables\\) all_tables = list\\(parsed[''tables''].keys\\(\\)\\) print\\(''ENGINE:'', parsed[''engine'']\\) print\\(''TOTAL TABLES:'', len\\(all_tables\\)\\) print\\(\\) print\\(''ALL TABLE NAMES:''\\) for t in sorted\\(all_tables\\): print\\('' -'', t\\) \")",
       "Bash(node:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(git branch:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
