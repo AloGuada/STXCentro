@@ -42,7 +42,11 @@ class RegistroController extends Controller
     public function create(): Response
     {
         return Inertia::render('admin/prod/registros/create', [
-            'conceptos' => Concepto::with('obra')->where('activo', true)->orderBy('marca')->get(),
+            'conceptos' => Concepto::with('obra')
+                ->withSum('registros', 'cantidad')
+                ->where('activo', true)
+                ->orderBy('marca')
+                ->get(),
             'gruposTrabajo' => GrupoTrabajo::where('activo', true)->orderBy('descripcion')->get(),
         ]);
     }

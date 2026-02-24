@@ -65,7 +65,16 @@
       "mcp__laravel-boost__database-connections",
       "WebSearch",
       "WebFetch(domain:inertiajs.com)",
-      "mcp__laravel-boost__get-absolute-url"
+      "mcp__laravel-boost__get-absolute-url",
+      "Bash(for f in Adenda Anticipo Cliente Comparativo ConfiguracionDocumentoEstimacion Contacto Contrato Deduccion Disputa DocumentoEstimacion EstadoEstimacion Estimacion EstimacionPago Evento Obra Partida Penalizacion Proyecto Retencion TipoRetencion User)",
+      "Bash(do echo \"===== $f.php =====\")",
+      "Bash(done)",
+      "Bash(for f in AdendaController AnticipoController ClienteController ComparativoController ConfiguracionDocumentoController ContactoController ContratoController ContratoObraController DashboardController DeduccionController EstimacionController EstimacionPagoController EventoController PartidaController UserController)",
+      "mcp__laravel-boost__last-error",
+      "mcp__laravel-boost__browser-logs",
+      "Bash(python3 -c \" import sys, json data = json.load\\(sys.stdin\\) tables = data[0][''text''] parsed = json.loads\\(tables\\) all_tables = list\\(parsed[''tables''].keys\\(\\)\\) print\\(''ENGINE:'', parsed[''engine'']\\) print\\(''TOTAL TABLES:'', len\\(all_tables\\)\\) print\\(\\) print\\(''ALL TABLE NAMES:''\\) for t in sorted\\(all_tables\\): print\\('' -'', t\\) \")",
+      "Bash(node:*)",
+      "Bash(python3:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -1,0 +1,45 @@
+<?php
+
+namespace App\Http\Controllers\Admin\Cob;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Cob\EstimacionPagoStoreRequest;
+use App\Models\Cob\Estimacion;
+use App\Models\Obra;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
+
+class EstimacionPagoController extends Controller
+{
+    public function store(EstimacionPagoStoreRequest $request, Obra $obra, Estimacion $estimacion): RedirectResponse
+    {
+        return DB::transaction(function () use ($request, $estimacion) {
+            $estimacion = Estimacion::lockForUpdate()->find($estimacion->id);
+
+            $montoPagado = (float) $request->validated('monto_pagado');
+            $totalPagado = (float) $estimacion->monto_pagado + $montoPagado;
+            $montoEstimado = (float) $estimacion->monto_estimado;
+
+            if ($totalPagado > $montoEstimado) {
+                return back()->withErrors(['monto_pagado' => 'El monto excede el saldo pendiente de la estimacion.']);
+            }
+
+            $estimacion->pagos()->create($request->validated());
+
+            $nuevoEstado = $estimacion->estado;
+            if ($totalPagado >= $montoEstimado) {
+                $nuevoEstado = 'pagado';
+            } elseif ($totalPagado > 0 && $estimacion->estado === 'facturada') {
+                $nuevoEstado = 'pago_parcial';
+            }
+
+            $estimacion->update([
+                'monto_pagado' => $totalPagado,
+                'estado' => $nuevoEstado,
+                'fecha_ultimo_cambio_estado' => $nuevoEstado !== $estimacion->estado ? now() : $estimacion->fecha_ultimo_cambio_estado,
+            ]);
+
+            return back();
+        });
+    }
+}

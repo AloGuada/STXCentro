@@ -56,6 +56,30 @@ export type Obra = {
     presupuesto_total: number;
     estatus: ObraEstatus;
     obra_rubros?: CostosObraRubro[];
+    // Cobranza fields
+    cliente_id?: number | null;
+    tipo_contrato?: string | null;
+    monto?: number | null;
+    monto_iva?: number | null;
+    anticipo?: number | null;
+    garantia?: number | null;
+    peso?: number | null;
+    porcentaje_fabricacion?: number | null;
+    porcentaje_montaje?: number | null;
+    porcentaje_otros?: number | null;
+    descripcion_otros?: string | null;
+    activa?: boolean;
+    cliente?: Cliente;
+    partidas?: CobPartida[];
+    estimaciones?: CobEstimacion[];
+    anticipos?: CobAnticipo[];
+    adendas?: CobAdenda[];
+    comparativos?: CobComparativo[];
+    deducciones?: CobDeduccion[];
+    eventos?: CobEvento[];
+    disputas?: CobDisputa[];
+    penalizaciones?: CobPenalizacion[];
+    configuracion_documentos?: CobConfiguracionDocumento[];
     created_at: string;
     updated_at: string;
 };
@@ -401,10 +425,12 @@ export type Concepto = {
     obra_id: number;
     marca: string;
     descripcion: string;
+    cantidad: number;
     peso_unitario: number;
     version: number;
     activo: boolean;
     obra?: Obra;
+    registros_sum_cantidad?: number;
     grupo_precio_conceptos?: ProdGrupoPrecioConcepto[];
     created_at: string;
     updated_at: string;
@@ -1206,4 +1232,301 @@ export type CostosPago = {
     pagos_parciales?: CostosPago[];
     created_at: string;
     updated_at: string;
+};
+
+// Cobranza Types
+
+export type Cliente = {
+    id: number;
+    nombre: string;
+    rfc: string | null;
+    direccion: string | null;
+    telefono: string | null;
+    email: string | null;
+    activo: boolean;
+    contacto_principal_id: number | null;
+    contacto_principal?: CobContacto;
+    contactos?: CobContacto[];
+    contactos_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobContacto = {
+    id: number;
+    cliente_id: number;
+    nombre: string;
+    email: string | null;
+    telefono: string | null;
+    cargo: string | null;
+    activo: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobPartidaTipo = 'suministro' | 'montaje';
+
+export type CobPartida = {
+    id: number;
+    obra_id: number;
+    tipo: CobPartidaTipo;
+    es_adicional: boolean;
+    descripcion: string;
+    monto: number;
+    moneda: string;
+    es_subobra: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobEstimacionEstado = 'pendiente' | 'generada' | 'ingresada' | 'revisada' | 'autorizada' | 'facturada' | 'pago_parcial' | 'pagado';
+
+export const COB_ESTIMACION_ESTADO_LABELS: Record<CobEstimacionEstado, string> = {
+    pendiente: 'Pendiente',
+    generada: 'Generada',
+    ingresada: 'Ingresada',
+    revisada: 'Revisada',
+    autorizada: 'Autorizada',
+    facturada: 'Facturada',
+    pago_parcial: 'Pago Parcial',
+    pagado: 'Pagado',
+};
+
+export const COB_ESTIMACION_ESTADO_COLORS: Record<CobEstimacionEstado, string> = {
+    pendiente: 'badge-ghost',
+    generada: 'badge-info',
+    ingresada: 'badge-warning',
+    revisada: 'badge-accent',
+    autorizada: 'badge-primary',
+    facturada: 'badge-secondary',
+    pago_parcial: 'badge-warning',
+    pagado: 'badge-success',
+};
+
+export type CobEstimacion = {
+    id: number;
+    obra_id: number;
+    numero_estimacion: number;
+    folio: string | null;
+    tipo: string | null;
+    fecha_emision: string | null;
+    inicio: string | null;
+    fin: string | null;
+    monto_estimado: number;
+    monto_total: number;
+    monto_pagado: number;
+    moneda: string;
+    estado: CobEstimacionEstado;
+    fecha_ultimo_cambio_estado: string | null;
+    comentarios: string | null;
+    pagos?: CobEstimacionPago[];
+    historial?: CobEstimacionEstadoHistorial[];
+    retenciones?: CobRetencion[];
+    documentos?: CobDocumentoEstimacion[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobEstimacionPago = {
+    id: number;
+    estimacion_id: number;
+    monto_pagado: number;
+    fecha_pago: string;
+    folio: string | null;
+    comprobante: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobEstimacionEstadoHistorial = {
+    id: number;
+    estimacion_id: number;
+    estado_anterior: string | null;
+    estado_nuevo: string;
+    folio: string | null;
+    usuario_id: string;
+    comentario: string | null;
+    fecha_cambio: string;
+    usuario?: Usuario;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobAnticipoEstado = 'pendiente' | 'aplicado' | 'devuelto';
+
+export const COB_ANTICIPO_ESTADO_LABELS: Record<CobAnticipoEstado, string> = {
+    pendiente: 'Pendiente',
+    aplicado: 'Aplicado',
+    devuelto: 'Devuelto',
+};
+
+export type CobAnticipo = {
+    id: number;
+    obra_id: number;
+    folio: string | null;
+    fecha_emision: string | null;
+    monto: number;
+    moneda: string;
+    estado: CobAnticipoEstado;
+    comentarios: string | null;
+    fecha_pagado: string | null;
+    comprobante: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobAdendaTipo = 'aumento' | 'reduccion' | 'cambio_especificacion' | 'ampliacion_plazo';
+
+export const COB_ADENDA_TIPO_LABELS: Record<CobAdendaTipo, string> = {
+    aumento: 'Aumento',
+    reduccion: 'Reduccion',
+    cambio_especificacion: 'Cambio Especificacion',
+    ampliacion_plazo: 'Ampliacion Plazo',
+};
+
+export type CobAdendaEstado = 'borrador' | 'en_revision' | 'aprobada' | 'rechazada';
+
+export const COB_ADENDA_ESTADO_LABELS: Record<CobAdendaEstado, string> = {
+    borrador: 'Borrador',
+    en_revision: 'En Revision',
+    aprobada: 'Aprobada',
+    rechazada: 'Rechazada',
+};
+
+export type CobAdenda = {
+    id: number;
+    obra_id: number;
+    tipo: CobAdendaTipo;
+    descripcion: string;
+    monto_modificacion: number;
+    fecha: string | null;
+    estado: CobAdendaEstado;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobComparativoEstado = 'analisis' | 'aprobado' | 'implementado' | 'descartado';
+
+export const COB_COMPARATIVO_ESTADO_LABELS: Record<CobComparativoEstado, string> = {
+    analisis: 'Analisis',
+    aprobado: 'Aprobado',
+    implementado: 'Implementado',
+    descartado: 'Descartado',
+};
+
+export type CobComparativo = {
+    id: number;
+    obra_id: number;
+    descripcion: string;
+    monto_impacto: number;
+    fecha_identificacion: string | null;
+    estado: CobComparativoEstado;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobDeduccion = {
+    id: number;
+    obra_id: number;
+    descripcion: string;
+    monto: number;
+    moneda: string;
+    fecha: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobTipoRetencion = {
+    id: number;
+    nombre: string;
+    descripcion: string | null;
+    retenciones_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobRetencion = {
+    id: number;
+    estimacion_id: number;
+    tipo_retencion_id: number;
+    monto: number;
+    moneda: string;
+    tipo_retencion?: CobTipoRetencion;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobEvento = {
+    id: number;
+    obra_id: number;
+    parent_id: number | null;
+    nombre: string;
+    monto: number | null;
+    inicio: string | null;
+    fin: string | null;
+    marcado: boolean;
+    children?: CobEvento[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobDisputaEstado = 'en_proceso' | 'resuelto' | 'cancelado';
+
+export const COB_DISPUTA_ESTADO_LABELS: Record<CobDisputaEstado, string> = {
+    en_proceso: 'En Proceso',
+    resuelto: 'Resuelto',
+    cancelado: 'Cancelado',
+};
+
+export type CobDisputa = {
+    id: number;
+    obra_id: number;
+    descripcion: string;
+    fecha_inicio: string | null;
+    fecha_resolucion: string | null;
+    estado: CobDisputaEstado;
+    resultado: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobPenalizacion = {
+    id: number;
+    obra_id: number;
+    descripcion: string;
+    monto: number;
+    moneda: string;
+    tipo: string | null;
+    fecha: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobConfiguracionDocumento = {
+    id: number;
+    obra_id: number;
+    nombre_documento: string;
+    descripcion: string | null;
+    obligatorio: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobDocumentoEstimacion = {
+    id: number;
+    estimacion_id: number;
+    configuracion_documento_id: number;
+    ruta_archivo: string;
+    fecha_subida: string | null;
+    subido_por: string;
+    configuracion_documento?: CobConfiguracionDocumento;
+    created_at: string;
+    updated_at: string;
+};
+
+export const COB_TIPO_CONTRATO_LABELS: Record<string, string> = {
+    precio_alzado: 'Precio Alzado',
+    precio_unitario: 'Precio Unitario',
+    mixto: 'Mixto',
+    administracion: 'Administracion',
 };

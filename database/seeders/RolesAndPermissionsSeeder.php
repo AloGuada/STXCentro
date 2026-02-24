@@ -140,6 +140,64 @@ class RolesAndPermissionsSeeder extends Seeder
             'infra.recorridos.crear',
         ];
 
+        // Crear permisos del módulo Cobranza
+        $cobPermissions = [
+            'cob.dashboard.ver',
+            'cob.clientes.ver',
+            'cob.clientes.crear',
+            'cob.clientes.editar',
+            'cob.clientes.eliminar',
+            'cob.obras.ver',
+            'cob.obras.editar',
+            'cob.partidas.ver',
+            'cob.partidas.crear',
+            'cob.partidas.editar',
+            'cob.partidas.eliminar',
+            'cob.estimaciones.ver',
+            'cob.estimaciones.crear',
+            'cob.estimaciones.editar',
+            'cob.estimaciones.eliminar',
+            'cob.estimaciones.cambiar-estado',
+            'cob.pagos.ver',
+            'cob.pagos.crear',
+            'cob.anticipos.ver',
+            'cob.anticipos.crear',
+            'cob.anticipos.editar',
+            'cob.anticipos.eliminar',
+            'cob.adendas.ver',
+            'cob.adendas.crear',
+            'cob.adendas.editar',
+            'cob.adendas.eliminar',
+            'cob.comparativos.ver',
+            'cob.comparativos.crear',
+            'cob.comparativos.editar',
+            'cob.comparativos.eliminar',
+            'cob.deducciones.ver',
+            'cob.deducciones.crear',
+            'cob.deducciones.editar',
+            'cob.deducciones.eliminar',
+            'cob.eventos.ver',
+            'cob.eventos.crear',
+            'cob.eventos.editar',
+            'cob.eventos.eliminar',
+            'cob.disputas.ver',
+            'cob.disputas.crear',
+            'cob.disputas.editar',
+            'cob.disputas.eliminar',
+            'cob.penalizaciones.ver',
+            'cob.penalizaciones.crear',
+            'cob.penalizaciones.editar',
+            'cob.penalizaciones.eliminar',
+            'cob.tipos-retenciones.ver',
+            'cob.tipos-retenciones.crear',
+            'cob.tipos-retenciones.editar',
+            'cob.tipos-retenciones.eliminar',
+            'cob.configuracion-documentos.ver',
+            'cob.configuracion-documentos.crear',
+            'cob.configuracion-documentos.editar',
+            'cob.configuracion-documentos.eliminar',
+        ];
+
         // Crear permisos Core
         $corePermissions = [
             'usuarios.ver',
@@ -158,7 +216,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'roles.asignar',
         ];
 
-        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $corePermissions);
+        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $corePermissions);
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
@@ -175,6 +233,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $compras = Role::firstOrCreate(['name' => 'compras', 'guard_name' => 'web']);
         $almacen = Role::firstOrCreate(['name' => 'almacen', 'guard_name' => 'web']);
         $contabilidad = Role::firstOrCreate(['name' => 'contabilidad', 'guard_name' => 'web']);
+        $adminCobranza = Role::firstOrCreate(['name' => 'admin-cobranza', 'guard_name' => 'web']);
         $empleado = Role::firstOrCreate(['name' => 'empleado', 'guard_name' => 'web']);
 
         // Super admin tiene todos los permisos
@@ -234,6 +293,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.facturas.ver',
             'costos.facturas.aceptar-contabilidad',
         ]);
+
+        // Admin Cobranza tiene todos los permisos de cobranza
+        $adminCobranza->givePermissionTo($cobPermissions);
 
         // Empleado tiene permisos básicos de lectura
         $empleado->givePermissionTo([

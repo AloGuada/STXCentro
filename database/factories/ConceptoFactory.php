@@ -22,6 +22,7 @@ class ConceptoFactory extends Factory
             'obra_id' => Obra::factory(),
             'marca' => fake()->unique()->regexify('[A-Z]{2}-[0-9]{3}'),
             'descripcion' => fake()->words(3, true),
+            'cantidad' => fake()->numberBetween(10, 500),
             'peso_unitario' => fake()->randomFloat(3, 5, 500),
             'version' => 1,
             'activo' => true,

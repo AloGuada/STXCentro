@@ -25,6 +25,7 @@ export default function ConceptosCreate({ obra }: Props) {
         obra_id: String(obra.id),
         marca: '',
         descripcion: '',
+        cantidad: '',
         peso_unitario: '',
         version: '1',
         activo: true,
@@ -60,6 +61,17 @@ export default function ConceptosCreate({ obra }: Props) {
                                 value={data.descripcion}
                                 onChange={(e) => setData('descripcion', e.target.value)}
                                 placeholder="Descripcion del concepto"
+                            />
+                        </FormField>
+
+                        <FormField label="Cantidad (piezas)" htmlFor="cantidad" error={errors.cantidad} required>
+                            <Input
+                                id="cantidad"
+                                type="number"
+                                min="0"
+                                value={data.cantidad}
+                                onChange={(e) => setData('cantidad', e.target.value)}
+                                placeholder="0"
                             />
                         </FormField>
 

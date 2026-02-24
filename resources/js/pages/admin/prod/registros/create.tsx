@@ -59,11 +59,15 @@ export default function RegistrosCreate({ conceptos, gruposTrabajo }: Props) {
                                 onValueChange={(value) => setData('concepto_id', value)}
                                 placeholder="Seleccionar concepto"
                             >
-                                {conceptos.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                        [{c.obra?.no}] {c.marca} - {c.descripcion}
-                                    </option>
-                                ))}
+                                {conceptos.map((c) => {
+                                    const producidas = c.registros_sum_cantidad ?? 0;
+                                    const faltantes = c.cantidad - producidas;
+                                    return (
+                                        <option key={c.id} value={c.id}>
+                                            [{c.obra?.no} - {c.obra?.descripcion}] {c.marca} - {c.descripcion} (Faltan: {faltantes} de {c.cantidad})
+                                        </option>
+                                    );
+                                })}
                             </Select>
                         </FormField>
 

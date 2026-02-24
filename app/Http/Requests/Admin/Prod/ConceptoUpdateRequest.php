@@ -20,6 +20,7 @@ class ConceptoUpdateRequest extends FormRequest
             'obra_id' => ['required', 'exists:obras,id'],
             'marca' => ['required', 'string', 'max:255'],
             'descripcion' => ['required', 'string', 'max:255'],
+            'cantidad' => ['required', 'integer', 'min:0'],
             'peso_unitario' => ['required', 'numeric', 'min:0'],
             'version' => ['nullable', 'integer', 'min:1'],
             'activo' => ['nullable', 'boolean'],

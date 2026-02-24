@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Obra extends Model
@@ -37,6 +38,18 @@ class Obra extends Model
         'fecha_fin',
         'presupuesto_total',
         'estatus',
+        'cliente_id',
+        'tipo_contrato',
+        'monto',
+        'monto_iva',
+        'anticipo',
+        'garantia',
+        'peso',
+        'porcentaje_fabricacion',
+        'porcentaje_montaje',
+        'porcentaje_otros',
+        'descripcion_otros',
+        'activa',
     ];
 
     /**
@@ -48,6 +61,15 @@ class Obra extends Model
             'fecha_inicio' => 'date',
             'fecha_fin' => 'date',
             'presupuesto_total' => 'decimal:2',
+            'monto' => 'decimal:2',
+            'monto_iva' => 'decimal:2',
+            'anticipo' => 'decimal:2',
+            'garantia' => 'decimal:2',
+            'peso' => 'decimal:2',
+            'porcentaje_fabricacion' => 'decimal:2',
+            'porcentaje_montaje' => 'decimal:2',
+            'porcentaje_otros' => 'decimal:2',
+            'activa' => 'boolean',
         ];
     }
 
@@ -64,5 +86,62 @@ class Obra extends Model
     public function obraRubros(): HasMany
     {
         return $this->hasMany(Costos\ObraRubro::class, 'obra_id');
+    }
+
+    // Cobranza relations
+
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class, 'cliente_id');
+    }
+
+    public function partidas(): HasMany
+    {
+        return $this->hasMany(Cob\Partida::class, 'obra_id');
+    }
+
+    public function estimaciones(): HasMany
+    {
+        return $this->hasMany(Cob\Estimacion::class, 'obra_id');
+    }
+
+    public function anticipos(): HasMany
+    {
+        return $this->hasMany(Cob\Anticipo::class, 'obra_id');
+    }
+
+    public function adendas(): HasMany
+    {
+        return $this->hasMany(Cob\Adenda::class, 'obra_id');
+    }
+
+    public function comparativos(): HasMany
+    {
+        return $this->hasMany(Cob\Comparativo::class, 'obra_id');
+    }
+
+    public function deducciones(): HasMany
+    {
+        return $this->hasMany(Cob\Deduccion::class, 'obra_id');
+    }
+
+    public function eventos(): HasMany
+    {
+        return $this->hasMany(Cob\Evento::class, 'obra_id');
+    }
+
+    public function disputas(): HasMany
+    {
+        return $this->hasMany(Cob\Disputa::class, 'obra_id');
+    }
+
+    public function penalizaciones(): HasMany
+    {
+        return $this->hasMany(Cob\Penalizacion::class, 'obra_id');
+    }
+
+    public function configuracionDocumentos(): HasMany
+    {
+        return $this->hasMany(Cob\ConfiguracionDocumento::class, 'obra_id');
     }
 }

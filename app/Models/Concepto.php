@@ -23,6 +23,7 @@ class Concepto extends Model
         'obra_id',
         'marca',
         'descripcion',
+        'cantidad',
         'peso_unitario',
         'version',
         'activo',
@@ -34,6 +35,7 @@ class Concepto extends Model
     protected function casts(): array
     {
         return [
+            'cantidad' => 'integer',
             'peso_unitario' => 'decimal:3',
             'version' => 'integer',
             'activo' => 'boolean',

@@ -1,5 +1,21 @@
 <?php
 
+use App\Http\Controllers\Admin\Cob\AdendaController as CobAdendaController;
+use App\Http\Controllers\Admin\Cob\AnticipoController as CobAnticipoController;
+use App\Http\Controllers\Admin\Cob\ClienteController as CobClienteController;
+use App\Http\Controllers\Admin\Cob\ComparativoController as CobComparativoController;
+use App\Http\Controllers\Admin\Cob\ConfiguracionDocumentoController as CobConfiguracionDocumentoController;
+use App\Http\Controllers\Admin\Cob\ContactoController as CobContactoController;
+use App\Http\Controllers\Admin\Cob\DashboardController as CobDashboardController;
+use App\Http\Controllers\Admin\Cob\DeduccionController as CobDeduccionController;
+use App\Http\Controllers\Admin\Cob\DisputaController as CobDisputaController;
+use App\Http\Controllers\Admin\Cob\EstimacionController as CobEstimacionController;
+use App\Http\Controllers\Admin\Cob\EstimacionPagoController as CobEstimacionPagoController;
+use App\Http\Controllers\Admin\Cob\EventoController as CobEventoController;
+use App\Http\Controllers\Admin\Cob\ObraCobranzaController as CobObraCobranzaController;
+use App\Http\Controllers\Admin\Cob\PartidaController as CobPartidaController;
+use App\Http\Controllers\Admin\Cob\PenalizacionController as CobPenalizacionController;
+use App\Http\Controllers\Admin\Cob\TipoRetencionController as CobTipoRetencionController;
 use App\Http\Controllers\Admin\Costos\AfectacionPresupuestalController as CostosAfectacionPresupuestalController;
 use App\Http\Controllers\Admin\Costos\AprobacionController as CostosAprobacionController;
 use App\Http\Controllers\Admin\Costos\CuentaInternaController as CostosCuentaInternaController;
@@ -158,6 +174,72 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('obra-rubros', [CostosObraRubroController::class, 'store'])->name('obra-rubros.store');
         Route::put('obra-rubros/{obraRubro}', [CostosObraRubroController::class, 'update'])->name('obra-rubros.update');
         Route::delete('obra-rubros/{obraRubro}', [CostosObraRubroController::class, 'destroy'])->name('obra-rubros.destroy');
+    });
+
+    // Cobranza admin routes
+    Route::prefix('cob')->name('cob.')->group(function () {
+        Route::get('dashboard', [CobDashboardController::class, 'index'])->name('dashboard.index');
+
+        Route::resource('clientes', CobClienteController::class)->parameters(['clientes' => 'cliente']);
+        Route::post('clientes/{cliente}/contactos', [CobContactoController::class, 'store'])->name('clientes.contactos.store');
+        Route::put('clientes/{cliente}/contactos/{contacto}', [CobContactoController::class, 'update'])->name('clientes.contactos.update');
+        Route::delete('clientes/{cliente}/contactos/{contacto}', [CobContactoController::class, 'destroy'])->name('clientes.contactos.destroy');
+
+        Route::resource('tipos-retenciones', CobTipoRetencionController::class)->parameters(['tipos-retenciones' => 'tipoRetencion']);
+
+        // Obras cobranza
+        Route::get('obras', [CobObraCobranzaController::class, 'index'])->name('obras.index');
+        Route::get('obras/{obra}', [CobObraCobranzaController::class, 'show'])->name('obras.show');
+        Route::put('obras/{obra}/financial', [CobObraCobranzaController::class, 'updateFinancial'])->name('obras.update-financial');
+
+        // Sub-recursos de obra
+        Route::post('obras/{obra}/partidas', [CobPartidaController::class, 'store'])->name('obras.partidas.store');
+        Route::put('obras/{obra}/partidas/{partida}', [CobPartidaController::class, 'update'])->name('obras.partidas.update');
+        Route::delete('obras/{obra}/partidas/{partida}', [CobPartidaController::class, 'destroy'])->name('obras.partidas.destroy');
+
+        Route::get('obras/{obra}/estimaciones/create', [CobEstimacionController::class, 'create'])->name('obras.estimaciones.create');
+        Route::post('obras/{obra}/estimaciones', [CobEstimacionController::class, 'store'])->name('obras.estimaciones.store');
+        Route::get('obras/{obra}/estimaciones/{estimacion}/edit', [CobEstimacionController::class, 'edit'])->name('obras.estimaciones.edit');
+        Route::put('obras/{obra}/estimaciones/{estimacion}', [CobEstimacionController::class, 'update'])->name('obras.estimaciones.update');
+        Route::delete('obras/{obra}/estimaciones/{estimacion}', [CobEstimacionController::class, 'destroy'])->name('obras.estimaciones.destroy');
+        Route::post('obras/{obra}/estimaciones/{estimacion}/cambiar-estado', [CobEstimacionController::class, 'cambiarEstado'])->name('obras.estimaciones.cambiar-estado');
+
+        Route::post('obras/{obra}/estimaciones/{estimacion}/pagos', [CobEstimacionPagoController::class, 'store'])->name('obras.estimaciones.pagos.store');
+
+        Route::get('obras/{obra}/anticipos/create', [CobAnticipoController::class, 'create'])->name('obras.anticipos.create');
+        Route::post('obras/{obra}/anticipos', [CobAnticipoController::class, 'store'])->name('obras.anticipos.store');
+        Route::get('obras/{obra}/anticipos/{anticipo}/edit', [CobAnticipoController::class, 'edit'])->name('obras.anticipos.edit');
+        Route::put('obras/{obra}/anticipos/{anticipo}', [CobAnticipoController::class, 'update'])->name('obras.anticipos.update');
+        Route::delete('obras/{obra}/anticipos/{anticipo}', [CobAnticipoController::class, 'destroy'])->name('obras.anticipos.destroy');
+        Route::post('obras/{obra}/anticipos/{anticipo}/marcar-pagado', [CobAnticipoController::class, 'marcarPagado'])->name('obras.anticipos.marcar-pagado');
+
+        Route::post('obras/{obra}/adendas', [CobAdendaController::class, 'store'])->name('obras.adendas.store');
+        Route::put('obras/{obra}/adendas/{adenda}', [CobAdendaController::class, 'update'])->name('obras.adendas.update');
+        Route::delete('obras/{obra}/adendas/{adenda}', [CobAdendaController::class, 'destroy'])->name('obras.adendas.destroy');
+
+        Route::post('obras/{obra}/comparativos', [CobComparativoController::class, 'store'])->name('obras.comparativos.store');
+        Route::put('obras/{obra}/comparativos/{comparativo}', [CobComparativoController::class, 'update'])->name('obras.comparativos.update');
+        Route::delete('obras/{obra}/comparativos/{comparativo}', [CobComparativoController::class, 'destroy'])->name('obras.comparativos.destroy');
+
+        Route::post('obras/{obra}/deducciones', [CobDeduccionController::class, 'store'])->name('obras.deducciones.store');
+        Route::put('obras/{obra}/deducciones/{deduccion}', [CobDeduccionController::class, 'update'])->name('obras.deducciones.update');
+        Route::delete('obras/{obra}/deducciones/{deduccion}', [CobDeduccionController::class, 'destroy'])->name('obras.deducciones.destroy');
+
+        Route::post('obras/{obra}/eventos', [CobEventoController::class, 'store'])->name('obras.eventos.store');
+        Route::put('obras/{obra}/eventos/{evento}', [CobEventoController::class, 'update'])->name('obras.eventos.update');
+        Route::delete('obras/{obra}/eventos/{evento}', [CobEventoController::class, 'destroy'])->name('obras.eventos.destroy');
+
+        Route::post('obras/{obra}/disputas', [CobDisputaController::class, 'store'])->name('obras.disputas.store');
+        Route::put('obras/{obra}/disputas/{disputa}', [CobDisputaController::class, 'update'])->name('obras.disputas.update');
+        Route::delete('obras/{obra}/disputas/{disputa}', [CobDisputaController::class, 'destroy'])->name('obras.disputas.destroy');
+
+        Route::post('obras/{obra}/penalizaciones', [CobPenalizacionController::class, 'store'])->name('obras.penalizaciones.store');
+        Route::put('obras/{obra}/penalizaciones/{penalizacion}', [CobPenalizacionController::class, 'update'])->name('obras.penalizaciones.update');
+        Route::delete('obras/{obra}/penalizaciones/{penalizacion}', [CobPenalizacionController::class, 'destroy'])->name('obras.penalizaciones.destroy');
+
+        Route::post('obras/{obra}/configuracion-documentos', [CobConfiguracionDocumentoController::class, 'store'])->name('obras.configuracion-documentos.store');
+        Route::put('obras/{obra}/configuracion-documentos/{configuracionDocumento}', [CobConfiguracionDocumentoController::class, 'update'])->name('obras.configuracion-documentos.update');
+        Route::delete('obras/{obra}/configuracion-documentos/{configuracionDocumento}', [CobConfiguracionDocumentoController::class, 'destroy'])->name('obras.configuracion-documentos.destroy');
     });
 
     // STI admin routes

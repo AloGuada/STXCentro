@@ -27,6 +27,7 @@ export default function ConceptosEdit({ concepto }: Props) {
         obra_id: String(concepto.obra_id),
         marca: concepto.marca,
         descripcion: concepto.descripcion,
+        cantidad: String(concepto.cantidad),
         peso_unitario: String(concepto.peso_unitario),
         version: String(concepto.version),
         activo: concepto.activo,
@@ -66,6 +67,16 @@ export default function ConceptosEdit({ concepto }: Props) {
                                 id="descripcion"
                                 value={data.descripcion}
                                 onChange={(e) => setData('descripcion', e.target.value)}
+                            />
+                        </FormField>
+
+                        <FormField label="Cantidad (piezas)" htmlFor="cantidad" error={errors.cantidad} required>
+                            <Input
+                                id="cantidad"
+                                type="number"
+                                min="0"
+                                value={data.cantidad}
+                                onChange={(e) => setData('cantidad', e.target.value)}
                             />
                         </FormField>
 
