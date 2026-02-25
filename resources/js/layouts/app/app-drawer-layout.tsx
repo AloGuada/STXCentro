@@ -136,6 +136,7 @@ const navGroups: NavGroup[] = [
         title: 'Soporte TI',
         icon: Wrench,
         items: [
+            { title: 'Dashboard', href: '/admin/sti/dashboard', icon: LayoutGrid, permission: 'sti.tickets.ver' },
             { title: 'Tickets', href: '/admin/sti/tickets', icon: Ticket, permission: 'sti.tickets.ver' },
             { title: 'Equipos', href: '/admin/sti/equipos', icon: Monitor, permission: 'sti.equipos.ver' },
             { title: 'Técnicos', href: '/admin/sti/tecnicos', icon: Users, permission: 'sti.tecnicos.ver' },

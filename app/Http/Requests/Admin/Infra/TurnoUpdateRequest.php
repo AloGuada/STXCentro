@@ -21,6 +21,7 @@ class TurnoUpdateRequest extends FormRequest
             'hora_inicio' => ['required', 'date_format:H:i'],
             'hora_fin' => ['required', 'date_format:H:i'],
             'orden' => ['nullable', 'integer', 'min:0'],
+            'activo' => ['boolean'],
             'dias_semana' => ['required', 'array', 'min:1'],
             'dias_semana.*' => ['integer', 'between:1,7'],
         ];

@@ -37,6 +37,7 @@ export default function TurnoEdit({ turno }: Props) {
         hora_inicio: turno.hora_inicio?.substring(0, 5) ?? '08:00',
         hora_fin: turno.hora_fin?.substring(0, 5) ?? '12:00',
         orden: turno.orden,
+        activo: turno.activo ?? true,
         dias_semana: (turno.dias_semana ?? []).map((d) => d.dia_semana),
     });
 
@@ -108,6 +109,18 @@ export default function TurnoEdit({ turno }: Props) {
                                 onChange={(e) => setData('orden', parseInt(e.target.value) || 0)}
                                 placeholder="Orden de visualización"
                             />
+                        </FormField>
+
+                        <FormField label="Activo" htmlFor="activo" error={errors.activo}>
+                            <label className="flex cursor-pointer items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    className="toggle toggle-primary"
+                                    checked={data.activo}
+                                    onChange={(e) => setData('activo', e.target.checked)}
+                                />
+                                <span className="text-sm">{data.activo ? 'Turno activo' : 'Turno inactivo'}</span>
+                            </label>
                         </FormField>
 
                         <FormField label="Días de la semana" htmlFor="dias_semana" error={errors.dias_semana} required>

@@ -49,6 +49,7 @@ use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtra
 use App\Http\Controllers\Admin\ProveedorController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\Sti\AsignacionActivoController as StiAsignacionActivoController;
+use App\Http\Controllers\Admin\Sti\DashboardController as StiDashboardController;
 use App\Http\Controllers\Admin\Sti\EquipoController as StiEquipoController;
 use App\Http\Controllers\Admin\Sti\ItemController as StiItemController;
 use App\Http\Controllers\Admin\Sti\ItemTipoController as StiItemTipoController;
@@ -244,6 +245,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     // STI admin routes
     Route::prefix('sti')->name('sti.')->group(function () {
+        Route::get('dashboard', [StiDashboardController::class, 'index'])->name('dashboard.index');
         Route::resource('equipos', StiEquipoController::class);
         Route::resource('tecnicos', StiTecnicoController::class);
         Route::resource('status', StiStatusController::class)->parameters(['status' => 'status']);

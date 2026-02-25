@@ -71,6 +71,7 @@ class TurnoController extends Controller
             'hora_inicio' => $request->hora_inicio,
             'hora_fin' => $request->hora_fin,
             'orden' => $request->orden ?? 0,
+            'activo' => $request->boolean('activo'),
         ]);
 
         $turno->diasSemana()->delete();
