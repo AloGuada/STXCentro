@@ -17,12 +17,10 @@ import {
     COB_DISPUTA_ESTADO_LABELS,
     COB_TIPO_CONTRATO_LABELS,
     type Cliente,
-    type CobComparativo,
-    type CobPartida,
     type Obra,
 } from '@/types/models';
 import { Head, router, useForm } from '@inertiajs/react';
-import { CheckIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 type Props = {
@@ -207,92 +205,15 @@ function ResumenTab({ obra, clientes, resumen }: { obra: Obra; clientes: Pick<Cl
 }
 
 // -- Partidas Tab --
-function PartidaEditRow({ obra, partida, onCancel }: { obra: Obra; partida: CobPartida; onCancel: () => void }) {
-    const form = useForm({
-        tipo: partida.tipo,
-        es_adicional: partida.es_adicional,
-        descripcion: partida.descripcion,
-        monto: String(partida.monto),
-        moneda: partida.moneda,
-        es_subobra: partida.es_subobra,
-    });
-
-    return (
-        <tr>
-            <td>
-                <Select value={form.data.tipo} onValueChange={(v) => form.setData('tipo', v)}>
-                    <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="suministro">Suministro</SelectItem>
-                        <SelectItem value="montaje">Montaje</SelectItem>
-                    </SelectContent>
-                </Select>
-            </td>
-            <td><Input className="h-8" value={form.data.descripcion} onChange={(e) => form.setData('descripcion', e.target.value)} /></td>
-            <td><Input className="h-8 w-28" type="number" step="0.01" value={form.data.monto} onChange={(e) => form.setData('monto', e.target.value)} /></td>
-            <td>
-                <input type="checkbox" className="checkbox checkbox-sm" checked={form.data.es_adicional as boolean} onChange={(e) => form.setData('es_adicional', e.target.checked)} />
-            </td>
-            <td className="flex gap-1">
-                <button className="btn btn-ghost btn-xs text-success" disabled={form.processing} onClick={() => form.put(`/admin/cob/obras/${obra.id}/partidas/${partida.id}`, { onSuccess: onCancel })}>
-                    <CheckIcon className="size-3" />
-                </button>
-                <button className="btn btn-ghost btn-xs" onClick={onCancel}>
-                    <XIcon className="size-3" />
-                </button>
-            </td>
-        </tr>
-    );
-}
-
 function PartidasTab({ obra }: { obra: Obra }) {
-    const [showForm, setShowForm] = useState(false);
-    const [editingId, setEditingId] = useState<number | null>(null);
-    const form = useForm({ tipo: 'suministro', es_adicional: false, descripcion: '', monto: '', moneda: 'MXN', es_subobra: false });
-
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        form.post(`/admin/cob/obras/${obra.id}/partidas`, { onSuccess: () => { form.reset(); setShowForm(false); } });
-    };
-
     return (
         <div>
             <div className="flex justify-between mb-4">
                 <h2 className="text-lg font-semibold">Partidas</h2>
-                <Button size="sm" onClick={() => setShowForm(!showForm)}><PlusIcon className="size-4" /> Nueva Partida</Button>
+                <Button size="sm" asChild>
+                    <a href={`/admin/cob/obras/${obra.id}/partidas/create`}><PlusIcon className="size-4" /> Nueva Partida</a>
+                </Button>
             </div>
-
-            {showForm && (
-                <form onSubmit={handleSubmit} className="card bg-base-200 p-4 mb-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                        <FormField label="Tipo" htmlFor="tipo" error={form.errors.tipo}>
-                            <Select value={form.data.tipo} onValueChange={(v) => form.setData('tipo', v)}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="suministro">Suministro</SelectItem>
-                                    <SelectItem value="montaje">Montaje</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </FormField>
-                        <FormField label="Descripcion" htmlFor="descripcion" error={form.errors.descripcion} required>
-                            <Input value={form.data.descripcion} onChange={(e) => form.setData('descripcion', e.target.value)} />
-                        </FormField>
-                        <FormField label="Monto" htmlFor="monto" error={form.errors.monto} required>
-                            <Input type="number" step="0.01" value={form.data.monto} onChange={(e) => form.setData('monto', e.target.value)} />
-                        </FormField>
-                        <div className="flex items-end gap-4">
-                            <label className="label cursor-pointer gap-2">
-                                <input type="checkbox" className="checkbox checkbox-sm" checked={form.data.es_adicional as boolean} onChange={(e) => form.setData('es_adicional', e.target.checked)} />
-                                <span className="label-text">Adicional</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" type="button" onClick={() => setShowForm(false)}>Cancelar</Button>
-                        <Button size="sm" type="submit" disabled={form.processing}>Guardar</Button>
-                    </div>
-                </form>
-            )}
 
             <div className="overflow-x-auto">
                 <table className="table table-sm">
@@ -306,26 +227,22 @@ function PartidasTab({ obra }: { obra: Obra }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {(obra.partidas ?? []).map((p) =>
-                            editingId === p.id ? (
-                                <PartidaEditRow key={p.id} obra={obra} partida={p} onCancel={() => setEditingId(null)} />
-                            ) : (
-                                <tr key={p.id}>
-                                    <td className="capitalize">{p.tipo}</td>
-                                    <td>{p.descripcion}</td>
-                                    <td className="text-right">{formatearMXN(p.monto)}</td>
-                                    <td>{p.es_adicional ? 'Si' : 'No'}</td>
-                                    <td className="flex gap-1">
-                                        <button className="btn btn-ghost btn-xs" onClick={() => setEditingId(p.id)}>
-                                            <PencilIcon className="size-3" />
-                                        </button>
-                                        <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/partidas/${p.id}`)}>
-                                            <Trash2Icon className="size-3" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ),
-                        )}
+                        {(obra.partidas ?? []).map((p) => (
+                            <tr key={p.id}>
+                                <td className="capitalize">{p.tipo}</td>
+                                <td>{p.descripcion}</td>
+                                <td className="text-right">{formatearMXN(p.monto)}</td>
+                                <td>{p.es_adicional ? 'Si' : 'No'}</td>
+                                <td className="flex gap-1">
+                                    <a href={`/admin/cob/obras/${obra.id}/partidas/${p.id}/edit`} className="btn btn-ghost btn-xs">
+                                        <PencilIcon className="size-3" />
+                                    </a>
+                                    <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/partidas/${p.id}`)}>
+                                        <Trash2Icon className="size-3" />
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
                         {(obra.partidas ?? []).length === 0 && (
                             <tr><td colSpan={5} className="text-center opacity-50">No hay partidas</td></tr>
                         )}
@@ -440,57 +357,14 @@ function AnticiposTab({ obra }: { obra: Obra }) {
 
 // -- Adendas Tab --
 function AdendasTab({ obra }: { obra: Obra }) {
-    const [showForm, setShowForm] = useState(false);
-    const form = useForm({ tipo: 'aumento', descripcion: '', monto_modificacion: '', fecha: '', estado: 'borrador' });
-
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        form.post(`/admin/cob/obras/${obra.id}/adendas`, { onSuccess: () => { form.reset(); setShowForm(false); } });
-    };
-
     return (
         <div>
             <div className="flex justify-between mb-4">
                 <h2 className="text-lg font-semibold">Adendas</h2>
-                <Button size="sm" onClick={() => setShowForm(!showForm)}><PlusIcon className="size-4" /> Nueva Adenda</Button>
+                <Button size="sm" asChild>
+                    <a href={`/admin/cob/obras/${obra.id}/adendas/create`}><PlusIcon className="size-4" /> Nueva Adenda</a>
+                </Button>
             </div>
-
-            {showForm && (
-                <form onSubmit={handleSubmit} className="card bg-base-200 p-4 mb-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                        <FormField label="Tipo" htmlFor="tipo" error={form.errors.tipo}>
-                            <Select value={form.data.tipo} onValueChange={(v) => form.setData('tipo', v)}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {Object.entries(COB_ADENDA_TIPO_LABELS).map(([k, v]) => (
-                                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </FormField>
-                        <FormField label="Descripcion" htmlFor="descripcion" error={form.errors.descripcion} required>
-                            <Input value={form.data.descripcion} onChange={(e) => form.setData('descripcion', e.target.value)} />
-                        </FormField>
-                        <FormField label="Monto Modificacion" htmlFor="monto_modificacion" error={form.errors.monto_modificacion} required>
-                            <Input type="number" step="0.01" value={form.data.monto_modificacion} onChange={(e) => form.setData('monto_modificacion', e.target.value)} />
-                        </FormField>
-                        <FormField label="Estado" htmlFor="estado" error={form.errors.estado}>
-                            <Select value={form.data.estado} onValueChange={(v) => form.setData('estado', v)}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {Object.entries(COB_ADENDA_ESTADO_LABELS).map(([k, v]) => (
-                                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </FormField>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" type="button" onClick={() => setShowForm(false)}>Cancelar</Button>
-                        <Button size="sm" type="submit" disabled={form.processing}>Guardar</Button>
-                    </div>
-                </form>
-            )}
 
             <div className="overflow-x-auto">
                 <table className="table table-sm">
@@ -502,7 +376,14 @@ function AdendasTab({ obra }: { obra: Obra }) {
                                 <td className="max-w-xs truncate">{a.descripcion}</td>
                                 <td className="text-right">{formatearMXN(a.monto_modificacion)}</td>
                                 <td><span className="badge badge-sm">{COB_ADENDA_ESTADO_LABELS[a.estado] ?? a.estado}</span></td>
-                                <td><button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/adendas/${a.id}`)}><Trash2Icon className="size-3" /></button></td>
+                                <td className="flex gap-1">
+                                    <a href={`/admin/cob/obras/${obra.id}/adendas/${a.id}/edit`} className="btn btn-ghost btn-xs">
+                                        <PencilIcon className="size-3" />
+                                    </a>
+                                    <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/adendas/${a.id}`)}>
+                                        <Trash2Icon className="size-3" />
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                         {(obra.adendas ?? []).length === 0 && (
@@ -516,112 +397,36 @@ function AdendasTab({ obra }: { obra: Obra }) {
 }
 
 // -- Comparativos Tab --
-function ComparativoEditRow({ obra, comparativo, onCancel }: { obra: Obra; comparativo: CobComparativo; onCancel: () => void }) {
-    const form = useForm({
-        descripcion: comparativo.descripcion,
-        monto_impacto: String(comparativo.monto_impacto),
-        fecha_identificacion: comparativo.fecha_identificacion ?? '',
-        estado: comparativo.estado,
-    });
-
-    return (
-        <tr>
-            <td><Input className="h-8" value={form.data.descripcion} onChange={(e) => form.setData('descripcion', e.target.value)} /></td>
-            <td><Input className="h-8 w-28" type="number" step="0.01" value={form.data.monto_impacto} onChange={(e) => form.setData('monto_impacto', e.target.value)} /></td>
-            <td><Input className="h-8 w-32" type="date" value={form.data.fecha_identificacion} onChange={(e) => form.setData('fecha_identificacion', e.target.value)} /></td>
-            <td>
-                <Select value={form.data.estado} onValueChange={(v) => form.setData('estado', v)}>
-                    <SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        {Object.entries(COB_COMPARATIVO_ESTADO_LABELS).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </td>
-            <td className="flex gap-1">
-                <button className="btn btn-ghost btn-xs text-success" disabled={form.processing} onClick={() => form.put(`/admin/cob/obras/${obra.id}/comparativos/${comparativo.id}`, { onSuccess: onCancel })}>
-                    <CheckIcon className="size-3" />
-                </button>
-                <button className="btn btn-ghost btn-xs" onClick={onCancel}>
-                    <XIcon className="size-3" />
-                </button>
-            </td>
-        </tr>
-    );
-}
-
 function ComparativosTab({ obra }: { obra: Obra }) {
-    const [showForm, setShowForm] = useState(false);
-    const [editingId, setEditingId] = useState<number | null>(null);
-    const form = useForm({ descripcion: '', monto_impacto: '', fecha_identificacion: '', estado: 'analisis' });
-
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        form.post(`/admin/cob/obras/${obra.id}/comparativos`, { onSuccess: () => { form.reset(); setShowForm(false); } });
-    };
-
     return (
         <div>
             <div className="flex justify-between mb-4">
                 <h2 className="text-lg font-semibold">Comparativos</h2>
-                <Button size="sm" onClick={() => setShowForm(!showForm)}><PlusIcon className="size-4" /> Nuevo Comparativo</Button>
+                <Button size="sm" asChild>
+                    <a href={`/admin/cob/obras/${obra.id}/comparativos/create`}><PlusIcon className="size-4" /> Nuevo Comparativo</a>
+                </Button>
             </div>
-
-            {showForm && (
-                <form onSubmit={handleSubmit} className="card bg-base-200 p-4 mb-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                        <FormField label="Descripcion" htmlFor="descripcion" error={form.errors.descripcion} required>
-                            <Input value={form.data.descripcion} onChange={(e) => form.setData('descripcion', e.target.value)} />
-                        </FormField>
-                        <FormField label="Monto Impacto" htmlFor="monto_impacto" error={form.errors.monto_impacto} required>
-                            <Input type="number" step="0.01" value={form.data.monto_impacto} onChange={(e) => form.setData('monto_impacto', e.target.value)} />
-                        </FormField>
-                        <FormField label="Fecha" htmlFor="fecha_identificacion" error={form.errors.fecha_identificacion}>
-                            <Input type="date" value={form.data.fecha_identificacion} onChange={(e) => form.setData('fecha_identificacion', e.target.value)} />
-                        </FormField>
-                        <FormField label="Estado" htmlFor="estado" error={form.errors.estado}>
-                            <Select value={form.data.estado} onValueChange={(v) => form.setData('estado', v)}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {Object.entries(COB_COMPARATIVO_ESTADO_LABELS).map(([k, v]) => (
-                                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </FormField>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" type="button" onClick={() => setShowForm(false)}>Cancelar</Button>
-                        <Button size="sm" type="submit" disabled={form.processing}>Guardar</Button>
-                    </div>
-                </form>
-            )}
 
             <div className="overflow-x-auto">
                 <table className="table table-sm">
                     <thead><tr><th>Descripcion</th><th className="text-right">Monto Impacto</th><th>Fecha</th><th>Estado</th><th></th></tr></thead>
                     <tbody>
-                        {(obra.comparativos ?? []).map((c) =>
-                            editingId === c.id ? (
-                                <ComparativoEditRow key={c.id} obra={obra} comparativo={c} onCancel={() => setEditingId(null)} />
-                            ) : (
-                                <tr key={c.id}>
-                                    <td className="max-w-xs truncate">{c.descripcion}</td>
-                                    <td className="text-right">{formatearMXN(c.monto_impacto)}</td>
-                                    <td>{c.fecha_identificacion ?? '-'}</td>
-                                    <td><span className="badge badge-sm">{COB_COMPARATIVO_ESTADO_LABELS[c.estado] ?? c.estado}</span></td>
-                                    <td className="flex gap-1">
-                                        <button className="btn btn-ghost btn-xs" onClick={() => setEditingId(c.id)}>
-                                            <PencilIcon className="size-3" />
-                                        </button>
-                                        <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/comparativos/${c.id}`)}>
-                                            <Trash2Icon className="size-3" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ),
-                        )}
+                        {(obra.comparativos ?? []).map((c) => (
+                            <tr key={c.id}>
+                                <td className="max-w-xs truncate">{c.descripcion}</td>
+                                <td className="text-right">{formatearMXN(c.monto_impacto)}</td>
+                                <td>{c.fecha_identificacion ?? '-'}</td>
+                                <td><span className="badge badge-sm">{COB_COMPARATIVO_ESTADO_LABELS[c.estado] ?? c.estado}</span></td>
+                                <td className="flex gap-1">
+                                    <a href={`/admin/cob/obras/${obra.id}/comparativos/${c.id}/edit`} className="btn btn-ghost btn-xs">
+                                        <PencilIcon className="size-3" />
+                                    </a>
+                                    <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/comparativos/${c.id}`)}>
+                                        <Trash2Icon className="size-3" />
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
                         {(obra.comparativos ?? []).length === 0 && (
                             <tr><td colSpan={5} className="text-center opacity-50">No hay comparativos</td></tr>
                         )}
@@ -634,40 +439,14 @@ function ComparativosTab({ obra }: { obra: Obra }) {
 
 // -- Deducciones Tab --
 function DeduccionesTab({ obra }: { obra: Obra }) {
-    const [showForm, setShowForm] = useState(false);
-    const form = useForm({ descripcion: '', monto: '', moneda: 'MXN', fecha: '' });
-
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        form.post(`/admin/cob/obras/${obra.id}/deducciones`, { onSuccess: () => { form.reset(); setShowForm(false); } });
-    };
-
     return (
         <div>
             <div className="flex justify-between mb-4">
                 <h2 className="text-lg font-semibold">Deducciones</h2>
-                <Button size="sm" onClick={() => setShowForm(!showForm)}><PlusIcon className="size-4" /> Nueva Deduccion</Button>
+                <Button size="sm" asChild>
+                    <a href={`/admin/cob/obras/${obra.id}/deducciones/create`}><PlusIcon className="size-4" /> Nueva Deduccion</a>
+                </Button>
             </div>
-
-            {showForm && (
-                <form onSubmit={handleSubmit} className="card bg-base-200 p-4 mb-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                        <FormField label="Descripcion" htmlFor="descripcion" error={form.errors.descripcion} required>
-                            <Input value={form.data.descripcion} onChange={(e) => form.setData('descripcion', e.target.value)} />
-                        </FormField>
-                        <FormField label="Monto" htmlFor="monto" error={form.errors.monto} required>
-                            <Input type="number" step="0.01" value={form.data.monto} onChange={(e) => form.setData('monto', e.target.value)} />
-                        </FormField>
-                        <FormField label="Fecha" htmlFor="fecha" error={form.errors.fecha}>
-                            <Input type="date" value={form.data.fecha} onChange={(e) => form.setData('fecha', e.target.value)} />
-                        </FormField>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" type="button" onClick={() => setShowForm(false)}>Cancelar</Button>
-                        <Button size="sm" type="submit" disabled={form.processing}>Guardar</Button>
-                    </div>
-                </form>
-            )}
 
             <div className="overflow-x-auto">
                 <table className="table table-sm">
@@ -678,7 +457,14 @@ function DeduccionesTab({ obra }: { obra: Obra }) {
                                 <td>{d.descripcion}</td>
                                 <td className="text-right">{formatearMXN(d.monto)}</td>
                                 <td>{d.fecha ?? '-'}</td>
-                                <td><button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/deducciones/${d.id}`)}><Trash2Icon className="size-3" /></button></td>
+                                <td className="flex gap-1">
+                                    <a href={`/admin/cob/obras/${obra.id}/deducciones/${d.id}/edit`} className="btn btn-ghost btn-xs">
+                                        <PencilIcon className="size-3" />
+                                    </a>
+                                    <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/deducciones/${d.id}`)}>
+                                        <Trash2Icon className="size-3" />
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                         {(obra.deducciones ?? []).length === 0 && (
@@ -693,47 +479,14 @@ function DeduccionesTab({ obra }: { obra: Obra }) {
 
 // -- Disputas Tab --
 function DisputasTab({ obra }: { obra: Obra }) {
-    const [showForm, setShowForm] = useState(false);
-    const form = useForm({ descripcion: '', fecha_inicio: '', estado: 'en_proceso', resultado: '' });
-
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        form.post(`/admin/cob/obras/${obra.id}/disputas`, { onSuccess: () => { form.reset(); setShowForm(false); } });
-    };
-
     return (
         <div>
             <div className="flex justify-between mb-4">
                 <h2 className="text-lg font-semibold">Disputas</h2>
-                <Button size="sm" onClick={() => setShowForm(!showForm)}><PlusIcon className="size-4" /> Nueva Disputa</Button>
+                <Button size="sm" asChild>
+                    <a href={`/admin/cob/obras/${obra.id}/disputas/create`}><PlusIcon className="size-4" /> Nueva Disputa</a>
+                </Button>
             </div>
-
-            {showForm && (
-                <form onSubmit={handleSubmit} className="card bg-base-200 p-4 mb-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                        <FormField label="Descripcion" htmlFor="descripcion" error={form.errors.descripcion} required>
-                            <Input value={form.data.descripcion} onChange={(e) => form.setData('descripcion', e.target.value)} />
-                        </FormField>
-                        <FormField label="Fecha Inicio" htmlFor="fecha_inicio" error={form.errors.fecha_inicio}>
-                            <Input type="date" value={form.data.fecha_inicio} onChange={(e) => form.setData('fecha_inicio', e.target.value)} />
-                        </FormField>
-                        <FormField label="Estado" htmlFor="estado" error={form.errors.estado}>
-                            <Select value={form.data.estado} onValueChange={(v) => form.setData('estado', v)}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {Object.entries(COB_DISPUTA_ESTADO_LABELS).map(([k, v]) => (
-                                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </FormField>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" type="button" onClick={() => setShowForm(false)}>Cancelar</Button>
-                        <Button size="sm" type="submit" disabled={form.processing}>Guardar</Button>
-                    </div>
-                </form>
-            )}
 
             <div className="overflow-x-auto">
                 <table className="table table-sm">
@@ -745,7 +498,14 @@ function DisputasTab({ obra }: { obra: Obra }) {
                                 <td>{d.fecha_inicio ?? '-'}</td>
                                 <td><span className="badge badge-sm">{COB_DISPUTA_ESTADO_LABELS[d.estado] ?? d.estado}</span></td>
                                 <td className="max-w-xs truncate">{d.resultado ?? '-'}</td>
-                                <td><button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/disputas/${d.id}`)}><Trash2Icon className="size-3" /></button></td>
+                                <td className="flex gap-1">
+                                    <a href={`/admin/cob/obras/${obra.id}/disputas/${d.id}/edit`} className="btn btn-ghost btn-xs">
+                                        <PencilIcon className="size-3" />
+                                    </a>
+                                    <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/disputas/${d.id}`)}>
+                                        <Trash2Icon className="size-3" />
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                         {(obra.disputas ?? []).length === 0 && (
@@ -760,43 +520,14 @@ function DisputasTab({ obra }: { obra: Obra }) {
 
 // -- Penalizaciones Tab --
 function PenalizacionesTab({ obra }: { obra: Obra }) {
-    const [showForm, setShowForm] = useState(false);
-    const form = useForm({ descripcion: '', monto: '', moneda: 'MXN', tipo: '', fecha: '' });
-
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        form.post(`/admin/cob/obras/${obra.id}/penalizaciones`, { onSuccess: () => { form.reset(); setShowForm(false); } });
-    };
-
     return (
         <div>
             <div className="flex justify-between mb-4">
                 <h2 className="text-lg font-semibold">Penalizaciones</h2>
-                <Button size="sm" onClick={() => setShowForm(!showForm)}><PlusIcon className="size-4" /> Nueva Penalizacion</Button>
+                <Button size="sm" asChild>
+                    <a href={`/admin/cob/obras/${obra.id}/penalizaciones/create`}><PlusIcon className="size-4" /> Nueva Penalizacion</a>
+                </Button>
             </div>
-
-            {showForm && (
-                <form onSubmit={handleSubmit} className="card bg-base-200 p-4 mb-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                        <FormField label="Descripcion" htmlFor="descripcion" error={form.errors.descripcion} required>
-                            <Input value={form.data.descripcion} onChange={(e) => form.setData('descripcion', e.target.value)} />
-                        </FormField>
-                        <FormField label="Monto" htmlFor="monto" error={form.errors.monto} required>
-                            <Input type="number" step="0.01" value={form.data.monto} onChange={(e) => form.setData('monto', e.target.value)} />
-                        </FormField>
-                        <FormField label="Tipo" htmlFor="tipo" error={form.errors.tipo}>
-                            <Input value={form.data.tipo} onChange={(e) => form.setData('tipo', e.target.value)} placeholder="ej. retraso, calidad" />
-                        </FormField>
-                        <FormField label="Fecha" htmlFor="fecha" error={form.errors.fecha}>
-                            <Input type="date" value={form.data.fecha} onChange={(e) => form.setData('fecha', e.target.value)} />
-                        </FormField>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" type="button" onClick={() => setShowForm(false)}>Cancelar</Button>
-                        <Button size="sm" type="submit" disabled={form.processing}>Guardar</Button>
-                    </div>
-                </form>
-            )}
 
             <div className="overflow-x-auto">
                 <table className="table table-sm">
@@ -808,7 +539,14 @@ function PenalizacionesTab({ obra }: { obra: Obra }) {
                                 <td className="text-right">{formatearMXN(p.monto)}</td>
                                 <td>{p.tipo ?? '-'}</td>
                                 <td>{p.fecha ?? '-'}</td>
-                                <td><button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/penalizaciones/${p.id}`)}><Trash2Icon className="size-3" /></button></td>
+                                <td className="flex gap-1">
+                                    <a href={`/admin/cob/obras/${obra.id}/penalizaciones/${p.id}/edit`} className="btn btn-ghost btn-xs">
+                                        <PencilIcon className="size-3" />
+                                    </a>
+                                    <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/penalizaciones/${p.id}`)}>
+                                        <Trash2Icon className="size-3" />
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                         {(obra.penalizaciones ?? []).length === 0 && (
@@ -823,43 +561,14 @@ function PenalizacionesTab({ obra }: { obra: Obra }) {
 
 // -- Configuracion Tab --
 function ConfiguracionTab({ obra }: { obra: Obra }) {
-    const [showForm, setShowForm] = useState(false);
-    const form = useForm({ nombre_documento: '', descripcion: '', obligatorio: false });
-
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        form.post(`/admin/cob/obras/${obra.id}/configuracion-documentos`, { onSuccess: () => { form.reset(); setShowForm(false); } });
-    };
-
     return (
         <div>
             <div className="flex justify-between mb-4">
                 <h2 className="text-lg font-semibold">Configuracion de Documentos</h2>
-                <Button size="sm" onClick={() => setShowForm(!showForm)}><PlusIcon className="size-4" /> Nuevo Documento</Button>
+                <Button size="sm" asChild>
+                    <a href={`/admin/cob/obras/${obra.id}/configuracion-documentos/create`}><PlusIcon className="size-4" /> Nuevo Documento</a>
+                </Button>
             </div>
-
-            {showForm && (
-                <form onSubmit={handleSubmit} className="card bg-base-200 p-4 mb-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                        <FormField label="Nombre Documento" htmlFor="nombre_documento" error={form.errors.nombre_documento} required>
-                            <Input value={form.data.nombre_documento} onChange={(e) => form.setData('nombre_documento', e.target.value)} />
-                        </FormField>
-                        <FormField label="Descripcion" htmlFor="descripcion" error={form.errors.descripcion}>
-                            <Input value={form.data.descripcion} onChange={(e) => form.setData('descripcion', e.target.value)} />
-                        </FormField>
-                        <div className="flex items-end">
-                            <label className="label cursor-pointer gap-2">
-                                <input type="checkbox" className="checkbox checkbox-sm" checked={form.data.obligatorio as boolean} onChange={(e) => form.setData('obligatorio', e.target.checked)} />
-                                <span className="label-text">Obligatorio</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" type="button" onClick={() => setShowForm(false)}>Cancelar</Button>
-                        <Button size="sm" type="submit" disabled={form.processing}>Guardar</Button>
-                    </div>
-                </form>
-            )}
 
             <div className="overflow-x-auto">
                 <table className="table table-sm">
@@ -870,7 +579,14 @@ function ConfiguracionTab({ obra }: { obra: Obra }) {
                                 <td>{d.nombre_documento}</td>
                                 <td>{d.descripcion ?? '-'}</td>
                                 <td>{d.obligatorio ? 'Si' : 'No'}</td>
-                                <td><button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/configuracion-documentos/${d.id}`)}><Trash2Icon className="size-3" /></button></td>
+                                <td className="flex gap-1">
+                                    <a href={`/admin/cob/obras/${obra.id}/configuracion-documentos/${d.id}/edit`} className="btn btn-ghost btn-xs">
+                                        <PencilIcon className="size-3" />
+                                    </a>
+                                    <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/configuracion-documentos/${d.id}`)}>
+                                        <Trash2Icon className="size-3" />
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                         {(obra.configuracion_documentos ?? []).length === 0 && (

@@ -194,7 +194,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('obras/{obra}/financial', [CobObraCobranzaController::class, 'updateFinancial'])->name('obras.update-financial');
 
         // Sub-recursos de obra
+        Route::get('obras/{obra}/partidas/create', [CobPartidaController::class, 'create'])->name('obras.partidas.create');
         Route::post('obras/{obra}/partidas', [CobPartidaController::class, 'store'])->name('obras.partidas.store');
+        Route::get('obras/{obra}/partidas/{partida}/edit', [CobPartidaController::class, 'edit'])->name('obras.partidas.edit');
         Route::put('obras/{obra}/partidas/{partida}', [CobPartidaController::class, 'update'])->name('obras.partidas.update');
         Route::delete('obras/{obra}/partidas/{partida}', [CobPartidaController::class, 'destroy'])->name('obras.partidas.destroy');
 
@@ -214,15 +216,21 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('obras/{obra}/anticipos/{anticipo}', [CobAnticipoController::class, 'destroy'])->name('obras.anticipos.destroy');
         Route::post('obras/{obra}/anticipos/{anticipo}/marcar-pagado', [CobAnticipoController::class, 'marcarPagado'])->name('obras.anticipos.marcar-pagado');
 
+        Route::get('obras/{obra}/adendas/create', [CobAdendaController::class, 'create'])->name('obras.adendas.create');
         Route::post('obras/{obra}/adendas', [CobAdendaController::class, 'store'])->name('obras.adendas.store');
+        Route::get('obras/{obra}/adendas/{adenda}/edit', [CobAdendaController::class, 'edit'])->name('obras.adendas.edit');
         Route::put('obras/{obra}/adendas/{adenda}', [CobAdendaController::class, 'update'])->name('obras.adendas.update');
         Route::delete('obras/{obra}/adendas/{adenda}', [CobAdendaController::class, 'destroy'])->name('obras.adendas.destroy');
 
+        Route::get('obras/{obra}/comparativos/create', [CobComparativoController::class, 'create'])->name('obras.comparativos.create');
         Route::post('obras/{obra}/comparativos', [CobComparativoController::class, 'store'])->name('obras.comparativos.store');
+        Route::get('obras/{obra}/comparativos/{comparativo}/edit', [CobComparativoController::class, 'edit'])->name('obras.comparativos.edit');
         Route::put('obras/{obra}/comparativos/{comparativo}', [CobComparativoController::class, 'update'])->name('obras.comparativos.update');
         Route::delete('obras/{obra}/comparativos/{comparativo}', [CobComparativoController::class, 'destroy'])->name('obras.comparativos.destroy');
 
+        Route::get('obras/{obra}/deducciones/create', [CobDeduccionController::class, 'create'])->name('obras.deducciones.create');
         Route::post('obras/{obra}/deducciones', [CobDeduccionController::class, 'store'])->name('obras.deducciones.store');
+        Route::get('obras/{obra}/deducciones/{deduccion}/edit', [CobDeduccionController::class, 'edit'])->name('obras.deducciones.edit');
         Route::put('obras/{obra}/deducciones/{deduccion}', [CobDeduccionController::class, 'update'])->name('obras.deducciones.update');
         Route::delete('obras/{obra}/deducciones/{deduccion}', [CobDeduccionController::class, 'destroy'])->name('obras.deducciones.destroy');
 
@@ -230,15 +238,21 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('obras/{obra}/eventos/{evento}', [CobEventoController::class, 'update'])->name('obras.eventos.update');
         Route::delete('obras/{obra}/eventos/{evento}', [CobEventoController::class, 'destroy'])->name('obras.eventos.destroy');
 
+        Route::get('obras/{obra}/disputas/create', [CobDisputaController::class, 'create'])->name('obras.disputas.create');
         Route::post('obras/{obra}/disputas', [CobDisputaController::class, 'store'])->name('obras.disputas.store');
+        Route::get('obras/{obra}/disputas/{disputa}/edit', [CobDisputaController::class, 'edit'])->name('obras.disputas.edit');
         Route::put('obras/{obra}/disputas/{disputa}', [CobDisputaController::class, 'update'])->name('obras.disputas.update');
         Route::delete('obras/{obra}/disputas/{disputa}', [CobDisputaController::class, 'destroy'])->name('obras.disputas.destroy');
 
+        Route::get('obras/{obra}/penalizaciones/create', [CobPenalizacionController::class, 'create'])->name('obras.penalizaciones.create');
         Route::post('obras/{obra}/penalizaciones', [CobPenalizacionController::class, 'store'])->name('obras.penalizaciones.store');
+        Route::get('obras/{obra}/penalizaciones/{penalizacion}/edit', [CobPenalizacionController::class, 'edit'])->name('obras.penalizaciones.edit');
         Route::put('obras/{obra}/penalizaciones/{penalizacion}', [CobPenalizacionController::class, 'update'])->name('obras.penalizaciones.update');
         Route::delete('obras/{obra}/penalizaciones/{penalizacion}', [CobPenalizacionController::class, 'destroy'])->name('obras.penalizaciones.destroy');
 
+        Route::get('obras/{obra}/configuracion-documentos/create', [CobConfiguracionDocumentoController::class, 'create'])->name('obras.configuracion-documentos.create');
         Route::post('obras/{obra}/configuracion-documentos', [CobConfiguracionDocumentoController::class, 'store'])->name('obras.configuracion-documentos.store');
+        Route::get('obras/{obra}/configuracion-documentos/{configuracionDocumento}/edit', [CobConfiguracionDocumentoController::class, 'edit'])->name('obras.configuracion-documentos.edit');
         Route::put('obras/{obra}/configuracion-documentos/{configuracionDocumento}', [CobConfiguracionDocumentoController::class, 'update'])->name('obras.configuracion-documentos.update');
         Route::delete('obras/{obra}/configuracion-documentos/{configuracionDocumento}', [CobConfiguracionDocumentoController::class, 'destroy'])->name('obras.configuracion-documentos.destroy');
     });
