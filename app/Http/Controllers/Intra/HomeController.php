@@ -15,7 +15,7 @@ class HomeController extends Controller
         $secciones = SeccionEstatica::query()
             ->where('activo', true)
             ->orderBy('titulo')
-            ->get(['id', 'slug', 'titulo', 'boton']);
+            ->get(['id', 'slug', 'titulo', 'boton', 'url_externa']);
 
         $areas = Area::query()
             ->whereNull('parent_id')

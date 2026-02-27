@@ -19,7 +19,7 @@ export default function SeccionesEdit({ seccion }: Props) {
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Intranet', href: '/admin/intra/secciones' },
         { title: 'Secciones', href: '/admin/intra/secciones' },
-        { title: seccion.titulo, href: `/admin/intra/secciones/${seccion.id}/edit` },
+        { title: seccion.titulo, href: `/admin/intra/secciones/${seccion.slug}/edit` },
     ];
 
     const { data, setData, post, processing, errors } = useForm<{
@@ -27,6 +27,7 @@ export default function SeccionesEdit({ seccion }: Props) {
         titulo: string;
         descripcion: string;
         boton: string;
+        url_externa: string;
         activo: boolean;
         file: File | null;
     }>({
@@ -34,13 +35,16 @@ export default function SeccionesEdit({ seccion }: Props) {
         titulo: seccion.titulo,
         descripcion: seccion.descripcion ?? '',
         boton: seccion.boton,
+        url_externa: seccion.url_externa ?? '',
         activo: seccion.activo,
         file: null,
     });
 
+    const isUrlExterna = data.url_externa.length > 0;
+
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        post(`/admin/intra/secciones/${seccion.id}`);
+        post(`/admin/intra/secciones/${seccion.slug}`);
     };
 
     const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -59,7 +63,7 @@ export default function SeccionesEdit({ seccion }: Props) {
                         <DeleteDialog
                             title="Eliminar sección"
                             description={`¿Estás seguro de eliminar la sección "${seccion.titulo}"? Esta acción no se puede deshacer.`}
-                            deleteUrl={`/admin/intra/secciones/${seccion.id}`}
+                            deleteUrl={`/admin/intra/secciones/${seccion.slug}`}
                         />
                     </div>
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -100,19 +104,35 @@ export default function SeccionesEdit({ seccion }: Props) {
                         </FormField>
 
                         <FormField
-                            label="Archivo PDF"
-                            htmlFor="file"
-                            error={errors.file}
-                            description={seccion.media ? `Archivo actual: ${seccion.media.path.split('/').pop()}` : undefined}
+                            label="URL Externa"
+                            htmlFor="url_externa"
+                            error={errors.url_externa}
+                            description="Si se proporciona, el botón abrirá esta URL en una nueva pestaña en lugar del visor PDF."
                         >
                             <Input
-                                id="file"
-                                type="file"
-                                accept=".pdf"
-                                onChange={handleFileChange}
-                                className="file:btn file:btn-sm file:btn-ghost"
+                                id="url_externa"
+                                value={data.url_externa}
+                                onChange={(e) => setData('url_externa', e.target.value)}
+                                placeholder="https://ejemplo.com/documento"
                             />
                         </FormField>
+
+                        {!isUrlExterna && (
+                            <FormField
+                                label="Archivo PDF"
+                                htmlFor="file"
+                                error={errors.file}
+                                description={seccion.media ? `Archivo actual: ${seccion.media.path.split('/').pop()}` : undefined}
+                            >
+                                <Input
+                                    id="file"
+                                    type="file"
+                                    accept=".pdf"
+                                    onChange={handleFileChange}
+                                    className="file:btn file:btn-sm file:btn-ghost"
+                                />
+                            </FormField>
+                        )}
 
                         <FormField label="" htmlFor="activo" error={errors.activo}>
                             <label className="flex items-center gap-2 cursor-pointer">

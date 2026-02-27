@@ -40,16 +40,19 @@ class SeccionEstaticaController extends Controller
     {
         $slug = $this->generateUniqueSlug($request->titulo);
 
+        $urlExterna = $request->url_externa ?: null;
+
         $seccion = SeccionEstatica::create([
             'slug' => $slug,
             'titulo' => $request->titulo,
             'descripcion' => $request->descripcion,
             'boton' => $request->boton,
+            'url_externa' => $urlExterna,
             'order' => 0,
             'activo' => $request->boolean('activo', true),
         ]);
 
-        if ($request->hasFile('file')) {
+        if (! $urlExterna && $request->hasFile('file')) {
             $file = $request->file('file');
             $path = $file->store('intra/secciones', 'public');
 
@@ -79,15 +82,24 @@ class SeccionEstaticaController extends Controller
             $slug = $this->generateUniqueSlug($request->titulo, $seccione->id);
         }
 
+        $urlExterna = $request->url_externa ?: null;
+
         $seccione->update([
             'slug' => $slug,
             'titulo' => $request->titulo,
             'descripcion' => $request->descripcion,
             'boton' => $request->boton,
+            'url_externa' => $urlExterna,
             'activo' => $request->boolean('activo', true),
         ]);
 
-        if ($request->hasFile('file')) {
+        // Si cambia a URL externa, limpiar media existente
+        if ($urlExterna && $seccione->media) {
+            Storage::disk('public')->delete($seccione->media->path);
+            $seccione->media->delete();
+        }
+
+        if (! $urlExterna && $request->hasFile('file')) {
             // Delete old media if exists
             if ($seccione->media) {
                 Storage::disk('public')->delete($seccione->media->path);

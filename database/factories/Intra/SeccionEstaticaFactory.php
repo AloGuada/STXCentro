@@ -30,6 +30,13 @@ class SeccionEstaticaFactory extends Factory
         ];
     }
 
+    public function withUrlExterna(string $url = 'https://example.com/document'): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'url_externa' => $url,
+        ]);
+    }
+
     public function inactive(): static
     {
         return $this->state(fn (array $attributes) => [

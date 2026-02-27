@@ -20,6 +20,7 @@ class SeccionEstaticaUpdateRequest extends FormRequest
             'titulo' => ['required', 'string', 'max:255'],
             'descripcion' => ['nullable', 'string', 'max:255'],
             'boton' => ['required', 'string', 'max:255'],
+            'url_externa' => ['nullable', 'url', 'max:2048'],
             'activo' => ['boolean'],
             'file' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
         ];
@@ -33,6 +34,7 @@ class SeccionEstaticaUpdateRequest extends FormRequest
         return [
             'titulo.required' => 'El título es obligatorio.',
             'boton.required' => 'El texto del botón es obligatorio.',
+            'url_externa.url' => 'La URL externa debe ser válida.',
             'file.mimes' => 'El archivo debe ser un PDF.',
             'file.max' => 'El archivo no puede superar 20MB.',
         ];

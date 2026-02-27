@@ -21,6 +21,7 @@ class SeccionEstatica extends Model
         'titulo',
         'descripcion',
         'boton',
+        'url_externa',
         'order',
         'activo',
     ];

@@ -47,7 +47,7 @@ export default function SeccionesIndex({ secciones, filters }: Props) {
                     createHref="/admin/intra/secciones/create"
                     createLabel="Nueva Sección"
                     emptyMessage="No hay secciones registradas"
-                    getRowHref={(seccion) => `/admin/intra/secciones/${seccion.id}/edit`}
+                    getRowHref={(seccion) => `/admin/intra/secciones/${seccion.slug}/edit`}
                 />
             </div>
         </AppLayout>

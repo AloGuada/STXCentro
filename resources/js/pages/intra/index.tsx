@@ -22,15 +22,27 @@ export default function IntraIndex({ secciones, areas }: Props) {
 
                 {/* Secciones estáticas */}
                 <div className="mb-12 flex flex-wrap justify-center gap-4">
-                    {secciones.map((seccion) => (
-                        <Link
-                            key={seccion.id}
-                            href={`/intra/est/${seccion.slug}`}
-                            className="rounded-lg bg-slate-800/50 px-6 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-700/50 hover:text-white"
-                        >
-                            {seccion.boton}
-                        </Link>
-                    ))}
+                    {secciones.map((seccion) =>
+                        seccion.url_externa ? (
+                            <a
+                                key={seccion.id}
+                                href={seccion.url_externa}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rounded-lg bg-slate-800/50 px-6 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-700/50 hover:text-white"
+                            >
+                                {seccion.boton}
+                            </a>
+                        ) : (
+                            <Link
+                                key={seccion.id}
+                                href={`/intra/est/${seccion.slug}`}
+                                className="rounded-lg bg-slate-800/50 px-6 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-700/50 hover:text-white"
+                            >
+                                {seccion.boton}
+                            </Link>
+                        ),
+                    )}
                 </div>
 
                 {/* Áreas */}

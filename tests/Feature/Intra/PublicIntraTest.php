@@ -44,6 +44,19 @@ describe('public intra home', function () {
         );
     });
 
+    test('home includes url_externa in secciones data', function () {
+        SeccionEstatica::factory()->withUrlExterna('https://example.com/doc.pdf')->create(['activo' => true]);
+        SeccionEstatica::factory()->create(['activo' => true]);
+
+        $response = $this->get(route('intra.home'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->has('secciones', 2)
+            ->where('secciones.0.url_externa', fn ($value) => true)
+        );
+    });
+
     test('secciones are ordered by order field', function () {
         SeccionEstatica::factory()->create(['titulo' => 'Third', 'order' => 3]);
         SeccionEstatica::factory()->create(['titulo' => 'First', 'order' => 1]);

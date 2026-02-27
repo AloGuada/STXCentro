@@ -189,6 +189,58 @@ describe('admin seccion estatica', function () {
         $this->assertDatabaseMissing('media', ['id' => $media->id]);
     });
 
+    test('seccion can be stored with url_externa instead of file', function () {
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.intra.secciones.store'), [
+                'titulo' => 'Documento Externo',
+                'boton' => 'Ver Documento',
+                'url_externa' => 'https://example.com/doc.pdf',
+                'activo' => true,
+            ]);
+
+        $response->assertRedirect(route('admin.intra.secciones.index'));
+
+        $seccion = SeccionEstatica::where('slug', 'documento-externo')->first();
+        expect($seccion)->not->toBeNull();
+        expect($seccion->url_externa)->toBe('https://example.com/doc.pdf');
+        expect($seccion->media)->toBeNull();
+    });
+
+    test('seccion with url_externa cleans media on update', function () {
+        $seccion = SeccionEstatica::factory()->create();
+        Media::factory()->create([
+            'mediable_type' => SeccionEstatica::class,
+            'mediable_id' => $seccion->id,
+            'path' => 'intra/secciones/old.pdf',
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->put(route('admin.intra.secciones.update', $seccion), [
+                'titulo' => $seccion->titulo,
+                'boton' => $seccion->boton,
+                'url_externa' => 'https://example.com/external.pdf',
+                'activo' => true,
+            ]);
+
+        $response->assertRedirect(route('admin.intra.secciones.index'));
+
+        $seccion->refresh();
+        expect($seccion->url_externa)->toBe('https://example.com/external.pdf');
+        expect($seccion->media)->toBeNull();
+    });
+
+    test('url_externa must be a valid url', function () {
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.intra.secciones.store'), [
+                'titulo' => 'Test',
+                'boton' => 'Ver',
+                'url_externa' => 'not-a-url',
+                'activo' => true,
+            ]);
+
+        $response->assertSessionHasErrors(['url_externa']);
+    });
+
     test('validation requires titulo and boton', function () {
         $response = $this->actingAs($this->user)
             ->post(route('admin.intra.secciones.store'), [

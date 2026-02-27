@@ -144,6 +144,7 @@ export type SeccionEstatica = {
     titulo: string;
     descripcion: string | null;
     boton: string;
+    url_externa: string | null;
     order: number;
     activo: boolean;
     media?: Media;
