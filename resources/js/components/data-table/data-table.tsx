@@ -139,7 +139,7 @@ export function DataTable<T extends { id: number | string }>({
                 </table>
             </div>
 
-            {!Array.isArray(data) && data.meta.last_page > 1 && (
+            {!Array.isArray(data) && data.meta?.last_page > 1 && (
                 <Pagination meta={data.meta} links={data.links} />
             )}
         </div>
