@@ -29,6 +29,7 @@ class ObraCobUpdateRequest extends FormRequest
             'porcentaje_otros' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'descripcion_otros' => ['nullable', 'string', 'max:255'],
             'activa' => ['required', 'boolean'],
+            'porcentaje_obra' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
     }
 
@@ -59,6 +60,9 @@ class ObraCobUpdateRequest extends FormRequest
             'porcentaje_otros.min' => 'El porcentaje de otros debe ser mayor o igual a 0.',
             'porcentaje_otros.max' => 'El porcentaje de otros no puede ser mayor a 100.',
             'activa.required' => 'El campo activa es obligatorio.',
+            'porcentaje_obra.numeric' => 'El porcentaje de obra debe ser un número.',
+            'porcentaje_obra.min' => 'El porcentaje de obra debe ser mayor o igual a 0.',
+            'porcentaje_obra.max' => 'El porcentaje de obra no puede ser mayor a 100.',
         ];
     }
 }

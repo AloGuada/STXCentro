@@ -20,6 +20,7 @@ class ObraCobranzaController extends Controller
                 'cliente',
                 'partidas',
                 'estimaciones.pagos',
+                'estimaciones.historial',
                 'anticipos',
                 'comparativos',
                 'deducciones',
@@ -27,8 +28,7 @@ class ObraCobranzaController extends Controller
             ->when($request->search, fn ($q, $s) => $q->where('no', 'like', "%{$s}%")
                 ->orWhere('descripcion', 'like', "%{$s}%"))
             ->orderBy('no')
-            ->paginate(15)
-            ->withQueryString();
+            ->get();
 
         return Inertia::render('admin/cob/obras/index', [
             'obras' => $obras,

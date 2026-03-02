@@ -21,7 +21,7 @@ describe('admin cob obras', function () {
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/cob/obras/index')
-            ->has('obras.data', 3)
+            ->has('obras', 3)
         );
     });
 

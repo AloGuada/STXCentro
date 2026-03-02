@@ -50,6 +50,7 @@ class Obra extends Model
         'porcentaje_otros',
         'descripcion_otros',
         'activa',
+        'porcentaje_obra',
     ];
 
     /**
@@ -70,6 +71,7 @@ class Obra extends Model
             'porcentaje_montaje' => 'decimal:2',
             'porcentaje_otros' => 'decimal:2',
             'activa' => 'boolean',
+            'porcentaje_obra' => 'decimal:2',
         ];
     }
 

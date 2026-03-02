@@ -1,6 +1,6 @@
 import { calcularResumen } from '@/components/cob/calculos';
 import { EstadoBadge } from '@/components/cob/estado-badge';
-import { GanttChart } from '@/components/cob/gantt-chart';
+import { EstimacionesGantt } from '@/components/cob/estimaciones-gantt';
 import { formatearMXN } from '@/components/cob/money-display';
 import { ResumenFinancieroCard } from '@/components/cob/resumen-financiero';
 import { FormField } from '@/components/form';
@@ -21,7 +21,7 @@ import {
 } from '@/types/models';
 import { Head, router, useForm } from '@inertiajs/react';
 import { Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 
 type Props = {
     obra: Obra;
@@ -94,7 +94,7 @@ export default function ObraShow({ obra, clientes }: Props) {
                 {activeTab === 'adendas' && <AdendasTab obra={obra} />}
                 {activeTab === 'comparativos' && <ComparativosTab obra={obra} />}
                 {activeTab === 'deducciones' && <DeduccionesTab obra={obra} />}
-                {activeTab === 'gantt' && <GanttChart eventos={obra.eventos ?? []} />}
+                {activeTab === 'gantt' && <GanttTab obra={obra} />}
                 {activeTab === 'disputas' && <DisputasTab obra={obra} />}
                 {activeTab === 'penalizaciones' && <PenalizacionesTab obra={obra} />}
                 {activeTab === 'configuracion' && <ConfiguracionTab obra={obra} />}
@@ -555,6 +555,41 @@ function PenalizacionesTab({ obra }: { obra: Obra }) {
                     </tbody>
                 </table>
             </div>
+        </div>
+    );
+}
+
+// -- Gantt Tab --
+function GanttTab({ obra }: { obra: Obra }) {
+    const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
+
+    const availableYears = useMemo(() => {
+        const years = new Set<number>();
+        for (const est of obra.estimaciones ?? []) {
+            for (const h of est.historial ?? []) {
+                years.add(new Date(h.fecha_cambio).getFullYear());
+            }
+        }
+        return [...years].sort((a, b) => b - a);
+    }, [obra]);
+
+    return (
+        <div className="flex flex-col gap-4">
+            {availableYears.length > 0 && (
+                <div className="flex justify-end">
+                    <select
+                        className="select select-bordered select-sm"
+                        value={selectedYear ?? ''}
+                        onChange={(e) => setSelectedYear(e.target.value ? Number(e.target.value) : undefined)}
+                    >
+                        <option value="">Todos los años</option>
+                        {availableYears.map((y) => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
+            <EstimacionesGantt obras={[obra]} year={selectedYear} />
         </div>
     );
 }

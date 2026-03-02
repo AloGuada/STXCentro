@@ -69,6 +69,7 @@ export type Obra = {
     porcentaje_otros?: number | null;
     descripcion_otros?: string | null;
     activa?: boolean;
+    porcentaje_obra?: number | null;
     cliente?: Cliente;
     partidas?: CobPartida[];
     estimaciones?: CobEstimacion[];

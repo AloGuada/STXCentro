@@ -4,6 +4,8 @@ export type ResumenFinanciero = {
     presupuestoPartidas: number;
     partidasAdicionales: number;
     presupuestoEjecutar: number;
+    ajustePresupuesto: number;
+    presupuestoFinal: number;
     totalAnticiposFacturados: number;
     totalAnticiposCobrados: number;
     totalEstimacionesFacturadas: number;
@@ -13,6 +15,10 @@ export type ResumenFinanciero = {
     totalDeducciones: number;
     porFacturar: number;
     porCobrar: number;
+    estimacionesGeneradas: number;
+    estimacionesIngresadas: number;
+    facturadasPorCobrar: number;
+    tieneComparativos: boolean;
 };
 
 export function calcularResumen(
@@ -62,13 +68,29 @@ export function calcularResumen(
 
     const totalDeducciones = deducciones.reduce((sum, d) => sum + Number(d.monto), 0);
 
-    const porFacturar = presupuestoEjecutar - totalFacturado - totalDeducciones;
-    const porCobrar = presupuestoEjecutar - totalCobrado - totalDeducciones;
+    const ajustePresupuesto = presupuestoEjecutar - presupuestoPartidas;
+    const presupuestoFinal = presupuestoEjecutar - totalDeducciones;
+    const porFacturar = presupuestoFinal - totalFacturado;
+    const porCobrar = presupuestoFinal - totalCobrado;
+
+    const estimacionesGeneradas = estimaciones
+        .filter((e) => e.estado === 'generada')
+        .reduce((sum, e) => sum + Number(e.monto_estimado), 0);
+
+    const estimacionesIngresadas = estimaciones
+        .filter((e) => e.estado === 'ingresada')
+        .reduce((sum, e) => sum + Number(e.monto_estimado), 0);
+
+    const facturadasPorCobrar = totalFacturado - totalCobrado;
+
+    const tieneComparativos = !!lastComparativo;
 
     return {
         presupuestoPartidas,
         partidasAdicionales,
         presupuestoEjecutar,
+        ajustePresupuesto,
+        presupuestoFinal,
         totalAnticiposFacturados,
         totalAnticiposCobrados,
         totalEstimacionesFacturadas,
@@ -78,6 +100,10 @@ export function calcularResumen(
         totalDeducciones,
         porFacturar,
         porCobrar,
+        estimacionesGeneradas,
+        estimacionesIngresadas,
+        facturadasPorCobrar,
+        tieneComparativos,
     };
 }
 
