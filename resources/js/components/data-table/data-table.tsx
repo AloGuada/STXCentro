@@ -40,9 +40,8 @@ export function DataTable<T extends { id: number | string }>({
     emptyMessage = 'No hay registros',
     title,
 }: DataTableProps<T>) {
-    // Normalizar datos: soporta tanto array simple como PaginatedData
+    const isPaginated = !Array.isArray(data) && 'current_page' in data;
     const items = Array.isArray(data) ? data : data.data;
-    const nextPageUrl = Array.isArray(data) ? null : data.links?.next;
 
     const getCellValue = (item: T, column: Column<T>): ReactNode => {
         if (column.render) {
@@ -111,9 +110,9 @@ export function DataTable<T extends { id: number | string }>({
                 </div>
             )}
 
-            <div className="overflow-x-auto rounded-box border border-base-300">
+            <div className="overflow-auto rounded-box border border-base-300" style={{ maxHeight: '70vh' }}>
                 <table className="table">
-                    <thead>
+                    <thead className="sticky top-0 z-10 bg-base-100">
                         <tr>
                             {columns.map((column) => (
                                 <th key={String(column.key)} className={column.className}>
@@ -139,17 +138,17 @@ export function DataTable<T extends { id: number | string }>({
                 </table>
             </div>
 
-            {!Array.isArray(data) && data.meta?.last_page > 1 && (
-                <Pagination meta={data.meta} links={data.links} />
+            {isPaginated && (data as PaginatedData<T>).last_page > 1 && (
+                <Pagination data={data as PaginatedData<T>} />
             )}
         </div>
     );
 }
 
-function Pagination({ meta, links }: { meta: PaginatedData<unknown>['meta']; links: PaginatedData<unknown>['links'] }) {
+function Pagination<T>({ data }: { data: PaginatedData<T> }) {
     const pages: (number | '...')[] = [];
-    const current = meta.current_page;
-    const last = meta.last_page;
+    const current = data.current_page;
+    const last = data.last_page;
 
     if (last <= 7) {
         for (let i = 1; i <= last; i++) pages.push(i);
@@ -163,17 +162,16 @@ function Pagination({ meta, links }: { meta: PaginatedData<unknown>['meta']; lin
         pages.push(last);
     }
 
-    const basePath = meta.path;
-    const pageUrl = (page: number) => `${basePath}?page=${page}`;
+    const pageUrl = (page: number) => `${data.path}?page=${page}`;
 
     return (
         <div className="flex items-center justify-between">
             <span className="text-base-content/60 text-sm">
-                {meta.from}–{meta.to} de {meta.total}
+                {data.from}–{data.to} de {data.total}
             </span>
             <div className="join">
-                {links.prev ? (
-                    <Link href={links.prev} className="join-item btn btn-sm" preserveState preserveScroll>
+                {data.prev_page_url ? (
+                    <Link href={data.prev_page_url} className="join-item btn btn-sm" preserveState preserveScroll>
                         <ChevronLeftIcon className="size-4" />
                     </Link>
                 ) : (
@@ -200,8 +198,8 @@ function Pagination({ meta, links }: { meta: PaginatedData<unknown>['meta']; lin
                     ),
                 )}
 
-                {links.next ? (
-                    <Link href={links.next} className="join-item btn btn-sm" preserveState preserveScroll>
+                {data.next_page_url ? (
+                    <Link href={data.next_page_url} className="join-item btn btn-sm" preserveState preserveScroll>
                         <ChevronRightIcon className="size-4" />
                     </Link>
                 ) : (
