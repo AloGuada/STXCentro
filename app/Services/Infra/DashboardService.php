@@ -119,14 +119,14 @@ class DashboardService
             ];
         }
 
-        $o2 = $this->inRange($t->presion_tanque_oxigeno, 200, 250);
-        $ar = $this->inRange($t->presion_tanque_argon, 200, 250);
+        $o2 = $this->inRange($t->presion_sistema_oxigeno, 200, 290);
+        $ar = $this->inRange($t->presion_sistema_argon, 200, 290);
         $lp = $this->inRange($t->nivel_tanque_lp, 25, 80);
         $co2 = $this->inRange($t->presion_sistema_co2, 200, 290);
 
         return [
-            ['label' => 'O₂', 'estado' => $o2, 'tooltip' => $o2 ? "Presión: {$t->presion_tanque_oxigeno} PSI" : "Presión fuera de rango: {$t->presion_tanque_oxigeno} PSI (200-250)"],
-            ['label' => 'Ar', 'estado' => $ar, 'tooltip' => $ar ? "Presión: {$t->presion_tanque_argon} PSI" : "Presión fuera de rango: {$t->presion_tanque_argon} PSI (200-250)"],
+            ['label' => 'O₂', 'estado' => $o2, 'tooltip' => $o2 ? "Presión sistema: {$t->presion_sistema_oxigeno} PSI" : "Presión fuera de rango: {$t->presion_sistema_oxigeno} PSI (200-290)"],
+            ['label' => 'Ar', 'estado' => $ar, 'tooltip' => $ar ? "Presión sistema: {$t->presion_sistema_argon} PSI" : "Presión fuera de rango: {$t->presion_sistema_argon} PSI (200-290)"],
             ['label' => 'LP', 'estado' => $lp, 'tooltip' => $lp ? "Nivel: {$t->nivel_tanque_lp}%" : "Nivel fuera de rango: {$t->nivel_tanque_lp}% (25-80)"],
             ['label' => 'CO₂', 'estado' => $co2, 'tooltip' => $co2 ? "Presión sistema: {$t->presion_sistema_co2} PSI" : "Presión fuera de rango: {$t->presion_sistema_co2} PSI (200-290)"],
         ];

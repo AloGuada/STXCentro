@@ -162,10 +162,10 @@ describe('dashboard service - bombas', function () {
 });
 
 describe('dashboard service - tanques', function () {
-    test('O2/Ar use presion_tanque, LP uses nivel_tanque, CO2 uses presion_sistema', function () {
+    test('O2/Ar/CO2 use presion_sistema, LP uses nivel_tanque', function () {
         $t = Tanque::factory()->create([
-            'presion_tanque_oxigeno' => 220,
-            'presion_tanque_argon' => 230,
+            'presion_sistema_oxigeno' => 250,
+            'presion_sistema_argon' => 250,
             'nivel_tanque_lp' => 50,
             'presion_sistema_co2' => 250,
         ]);
@@ -180,8 +180,8 @@ describe('dashboard service - tanques', function () {
 
     test('tanques out of range = false', function () {
         $t = Tanque::factory()->create([
-            'presion_tanque_oxigeno' => 150,
-            'presion_tanque_argon' => 260,
+            'presion_sistema_oxigeno' => 150,
+            'presion_sistema_argon' => 300,
             'nivel_tanque_lp' => 10,
             'presion_sistema_co2' => 300,
         ]);
