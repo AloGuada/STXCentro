@@ -27,6 +27,29 @@ use Illuminate\Support\Facades\Schema;
 
 class CobBillbookSeeder extends Seeder
 {
+    /**
+     * @var array<string, string>
+     */
+    private const MONEDA_MAP = [
+        'pesos' => 'MXN',
+        'peso' => 'MXN',
+        'mxn' => 'MXN',
+        'MXN' => 'MXN',
+        'dolares' => 'USD',
+        'dolar' => 'USD',
+        'usd' => 'USD',
+        'USD' => 'USD',
+    ];
+
+    private function mapMoneda(?string $moneda): string
+    {
+        if (! $moneda) {
+            return 'MXN';
+        }
+
+        return self::MONEDA_MAP[strtolower(trim($moneda))] ?? 'MXN';
+    }
+
     public function run(): void
     {
         $bb = DB::connection('billbook');
@@ -254,7 +277,7 @@ class CobBillbookSeeder extends Seeder
                 'es_adicional' => $row->es_adicional ?? false,
                 'descripcion' => $row->descripcion,
                 'monto' => $row->monto,
-                'moneda' => $row->moneda,
+                'moneda' => $this->mapMoneda($row->moneda),
                 'es_subobra' => $row->es_subobra ?? false,
             ]);
             $count++;
@@ -314,7 +337,7 @@ class CobBillbookSeeder extends Seeder
                 'monto_estimado' => $row->monto_estimado,
                 'monto_total' => $row->monto_total ?? 0,
                 'monto_pagado' => $row->monto_pagado ?? 0,
-                'moneda' => $row->moneda,
+                'moneda' => $this->mapMoneda($row->moneda),
                 'estado' => $row->estado,
                 'fecha_ultimo_cambio_estado' => $row->fecha_ultimo_cambio_estado,
                 'comentarios' => $row->comentarios,
@@ -403,7 +426,7 @@ class CobBillbookSeeder extends Seeder
                 'estimacion_id' => $estimacionMap[$row->estimacion_id],
                 'tipo_retencion_id' => $tipoRetencionMap[$row->tipo_retencion_id],
                 'monto' => $row->monto,
-                'moneda' => $row->moneda,
+                'moneda' => $this->mapMoneda($row->moneda),
             ]);
             $count++;
         }
@@ -429,7 +452,7 @@ class CobBillbookSeeder extends Seeder
                 'folio' => $row->folio ?? null,
                 'fecha_emision' => $row->fecha_emision,
                 'monto' => $row->monto,
-                'moneda' => $row->moneda,
+                'moneda' => $this->mapMoneda($row->moneda),
                 'estado' => $row->estado,
                 'comentarios' => $row->comentarios,
                 'fecha_pagado' => $row->fecha_pagado ?? null,
@@ -511,7 +534,7 @@ class CobBillbookSeeder extends Seeder
                 'obra_id' => $obraMap[$row->proyecto_id],
                 'descripcion' => $row->descripcion,
                 'monto' => $row->monto,
-                'moneda' => $row->moneda,
+                'moneda' => $this->mapMoneda($row->moneda),
                 'fecha' => $row->fecha,
             ]);
             $count++;
@@ -570,7 +593,7 @@ class CobBillbookSeeder extends Seeder
                 'obra_id' => $obraMap[$row->proyecto_id],
                 'descripcion' => $row->descripcion,
                 'monto' => $row->monto,
-                'moneda' => $row->moneda ?? 'MXN',
+                'moneda' => $this->mapMoneda($row->moneda ?? null),
                 'tipo' => $row->tipo,
                 'fecha' => $row->fecha,
             ]);
