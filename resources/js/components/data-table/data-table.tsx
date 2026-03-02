@@ -1,9 +1,8 @@
 import { ButtonLink } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import type { PaginatedData } from '@/types/models';
 import { cn } from '@/lib/utils';
-import { Link, WhenVisible } from '@inertiajs/react';
-import { PlusIcon } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { SearchInput } from './search-input';
 
@@ -140,33 +139,77 @@ export function DataTable<T extends { id: number | string }>({
                 </table>
             </div>
 
-            {nextPageUrl && (
-                <WhenVisible
-                    always
-                    params={{
-                        data: {
-                            only: ['data'],
-                        },
-                    }}
-                    fallback={<TableSkeleton columns={columns.length} />}
-                >
-                    <div />
-                </WhenVisible>
+            {!Array.isArray(data) && data.meta.last_page > 1 && (
+                <Pagination meta={data.meta} links={data.links} />
             )}
         </div>
     );
 }
 
-function TableSkeleton({ columns, rows = 3 }: { columns: number; rows?: number }) {
+function Pagination({ meta, links }: { meta: PaginatedData<unknown>['meta']; links: PaginatedData<unknown>['links'] }) {
+    const pages: (number | '...')[] = [];
+    const current = meta.current_page;
+    const last = meta.last_page;
+
+    if (last <= 7) {
+        for (let i = 1; i <= last; i++) pages.push(i);
+    } else {
+        pages.push(1);
+        if (current > 3) pages.push('...');
+        for (let i = Math.max(2, current - 1); i <= Math.min(last - 1, current + 1); i++) {
+            pages.push(i);
+        }
+        if (current < last - 2) pages.push('...');
+        pages.push(last);
+    }
+
+    const basePath = meta.path;
+    const pageUrl = (page: number) => `${basePath}?page=${page}`;
+
     return (
-        <div className="space-y-2">
-            {Array.from({ length: rows }).map((_, i) => (
-                <div key={i} className="flex gap-4 px-4 py-3">
-                    {Array.from({ length: columns }).map((_, j) => (
-                        <Skeleton key={j} className="h-5 flex-1" />
-                    ))}
-                </div>
-            ))}
+        <div className="flex items-center justify-between">
+            <span className="text-base-content/60 text-sm">
+                {meta.from}–{meta.to} de {meta.total}
+            </span>
+            <div className="join">
+                {links.prev ? (
+                    <Link href={links.prev} className="join-item btn btn-sm" preserveState preserveScroll>
+                        <ChevronLeftIcon className="size-4" />
+                    </Link>
+                ) : (
+                    <button className="join-item btn btn-sm btn-disabled" disabled>
+                        <ChevronLeftIcon className="size-4" />
+                    </button>
+                )}
+
+                {pages.map((page, i) =>
+                    page === '...' ? (
+                        <button key={`dots-${i}`} className="join-item btn btn-sm btn-disabled" disabled>
+                            ...
+                        </button>
+                    ) : (
+                        <Link
+                            key={page}
+                            href={pageUrl(page)}
+                            className={cn('join-item btn btn-sm', page === current && 'btn-active')}
+                            preserveState
+                            preserveScroll
+                        >
+                            {page}
+                        </Link>
+                    ),
+                )}
+
+                {links.next ? (
+                    <Link href={links.next} className="join-item btn btn-sm" preserveState preserveScroll>
+                        <ChevronRightIcon className="size-4" />
+                    </Link>
+                ) : (
+                    <button className="join-item btn btn-sm btn-disabled" disabled>
+                        <ChevronRightIcon className="size-4" />
+                    </button>
+                )}
+            </div>
         </div>
     );
 }
