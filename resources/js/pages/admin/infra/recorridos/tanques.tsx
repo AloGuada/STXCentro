@@ -53,6 +53,7 @@ export default function TanquesShow({ data, fecha, turno }: Props) {
             pa_sistema: data.pa_sistema_oxigeno,
             presion_sistema: data.presion_sistema_oxigeno,
             presion_tanque: data.presion_tanque_oxigeno,
+            nivel_tanque: undefined as number | null | undefined,
             litros: data.lt_tanque_oxigeno,
             kilogramos: data.kg_tanque_oxigeno,
             numero_tanque: null as number | null,
@@ -62,6 +63,7 @@ export default function TanquesShow({ data, fecha, turno }: Props) {
             pa_sistema: data.pa_sistema_argon,
             presion_sistema: data.presion_sistema_argon,
             presion_tanque: data.presion_tanque_argon,
+            nivel_tanque: undefined as number | null | undefined,
             litros: data.lt_tanque_argon,
             kilogramos: data.kg_tanque_argon,
             numero_tanque: null as number | null,
@@ -71,6 +73,7 @@ export default function TanquesShow({ data, fecha, turno }: Props) {
             pa_sistema: data.pa_sistema_co2,
             presion_sistema: data.presion_sistema_co2,
             presion_tanque: data.presion_tanque_co2,
+            nivel_tanque: undefined as number | null | undefined,
             litros: data.lt_tanque_co2,
             kilogramos: data.kg_tanque_co2,
             numero_tanque: null as number | null,
@@ -79,7 +82,8 @@ export default function TanquesShow({ data, fecha, turno }: Props) {
             nombre: 'Gas LP',
             pa_sistema: data.pa_sistema_lp,
             presion_sistema: data.presion_sistema_lp,
-            presion_tanque: data.presion_tanque_lp,
+            presion_tanque: null,
+            nivel_tanque: data.nivel_tanque_lp,
             litros: data.lt_tanque_lp,
             kilogramos: data.kg_tanque_lp,
             numero_tanque: data.numero_tanque_lp,
@@ -107,14 +111,18 @@ export default function TanquesShow({ data, fecha, turno }: Props) {
                                         <th>Tanque</th>
                                         <th>PA Sistema</th>
                                         <th>Presion Sistema</th>
-                                        <th>Presion Tanque</th>
+                                        <th>Presion / Nivel Tanque</th>
                                         <th>Litros</th>
                                         <th>Kilogramos</th>
                                         <th>No. Tanque</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {tanques.map((t) => (
+                                    {tanques.map((t) => {
+                                        const nivelOk = t.nivel_tanque !== undefined && t.nivel_tanque !== null
+                                            ? t.nivel_tanque >= 25 && t.nivel_tanque <= 80
+                                            : true;
+                                        return (
                                         <tr key={t.nombre}>
                                             <td className="font-medium">{t.nombre}</td>
                                             <td>
@@ -124,7 +132,13 @@ export default function TanquesShow({ data, fecha, turno }: Props) {
                                                 <Valor valor={t.presion_sistema} />
                                             </td>
                                             <td>
-                                                <Valor valor={t.presion_tanque} unidad="PSI" />
+                                                {t.nivel_tanque !== undefined && t.nivel_tanque !== null ? (
+                                                    <span className={nivelOk ? 'text-success' : 'text-error font-semibold'}>
+                                                        {t.nivel_tanque} %
+                                                    </span>
+                                                ) : (
+                                                    <Valor valor={t.presion_tanque} unidad="PSI" />
+                                                )}
                                             </td>
                                             <td>
                                                 <Valor valor={t.litros} unidad="L" />
@@ -140,7 +154,8 @@ export default function TanquesShow({ data, fecha, turno }: Props) {
                                                 )}
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

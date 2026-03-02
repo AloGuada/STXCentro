@@ -76,7 +76,8 @@
       "Bash(node:*)",
       "Bash(python3:*)",
       "Bash(git branch:*)",
-      "Bash(xargs grep -l \"Infra\")"
+      "Bash(xargs grep -l \"Infra\")",
+      "Bash(grep -l \"class.*extends Model\" /c/Users/desarrollo.ti/Documents/dev/mono/app/Models/*.php)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -106,6 +106,12 @@ export default function RecorridosIndex({
                     <button className="btn btn-sm btn-ghost" onClick={() => cambiarFecha(1)}>
                         <ChevronRight className="size-4" />
                     </button>
+                    <button
+                        className="btn btn-sm btn-outline btn-primary"
+                        onClick={() => router.get('/admin/infra/recorridos', { fecha: new Date().toISOString().split('T')[0] })}
+                    >
+                        Hoy
+                    </button>
                     <span className="badge badge-info">
                         {completados}/{totalSlots} completados
                     </span>

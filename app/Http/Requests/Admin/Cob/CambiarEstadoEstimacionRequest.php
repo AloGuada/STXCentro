@@ -18,6 +18,7 @@ class CambiarEstadoEstimacionRequest extends FormRequest
     {
         return [
             'estado' => ['required', 'string', 'in:pendiente,generada,ingresada,revisada,autorizada,facturada,pago_parcial,pagado'],
+            'fecha_cambio' => ['nullable', 'date'],
             'folio' => ['nullable', 'string', 'max:255'],
             'comentario' => ['nullable', 'string'],
         ];

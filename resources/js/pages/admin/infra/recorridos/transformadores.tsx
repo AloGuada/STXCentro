@@ -57,9 +57,39 @@ export default function TransformadoresShow({ data, fecha, turno }: Props) {
     }
 
     const lineas = [
-        { nombre: 'Linea A', actual: data.linea_A, max: data.linea_A_max, fecha_max: data.date_A },
-        { nombre: 'Linea B', actual: data.linea_B, max: data.linea_B_max, fecha_max: data.date_B },
-        { nombre: 'Linea C', actual: data.linea_C, max: data.linea_C_max, fecha_max: data.date_C },
+        {
+            nombre: 'Linea A',
+            energia: data.linea_A,
+            registro: data.registro_a,
+            potencia: data.linea_A_max,
+            fecha_hora: data.date_A,
+            voltaje: data.voltaje_a,
+            codEnergia: '11',
+            codRegistro: '212',
+            codPotencia: '41',
+        },
+        {
+            nombre: 'Linea B',
+            energia: data.linea_B,
+            registro: data.registro_b,
+            potencia: data.linea_B_max,
+            fecha_hora: data.date_B,
+            voltaje: data.voltaje_b,
+            codEnergia: '12',
+            codRegistro: '234',
+            codPotencia: '42',
+        },
+        {
+            nombre: 'Linea C',
+            energia: data.linea_C,
+            registro: data.registro_c,
+            potencia: data.linea_C_max,
+            fecha_hora: data.date_C,
+            voltaje: data.voltaje_c,
+            codEnergia: '13',
+            codRegistro: '256',
+            codPotencia: '43',
+        },
     ];
 
     return (
@@ -74,18 +104,42 @@ export default function TransformadoresShow({ data, fecha, turno }: Props) {
                     </Link>
                 </div>
 
+                {/* Voltajes */}
+                <div className="card bg-base-100 shadow-sm border border-base-300">
+                    <div className="card-body">
+                        <h2 className="card-title text-lg">Voltajes</h2>
+                        <div className="grid grid-cols-3 gap-4">
+                            {lineas.map((l) => {
+                                const voltajeOk = l.voltaje !== null && l.voltaje >= 120 && l.voltaje <= 130;
+                                return (
+                                    <Campo key={l.nombre} label={`Voltaje ${l.nombre} (V)`}>
+                                        {l.voltaje !== null ? (
+                                            <span className={voltajeOk ? 'text-success' : 'text-error font-semibold'}>
+                                                {l.voltaje} V
+                                            </span>
+                                        ) : (
+                                            <span className="text-base-content/40">No hay datos</span>
+                                        )}
+                                    </Campo>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
                 {/* Lineas */}
                 <div className="card bg-base-100 shadow-sm border border-base-300">
                     <div className="card-body">
-                        <h2 className="card-title text-lg">Lineas</h2>
+                        <h2 className="card-title text-lg">Indicador CFE</h2>
                         <div className="overflow-x-auto">
                             <table className="table">
                                 <thead>
                                     <tr>
                                         <th>Linea</th>
-                                        <th>kW/h Actual</th>
-                                        <th>kW/h Max</th>
-                                        <th>Fecha Max</th>
+                                        <th>Energía Consumida kWh</th>
+                                        <th>Energía Registro kWh</th>
+                                        <th>Potencia Instantánea kW</th>
+                                        <th>Fecha/Hora</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -93,12 +147,15 @@ export default function TransformadoresShow({ data, fecha, turno }: Props) {
                                         <tr key={l.nombre}>
                                             <td className="font-medium">{l.nombre}</td>
                                             <td>
-                                                <Valor valor={l.actual} unidad="kW/h" />
+                                                <Valor valor={l.energia} unidad={`kWh (${l.codEnergia})`} />
                                             </td>
                                             <td>
-                                                <Valor valor={l.max} unidad="kW/h" />
+                                                <Valor valor={l.registro} unidad={`kWh (${l.codRegistro})`} />
                                             </td>
-                                            <td>{l.fecha_max ?? <span className="text-base-content/40">No hay datos</span>}</td>
+                                            <td>
+                                                <Valor valor={l.potencia} unidad={`kW (${l.codPotencia})`} />
+                                            </td>
+                                            <td>{l.fecha_hora ?? <span className="text-base-content/40">No hay datos</span>}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -111,36 +168,18 @@ export default function TransformadoresShow({ data, fecha, turno }: Props) {
                 <div className="card bg-base-100 shadow-sm border border-base-300">
                     <div className="card-body">
                         <h2 className="card-title text-lg">Totales</h2>
-                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                            <Campo label="Total 1">
-                                <Valor valor={data.total_1} />
-                            </Campo>
-                            <Campo label="Total 5">
-                                <Valor valor={data.total_5} />
-                            </Campo>
-                            <Campo label="Solar (Lectura 5y5)">
-                                <Valor valor={data.lectura_5y5} />
-                            </Campo>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Lecturas */}
-                <div className="card bg-base-100 shadow-sm border border-base-300">
-                    <div className="card-body">
-                        <h2 className="card-title text-lg">Lecturas</h2>
                         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                            <Campo label="Lectura 301">
-                                <Valor valor={data.lectura_301} />
+                            <Campo label="Consumo Total kWh (4)">
+                                <Valor valor={data.total_1} unidad="kWh" />
                             </Campo>
-                            <Campo label="Lectura 302">
-                                <Valor valor={data.lectura_302} />
+                            <Campo label="Consumo Red kWh (5)">
+                                <Valor valor={data.total_5} unidad="kWh" />
                             </Campo>
-                            <Campo label="Lectura 303">
-                                <Valor valor={data.lectura_303} />
+                            <Campo label="Energía Generada kWh (190)">
+                                <Valor valor={data.lectura_5y5} unidad="kWh" />
                             </Campo>
-                            <Campo label="Lectura 310">
-                                <Valor valor={data.lectura_310} />
+                            <Campo label="Tarifa (8)">
+                                <Valor valor={data.tarifa} />
                             </Campo>
                         </div>
                     </div>

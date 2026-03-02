@@ -289,21 +289,19 @@ Wayfinder generates TypeScript functions for Laravel routes. Import from `@/acti
 # Proyecto Integrador Mono
 
 ## Descripción del Proyecto
-Sistema integrador empresarial que centraliza múltiples módulos: autenticación con roles/permisos (Spatie), intranet corporativa y sistema de soporte TI (STI). Arquitectura de base de datos única con prefijos de tabla por módulo.
+Sistema integrador empresarial que centraliza 8 módulos: autenticación con roles/permisos (Spatie), intranet corporativa, soporte TI (STI), producción (Prod), costos, cobranza (Cob), infraestructura (Infra) y portal de proveedores. Arquitectura de base de datos única con prefijos de tabla por módulo.
 
 ## Dependencias Requeridas
 - `spatie/laravel-permission` - Sistema de roles y permisos
-- Ejecutar: `composer require spatie/laravel-permission`
-- Publicar config: `php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"`
 
 ## Arquitectura de Base de Datos
 
 ### Estrategia
 - **Una sola base de datos** con prefijos de tabla por módulo
-- Prefijos: `intra_` (intranet), `sti_` (soporte TI), sin prefijo (core/auth)
+- Prefijos: `intra_`, `sti_`, `prod_`, `costos_`, `cob_`, `infra_`, sin prefijo (core/auth/compartidas)
 
 ### Convenciones de Nomenclatura
-- Tablas en español y snake_case: `sti_tickets`, `intra_documentos`
+- Tablas en español y snake_case: `sti_tickets`, `cob_estimaciones`
 - Claves foráneas: `{tabla_singular}_id` → `tecnico_id`, `equipo_id`
 - Tablas pivote: `{tabla1}_{tabla2}` en orden alfabético
 - Polimórficas: `{nombre}able_id`, `{nombre}able_type`
@@ -321,6 +319,9 @@ Sistema integrador empresarial que centraliza múltiples módulos: autenticació
 | `role_has_permissions` | Pivote rol-permiso (Spatie) |
 | `departamentos` | Departamentos organizacionales |
 | `obras` | Proyectos/obras de construcción |
+| `conceptos` | Conceptos de obra (importables por CSV) |
+| `clientes` | Clientes del sistema |
+| `proveedores` | Proveedores del sistema |
 
 #### Intranet (prefijo: `intra_`)
 | Tabla | Descripción |
@@ -335,9 +336,91 @@ Sistema integrador empresarial que centraliza múltiples módulos: autenticació
 | `sti_equipos` | Inventario de equipos |
 | `sti_tecnicos` | Técnicos de soporte |
 | `sti_tickets` | Tickets de soporte |
-| `sti_mantenimientos` | Programación de mantenimientos |
-| `sti_status` | Catálogo de estados |
 | `sti_ticket_historial` | Auditoría de cambios de estado |
+| `sti_ticket_comentarios` | Comentarios en tickets |
+| `sti_mantenimientos` | Programación de mantenimientos |
+| `sti_costos_mantenimientos` | Costos de mantenimientos |
+| `sti_status` | Catálogo de estados |
+| `sti_planes` | Planes de mantenimiento |
+| `sti_checks` | Checks de un plan |
+| `sti_check_ejecuciones` | Ejecución de checks en mantenimiento |
+| `sti_items` | Inventario de items/activos |
+| `sti_items_tipos` | Tipos de items |
+| `sti_items_historial` | Historial de movimientos de items |
+| `sti_grupos` | Grupos de equipos |
+| `sti_asignacion_activos` | Asignación de activos a usuarios |
+
+#### Prod - Producción (prefijo: `prod_`)
+| Tabla | Descripción |
+|-------|-------------|
+| `prod_grupos_precio` | Grupos de precios por obra |
+| `prod_grupo_precio_conceptos` | Pivote grupo-precio ↔ concepto |
+| `prod_grupos_trabajo` | Grupos de trabajo |
+| `prod_grupo_empleados` | Empleados asignados a grupo |
+| `prod_registros` | Registros diarios de producción |
+| `prod_tipos` | Tipos de pago extra (catálogo) |
+| `prod_extras` | Extras de producción |
+| `prod_pagos_extra` | Pagos extra |
+| `prod_cortes` | Cortes de producción |
+| `prod_liquidaciones` | Liquidaciones de corte |
+| `prod_liquidacion_detalle` | Detalle de liquidación |
+| `prod_liquidacion_empleados` | Liquidación por empleado |
+
+#### Costos (prefijo: `costos_`)
+| Tabla | Descripción |
+|-------|-------------|
+| `costos_tipo_rubros` | Tipos de rubros (catálogo) |
+| `costos_rubros` | Rubros de costos |
+| `costos_obra_rubros` | Presupuesto: rubro asignado a obra |
+| `costos_rubros_afectados` | Rubros afectados por afectación presupuestal |
+| `costos_tipo_solicitud` | Tipos de solicitud (catálogo) |
+| `costos_permisos` | Permisos de aprobación |
+| `costos_aprobacion_departamento` | Pivote permiso ↔ departamento |
+| `costos_solicitudes_pago` | Solicitudes de pago |
+| `costos_solicitudes_pago_detalle` | Detalle de solicitud de pago |
+| `costos_solicitud_archivos` | Archivos adjuntos de solicitud |
+| `costos_aprobaciones_solicitud` | Flujo de aprobación digital |
+| `costos_ordenes_compra` | Órdenes de compra |
+| `costos_ordenes_compra_detalle` | Detalle de orden de compra |
+| `costos_facturas` | Facturas de proveedor |
+| `costos_entregas` | Entregas de material |
+| `costos_entrega_detalle` | Detalle de entrega |
+| `costos_pagos` | Pagos a proveedores |
+| `costos_afectaciones_presupuestales` | Afectaciones presupuestales |
+| `costos_afectaciones_detalle` | Detalle de afectación |
+| `costos_afectaciones_historial` | Historial de afectaciones |
+| `costos_documentos` | Documentos de costos |
+
+#### Cob - Cobranza (prefijo: `cob_`)
+| Tabla | Descripción |
+|-------|-------------|
+| `cob_tipos_retenciones` | Tipos de retenciones (catálogo) |
+| `cob_contactos` | Contactos de clientes |
+| `cob_partidas` | Partidas de obra |
+| `cob_estimaciones` | Estimaciones de cobro |
+| `cob_estimaciones_pagos` | Pagos de estimaciones |
+| `cob_estimacion_estado_historial` | Historial de estados de estimación |
+| `cob_documentos_estimacion` | Documentos de estimación |
+| `cob_retenciones` | Retenciones aplicadas |
+| `cob_anticipos` | Anticipos de obra |
+| `cob_adendas` | Adendas de contrato |
+| `cob_comparativos` | Comparativos de obra |
+| `cob_deducciones` | Deducciones de obra |
+| `cob_disputas` | Disputas de cobro |
+| `cob_penalizaciones` | Penalizaciones de obra |
+| `cob_eventos` | Eventos/bitácora de obra |
+| `cob_configuracion_documentos` | Configuración de documentos requeridos |
+
+#### Infra - Infraestructura (prefijo: `infra_`)
+| Tabla | Descripción |
+|-------|-------------|
+| `infra_compresores` | Compresores de gas |
+| `infra_bombas` | Bombas de agua |
+| `infra_transformadores` | Transformadores eléctricos |
+| `infra_tanques` | Tanques de almacenamiento |
+| `infra_ptar` | Plantas de tratamiento de aguas residuales |
+| `infra_turnos` | Turnos de operación |
+| `infra_turnos_dia` | Días de turno (detalle) |
 
 #### Compartidas (sin prefijo)
 | Tabla | Descripción |
@@ -349,24 +432,8 @@ Sistema integrador empresarial que centraliza múltiples módulos: autenticació
 
 ### Configuración del Modelo Usuario
 ```php
-// app/Models/Usuario.php
-use Spatie\Permission\Traits\HasRoles;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-
-class Usuario extends Authenticatable
-{
-    use HasRoles;
-
-    protected $table = 'usuarios';
-    protected $keyType = 'string';
-    public $incrementing = false;
-
-    protected static function boot(): void
-    {
-        parent::boot();
-        static::creating(fn ($model) => $model->id = $model->id ?? (string) Str::uuid());
-    }
-}
+// app/Models/Usuario.php - UUID con HasRoles
+// app/Models/User.php - Alias de Usuario para Fortify (ver MEMORY.md sobre desajuste model_type)
 ```
 
 ### Convención de Nombres de Permisos
@@ -376,22 +443,24 @@ Formato: `{módulo}.{recurso}.{acción}`
 // Ejemplos:
 'sti.tickets.ver'
 'sti.tickets.crear'
-'sti.tickets.editar'
-'sti.tickets.eliminar'
-'sti.equipos.ver'
-'sti.mantenimientos.programar'
+'prod.registros.ver'
+'costos.solicitudes.ver'
+'cob.estimaciones.ver'
+'infra.recorridos.ver'
 'intra.documentos.subir'
-'intra.areas.administrar'
 ```
 
-### Roles Sugeridos
+### Roles del Sistema
 ```php
-// Roles base del sistema
-'super-admin'      // Acceso total
-'admin-sti'        // Administrador de soporte TI
-'tecnico-sti'      // Técnico de soporte
-'admin-intranet'   // Administrador de intranet
-'empleado'         // Usuario básico
+'super-admin'       // Acceso total
+'admin-sti'         // Administrador de soporte TI
+'tecnico-sti'       // Técnico de soporte
+'admin-intranet'    // Administrador de intranet
+'admin-prod'        // Administrador de producción
+'admin-costos'      // Administrador de costos
+'admin-cob'         // Administrador de cobranza
+'admin-infra'       // Administrador de infraestructura
+'empleado'          // Usuario básico
 ```
 
 ## Estructura de Carpetas por Módulo
@@ -399,43 +468,59 @@ Formato: `{módulo}.{recurso}.{acción}`
 ```
 app/
 ├── Models/
-│   ├── Usuario.php
-│   ├── Departamento.php
-│   ├── Obra.php
-│   ├── Media.php
-│   ├── Tag.php
-│   ├── Intra/
-│   │   ├── SeccionEstatica.php
-│   │   ├── Area.php
-│   │   └── Documento.php
-│   └── Sti/
-│       ├── Equipo.php
-│       ├── Tecnico.php
-│       ├── Ticket.php
-│       ├── Mantenimiento.php
-│       ├── Status.php
-│       └── TicketHistorial.php
+│   ├── Usuario.php, User.php, Departamento.php, Obra.php
+│   ├── Concepto.php, Cliente.php, Proveedor.php
+│   ├── Media.php, Tag.php
+│   ├── Intra/        # SeccionEstatica, Area, Documento
+│   ├── Sti/          # Equipo, Tecnico, Ticket, Mantenimiento, Plan, Check, Item, ...
+│   ├── Prod/         # GrupoPrecio, GrupoTrabajo, Registro, Corte, Liquidacion, ...
+│   ├── Costos/       # Rubro, SolicitudPago, OrdenCompra, Factura, Pago, Afectacion, ...
+│   ├── Cob/          # Estimacion, Anticipo, Adenda, Partida, Disputa, ...
+│   └── Infra/        # Compresor, Bomba, Transformador, Tanque, Ptar, Turno, TurnoDia
 ├── Http/Controllers/
-│   ├── Intra/
-│   │   ├── SeccionEstaticaController.php
-│   │   ├── AreaController.php
-│   │   └── DocumentoController.php
-│   └── Sti/
-│       ├── EquipoController.php
-│       ├── TecnicoController.php
-│       ├── TicketController.php
-│       └── MantenimientoController.php
-├── Policies/
-│   ├── Intra/
-│   └── Sti/
-└── Services/
-    ├── Intra/
-    └── Sti/
+│   ├── Admin/
+│   │   ├── UsuarioController, RoleController, ObraController, ...
+│   │   ├── Intra/    # SeccionEstaticaController, AreaController, DocumentoController
+│   │   ├── Sti/      # EquipoController, TicketController, MantenimientoController, PlanController, ItemController, DashboardController, ...
+│   │   ├── Prod/     # ConceptoController, GrupoPrecioController, GrupoTrabajoController, RegistroController, CorteController, ...
+│   │   ├── Costos/   # RubroController, SolicitudPagoController, OrdenCompraController, FacturaAdminController, PagoController, ...
+│   │   ├── Cob/      # EstimacionController, AnticipoController, ObraCobranzaController, DashboardController, ...
+│   │   └── Infra/    # RecorridoController, TurnoController
+│   └── Portal/       # PortalAuthController, PortalDashboardController, PortalFacturaController, ...
+├── Http/Requests/Admin/
+│   ├── Sti/, Prod/, Costos/, Cob/, Infra/, Intra/
+├── Services/
+│   └── Infra/        # DashboardService
+└── Policies/
 
-database/migrations/
-├── core/           # Migraciones sin prefijo
-├── intra/          # Migraciones intra_*
-└── sti/            # Migraciones sti_*
+database/
+├── factories/        # Mismo espejo que Models/ (~70 factories)
+├── seeders/          # RolesAndPermissionsSeeder, StiStatusSeeder, StiDevSeeder, InfraDevSeeder, ProdTipoSeeder
+└── migrations/
+
+resources/js/
+├── pages/admin/      # cob/, costos/, infra/, intra/, prod/, sti/, + core (usuarios, roles, departamentos, obras, proveedores, media, tags)
+├── types/models.ts   # ~80 interfaces TypeScript
+└── hooks/            # use-can.ts, use-form-cache.ts, ...
+
+tests/Feature/        # Auth/, Intra/, Sti/, Prod/, Costos/, Cob/, Infra/, Portal/
+```
+
+## Rutas (routes/)
+
+| Archivo | Descripción |
+|---------|-------------|
+| `routes/admin.php` | Todas las rutas admin con prefijo `/admin` (incluye sub-grupos por módulo) |
+| `routes/sti.php` | Rutas públicas de tickets STI |
+| `routes/intra.php` | Rutas públicas de intranet |
+| `routes/portal.php` | Portal de proveedores (auth propio, facturas, OCs, pagos) |
+| `routes/web.php` | Homepage y auth |
+
+### Convención de Rutas con Recursos en Español
+```php
+// Siempre usar .parameters() para evitar mala pluralización
+Route::resource('proveedores', ProveedorController::class)->parameters(['proveedores' => 'proveedor']);
+Route::resource('planes', PlanController::class)->parameters(['planes' => 'plan']);
 ```
 
 ## Convenciones de Modelos
@@ -447,7 +532,6 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 class Usuario extends Authenticatable
 {
     use HasUuids, HasRoles;
-    // ...
 }
 ```
 
@@ -458,34 +542,13 @@ public function media(): MorphMany
 {
     return $this->morphMany(Media::class, 'mediable');
 }
-
-// En Media.php
-public function mediable(): MorphTo
-{
-    return $this->morphTo();
-}
 ```
 
 ### Relaciones Polimórficas (Tags)
 ```php
-// En modelos con etiquetas
 public function tags(): MorphMany
 {
     return $this->morphMany(Tag::class, 'statusable');
-}
-```
-
-### Áreas Jerárquicas (Self-Reference)
-```php
-// app/Models/Intra/Area.php
-public function parent(): BelongsTo
-{
-    return $this->belongsTo(Area::class, 'parent_id');
-}
-
-public function children(): HasMany
-{
-    return $this->hasMany(Area::class, 'parent_id');
 }
 ```
 
@@ -496,10 +559,6 @@ public function children(): HasMany
 public function index(): Response
 {
     $this->authorize('sti.tickets.ver');
-    // o
-    if (!auth()->user()->can('sti.tickets.ver')) {
-        abort(403);
-    }
 }
 ```
 
@@ -508,22 +567,17 @@ public function index(): Response
 Route::middleware(['permission:sti.tickets.ver'])->group(function () {
     Route::resource('sti/tickets', TicketController::class);
 });
-
-// O por rol
-Route::middleware(['role:admin-sti|tecnico-sti'])->group(function () {
-    // rutas STI
-});
 ```
 
 ## Migraciones
 
-### Nomenclatura de Archivos
+### Nomenclatura
 ```
 YYYY_MM_DD_HHMMSS_create_sti_equipos_table.php
-YYYY_MM_DD_HHMMSS_create_intra_areas_table.php
+YYYY_MM_DD_HHMMSS_create_cob_estimaciones_table.php
 ```
 
-### Ejemplo de Migración con Prefijo
+### Ejemplo
 ```php
 Schema::create('sti_tickets', function (Blueprint $table) {
     $table->id();
@@ -538,24 +592,19 @@ Schema::create('sti_tickets', function (Blueprint $table) {
 
 ### Estructura de Tests
 ```
-tests/
-├── Feature/
-│   ├── Intra/
-│   │   ├── AreaTest.php
-│   │   └── DocumentoTest.php
-│   └── Sti/
-│       ├── TicketTest.php
-│       └── MantenimientoTest.php
-└── Unit/
-    ├── Intra/
-    └── Sti/
+tests/Feature/
+├── Auth/     # Autenticación, sesiones
+├── Intra/    # Áreas, documentos, secciones, público
+├── Sti/      # Equipos, tickets, mantenimientos, planes, items, asignaciones
+├── Prod/     # Conceptos, grupos precio, grupos trabajo, registros, cortes
+├── Costos/   # Rubros, solicitudes, OCs, facturas, pagos, afectaciones, aprobaciones, presupuestos
+├── Cob/      # Clientes, estimaciones, anticipos, adendas, comparativos, disputas, penalizaciones, ...
+├── Infra/    # Recorridos, turnos, dashboard
+└── Portal/   # Auth portal, facturas, OCs, pagos
 ```
 
 ### Test con Permisos Spatie
 ```php
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
-
 it('permite ver tickets con permiso correcto', function () {
     $permission = Permission::create(['name' => 'sti.tickets.ver']);
     $user = Usuario::factory()->create();
@@ -571,5 +620,5 @@ it('permite ver tickets con permiso correcto', function () {
 
 1. Ejecutar migraciones: `php artisan migrate`
 2. Ejecutar seeders de roles/permisos: `php artisan db:seed --class=RolesAndPermissionsSeeder`
-3. Ejecutar tests del módulo: `php artisan test --filter=Sti` o `--filter=Intra`
+3. Ejecutar tests del módulo: `php artisan test --filter=Sti` o `--filter=Cob` o `--filter=Costos`, etc.
 4. Verificar formato: `vendor/bin/pint --dirty`

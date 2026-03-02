@@ -35,7 +35,7 @@ class TanqueFactory extends Factory
             'kg_tanque_co2' => fake()->randomFloat(2, 0, 5000),
             'pa_sistema_lp' => fake()->randomFloat(2, 0, 300),
             'presion_sistema_lp' => fake()->randomFloat(2, 100, 300),
-            'presion_tanque_lp' => fake()->randomFloat(2, 100, 300),
+            'nivel_tanque_lp' => fake()->randomFloat(2, 20, 90),
             'numero_tanque_lp' => fake()->randomFloat(2, 1, 10),
             'lt_tanque_lp' => fake()->randomFloat(2, 0, 10000),
             'kg_tanque_lp' => fake()->randomFloat(2, 0, 5000),

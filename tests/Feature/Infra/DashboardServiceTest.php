@@ -162,11 +162,11 @@ describe('dashboard service - bombas', function () {
 });
 
 describe('dashboard service - tanques', function () {
-    test('O2/Ar/LP use presion_tanque, CO2 uses presion_sistema', function () {
+    test('O2/Ar use presion_tanque, LP uses nivel_tanque, CO2 uses presion_sistema', function () {
         $t = Tanque::factory()->create([
             'presion_tanque_oxigeno' => 220,
             'presion_tanque_argon' => 230,
-            'presion_tanque_lp' => 210,
+            'nivel_tanque_lp' => 50,
             'presion_sistema_co2' => 250,
         ]);
 
@@ -182,7 +182,7 @@ describe('dashboard service - tanques', function () {
         $t = Tanque::factory()->create([
             'presion_tanque_oxigeno' => 150,
             'presion_tanque_argon' => 260,
-            'presion_tanque_lp' => 190,
+            'nivel_tanque_lp' => 10,
             'presion_sistema_co2' => 300,
         ]);
 
@@ -237,7 +237,7 @@ describe('dashboard service - ptar', function () {
 });
 
 describe('dashboard service - transformadores', function () {
-    test('transformador exists = true for all lines', function () {
+    test('transformador without voltage = true for all lines', function () {
         $t = Transformador::factory()->create();
 
         $result = $this->service->evaluarEstados(null, null, null, null, $t);
@@ -245,5 +245,33 @@ describe('dashboard service - transformadores', function () {
         expect($result['transformadores'][0]['estado'])->toBeTrue()
             ->and($result['transformadores'][1]['estado'])->toBeTrue()
             ->and($result['transformadores'][2]['estado'])->toBeTrue();
+    });
+
+    test('transformador with voltage in range (120-130) = true', function () {
+        $t = Transformador::factory()->create([
+            'voltaje_a' => 125,
+            'voltaje_b' => 120,
+            'voltaje_c' => 130,
+        ]);
+
+        $result = $this->service->evaluarEstados(null, null, null, null, $t);
+
+        expect($result['transformadores'][0]['estado'])->toBeTrue()
+            ->and($result['transformadores'][1]['estado'])->toBeTrue()
+            ->and($result['transformadores'][2]['estado'])->toBeTrue();
+    });
+
+    test('transformador with voltage out of range = false', function () {
+        $t = Transformador::factory()->create([
+            'voltaje_a' => 115,
+            'voltaje_b' => 135,
+            'voltaje_c' => 110,
+        ]);
+
+        $result = $this->service->evaluarEstados(null, null, null, null, $t);
+
+        expect($result['transformadores'][0]['estado'])->toBeFalse()
+            ->and($result['transformadores'][1]['estado'])->toBeFalse()
+            ->and($result['transformadores'][2]['estado'])->toBeFalse();
     });
 });

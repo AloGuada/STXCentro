@@ -209,10 +209,10 @@ class InfraDevSeeder extends Seeder
             'total_1' => round($acum['total_1'], 2),
             'total_5' => round($acum['total_5'], 2),
             'lectura_5y5' => fake()->randomFloat(2, 200, 600),
-            'lectura_301' => fake()->randomFloat(2, 100, 400),
-            'lectura_302' => fake()->randomFloat(2, 100, 400),
-            'lectura_303' => fake()->randomFloat(2, 100, 400),
-            'lectura_310' => fake()->randomFloat(2, 50, 250),
+            'registro_a' => fake()->randomFloat(2, 100, 400),
+            'registro_b' => fake()->randomFloat(2, 100, 400),
+            'registro_c' => fake()->randomFloat(2, 100, 400),
+            'tarifa' => fake()->randomFloat(2, 0, 10),
             'observaciones' => fake()->optional(0.1)->sentence(),
             'created_at' => $fecha,
             'updated_at' => $fecha,
@@ -266,9 +266,9 @@ class InfraDevSeeder extends Seeder
             'kg_tanque_co2' => round($kg['co2'], 2),
             'pa_sistema_lp' => fake()->randomFloat(2, 180, 260),
             'presion_sistema_lp' => fake()->randomFloat(2, 200, 250),
-            'presion_tanque_lp' => $normal
-                ? fake()->randomFloat(2, 210, 245)
-                : fake()->randomFloat(2, 150, 260),
+            'nivel_tanque_lp' => $normal
+                ? fake()->randomFloat(2, 30, 75)
+                : fake()->randomFloat(2, 5, 95),
             'numero_tanque_lp' => fake()->numberBetween(1, 5),
             'lt_tanque_lp' => fake()->randomFloat(2, 2000, 8000),
             'kg_tanque_lp' => round($kg['lp'], 2),

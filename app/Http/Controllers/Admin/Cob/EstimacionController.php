@@ -86,10 +86,12 @@ class EstimacionController extends Controller
             return back()->withErrors(['estado' => "No se puede cambiar de '{$estadoActual}' a '{$estadoNuevo}'."]);
         }
 
-        DB::transaction(function () use ($estimacion, $estadoActual, $estadoNuevo, $request) {
+        $fechaCambio = $request->validated('fecha_cambio') ?? now();
+
+        DB::transaction(function () use ($estimacion, $estadoActual, $estadoNuevo, $request, $fechaCambio) {
             $estimacion->update([
                 'estado' => $estadoNuevo,
-                'fecha_ultimo_cambio_estado' => now(),
+                'fecha_ultimo_cambio_estado' => $fechaCambio,
             ]);
 
             $estimacion->historial()->create([
@@ -98,7 +100,7 @@ class EstimacionController extends Controller
                 'folio' => $request->validated('folio'),
                 'usuario_id' => auth()->id(),
                 'comentario' => $request->validated('comentario'),
-                'fecha_cambio' => now(),
+                'fecha_cambio' => $fechaCambio,
             ]);
         });
 

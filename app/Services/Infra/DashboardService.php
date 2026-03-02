@@ -121,13 +121,13 @@ class DashboardService
 
         $o2 = $this->inRange($t->presion_tanque_oxigeno, 200, 250);
         $ar = $this->inRange($t->presion_tanque_argon, 200, 250);
-        $lp = $this->inRange($t->presion_tanque_lp, 200, 250);
+        $lp = $this->inRange($t->nivel_tanque_lp, 25, 80);
         $co2 = $this->inRange($t->presion_sistema_co2, 200, 290);
 
         return [
             ['label' => 'O₂', 'estado' => $o2, 'tooltip' => $o2 ? "Presión: {$t->presion_tanque_oxigeno} PSI" : "Presión fuera de rango: {$t->presion_tanque_oxigeno} PSI (200-250)"],
             ['label' => 'Ar', 'estado' => $ar, 'tooltip' => $ar ? "Presión: {$t->presion_tanque_argon} PSI" : "Presión fuera de rango: {$t->presion_tanque_argon} PSI (200-250)"],
-            ['label' => 'LP', 'estado' => $lp, 'tooltip' => $lp ? "Presión: {$t->presion_tanque_lp} PSI" : "Presión fuera de rango: {$t->presion_tanque_lp} PSI (200-250)"],
+            ['label' => 'LP', 'estado' => $lp, 'tooltip' => $lp ? "Nivel: {$t->nivel_tanque_lp}%" : "Nivel fuera de rango: {$t->nivel_tanque_lp}% (25-80)"],
             ['label' => 'CO₂', 'estado' => $co2, 'tooltip' => $co2 ? "Presión sistema: {$t->presion_sistema_co2} PSI" : "Presión fuera de rango: {$t->presion_sistema_co2} PSI (200-290)"],
         ];
     }
@@ -182,11 +182,27 @@ class DashboardService
             ];
         }
 
-        return [
-            ['label' => 'Línea A', 'estado' => true, 'tooltip' => "Lectura: {$t->linea_A} A, Máx: {$t->linea_A_max} A"],
-            ['label' => 'Línea B', 'estado' => true, 'tooltip' => "Lectura: {$t->linea_B} A, Máx: {$t->linea_B_max} A"],
-            ['label' => 'Línea C', 'estado' => true, 'tooltip' => "Lectura: {$t->linea_C} A, Máx: {$t->linea_C_max} A"],
-        ];
+        $items = [];
+        foreach (['A' => 'a', 'B' => 'b', 'C' => 'c'] as $label => $key) {
+            $voltaje = $t->{"voltaje_{$key}"};
+            $lectura = $t->{"linea_{$label}"};
+            $max = $t->{"linea_{$label}_max"};
+
+            if ($voltaje === null) {
+                $estado = true;
+                $tooltip = "Lectura: {$lectura} A, Máx: {$max} A";
+            } elseif ($this->inRange((float) $voltaje, 120, 130)) {
+                $estado = true;
+                $tooltip = "Voltaje: {$voltaje} V, Lectura: {$lectura} A, Máx: {$max} A";
+            } else {
+                $estado = false;
+                $tooltip = "Voltaje fuera de rango: {$voltaje} V (120-130), Lectura: {$lectura} A, Máx: {$max} A";
+            }
+
+            $items[] = ['label' => "Línea {$label}", 'estado' => $estado, 'tooltip' => $tooltip];
+        }
+
+        return $items;
     }
 
     private function inRange(?float $value, float $min, float $max): bool

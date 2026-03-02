@@ -3,7 +3,7 @@ import { formatearMXN } from '@/components/cob/money-display';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import {
@@ -50,7 +50,7 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
 
     // State change form
     const [showEstadoForm, setShowEstadoForm] = useState(false);
-    const estadoForm = useForm({ estado: '', folio: '', comentario: '' });
+    const estadoForm = useForm({ estado: '', fecha_cambio: '', folio: '', comentario: '' });
 
     const handleCambiarEstado = (e: FormEvent) => {
         e.preventDefault();
@@ -75,11 +75,12 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
 
     // Payment form
     const [showPagoForm, setShowPagoForm] = useState(false);
-    const pagoForm = useForm({ monto_pagado: '', fecha_pago: '', folio: '', comprobante: '' });
+    const pagoForm = useForm({ monto_pagado: '', fecha_pago: '', folio: '', comprobante: null as File | null });
 
     const handleRegistrarPago = (e: FormEvent) => {
         e.preventDefault();
         pagoForm.post(`/admin/cob/obras/${obra.id}/estimaciones/${estimacion.id}/pagos`, {
+            forceFormData: true,
             onSuccess: () => { setShowPagoForm(false); pagoForm.reset(); },
         });
     };
@@ -108,16 +109,16 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
                 {/* Estado change form */}
                 {showEstadoForm && (
                     <form onSubmit={handleCambiarEstado} className="card bg-base-200 p-4 space-y-3">
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                             <FormField label="Nuevo Estado" htmlFor="estado" error={estadoForm.errors.estado} required>
-                                <Select value={estadoForm.data.estado} onValueChange={(v) => estadoForm.setData('estado', v)}>
-                                    <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                                    <SelectContent>
-                                        {estadosSiguientes.map((e) => (
-                                            <SelectItem key={e} value={e}>{COB_ESTIMACION_ESTADO_LABELS[e as CobEstimacionEstado] ?? e}</SelectItem>
-                                        ))}
-                                    </SelectContent>
+                                <Select value={estadoForm.data.estado} onValueChange={(v) => estadoForm.setData('estado', v)} placeholder="Seleccionar">
+                                    {estadosSiguientes.map((e) => (
+                                        <SelectItem key={e} value={e}>{COB_ESTIMACION_ESTADO_LABELS[e as CobEstimacionEstado] ?? e}</SelectItem>
+                                    ))}
                                 </Select>
+                            </FormField>
+                            <FormField label="Fecha" htmlFor="fecha_cambio" error={estadoForm.errors.fecha_cambio}>
+                                <Input type="date" value={estadoForm.data.fecha_cambio} onChange={(e) => estadoForm.setData('fecha_cambio', e.target.value)} />
                             </FormField>
                             <FormField label="Folio" htmlFor="folio_estado" error={estadoForm.errors.folio}>
                                 <Input value={estadoForm.data.folio} onChange={(e) => estadoForm.setData('folio', e.target.value)} />
@@ -175,10 +176,12 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
 
                 {/* Pagos section */}
                 <div className="card bg-base-100 border p-6">
-                    <div className="flex justify-between mb-4">
+                    <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold">Pagos ({formatearMXN(estimacion.monto_pagado)} / {formatearMXN(estimacion.monto_estimado)})</h2>
                         {['facturada', 'pago_parcial'].includes(estimacion.estado) && (
-                            <Button size="sm" onClick={() => setShowPagoForm(!showPagoForm)}>Registrar Pago</Button>
+                            <Button onClick={() => setShowPagoForm(!showPagoForm)} className="bg-green-600 hover:bg-green-700 text-white">
+                                + Registrar Pago
+                            </Button>
                         )}
                     </div>
 
@@ -195,7 +198,11 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
                                     <Input value={pagoForm.data.folio} onChange={(e) => pagoForm.setData('folio', e.target.value)} />
                                 </FormField>
                                 <FormField label="Comprobante" htmlFor="comprobante" error={pagoForm.errors.comprobante}>
-                                    <Input value={pagoForm.data.comprobante} onChange={(e) => pagoForm.setData('comprobante', e.target.value)} />
+                                    <input
+                                        type="file"
+                                        className="file-input file-input-bordered w-full"
+                                        onChange={(e) => pagoForm.setData('comprobante', e.target.files?.[0] ?? null)}
+                                    />
                                 </FormField>
                             </div>
                             <div className="flex justify-end gap-2">
@@ -210,10 +217,16 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
                         <tbody>
                             {(estimacion.pagos ?? []).map((p) => (
                                 <tr key={p.id}>
-                                    <td>{p.fecha_pago}</td>
+                                    <td>{new Date(p.fecha_pago).toLocaleDateString('es-MX')}</td>
                                     <td>{p.folio ?? '-'}</td>
                                     <td className="text-right">{formatearMXN(p.monto_pagado)}</td>
-                                    <td>{p.comprobante ?? '-'}</td>
+                                    <td>
+                                        {p.comprobante ? (
+                                            <a href={`/storage/${p.comprobante}`} target="_blank" rel="noopener noreferrer" className="link link-primary">
+                                                Ver archivo
+                                            </a>
+                                        ) : '-'}
+                                    </td>
                                 </tr>
                             ))}
                             {(estimacion.pagos ?? []).length === 0 && (

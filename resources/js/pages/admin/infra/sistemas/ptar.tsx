@@ -1,6 +1,7 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useFormCache } from '@/hooks/use-form-cache';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { InfraTurno } from '@/types/models';
@@ -29,11 +30,18 @@ export default function PtarCreate({ fecha, turno }: Props) {
         fecha,
     });
 
+    const { hasCachedData, clearCache } = useFormCache({
+        key: `ptar:${fecha}:${turno?.id ?? 'null'}`,
+        data,
+        setData,
+        exclude: ['fecha'],
+    });
+
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         const params = new URLSearchParams({ sistema: 'ptar', fecha });
         if (turno?.id) params.set('turno_id', String(turno.id));
-        post('/admin/infra/recorridos?' + params.toString());
+        post('/admin/infra/recorridos?' + params.toString(), { onSuccess: () => clearCache() });
     };
 
     return (
@@ -45,6 +53,15 @@ export default function PtarCreate({ fecha, turno }: Props) {
                     <h1 className="mb-6 text-2xl font-semibold">
                         Registrar PTAR{turno ? ` - ${turno.nombre}` : ''}
                     </h1>
+
+                    {hasCachedData && (
+                        <div className="alert alert-warning mb-4">
+                            <span>Tienes datos no guardados de una sesion anterior.</span>
+                            <button className="btn btn-sm btn-ghost" onClick={clearCache}>
+                                Descartar
+                            </button>
+                        </div>
+                    )}
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="card bg-base-100 border border-base-300 shadow-sm">

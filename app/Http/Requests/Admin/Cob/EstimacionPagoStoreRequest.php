@@ -20,7 +20,7 @@ class EstimacionPagoStoreRequest extends FormRequest
             'monto_pagado' => ['required', 'numeric', 'min:0.01'],
             'fecha_pago' => ['required', 'date'],
             'folio' => ['nullable', 'string', 'max:255'],
-            'comprobante' => ['nullable', 'string', 'max:255'],
+            'comprobante' => ['nullable', 'file', 'max:10240'],
         ];
     }
 
@@ -36,7 +36,7 @@ class EstimacionPagoStoreRequest extends FormRequest
             'fecha_pago.required' => 'La fecha de pago es obligatoria.',
             'fecha_pago.date' => 'La fecha de pago debe ser una fecha válida.',
             'folio.max' => 'El folio no debe exceder 255 caracteres.',
-            'comprobante.max' => 'El comprobante no debe exceder 255 caracteres.',
+            'comprobante.max' => 'El comprobante no debe exceder 10MB.',
         ];
     }
 }

@@ -24,7 +24,13 @@ class EstimacionPagoController extends Controller
                 return back()->withErrors(['monto_pagado' => 'El monto excede el saldo pendiente de la estimacion.']);
             }
 
-            $estimacion->pagos()->create($request->validated());
+            $data = $request->safe()->except('comprobante');
+
+            if ($request->hasFile('comprobante')) {
+                $data['comprobante'] = $request->file('comprobante')->store("cob/obras/{$estimacion->obra_id}/pagos", 'public');
+            }
+
+            $estimacion->pagos()->create($data);
 
             $nuevoEstado = $estimacion->estado;
             if ($totalPagado >= $montoEstimado) {

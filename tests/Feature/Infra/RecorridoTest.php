@@ -293,7 +293,7 @@ describe('infra recorridos store', function () {
                 'linea_A' => 250.00,
                 'linea_A_max' => 500.00,
                 'total_1' => 3500.00,
-                'lectura_301' => 120.00,
+                'registro_a' => 120.00,
             ]);
 
         $response->assertRedirectContains('/admin/infra/recorridos');

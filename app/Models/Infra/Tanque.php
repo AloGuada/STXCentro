@@ -36,7 +36,7 @@ class Tanque extends Model
         'kg_tanque_co2',
         'pa_sistema_lp',
         'presion_sistema_lp',
-        'presion_tanque_lp',
+        'nivel_tanque_lp',
         'numero_tanque_lp',
         'lt_tanque_lp',
         'kg_tanque_lp',

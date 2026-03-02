@@ -34,7 +34,7 @@ class TanqueStoreRequest extends FormRequest
             'kg_tanque_co2' => ['nullable', 'numeric', 'min:0'],
             'pa_sistema_lp' => ['nullable', 'numeric', 'min:0'],
             'presion_sistema_lp' => ['nullable', 'numeric', 'min:0'],
-            'presion_tanque_lp' => ['nullable', 'numeric', 'min:0'],
+            'nivel_tanque_lp' => ['nullable', 'numeric', 'min:0'],
             'numero_tanque_lp' => ['nullable', 'numeric', 'min:0'],
             'lt_tanque_lp' => ['nullable', 'numeric', 'min:0'],
             'kg_tanque_lp' => ['nullable', 'numeric', 'min:0'],
