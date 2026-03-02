@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('estado_anterior')->nullable();
             $table->string('estado_nuevo');
             $table->string('folio')->nullable();
-            $table->foreignUuid('usuario_id')->constrained('usuarios');
+            $table->foreignUuid('usuario_id')->nullable()->constrained('usuarios');
             $table->text('comentario')->nullable();
             $table->timestamp('fecha_cambio');
             $table->timestamps();
