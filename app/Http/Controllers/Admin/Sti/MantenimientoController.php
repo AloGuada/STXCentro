@@ -15,9 +15,11 @@ use App\Models\Sti\Equipo;
 use App\Models\Sti\Mantenimiento;
 use App\Models\Sti\Plan;
 use App\Models\Sti\Tecnico;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -28,7 +30,7 @@ class MantenimientoController extends Controller
     public function index(Request $request): Response
     {
         $mantenimientos = Mantenimiento::query()
-            ->with(['equipo', 'tecnico', 'plan'])
+            ->with(['equipo.asignaciones' => fn ($q) => $q->where('estado', 'activo'), 'tecnico', 'plan'])
             ->when($request->search, fn ($q, $s) => $q->where('descripcion', 'like', "%{$s}%"))
             ->when($request->plan_id, fn ($q, $id) => $q->where('plan_id', $id))
             ->orderBy('fecha_programada', 'asc')
@@ -200,7 +202,7 @@ class MantenimientoController extends Controller
         $year = $request->input('year', now()->year);
 
         $mantenimientos = Mantenimiento::query()
-            ->with(['equipo', 'tecnico', 'plan'])
+            ->with(['equipo.asignaciones' => fn ($q) => $q->where('estado', 'activo')->select('id', 'equipo_id', 'empleado', 'departamento_id')->with('departamento:id,descripcion'), 'tecnico', 'plan'])
             ->whereYear('fecha_programada', $year)
             ->when($request->equipo_id, fn ($q, $id) => $q->where('equipo_id', $id))
             ->when($request->plan_id, fn ($q, $id) => $q->where('plan_id', $id))
@@ -214,6 +216,41 @@ class MantenimientoController extends Controller
             'planes' => Plan::where('activo', true)->orderBy('descripcion')->get(['id', 'descripcion']),
             'filters' => $request->only(['year', 'equipo_id', 'plan_id']),
         ]);
+    }
+
+    public function exportarGanttAnual(Request $request): HttpResponse
+    {
+        $year = $request->input('year', now()->year);
+
+        $mantenimientos = Mantenimiento::query()
+            ->with(['equipo.asignaciones' => fn ($q) => $q->where('estado', 'activo')->with('departamento:id,descripcion'), 'plan'])
+            ->whereYear('fecha_programada', $year)
+            ->when($request->equipo_id, fn ($q, $id) => $q->where('equipo_id', $id))
+            ->when($request->plan_id, fn ($q, $id) => $q->where('plan_id', $id))
+            ->orderBy('fecha_programada')
+            ->get();
+
+        $porEquipo = $mantenimientos->groupBy('equipo_id')->map(function ($mants) {
+            $equipo = $mants->first()->equipo;
+            $asignacion = $equipo?->asignaciones?->first();
+
+            return [
+                'equipo' => $equipo?->descripcion ?? '-',
+                'asignado_a' => $asignacion?->empleado ?? '-',
+                'departamento' => $asignacion?->departamento?->descripcion ?? '-',
+                'meses' => collect(range(1, 12))->map(fn ($mes) => $mants->filter(fn ($m) => Carbon::parse($m->fecha_programada)->month === $mes)->map(fn ($m) => [
+                    'dia' => Carbon::parse($m->fecha_programada)->day,
+                    'status' => $m->status,
+                ]))->toArray(),
+            ];
+        })->values();
+
+        $pdf = Pdf::loadView('pdf.sti.gantt-anual', [
+            'year' => $year,
+            'datos' => $porEquipo,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download("gantt-anual-{$year}.pdf");
     }
 
     private function generarMantenimientosAnioInterno(Plan $plan, int $equipoId, int $year, Carbon $fechaInicial): int

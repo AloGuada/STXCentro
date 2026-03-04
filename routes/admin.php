@@ -47,6 +47,14 @@ use App\Http\Controllers\Admin\Prod\PagoExtraController as ProdPagoExtraControll
 use App\Http\Controllers\Admin\Prod\RegistroController as ProdRegistroController;
 use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtraController;
 use App\Http\Controllers\Admin\ProveedorController;
+use App\Http\Controllers\Admin\Rh\OnboardingController as RhOnboardingController;
+use App\Http\Controllers\Admin\Rh\PeriodoLaboralController as RhPeriodoLaboralController;
+use App\Http\Controllers\Admin\Rh\PermisoAusenciaController as RhPermisoAusenciaController;
+use App\Http\Controllers\Admin\Rh\PersonaController as RhPersonaController;
+use App\Http\Controllers\Admin\Rh\PuestoController as RhPuestoController;
+use App\Http\Controllers\Admin\Rh\RequerimientoController as RhRequerimientoController;
+use App\Http\Controllers\Admin\Rh\RequisicionController as RhRequisicionController;
+use App\Http\Controllers\Admin\Rh\SkillController as RhSkillController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\Sti\AsignacionActivoController as StiAsignacionActivoController;
 use App\Http\Controllers\Admin\Sti\DashboardController as StiDashboardController;
@@ -282,6 +290,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Mantenimientos: completar, media, costos
         Route::get('mantenimientos-gantt-anual', [StiMantenimientoController::class, 'ganttAnual'])->name('mantenimientos.gantt-anual');
+        Route::get('mantenimientos-gantt-anual/exportar', [StiMantenimientoController::class, 'exportarGanttAnual'])->name('mantenimientos.gantt-anual.exportar');
         Route::post('mantenimientos/{mantenimiento}/completar', [StiMantenimientoController::class, 'completar'])->name('mantenimientos.completar');
         Route::post('mantenimientos/{mantenimiento}/checks/{checkEjecucion}/toggle', [StiMantenimientoController::class, 'toggleCheck'])->name('mantenimientos.checks.toggle');
         Route::post('mantenimientos/{mantenimiento}/media', [StiMantenimientoController::class, 'storeMedia'])->name('mantenimientos.media.store');
@@ -303,5 +312,49 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('planes/{plan}/checks/{check}', [StiPlanController::class, 'updateCheck'])->name('planes.checks.update');
         Route::delete('planes/{plan}/checks/{check}', [StiPlanController::class, 'destroyCheck'])->name('planes.checks.destroy');
         Route::post('planes/{plan}/reorder-checks', [StiPlanController::class, 'reorderChecks'])->name('planes.checks.reorder');
+    });
+
+    // Recursos Humanos admin routes
+    Route::prefix('rh')->name('rh.')->group(function () {
+        // Catalogos
+        Route::resource('skills', RhSkillController::class);
+        Route::resource('requerimientos', RhRequerimientoController::class)->parameters(['requerimientos' => 'requerimiento']);
+
+        // Puestos
+        Route::resource('puestos', RhPuestoController::class)->parameters(['puestos' => 'puesto']);
+        Route::post('puestos/{puesto}/skills', [RhPuestoController::class, 'addSkill'])->name('puestos.skills.add');
+        Route::delete('puestos/{puesto}/skills/{skill}', [RhPuestoController::class, 'removeSkill'])->name('puestos.skills.remove');
+        Route::post('puestos/{puesto}/requerimientos', [RhPuestoController::class, 'addRequerimiento'])->name('puestos.requerimientos.add');
+        Route::delete('puestos/{puesto}/requerimientos/{requerimiento}', [RhPuestoController::class, 'removeRequerimiento'])->name('puestos.requerimientos.remove');
+        Route::post('puestos/{puesto}/actividades', [RhPuestoController::class, 'storeActividad'])->name('puestos.actividades.store');
+        Route::delete('puestos/{puesto}/actividades/{actividad}', [RhPuestoController::class, 'destroyActividad'])->name('puestos.actividades.destroy');
+        Route::post('puestos/{puesto}/documentos-puesto', [RhPuestoController::class, 'storeDocumentoPuesto'])->name('puestos.documentos-puesto.store');
+        Route::delete('puestos/{puesto}/documentos-puesto/{documentoPuesto}', [RhPuestoController::class, 'destroyDocumentoPuesto'])->name('puestos.documentos-puesto.destroy');
+
+        // Personas
+        Route::resource('personas', RhPersonaController::class)->parameters(['personas' => 'persona']);
+        Route::post('personas/{persona}/documentos', [RhPersonaController::class, 'storeDocumento'])->name('personas.documentos.store');
+        Route::delete('personas/{persona}/documentos/{documento}', [RhPersonaController::class, 'destroyDocumento'])->name('personas.documentos.destroy');
+
+        // Periodos Laborales
+        Route::resource('periodos-laborales', RhPeriodoLaboralController::class)->parameters(['periodos-laborales' => 'periodoLaboral']);
+        Route::post('periodos-laborales/{periodoLaboral}/terminar', [RhPeriodoLaboralController::class, 'terminar'])->name('periodos-laborales.terminar');
+        Route::post('periodos-laborales/{periodoLaboral}/onboarding', [RhPeriodoLaboralController::class, 'crearOnboarding'])->name('periodos-laborales.onboarding');
+
+        // Requisiciones
+        Route::resource('requisiciones', RhRequisicionController::class)->parameters(['requisiciones' => 'requisicion']);
+        Route::get('requisiciones/{requisicion}/candidatos', [RhRequisicionController::class, 'candidatos'])->name('requisiciones.candidatos');
+        Route::post('requisiciones/{requisicion}/candidaturas', [RhRequisicionController::class, 'storeCandidatura'])->name('requisiciones.candidaturas.store');
+        Route::delete('requisiciones/{requisicion}/candidaturas/{candidatura}', [RhRequisicionController::class, 'destroyCandidatura'])->name('requisiciones.candidaturas.destroy');
+
+        // Onboarding
+        Route::get('onboarding/{onboarding}', [RhOnboardingController::class, 'show'])->name('onboarding.show');
+        Route::post('onboarding/{onboarding}/tareas', [RhOnboardingController::class, 'storeTarea'])->name('onboarding.tareas.store');
+        Route::post('onboarding/{onboarding}/tareas/{tarea}/toggle', [RhOnboardingController::class, 'toggleTarea'])->name('onboarding.tareas.toggle');
+        Route::post('onboarding/{onboarding}/tareas/{tarea}/evidencia', [RhOnboardingController::class, 'subirEvidencia'])->name('onboarding.tareas.evidencia');
+        Route::delete('onboarding/{onboarding}/tareas/{tarea}', [RhOnboardingController::class, 'destroyTarea'])->name('onboarding.tareas.destroy');
+
+        // Permisos de Ausencia
+        Route::resource('permisos-ausencia', RhPermisoAusenciaController::class)->parameters(['permisos-ausencia' => 'permisoAusencia']);
     });
 });

@@ -209,6 +209,7 @@ export type StiEquipo = {
     tickets?: StiTicket[];
     mantenimientos?: StiMantenimiento[];
     mantenimientos_count?: number;
+    asignaciones?: StiAsignacionActivo[];
     grupos?: StiGrupo[];
     items?: StiItem[];
     created_at: string;
@@ -1531,4 +1532,230 @@ export const COB_TIPO_CONTRATO_LABELS: Record<string, string> = {
     precio_unitario: 'Precio Unitario',
     mixto: 'Mixto',
     administracion: 'Administracion',
+};
+
+// ===================== RH (Recursos Humanos) =====================
+
+export type RhSkill = {
+    id: number;
+    nombre: string;
+    tipo: 'hard' | 'soft';
+    pivot?: { nivel_requerido: string };
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhRequerimiento = {
+    id: number;
+    descripcion: string;
+    valor: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhPuesto = {
+    id: number;
+    departamento_id: number;
+    nombre: string;
+    descripcion: string | null;
+    codigo: string | null;
+    ubicacion: string | null;
+    hora_entrada: string | null;
+    hora_salida: string | null;
+    puesto_jefe_id: number | null;
+    departamento?: Departamento;
+    puesto_jefe?: RhPuesto;
+    skills?: RhSkill[];
+    requerimientos?: RhRequerimiento[];
+    actividades?: RhActividad[];
+    documentos_puesto?: RhDocumentoPuesto[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhActividad = {
+    id: number;
+    puesto_id: number;
+    descripcion: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhDocumentoPuesto = {
+    id: number;
+    puesto_id: number;
+    nombre_reporte: string;
+    frecuencia_entrega: string | null;
+    cargo_entrega: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhPersona = {
+    id: number;
+    nombre: string;
+    apellido: string;
+    email: string | null;
+    telefono: string | null;
+    fecha_nacimiento: string | null;
+    cv_ruta: string | null;
+    cv_estado: 'pendiente' | 'procesando' | 'procesado' | 'error' | null;
+    nombre_completo?: string;
+    datos_extra?: RhDatosExtra;
+    documentos?: RhPersonaDocumento[];
+    periodos_laborales?: RhPeriodoLaboral[];
+    candidaturas?: RhCandidatura[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhDatosExtra = {
+    id: number;
+    persona_id: number;
+    estado_civil: string | null;
+    hijos: number | null;
+    localidad: string | null;
+    domicilio: string | null;
+    cp: string | null;
+    nombre_padre: string | null;
+    nombre_madre: string | null;
+    cuenta_banco: string | null;
+    c_infonavit: string | null;
+    c_fonacot: string | null;
+    imss: string | null;
+    curp: string | null;
+    rfc: string | null;
+    banco_op: string | null;
+    texto_cv: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhPersonaDocumento = {
+    id: number;
+    persona_id: number;
+    tipo_documento: string;
+    nombre_archivo: string;
+    ruta_archivo: string;
+    extension: string | null;
+    tamano: number | null;
+    fecha_emision: string | null;
+    fecha_vigencia: string | null;
+    notas: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhPeriodoLaboral = {
+    id: number;
+    persona_id: number;
+    puesto_id: number;
+    requisicion_id: number | null;
+    fecha_inicio: string;
+    fecha_fin: string | null;
+    estado: 'activo' | 'terminado' | 'baja';
+    salario: number | null;
+    tipo_contrato: string | null;
+    persona?: RhPersona;
+    puesto?: RhPuesto;
+    requisicion?: RhRequisicion;
+    onboarding?: RhOnboarding;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhRequisicion = {
+    id: number;
+    folio: string;
+    puesto_id: number;
+    cantidad: number;
+    estado: 'borrador' | 'abierta' | 'en_proceso' | 'cerrada' | 'cancelada';
+    tipo_requisicion: 'nueva' | 'reemplazo' | 'temporal';
+    justificacion: string | null;
+    nombre_solicitante: string | null;
+    puesto_solicitante: string | null;
+    responsable_entrevista: string | null;
+    salario: number | null;
+    fecha_creacion: string | null;
+    fecha_cierre: string | null;
+    puesto?: RhPuesto;
+    extra?: RhRequisicionExtra;
+    candidaturas?: RhCandidatura[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhRequisicionExtra = {
+    id: number;
+    requisicion_id: number;
+    salario_mensual: number | null;
+    salario_diario: number | null;
+    periodicidad_pago: string | null;
+    prestaciones: string | null;
+    bonos: string | null;
+    horario: string | null;
+    tipo_jornada: string | null;
+    beneficios_adicionales: string | null;
+    observaciones: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhCandidatura = {
+    id: number;
+    requisicion_id: number;
+    persona_id: number;
+    fecha_aplicacion: string | null;
+    porcentaje_match: number | null;
+    porcentaje_skills: number | null;
+    porcentaje_requisitos: number | null;
+    notas: string | null;
+    requisicion?: RhRequisicion;
+    persona?: RhPersona;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhOnboarding = {
+    id: number;
+    periodo_id: number;
+    fecha_inicio: string | null;
+    progreso: number;
+    periodo?: RhPeriodoLaboral;
+    tareas?: RhOnboardingTarea[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhOnboardingTarea = {
+    id: number;
+    onboarding_id: number;
+    responsable_periodo_id: number | null;
+    titulo: string;
+    descripcion: string | null;
+    completada: boolean;
+    fecha_vencimiento: string | null;
+    fecha_completada: string | null;
+    evidencia_ruta: string | null;
+    responsable?: RhPeriodoLaboral;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhPermisoAusencia = {
+    id: number;
+    folio: string | null;
+    numero_empleado: string | null;
+    nombres: string;
+    apellidos: string;
+    departamento: string | null;
+    gerente: string | null;
+    tipo: string | null;
+    modalidad: string | null;
+    condicion: string | null;
+    razon: string | null;
+    fecha_permiso: string | null;
+    fecha_elaboracion: string | null;
+    created_at: string;
+    updated_at: string;
 };

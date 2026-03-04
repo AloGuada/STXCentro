@@ -36,6 +36,7 @@ import {
     TrendingDown,
     Users,
     HardHat,
+    UserCheck,
     Wrench,
 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
@@ -147,6 +148,17 @@ const navGroups: NavGroup[] = [
             { title: 'Tipos Item', href: '/admin/sti/items-tipos', icon: Layers, permission: 'sti.equipos.ver' },
             { title: 'Asignaciones', href: '/admin/sti/asignacion-activos', icon: ClipboardList, permission: 'sti.equipos.ver' },
             { title: 'Estados', href: '/admin/sti/status', icon: Tag, permission: 'sti.equipos.ver' },
+        ],
+    },
+    {
+        title: 'Recursos Humanos',
+        icon: UserCheck,
+        items: [
+            { title: 'Puestos', href: '/admin/rh/puestos', icon: Briefcase, permission: 'rh.puestos.ver' },
+            { title: 'Requisiciones', href: '/admin/rh/requisiciones', icon: FileCheck, permission: 'rh.requisiciones.ver' },
+            { title: 'Personas', href: '/admin/rh/personas', icon: Users, permission: 'rh.personas.ver' },
+            { title: 'Periodos Laborales', href: '/admin/rh/periodos-laborales', icon: CalendarRange, permission: 'rh.periodos-laborales.ver' },
+            { title: 'Permisos Ausencia', href: '/admin/rh/permisos-ausencia', icon: CalendarCheck, permission: 'rh.permisos-ausencia.ver' },
         ],
     },
 ];

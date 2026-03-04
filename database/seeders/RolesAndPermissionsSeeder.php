@@ -198,6 +198,43 @@ class RolesAndPermissionsSeeder extends Seeder
             'cob.configuracion-documentos.eliminar',
         ];
 
+        // Crear permisos del módulo RH
+        $rhPermissions = [
+            'rh.puestos.ver',
+            'rh.puestos.crear',
+            'rh.puestos.editar',
+            'rh.puestos.eliminar',
+            'rh.skills.ver',
+            'rh.skills.crear',
+            'rh.skills.editar',
+            'rh.skills.eliminar',
+            'rh.requerimientos.ver',
+            'rh.requerimientos.crear',
+            'rh.requerimientos.editar',
+            'rh.requerimientos.eliminar',
+            'rh.personas.ver',
+            'rh.personas.crear',
+            'rh.personas.editar',
+            'rh.personas.eliminar',
+            'rh.periodos-laborales.ver',
+            'rh.periodos-laborales.crear',
+            'rh.periodos-laborales.editar',
+            'rh.periodos-laborales.eliminar',
+            'rh.requisiciones.ver',
+            'rh.requisiciones.crear',
+            'rh.requisiciones.editar',
+            'rh.requisiciones.eliminar',
+            'rh.candidaturas.ver',
+            'rh.candidaturas.crear',
+            'rh.onboarding.ver',
+            'rh.onboarding.crear',
+            'rh.onboarding.editar',
+            'rh.permisos-ausencia.ver',
+            'rh.permisos-ausencia.crear',
+            'rh.permisos-ausencia.editar',
+            'rh.permisos-ausencia.eliminar',
+        ];
+
         // Crear permisos Core
         $corePermissions = [
             'usuarios.ver',
@@ -216,7 +253,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'roles.asignar',
         ];
 
-        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $corePermissions);
+        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $rhPermissions, $corePermissions);
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
@@ -234,6 +271,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $almacen = Role::firstOrCreate(['name' => 'almacen', 'guard_name' => 'web']);
         $contabilidad = Role::firstOrCreate(['name' => 'contabilidad', 'guard_name' => 'web']);
         $adminCobranza = Role::firstOrCreate(['name' => 'admin-cobranza', 'guard_name' => 'web']);
+        $adminRh = Role::firstOrCreate(['name' => 'admin-rh', 'guard_name' => 'web']);
         $empleado = Role::firstOrCreate(['name' => 'empleado', 'guard_name' => 'web']);
 
         // Super admin tiene todos los permisos
@@ -296,6 +334,9 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Admin Cobranza tiene todos los permisos de cobranza
         $adminCobranza->givePermissionTo($cobPermissions);
+
+        // Admin RH tiene todos los permisos de recursos humanos
+        $adminRh->givePermissionTo($rhPermissions);
 
         // Empleado tiene permisos básicos de lectura
         $empleado->givePermissionTo([

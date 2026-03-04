@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { StiEquipo, StiMantenimiento, StiPlan } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronLeftIcon, ChevronRightIcon, ListIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon, ListIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -41,6 +41,14 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
         handleFilterChange('year', String(year + direction));
     };
 
+    const handleExport = () => {
+        const params = new URLSearchParams();
+        params.set('year', String(year));
+        if (filters.equipo_id) params.set('equipo_id', filters.equipo_id);
+        if (filters.plan_id) params.set('plan_id', filters.plan_id);
+        window.open(`/admin/sti/mantenimientos-gantt-anual/exportar?${params.toString()}`, '_blank');
+    };
+
     // Agrupar mantenimientos por equipo
     const mantenimientosPorEquipo = mantenimientos.reduce(
         (acc, mant) => {
@@ -65,12 +73,18 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Vista Gantt Anual</CardTitle>
-                        <Button variant="outline" asChild>
-                            <Link href="/admin/sti/mantenimientos">
-                                <ListIcon className="size-4" />
-                                Vista Lista
-                            </Link>
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={handleExport}>
+                                <DownloadIcon className="size-4" />
+                                Exportar PDF
+                            </Button>
+                            <Button variant="outline" asChild>
+                                <Link href="/admin/sti/mantenimientos">
+                                    <ListIcon className="size-4" />
+                                    Vista Lista
+                                </Link>
+                            </Button>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="flex flex-wrap items-center gap-4">
@@ -108,10 +122,12 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
                 <Card>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[800px]">
+                            <table className="w-full min-w-[1000px]">
                                 <thead>
                                     <tr className="border-b bg-gray-50 dark:bg-gray-800">
                                         <th className="sticky left-0 z-10 min-w-48 bg-gray-50 p-3 text-left dark:bg-gray-800">Equipo</th>
+                                        <th className="min-w-36 p-3 text-left text-sm font-medium">Asignado a</th>
+                                        <th className="min-w-32 p-3 text-left text-sm font-medium">Departamento</th>
                                         {MESES.map((mes) => (
                                             <th key={mes} className="min-w-20 p-2 text-center text-sm font-medium">
                                                 {mes}
@@ -120,47 +136,52 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {Object.entries(mantenimientosPorEquipo).map(([equipoId, { equipo, mantenimientos: mants }]) => (
-                                        <tr key={equipoId} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                            <td className="sticky left-0 z-10 bg-white p-3 dark:bg-gray-900">
-                                                <div className="font-medium">{equipo?.descripcion ?? 'Equipo'}</div>
-                                                <div className="text-xs text-gray-500">{mants.length} mantenimientos</div>
-                                            </td>
-                                            {MESES.map((_, mesIndex) => {
-                                                const mantsDelMes = mants.filter((m) => {
-                                                    const fecha = new Date(m.fecha_programada);
-                                                    return fecha.getMonth() === mesIndex;
-                                                });
-                                                return (
-                                                    <td key={mesIndex} className="p-1 text-center">
-                                                        <div className="flex flex-wrap justify-center gap-1">
-                                                            {mantsDelMes.map((mant) => {
-                                                                const fecha = new Date(mant.fecha_programada);
-                                                                const dia = fecha.getDate();
-                                                                return (
-                                                                    <Link
-                                                                        key={mant.id}
-                                                                        href={`/admin/sti/mantenimientos/${mant.id}/edit`}
-                                                                        className={`flex size-7 items-center justify-center rounded text-xs font-medium transition hover:scale-110 ${
-                                                                            mant.status === 'realizado'
-                                                                                ? 'bg-green-500 text-white'
-                                                                                : 'bg-orange-400 text-white'
-                                                                        }`}
-                                                                        title={`${mant.descripcion ?? 'Mantenimiento'} - ${fecha.toLocaleDateString('es-MX')}`}
-                                                                    >
-                                                                        {dia}
-                                                                    </Link>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </td>
-                                                );
-                                            })}
-                                        </tr>
-                                    ))}
+                                    {Object.entries(mantenimientosPorEquipo).map(([equipoId, { equipo, mantenimientos: mants }]) => {
+                                        const asignacion = equipo?.asignaciones?.[0];
+                                        return (
+                                            <tr key={equipoId} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                                <td className="sticky left-0 z-10 bg-white p-3 dark:bg-gray-900">
+                                                    <div className="font-medium">{equipo?.descripcion ?? 'Equipo'}</div>
+                                                    <div className="text-xs text-gray-500">{mants.length} mantenimientos</div>
+                                                </td>
+                                                <td className="p-3 text-sm">{asignacion?.empleado ?? '-'}</td>
+                                                <td className="p-3 text-sm">{asignacion?.departamento?.descripcion ?? '-'}</td>
+                                                {MESES.map((_, mesIndex) => {
+                                                    const mantsDelMes = mants.filter((m) => {
+                                                        const fecha = new Date(m.fecha_programada);
+                                                        return fecha.getMonth() === mesIndex;
+                                                    });
+                                                    return (
+                                                        <td key={mesIndex} className="p-1 text-center">
+                                                            <div className="flex flex-wrap justify-center gap-1">
+                                                                {mantsDelMes.map((mant) => {
+                                                                    const fecha = new Date(mant.fecha_programada);
+                                                                    const dia = fecha.getDate();
+                                                                    return (
+                                                                        <Link
+                                                                            key={mant.id}
+                                                                            href={`/admin/sti/mantenimientos/${mant.id}/edit`}
+                                                                            className={`flex size-7 items-center justify-center rounded text-xs font-medium transition hover:scale-110 ${
+                                                                                mant.status === 'realizado'
+                                                                                    ? 'bg-green-500 text-white'
+                                                                                    : 'bg-orange-400 text-white'
+                                                                            }`}
+                                                                            title={`${mant.descripcion ?? 'Mantenimiento'} - ${fecha.toLocaleDateString('es-MX')}`}
+                                                                        >
+                                                                            {dia}
+                                                                        </Link>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        );
+                                    })}
                                     {Object.keys(mantenimientosPorEquipo).length === 0 && (
                                         <tr>
-                                            <td colSpan={13} className="p-8 text-center text-gray-500">
+                                            <td colSpan={15} className="p-8 text-center text-gray-500">
                                                 No hay mantenimientos programados para este año.
                                             </td>
                                         </tr>

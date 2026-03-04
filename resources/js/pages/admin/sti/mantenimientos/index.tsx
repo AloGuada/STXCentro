@@ -50,6 +50,14 @@ const columns: Column<StiMantenimiento>[] = [
         label: 'Tecnico',
         render: (m) => m.tecnico?.descripcion ?? '-',
     },
+    {
+        key: 'equipo_id' as keyof StiMantenimiento,
+        label: 'Asignado a',
+        render: (m) => {
+            const nombres = m.equipo?.asignaciones?.map((a) => a.empleado) ?? [];
+            return nombres.length > 0 ? nombres.join(', ') : '-';
+        },
+    },
 ];
 
 type Props = {
