@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { StiEquipo, StiMantenimiento, StiPlan } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon, ListIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileSpreadsheetIcon, ListIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -41,12 +41,20 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
         handleFilterChange('year', String(year + direction));
     };
 
-    const handleExport = () => {
+    const buildExportParams = () => {
         const params = new URLSearchParams();
         params.set('year', String(year));
         if (filters.equipo_id) params.set('equipo_id', filters.equipo_id);
         if (filters.plan_id) params.set('plan_id', filters.plan_id);
-        window.open(`/admin/sti/mantenimientos-gantt-anual/exportar?${params.toString()}`, '_blank');
+        return params.toString();
+    };
+
+    const handleExportPdf = () => {
+        window.open(`/admin/sti/mantenimientos-gantt-anual/exportar?${buildExportParams()}`, '_blank');
+    };
+
+    const handleExportExcel = () => {
+        window.open(`/admin/sti/mantenimientos-gantt-anual/exportar-excel?${buildExportParams()}`, '_blank');
     };
 
     // Agrupar mantenimientos por equipo
@@ -74,9 +82,13 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Vista Gantt Anual</CardTitle>
                         <div className="flex gap-2">
-                            <Button variant="outline" onClick={handleExport}>
+                            <Button variant="outline" onClick={handleExportPdf}>
                                 <DownloadIcon className="size-4" />
                                 Exportar PDF
+                            </Button>
+                            <Button variant="outline" onClick={handleExportExcel}>
+                                <FileSpreadsheetIcon className="size-4" />
+                                Exportar Excel
                             </Button>
                             <Button variant="outline" asChild>
                                 <Link href="/admin/sti/mantenimientos">

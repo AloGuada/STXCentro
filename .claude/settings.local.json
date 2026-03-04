@@ -96,7 +96,8 @@
       "Bash(taskkill //F //PID 308212 //PID 307984)",
       "Bash(ls -la /c/Users/desarrollo.ti/Documents/dev/mono/database/database.sqlite*)",
       "Bash(ls /c/Users/desarrollo.ti/Documents/dev/mono/database/migrations/2026_03_03_17145*)",
-      "Bash(ls -1 /c/Users/desarrollo.ti/Documents/dev/mono/database/migrations/*rh_*)"
+      "Bash(ls -1 /c/Users/desarrollo.ti/Documents/dev/mono/database/migrations/*rh_*)",
+      "Bash(composer show)"
     ]
   },
   "enableAllProjectMcpServers": true,

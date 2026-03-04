@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Sti;
 
+use App\Exports\Sti\GanttAnualExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Sti\CostoStoreRequest;
 use App\Http\Requests\Admin\Sti\GenerarMantenimientosRequest;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class MantenimientoController extends Controller
 {
@@ -251,6 +254,20 @@ class MantenimientoController extends Controller
         ])->setPaper('a4', 'landscape');
 
         return $pdf->download("gantt-anual-{$year}.pdf");
+    }
+
+    public function exportarGanttAnualExcel(Request $request): BinaryFileResponse
+    {
+        $year = (int) $request->input('year', now()->year);
+
+        return Excel::download(
+            new GanttAnualExport(
+                year: $year,
+                equipoId: $request->equipo_id ? (int) $request->equipo_id : null,
+                planId: $request->plan_id ? (int) $request->plan_id : null,
+            ),
+            "gantt-anual-{$year}.xlsx"
+        );
     }
 
     private function generarMantenimientosAnioInterno(Plan $plan, int $equipoId, int $year, Carbon $fechaInicial): int

@@ -162,7 +162,7 @@ export default function TicketsEdit({ ticket, tecnicos, equipos, departamentos, 
                             <div className="space-y-4 rounded-lg border bg-green-50 p-4 dark:bg-green-900/20">
                                 <h3 className="font-medium">Cierre del Ticket</h3>
 
-                                <FormField label="Calificacion del servicio" htmlFor="calificacion">
+                                <FormField label="Calificacion del servicio" htmlFor="calificacion" error={errors.calificacion} required>
                                     <RatingSlider
                                         value={data.calificacion || null}
                                         onChange={(value) => setData('calificacion', value)}
@@ -170,7 +170,7 @@ export default function TicketsEdit({ ticket, tecnicos, equipos, departamentos, 
                                     />
                                 </FormField>
 
-                                <FormField label="Firma de conformidad" htmlFor="firma">
+                                <FormField label="Firma de conformidad" htmlFor="firma" error={errors.firma_completado} required={!ticket.firma_completado}>
                                     {ticket.firma_completado ? (
                                         <div className="rounded border bg-white p-2">
                                             <img src={ticket.firma_completado} alt="Firma" className="max-h-32" />

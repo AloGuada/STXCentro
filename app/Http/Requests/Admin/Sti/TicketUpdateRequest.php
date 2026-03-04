@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\Sti;
 
+use App\Models\Sti\Status;
 use Illuminate\Foundation\Http\FormRequest;
 
 class TicketUpdateRequest extends FormRequest
@@ -12,11 +13,11 @@ class TicketUpdateRequest extends FormRequest
     }
 
     /**
-     * @return array<string, array<int, string>>
+     * @return array<string, array<int, mixed>>
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'nombre_solicitante' => ['required', 'string', 'max:255'],
             'comentario' => ['required', 'string'],
             'tecnico_id' => ['nullable', 'integer', 'exists:sti_tecnicos,id'],
@@ -26,6 +27,18 @@ class TicketUpdateRequest extends FormRequest
             'firma_completado' => ['nullable', 'string'],
             'calificacion' => ['nullable', 'integer', 'min:1', 'max:5'],
         ];
+
+        if ($this->isStatusCompletado()) {
+            $ticket = $this->route('ticket');
+
+            $rules['calificacion'] = ['required', 'integer', 'min:1', 'max:5'];
+
+            if (! $ticket?->firma_completado) {
+                $rules['firma_completado'] = ['required', 'string'];
+            }
+        }
+
+        return $rules;
     }
 
     /**
@@ -38,6 +51,19 @@ class TicketUpdateRequest extends FormRequest
             'comentario.required' => 'El comentario es obligatorio.',
             'departamento_id.required' => 'El departamento es obligatorio.',
             'departamento_id.exists' => 'El departamento seleccionado no existe.',
+            'calificacion.required' => 'La calificación es obligatoria cuando el estado es Completado.',
+            'firma_completado.required' => 'La firma es obligatoria cuando el estado es Completado.',
         ];
+    }
+
+    private function isStatusCompletado(): bool
+    {
+        if (! $this->status_id) {
+            return false;
+        }
+
+        $status = Status::find($this->status_id);
+
+        return $status && $status->orden >= 8;
     }
 }

@@ -99,4 +99,55 @@ describe('ticket update calificacion', function () {
         $ticket->refresh();
         expect($ticket->calificacion)->toBeNull();
     });
+
+    test('calificacion is required when status is completado', function () {
+        $ticket = Ticket::factory()->create();
+        $statusCompletado = Status::factory()->create(['descripcion' => 'Completado', 'orden' => 8]);
+
+        $response = $this->actingAs($this->user)
+            ->put(route('admin.sti.tickets.update', $ticket), [
+                'nombre_solicitante' => $ticket->nombre_solicitante,
+                'comentario' => $ticket->comentario,
+                'departamento_id' => $ticket->departamento_id,
+                'status_id' => $statusCompletado->id,
+                'calificacion' => null,
+                'firma_completado' => 'data:image/png;base64,test',
+            ]);
+
+        $response->assertSessionHasErrors(['calificacion']);
+    });
+
+    test('firma is required when status is completado and ticket has no firma', function () {
+        $ticket = Ticket::factory()->create(['firma_completado' => null]);
+        $statusCompletado = Status::factory()->create(['descripcion' => 'Completado', 'orden' => 8]);
+
+        $response = $this->actingAs($this->user)
+            ->put(route('admin.sti.tickets.update', $ticket), [
+                'nombre_solicitante' => $ticket->nombre_solicitante,
+                'comentario' => $ticket->comentario,
+                'departamento_id' => $ticket->departamento_id,
+                'status_id' => $statusCompletado->id,
+                'calificacion' => 5,
+                'firma_completado' => '',
+            ]);
+
+        $response->assertSessionHasErrors(['firma_completado']);
+    });
+
+    test('firma is not required when ticket already has firma', function () {
+        $ticket = Ticket::factory()->create(['firma_completado' => 'data:image/png;base64,existing']);
+        $statusCompletado = Status::factory()->create(['descripcion' => 'Completado', 'orden' => 8]);
+
+        $response = $this->actingAs($this->user)
+            ->put(route('admin.sti.tickets.update', $ticket), [
+                'nombre_solicitante' => $ticket->nombre_solicitante,
+                'comentario' => $ticket->comentario,
+                'departamento_id' => $ticket->departamento_id,
+                'status_id' => $statusCompletado->id,
+                'calificacion' => 4,
+            ]);
+
+        $response->assertRedirect(route('admin.sti.tickets.index'));
+        $response->assertSessionHasNoErrors();
+    });
 });

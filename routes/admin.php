@@ -291,6 +291,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // Mantenimientos: completar, media, costos
         Route::get('mantenimientos-gantt-anual', [StiMantenimientoController::class, 'ganttAnual'])->name('mantenimientos.gantt-anual');
         Route::get('mantenimientos-gantt-anual/exportar', [StiMantenimientoController::class, 'exportarGanttAnual'])->name('mantenimientos.gantt-anual.exportar');
+        Route::get('mantenimientos-gantt-anual/exportar-excel', [StiMantenimientoController::class, 'exportarGanttAnualExcel'])->name('mantenimientos.gantt-anual.exportar-excel');
         Route::post('mantenimientos/{mantenimiento}/completar', [StiMantenimientoController::class, 'completar'])->name('mantenimientos.completar');
         Route::post('mantenimientos/{mantenimiento}/checks/{checkEjecucion}/toggle', [StiMantenimientoController::class, 'toggleCheck'])->name('mantenimientos.checks.toggle');
         Route::post('mantenimientos/{mantenimiento}/media', [StiMantenimientoController::class, 'storeMedia'])->name('mantenimientos.media.store');
