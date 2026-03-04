@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -37,10 +38,7 @@ class OrdenCompra extends Model
         'total',
         'fecha_entrega_esperada',
         'notas',
-        'archivo_path',
         'estatus',
-        'pdf_formato_path',
-        'pdf_firmado_path',
     ];
 
     /**
@@ -100,6 +98,26 @@ class OrdenCompra extends Model
     public function facturas(): HasMany
     {
         return $this->hasMany(Factura::class, 'orden_compra_id');
+    }
+
+    public function media(): MorphMany
+    {
+        return $this->morphMany(\App\Models\Media::class, 'mediable');
+    }
+
+    public function archivo(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'archivo');
+    }
+
+    public function pdfFormato(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'pdf_formato');
+    }
+
+    public function pdfFirmado(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'pdf_firmado');
     }
 
     public function rubrosAfectados(): MorphMany

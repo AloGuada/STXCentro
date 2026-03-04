@@ -105,8 +105,8 @@ function ParcialidadesTable({ parciales }: { parciales: CostosPago[] }) {
                                             label="Comprobante"
                                         />
                                     )}
-                                    {p.ruta_comprobante && (
-                                        <a href={`/storage/${p.ruta_comprobante}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-xs">
+                                    {p.media?.path && (
+                                        <a href={`/storage/${p.media.path}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-xs">
                                             Ver
                                         </a>
                                     )}
@@ -272,11 +272,11 @@ export default function PagosShow({ pago }: Props) {
                 )}
 
                 {/* Comprobante existente */}
-                {pago.ruta_comprobante && (
+                {pago.media?.path && (
                     <div className="mb-8">
                         <span className="text-sm text-base-content/60">Comprobante</span>
                         <p>
-                            <a href={`/storage/${pago.ruta_comprobante}`} target="_blank" rel="noreferrer" className="link link-primary">
+                            <a href={`/storage/${pago.media.path}`} target="_blank" rel="noreferrer" className="link link-primary">
                                 Ver comprobante
                             </a>
                         </p>

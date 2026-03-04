@@ -82,5 +82,5 @@ test('no puede ver factura de otro proveedor', function () {
 test('valida campos requeridos al subir factura', function () {
     $this->actingAs($this->proveedor, 'proveedor')
         ->post('/portal/facturas', [])
-        ->assertSessionHasErrors(['orden_compra_id', 'subtotal', 'iva', 'total']);
+        ->assertSessionHasErrors(['orden_compra_id', 'total']);
 });

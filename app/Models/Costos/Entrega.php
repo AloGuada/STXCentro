@@ -6,6 +6,7 @@ use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\EntregaFactory>
@@ -24,7 +25,6 @@ class Entrega extends Model
         'recibido_por',
         'fecha_entrega',
         'observaciones',
-        'archivo_path',
     ];
 
     /**
@@ -35,6 +35,11 @@ class Entrega extends Model
         return [
             'fecha_entrega' => 'date',
         ];
+    }
+
+    public function media(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable');
     }
 
     public function factura(): BelongsTo

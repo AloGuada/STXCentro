@@ -2,7 +2,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { router } from '@inertiajs/react';
 import { SearchIcon, XIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type SearchInputProps = {
     placeholder?: string;
@@ -18,12 +18,19 @@ export function SearchInput({
     className,
 }: SearchInputProps) {
     const [value, setValue] = useState(defaultValue);
+    const isFirstRender = useRef(true);
 
     useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+
         const timeout = setTimeout(() => {
+            const currentParams = Object.fromEntries(new URLSearchParams(window.location.search));
             router.get(
                 window.location.pathname,
-                { [paramName]: value || undefined },
+                { ...currentParams, [paramName]: value || undefined, page: undefined },
                 { preserveState: true, preserveScroll: true, replace: true },
             );
         }, 300);

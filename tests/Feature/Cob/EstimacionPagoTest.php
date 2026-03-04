@@ -23,7 +23,6 @@ describe('admin cob estimacion pagos', function () {
                 'monto_pagado' => 50000.00,
                 'fecha_pago' => '2026-02-15',
                 'folio' => 'PAG-001',
-                'comprobante' => 'COMP-001',
             ]);
 
         $response->assertRedirect();

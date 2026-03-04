@@ -5,6 +5,7 @@ namespace App\Models\Rh;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class OnboardingTarea extends Model
 {
@@ -22,7 +23,6 @@ class OnboardingTarea extends Model
         'completada',
         'fecha_vencimiento',
         'fecha_completada',
-        'evidencia_ruta',
     ];
 
     /** @return array<string, string> */
@@ -33,6 +33,11 @@ class OnboardingTarea extends Model
             'fecha_vencimiento' => 'date',
             'fecha_completada' => 'date',
         ];
+    }
+
+    public function media(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable');
     }
 
     public function onboarding(): BelongsTo

@@ -121,7 +121,7 @@ describe('admin rh onboarding', function () {
 
         $response->assertRedirect();
         $tarea->refresh();
-        expect($tarea->evidencia_ruta)->not->toBeNull();
-        Storage::disk('public')->assertExists($tarea->evidencia_ruta);
+        expect($tarea->media)->not->toBeNull();
+        Storage::disk('public')->assertExists($tarea->media->path);
     });
 });

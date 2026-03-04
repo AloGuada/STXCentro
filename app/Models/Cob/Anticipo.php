@@ -6,6 +6,7 @@ use App\Models\Obra;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Anticipo extends Model
 {
@@ -23,7 +24,6 @@ class Anticipo extends Model
         'estado',
         'comentarios',
         'fecha_pagado',
-        'comprobante',
     ];
 
     /** @return array<string, string> */
@@ -34,6 +34,11 @@ class Anticipo extends Model
             'fecha_pagado' => 'date',
             'monto' => 'decimal:2',
         ];
+    }
+
+    public function media(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable');
     }
 
     public function obra(): BelongsTo

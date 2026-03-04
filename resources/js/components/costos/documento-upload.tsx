@@ -146,12 +146,12 @@ function ArchivoRow({
                 <div className="flex items-center gap-2">
                     <FileTextIcon className="size-4 text-base-content/60" />
                     <a
-                        href={`/storage/${archivo.ruta_archivo}`}
+                        href={`/storage/${archivo.media?.path}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm hover:underline"
                     >
-                        {archivo.nombre_original}
+                        {archivo.media?.nombre_original ?? 'Archivo'}
                     </a>
                 </div>
                 {!readOnly && (

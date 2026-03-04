@@ -25,17 +25,26 @@ class AnticipoController extends Controller
     {
         $data = $request->safe()->except('comprobante');
 
-        if ($request->hasFile('comprobante')) {
-            $data['comprobante'] = $request->file('comprobante')->store('cob/anticipos', 'public');
-        }
+        $anticipo = $obra->anticipos()->create($data);
 
-        $obra->anticipos()->create($data);
+        if ($request->hasFile('comprobante')) {
+            $file = $request->file('comprobante');
+            $anticipo->media()->create([
+                'descripcion' => 'comprobante',
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $file->store('cob/anticipos', 'public'),
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ]);
+        }
 
         return to_route('admin.cob.obras.show', $obra);
     }
 
     public function edit(Obra $obra, Anticipo $anticipo): Response
     {
+        $anticipo->load('media');
+
         return Inertia::render('admin/cob/anticipos/edit', [
             'obra' => $obra,
             'anticipo' => $anticipo,
@@ -47,11 +56,19 @@ class AnticipoController extends Controller
         $data = $request->safe()->except('comprobante');
 
         if ($request->hasFile('comprobante')) {
-            if ($anticipo->comprobante) {
-                Storage::disk('public')->delete($anticipo->comprobante);
+            if ($anticipo->media) {
+                Storage::disk('public')->delete($anticipo->media->path);
+                $anticipo->media->delete();
             }
 
-            $data['comprobante'] = $request->file('comprobante')->store('cob/anticipos', 'public');
+            $file = $request->file('comprobante');
+            $anticipo->media()->create([
+                'descripcion' => 'comprobante',
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $file->store('cob/anticipos', 'public'),
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ]);
         }
 
         $anticipo->update($data);
@@ -61,8 +78,9 @@ class AnticipoController extends Controller
 
     public function destroy(Obra $obra, Anticipo $anticipo): RedirectResponse
     {
-        if ($anticipo->comprobante) {
-            Storage::disk('public')->delete($anticipo->comprobante);
+        if ($anticipo->media) {
+            Storage::disk('public')->delete($anticipo->media->path);
+            $anticipo->media->delete();
         }
 
         $anticipo->delete();

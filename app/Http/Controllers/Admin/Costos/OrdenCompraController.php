@@ -56,17 +56,22 @@ class OrdenCompraController extends Controller
         $oc = null;
 
         DB::transaction(function () use ($request, &$warnings, &$oc) {
-            $archivoPath = null;
-            if ($request->hasFile('archivo')) {
-                $archivoPath = $request->file('archivo')->store('costos/ordenes-compra', 'public');
-            }
-
             $oc = OrdenCompra::create([
                 ...$request->safe()->except(['detalles', 'archivo']),
                 'creado_por' => $request->user()->id,
                 'estatus' => 'pendiente_factura',
-                'archivo_path' => $archivoPath,
             ]);
+
+            if ($request->hasFile('archivo')) {
+                $file = $request->file('archivo');
+                $oc->media()->create([
+                    'descripcion' => 'archivo',
+                    'nombre_original' => $file->getClientOriginalName(),
+                    'path' => $file->store('costos/ordenes-compra', 'public'),
+                    'mime' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                ]);
+            }
 
             foreach ($request->input('detalles', []) as $detalle) {
                 $monto = (float) $detalle['monto'];
@@ -106,7 +111,8 @@ class OrdenCompraController extends Controller
             'creador',
             'detalles.obraRubro.rubro',
             'detalles.obraRubro.obra',
-            'facturas.entregas',
+            'facturas.entregas.media',
+            'media',
             'rubrosAfectados.obraRubro.rubro',
         ]);
 

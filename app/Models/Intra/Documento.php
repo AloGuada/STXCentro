@@ -7,6 +7,7 @@ use App\Models\Media;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Documento extends Model
 {
@@ -19,7 +20,6 @@ class Documento extends Model
      */
     protected $fillable = [
         'area_id',
-        'media_id',
         'descripcion',
         'codigo',
         'tipo',
@@ -44,8 +44,8 @@ class Documento extends Model
         return $this->belongsTo(Area::class, 'area_id');
     }
 
-    public function media(): BelongsTo
+    public function media(): MorphOne
     {
-        return $this->belongsTo(Media::class, 'media_id');
+        return $this->morphOne(Media::class, 'mediable');
     }
 }

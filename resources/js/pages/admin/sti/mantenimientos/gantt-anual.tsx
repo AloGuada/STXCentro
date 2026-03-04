@@ -161,14 +161,14 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
                                                 {MESES.map((_, mesIndex) => {
                                                     const mantsDelMes = mants.filter((m) => {
                                                         const fecha = new Date(m.fecha_programada);
-                                                        return fecha.getMonth() === mesIndex;
+                                                        return fecha.getUTCMonth() === mesIndex;
                                                     });
                                                     return (
                                                         <td key={mesIndex} className="p-1 text-center">
                                                             <div className="flex flex-wrap justify-center gap-1">
                                                                 {mantsDelMes.map((mant) => {
                                                                     const fecha = new Date(mant.fecha_programada);
-                                                                    const dia = fecha.getDate();
+                                                                    const dia = fecha.getUTCDate();
                                                                     return (
                                                                         <Link
                                                                             key={mant.id}
@@ -178,7 +178,7 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
                                                                                     ? 'bg-green-500 text-white'
                                                                                     : 'bg-orange-400 text-white'
                                                                             }`}
-                                                                            title={`${mant.descripcion ?? 'Mantenimiento'} - ${fecha.toLocaleDateString('es-MX')}`}
+                                                                            title={`${mant.descripcion ?? 'Mantenimiento'} - ${fecha.toLocaleDateString('es-MX', { timeZone: 'UTC' })}`}
                                                                         >
                                                                             {dia}
                                                                         </Link>

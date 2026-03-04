@@ -22,7 +22,6 @@ class AnticipoFactory extends Factory
             'estado' => 'pendiente',
             'comentarios' => fake()->optional()->sentence(),
             'fecha_pagado' => null,
-            'comprobante' => null,
         ];
     }
 }

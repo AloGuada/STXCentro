@@ -88,6 +88,7 @@ export type Obra = {
 export type Media = {
     id: number;
     descripcion: string;
+    nombre_original: string | null;
     path: string;
     mime: string;
     size: number;
@@ -166,7 +167,6 @@ export type Area = {
 export type Documento = {
     id: number;
     area_id: number;
-    media_id: number;
     descripcion: string;
     codigo: string | null;
     tipo: TipoDocumento;
@@ -959,12 +959,12 @@ export type CostosSolicitudPagoDetalle = {
 export type CostosSolicitudArchivo = {
     id: number;
     solicitud_id: number;
+    media_id: number;
     archivo_id: number;
-    ruta_archivo: string;
-    nombre_original: string;
     texto_adicional: string | null;
     tags: Record<string, string> | null;
     documento?: CostosDocumento;
+    media?: Media;
     created_at: string;
     updated_at: string;
 };
@@ -1100,16 +1100,14 @@ export type CostosOrdenCompra = {
     total: number;
     fecha_entrega_esperada: string | null;
     notas: string | null;
-    archivo_path: string | null;
     estatus: CostosOrdenCompraEstatus;
-    pdf_formato_path: string | null;
-    pdf_firmado_path: string | null;
     proveedor?: Proveedor;
     obra?: Obra;
     departamento?: Departamento;
     creador?: Usuario;
     detalles?: CostosOrdenCompraDetalle[];
     facturas?: CostosFactura[];
+    media?: Media[];
     rubros_afectados?: CostosRubroAfectado[];
     facturas_count?: number;
     created_at: string;
@@ -1150,8 +1148,6 @@ export type CostosFactura = {
     proveedor_id: number;
     uuid_fiscal: string | null;
     folio_fiscal: string | null;
-    ruta_xml: string | null;
-    ruta_pdf: string | null;
     subtotal: number;
     iva: number;
     total: number;
@@ -1168,6 +1164,7 @@ export type CostosFactura = {
     orden_compra?: CostosOrdenCompra;
     proveedor?: Proveedor;
     entregas?: CostosEntrega[];
+    media?: Media[];
     pago?: CostosPago;
     aprobada_costos_por_usuario?: Usuario;
     aceptada_contabilidad_por_usuario?: Usuario;
@@ -1182,7 +1179,7 @@ export type CostosEntrega = {
     recibido_por: string;
     fecha_entrega: string;
     observaciones: string | null;
-    archivo_path: string | null;
+    media?: Media | null;
     recibidor?: Usuario;
     created_at: string;
     updated_at: string;
@@ -1225,7 +1222,6 @@ export type CostosPago = {
     fecha_pago_maxima: string | null;
     fecha_pago_realizada: string | null;
     referencia_pago: string | null;
-    ruta_comprobante: string | null;
     estatus: CostosPagoEstatus;
     notas: string | null;
     pago_padre_id: number | null;
@@ -1233,6 +1229,7 @@ export type CostosPago = {
     pagable?: CostosSolicitudPago | CostosFactura;
     pago_padre?: CostosPago;
     pagos_parciales?: CostosPago[];
+    media?: Media | null;
     created_at: string;
     updated_at: string;
 };
@@ -1336,7 +1333,7 @@ export type CobEstimacionPago = {
     monto_pagado: number;
     fecha_pago: string;
     folio: string | null;
-    comprobante: string | null;
+    media?: Media | null;
     created_at: string;
     updated_at: string;
 };
@@ -1373,7 +1370,7 @@ export type CobAnticipo = {
     estado: CobAnticipoEstado;
     comentarios: string | null;
     fecha_pagado: string | null;
-    comprobante: string | null;
+    media?: Media | null;
     created_at: string;
     updated_at: string;
 };
@@ -1598,9 +1595,9 @@ export type RhPersona = {
     email: string | null;
     telefono: string | null;
     fecha_nacimiento: string | null;
-    cv_ruta: string | null;
     cv_estado: 'pendiente' | 'procesando' | 'procesado' | 'error' | null;
     nombre_completo?: string;
+    media?: Media | null;
     datos_extra?: RhDatosExtra;
     documentos?: RhPersonaDocumento[];
     periodos_laborales?: RhPeriodoLaboral[];
@@ -1634,14 +1631,12 @@ export type RhDatosExtra = {
 export type RhPersonaDocumento = {
     id: number;
     persona_id: number;
+    media_id: number;
     tipo_documento: string;
-    nombre_archivo: string;
-    ruta_archivo: string;
-    extension: string | null;
-    tamano: number | null;
     fecha_emision: string | null;
     fecha_vigencia: string | null;
     notas: string | null;
+    media?: Media | null;
     created_at: string;
     updated_at: string;
 };
@@ -1736,7 +1731,7 @@ export type RhOnboardingTarea = {
     completada: boolean;
     fecha_vencimiento: string | null;
     fecha_completada: string | null;
-    evidencia_ruta: string | null;
+    media?: Media | null;
     responsable?: RhPeriodoLaboral;
     created_at: string;
     updated_at: string;

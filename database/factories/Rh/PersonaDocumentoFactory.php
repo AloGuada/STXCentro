@@ -2,6 +2,7 @@
 
 namespace Database\Factories\Rh;
 
+use App\Models\Media;
 use App\Models\Rh\Persona;
 use App\Models\Rh\PersonaDocumento;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -18,11 +19,8 @@ class PersonaDocumentoFactory extends Factory
     {
         return [
             'persona_id' => Persona::factory(),
+            'media_id' => Media::factory(),
             'tipo_documento' => fake()->randomElement(['ine', 'curp', 'rfc', 'comprobante_domicilio', 'acta_nacimiento']),
-            'nombre_archivo' => fake()->word().'.pdf',
-            'ruta_archivo' => 'rh/documentos/'.fake()->uuid().'.pdf',
-            'extension' => 'pdf',
-            'tamano' => fake()->numberBetween(10000, 5000000),
         ];
     }
 }

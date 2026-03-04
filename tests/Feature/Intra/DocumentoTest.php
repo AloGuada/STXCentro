@@ -152,8 +152,8 @@ describe('admin documento', function () {
     });
 
     test('documento can be updated with new file', function () {
-        $documento = Documento::factory()->create();
-        $oldMediaId = $documento->media_id;
+        $documento = Documento::factory()->withMedia()->create();
+        $oldMediaId = $documento->media->id;
 
         $newFile = UploadedFile::fake()->create('new.pdf', 100, 'application/pdf');
 
@@ -170,13 +170,13 @@ describe('admin documento', function () {
         $response->assertRedirect(route('admin.intra.documentos.index'));
 
         $documento->refresh();
-        expect($documento->media_id)->toBe($oldMediaId);
+        expect($documento->media->id)->toBe($oldMediaId);
         Storage::disk('public')->assertExists($documento->media->path);
     });
 
     test('documento can be deleted', function () {
-        $documento = Documento::factory()->create();
-        $mediaId = $documento->media_id;
+        $documento = Documento::factory()->withMedia()->create();
+        $mediaId = $documento->media->id;
 
         $response = $this->actingAs($this->user)
             ->delete(route('admin.intra.documentos.destroy', $documento));

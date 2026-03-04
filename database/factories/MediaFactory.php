@@ -19,6 +19,7 @@ class MediaFactory extends Factory
     {
         return [
             'descripcion' => fake()->sentence(),
+            'nombre_original' => fake()->word().'.pdf',
             'path' => 'media/'.fake()->uuid().'.pdf',
             'mime' => 'application/pdf',
             'size' => fake()->numberBetween(10000, 5000000),

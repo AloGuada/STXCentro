@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Facades\DB;
 
@@ -31,7 +32,6 @@ class Pago extends Model
         'fecha_pago_maxima',
         'fecha_pago_realizada',
         'referencia_pago',
-        'ruta_comprobante',
         'estatus',
         'notas',
         'pago_padre_id',
@@ -68,6 +68,11 @@ class Pago extends Model
                 $pago->folio = sprintf('%s%02d', $prefix, $next);
             }
         });
+    }
+
+    public function media(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable');
     }
 
     public function pagable(): MorphTo

@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     Bar,
@@ -83,12 +83,12 @@ type Kpis = {
     promedio_satisfaccion: number;
 };
 
-type TicketPorTecnico = { tecnico: string; total: number; completados: number; activos: number };
+type TicketPorTecnico = { tecnico_id: number; tecnico: string; total: number; completados: number; activos: number };
 type TendenciaMensual = { periodo: string; total: number };
-type TicketPorDepartamento = { departamento: string; total: number };
+type TicketPorDepartamento = { departamento_id: number; departamento: string; total: number };
 type DistribucionCalificacion = { estrellas: number; label: string; total: number };
-type SatisfaccionPorDepartamento = { departamento: string; promedio: number; total: number };
-type CalificacionPorTecnico = { tecnico: string; promedio: number; total: number };
+type SatisfaccionPorDepartamento = { departamento_id: number; departamento: string; promedio: number; total: number };
+type CalificacionPorTecnico = { tecnico_id: number; tecnico: string; promedio: number; total: number };
 
 type TiemposPorTecnico = { tecnico: string; promedio_total: number; promedio_activo: number; promedio_detenido: number };
 type EstadoDetencion = { estado: string; promedio_h: number; ocurrencias: number };
@@ -134,6 +134,12 @@ export default function StiDashboardIndex({
 }: Props) {
     const [tab, setTab] = useState<Tab>('general');
 
+    const goToTickets = (params: Record<string, string | number>) => {
+        const query = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => query.set(k, String(v)));
+        router.visit(`/admin/sti/tickets?${query.toString()}`);
+    };
+
     // Tabla resumen por técnico: fusiona tickets + calificaciones
     const resumenTecnicos = tickets_por_tecnico.map((t) => {
         const calif = calificaciones_por_tecnico.find((c) => c.tecnico === t.tecnico);
@@ -161,19 +167,19 @@ export default function StiDashboardIndex({
 
                 {/* ── KPI Cards (siempre visibles) ── */}
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-                    <div className="bg-base-100 border-base-300 rounded-box border p-4">
+                    <div className="bg-base-100 border-base-300 rounded-box cursor-pointer border p-4 transition-shadow hover:shadow-md" onClick={() => router.visit('/admin/sti/tickets')}>
                         <p className="text-base-content/60 text-xs uppercase tracking-wide">Total tickets</p>
                         <p className="mt-1 text-3xl font-bold">{kpis.total}</p>
                     </div>
-                    <div className="bg-base-100 border-base-300 rounded-box border p-4">
+                    <div className="bg-base-100 border-base-300 rounded-box cursor-pointer border p-4 transition-shadow hover:shadow-md" onClick={() => goToTickets({ estado: 'sin_asignar' })}>
                         <p className="text-base-content/60 text-xs uppercase tracking-wide">Sin asignar</p>
                         <p className="text-error mt-1 text-3xl font-bold">{kpis.sin_asignar}</p>
                     </div>
-                    <div className="bg-base-100 border-base-300 rounded-box border p-4">
+                    <div className="bg-base-100 border-base-300 rounded-box cursor-pointer border p-4 transition-shadow hover:shadow-md" onClick={() => goToTickets({ estado: 'en_proceso' })}>
                         <p className="text-base-content/60 text-xs uppercase tracking-wide">En proceso</p>
                         <p className="text-warning mt-1 text-3xl font-bold">{kpis.en_proceso}</p>
                     </div>
-                    <div className="bg-base-100 border-base-300 rounded-box border p-4">
+                    <div className="bg-base-100 border-base-300 rounded-box cursor-pointer border p-4 transition-shadow hover:shadow-md" onClick={() => goToTickets({ estado: 'completados' })}>
                         <p className="text-base-content/60 text-xs uppercase tracking-wide">Completados</p>
                         <p className="text-success mt-1 text-3xl font-bold">{kpis.completados}</p>
                     </div>
@@ -222,7 +228,7 @@ export default function StiDashboardIndex({
                                             <XAxis type="number" allowDecimals={false} />
                                             <YAxis type="category" dataKey="departamento" width={140} tick={{ fontSize: 12 }} />
                                             <Tooltip formatter={(v) => [`${v} tickets`]} />
-                                            <Bar dataKey="total" name="Tickets" radius={[0, 4, 4, 0]}>
+                                            <Bar dataKey="total" name="Tickets" radius={[0, 4, 4, 0]} cursor="pointer" onClick={(_, i) => goToTickets({ departamento_id: tickets_por_departamento[i].departamento_id })}>
                                                 {tickets_por_departamento.map((_, i) => (
                                                     <Cell key={i} fill={Object.values(C)[i % Object.values(C).length]} />
                                                 ))}
@@ -243,7 +249,7 @@ export default function StiDashboardIndex({
                                             <XAxis dataKey="label" tick={{ fontSize: 13 }} />
                                             <YAxis allowDecimals={false} />
                                             <Tooltip formatter={(v) => [`${v} tickets`]} />
-                                            <Bar dataKey="total" name="Tickets" radius={[4, 4, 0, 0]}>
+                                            <Bar dataKey="total" name="Tickets" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(_, i) => goToTickets({ calificacion: distribucion_calificaciones[i].estrellas })}>
                                                 {distribucion_calificaciones.map((d) => (
                                                     <Cell key={d.estrellas} fill={STAR_COLORS[d.estrellas] ?? C.azul} />
                                                 ))}
@@ -267,7 +273,7 @@ export default function StiDashboardIndex({
                                             <XAxis type="number" domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} allowDecimals />
                                             <YAxis type="category" dataKey="departamento" width={140} tick={{ fontSize: 12 }} />
                                             <Tooltip formatter={(v, name) => [name === 'promedio' ? `${v} / 5` : `${v} tickets`]} />
-                                            <Bar dataKey="promedio" name="Promedio" radius={[0, 4, 4, 0]}>
+                                            <Bar dataKey="promedio" name="Promedio" radius={[0, 4, 4, 0]} cursor="pointer" onClick={(_, i) => goToTickets({ departamento_id: satisfaccion_por_departamento[i].departamento_id })}>
                                                 {satisfaccion_por_departamento.map((d, i) => (
                                                     <Cell key={i} fill={semaforo(d.promedio)} />
                                                 ))}
@@ -295,7 +301,7 @@ export default function StiDashboardIndex({
                                                 stroke={C.azul}
                                                 strokeWidth={2}
                                                 dot={{ r: 4 }}
-                                                activeDot={{ r: 6 }}
+                                                activeDot={{ r: 6, cursor: 'pointer', onClick: (_, payload: { index?: number }) => { if (payload.index !== undefined) goToTickets({ periodo: tendencia_mensual[payload.index].periodo }); } }}
                                             />
                                         </LineChart>
                                     </ResponsiveContainer>
@@ -322,8 +328,8 @@ export default function StiDashboardIndex({
                                             <YAxis type="category" dataKey="tecnico" width={130} tick={{ fontSize: 12 }} />
                                             <Tooltip />
                                             <Legend />
-                                            <Bar dataKey="activos" name="Activos" fill={C.azul} stackId="a" />
-                                            <Bar dataKey="completados" name="Completados" fill={C.verde} stackId="a" radius={[0, 4, 4, 0]} />
+                                            <Bar dataKey="activos" name="Activos" fill={C.azul} stackId="a" cursor="pointer" onClick={(_, i) => goToTickets({ tecnico_id: tickets_por_tecnico[i].tecnico_id })} />
+                                            <Bar dataKey="completados" name="Completados" fill={C.verde} stackId="a" radius={[0, 4, 4, 0]} cursor="pointer" onClick={(_, i) => goToTickets({ tecnico_id: tickets_por_tecnico[i].tecnico_id })} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 )}
@@ -345,7 +351,7 @@ export default function StiDashboardIndex({
                                                     name === 'promedio' ? 'Promedio' : 'Tickets',
                                                 ]}
                                             />
-                                            <Bar dataKey="promedio" name="promedio" radius={[4, 4, 0, 0]}>
+                                            <Bar dataKey="promedio" name="promedio" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(_, i) => goToTickets({ tecnico_id: calificaciones_por_tecnico[i].tecnico_id })}>
                                                 {calificaciones_por_tecnico.map((d, i) => (
                                                     <Cell key={i} fill={semaforo(d.promedio)} />
                                                 ))}

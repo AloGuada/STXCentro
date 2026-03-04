@@ -5,7 +5,6 @@ namespace Database\Factories\Intra;
 use App\Enums\TipoDocumento;
 use App\Models\Intra\Area;
 use App\Models\Intra\Documento;
-use App\Models\Media;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -22,7 +21,6 @@ class DocumentoFactory extends Factory
     {
         return [
             'area_id' => Area::factory(),
-            'media_id' => Media::factory(),
             'descripcion' => fake()->words(4, true),
             'codigo' => strtoupper(fake()->lexify('PG-STX-??-??-??')),
             'tipo' => fake()->randomElement(TipoDocumento::cases()),
@@ -45,11 +43,9 @@ class DocumentoFactory extends Factory
         ]);
     }
 
-    public function withMedia(Media $media): static
+    public function withMedia(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'media_id' => $media->id,
-        ]);
+        return $this->has(\App\Models\Media::factory(), 'media');
     }
 
     public function ofType(TipoDocumento $tipo): static

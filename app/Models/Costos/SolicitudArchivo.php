@@ -14,9 +14,8 @@ class SolicitudArchivo extends Model
      */
     protected $fillable = [
         'solicitud_id',
+        'media_id',
         'archivo_id',
-        'ruta_archivo',
-        'nombre_original',
         'texto_adicional',
         'tags',
     ];
@@ -39,5 +38,10 @@ class SolicitudArchivo extends Model
     public function documento(): BelongsTo
     {
         return $this->belongsTo(Documento::class, 'archivo_id');
+    }
+
+    public function media(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Media::class, 'media_id');
     }
 }

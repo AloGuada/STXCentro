@@ -97,7 +97,8 @@
       "Bash(ls -la /c/Users/desarrollo.ti/Documents/dev/mono/database/database.sqlite*)",
       "Bash(ls /c/Users/desarrollo.ti/Documents/dev/mono/database/migrations/2026_03_03_17145*)",
       "Bash(ls -1 /c/Users/desarrollo.ti/Documents/dev/mono/database/migrations/*rh_*)",
-      "Bash(composer show)"
+      "Bash(composer show)",
+      "Bash(xargs grep -l \"storage\\\\|download\\\\|file\")"
     ]
   },
   "enableAllProjectMcpServers": true,

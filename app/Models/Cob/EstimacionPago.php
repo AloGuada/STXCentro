@@ -5,6 +5,7 @@ namespace App\Models\Cob;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class EstimacionPago extends Model
 {
@@ -18,7 +19,6 @@ class EstimacionPago extends Model
         'monto_pagado',
         'fecha_pago',
         'folio',
-        'comprobante',
     ];
 
     /** @return array<string, string> */
@@ -28,6 +28,11 @@ class EstimacionPago extends Model
             'monto_pagado' => 'decimal:2',
             'fecha_pago' => 'date',
         ];
+    }
+
+    public function media(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable');
     }
 
     public function estimacion(): BelongsTo

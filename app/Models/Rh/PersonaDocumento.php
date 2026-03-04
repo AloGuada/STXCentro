@@ -16,11 +16,8 @@ class PersonaDocumento extends Model
     /** @var list<string> */
     protected $fillable = [
         'persona_id',
+        'media_id',
         'tipo_documento',
-        'nombre_archivo',
-        'ruta_archivo',
-        'extension',
-        'tamano',
         'fecha_emision',
         'fecha_vigencia',
         'notas',
@@ -30,7 +27,6 @@ class PersonaDocumento extends Model
     protected function casts(): array
     {
         return [
-            'tamano' => 'integer',
             'fecha_emision' => 'date',
             'fecha_vigencia' => 'date',
         ];
@@ -39,5 +35,10 @@ class PersonaDocumento extends Model
     public function persona(): BelongsTo
     {
         return $this->belongsTo(Persona::class, 'persona_id');
+    }
+
+    public function media(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Media::class, 'media_id');
     }
 }

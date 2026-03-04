@@ -101,10 +101,16 @@ class SolicitudPagoController extends Controller
                     $fileList = is_array($files) ? $files : [$files];
                     foreach ($fileList as $index => $file) {
                         $path = $file->store("costos/solicitudes/{$solicitud->id}", 'public');
-                        $solicitud->archivos()->create([
-                            'archivo_id' => $documentoId,
-                            'ruta_archivo' => $path,
+                        $media = \App\Models\Media::create([
+                            'descripcion' => 'solicitud_archivo',
                             'nombre_original' => $file->getClientOriginalName(),
+                            'path' => $path,
+                            'mime' => $file->getMimeType(),
+                            'size' => $file->getSize(),
+                        ]);
+                        $solicitud->archivos()->create([
+                            'media_id' => $media->id,
+                            'archivo_id' => $documentoId,
                             'texto_adicional' => $textos[$documentoId][$index] ?? null,
                         ]);
                     }
@@ -264,10 +270,17 @@ class SolicitudPagoController extends Controller
         $file = $request->file('archivo');
         $path = $file->store("costos/solicitudes/{$solicitudPago->id}", 'public');
 
-        $solicitudPago->archivos()->create([
-            'archivo_id' => $request->input('archivo_id'),
-            'ruta_archivo' => $path,
+        $media = \App\Models\Media::create([
+            'descripcion' => 'solicitud_archivo',
             'nombre_original' => $file->getClientOriginalName(),
+            'path' => $path,
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
+        ]);
+
+        $solicitudPago->archivos()->create([
+            'media_id' => $media->id,
+            'archivo_id' => $request->input('archivo_id'),
             'texto_adicional' => $request->input('texto_adicional'),
         ]);
 
@@ -297,8 +310,13 @@ class SolicitudPagoController extends Controller
             abort(404);
         }
 
-        Storage::disk('public')->delete($solicitudArchivo->ruta_archivo);
+        $media = $solicitudArchivo->media;
         $solicitudArchivo->delete();
+
+        if ($media) {
+            Storage::disk('public')->delete($media->path);
+            $media->delete();
+        }
 
         return back()->with('success', 'Archivo eliminado correctamente.');
     }
@@ -357,9 +375,15 @@ class SolicitudPagoController extends Controller
             return back()->withErrors(['estatus' => 'La solicitud debe estar en pendiente de firma.']);
         }
 
-        $path = $request->file('archivo')->store('costos/firmados', 'public');
+        $file = $request->file('archivo');
+        $solicitudPago->media()->create([
+            'descripcion' => 'comprobante_aprobacion',
+            'nombre_original' => $file->getClientOriginalName(),
+            'path' => $file->store('costos/firmados', 'public'),
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
+        ]);
         $solicitudPago->update([
-            'comprobante_aprobacion_presupuesto' => $path,
             'estatus' => 'aprobada',
         ]);
 

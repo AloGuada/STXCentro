@@ -13,17 +13,22 @@ class EntregaController extends Controller
     public function store(EntregaStoreRequest $request, Factura $factura): RedirectResponse
     {
         DB::transaction(function () use ($request, $factura) {
-            $archivoPath = null;
-            if ($request->hasFile('archivo')) {
-                $archivoPath = $request->file('archivo')->store('costos/entregas', 'public');
-            }
-
-            $factura->entregas()->create([
+            $entrega = $factura->entregas()->create([
                 'recibido_por' => $request->user()->id,
                 'fecha_entrega' => $request->input('fecha_entrega'),
                 'observaciones' => $request->input('observaciones'),
-                'archivo_path' => $archivoPath,
             ]);
+
+            if ($request->hasFile('archivo')) {
+                $file = $request->file('archivo');
+                $entrega->media()->create([
+                    'descripcion' => 'archivo',
+                    'nombre_original' => $file->getClientOriginalName(),
+                    'path' => $file->store('costos/entregas', 'public'),
+                    'mime' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                ]);
+            }
 
             $factura->ordenCompra->recalcularEstatus();
         });

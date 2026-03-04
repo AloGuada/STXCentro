@@ -49,11 +49,15 @@ class PersonaController extends Controller
         $persona = Persona::create($request->safe()->except('cv'));
 
         if ($request->hasFile('cv')) {
-            $path = $request->file('cv')->store('rh/cv/'.$persona->id, 'public');
-            $persona->update([
-                'cv_ruta' => $path,
-                'cv_estado' => 'pendiente',
+            $file = $request->file('cv');
+            $persona->media()->create([
+                'descripcion' => 'cv',
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $file->store('rh/cv/'.$persona->id, 'public'),
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
             ]);
+            $persona->update(['cv_estado' => 'pendiente']);
         }
 
         return to_route('admin.rh.personas.index');
@@ -63,7 +67,7 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.ver');
 
-        $persona->load(['datosExtra', 'documentos', 'periodosLaborales.puesto', 'candidaturas.requisicion']);
+        $persona->load(['datosExtra', 'documentos.media', 'periodosLaborales.puesto', 'candidaturas.requisicion', 'media']);
 
         return Inertia::render('admin/rh/personas/show', [
             'persona' => $persona,
@@ -74,7 +78,7 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.editar');
 
-        $persona->load(['datosExtra', 'documentos']);
+        $persona->load(['datosExtra', 'documentos.media', 'media']);
 
         return Inertia::render('admin/rh/personas/edit', [
             'persona' => $persona,
@@ -88,15 +92,20 @@ class PersonaController extends Controller
         $persona->update($request->safe()->except('cv'));
 
         if ($request->hasFile('cv')) {
-            if ($persona->cv_ruta) {
-                Storage::disk('public')->delete($persona->cv_ruta);
+            if ($persona->media) {
+                Storage::disk('public')->delete($persona->media->path);
+                $persona->media->delete();
             }
 
-            $path = $request->file('cv')->store('rh/cv/'.$persona->id, 'public');
-            $persona->update([
-                'cv_ruta' => $path,
-                'cv_estado' => 'pendiente',
+            $file = $request->file('cv');
+            $persona->media()->create([
+                'descripcion' => 'cv',
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $file->store('rh/cv/'.$persona->id, 'public'),
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
             ]);
+            $persona->update(['cv_estado' => 'pendiente']);
         }
 
         if ($request->has('datos_extra')) {
@@ -137,12 +146,17 @@ class PersonaController extends Controller
         $file = $request->file('archivo');
         $path = $file->store('rh/personas/'.$persona->id, 'public');
 
+        $media = \App\Models\Media::create([
+            'descripcion' => 'persona_documento',
+            'nombre_original' => $file->getClientOriginalName(),
+            'path' => $path,
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
+        ]);
+
         $persona->documentos()->create([
+            'media_id' => $media->id,
             'tipo_documento' => $request->tipo_documento,
-            'nombre_archivo' => $file->getClientOriginalName(),
-            'ruta_archivo' => $path,
-            'extension' => $file->getClientOriginalExtension(),
-            'tamano' => $file->getSize(),
             'fecha_emision' => $request->fecha_emision,
             'fecha_vigencia' => $request->fecha_vigencia,
             'notas' => $request->notas,
@@ -155,8 +169,13 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.editar');
 
-        Storage::disk('public')->delete($documento->ruta_archivo);
+        $media = $documento->media;
         $documento->delete();
+
+        if ($media) {
+            Storage::disk('public')->delete($media->path);
+            $media->delete();
+        }
 
         return back();
     }

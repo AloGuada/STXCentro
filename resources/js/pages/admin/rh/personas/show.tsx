@@ -57,10 +57,10 @@ export default function PersonaShow({ persona }: Props) {
                             <div>
                                 <dt className="text-muted-foreground text-sm">CV</dt>
                                 <dd className="flex items-center gap-2">
-                                    {persona.cv_ruta ? (
+                                    {persona.media?.path ? (
                                         <>
-                                            <a href={`/storage/${persona.cv_ruta}`} target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                                                {persona.cv_ruta.split('/').pop()}
+                                            <a href={`/storage/${persona.media.path}`} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                                                {persona.media.nombre_original ?? persona.media.path.split('/').pop()}
                                             </a>
                                             {persona.cv_estado && (
                                                 <Badge variant={persona.cv_estado === 'procesado' ? 'default' : persona.cv_estado === 'error' ? 'destructive' : 'secondary'}>

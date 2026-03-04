@@ -41,7 +41,7 @@ class PagoController extends Controller
 
     public function show(Pago $pago): Response
     {
-        $pago->load(['pagable.proveedor', 'pagosParciales', 'pagoPadre']);
+        $pago->load(['pagable.proveedor', 'pagosParciales.media', 'pagoPadre', 'media']);
 
         return Inertia::render('admin/costos/pagos/show', [
             'pago' => $pago,
@@ -140,11 +140,19 @@ class PagoController extends Controller
             return back()->withErrors(['tipo_pago' => 'Este pago ya fue parcializado. Suba comprobantes por parcialidad.']);
         }
 
-        $path = $request->file('comprobante')->store('costos/pagos/comprobantes', 'public');
+        $file = $request->file('comprobante');
+        $path = $file->store('costos/pagos/comprobantes', 'public');
 
-        DB::transaction(function () use ($pago, $path, $request) {
+        DB::transaction(function () use ($pago, $file, $path, $request) {
+            $pago->media()->create([
+                'descripcion' => 'comprobante',
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $path,
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ]);
+
             $pago->update([
-                'ruta_comprobante' => $path,
                 'fecha_pago_realizada' => now(),
                 'notas' => $request->input('notas'),
                 'estatus' => 'pagado',

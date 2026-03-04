@@ -115,9 +115,9 @@ export default function PersonaEdit({ persona }: Props) {
                                     accept=".pdf,.doc,.docx"
                                     onChange={(e) => setData('cv', e.target.files?.[0] ?? null)}
                                 />
-                                {persona.cv_ruta && (
+                                {persona.media?.path && (
                                     <Button variant="outline" size="sm" asChild className="shrink-0">
-                                        <a href={`/storage/${persona.cv_ruta}`} target="_blank" rel="noopener noreferrer">
+                                        <a href={`/storage/${persona.media.path}`} target="_blank" rel="noopener noreferrer">
                                             <FileIcon className="size-4" />
                                             Ver CV
                                         </a>
@@ -168,12 +168,11 @@ export default function PersonaEdit({ persona }: Props) {
                                         <div className="flex items-center gap-3">
                                             <FileIcon className="text-muted-foreground size-5" />
                                             <div>
-                                                <a href={`/storage/${doc.ruta_archivo}`} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline">
-                                                    {doc.nombre_archivo}
+                                                <a href={`/storage/${doc.media?.path}`} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline">
+                                                    {doc.media?.nombre_original ?? 'Documento'}
                                                 </a>
                                                 <div className="flex items-center gap-2 text-sm">
                                                     <Badge variant="outline">{doc.tipo_documento}</Badge>
-                                                    {doc.extension && <Badge variant="secondary">{doc.extension}</Badge>}
                                                 </div>
                                             </div>
                                         </div>

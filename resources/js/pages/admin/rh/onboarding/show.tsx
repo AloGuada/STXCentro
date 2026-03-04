@@ -231,9 +231,9 @@ function TareaItem({ tarea, onboardingId, onToggle, onDelete }: {
                     <Badge variant={tarea.completada ? 'default' : 'secondary'}>
                         {tarea.completada ? 'Realizado' : 'Pendiente'}
                     </Badge>
-                    {tarea.evidencia_ruta ? (
+                    {tarea.media?.path ? (
                         <Button variant="outline" size="sm" asChild>
-                            <a href={`/storage/${tarea.evidencia_ruta}`} target="_blank" rel="noopener noreferrer">
+                            <a href={`/storage/${tarea.media.path}`} target="_blank" rel="noopener noreferrer">
                                 <FileIcon className="size-4" />
                                 Evidencia
                             </a>

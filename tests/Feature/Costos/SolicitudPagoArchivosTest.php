@@ -33,8 +33,10 @@ describe('admin costos solicitud archivos', function () {
         $this->assertDatabaseHas('costos_solicitud_archivos', [
             'solicitud_id' => $solicitud->id,
             'archivo_id' => $documento->id,
-            'nombre_original' => 'factura.pdf',
         ]);
+        $archivo = SolicitudArchivo::where('solicitud_id', $solicitud->id)->first();
+        expect($archivo->media)->not->toBeNull();
+        expect($archivo->media->nombre_original)->toBe('factura.pdf');
     });
 
     test('archivo can be deleted', function () {
@@ -48,11 +50,17 @@ describe('admin costos solicitud archivos', function () {
 
         Storage::disk('public')->put('costos/solicitudes/test.pdf', 'content');
 
+        $media = \App\Models\Media::create([
+            'descripcion' => 'archivo',
+            'nombre_original' => 'test.pdf',
+            'path' => 'costos/solicitudes/test.pdf',
+            'mime' => 'application/pdf',
+            'size' => 100,
+        ]);
         $archivo = SolicitudArchivo::create([
             'solicitud_id' => $solicitud->id,
             'archivo_id' => $documento->id,
-            'ruta_archivo' => 'costos/solicitudes/test.pdf',
-            'nombre_original' => 'test.pdf',
+            'media_id' => $media->id,
         ]);
 
         $response = $this->actingAs($this->user)

@@ -76,7 +76,7 @@ describe('admin costos pagos', function () {
 
         $pago->refresh();
         expect($pago->estatus)->toBe('pagado');
-        expect($pago->ruta_comprobante)->not->toBeNull();
+        expect($pago->media)->not->toBeNull();
         expect($pago->fecha_pago_realizada)->not->toBeNull();
 
         $solicitud->refresh();

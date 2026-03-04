@@ -16,6 +16,7 @@ use App\Models\Sti\TicketComentario;
 use App\Models\Sti\TicketHistorial;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -23,17 +24,39 @@ class TicketController extends Controller
 {
     public function index(Request $request): Response
     {
+        $driver = DB::connection()->getDriverName();
+
+        $periodExpr = match ($driver) {
+            'pgsql' => "TO_CHAR(created_at, 'YYYY-MM')",
+            'sqlite' => "strftime('%Y-%m', created_at)",
+            default => "DATE_FORMAT(created_at, '%Y-%m')",
+        };
+
         $tickets = Ticket::query()
             ->with(['tecnico', 'equipo', 'departamento', 'historial.status'])
             ->when($request->search, fn ($q, $s) => $q->where('nombre_solicitante', 'like', "%{$s}%")
                 ->orWhere('comentario', 'like', "%{$s}%"))
+            ->when($request->tecnico_id, fn ($q, $id) => $q->where('tecnico_id', $id))
+            ->when($request->departamento_id, fn ($q, $id) => $q->where('departamento_id', $id))
+            ->when($request->calificacion, fn ($q, $c) => $q->where('calificacion', $c))
+            ->when($request->periodo, fn ($q, $p) => $q->whereRaw("{$periodExpr} = ?", [$p]))
+            ->when($request->estado, function ($q, $estado) {
+                return match ($estado) {
+                    'sin_asignar' => $q->whereNull('tecnico_id')->whereNull('firma_completado'),
+                    'en_proceso' => $q->whereNotNull('tecnico_id')->whereNull('firma_completado'),
+                    'completados' => $q->whereNotNull('firma_completado'),
+                    default => $q,
+                };
+            })
             ->orderBy('created_at', 'desc')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('admin/sti/tickets/index', [
             'tickets' => $tickets,
-            'filters' => $request->only('search'),
+            'filters' => $request->only('search', 'tecnico_id', 'departamento_id', 'calificacion', 'estado', 'periodo'),
+            'tecnicos' => Tecnico::where('activo', true)->orderBy('descripcion')->get(['id', 'descripcion']),
+            'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
         ]);
     }
 

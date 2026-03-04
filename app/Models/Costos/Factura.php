@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Facades\DB;
 
@@ -29,8 +30,6 @@ class Factura extends Model
         'proveedor_id',
         'uuid_fiscal',
         'folio_fiscal',
-        'ruta_xml',
-        'ruta_pdf',
         'subtotal',
         'iva',
         'total',
@@ -79,6 +78,21 @@ class Factura extends Model
                 $factura->folio = sprintf('%s%02d', $prefix, $next);
             }
         });
+    }
+
+    public function media(): MorphMany
+    {
+        return $this->morphMany(\App\Models\Media::class, 'mediable');
+    }
+
+    public function mediaXml(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'xml');
+    }
+
+    public function mediaPdf(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'pdf');
     }
 
     public function ordenCompra(): BelongsTo

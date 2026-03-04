@@ -39,7 +39,6 @@ class SolicitudPago extends Model
         'fecha_pago_solicitada',
         'fecha_pago_realizada',
         'referencia_pago',
-        'comprobante_aprobacion_presupuesto',
         'estatus',
         'afectacion_id',
     ];
@@ -72,6 +71,11 @@ class SolicitudPago extends Model
                 $solicitud->folio = sprintf('%s%02d', $prefix, $next);
             }
         });
+    }
+
+    public function media(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable');
     }
 
     public function solicitante(): BelongsTo

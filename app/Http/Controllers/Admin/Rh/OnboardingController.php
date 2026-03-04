@@ -18,7 +18,7 @@ class OnboardingController extends Controller
     {
         $this->authorize('rh.onboarding.ver');
 
-        $onboarding->load(['periodo.persona', 'periodo.puesto', 'tareas.responsable.persona']);
+        $onboarding->load(['periodo.persona', 'periodo.puesto', 'tareas.responsable.persona', 'tareas.media']);
 
         $periodosActivos = PeriodoLaboral::query()
             ->where('estado', 'activo')
@@ -74,12 +74,19 @@ class OnboardingController extends Controller
             'evidencia' => ['required', 'file', 'max:10240'],
         ]);
 
-        if ($tarea->evidencia_ruta) {
-            Storage::disk('public')->delete($tarea->evidencia_ruta);
+        if ($tarea->media) {
+            Storage::disk('public')->delete($tarea->media->path);
+            $tarea->media->delete();
         }
 
-        $path = $request->file('evidencia')->store('rh/onboarding/'.$onboarding->id, 'public');
-        $tarea->update(['evidencia_ruta' => $path]);
+        $file = $request->file('evidencia');
+        $tarea->media()->create([
+            'descripcion' => 'evidencia',
+            'nombre_original' => $file->getClientOriginalName(),
+            'path' => $file->store('rh/onboarding/'.$onboarding->id, 'public'),
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
+        ]);
 
         return back();
     }
@@ -88,8 +95,9 @@ class OnboardingController extends Controller
     {
         $this->authorize('rh.onboarding.editar');
 
-        if ($tarea->evidencia_ruta) {
-            Storage::disk('public')->delete($tarea->evidencia_ruta);
+        if ($tarea->media) {
+            Storage::disk('public')->delete($tarea->media->path);
+            $tarea->media->delete();
         }
 
         $tarea->delete();

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Persona extends Model
 {
@@ -21,7 +22,6 @@ class Persona extends Model
         'email',
         'telefono',
         'fecha_nacimiento',
-        'cv_ruta',
         'cv_estado',
         'cv_procesado_at',
         'error_procesamiento',
@@ -36,6 +36,11 @@ class Persona extends Model
             'cv_procesado_at' => 'datetime',
             'reintentos' => 'integer',
         ];
+    }
+
+    public function media(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable');
     }
 
     public function getNombreCompletoAttribute(): string

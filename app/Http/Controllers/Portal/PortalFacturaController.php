@@ -44,24 +44,11 @@ class PortalFacturaController extends Controller
 
         abort_if($oc->proveedor_id !== $proveedor->id, 403);
 
-        $rutaXml = null;
-        $rutaPdf = null;
-
-        if ($request->hasFile('xml')) {
-            $rutaXml = $request->file('xml')->store("facturas/{$proveedor->id}", 'local');
-        }
-
-        if ($request->hasFile('pdf')) {
-            $rutaPdf = $request->file('pdf')->store("facturas/{$proveedor->id}", 'local');
-        }
-
-        Factura::create([
+        $factura = Factura::create([
             'orden_compra_id' => $oc->id,
             'proveedor_id' => $proveedor->id,
             'uuid_fiscal' => $validated['uuid_fiscal'] ?? null,
             'folio_fiscal' => $validated['folio_fiscal'] ?? null,
-            'ruta_xml' => $rutaXml,
-            'ruta_pdf' => $rutaPdf,
             'subtotal' => $validated['total'],
             'iva' => 0,
             'total' => $validated['total'],
@@ -69,6 +56,28 @@ class PortalFacturaController extends Controller
             'fecha_factura' => $validated['fecha_factura'] ?? null,
             'notas' => $validated['notas'] ?? null,
         ]);
+
+        if ($request->hasFile('xml')) {
+            $file = $request->file('xml');
+            $factura->media()->create([
+                'descripcion' => 'xml',
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $file->store("facturas/{$proveedor->id}", 'public'),
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ]);
+        }
+
+        if ($request->hasFile('pdf')) {
+            $file = $request->file('pdf');
+            $factura->media()->create([
+                'descripcion' => 'pdf',
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $file->store("facturas/{$proveedor->id}", 'public'),
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ]);
+        }
 
         $oc->recalcularEstatus();
 

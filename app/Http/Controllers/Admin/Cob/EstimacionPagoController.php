@@ -26,11 +26,18 @@ class EstimacionPagoController extends Controller
 
             $data = $request->safe()->except('comprobante');
 
-            if ($request->hasFile('comprobante')) {
-                $data['comprobante'] = $request->file('comprobante')->store("cob/obras/{$estimacion->obra_id}/pagos", 'public');
-            }
+            $pago = $estimacion->pagos()->create($data);
 
-            $estimacion->pagos()->create($data);
+            if ($request->hasFile('comprobante')) {
+                $file = $request->file('comprobante');
+                $pago->media()->create([
+                    'descripcion' => 'comprobante',
+                    'nombre_original' => $file->getClientOriginalName(),
+                    'path' => $file->store("cob/obras/{$estimacion->obra_id}/pagos", 'public'),
+                    'mime' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                ]);
+            }
 
             $nuevoEstado = $estimacion->estado;
             if ($totalPagado >= $montoEstimado) {

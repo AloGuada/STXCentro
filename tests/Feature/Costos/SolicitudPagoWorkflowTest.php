@@ -79,7 +79,7 @@ describe('admin costos solicitud pago workflow', function () {
 
         $solicitud->refresh();
         expect($solicitud->estatus)->toBe('aprobada');
-        expect($solicitud->comprobante_aprobacion_presupuesto)->not->toBeNull();
+        expect($solicitud->media)->not->toBeNull();
     });
 
     test('upload firmado applies budget impact', function () {

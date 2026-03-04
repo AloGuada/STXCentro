@@ -58,27 +58,25 @@ class DocumentoController extends Controller
 
     public function store(DocumentoStoreRequest $request): RedirectResponse
     {
-        $file = $request->file('file');
-        $path = $file->store('intra/documentos', 'public');
-
-        $media = Media::create([
-            'descripcion' => $request->descripcion,
-            'path' => $path,
-            'mime' => $file->getMimeType(),
-            'size' => $file->getSize(),
-        ]);
-
         // Get order from tipo enum
         $tipo = TipoDocumento::from($request->tipo);
 
-        Documento::create([
+        $documento = Documento::create([
             'area_id' => $request->area_id,
-            'media_id' => $media->id,
             'descripcion' => $request->descripcion,
             'codigo' => $request->codigo,
             'tipo' => $request->tipo,
             'order' => $tipo->order(),
             'activo' => $request->boolean('activo', true),
+        ]);
+
+        $file = $request->file('file');
+        $documento->media()->create([
+            'descripcion' => $request->descripcion,
+            'nombre_original' => $file->getClientOriginalName(),
+            'path' => $file->store('intra/documentos', 'public'),
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
         ]);
 
         return to_route('admin.intra.documentos.index');

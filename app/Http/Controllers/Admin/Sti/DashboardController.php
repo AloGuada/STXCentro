@@ -44,6 +44,7 @@ class DashboardController extends Controller
             ->get()
             ->filter(fn ($t) => $t->total > 0)
             ->map(fn ($t) => [
+                'tecnico_id' => $t->id,
                 'tecnico' => $t->descripcion,
                 'total' => $t->total,
                 'completados' => $t->completados,
@@ -70,6 +71,7 @@ class DashboardController extends Controller
             ->orderByDesc('total')
             ->get()
             ->map(fn ($r) => [
+                'departamento_id' => $r->departamento_id,
                 'departamento' => $r->departamento?->descripcion ?? 'Sin departamento',
                 'total' => $r->total,
             ]);
@@ -97,6 +99,7 @@ class DashboardController extends Controller
             ->orderByDesc('promedio')
             ->get()
             ->map(fn ($r) => [
+                'departamento_id' => $r->departamento_id,
                 'departamento' => $r->departamento?->descripcion ?? 'Sin departamento',
                 'promedio' => (float) $r->promedio,
                 'total' => $r->total,
@@ -111,6 +114,7 @@ class DashboardController extends Controller
             ->groupBy('tecnico_id')
             ->get()
             ->map(fn ($r) => [
+                'tecnico_id' => $r->tecnico_id,
                 'tecnico' => $r->tecnico?->descripcion ?? 'Desconocido',
                 'promedio' => (float) $r->promedio,
                 'total' => $r->total,

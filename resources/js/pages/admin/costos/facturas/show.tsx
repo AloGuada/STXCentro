@@ -146,8 +146,8 @@ export default function FacturasShow({ factura }: Props) {
                                     {e.observaciones && (
                                         <p className="text-sm text-base-content/60 mt-1">{e.observaciones}</p>
                                     )}
-                                    {e.archivo_path && (
-                                        <a href={`/storage/${e.archivo_path}`} target="_blank" rel="noopener noreferrer" className="link link-primary text-sm inline-flex items-center gap-1 mt-1">
+                                    {e.media?.path && (
+                                        <a href={`/storage/${e.media.path}`} target="_blank" rel="noopener noreferrer" className="link link-primary text-sm inline-flex items-center gap-1 mt-1">
                                             <FileIcon className="size-3" /> Ver documento
                                         </a>
                                     )}
