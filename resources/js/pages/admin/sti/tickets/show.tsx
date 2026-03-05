@@ -79,11 +79,17 @@ export default function TicketsShow({ ticket }: Props) {
                                 <ul className="space-y-4">
                                     {ticket.historial.map((item, index) => (
                                         <li key={item.id} className="relative pl-10">
-                                            <div className="absolute left-2.5 top-1.5 w-3 h-3 rounded-full bg-primary border-2 border-white" />
+                                            <div
+                                                className="absolute left-2.5 top-1.5 w-3 h-3 rounded-full border-2 border-white"
+                                                style={{ backgroundColor: item.status?.color ?? undefined }}
+                                            />
                                             <div className="flex items-center gap-2">
-                                                <Badge variant={index === 0 ? 'primary' : 'secondary'}>
+                                                <span
+                                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${index !== 0 ? 'opacity-60' : ''}`}
+                                                    style={{ backgroundColor: item.status?.color ?? '#6b7280' }}
+                                                >
                                                     {item.status?.descripcion}
-                                                </Badge>
+                                                </span>
                                                 <span className="text-sm text-gray-500">
                                                     {new Date(item.created_at).toLocaleDateString('es-MX', {
                                                         year: 'numeric',

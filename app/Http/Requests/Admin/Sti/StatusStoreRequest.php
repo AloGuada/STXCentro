@@ -20,6 +20,7 @@ class StatusStoreRequest extends FormRequest
             'descripcion' => ['required', 'string', 'max:255'],
             'orden' => ['nullable', 'integer', 'min:0'],
             'detiene_tiempo' => ['boolean'],
+            'color' => ['required', 'string', 'max:7'],
         ];
     }
 

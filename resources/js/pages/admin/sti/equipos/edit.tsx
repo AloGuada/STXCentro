@@ -248,7 +248,12 @@ export default function EquiposEdit({ equipo, itemsDisponibles, tecnicos }: Prop
                                                     </td>
                                                     <td>{ticket.nombre_solicitante}</td>
                                                     <td>
-                                                        <span className="badge badge-sm">{currentStatus?.descripcion ?? 'Sin estado'}</span>
+                                                        <span
+                                                            className="badge badge-sm text-white"
+                                                            style={currentStatus?.color ? { backgroundColor: currentStatus.color } : undefined}
+                                                        >
+                                                            {currentStatus?.descripcion ?? 'Sin estado'}
+                                                        </span>
                                                     </td>
                                                     <td className="text-right font-mono">
                                                         ${totalCostos.toLocaleString('es-MX', { minimumFractionDigits: 2 })}

@@ -2,6 +2,13 @@ import { cn } from '@/lib/utils';
 import type { StiMantenimiento } from '@/types/models';
 import { useMemo } from 'react';
 
+type EquipoInfo = {
+    id: number;
+    descripcion: string;
+    asignado_a: string;
+    departamento: string;
+};
+
 type GanttChartProps = {
     mantenimientos: StiMantenimiento[];
     mes: string; // formato YYYY-MM
@@ -14,12 +21,18 @@ export function GanttChart({ mantenimientos, mes, onItemClick }: GanttChartProps
         const days = new Date(y, m, 0).getDate();
 
         // Agrupar por equipo
-        const equipoMap = new Map<number, { id: number; descripcion: string }>();
+        const equipoMap = new Map<number, EquipoInfo>();
         const mantMap = new Map<number, StiMantenimiento[]>();
 
         mantenimientos.forEach((m) => {
             if (m.equipo) {
-                equipoMap.set(m.equipo.id, { id: m.equipo.id, descripcion: m.equipo.descripcion });
+                const asignacion = m.equipo.asignaciones?.[0];
+                equipoMap.set(m.equipo.id, {
+                    id: m.equipo.id,
+                    descripcion: m.equipo.descripcion,
+                    asignado_a: asignacion?.empleado ?? '-',
+                    departamento: asignacion?.departamento?.descripcion ?? '-',
+                });
                 const list = mantMap.get(m.equipo.id) || [];
                 list.push(m);
                 mantMap.set(m.equipo.id, list);
@@ -51,6 +64,8 @@ export function GanttChart({ mantenimientos, mes, onItemClick }: GanttChartProps
                 {/* Header con días */}
                 <div className="flex border-b bg-gray-50 dark:bg-gray-800">
                     <div className="w-48 flex-shrink-0 border-r p-2 font-medium">Equipo</div>
+                    <div className="w-36 flex-shrink-0 border-r p-2 text-sm font-medium">Asignado a</div>
+                    <div className="w-32 flex-shrink-0 border-r p-2 text-sm font-medium">Departamento</div>
                     <div className="flex">
                         {days.map((day) => {
                             const date = new Date(year, month - 1, day);
@@ -79,6 +94,8 @@ export function GanttChart({ mantenimientos, mes, onItemClick }: GanttChartProps
                             <div className="w-48 flex-shrink-0 border-r p-2 text-sm">
                                 <span className="truncate">{equipo.descripcion}</span>
                             </div>
+                            <div className="w-36 flex-shrink-0 border-r p-2 text-xs">{equipo.asignado_a}</div>
+                            <div className="w-32 flex-shrink-0 border-r p-2 text-xs">{equipo.departamento}</div>
                             <div className="relative flex h-10">
                                 {days.map((day) => {
                                     const date = new Date(year, month - 1, day);

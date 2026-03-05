@@ -80,7 +80,10 @@ export default function TicketShow({ ticket }: Props) {
                                     })}
                                 </p>
                             </div>
-                            <span className={`badge gap-1 ${isCompleted ? 'badge-success' : 'badge-info'}`}>
+                            <span
+                                className="badge gap-1 text-white"
+                                style={currentStatus?.color ? { backgroundColor: currentStatus.color } : undefined}
+                            >
                                 {isCompleted ? <CheckCircleIcon className="size-3" /> : <ClockIcon className="size-3" />}
                                 {currentStatus?.descripcion ?? 'Pendiente'}
                             </span>
@@ -228,12 +231,9 @@ export default function TicketShow({ ticket }: Props) {
                                                         {/* Timeline dot */}
                                                         <div
                                                             className={`absolute left-2 top-1 flex size-5 -translate-x-1/2 items-center justify-center rounded-full ${
-                                                                isFirst
-                                                                    ? statusCompleted
-                                                                        ? 'bg-success'
-                                                                        : 'bg-primary'
-                                                                    : 'bg-gray-300 dark:bg-gray-500'
+                                                                !h.status?.color && !isFirst ? 'bg-gray-300 dark:bg-gray-500' : ''
                                                             }`}
+                                                            style={h.status?.color ? { backgroundColor: h.status.color, opacity: isFirst ? 1 : 0.5 } : undefined}
                                                         >
                                                             {statusCompleted ? (
                                                                 <CheckCircleIcon className="size-3 text-white" />

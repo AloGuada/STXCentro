@@ -65,7 +65,10 @@ export default function TicketsPendientes({ tickets }: Props) {
                                                     <td>{ticket.nombre_solicitante}</td>
                                                     <td>{ticket.departamento?.descripcion}</td>
                                                     <td>
-                                                        <span className="badge badge-info gap-1">
+                                                        <span
+                                                            className="badge gap-1 text-white"
+                                                            style={currentStatus?.color ? { backgroundColor: currentStatus.color } : undefined}
+                                                        >
                                                             <ClockIcon className="size-3" />
                                                             {currentStatus?.descripcion ?? 'Pendiente'}
                                                         </span>

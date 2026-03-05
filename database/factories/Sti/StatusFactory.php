@@ -21,6 +21,7 @@ class StatusFactory extends Factory
             'descripcion' => fake()->word(),
             'orden' => fake()->numberBetween(1, 10),
             'detiene_tiempo' => fake()->boolean(20),
+            'color' => fake()->hexColor(),
         ];
     }
 

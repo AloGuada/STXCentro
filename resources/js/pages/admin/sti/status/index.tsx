@@ -12,7 +12,16 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const columns: Column<StiStatus>[] = [
-    { key: 'descripcion', label: 'Descripción' },
+    {
+        key: 'descripcion',
+        label: 'Descripción',
+        render: (status) => (
+            <div className="flex items-center gap-2">
+                <span className="inline-block size-3 shrink-0 rounded-full" style={{ backgroundColor: status.color }} />
+                {status.descripcion}
+            </div>
+        ),
+    },
     { key: 'orden', label: 'Orden' },
     {
         key: 'detiene_tiempo',

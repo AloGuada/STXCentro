@@ -331,7 +331,7 @@ class MantenimientoController extends Controller
         $mes = $request->input('mes', now()->format('Y-m'));
 
         $mantenimientos = Mantenimiento::query()
-            ->with(['equipo', 'tecnico'])
+            ->with(['equipo.asignaciones' => fn ($q) => $q->where('estado', 'activo')->select('id', 'equipo_id', 'empleado', 'departamento_id')->with('departamento:id,descripcion'), 'tecnico'])
             ->whereYear('fecha_programada', substr($mes, 0, 4))
             ->whereMonth('fecha_programada', substr($mes, 5, 2))
             ->when($request->equipo_id, fn ($q, $id) => $q->where('equipo_id', $id))

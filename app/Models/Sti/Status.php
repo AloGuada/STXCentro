@@ -20,6 +20,7 @@ class Status extends Model
         'descripcion',
         'orden',
         'detiene_tiempo',
+        'color',
     ];
 
     /**

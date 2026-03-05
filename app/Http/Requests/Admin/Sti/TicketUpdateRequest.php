@@ -28,6 +28,10 @@ class TicketUpdateRequest extends FormRequest
             'calificacion' => ['nullable', 'integer', 'min:1', 'max:5'],
         ];
 
+        if ($this->isStatusChanging()) {
+            $rules['tecnico_id'] = ['required', 'integer', 'exists:sti_tecnicos,id'];
+        }
+
         if ($this->isStatusCompletado()) {
             $ticket = $this->route('ticket');
 
@@ -51,9 +55,22 @@ class TicketUpdateRequest extends FormRequest
             'comentario.required' => 'El comentario es obligatorio.',
             'departamento_id.required' => 'El departamento es obligatorio.',
             'departamento_id.exists' => 'El departamento seleccionado no existe.',
+            'tecnico_id.required' => 'Debes asignar un técnico antes de cambiar el estado.',
             'calificacion.required' => 'La calificación es obligatoria cuando el estado es Completado.',
             'firma_completado.required' => 'La firma es obligatoria cuando el estado es Completado.',
         ];
+    }
+
+    private function isStatusChanging(): bool
+    {
+        if (! $this->status_id) {
+            return false;
+        }
+
+        $ticket = $this->route('ticket');
+        $currentStatusId = $ticket?->historial()->latest()->value('status_id');
+
+        return (int) $this->status_id !== (int) $currentStatusId;
     }
 
     private function isStatusCompletado(): bool

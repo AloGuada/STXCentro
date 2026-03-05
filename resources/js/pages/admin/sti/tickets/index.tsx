@@ -43,8 +43,12 @@ const columns: Column<TicketWithHistorial>[] = [
         render: (ticket) => {
             const currentStatus = ticket.historial?.[0]?.status;
             const isCompleted = currentStatus && currentStatus.orden >= 8;
+            const color = currentStatus?.color;
             return (
-                <span className={`badge gap-1 ${isCompleted ? 'badge-success' : 'badge-info'}`}>
+                <span
+                    className="badge gap-1 text-white"
+                    style={color ? { backgroundColor: color } : undefined}
+                >
                     {isCompleted ? <CheckCircleIcon className="size-3" /> : <ClockIcon className="size-3" />}
                     {currentStatus?.descripcion ?? 'Sin estado'}
                 </span>

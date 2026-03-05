@@ -10,8 +10,11 @@ use App\Models\Rh\PeriodoLaboral;
 use App\Models\Rh\Persona;
 use App\Models\Rh\Puesto;
 use App\Models\Rh\Requisicion;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -63,13 +66,23 @@ class PeriodoLaboralController extends Controller
     {
         $this->authorize('rh.periodos-laborales.editar');
 
-        $periodoLaboral->load(['persona', 'puesto', 'onboarding', 'requisicion']);
+        $periodoLaboral->load(['persona', 'puesto', 'onboarding.tareas.responsable.persona', 'onboarding.tareas.media', 'requisicion']);
+
+        $periodosActivos = PeriodoLaboral::query()
+            ->where('estado', 'activo')
+            ->with('persona')
+            ->get()
+            ->map(fn (PeriodoLaboral $p) => [
+                'id' => $p->id,
+                'nombre' => $p->persona->nombre.' '.$p->persona->apellido,
+            ]);
 
         return Inertia::render('admin/rh/periodos-laborales/edit', [
             'periodo' => $periodoLaboral,
             'personas' => Persona::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
             'puestos' => Puesto::orderBy('nombre')->get(['id', 'nombre']),
             'requisiciones' => Requisicion::orderByDesc('fecha_creacion')->get(['id', 'folio', 'puesto_id']),
+            'periodosActivos' => $periodosActivos,
         ]);
     }
 
@@ -101,6 +114,63 @@ class PeriodoLaboralController extends Controller
         ]);
 
         return back();
+    }
+
+    public function generarContratoPdf(PeriodoLaboral $periodoLaboral): HttpResponse
+    {
+        $this->authorize('rh.periodos-laborales.ver');
+
+        $periodoLaboral->load(['persona.datosExtra', 'puesto.departamento']);
+
+        $persona = $periodoLaboral->persona;
+        $extras = $persona->datosExtra;
+        $curp = $extras->curp ?? '';
+
+        $fechaInicio = $periodoLaboral->fecha_inicio
+            ? Carbon::parse($periodoLaboral->fecha_inicio)
+            : now();
+
+        $fechaIngreso = $fechaInicio->format('d/m/Y');
+
+        $fechaIngresoLarga = mb_strtoupper(
+            $fechaInicio->translatedFormat('d \d\e F \d\e Y')
+        );
+
+        $fechaVencimiento = mb_strtoupper(
+            $fechaInicio->copy()->addDays(91)->translatedFormat('d \d\e F \d\e Y')
+        );
+
+        $sexo = mb_strlen($curp) > 10 ? mb_strtoupper(mb_substr($curp, 10, 1)) : '';
+        $lugarNacimiento = mb_strlen($curp) > 12 ? mb_strtoupper(mb_substr($curp, 11, 2)) : '';
+
+        $fechaNacimiento = $persona->fecha_nacimiento
+            ? Carbon::parse($persona->fecha_nacimiento)->format('d/m/Y')
+            : '';
+
+        $edad = $persona->fecha_nacimiento
+            ? Carbon::parse($persona->fecha_nacimiento)->age
+            : '';
+
+        $pdf = Pdf::loadView('pdf.rh.contrato-laboral', [
+            'periodo' => $periodoLaboral,
+            'persona' => $persona,
+            'extras' => $extras,
+            'puesto' => $periodoLaboral->puesto?->nombre ?? '',
+            'departamento' => $periodoLaboral->puesto?->departamento?->nombre ?? '',
+            'salario' => $periodoLaboral->salario ? number_format((float) $periodoLaboral->salario, 2) : '',
+            'fechaIngreso' => $fechaIngreso,
+            'fechaIngresoLarga' => $fechaIngresoLarga,
+            'fechaVencimiento' => $fechaVencimiento,
+            'fechaNacimiento' => $fechaNacimiento,
+            'sexo' => $sexo,
+            'lugarNacimiento' => $lugarNacimiento,
+            'edad' => $edad,
+            'tipoContrato' => $periodoLaboral->tipo_contrato ?? '',
+        ])->setPaper('letter', 'portrait');
+
+        $filename = 'contrato-'.$persona->nombre.'-'.$persona->apellido.'.pdf';
+
+        return $pdf->download($filename);
     }
 
     public function crearOnboarding(PeriodoLaboral $periodoLaboral): RedirectResponse

@@ -4,6 +4,12 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { RhPersona } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
+import { ExternalLinkIcon } from 'lucide-react';
+
+function formatDate(date: string | null): string {
+    if (!date) return '-';
+    return new Date(date + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
 
 type Props = {
     persona: RhPersona;
@@ -52,16 +58,19 @@ export default function PersonaShow({ persona }: Props) {
                             </div>
                             <div>
                                 <dt className="text-muted-foreground text-sm">Fecha de Nacimiento</dt>
-                                <dd>{persona.fecha_nacimiento ?? '-'}</dd>
+                                <dd>{formatDate(persona.fecha_nacimiento)}</dd>
                             </div>
                             <div>
                                 <dt className="text-muted-foreground text-sm">CV</dt>
                                 <dd className="flex items-center gap-2">
                                     {persona.media?.path ? (
                                         <>
-                                            <a href={`/storage/${persona.media.path}`} target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                                                {persona.media.nombre_original ?? persona.media.path.split('/').pop()}
-                                            </a>
+                                            <Button variant="outline" size="sm" asChild>
+                                                <a href={`/storage/${persona.media.path}`} target="_blank" rel="noopener noreferrer">
+                                                    <ExternalLinkIcon className="size-4" />
+                                                    {persona.media.nombre_original ?? 'Ver CV'}
+                                                </a>
+                                            </Button>
                                             {persona.cv_estado && (
                                                 <Badge variant={persona.cv_estado === 'procesado' ? 'default' : persona.cv_estado === 'error' ? 'destructive' : 'secondary'}>
                                                     {persona.cv_estado}
@@ -133,14 +142,24 @@ export default function PersonaShow({ persona }: Props) {
                                 {(persona.documentos ?? []).map((doc) => (
                                     <li key={doc.id} className="flex items-center justify-between rounded border px-3 py-2">
                                         <div>
-                                            <span className="font-medium">{doc.nombre_archivo}</span>
-                                            <span className="text-muted-foreground ml-2 text-sm">{doc.tipo_documento}</span>
+                                            <span className="font-medium">{doc.tipo_documento}</span>
+                                            {doc.notas && <span className="text-muted-foreground ml-2 text-sm">{doc.notas}</span>}
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            {doc.fecha_vigencia && (
-                                                <span className="text-muted-foreground text-sm">Vigencia: {doc.fecha_vigencia}</span>
+                                            {doc.fecha_emision && (
+                                                <span className="text-muted-foreground text-sm">Emision: {formatDate(doc.fecha_emision)}</span>
                                             )}
-                                            {doc.extension && <Badge variant="outline">{doc.extension}</Badge>}
+                                            {doc.fecha_vigencia && (
+                                                <span className="text-muted-foreground text-sm">Vigencia: {formatDate(doc.fecha_vigencia)}</span>
+                                            )}
+                                            {doc.media?.path && (
+                                                <Button variant="outline" size="sm" asChild>
+                                                    <a href={`/storage/${doc.media.path}`} target="_blank" rel="noopener noreferrer">
+                                                        <ExternalLinkIcon className="size-4" />
+                                                        Ver
+                                                    </a>
+                                                </Button>
+                                            )}
                                         </div>
                                     </li>
                                 ))}
@@ -160,7 +179,7 @@ export default function PersonaShow({ persona }: Props) {
                                         <div>
                                             <span className="font-medium">{periodo.puesto?.nombre ?? 'Puesto'}</span>
                                             <span className="text-muted-foreground ml-2 text-sm">
-                                                {periodo.fecha_inicio} - {periodo.fecha_fin ?? 'Actual'}
+                                                {formatDate(periodo.fecha_inicio)} - {periodo.fecha_fin ? formatDate(periodo.fecha_fin) : 'Actual'}
                                             </span>
                                         </div>
                                         <Badge variant={periodo.estado === 'activo' ? 'default' : periodo.estado === 'terminado' ? 'secondary' : 'destructive'}>

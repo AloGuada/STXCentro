@@ -277,7 +277,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('mantenimientos/generar', [StiMantenimientoController::class, 'generar'])->name('mantenimientos.generar');
         Route::get('mantenimientos-gantt', [StiMantenimientoController::class, 'gantt'])->name('mantenimientos.gantt');
 
-        Route::resource('mantenimientos', StiMantenimientoController::class);
+        Route::resource('mantenimientos', StiMantenimientoController::class)->except(['show']);
         Route::resource('asignacion-activos', StiAsignacionActivoController::class);
         Route::get('asignacion-activos/{asignacion_activo}/pdf', [StiAsignacionActivoController::class, 'generarPdf'])->name('asignacion-activos.pdf');
         Route::post('asignacion-activos/{asignacion_activo}/media', [StiAsignacionActivoController::class, 'storeMedia'])->name('asignacion-activos.media.store');
@@ -341,6 +341,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('periodos-laborales', RhPeriodoLaboralController::class)->parameters(['periodos-laborales' => 'periodoLaboral']);
         Route::post('periodos-laborales/{periodoLaboral}/terminar', [RhPeriodoLaboralController::class, 'terminar'])->name('periodos-laborales.terminar');
         Route::post('periodos-laborales/{periodoLaboral}/onboarding', [RhPeriodoLaboralController::class, 'crearOnboarding'])->name('periodos-laborales.onboarding');
+        Route::get('periodos-laborales/{periodoLaboral}/contrato-pdf', [RhPeriodoLaboralController::class, 'generarContratoPdf'])->name('periodos-laborales.contrato-pdf');
 
         // Requisiciones
         Route::resource('requisiciones', RhRequisicionController::class)->parameters(['requisiciones' => 'requisicion']);

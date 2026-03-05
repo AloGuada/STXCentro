@@ -229,6 +229,7 @@ export type StiStatus = {
     descripcion: string;
     orden: number;
     detiene_tiempo: boolean;
+    color: string;
     created_at: string;
     updated_at: string;
 };

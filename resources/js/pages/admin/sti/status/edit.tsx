@@ -26,6 +26,7 @@ export default function StatusEdit({ status }: Props) {
         descripcion: status.descripcion,
         orden: status.orden,
         detiene_tiempo: status.detiene_tiempo,
+        color: status.color ?? '#3b82f6',
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -67,6 +68,28 @@ export default function StatusEdit({ status }: Props) {
                                 onChange={(e) => setData('orden', parseInt(e.target.value) || 0)}
                                 placeholder="Orden de visualizacion"
                             />
+                        </FormField>
+
+                        <FormField label="Color" htmlFor="color" error={errors.color}>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    id="color"
+                                    type="color"
+                                    value={data.color}
+                                    onChange={(e) => setData('color', e.target.value)}
+                                    className="h-10 w-14 cursor-pointer rounded border p-1"
+                                />
+                                <Input
+                                    value={data.color}
+                                    onChange={(e) => setData('color', e.target.value)}
+                                    placeholder="#3b82f6"
+                                    className="w-28"
+                                    maxLength={7}
+                                />
+                                <span className="rounded-full px-3 py-1 text-xs font-medium text-white" style={{ backgroundColor: data.color }}>
+                                    {data.descripcion || 'Vista previa'}
+                                </span>
+                            </div>
                         </FormField>
 
                         <FormField label="" htmlFor="detiene_tiempo" error={errors.detiene_tiempo}>

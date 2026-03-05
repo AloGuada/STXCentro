@@ -13,7 +13,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'STI', href: '/admin/sti/equipos' },
     { title: 'Mantenimientos', href: '/admin/sti/mantenimientos' },
-    { title: 'Vista Gantt', href: '/admin/sti/mantenimientos/gantt' },
+    { title: 'Vista Gantt', href: '/admin/sti/mantenimientos-gantt' },
 ];
 
 type Props = {
@@ -32,7 +32,7 @@ export default function MantenimientosGantt({ mantenimientos, equipos, tecnicos,
 
     const handleFilterChange = (key: string, value: string) => {
         router.get(
-            '/admin/sti/mantenimientos/gantt',
+            '/admin/sti/mantenimientos-gantt',
             { ...filters, [key]: value || undefined },
             { preserveState: true, preserveScroll: true }
         );
