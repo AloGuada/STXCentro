@@ -249,8 +249,8 @@ export default function EquiposEdit({ equipo, itemsDisponibles, tecnicos }: Prop
                                                     <td>{ticket.nombre_solicitante}</td>
                                                     <td>
                                                         <span
-                                                            className="badge badge-sm text-white"
-                                                            style={currentStatus?.color ? { backgroundColor: currentStatus.color } : undefined}
+                                                            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                                                            style={{ backgroundColor: currentStatus?.color ?? '#6b7280' }}
                                                         >
                                                             {currentStatus?.descripcion ?? 'Sin estado'}
                                                         </span>

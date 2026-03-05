@@ -49,7 +49,8 @@ export default function MantenimientosGantt({ mantenimientos, equipos, tecnicos,
         router.visit(`/admin/sti/mantenimientos/${id}/edit`);
     };
 
-    const monthName = new Date(currentMonth + '-01').toLocaleDateString('es-MX', {
+    const [y, m] = currentMonth.split('-').map(Number);
+    const monthName = new Date(y, m - 1, 1).toLocaleDateString('es-MX', {
         month: 'long',
         year: 'numeric',
     });

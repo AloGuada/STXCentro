@@ -46,8 +46,8 @@ const columns: Column<TicketWithHistorial>[] = [
             const color = currentStatus?.color;
             return (
                 <span
-                    className="badge gap-1 text-white"
-                    style={color ? { backgroundColor: color } : undefined}
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium text-white"
+                    style={{ backgroundColor: color ?? '#6b7280' }}
                 >
                     {isCompleted ? <CheckCircleIcon className="size-3" /> : <ClockIcon className="size-3" />}
                     {currentStatus?.descripcion ?? 'Sin estado'}

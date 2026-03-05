@@ -68,7 +68,7 @@ class TicketUpdateRequest extends FormRequest
         }
 
         $ticket = $this->route('ticket');
-        $currentStatusId = $ticket?->historial()->latest()->value('status_id');
+        $currentStatusId = $ticket?->historial()->latest('id')->value('status_id');
 
         return (int) $this->status_id !== (int) $currentStatusId;
     }
@@ -81,6 +81,6 @@ class TicketUpdateRequest extends FormRequest
 
         $status = Status::find($this->status_id);
 
-        return $status && $status->orden >= 8;
+        return $status && str_starts_with(mb_strtolower($status->descripcion), 'completado');
     }
 }

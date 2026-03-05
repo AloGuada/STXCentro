@@ -129,18 +129,28 @@ class TicketController extends Controller
             'departamento_id' => $request->departamento_id,
         ];
 
-        // Agregar firma y calificación solo si se proporcionan valores reales
-        if ($request->filled('firma_completado')) {
-            $updateData['firma_completado'] = $request->firma_completado;
-        }
-        if ($request->filled('calificacion')) {
-            $updateData['calificacion'] = $request->calificacion;
+        // Determinar si el nuevo estado es de tipo "completado"
+        $newStatus = $request->status_id ? Status::find($request->status_id) : null;
+        $isCompletado = $newStatus && str_starts_with(mb_strtolower($newStatus->descripcion), 'completado');
+
+        if ($isCompletado) {
+            // Agregar firma y calificación solo si se proporcionan valores reales
+            if ($request->filled('firma_completado')) {
+                $updateData['firma_completado'] = $request->firma_completado;
+            }
+            if ($request->filled('calificacion')) {
+                $updateData['calificacion'] = $request->calificacion;
+            }
+        } else {
+            // Limpiar firma y calificación al regresar a un estado no completado
+            $updateData['firma_completado'] = null;
+            $updateData['calificacion'] = null;
         }
 
         $ticket->update($updateData);
 
         if ($request->status_id) {
-            $lastStatus = $ticket->historial()->latest()->first();
+            $lastStatus = $ticket->historial()->latest('id')->first();
             if (! $lastStatus || $lastStatus->status_id != $request->status_id) {
                 TicketHistorial::create([
                     'ticket_id' => $ticket->id,
