@@ -3,17 +3,21 @@
 namespace App\Http\Controllers\Admin\Sti;
 
 use App\Http\Controllers\Controller;
+use App\Models\Sti\Equipo;
+use App\Models\Sti\Mantenimiento;
 use App\Models\Sti\Tecnico;
 use App\Models\Sti\Ticket;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $mantYear = (int) $request->input('mant_year', now()->year);
         $driver = DB::connection()->getDriverName();
 
         $periodExpr = match ($driver) {
@@ -136,7 +140,76 @@ class DashboardController extends Controller
             'satisfaccion_por_departamento' => $satisfaccionPorDepartamento,
             'calificaciones_por_tecnico' => $calificacionesPorTecnico,
             'tiempos' => $this->calcularTiempos(),
+            'mantenimientos_anual' => $this->calcularMantenimientosAnuales($mantYear),
+            'mant_year' => $mantYear,
         ]);
+    }
+
+    /**
+     * Calcula estadísticas anuales de mantenimientos para gráficas del dashboard.
+     *
+     * @return array{
+     *   kpis: array{total: int, realizados: int, pendientes: int, pct_avance: float, efectividad: float},
+     *   por_mes: array<int, array{mes: string, programados: int, realizados: int}>,
+     *   por_equipo: array<int, array{equipo: string, total: int, realizados: int, pendientes: int, pct: float}>
+     * }
+     */
+    private function calcularMantenimientosAnuales(int $year): array
+    {
+        $mantenimientos = Mantenimiento::query()
+            ->whereYear('fecha_programada', $year)
+            ->with('equipo:id,descripcion')
+            ->get();
+
+        $total = $mantenimientos->count();
+        $realizados = $mantenimientos->where('status', 'realizado')->count();
+        $pendientes = $total - $realizados;
+        $pctAvance = $total > 0 ? round($realizados / $total * 100, 1) : 0;
+
+        // Efectividad: realizados en fecha o antes de la fecha programada
+        $aTiempo = $mantenimientos
+            ->where('status', 'realizado')
+            ->filter(fn ($m) => $m->fecha_realizado && $m->fecha_realizado->lte($m->fecha_programada))
+            ->count();
+        $efectividad = $realizados > 0 ? round($aTiempo / $realizados * 100, 1) : 0;
+
+        $mesesNombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+        $porMes = collect(range(1, 12))->map(function ($mes) use ($mantenimientos, $mesesNombres) {
+            $delMes = $mantenimientos->filter(fn ($m) => $m->fecha_programada->month === $mes);
+
+            return [
+                'mes' => $mesesNombres[$mes - 1],
+                'programados' => $delMes->count(),
+                'realizados' => $delMes->where('status', 'realizado')->count(),
+            ];
+        })->values();
+
+        $porEquipo = $mantenimientos->groupBy('equipo_id')->map(function ($grupo) {
+            $equipo = $grupo->first()->equipo;
+            $t = $grupo->count();
+            $r = $grupo->where('status', 'realizado')->count();
+
+            return [
+                'equipo' => $equipo?->descripcion ?? 'Sin equipo',
+                'total' => $t,
+                'realizados' => $r,
+                'pendientes' => $t - $r,
+                'pct' => $t > 0 ? round($r / $t * 100, 1) : 0,
+            ];
+        })->sortByDesc('total')->values()->take(15);
+
+        return [
+            'kpis' => [
+                'total' => $total,
+                'realizados' => $realizados,
+                'pendientes' => $pendientes,
+                'pct_avance' => $pctAvance,
+                'efectividad' => $efectividad,
+            ],
+            'por_mes' => $porMes,
+            'por_equipo' => $porEquipo,
+        ];
     }
 
     /**

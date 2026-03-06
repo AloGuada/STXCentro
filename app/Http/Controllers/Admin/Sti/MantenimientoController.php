@@ -248,9 +248,21 @@ class MantenimientoController extends Controller
             ];
         })->values();
 
+        $total = $mantenimientos->count();
+        $realizados = $mantenimientos->where('status', 'realizado')->count();
+        $pctAvance = $total > 0 ? round($realizados / $total * 100, 1) : 0;
+        $aTiempo = $mantenimientos->where('status', 'realizado')
+            ->filter(fn ($m) => $m->fecha_realizado && $m->fecha_realizado->lte($m->fecha_programada))
+            ->count();
+        $efectividad = $realizados > 0 ? round($aTiempo / $realizados * 100, 1) : 0;
+
         $pdf = Pdf::loadView('pdf.sti.gantt-anual', [
             'year' => $year,
             'datos' => $porEquipo,
+            'total' => $total,
+            'realizados' => $realizados,
+            'pctAvance' => $pctAvance,
+            'efectividad' => $efectividad,
         ])->setPaper('a4', 'landscape');
 
         return $pdf->download("gantt-anual-{$year}.pdf");

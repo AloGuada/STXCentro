@@ -21,6 +21,13 @@
 <body>
     <h1>Programa de Mantenimiento Anual - {{ $year }}</h1>
 
+    @if ($total > 0)
+        <p style="font-size: 11px; margin-bottom: 8px; color: #333;">
+            <strong>Mantenimientos cumplidos: {{ $pctAvance }}%</strong> &nbsp; {{ $realizados }}/{{ $total }}. &nbsp;&nbsp;
+            <strong>Efectividad del: {{ $efectividad }}%</strong>
+        </p>
+    @endif
+
     <table>
         <thead>
             <tr>

@@ -5,19 +5,49 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { StiEquipo, StiMantenimiento, StiPlan } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileSpreadsheetIcon, ListIcon } from 'lucide-react';
+import {
+    CheckCircleIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
+    ClockIcon,
+    DownloadIcon,
+    FileSpreadsheetIcon,
+    ListIcon,
+    TargetIcon,
+    TrendingUpIcon,
+} from 'lucide-react';
+import { useMemo } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'STI', href: '/admin/sti/equipos' },
     { title: 'Mantenimientos', href: '/admin/sti/mantenimientos' },
-    { title: 'Vista Gantt Anual', href: '/admin/sti/mantenimientos-gantt-anual' },
+    {
+        title: 'Vista Gantt Anual',
+        href: '/admin/sti/mantenimientos-gantt-anual',
+    },
 ];
 
-const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const MESES = [
+    'Ene',
+    'Feb',
+    'Mar',
+    'Abr',
+    'May',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dic',
+];
 
 type Props = {
-    mantenimientos: (StiMantenimiento & { equipo?: StiEquipo; plan?: StiPlan })[];
+    mantenimientos: (StiMantenimiento & {
+        equipo?: StiEquipo;
+        plan?: StiPlan;
+    })[];
     equipos: Pick<StiEquipo, 'id' | 'descripcion'>[];
     planes: Pick<StiPlan, 'id' | 'descripcion'>[];
     year: number;
@@ -28,7 +58,13 @@ type Props = {
     };
 };
 
-export default function MantenimientosGanttAnual({ mantenimientos, equipos, planes, year, filters }: Props) {
+export default function MantenimientosGanttAnual({
+    mantenimientos,
+    equipos,
+    planes,
+    year,
+    filters,
+}: Props) {
     const handleFilterChange = (key: string, value: string) => {
         router.get(
             '/admin/sti/mantenimientos-gantt-anual',
@@ -50,12 +86,45 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
     };
 
     const handleExportPdf = () => {
-        window.open(`/admin/sti/mantenimientos-gantt-anual/exportar?${buildExportParams()}`, '_blank');
+        window.open(
+            `/admin/sti/mantenimientos-gantt-anual/exportar?${buildExportParams()}`,
+            '_blank',
+        );
     };
 
     const handleExportExcel = () => {
-        window.open(`/admin/sti/mantenimientos-gantt-anual/exportar-excel?${buildExportParams()}`, '_blank');
+        window.open(
+            `/admin/sti/mantenimientos-gantt-anual/exportar-excel?${buildExportParams()}`,
+            '_blank',
+        );
     };
+
+    // Resumen de avance y efectividad
+    const resumen = useMemo(() => {
+        const total = mantenimientos.length;
+        const realizados = mantenimientos.filter(
+            (m) => m.status === 'realizado',
+        ).length;
+        const pendientes = total - realizados;
+        const pctAvance =
+            total > 0 ? Math.round((realizados / total) * 1000) / 10 : 0;
+
+        // Efectividad: realizados en fecha o antes
+        const aTiempo = mantenimientos.filter((m) => {
+            if (m.status !== 'realizado' || !m.fecha_realizado) return false;
+            return new Date(m.fecha_realizado) <= new Date(m.fecha_programada);
+        }).length;
+        const efectividad =
+            realizados > 0 ? Math.round((aTiempo / realizados) * 1000) / 10 : 0;
+
+        return {
+            total,
+            realizados,
+            pendientes,
+            pctAvance,
+            efectividad,
+        };
+    }, [mantenimientos]);
 
     // Agrupar mantenimientos por equipo
     const mantenimientosPorEquipo = mantenimientos.reduce(
@@ -70,7 +139,10 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
             acc[equipoId].mantenimientos.push(mant);
             return acc;
         },
-        {} as Record<number, { equipo?: StiEquipo; mantenimientos: StiMantenimiento[] }>,
+        {} as Record<
+            number,
+            { equipo?: StiEquipo; mantenimientos: StiMantenimiento[] }
+        >,
     );
 
     return (
@@ -86,7 +158,10 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
                                 <DownloadIcon className="size-4" />
                                 Exportar PDF
                             </Button>
-                            <Button variant="outline" onClick={handleExportExcel}>
+                            <Button
+                                variant="outline"
+                                onClick={handleExportExcel}
+                            >
                                 <FileSpreadsheetIcon className="size-4" />
                                 Exportar Excel
                             </Button>
@@ -101,16 +176,31 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
                     <CardContent>
                         <div className="flex flex-wrap items-center gap-4">
                             <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" onClick={() => navigateYear(-1)}>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => navigateYear(-1)}
+                                >
                                     <ChevronLeftIcon className="size-4" />
                                 </Button>
-                                <span className="min-w-20 text-center text-lg font-semibold">{year}</span>
-                                <Button variant="outline" size="sm" onClick={() => navigateYear(1)}>
+                                <span className="min-w-20 text-center text-lg font-semibold">
+                                    {year}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => navigateYear(1)}
+                                >
                                     <ChevronRightIcon className="size-4" />
                                 </Button>
                             </div>
 
-                            <Select value={filters.equipo_id ?? ''} onValueChange={(value) => handleFilterChange('equipo_id', value)}>
+                            <Select
+                                value={filters.equipo_id ?? ''}
+                                onValueChange={(value) =>
+                                    handleFilterChange('equipo_id', value)
+                                }
+                            >
                                 <option value="">Todos los equipos</option>
                                 {equipos.map((equipo) => (
                                     <option key={equipo.id} value={equipo.id}>
@@ -119,7 +209,12 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
                                 ))}
                             </Select>
 
-                            <Select value={filters.plan_id ?? ''} onValueChange={(value) => handleFilterChange('plan_id', value)}>
+                            <Select
+                                value={filters.plan_id ?? ''}
+                                onValueChange={(value) =>
+                                    handleFilterChange('plan_id', value)
+                                }
+                            >
                                 <option value="">Todos los planes</option>
                                 {planes.map((plan) => (
                                     <option key={plan.id} value={plan.id}>
@@ -131,70 +226,216 @@ export default function MantenimientosGanttAnual({ mantenimientos, equipos, plan
                     </CardContent>
                 </Card>
 
+                {/* Resumen de avance */}
+                {mantenimientos.length > 0 && (
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                            <div className="flex items-center gap-3 rounded-box border border-base-300 bg-base-100 p-3">
+                                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                                    <TargetIcon className="size-5" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-base-content/60">
+                                        Programados
+                                    </p>
+                                    <p className="text-xl font-bold">
+                                        {resumen.total}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 rounded-box border border-base-300 bg-base-100 p-3">
+                                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+                                    <CheckCircleIcon className="size-5" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-base-content/60">
+                                        Realizados
+                                    </p>
+                                    <p className="text-xl font-bold text-green-600">
+                                        {resumen.realizados}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 rounded-box border border-base-300 bg-base-100 p-3">
+                                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                                    <ClockIcon className="size-5" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-base-content/60">
+                                        Pendientes
+                                    </p>
+                                    <p className="text-xl font-bold text-orange-500">
+                                        {resumen.pendientes}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 rounded-box border border-base-300 bg-base-100 p-3">
+                                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+                                    <TrendingUpIcon className="size-5" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-base-content/60">
+                                        Avance / Efectividad
+                                    </p>
+                                    <p className="text-xl font-bold">
+                                        <span
+                                            className={
+                                                resumen.pctAvance >= 80
+                                                    ? 'text-green-600'
+                                                    : resumen.pctAvance >= 50
+                                                      ? 'text-yellow-500'
+                                                      : 'text-red-500'
+                                            }
+                                        >
+                                            {resumen.pctAvance}%
+                                        </span>
+                                        <span className="mx-1 text-sm text-base-content/30">
+                                            /
+                                        </span>
+                                        <span
+                                            className={`text-sm ${resumen.efectividad >= 80 ? 'text-green-600' : resumen.efectividad >= 50 ? 'text-yellow-500' : 'text-red-500'}`}
+                                        >
+                                            {resumen.efectividad}%
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <Card>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[1000px]">
                                 <thead>
                                     <tr className="border-b bg-gray-50 dark:bg-gray-800">
-                                        <th className="sticky left-0 z-10 min-w-48 bg-gray-50 p-3 text-left dark:bg-gray-800">Equipo</th>
-                                        <th className="min-w-36 p-3 text-left text-sm font-medium">Asignado a</th>
-                                        <th className="min-w-32 p-3 text-left text-sm font-medium">Departamento</th>
+                                        <th className="sticky left-0 z-10 min-w-48 bg-gray-50 p-3 text-left dark:bg-gray-800">
+                                            Equipo
+                                        </th>
+                                        <th className="min-w-36 p-3 text-left text-sm font-medium">
+                                            Asignado a
+                                        </th>
+                                        <th className="min-w-32 p-3 text-left text-sm font-medium">
+                                            Departamento
+                                        </th>
                                         {MESES.map((mes) => (
-                                            <th key={mes} className="min-w-20 p-2 text-center text-sm font-medium">
+                                            <th
+                                                key={mes}
+                                                className="min-w-20 p-2 text-center text-sm font-medium"
+                                            >
                                                 {mes}
                                             </th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {Object.entries(mantenimientosPorEquipo).map(([equipoId, { equipo, mantenimientos: mants }]) => {
-                                        const asignacion = equipo?.asignaciones?.[0];
-                                        return (
-                                            <tr key={equipoId} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                                <td className="sticky left-0 z-10 bg-white p-3 dark:bg-gray-900">
-                                                    <div className="font-medium">{equipo?.descripcion ?? 'Equipo'}</div>
-                                                    <div className="text-xs text-gray-500">{mants.length} mantenimientos</div>
-                                                </td>
-                                                <td className="p-3 text-sm">{asignacion?.empleado ?? '-'}</td>
-                                                <td className="p-3 text-sm">{asignacion?.departamento?.descripcion ?? '-'}</td>
-                                                {MESES.map((_, mesIndex) => {
-                                                    const mantsDelMes = mants.filter((m) => {
-                                                        const fecha = new Date(m.fecha_programada);
-                                                        return fecha.getUTCMonth() === mesIndex;
-                                                    });
-                                                    return (
-                                                        <td key={mesIndex} className="p-1 text-center">
-                                                            <div className="flex flex-wrap justify-center gap-1">
-                                                                {mantsDelMes.map((mant) => {
-                                                                    const fecha = new Date(mant.fecha_programada);
-                                                                    const dia = fecha.getUTCDate();
-                                                                    return (
-                                                                        <Link
-                                                                            key={mant.id}
-                                                                            href={`/admin/sti/mantenimientos/${mant.id}/edit`}
-                                                                            className={`flex size-7 items-center justify-center rounded text-xs font-medium transition hover:scale-110 ${
-                                                                                mant.status === 'realizado'
-                                                                                    ? 'bg-green-500 text-white'
-                                                                                    : 'bg-orange-400 text-white'
-                                                                            }`}
-                                                                            title={`${mant.descripcion ?? 'Mantenimiento'} - ${fecha.toLocaleDateString('es-MX', { timeZone: 'UTC' })}`}
-                                                                        >
-                                                                            {dia}
-                                                                        </Link>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </td>
-                                                    );
-                                                })}
-                                            </tr>
-                                        );
-                                    })}
-                                    {Object.keys(mantenimientosPorEquipo).length === 0 && (
+                                    {Object.entries(
+                                        mantenimientosPorEquipo,
+                                    ).map(
+                                        ([
+                                            equipoId,
+                                            { equipo, mantenimientos: mants },
+                                        ]) => {
+                                            const asignacion =
+                                                equipo?.asignaciones?.[0];
+                                            return (
+                                                <tr
+                                                    key={equipoId}
+                                                    className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                                                >
+                                                    <td className="sticky left-0 z-10 bg-white p-3 dark:bg-gray-900">
+                                                        <div className="font-medium">
+                                                            {equipo?.descripcion ??
+                                                                'Equipo'}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">
+                                                            {mants.length}{' '}
+                                                            mantenimientos
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-3 text-sm">
+                                                        {asignacion?.empleado ??
+                                                            '-'}
+                                                    </td>
+                                                    <td className="p-3 text-sm">
+                                                        {asignacion
+                                                            ?.departamento
+                                                            ?.descripcion ??
+                                                            '-'}
+                                                    </td>
+                                                    {MESES.map(
+                                                        (_, mesIndex) => {
+                                                            const mantsDelMes =
+                                                                mants.filter(
+                                                                    (m) => {
+                                                                        const fecha =
+                                                                            new Date(
+                                                                                m.fecha_programada,
+                                                                            );
+                                                                        return (
+                                                                            fecha.getUTCMonth() ===
+                                                                            mesIndex
+                                                                        );
+                                                                    },
+                                                                );
+                                                            return (
+                                                                <td
+                                                                    key={
+                                                                        mesIndex
+                                                                    }
+                                                                    className="p-1 text-center"
+                                                                >
+                                                                    <div className="flex flex-wrap justify-center gap-1">
+                                                                        {mantsDelMes.map(
+                                                                            (
+                                                                                mant,
+                                                                            ) => {
+                                                                                const fecha =
+                                                                                    new Date(
+                                                                                        mant.fecha_programada,
+                                                                                    );
+                                                                                const dia =
+                                                                                    fecha.getUTCDate();
+                                                                                return (
+                                                                                    <Link
+                                                                                        key={
+                                                                                            mant.id
+                                                                                        }
+                                                                                        href={`/admin/sti/mantenimientos/${mant.id}/edit`}
+                                                                                        className={`flex size-7 items-center justify-center rounded text-xs font-medium transition hover:scale-110 ${
+                                                                                            mant.status ===
+                                                                                            'realizado'
+                                                                                                ? 'bg-green-500 text-white'
+                                                                                                : 'bg-orange-400 text-white'
+                                                                                        }`}
+                                                                                        title={`${mant.descripcion ?? 'Mantenimiento'} - ${fecha.toLocaleDateString('es-MX', { timeZone: 'UTC' })}`}
+                                                                                    >
+                                                                                        {
+                                                                                            dia
+                                                                                        }
+                                                                                    </Link>
+                                                                                );
+                                                                            },
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            );
+                                                        },
+                                                    )}
+                                                </tr>
+                                            );
+                                        },
+                                    )}
+                                    {Object.keys(mantenimientosPorEquipo)
+                                        .length === 0 && (
                                         <tr>
-                                            <td colSpan={15} className="p-8 text-center text-gray-500">
-                                                No hay mantenimientos programados para este año.
+                                            <td
+                                                colSpan={15}
+                                                className="p-8 text-center text-gray-500"
+                                            >
+                                                No hay mantenimientos
+                                                programados para este año.
                                             </td>
                                         </tr>
                                     )}
