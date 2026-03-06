@@ -19,6 +19,7 @@ class RequisicionUpdateRequest extends FormRequest
             'cantidad' => ['required', 'integer', 'min:1'],
             'estado' => ['required', 'string', 'in:borrador,abierta,en_proceso,cerrada,cancelada'],
             'tipo_requisicion' => ['required', 'string', 'in:nueva,reemplazo,temporal'],
+            'tipo_contrato_generado' => ['required', 'string', 'in:planta,obra'],
             'justificacion' => ['nullable', 'string'],
             'nombre_solicitante' => ['nullable', 'string', 'max:255'],
             'puesto_solicitante' => ['nullable', 'string', 'max:255'],

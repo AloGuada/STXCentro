@@ -113,8 +113,7 @@ export function GanttChart({ mantenimientos, mes, onItemClick }: GanttChartProps
 
                                 {/* Marcadores de mantenimiento */}
                                 {mants.map((m) => {
-                                    const fecha = new Date(m.fecha_programada);
-                                    const day = fecha.getDate();
+                                    const day = parseInt(m.fecha_programada.slice(8, 10), 10);
                                     const left = (day - 1) * 32 + 4; // 32px por día + 4px padding
 
                                     return (

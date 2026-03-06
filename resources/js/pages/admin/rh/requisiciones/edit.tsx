@@ -29,6 +29,7 @@ export default function RequisicionEdit({ requisicion, puestos }: Props) {
         puesto_id: String(requisicion.puesto_id),
         cantidad: String(requisicion.cantidad),
         tipo_requisicion: requisicion.tipo_requisicion,
+        tipo_contrato_generado: requisicion.tipo_contrato_generado,
         estado: requisicion.estado,
         justificacion: requisicion.justificacion ?? '',
         nombre_solicitante: requisicion.nombre_solicitante ?? '',
@@ -89,6 +90,18 @@ export default function RequisicionEdit({ requisicion, puestos }: Props) {
                                 </Select>
                             </FormField>
                         </div>
+
+                        <FormField label="Tipo de Contrato a Generar" htmlFor="tipo_contrato_generado" error={errors.tipo_contrato_generado} required>
+                            <Select value={data.tipo_contrato_generado} onValueChange={(v) => setData('tipo_contrato_generado', v as 'planta' | 'obra')}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar tipo de contrato" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="planta">Planta</SelectItem>
+                                    <SelectItem value="obra">Obra</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </FormField>
 
                         <FormField label="Estado" htmlFor="estado" error={errors.estado} required>
                             <Select value={data.estado} onValueChange={(v) => setData('estado', v as 'borrador' | 'abierta' | 'en_proceso' | 'cerrada' | 'cancelada')}>

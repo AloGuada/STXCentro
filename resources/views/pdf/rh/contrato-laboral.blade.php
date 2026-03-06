@@ -148,6 +148,7 @@
 </head>
 <body>
 
+@if($tipoContrato !== 'obra')
 {{-- ==================== PÁGINA 1: DATOS GENERALES ==================== --}}
 <table class="header-row">
     <tr>
@@ -267,11 +268,11 @@
 <table class="data-table mb-4">
     <tr>
         <td class="label">¿Tienes crédito de INFONAVIT?</td>
-        <td class="value">{{ $extras->c_infonavit ? 'SI' : 'NO' }}</td>
+        <td class="value">{{ ($extras->c_infonavit ?? false) ? 'SI' : 'NO' }}</td>
     </tr>
     <tr>
         <td class="label">¿Tienes crédito de FONACOT?</td>
-        <td class="value">{{ $extras->c_fonacot ? 'SI' : 'NO' }}</td>
+        <td class="value">{{ ($extras->c_fonacot ?? false) ? 'SI' : 'NO' }}</td>
     </tr>
 </table>
 
@@ -419,8 +420,8 @@
                 <tr><td>No. de Locker:</td><td>___________</td></tr>
                 <tr><td>No. de mov. IMSS:</td><td>___________</td></tr>
                 <tr><td>Linea de producción:</td><td>___________</td></tr>
-                <tr><td>Infonavit:</td><td>{{ $extras->c_infonavit ? 'SI' : 'NO' }}</td></tr>
-                <tr><td>Fonacot:</td><td>{{ $extras->c_fonacot ? 'SI' : 'NO' }}</td></tr>
+                <tr><td>Infonavit:</td><td>{{ ($extras->c_infonavit ?? false) ? 'SI' : 'NO' }}</td></tr>
+                <tr><td>Fonacot:</td><td>{{ ($extras->c_fonacot ?? false) ? 'SI' : 'NO' }}</td></tr>
                 <tr><td>No. Cuenta:</td><td>{{ $extras->cuenta_banco ?? '' }}</td></tr>
                 <tr><td>Telefono:</td><td>{{ $persona->telefono ?? '' }}</td></tr>
             </table>
@@ -460,10 +461,101 @@
     </tr>
 </table>
 @endif
+@endif {{-- fin tipoContrato !== obra --}}
 
 {{-- ==================== PÁGINA FINAL: CONTRATO LEGAL ==================== --}}
+@if($tipoContrato !== 'obra')
 <div class="page-break"></div>
+@endif
 
+@if($tipoContrato === 'obra')
+{{-- ==================== CONTRATO POR OBRA DETERMINADA ==================== --}}
+<div class="contrato-text">
+    <p class="clausula">
+        CONTRATO INDIVIDUAL DE TRABAJO POR TIEMPO Y OBRA DETERMINADOS QUE CELEBRAN:
+        LA EMPRESA <span class="underline">TIM DEL MAYAB SA DE CV</span>. DE C. V. REPRESENTADA EN ESTE ACTO POR SU REPRESENTANTE LEGAL, SR. <span class="underline">ALEJANDRO GASQUE MIER Y TERAN</span> Y COMO TRABAJADOR EL C. <span class="underline">{{ mb_strtoupper($persona->nombre) }} {{ mb_strtoupper($persona->apellido) }}</span> SUJETANDOSE PARA TODOS LOS EFECTOS LEGALES, AL TENOR DE LAS SIGUIENTES DECLARACIONES Y CLAUSULAS.
+    </p>
+
+    <p class="text-center bold mb-4">DECLARACIONES</p>
+
+    <p class="clausula">
+        PRIMERA.- EL SR. ALEJANDRO GASQUE MIER Y TERAN CON LA PERSONALIDAD QUE OSTENTA DECLARA: PARA LOS EFECTOS DEL ARTICULO 25 DE LA LEY FEDERAL DEL TRABAJO, QUE LA NEGOCIACIÓN QUE REPRESENTA SE DEDICA A FABRICACION Y MONTAJE DE ESTRUCTURAS METALICAS CON DOMICILIO EN CALLE-S/N COL. XEPLAC EN KANASIN, YUCATAN, EMPRESA A QUIEN SE NOMBRA EN LO SUCESIVO COMO EL PATRON.
+    </p>
+
+    <p class="clausula">
+        SEGUNDA.- POR SU PARTE EL C. <span class="underline">{{ mb_strtoupper($persona->nombre) }} {{ mb_strtoupper($persona->apellido) }}</span> MANIFIESTA: SER MEXICANO, MAYOR DE EDAD LEGAL, CON DOMICILIO EN EL PREDIO <span class="underline">{{ $extras->domicilio ?? '' }} C.P. {{ $extras->cp ?? '' }}</span> IFE NÙMERO _______________________________________ , ESTAR ENTERADO DE LA ACTIVIDAD DE LA EMPRESA Y QUE TIENE LAS APTITUDES, LOS CONOCIMIENTOS Y LA EXPERIENCIA PROPIOS Y NECESARIOS PARA LA EJECUCIÓN, REALIZACIÓN Y DESEMPEÑO DEL TRABAJO Y LAS LABORES QUE LE ENCOMIENDAN Y A QUIEN SE NOMBRA EN LO SUCESIVO COMO EL TRABAJADOR.
+    </p>
+
+    <p class="clausula">
+        TERCERA.- AMBAS PARTES CONTRATANTES ACUERDAN: QUE EL PRESENTE CONTRATO SE CELEBRA POR OBRA Y TIEMPO DETERMINADO CON UNA VIGENCIA DE (TRES MESES) Y/O CONCLUYA LA OBRA, LO QUE OCURRA PRIMERO Y COMENZARA A SER APLICABLE A PARTIR DE LA FECHA DE SU SUSCRIPCIÓN, RECONOCIENDO EXPRESAMENTE EL TRABAJADOR QUE LA NATURALEZA DEL TRABAJO ES COMPLETAMENTE TEMPORAL TAL Y COMO SE HACE CONSTAR EN EL PRESENTE CONTRATO.
+    </p>
+
+    <p class="text-center bold mb-4">C L A U S U L A S</p>
+
+    <p class="clausula">
+        PRIMERA.- EL TRABAJADOR SE OBLIGA Y COMPROMETE A PRESTAR SERVICIOS PERSONALES SUBORDINADOS AL PATRON CON EL PUESTO DE "<span class="underline">{{ $puesto }}</span>" BAJO LA DIRECCIÓN Y DEPENDENCIA DE LOS REPRESENTANTES LEGALES DE LA PERSONA MORAL DE LA RELACIÓN DE TRABAJO, EN EL DOMICILIO DE LA NEGOCIACIÓN DEL MISMO Y/O EN EL LUGAR QUE SE LE INDIQUE PARA ELLO; Y POR CUANTO MANIFIESTA TENER LOS CONOCIMIENTOS Y LAS APTITUDES PARA DESEMPEÑAR EL PUESTO ANTES REFERIDO, POR EL TÉRMINO DE (TRES MESES) Y/O EL TÉRMINO DE CONCLUSIÓN DE LA OBRA DETERMINADA CONSISTENTE EN _________________________ UBICADA EN _________________________ DANDOSE POR ENTERADO Y POR TANTO OTORGA SU ANUENCIA DE LA MATERIA DEL PRESENTE CONTRATO YA QUE CONCLUIDO DICHO TÉRMINO, Y/O LA OBRA DESCRITA, LO QUE OCURRA PRIMERO YA QUE DICHO TÉRMINO ES EL APROXIMADO PARA LA CONCLUSIÓN DE LA MISMA, CONCLUIRÁ EL PRESENTE CONTRATO SIN RESPONSABILIDAD ALGUNA PARA NINGUNA DE LAS PARTES.
+    </p>
+
+    <p class="clausula">
+        SEGUNDA.- LAS LABORES QUE DESEMPEÑARA EL TRABAJADOR, CONSISTIRAN EN: "<span class="underline">{{ $puesto }}</span>"; ASI COMO CUALQUIER OTRA ACTIVIDAD INHERENTE A DICHO PUESTO DE TRABAJO.
+    </p>
+
+    <p class="clausula">
+        TERCERA.- LAS PARTES CONVIENEN QUE LA JORNADA DE TRABAJO SERA DE CUARENTA Y OCHO HORAS SEMANALES, QUEDANDO DISTRIBUIDAS DE ACUERDO AL SIGUIENTE HORARIO DE TRABAJO: DE LUNES A VIERNES DE 8:00 A 17:00 HRS Y LOS SABADOS DE 8:00 A 11:00, SIENDO EL DOMINGO EL DÍA DE DESCANSO SEMANAL.
+    </p>
+
+    <p class="clausula">
+        CUARTA.- PATRON Y TRABAJADOR CONVIENEN Y SE COMPROMETEN A NO LABORAR HORAS EXTRAS, NI DIAS DE DESCANSO SEMANAL ASI COMO TAMPOCO LOS DIAS DESCANSO OBLIGATORIO LEGALMENTE ESTABLECIDOS Y UNICAMENTE PODRA HACERSE CUANDO EL TRABAJADOR RECIBA DEL PATRON O DE SU REPRESENTANTE LEGAL, LA ORDEN O AUTORIZACION POR ESCRITO PARA ELLO.
+    </p>
+
+    <p class="clausula">
+        QUINTA.- EL MONTO DEL SALARIO DIARIO DEL TRABAJADOR SE HARA CONSTAR EN EL RECIBO DE PAGO CORRESPONDIENTE, PAGADERO SEMANALMENTE Y OBLIGANDOSE EL PATRON A CUBRIR EL SALARIO ESTIPULADO LOS DIAS SABADO DE CADA SEMANA, EN MONEDA DE CURSO LEGAL, EN EL CENTRO DE TRABAJO, Y EL TRABAJADOR FIRMARA LA LISTA DE RAYA DE NOMINA.
+    </p>
+
+    <p class="clausula">
+        SEXTA.- EL TRABAJADOR EXPRESA SU CONFORMIDAD Y AUTORIZA AL PATRÓN PARA QUE DEDUZCA DE SU SALARIO LOS IMPUESTOS QUE SEAN A SU CARGO, LAS CUOTAS OBRERAS DEL INSTITUTO MEXICANO DEL SEGURO SOCIAL, ASÍ COMO CUALQUIER OTRA CANTIDAD A CUYO PAGO PUDIERA ESTAR OBLIGADO EL TRABAJADOR, Y EN ESPECIAL AQUELLOS A QUE SE REFIEREN LOS ARTÍCULOS 97 Y 110 DE LA LEY FEDERAL DEL TRABAJO.
+    </p>
+
+    <p class="clausula">
+        SEPTIMA.- LAS PARTES CONVIENEN QUE EL TRABAJADOR ESTARA OBLIGADO A REGISTRAR SU ASISTENCIA EN EL FORMATO DE LISTA DE ASISTENCIA DE LA EMPRESA, POR LO QUE EL INCUMPLIMIENTO DE ESTE REQUISITO INDICARA LA FALTA INJUSTIFICADA A SUS LABORES, PARA TODOS LOS EFECTOS LEGALES CORRESPONDIENTES.
+    </p>
+
+    <p class="clausula">
+        OCTAVA.- LAS FALTAS AL TRABAJO POR PARTE DEL TRABAJADOR, SERAN JUSTIFICADAS UNICAMENTE CON LA EXHIBICION DEL CERTIFICADO DE INCAPACIDAD QUE AL EFECTO EXPIDE EL INSTITUTO MEXICANO DEL SEGURO SOCIAL; DE LO CONTRARIO SE CONSIDERA COMO INJUSTIFICADAS LAS FALTAS AL TRABAJO.
+    </p>
+
+    <p class="clausula">
+        NOVENA.- EL PATRON OTORGARA Y PAGARA AL TRABAJADOR LOS PERIODOS VACACIONALES, PRIMA VACACIONAL, Y EL IMPORTE DE AGUINALDO ANUAL, EN LA FORMA, TERMINOS Y CONDICIONES PREVISTAS POR LOS ARTICULOS 76 Y 87 DE LA LEY FEDERAL DEL TRABAJO EN VIGOR MISMAS QUE SE CONVIENE SEA PAGADAS EN FORMA PROPORCIONAL SEMANAL AL SER PAGADO EL SALARIO.
+    </p>
+
+    <p class="clausula">
+        DECIMA.- PATRON Y TRABAJADOR DECLARAN: QUE SE RECONOCEN MUTUAMENTE NO TENER UNA ANTIGÜEDAD EN SU RELACION LABORAL ANTERIORES A LA FIRMA DEL PRESENTE CONTRATO.
+    </p>
+
+    <p class="clausula">
+        DECIMA PRIMERA.- PATRON Y TRABAJADOR ACUERDAN QUE CON RESPECTO A SUS DERECHOS Y OBLIGACIONES QUE MUTUAMENTE LES CORRESPONDEN Y QUE TODO LO NO PREVISTO Y QUE NO HAYA SIDO OBJETO DE CLAUSULA ESPECIAL EN EL PRESENTE CONTRATO, SE SUJETAN A LAS DISPOSICIONES DE LA LEY FEDERAL DE TRABAJO EN VIGOR INCLUIDAS LAS NORMAS DE CAPACITACIÒN, SEGURIDAD E HIGIENE.
+    </p>
+
+    <p class="clausula">
+        LEIDO QUE FUE EL PRESENTE CONTRATO POR LAS PARTES, E IMPUESTAS DE SU CONTENIDO Y FUERZA LEGAL, LO FIRMARON QUEDANDO UN TANTO EN PODER DE CADA UNA DE LAS PARTES EN LA CIUDAD DE MERIDA, YUCATAN A <span class="underline">{{ $fechaIngresoLarga }}</span>
+    </p>
+
+    <table style="width: 100%; margin-top: 60px;">
+        <tr>
+            <td class="text-center" style="width: 50%;">
+                <p>POR EL PATRON</p>
+                <p class="mt-16">______________________________________</p>
+            </td>
+            <td class="text-center" style="width: 50%;">
+                <p>EL TRABAJADOR</p>
+                <p class="mt-16">______________________________________</p>
+            </td>
+        </tr>
+    </table>
+</div>
+
+@else
+{{-- ==================== CONTRATO POR TIEMPO DETERMINADO (PLANTA) ==================== --}}
 <p class="text-right mb-6">
     MERIDA, YUC. <span class="underline">A {{ $fechaIngresoLarga }}</span>
 </p>
@@ -652,6 +744,7 @@
 
     <p class="text-center mt-16">EL TRABAJADOR</p>
 </div>
+@endif
 
 </body>
 </html>

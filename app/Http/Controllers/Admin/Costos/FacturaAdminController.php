@@ -21,7 +21,7 @@ class FacturaAdminController extends Controller
     public function index(Request $request): Response
     {
         $facturas = Factura::query()
-            ->with(['proveedor:id,razon_social,nombre_comercial', 'ordenCompra:id,folio'])
+            ->with(['proveedor:id,razon_social,nombre_comercial', 'ordenCompra:id,folio', 'mediaPdf'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('folio', 'like', "%{$search}%")

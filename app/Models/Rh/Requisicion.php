@@ -22,6 +22,7 @@ class Requisicion extends Model
         'cantidad',
         'estado',
         'tipo_requisicion',
+        'tipo_contrato_generado',
         'justificacion',
         'nombre_solicitante',
         'puesto_solicitante',

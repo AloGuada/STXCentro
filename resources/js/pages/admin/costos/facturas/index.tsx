@@ -4,6 +4,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { CostosFactura, CostosFacturaEstatus, PaginatedData } from '@/types/models';
 import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
+import { FileTextIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -19,10 +20,31 @@ const columns: Column<CostosFactura>[] = [
         render: (row) => row.orden_compra?.folio ?? '-',
     },
     {
+        key: 'media_pdf',
+        label: 'PDF',
+        render: (row) =>
+            row.media_pdf ? (
+                <a
+                    href={`/storage/${row.media_pdf.path}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="btn btn-ghost btn-xs"
+                    title="Ver factura PDF"
+                >
+                    <FileTextIcon className="size-4" />
+                </a>
+            ) : (
+                <span className="text-base-content/30">—</span>
+            ),
+        className: 'w-16 text-center',
+    },
+    {
         key: 'proveedor',
         label: 'Proveedor',
         render: (row) => row.proveedor?.razon_social ?? '-',
     },
+
     {
         key: 'fecha_factura',
         label: 'Fecha',

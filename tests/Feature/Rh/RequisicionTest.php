@@ -36,6 +36,7 @@ describe('admin rh requisiciones', function () {
                 'puesto_id' => $puesto->id,
                 'cantidad' => 2,
                 'tipo_requisicion' => 'nueva',
+                'tipo_contrato_generado' => 'planta',
                 'justificacion' => 'Crecimiento del equipo',
             ]);
 
@@ -43,6 +44,7 @@ describe('admin rh requisiciones', function () {
         $this->assertDatabaseHas('rh_requisiciones', [
             'puesto_id' => $puesto->id,
             'cantidad' => 2,
+            'tipo_contrato_generado' => 'planta',
         ]);
     });
 
@@ -54,6 +56,7 @@ describe('admin rh requisiciones', function () {
                 'puesto_id' => $puesto->id,
                 'cantidad' => 1,
                 'tipo_requisicion' => 'nueva',
+                'tipo_contrato_generado' => 'obra',
             ]);
 
         $req = Requisicion::first();

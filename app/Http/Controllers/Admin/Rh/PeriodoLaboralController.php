@@ -120,7 +120,7 @@ class PeriodoLaboralController extends Controller
     {
         $this->authorize('rh.periodos-laborales.ver');
 
-        $periodoLaboral->load(['persona.datosExtra', 'puesto.departamento']);
+        $periodoLaboral->load(['persona.datosExtra', 'puesto.departamento', 'requisicion']);
 
         $persona = $periodoLaboral->persona;
         $extras = $persona->datosExtra;
@@ -165,7 +165,7 @@ class PeriodoLaboralController extends Controller
             'sexo' => $sexo,
             'lugarNacimiento' => $lugarNacimiento,
             'edad' => $edad,
-            'tipoContrato' => $periodoLaboral->tipo_contrato ?? '',
+            'tipoContrato' => $periodoLaboral->requisicion?->tipo_contrato_generado ?? $periodoLaboral->tipo_contrato ?? 'planta',
         ])->setPaper('letter', 'portrait');
 
         $filename = 'contrato-'.$persona->nombre.'-'.$persona->apellido.'.pdf';

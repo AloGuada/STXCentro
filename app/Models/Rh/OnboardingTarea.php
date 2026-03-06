@@ -30,8 +30,8 @@ class OnboardingTarea extends Model
     {
         return [
             'completada' => 'boolean',
-            'fecha_vencimiento' => 'date',
-            'fecha_completada' => 'date',
+            'fecha_vencimiento' => 'date:Y-m-d',
+            'fecha_completada' => 'date:Y-m-d',
         ];
     }
 

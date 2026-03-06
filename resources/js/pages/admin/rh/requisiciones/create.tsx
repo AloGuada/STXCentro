@@ -25,6 +25,7 @@ export default function RequisicionCreate({ puestos }: Props) {
         puesto_id: '',
         cantidad: '1',
         tipo_requisicion: 'nueva' as 'nueva' | 'reemplazo' | 'temporal',
+        tipo_contrato_generado: 'planta' as 'planta' | 'obra',
         justificacion: '',
         nombre_solicitante: '',
         salario: '',
@@ -77,6 +78,18 @@ export default function RequisicionCreate({ puestos }: Props) {
                                 </Select>
                             </FormField>
                         </div>
+
+                        <FormField label="Tipo de Contrato a Generar" htmlFor="tipo_contrato_generado" error={errors.tipo_contrato_generado} required>
+                            <Select value={data.tipo_contrato_generado} onValueChange={(v) => setData('tipo_contrato_generado', v as 'planta' | 'obra')}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar tipo de contrato" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="planta">Planta</SelectItem>
+                                    <SelectItem value="obra">Obra</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </FormField>
 
                         <FormField label="Justificacion" htmlFor="justificacion" error={errors.justificacion}>
                             <textarea id="justificacion" className="textarea textarea-bordered w-full" value={data.justificacion} onChange={(e) => setData('justificacion', e.target.value)} placeholder="Justificacion de la requisicion" />

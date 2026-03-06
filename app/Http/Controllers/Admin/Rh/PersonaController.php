@@ -89,7 +89,7 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.editar');
 
-        $persona->update($request->safe()->except('cv'));
+        $persona->update($request->safe()->except(['cv', 'datos_extra']));
 
         if ($request->hasFile('cv')) {
             if ($persona->media) {
@@ -111,7 +111,7 @@ class PersonaController extends Controller
         if ($request->has('datos_extra')) {
             $persona->datosExtra()->updateOrCreate(
                 ['persona_id' => $persona->id],
-                $request->datos_extra,
+                $request->validated('datos_extra'),
             );
         }
 

@@ -1166,6 +1166,7 @@ export type CostosFactura = {
     proveedor?: Proveedor;
     entregas?: CostosEntrega[];
     media?: Media[];
+    media_pdf?: Media | null;
     pago?: CostosPago;
     aprobada_costos_por_usuario?: Usuario;
     aceptada_contabilidad_por_usuario?: Usuario;
@@ -1667,6 +1668,7 @@ export type RhRequisicion = {
     cantidad: number;
     estado: 'borrador' | 'abierta' | 'en_proceso' | 'cerrada' | 'cancelada';
     tipo_requisicion: 'nueva' | 'reemplazo' | 'temporal';
+    tipo_contrato_generado: 'planta' | 'obra';
     justificacion: string | null;
     nombre_solicitante: string | null;
     puesto_solicitante: string | null;

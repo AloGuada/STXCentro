@@ -22,6 +22,7 @@ class RequisicionFactory extends Factory
             'cantidad' => fake()->numberBetween(1, 5),
             'estado' => 'borrador',
             'tipo_requisicion' => fake()->randomElement(['nueva', 'reemplazo', 'temporal']),
+            'tipo_contrato_generado' => fake()->randomElement(['planta', 'obra']),
             'justificacion' => fake()->optional()->paragraph(),
             'nombre_solicitante' => fake()->optional()->name(),
             'fecha_creacion' => now(),
