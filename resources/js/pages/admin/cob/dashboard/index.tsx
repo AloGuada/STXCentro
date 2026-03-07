@@ -149,8 +149,8 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                                 ? Math.round(dsoPorObra.reduce((s, d) => s + Number(d.dias_promedio), 0) / dsoPorObra.length) > 60
                                     ? 'text-error'
                                     : Math.round(dsoPorObra.reduce((s, d) => s + Number(d.dias_promedio), 0) / dsoPorObra.length) > 30
-                                      ? 'text-warning'
-                                      : 'text-success'
+                                        ? 'text-warning'
+                                        : 'text-success'
                                 : undefined
                         }
                     />
@@ -227,91 +227,62 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                         )}
                     </div>
 
-                    {/* Retenciones por tipo */}
+
+                    {/* Anticipos */}
                     <div className="rounded-box border border-base-300 bg-base-100 p-4">
                         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
-                            Retenciones por Tipo
+                            Anticipos
                         </h3>
-                        {retencionesPorTipo.length === 0 ? (
-                            <EmptyChart label="Sin retenciones registradas" />
+                        {anticiposData.totalContractual === 0 ? (
+                            <EmptyChart label="Sin anticipos registrados" />
                         ) : (
-                            <ResponsiveContainer width="100%" height={300}>
-                                <PieChart>
-                                    <Pie
-                                        data={retencionesPorTipo}
-                                        dataKey="monto"
-                                        nameKey="tipo"
-                                        cx="50%"
-                                        cy="50%"
-                                        outerRadius={90}
-                                        label={({ tipo, percent }: { tipo: string; percent: number }) =>
-                                            `${tipo.substring(0, 15)} ${(percent * 100).toFixed(0)}%`
-                                        }
-                                    >
-                                        {retencionesPorTipo.map((_, i) => (
-                                            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip formatter={(value: number) => formatearMXN(value)} />
-                                </PieChart>
-                            </ResponsiveContainer>
+                            <div className="flex flex-col items-center gap-4 md:flex-row md:justify-around">
+                                <ResponsiveContainer width="100%" height={250} maxHeight={250}>
+                                    <PieChart>
+                                        <Pie
+                                            data={[
+                                                { nombre: 'Cobrado', monto: anticiposData.totalCobrado },
+                                                { nombre: 'Pendiente', monto: anticiposData.pendiente },
+                                            ].filter((d) => d.monto > 0)}
+                                            dataKey="monto"
+                                            nameKey="nombre"
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={50}
+                                            outerRadius={90}
+                                            label={({ nombre, percent }: { nombre: string; percent: number }) =>
+                                                `${nombre} ${(percent * 100).toFixed(0)}%`
+                                            }
+                                        >
+                                            <Cell fill={C.verde} />
+                                            <Cell fill={C.amarillo} />
+                                        </Pie>
+                                        <Tooltip formatter={(value: number) => formatearMXN(value)} />
+                                        <Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="space-y-2 text-sm">
+                                    <p>
+                                        <span className="text-base-content/60">Contractual:</span>{' '}
+                                        <span className="font-semibold">{formatearMXN(anticiposData.totalContractual)}</span>
+                                    </p>
+                                    <p>
+                                        <span className="text-base-content/60">Cobrado:</span>{' '}
+                                        <span className="font-semibold text-success">{formatearMXN(anticiposData.totalCobrado)}</span>
+                                    </p>
+                                    <p>
+                                        <span className="text-base-content/60">Pendiente:</span>{' '}
+                                        <span className="font-semibold text-warning">{formatearMXN(anticiposData.pendiente)}</span>
+                                    </p>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
 
-                {/* Anticipos */}
-                <div className="rounded-box border border-base-300 bg-base-100 p-4">
-                    <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
-                        Anticipos
-                    </h3>
-                    {anticiposData.totalContractual === 0 ? (
-                        <EmptyChart label="Sin anticipos registrados" />
-                    ) : (
-                        <div className="flex flex-col items-center gap-4 md:flex-row md:justify-around">
-                            <ResponsiveContainer width="100%" height={250} maxHeight={250}>
-                                <PieChart>
-                                    <Pie
-                                        data={[
-                                            { nombre: 'Cobrado', monto: anticiposData.totalCobrado },
-                                            { nombre: 'Pendiente', monto: anticiposData.pendiente },
-                                        ].filter((d) => d.monto > 0)}
-                                        dataKey="monto"
-                                        nameKey="nombre"
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={50}
-                                        outerRadius={90}
-                                        label={({ nombre, percent }: { nombre: string; percent: number }) =>
-                                            `${nombre} ${(percent * 100).toFixed(0)}%`
-                                        }
-                                    >
-                                        <Cell fill={C.verde} />
-                                        <Cell fill={C.amarillo} />
-                                    </Pie>
-                                    <Tooltip formatter={(value: number) => formatearMXN(value)} />
-                                    <Legend />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="space-y-2 text-sm">
-                                <p>
-                                    <span className="text-base-content/60">Contractual:</span>{' '}
-                                    <span className="font-semibold">{formatearMXN(anticiposData.totalContractual)}</span>
-                                </p>
-                                <p>
-                                    <span className="text-base-content/60">Cobrado:</span>{' '}
-                                    <span className="font-semibold text-success">{formatearMXN(anticiposData.totalCobrado)}</span>
-                                </p>
-                                <p>
-                                    <span className="text-base-content/60">Pendiente:</span>{' '}
-                                    <span className="font-semibold text-warning">{formatearMXN(anticiposData.pendiente)}</span>
-                                </p>
-                            </div>
-                        </div>
-                    )}
-                </div>
 
                 {/* Fila 4: Tablas */}
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     {/* Tabla desfase avance vs cobranza */}
                     <div className="rounded-box border border-base-300 bg-base-100 p-4">
                         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
@@ -385,8 +356,8 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                                                         {d.estado === 'en_proceso'
                                                             ? 'En proceso'
                                                             : d.estado === 'resuelto'
-                                                              ? 'Resuelto'
-                                                              : d.estado}
+                                                                ? 'Resuelto'
+                                                                : d.estado}
                                                     </span>
                                                 </td>
                                             </tr>
@@ -394,6 +365,37 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                                     </tbody>
                                 </table>
                             </div>
+                        )}
+                    </div>
+
+                    {/* Retenciones por tipo */}
+                    <div className="rounded-box border border-base-300 bg-base-100 p-4">
+                        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
+                            Retenciones por Tipo
+                        </h3>
+                        {retencionesPorTipo.length === 0 ? (
+                            <EmptyChart label="Sin retenciones registradas" />
+                        ) : (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <PieChart>
+                                    <Pie
+                                        data={retencionesPorTipo}
+                                        dataKey="monto"
+                                        nameKey="tipo"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={90}
+                                        label={({ tipo, percent }: { tipo: string; percent: number }) =>
+                                            `${tipo.substring(0, 15)} ${(percent * 100).toFixed(0)}%`
+                                        }
+                                    >
+                                        {retencionesPorTipo.map((_, i) => (
+                                            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value: number) => formatearMXN(value)} />
+                                </PieChart>
+                            </ResponsiveContainer>
                         )}
                     </div>
                 </div>
