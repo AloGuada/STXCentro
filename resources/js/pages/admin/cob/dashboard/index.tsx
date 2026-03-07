@@ -454,9 +454,9 @@ function PortafolioTable({ proyectos }: { proyectos: DatosProyecto[] }) {
     }
 
     return (
-        <div className="overflow-x-auto">
+        <div className="max-h-96 overflow-auto">
             <table className="table table-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-base-100">
                     <tr>
                         <th>No Obra</th>
                         <th>Descripcion</th>
