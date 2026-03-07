@@ -5,19 +5,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { Obra } from '@/types/models';
 import { Head } from '@inertiajs/react';
 import { useMemo } from 'react';
-import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    Cell,
-    Legend,
-    Pie,
-    PieChart,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -110,18 +98,13 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
         return [...top5, { nombre: 'Otros', monto: otros }];
     }, [proyectos]);
 
-    // Anticipos por obra
-    const anticiposData = useMemo(
-        () =>
-            proyectos
-                .filter((p) => Number(p.obra.anticipo ?? 0) > 0 || p.totalAnticiposCobrados > 0)
-                .map((p) => ({
-                    nombre: p.obra.no,
-                    contractual: Number(p.obra.anticipo ?? 0),
-                    cobrado: p.totalAnticiposCobrados,
-                })),
-        [proyectos],
-    );
+    // Anticipos globales
+    const anticiposData = useMemo(() => {
+        const totalContractual = proyectos.reduce((s, p) => s + Number(p.obra.anticipo ?? 0), 0);
+        const totalCobrado = proyectos.reduce((s, p) => s + p.totalAnticiposCobrados, 0);
+        const pendiente = Math.max(totalContractual - totalCobrado, 0);
+        return { totalContractual, totalCobrado, pendiente };
+    }, [proyectos]);
 
     // Desfase avance vs cobranza
     const desfaseData = useMemo(
@@ -153,11 +136,24 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                 </div>
 
                 {/* KPI Cards */}
-                <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
                     <KpiCard label="Total Contratado" valor={formatearMXN(totales.contratado)} />
                     <KpiCard label="Facturado" valor={formatearMXN(totales.facturado)} color="text-info" />
                     <KpiCard label="Cobrado" valor={formatearMXN(totales.cobrado)} color="text-success" />
                     <KpiCard label="Por Facturar" valor={formatearMXN(totales.porFacturar)} color="text-warning" />
+                    <KpiCard
+                        label="DSO Promedio"
+                        valor={dsoPorObra.length > 0 ? `${Math.round(dsoPorObra.reduce((s, d) => s + Number(d.dias_promedio), 0) / dsoPorObra.length)} dias` : '—'}
+                        color={
+                            dsoPorObra.length > 0
+                                ? Math.round(dsoPorObra.reduce((s, d) => s + Number(d.dias_promedio), 0) / dsoPorObra.length) > 60
+                                    ? 'text-error'
+                                    : Math.round(dsoPorObra.reduce((s, d) => s + Number(d.dias_promedio), 0) / dsoPorObra.length) > 30
+                                      ? 'text-warning'
+                                      : 'text-success'
+                                : undefined
+                        }
+                    />
                     <KpiCard
                         label="Disputas Activas"
                         valor={String(disputasActivas.length)}
@@ -166,7 +162,7 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                 </div>
 
                 {/* Fila 2: Graficas principales */}
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     {/* Dona: Cobrado / Facturado sin cobrar / Por facturar */}
                     <div className="rounded-box border border-base-300 bg-base-100 p-4">
                         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
@@ -200,60 +196,6 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                         )}
                     </div>
 
-                    {/* DSO promedio + top obras */}
-                    <div className="rounded-box border border-base-300 bg-base-100 p-4">
-                        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
-                            Dias promedio de cobro (DSO)
-                        </h3>
-                        {dsoPorObra.length === 0 ? (
-                            <EmptyChart label="Sin datos de pagos registrados" />
-                        ) : (
-                            <>
-                                <div className="mb-4 flex items-baseline gap-2">
-                                    <span className="text-4xl font-bold">
-                                        {Math.round(dsoPorObra.reduce((s, d) => s + Number(d.dias_promedio), 0) / dsoPorObra.length)}
-                                    </span>
-                                    <span className="text-base-content/50 text-sm">dias promedio</span>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="table table-sm">
-                                        <thead>
-                                            <tr>
-                                                <th>Obra</th>
-                                                <th className="text-right">Dias</th>
-                                                <th>Estado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {dsoPorObra.slice(0, 10).map((d) => (
-                                                <tr key={d.obra_id}>
-                                                    <td>{d.obra_no}</td>
-                                                    <td className="text-right font-semibold">{d.dias_promedio}</td>
-                                                    <td>
-                                                        <span
-                                                            className="inline-block h-3 w-3 rounded-full"
-                                                            style={{
-                                                                backgroundColor:
-                                                                    Number(d.dias_promedio) > 60
-                                                                        ? C.rojo
-                                                                        : Number(d.dias_promedio) > 30
-                                                                          ? C.amarillo
-                                                                          : C.verde,
-                                                            }}
-                                                        />
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                {/* Fila 3: Graficas secundarias */}
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     {/* Concentracion de cartera */}
                     <div className="rounded-box border border-base-300 bg-base-100 p-4">
                         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
@@ -262,7 +204,7 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                         {cartera.length === 0 ? (
                             <EmptyChart />
                         ) : (
-                            <ResponsiveContainer width="100%" height={250}>
+                            <ResponsiveContainer width="100%" height={300}>
                                 <PieChart>
                                     <Pie
                                         data={cartera}
@@ -285,28 +227,6 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                         )}
                     </div>
 
-                    {/* Anticipos */}
-                    <div className="rounded-box border border-base-300 bg-base-100 p-4">
-                        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
-                            Anticipos: Contractual vs Cobrado
-                        </h3>
-                        {anticiposData.length === 0 ? (
-                            <EmptyChart label="Sin anticipos registrados" />
-                        ) : (
-                            <ResponsiveContainer width="100%" height={250}>
-                                <BarChart data={anticiposData} margin={{ left: 10, right: 10 }}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="nombre" />
-                                    <YAxis tickFormatter={(v: number) => formatearMXN(v)} />
-                                    <Tooltip formatter={(value: number) => formatearMXN(value)} />
-                                    <Legend />
-                                    <Bar dataKey="contractual" name="Contractual" fill={C.azul} />
-                                    <Bar dataKey="cobrado" name="Cobrado" fill={C.verde} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        )}
-                    </div>
-
                     {/* Retenciones por tipo */}
                     <div className="rounded-box border border-base-300 bg-base-100 p-4">
                         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
@@ -315,7 +235,7 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                         {retencionesPorTipo.length === 0 ? (
                             <EmptyChart label="Sin retenciones registradas" />
                         ) : (
-                            <ResponsiveContainer width="100%" height={250}>
+                            <ResponsiveContainer width="100%" height={300}>
                                 <PieChart>
                                     <Pie
                                         data={retencionesPorTipo}
@@ -337,6 +257,57 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                             </ResponsiveContainer>
                         )}
                     </div>
+                </div>
+
+                {/* Anticipos */}
+                <div className="rounded-box border border-base-300 bg-base-100 p-4">
+                    <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
+                        Anticipos
+                    </h3>
+                    {anticiposData.totalContractual === 0 ? (
+                        <EmptyChart label="Sin anticipos registrados" />
+                    ) : (
+                        <div className="flex flex-col items-center gap-4 md:flex-row md:justify-around">
+                            <ResponsiveContainer width="100%" height={250} maxHeight={250}>
+                                <PieChart>
+                                    <Pie
+                                        data={[
+                                            { nombre: 'Cobrado', monto: anticiposData.totalCobrado },
+                                            { nombre: 'Pendiente', monto: anticiposData.pendiente },
+                                        ].filter((d) => d.monto > 0)}
+                                        dataKey="monto"
+                                        nameKey="nombre"
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={50}
+                                        outerRadius={90}
+                                        label={({ nombre, percent }: { nombre: string; percent: number }) =>
+                                            `${nombre} ${(percent * 100).toFixed(0)}%`
+                                        }
+                                    >
+                                        <Cell fill={C.verde} />
+                                        <Cell fill={C.amarillo} />
+                                    </Pie>
+                                    <Tooltip formatter={(value: number) => formatearMXN(value)} />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="space-y-2 text-sm">
+                                <p>
+                                    <span className="text-base-content/60">Contractual:</span>{' '}
+                                    <span className="font-semibold">{formatearMXN(anticiposData.totalContractual)}</span>
+                                </p>
+                                <p>
+                                    <span className="text-base-content/60">Cobrado:</span>{' '}
+                                    <span className="font-semibold text-success">{formatearMXN(anticiposData.totalCobrado)}</span>
+                                </p>
+                                <p>
+                                    <span className="text-base-content/60">Pendiente:</span>{' '}
+                                    <span className="font-semibold text-warning">{formatearMXN(anticiposData.pendiente)}</span>
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Fila 4: Tablas */}
