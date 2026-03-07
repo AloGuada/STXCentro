@@ -84,18 +84,14 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
 
     const disputasActivas = disputas.filter((d) => d.estado === 'en_proceso');
 
-    // Barra apilada: Cobrado / Facturado sin cobrar / Por facturar
-    const barraObras = useMemo(
-        () =>
-            proyectos.map((p) => ({
-                nombre: p.obra.no,
-                cobrado: p.totalCobrado,
-                facturadoSinCobrar: Math.max(p.totalFacturado - p.totalCobrado, 0),
-                porFacturar: Math.max(p.presupuestoEjecutar - p.totalFacturado, 0),
-                avanceObra: Number(p.obra.porcentaje_obra ?? 0),
-                pctCobrado: p.porcentajeCobrado,
-            })),
-        [proyectos],
+    // Dona global: Cobrado / Facturado sin cobrar / Por facturar
+    const donaCobranza = useMemo(
+        () => [
+            { nombre: 'Cobrado', monto: totales.cobrado, color: C.verde },
+            { nombre: 'Facturado sin cobrar', monto: Math.max(totales.facturado - totales.cobrado, 0), color: C.amarillo },
+            { nombre: 'Por facturar', monto: totales.porFacturar, color: C.gris },
+        ].filter((d) => d.monto > 0),
+        [totales],
     );
 
     // Concentracion de cartera
@@ -171,42 +167,35 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
 
                 {/* Fila 2: Graficas principales */}
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                    {/* Barra apilada: Contrato -> Facturado -> Cobrado */}
+                    {/* Dona: Cobrado / Facturado sin cobrar / Por facturar */}
                     <div className="rounded-box border border-base-300 bg-base-100 p-4">
                         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
-                            Cobranza por Obra
+                            Estado de Cobranza Global
                         </h3>
-                        {barraObras.length === 0 ? (
+                        {donaCobranza.length === 0 ? (
                             <EmptyChart />
                         ) : (
-                            <ResponsiveContainer width="100%" height={Math.max(barraObras.length * 50, 200)}>
-                                <BarChart data={barraObras} layout="vertical" margin={{ left: 60, right: 20 }}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis type="number" tickFormatter={(v: number) => formatearMXN(v)} />
-                                    <YAxis type="category" dataKey="nombre" width={55} />
-                                    <Tooltip
-                                        formatter={(value: number, name: string) => [
-                                            formatearMXN(value),
-                                            name === 'cobrado'
-                                                ? 'Cobrado'
-                                                : name === 'facturadoSinCobrar'
-                                                  ? 'Facturado sin cobrar'
-                                                  : 'Por facturar',
-                                        ]}
-                                    />
-                                    <Legend
-                                        formatter={(value: string) =>
-                                            value === 'cobrado'
-                                                ? 'Cobrado'
-                                                : value === 'facturadoSinCobrar'
-                                                  ? 'Facturado sin cobrar'
-                                                  : 'Por facturar'
+                            <ResponsiveContainer width="100%" height={300}>
+                                <PieChart>
+                                    <Pie
+                                        data={donaCobranza}
+                                        dataKey="monto"
+                                        nameKey="nombre"
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={110}
+                                        label={({ nombre, percent }: { nombre: string; percent: number }) =>
+                                            `${nombre} ${(percent * 100).toFixed(0)}%`
                                         }
-                                    />
-                                    <Bar dataKey="cobrado" stackId="a" fill={C.verde} />
-                                    <Bar dataKey="facturadoSinCobrar" stackId="a" fill={C.amarillo} />
-                                    <Bar dataKey="porFacturar" stackId="a" fill={C.gris} />
-                                </BarChart>
+                                    >
+                                        {donaCobranza.map((entry, i) => (
+                                            <Cell key={i} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value: number) => formatearMXN(value)} />
+                                    <Legend />
+                                </PieChart>
                             </ResponsiveContainer>
                         )}
                     </div>
