@@ -200,7 +200,7 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                         )}
                     </div>
 
-                    {/* DSO por obra */}
+                    {/* DSO promedio + top obras */}
                     <div className="rounded-box border border-base-300 bg-base-100 p-4">
                         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
                             Dias promedio de cobro (DSO)
@@ -208,28 +208,46 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                         {dsoPorObra.length === 0 ? (
                             <EmptyChart label="Sin datos de pagos registrados" />
                         ) : (
-                            <ResponsiveContainer width="100%" height={Math.max(dsoPorObra.length * 50, 200)}>
-                                <BarChart data={dsoPorObra} layout="vertical" margin={{ left: 60, right: 20 }}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis type="number" unit=" dias" />
-                                    <YAxis type="category" dataKey="obra_no" width={55} />
-                                    <Tooltip formatter={(value: number) => [`${value} dias`, 'DSO Promedio']} />
-                                    <Bar dataKey="dias_promedio" fill={C.azul}>
-                                        {dsoPorObra.map((entry, i) => (
-                                            <Cell
-                                                key={i}
-                                                fill={
-                                                    Number(entry.dias_promedio) > 60
-                                                        ? C.rojo
-                                                        : Number(entry.dias_promedio) > 30
-                                                          ? C.amarillo
-                                                          : C.verde
-                                                }
-                                            />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <>
+                                <div className="mb-4 flex items-baseline gap-2">
+                                    <span className="text-4xl font-bold">
+                                        {Math.round(dsoPorObra.reduce((s, d) => s + Number(d.dias_promedio), 0) / dsoPorObra.length)}
+                                    </span>
+                                    <span className="text-base-content/50 text-sm">dias promedio</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Obra</th>
+                                                <th className="text-right">Dias</th>
+                                                <th>Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {dsoPorObra.slice(0, 10).map((d) => (
+                                                <tr key={d.obra_id}>
+                                                    <td>{d.obra_no}</td>
+                                                    <td className="text-right font-semibold">{d.dias_promedio}</td>
+                                                    <td>
+                                                        <span
+                                                            className="inline-block h-3 w-3 rounded-full"
+                                                            style={{
+                                                                backgroundColor:
+                                                                    Number(d.dias_promedio) > 60
+                                                                        ? C.rojo
+                                                                        : Number(d.dias_promedio) > 30
+                                                                          ? C.amarillo
+                                                                          : C.verde,
+                                                            }}
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
                         )}
                     </div>
                 </div>
