@@ -1624,6 +1624,7 @@ export type RhDatosExtra = {
     imss: string | null;
     curp: string | null;
     rfc: string | null;
+    numero_ine: string | null;
     banco_op: string | null;
     texto_cv: string | null;
     created_at: string;
@@ -1669,6 +1670,7 @@ export type RhRequisicion = {
     estado: 'borrador' | 'abierta' | 'en_proceso' | 'cerrada' | 'cancelada';
     tipo_requisicion: 'nueva' | 'reemplazo' | 'temporal';
     tipo_contrato_generado: 'planta' | 'obra';
+    procesar_ia: boolean;
     justificacion: string | null;
     nombre_solicitante: string | null;
     puesto_solicitante: string | null;

@@ -25,6 +25,7 @@ class DatosExtraFactory extends Factory
             'cp' => fake()->optional()->postcode(),
             'curp' => fake()->optional()->regexify('[A-Z]{4}[0-9]{6}[A-Z]{6}[0-9]{2}'),
             'rfc' => fake()->optional()->regexify('[A-Z]{4}[0-9]{6}[A-Z0-9]{3}'),
+            'numero_ine' => fake()->optional()->numerify('#############'),
         ];
     }
 }

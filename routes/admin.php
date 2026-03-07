@@ -47,6 +47,7 @@ use App\Http\Controllers\Admin\Prod\PagoExtraController as ProdPagoExtraControll
 use App\Http\Controllers\Admin\Prod\RegistroController as ProdRegistroController;
 use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtraController;
 use App\Http\Controllers\Admin\ProveedorController;
+use App\Http\Controllers\Admin\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Admin\Rh\OnboardingController as RhOnboardingController;
 use App\Http\Controllers\Admin\Rh\PeriodoLaboralController as RhPeriodoLaboralController;
 use App\Http\Controllers\Admin\Rh\PermisoAusenciaController as RhPermisoAusenciaController;
@@ -317,6 +318,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     // Recursos Humanos admin routes
     Route::prefix('rh')->name('rh.')->group(function () {
+        Route::get('dashboard', [RhDashboardController::class, 'index'])->name('dashboard.index');
+
         // Catalogos
         Route::resource('skills', RhSkillController::class);
         Route::resource('requerimientos', RhRequerimientoController::class)->parameters(['requerimientos' => 'requerimiento']);

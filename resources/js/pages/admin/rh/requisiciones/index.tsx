@@ -1,5 +1,6 @@
 import { DataTable, type Column } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
+import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedData, RhRequisicion } from '@/types/models';
@@ -52,7 +53,11 @@ const columns: Column<RhRequisicion>[] = [
         label: 'Tipo',
         render: (req) => TIPO_LABELS[req.tipo_requisicion] ?? req.tipo_requisicion,
     },
-    { key: 'fecha_creacion', label: 'Fecha Creacion' },
+    {
+        key: 'fecha_creacion',
+        label: 'Fecha Creacion',
+        render: (req) => <FormattedDate value={req.fecha_creacion} />,
+    },
 ];
 
 type Props = {

@@ -1,6 +1,7 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchSelect } from '@/components/ui/search-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -18,20 +19,22 @@ const breadcrumbs: BreadcrumbItem[] = [
 type Props = {
     personas: { id: number; nombre: string; apellido: string }[];
     puestos: { id: number; nombre: string }[];
-    requisiciones: { id: number; folio: string; puesto_id: number }[];
+    requisiciones: { id: number; folio: string; puesto_id: number; tipo_contrato_generado: string | null; salario: string | null }[];
 };
 
 export default function PeriodoLaboralCreate({ personas, puestos, requisiciones }: Props) {
     const params = new URLSearchParams(window.location.search);
+    const reqId = params.get('requisicion_id');
+    const reqInicial = reqId ? requisiciones.find((r) => String(r.id) === reqId) : null;
 
     const { data, setData, post, processing, errors } = useForm({
         persona_id: params.get('persona_id') ?? '',
         puesto_id: params.get('puesto_id') ?? '',
-        requisicion_id: params.get('requisicion_id') ?? '',
+        requisicion_id: reqId ?? '',
         fecha_inicio: '',
         fecha_fin: '',
-        salario: '',
-        tipo_contrato: '',
+        salario: reqInicial?.salario ?? '',
+        tipo_contrato: reqInicial?.tipo_contrato_generado ?? '',
         estado: 'activo' as 'activo' | 'terminado' | 'baja',
     });
 
@@ -39,6 +42,10 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
         e.preventDefault();
         post('/admin/rh/periodos-laborales');
     };
+
+    const personaOptions = personas.map((p) => ({ value: String(p.id), label: `${p.nombre} ${p.apellido}` }));
+    const puestoOptions = puestos.map((p) => ({ value: String(p.id), label: p.nombre }));
+    const requisicionOptions = requisiciones.map((r) => ({ value: String(r.id), label: r.folio }));
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -50,48 +57,30 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Persona" htmlFor="persona_id" error={errors.persona_id} required>
-                            <Select value={data.persona_id} onValueChange={(v) => setData('persona_id', v)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar persona" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {personas.map((p) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                            {p.nombre} {p.apellido}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <SearchSelect
+                                options={personaOptions}
+                                value={data.persona_id}
+                                onValueChange={(v) => setData('persona_id', v)}
+                                placeholder="Buscar persona..."
+                            />
                         </FormField>
 
                         <FormField label="Puesto" htmlFor="puesto_id" error={errors.puesto_id} required>
-                            <Select value={data.puesto_id} onValueChange={(v) => setData('puesto_id', v)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar puesto" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {puestos.map((p) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                            {p.nombre}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <SearchSelect
+                                options={puestoOptions}
+                                value={data.puesto_id}
+                                onValueChange={(v) => setData('puesto_id', v)}
+                                placeholder="Buscar puesto..."
+                            />
                         </FormField>
 
                         <FormField label="Requisición" htmlFor="requisicion_id" error={errors.requisicion_id}>
-                            <Select value={data.requisicion_id} onValueChange={(v) => setData('requisicion_id', v)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Sin requisición" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {requisiciones.map((r) => (
-                                        <SelectItem key={r.id} value={String(r.id)}>
-                                            {r.folio}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <SearchSelect
+                                options={requisicionOptions}
+                                value={data.requisicion_id}
+                                onValueChange={(v) => setData('requisicion_id', v)}
+                                placeholder="Buscar requisición..."
+                            />
                         </FormField>
 
                         <div className="grid grid-cols-2 gap-4">

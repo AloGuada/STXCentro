@@ -40,7 +40,7 @@ class PuestoController extends Controller
         $this->authorize('rh.puestos.crear');
 
         return Inertia::render('admin/rh/puestos/create', [
-            'departamentos' => Departamento::orderBy('nombre')->get(),
+            'departamentos' => Departamento::orderBy('descripcion')->get(),
             'puestos' => Puesto::orderBy('nombre')->get(['id', 'nombre']),
         ]);
     }
@@ -62,7 +62,7 @@ class PuestoController extends Controller
 
         return Inertia::render('admin/rh/puestos/edit', [
             'puesto' => $puesto,
-            'departamentos' => Departamento::orderBy('nombre')->get(),
+            'departamentos' => Departamento::orderBy('descripcion')->get(),
             'puestosJefe' => Puesto::where('id', '!=', $puesto->id)->orderBy('nombre')->get(['id', 'nombre']),
             'allSkills' => Skill::orderBy('nombre')->get(),
             'allRequerimientos' => Requerimiento::orderBy('descripcion')->get(),

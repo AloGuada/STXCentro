@@ -23,6 +23,7 @@ class Requisicion extends Model
         'estado',
         'tipo_requisicion',
         'tipo_contrato_generado',
+        'procesar_ia',
         'justificacion',
         'nombre_solicitante',
         'puesto_solicitante',
@@ -38,6 +39,7 @@ class Requisicion extends Model
     {
         return [
             'cantidad' => 'integer',
+            'procesar_ia' => 'boolean',
             'salario' => 'decimal:2',
             'fecha_creacion' => 'date',
             'fecha_cierre' => 'date',

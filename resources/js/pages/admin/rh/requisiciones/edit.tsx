@@ -30,6 +30,7 @@ export default function RequisicionEdit({ requisicion, puestos }: Props) {
         cantidad: String(requisicion.cantidad),
         tipo_requisicion: requisicion.tipo_requisicion,
         tipo_contrato_generado: requisicion.tipo_contrato_generado,
+        procesar_ia: requisicion.procesar_ia ?? false,
         estado: requisicion.estado,
         justificacion: requisicion.justificacion ?? '',
         nombre_solicitante: requisicion.nombre_solicitante ?? '',
@@ -117,6 +118,18 @@ export default function RequisicionEdit({ requisicion, puestos }: Props) {
                                 </SelectContent>
                             </Select>
                         </FormField>
+
+                        <div className="form-control">
+                            <label className="label cursor-pointer justify-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    className="checkbox"
+                                    checked={data.procesar_ia}
+                                    onChange={(e) => setData('procesar_ia', e.target.checked)}
+                                />
+                                <span className="label-text">Procesar candidaturas con IA</span>
+                            </label>
+                        </div>
 
                         <FormField label="Justificacion" htmlFor="justificacion" error={errors.justificacion}>
                             <textarea id="justificacion" className="textarea textarea-bordered w-full" value={data.justificacion} onChange={(e) => setData('justificacion', e.target.value)} placeholder="Justificacion de la requisicion" />

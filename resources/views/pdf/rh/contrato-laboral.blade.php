@@ -483,7 +483,7 @@
     </p>
 
     <p class="clausula">
-        SEGUNDA.- POR SU PARTE EL C. <span class="underline">{{ mb_strtoupper($persona->nombre) }} {{ mb_strtoupper($persona->apellido) }}</span> MANIFIESTA: SER MEXICANO, MAYOR DE EDAD LEGAL, CON DOMICILIO EN EL PREDIO <span class="underline">{{ $extras->domicilio ?? '' }} C.P. {{ $extras->cp ?? '' }}</span> IFE NÙMERO _______________________________________ , ESTAR ENTERADO DE LA ACTIVIDAD DE LA EMPRESA Y QUE TIENE LAS APTITUDES, LOS CONOCIMIENTOS Y LA EXPERIENCIA PROPIOS Y NECESARIOS PARA LA EJECUCIÓN, REALIZACIÓN Y DESEMPEÑO DEL TRABAJO Y LAS LABORES QUE LE ENCOMIENDAN Y A QUIEN SE NOMBRA EN LO SUCESIVO COMO EL TRABAJADOR.
+        SEGUNDA.- POR SU PARTE EL C. <span class="underline">{{ mb_strtoupper($persona->nombre) }} {{ mb_strtoupper($persona->apellido) }}</span> MANIFIESTA: SER MEXICANO, MAYOR DE EDAD LEGAL, CON DOMICILIO EN EL PREDIO <span class="underline">{{ $extras->domicilio ?? '' }} C.P. {{ $extras->cp ?? '' }}</span> INE NÚMERO <span class="underline">{{ $extras->numero_ine ?? '' }}</span> , ESTAR ENTERADO DE LA ACTIVIDAD DE LA EMPRESA Y QUE TIENE LAS APTITUDES, LOS CONOCIMIENTOS Y LA EXPERIENCIA PROPIOS Y NECESARIOS PARA LA EJECUCIÓN, REALIZACIÓN Y DESEMPEÑO DEL TRABAJO Y LAS LABORES QUE LE ENCOMIENDAN Y A QUIEN SE NOMBRA EN LO SUCESIVO COMO EL TRABAJADOR.
     </p>
 
     <p class="clausula">

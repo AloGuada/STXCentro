@@ -29,6 +29,7 @@ class DatosExtra extends Model
         'imss',
         'curp',
         'rfc',
+        'numero_ine',
         'banco_op',
         'texto_cv',
     ];

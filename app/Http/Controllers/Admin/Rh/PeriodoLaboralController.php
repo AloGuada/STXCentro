@@ -42,14 +42,21 @@ class PeriodoLaboralController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
         $this->authorize('rh.periodos-laborales.crear');
+
+        $requisiciones = Requisicion::where(function ($q) use ($request) {
+            $q->whereIn('estado', ['abierta', 'en_proceso']);
+            if ($request->filled('requisicion_id')) {
+                $q->orWhere('id', $request->query('requisicion_id'));
+            }
+        })->orderByDesc('fecha_creacion')->get(['id', 'folio', 'puesto_id', 'tipo_contrato_generado', 'salario']);
 
         return Inertia::render('admin/rh/periodos-laborales/create', [
             'personas' => Persona::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
             'puestos' => Puesto::orderBy('nombre')->get(['id', 'nombre']),
-            'requisiciones' => Requisicion::whereIn('estado', ['abierta', 'en_proceso'])->orderByDesc('fecha_creacion')->get(['id', 'folio', 'puesto_id']),
+            'requisiciones' => $requisiciones,
         ]);
     }
 
@@ -66,7 +73,7 @@ class PeriodoLaboralController extends Controller
     {
         $this->authorize('rh.periodos-laborales.editar');
 
-        $periodoLaboral->load(['persona', 'puesto', 'onboarding.tareas.responsable.persona', 'onboarding.tareas.media', 'requisicion']);
+        $periodoLaboral->load(['persona.datosExtra', 'puesto', 'onboarding.tareas.responsable.persona', 'onboarding.tareas.media', 'requisicion']);
 
         $periodosActivos = PeriodoLaboral::query()
             ->where('estado', 'activo')
@@ -133,11 +140,11 @@ class PeriodoLaboralController extends Controller
         $fechaIngreso = $fechaInicio->format('d/m/Y');
 
         $fechaIngresoLarga = mb_strtoupper(
-            $fechaInicio->translatedFormat('d \d\e F \d\e Y')
+            $fechaInicio->locale('es')->translatedFormat('d \d\e F \d\e Y')
         );
 
         $fechaVencimiento = mb_strtoupper(
-            $fechaInicio->copy()->addDays(91)->translatedFormat('d \d\e F \d\e Y')
+            $fechaInicio->copy()->addDays(91)->locale('es')->translatedFormat('d \d\e F \d\e Y')
         );
 
         $sexo = mb_strlen($curp) > 10 ? mb_strtoupper(mb_substr($curp, 10, 1)) : '';

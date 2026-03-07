@@ -25,6 +25,7 @@ import {
     LogOut,
     MenuIcon,
     Monitor,
+    Network,
     Package,
     Puzzle,
     Receipt,
@@ -154,6 +155,7 @@ const navGroups: NavGroup[] = [
         title: 'Recursos Humanos',
         icon: UserCheck,
         items: [
+            { title: 'Organigrama', href: '/admin/rh/dashboard', icon: Network, permission: 'rh.puestos.ver' },
             { title: 'Puestos', href: '/admin/rh/puestos', icon: Briefcase, permission: 'rh.puestos.ver' },
             { title: 'Requisiciones', href: '/admin/rh/requisiciones', icon: FileCheck, permission: 'rh.requisiciones.ver' },
             { title: 'Personas', href: '/admin/rh/personas', icon: Users, permission: 'rh.personas.ver' },

@@ -19,6 +19,7 @@ class RequisicionStoreRequest extends FormRequest
             'cantidad' => ['required', 'integer', 'min:1'],
             'tipo_requisicion' => ['required', 'string', 'in:nueva,reemplazo,temporal'],
             'tipo_contrato_generado' => ['required', 'string', 'in:planta,obra'],
+            'procesar_ia' => ['boolean'],
             'justificacion' => ['nullable', 'string'],
             'nombre_solicitante' => ['nullable', 'string', 'max:255'],
             'puesto_solicitante' => ['nullable', 'string', 'max:255'],

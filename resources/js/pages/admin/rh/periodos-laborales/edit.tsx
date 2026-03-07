@@ -3,6 +3,7 @@ import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchSelect } from '@/components/ui/search-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -29,6 +30,34 @@ type Props = {
 export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisiciones, periodosActivos }: Props) {
     const personaNombre = periodo.persona ? `${periodo.persona.nombre} ${periodo.persona.apellido}` : 'Periodo';
     const [activeTab, setActiveTab] = useState<'datos' | 'onboarding'>('datos');
+
+    const handleDescargarContrato = () => {
+        const faltantes: string[] = [];
+        const persona = periodo.persona;
+        const extras = persona?.datos_extra;
+
+        if (!persona?.nombre) faltantes.push('Nombre de la persona');
+        if (!persona?.apellido) faltantes.push('Apellido de la persona');
+        if (!periodo.fecha_inicio) faltantes.push('Fecha de inicio');
+        if (!periodo.puesto) faltantes.push('Puesto');
+        if (!periodo.salario) faltantes.push('Salario');
+        if (!extras?.curp) faltantes.push('CURP');
+        if (!extras?.domicilio) faltantes.push('Domicilio');
+        if (!extras?.cp) faltantes.push('Código Postal');
+        if (!extras?.imss) faltantes.push('No. IMSS');
+        if (!extras?.rfc) faltantes.push('RFC');
+        if (!extras?.numero_ine) faltantes.push('Número de INE');
+        if (!extras?.cuenta_banco) faltantes.push('Cuenta de banco');
+        if (!extras?.estado_civil) faltantes.push('Estado civil');
+        if (!persona?.fecha_nacimiento) faltantes.push('Fecha de nacimiento');
+
+        if (faltantes.length > 0) {
+            alert('Faltan los siguientes datos para generar el contrato:\n\n- ' + faltantes.join('\n- '));
+            return;
+        }
+
+        window.open(`/admin/rh/periodos-laborales/${periodo.id}/contrato-pdf`, '_blank');
+    };
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -67,11 +96,9 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-semibold">Editar Periodo Laboral</h1>
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" asChild>
-                            <a href={`/admin/rh/periodos-laborales/${periodo.id}/contrato-pdf`} target="_blank" rel="noopener noreferrer">
-                                <FileTextIcon className="size-4" />
-                                Descargar Contrato
-                            </a>
+                        <Button variant="outline" type="button" onClick={handleDescargarContrato}>
+                            <FileTextIcon className="size-4" />
+                            Descargar Contrato
                         </Button>
                         <DeleteDialog
                             title="Eliminar periodo laboral"
@@ -106,48 +133,30 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
                     <div className="w-3/4">
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <FormField label="Persona" htmlFor="persona_id" error={errors.persona_id} required>
-                                <Select value={data.persona_id} onValueChange={(v) => setData('persona_id', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar persona" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {personas.map((p) => (
-                                            <SelectItem key={p.id} value={String(p.id)}>
-                                                {p.nombre} {p.apellido}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchSelect
+                                    options={personas.map((p) => ({ value: String(p.id), label: `${p.nombre} ${p.apellido}` }))}
+                                    value={data.persona_id}
+                                    onValueChange={(v) => setData('persona_id', v)}
+                                    placeholder="Buscar persona..."
+                                />
                             </FormField>
 
                             <FormField label="Puesto" htmlFor="puesto_id" error={errors.puesto_id} required>
-                                <Select value={data.puesto_id} onValueChange={(v) => setData('puesto_id', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar puesto" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {puestos.map((p) => (
-                                            <SelectItem key={p.id} value={String(p.id)}>
-                                                {p.nombre}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchSelect
+                                    options={puestos.map((p) => ({ value: String(p.id), label: p.nombre }))}
+                                    value={data.puesto_id}
+                                    onValueChange={(v) => setData('puesto_id', v)}
+                                    placeholder="Buscar puesto..."
+                                />
                             </FormField>
 
                             <FormField label="Requisición" htmlFor="requisicion_id" error={errors.requisicion_id}>
-                                <Select value={data.requisicion_id} onValueChange={(v) => setData('requisicion_id', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Sin requisición" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {requisiciones.map((r) => (
-                                            <SelectItem key={r.id} value={String(r.id)}>
-                                                {r.folio}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchSelect
+                                    options={requisiciones.map((r) => ({ value: String(r.id), label: r.folio }))}
+                                    value={data.requisicion_id}
+                                    onValueChange={(v) => setData('requisicion_id', v)}
+                                    placeholder="Buscar requisición..."
+                                />
                             </FormField>
 
                             <div className="grid grid-cols-2 gap-4">

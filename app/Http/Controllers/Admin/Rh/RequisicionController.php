@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Rh\RequisicionStoreRequest;
 use App\Http\Requests\Admin\Rh\RequisicionUpdateRequest;
 use App\Models\Rh\Candidatura;
+use App\Models\Rh\PeriodoLaboral;
 use App\Models\Rh\Persona;
 use App\Models\Rh\Puesto;
 use App\Models\Rh\Requisicion;
@@ -118,12 +119,18 @@ class RequisicionController extends Controller
 
         $requisicion->load(['puesto', 'candidaturas.persona']);
         $personasDisponibles = Persona::whereDoesntHave('candidaturas', fn ($q) => $q->where('requisicion_id', $requisicion->id))
+            ->whereDoesntHave('periodosLaborales', fn ($q) => $q->where('estado', 'activo'))
             ->orderBy('apellido')
             ->get(['id', 'nombre', 'apellido']);
+
+        $contratados = PeriodoLaboral::where('requisicion_id', $requisicion->id)
+            ->pluck('persona_id')
+            ->all();
 
         return Inertia::render('admin/rh/requisiciones/candidatos', [
             'requisicion' => $requisicion,
             'personasDisponibles' => $personasDisponibles,
+            'contratados' => $contratados,
         ]);
     }
 

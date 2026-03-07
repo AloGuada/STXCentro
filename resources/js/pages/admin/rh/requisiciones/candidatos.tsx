@@ -5,15 +5,17 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { RhRequisicion } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
+import { FormattedDate } from '@/components/ui/formatted-date';
 import { UserCheckIcon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 
 type Props = {
     requisicion: RhRequisicion;
     personasDisponibles: { id: number; nombre: string; apellido: string }[];
+    contratados: number[];
 };
 
-export default function RequisicionCandidatos({ requisicion, personasDisponibles }: Props) {
+export default function RequisicionCandidatos({ requisicion, personasDisponibles, contratados }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'RH', href: '/admin/rh/skills' },
@@ -73,7 +75,7 @@ export default function RequisicionCandidatos({ requisicion, personasDisponibles
                                             {cand.persona ? `${cand.persona.nombre} ${cand.persona.apellido}` : `Persona #${cand.persona_id}`}
                                         </span>
                                         {cand.fecha_aplicacion && (
-                                            <span className="text-muted-foreground ml-2 text-sm">Aplicado: {cand.fecha_aplicacion}</span>
+                                            <span className="text-muted-foreground ml-2 text-sm">Aplicado: <FormattedDate value={cand.fecha_aplicacion} format="medium" /></span>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-3">
@@ -86,12 +88,16 @@ export default function RequisicionCandidatos({ requisicion, personasDisponibles
                                         {cand.porcentaje_requisitos !== null && (
                                             <Badge variant="outline">Requisitos: {cand.porcentaje_requisitos}%</Badge>
                                         )}
-                                        <Button variant="outline" size="sm" asChild>
-                                            <Link href={`/admin/rh/periodos-laborales/create?persona_id=${cand.persona_id}&puesto_id=${requisicion.puesto_id}&requisicion_id=${requisicion.id}`}>
-                                                <UserCheckIcon className="size-4" />
-                                                Contratar
-                                            </Link>
-                                        </Button>
+                                        {contratados.includes(cand.persona_id) ? (
+                                            <Badge variant="default">Contratado</Badge>
+                                        ) : (
+                                            <Button variant="outline" size="sm" asChild>
+                                                <Link href={`/admin/rh/periodos-laborales/create?persona_id=${cand.persona_id}&puesto_id=${requisicion.puesto_id}&requisicion_id=${requisicion.id}`}>
+                                                    <UserCheckIcon className="size-4" />
+                                                    Contratar
+                                                </Link>
+                                            </Button>
+                                        )}
                                         <Button type="button" variant="ghost" size="icon" onClick={() => removeCandidato(cand.id)}>
                                             <XIcon className="size-4" />
                                         </Button>
