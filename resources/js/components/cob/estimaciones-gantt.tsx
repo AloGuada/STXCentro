@@ -232,7 +232,7 @@ export function EstimacionesGantt({ obras, year }: Props) {
                 ))}
             </div>
 
-            <div className="overflow-x-auto rounded-box border border-base-300">
+            <div className="max-h-[calc(100vh-12rem)] overflow-auto rounded-box border border-base-300">
                 <table className="table table-zebra whitespace-nowrap text-xs">
                     <thead className="sticky top-0 z-30 bg-base-100">
                         <tr>
