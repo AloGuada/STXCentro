@@ -29,6 +29,11 @@ return [
             'driver' => 'session',
             'provider' => 'proveedores',
         ],
+
+        'externo' => [
+            'driver' => 'session',
+            'provider' => 'externos',
+        ],
     ],
 
     /*
@@ -46,6 +51,11 @@ return [
         'proveedores' => [
             'driver' => 'eloquent',
             'model' => App\Models\Proveedor::class,
+        ],
+
+        'externos' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Drive\Externo::class,
         ],
     ],
 

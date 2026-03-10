@@ -36,31 +36,38 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $isDrive = $request->user('externo') !== null;
         $isPortal = $request->user('proveedor') !== null;
 
         return [
             ...parent::share($request),
             'name' => config('app.name'),
-            'auth' => fn () => $isPortal
+            'auth' => fn () => $isDrive
                 ? [
-                    'user' => $request->user('proveedor'),
-                    'guard' => 'proveedor',
+                    'user' => $request->user('externo')?->load('carpetas'),
+                    'guard' => 'externo',
                     'permissions' => [],
                 ]
-                : [
-                    'user' => $request->user(),
-                    'guard' => 'web',
-                    'permissions' => $request->user()
-                        ? DB::table('role_has_permissions')
-                            ->join('permissions', 'permissions.id', '=', 'role_has_permissions.permission_id')
-                            ->join('model_has_roles', 'model_has_roles.role_id', '=', 'role_has_permissions.role_id')
-                            ->where('model_has_roles.model_uuid', $request->user()->getKey())
-                            ->pluck('permissions.name')
-                            ->unique()
-                            ->values()
-                            ->toArray()
-                        : [],
-                ],
+                : ($isPortal
+                    ? [
+                        'user' => $request->user('proveedor'),
+                        'guard' => 'proveedor',
+                        'permissions' => [],
+                    ]
+                    : [
+                        'user' => $request->user(),
+                        'guard' => 'web',
+                        'permissions' => $request->user()
+                            ? DB::table('role_has_permissions')
+                                ->join('permissions', 'permissions.id', '=', 'role_has_permissions.permission_id')
+                                ->join('model_has_roles', 'model_has_roles.role_id', '=', 'role_has_permissions.role_id')
+                                ->where('model_has_roles.model_uuid', $request->user()->getKey())
+                                ->pluck('permissions.name')
+                                ->unique()
+                                ->values()
+                                ->toArray()
+                            : [],
+                    ]),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

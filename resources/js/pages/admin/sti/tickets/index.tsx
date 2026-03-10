@@ -3,7 +3,8 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedData, StiStatus, StiTicket, StiTicketHistorial } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
-import { CheckCircleIcon, ClockIcon, MessageSquareTextIcon, XIcon } from 'lucide-react';
+import { CheckCircleIcon, ClockIcon, MessageSquareTextIcon, PauseCircleIcon, PlayCircleIcon, TimerIcon, XIcon } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -14,6 +15,137 @@ const breadcrumbs: BreadcrumbItem[] = [
 type TicketWithHistorial = StiTicket & {
     historial?: (StiTicketHistorial & { status: StiStatus })[];
 };
+
+type TiempoDesglose = {
+    totalMin: number;
+    activoMin: number;
+    detenidoMin: number;
+    detalle: { estado: string; minutos: number; color: string; detuvo: boolean }[];
+};
+
+function calcularTiempos(ticket: TicketWithHistorial): TiempoDesglose | null {
+    const entries = ticket.historial?.slice().sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    if (!entries || entries.length === 0) return null;
+
+    let totalMin = 0;
+    let detenidoMin = 0;
+    const detalle: TiempoDesglose['detalle'] = [];
+
+    for (let i = 0; i < entries.length; i++) {
+        const current = entries[i];
+        const next = entries[i + 1] ?? null;
+
+        const inicio = new Date(current.created_at).getTime();
+        const fin = next ? new Date(next.created_at).getTime() : Date.now();
+
+        const minutos = Math.max(0, (fin - inicio) / 60000);
+        totalMin += minutos;
+
+        const detuvo = current.status?.detiene_tiempo ?? false;
+        if (detuvo) detenidoMin += minutos;
+
+        detalle.push({
+            estado: current.status?.descripcion ?? 'Desconocido',
+            minutos,
+            color: current.status?.color ?? '#6b7280',
+            detuvo,
+        });
+    }
+
+    return { totalMin, activoMin: totalMin - detenidoMin, detenidoMin, detalle };
+}
+
+function formatDuracion(minutos: number): string {
+    if (minutos < 60) return `${Math.round(minutos)}m`;
+    const h = Math.floor(minutos / 60);
+    const m = Math.round(minutos % 60);
+    if (h < 24) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    const d = Math.floor(h / 24);
+    const rh = h % 24;
+    return rh > 0 ? `${d}d ${rh}h` : `${d}d`;
+}
+
+function TiempoPopover({ ticket }: { ticket: TicketWithHistorial }) {
+    const [open, setOpen] = useState(false);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const tiempos = calcularTiempos(ticket);
+
+    const fecha = new Date(ticket.created_at).toLocaleString('es-MX', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+
+    if (!tiempos) return <span>{fecha}</span>;
+
+    const handleEnter = () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        setOpen(true);
+    };
+
+    const handleLeave = () => {
+        timeoutRef.current = setTimeout(() => setOpen(false), 150);
+    };
+
+    return (
+        <div className="relative inline-block" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+            <button type="button" className="flex items-center gap-1.5 text-left cursor-default" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); }}>
+                <TimerIcon className="size-3.5 text-base-content/50" />
+                <span>{fecha}</span>
+            </button>
+
+            {open && (
+                <div className="absolute right-0 bottom-full z-50 mb-2 w-72 rounded-lg border border-base-300 bg-base-100 p-3 shadow-lg" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+                    <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+                        <div>
+                            <div className="text-xs text-base-content/50">Total</div>
+                            <div className="text-sm font-semibold">{formatDuracion(tiempos.totalMin)}</div>
+                        </div>
+                        <div>
+                            <div className="flex items-center justify-center gap-1 text-xs text-success"><PlayCircleIcon className="size-3" />Activo</div>
+                            <div className="text-sm font-semibold text-success">{formatDuracion(tiempos.activoMin)}</div>
+                        </div>
+                        <div>
+                            <div className="flex items-center justify-center gap-1 text-xs text-warning"><PauseCircleIcon className="size-3" />Espera</div>
+                            <div className="text-sm font-semibold text-warning">{formatDuracion(tiempos.detenidoMin)}</div>
+                        </div>
+                    </div>
+
+                    {tiempos.totalMin > 0 && (
+                        <div className="mb-3 flex h-2 overflow-hidden rounded-full bg-base-200">
+                            {tiempos.detalle.map((d, i) => {
+                                const pct = (d.minutos / tiempos.totalMin) * 100;
+                                if (pct < 0.5) return null;
+                                return (
+                                    <div
+                                        key={i}
+                                        className="h-full transition-all"
+                                        style={{ width: `${pct}%`, backgroundColor: d.color, opacity: d.detuvo ? 0.5 : 1 }}
+                                        title={`${d.estado}: ${formatDuracion(d.minutos)}`}
+                                    />
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    <div className="space-y-1">
+                        {tiempos.detalle.map((d, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="inline-block size-2 rounded-full" style={{ backgroundColor: d.color }} />
+                                    <span className={d.detuvo ? 'text-base-content/50 italic' : ''}>{d.estado}</span>
+                                </div>
+                                <span className={`font-mono ${d.detuvo ? 'text-warning' : 'text-base-content/70'}`}>{formatDuracion(d.minutos)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 const columns: Column<TicketWithHistorial>[] = [
     { key: 'id', label: '#' },
@@ -68,14 +200,7 @@ const columns: Column<TicketWithHistorial>[] = [
     {
         key: 'created_at',
         label: 'Fecha',
-        render: (ticket) =>
-            new Date(ticket.created_at).toLocaleString('es-MX', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-            }),
+        render: (ticket) => <TiempoPopover ticket={ticket} />,
     },
 ];
 

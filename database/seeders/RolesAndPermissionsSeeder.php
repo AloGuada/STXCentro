@@ -235,6 +235,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'rh.permisos-ausencia.eliminar',
         ];
 
+        // Crear permisos del módulo Drive
+        $drivePermissions = [
+            'drive.gestionar',
+        ];
+
         // Crear permisos Core
         $corePermissions = [
             'usuarios.ver',
@@ -253,7 +258,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'roles.asignar',
         ];
 
-        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $rhPermissions, $corePermissions);
+        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $rhPermissions, $drivePermissions, $corePermissions);
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);

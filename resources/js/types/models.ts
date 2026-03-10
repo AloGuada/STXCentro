@@ -1759,3 +1759,54 @@ export type RhPermisoAusencia = {
     created_at: string;
     updated_at: string;
 };
+
+// =========================================
+// Drive
+// =========================================
+
+export type DriveExterno = {
+    id: number;
+    nombre: string;
+    email: string;
+    telefono: string | null;
+    empresa: string | null;
+    activo: boolean;
+    ultimo_acceso: string | null;
+    carpetas_count?: number;
+    carpetas?: DriveCarpeta[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type DriveCarpeta = {
+    id: number;
+    nombre: string;
+    descripcion: string | null;
+    usuario_id: string | null;
+    usuario?: Usuario;
+    archivos_count?: number;
+    externos_count?: number;
+    archivos_sum_size?: number | null;
+    externos?: DriveExterno[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type DriveArchivo = {
+    id: number;
+    carpeta_id: number;
+    nombre_original: string;
+    path: string;
+    mime: string | null;
+    size: number | null;
+    descripcion: string | null;
+    subido_por_type: string;
+    subido_por_id: number;
+    link_token: string | null;
+    link_expira_en: string | null;
+    auto_eliminar_en: string | null;
+    link_publico: string | null;
+    carpeta?: DriveCarpeta;
+    created_at: string;
+    updated_at: string;
+};

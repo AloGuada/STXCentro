@@ -23,6 +23,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->redirectGuestsTo(function ($request) {
+            if ($request->is('drive/*') || $request->is('drive')) {
+                return route('drive.login');
+            }
+
             if ($request->is('portal/*') || $request->is('portal')) {
                 return route('portal.login');
             }
@@ -31,6 +35,10 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $middleware->redirectUsersTo(function ($request) {
+            if ($request->is('drive/*')) {
+                return route('drive.dashboard');
+            }
+
             if ($request->is('portal/*')) {
                 return route('portal.dashboard');
             }

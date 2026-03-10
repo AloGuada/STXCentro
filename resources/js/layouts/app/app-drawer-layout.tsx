@@ -36,6 +36,7 @@ import {
     Ticket,
     TrendingDown,
     Users,
+    HardDrive,
     HardHat,
     UserCheck,
     Wrench,
@@ -161,6 +162,15 @@ const navGroups: NavGroup[] = [
             { title: 'Personas', href: '/admin/rh/personas', icon: Users, permission: 'rh.personas.ver' },
             { title: 'Periodos Laborales', href: '/admin/rh/periodos-laborales', icon: CalendarRange, permission: 'rh.periodos-laborales.ver' },
             { title: 'Permisos Ausencia', href: '/admin/rh/permisos-ausencia', icon: CalendarCheck, permission: 'rh.permisos-ausencia.ver' },
+        ],
+    },
+    {
+        title: 'Drive',
+        icon: HardDrive,
+        items: [
+            { title: 'Dashboard', href: '/admin/drive', icon: LayoutGrid, permission: 'drive.gestionar' },
+            { title: 'Carpetas', href: '/admin/drive/carpetas', icon: FolderTree, permission: 'drive.gestionar' },
+            { title: 'Usuarios Externos', href: '/admin/drive/externos', icon: Users, permission: 'drive.gestionar' },
         ],
     },
 ];

@@ -31,6 +31,9 @@ use App\Http\Controllers\Admin\Costos\SolicitudPagoController as CostosSolicitud
 use App\Http\Controllers\Admin\Costos\TipoRubroController as CostosTipoRubroController;
 use App\Http\Controllers\Admin\Costos\TipoSolicitudController as CostosTipoSolicitudController;
 use App\Http\Controllers\Admin\DepartamentoController;
+use App\Http\Controllers\Admin\Drive\DriveCarpetaController;
+use App\Http\Controllers\Admin\Drive\DriveDashboardController as DriveAdminDashboardController;
+use App\Http\Controllers\Admin\Drive\DriveExternoController;
 use App\Http\Controllers\Admin\Infra\RecorridoController as InfraRecorridoController;
 use App\Http\Controllers\Admin\Infra\TurnoController as InfraTurnoController;
 use App\Http\Controllers\Admin\Intra\AreaController as IntraAreaController;
@@ -361,5 +364,18 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Permisos de Ausencia
         Route::resource('permisos-ausencia', RhPermisoAusenciaController::class)->parameters(['permisos-ausencia' => 'permisoAusencia']);
+    });
+
+    // Drive admin routes
+    Route::prefix('drive')->name('drive.')->group(function () {
+        Route::get('/', [DriveAdminDashboardController::class, 'index'])->name('dashboard');
+        Route::resource('externos', DriveExternoController::class)->parameters(['externos' => 'externo']);
+        Route::resource('carpetas', DriveCarpetaController::class)->parameters(['carpetas' => 'carpeta']);
+        Route::patch('carpetas/{carpeta}/acceso/{externo}', [DriveCarpetaController::class, 'toggleAcceso'])->name('carpetas.toggle-acceso');
+        Route::post('carpetas/{carpeta}/archivos', [DriveCarpetaController::class, 'uploadArchivo'])->name('carpetas.archivos.store');
+        Route::get('archivos/{archivo}/descargar', [DriveCarpetaController::class, 'downloadArchivo'])->name('archivos.descargar');
+        Route::delete('archivos/{archivo}', [DriveCarpetaController::class, 'destroyArchivo'])->name('archivos.destroy');
+        Route::post('archivos/{archivo}/generar-link', [DriveCarpetaController::class, 'generarLink'])->name('archivos.generar-link');
+        Route::delete('archivos/{archivo}/revocar-link', [DriveCarpetaController::class, 'revocarLink'])->name('archivos.revocar-link');
     });
 });
