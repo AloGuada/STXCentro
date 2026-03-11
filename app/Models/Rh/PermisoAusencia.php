@@ -32,7 +32,7 @@ class PermisoAusencia extends Model
     protected function casts(): array
     {
         return [
-            'fecha_permiso' => 'date',
+            'fecha_permiso' => 'datetime',
             'fecha_elaboracion' => 'date',
         ];
     }
