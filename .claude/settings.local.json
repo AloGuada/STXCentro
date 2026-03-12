@@ -101,7 +101,9 @@
       "Bash(xargs grep -l \"storage\\\\|download\\\\|file\")",
       "Bash(npx prettier --check \"resources/js/pages/admin/sti/dashboard/index.tsx\" \"resources/js/pages/admin/sti/mantenimientos/gantt-anual.tsx\")",
       "Bash(npx prettier --write \"resources/js/pages/admin/sti/dashboard/index.tsx\" \"resources/js/pages/admin/sti/mantenimientos/gantt-anual.tsx\")",
-      "Bash(npx prettier --write \"resources/js/pages/admin/sti/mantenimientos/gantt-anual.tsx\")"
+      "Bash(npx prettier --write \"resources/js/pages/admin/sti/mantenimientos/gantt-anual.tsx\")",
+      "Bash(find c:/Users/desarrollo.ti/Documents/dev/mono -type f -name *drive*)",
+      "Bash(find c:/Users/desarrollo.ti/Documents/dev/mono/app/Models -type f \\\\\\(-name *Externo* -o -name *Carpeta* -o -name *Archivo* \\\\\\))"
     ]
   },
   "enableAllProjectMcpServers": true,
