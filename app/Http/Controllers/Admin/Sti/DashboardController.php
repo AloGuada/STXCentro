@@ -249,6 +249,13 @@ class DashboardController extends Controller
 
             for ($i = 0; $i < $entries->count(); $i++) {
                 $current = $entries[$i];
+                $esCompletado = str_starts_with(mb_strtolower($current->status?->descripcion ?? ''), 'completado');
+
+                // No contar tiempo a partir del estado "Completado"
+                if ($esCompletado) {
+                    break;
+                }
+
                 $next = $entries[$i + 1] ?? null;
 
                 $inicio = Carbon::parse($current->created_at);

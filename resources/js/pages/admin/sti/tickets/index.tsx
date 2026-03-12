@@ -33,6 +33,11 @@ function calcularTiempos(ticket: TicketWithHistorial): TiempoDesglose | null {
 
     for (let i = 0; i < entries.length; i++) {
         const current = entries[i];
+        const esCompletado = (current.status?.descripcion ?? '').toLowerCase().startsWith('completado');
+
+        // No contar tiempo a partir del estado "Completado"
+        if (esCompletado) break;
+
         const next = entries[i + 1] ?? null;
 
         const inicio = new Date(current.created_at).getTime();

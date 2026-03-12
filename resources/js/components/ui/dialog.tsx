@@ -82,7 +82,7 @@ function DialogContent({ className, children, ...props }: DialogContentProps) {
     return (
         <dialog
             ref={dialogRef}
-            className={cn('modal', className)}
+            className="modal"
             onClick={(e) => {
                 // Cerrar al hacer clic en el backdrop
                 if (e.target === dialogRef.current) {
@@ -91,7 +91,7 @@ function DialogContent({ className, children, ...props }: DialogContentProps) {
             }}
             {...props}
         >
-            <div className="modal-box">
+            <div className={cn('modal-box', className)}>
                 {children}
             </div>
             <form method="dialog" className="modal-backdrop">

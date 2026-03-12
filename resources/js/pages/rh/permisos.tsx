@@ -5,7 +5,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { FileText, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'rh_permisos';
+const STORAGE_KEY = 'permisos';
 
 const DEPARTAMENTOS = [
     { nombre: 'Almacén y Logística', gerente: 'Juan Carlos Iturralde Patrón' },
@@ -131,7 +131,7 @@ export default function PermisosPublico() {
                             Nuevo permiso
                         </DialogTrigger>
 
-                        <DialogContent className="max-w-3xl">
+                        <DialogContent className="w-max">
                             <DialogHeader>
                                 <DialogTitle>Nuevo Permiso de Ausencia</DialogTitle>
                             </DialogHeader>
@@ -178,7 +178,7 @@ export default function PermisosPublico() {
 
                                 <input
                                     type="datetime-local"
-                                    className="input input-bordered col-span-full"
+                                    className="input input-bordered col-span-full w-full"
                                     value={form.fecha_permiso}
                                     onChange={(e) => setForm({ ...form, fecha_permiso: e.target.value })}
                                 />
@@ -222,7 +222,7 @@ export default function PermisosPublico() {
                                 </select>
 
                                 <textarea
-                                    className="textarea textarea-bordered col-span-full"
+                                    className="textarea textarea-bordered w-full col-span-full"
                                     placeholder="Razón del permiso"
                                     rows={3}
                                     value={form.razon}
