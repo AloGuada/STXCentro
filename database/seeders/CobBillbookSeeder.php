@@ -54,7 +54,7 @@ class CobBillbookSeeder extends Seeder
     {
         $bb = DB::connection('billbook');
 
-        $this->command->info('Limpiando datos de cobranza existentes...');
+        $this->command->info('Limpiando tablas de cobranza...');
         $this->limpiarDatos();
 
         $this->command->info('Migrando clientes...');
@@ -117,7 +117,7 @@ class CobBillbookSeeder extends Seeder
 
     private function limpiarDatos(): void
     {
-        // Orden inverso a las dependencias FK
+        // Orden inverso a las dependencias FK (solo tablas cob_*)
         DB::table('cob_documentos_estimacion')->delete();
         DB::table('cob_configuracion_documentos')->delete();
         DB::table('cob_eventos')->delete();
@@ -133,14 +133,7 @@ class CobBillbookSeeder extends Seeder
         DB::table('cob_estimaciones')->delete();
         DB::table('cob_tipos_retenciones')->delete();
         DB::table('cob_partidas')->delete();
-
-        // Limpiar obras que fueron importadas de billbook y sus obraRubros
-        $obraIds = Obra::where('no', 'like', '%')->pluck('id');
-        DB::table('costos_obra_rubros')->whereIn('obra_id', $obraIds)->delete();
-        Obra::whereIn('id', $obraIds)->delete();
-
         DB::table('cob_contactos')->delete();
-        Cliente::query()->delete();
     }
 
     /**
@@ -150,20 +143,32 @@ class CobBillbookSeeder extends Seeder
     {
         $map = [];
         $rows = $bb->table('clientes')->get();
+        $creados = 0;
+        $existentes = 0;
 
         foreach ($rows as $row) {
-            $cliente = Cliente::create([
-                'nombre' => $row->nombre,
-                'rfc' => $row->rfc,
-                'direccion' => $row->direccion,
-                'telefono' => $row->telefono,
-                'email' => $row->email,
-                'activo' => $row->activo,
-            ]);
+            $cliente = $row->rfc
+                ? Cliente::where('rfc', $row->rfc)->first()
+                : Cliente::where('nombre', $row->nombre)->first();
+
+            if (! $cliente) {
+                $cliente = Cliente::create([
+                    'nombre' => $row->nombre,
+                    'rfc' => $row->rfc,
+                    'direccion' => $row->direccion,
+                    'telefono' => $row->telefono,
+                    'email' => $row->email,
+                    'activo' => $row->activo,
+                ]);
+                $creados++;
+            } else {
+                $existentes++;
+            }
+
             $map[$row->id] = $cliente->id;
         }
 
-        $this->command->info("  → {$rows->count()} clientes migrados.");
+        $this->command->info("  → {$creados} clientes creados, {$existentes} ya existían.");
 
         return $map;
     }
@@ -176,24 +181,37 @@ class CobBillbookSeeder extends Seeder
     {
         $map = [];
         $rows = $bb->table('contactos')->get();
+        $creados = 0;
+        $existentes = 0;
 
         foreach ($rows as $row) {
             if (! isset($clienteMap[$row->cliente_id])) {
                 continue;
             }
 
-            $contacto = Contacto::create([
-                'cliente_id' => $clienteMap[$row->cliente_id],
-                'nombre' => $row->nombre,
-                'email' => $row->email,
-                'telefono' => $row->telefono,
-                'cargo' => $row->cargo,
-                'activo' => $row->activo,
-            ]);
+            $clienteId = $clienteMap[$row->cliente_id];
+            $contacto = Contacto::where('cliente_id', $clienteId)
+                ->where('nombre', $row->nombre)
+                ->first();
+
+            if (! $contacto) {
+                $contacto = Contacto::create([
+                    'cliente_id' => $clienteId,
+                    'nombre' => $row->nombre,
+                    'email' => $row->email,
+                    'telefono' => $row->telefono,
+                    'cargo' => $row->cargo,
+                    'activo' => $row->activo,
+                ]);
+                $creados++;
+            } else {
+                $existentes++;
+            }
+
             $map[$row->id] = $contacto->id;
         }
 
-        $this->command->info("  → {$rows->count()} contactos migrados.");
+        $this->command->info("  → {$creados} contactos creados, {$existentes} ya existían.");
 
         return $map;
     }
@@ -222,38 +240,49 @@ class CobBillbookSeeder extends Seeder
     {
         $map = [];
         $rows = $bb->table('proyectos')->get();
+        $creados = 0;
+        $existentes = 0;
 
         foreach ($rows as $row) {
             if (! isset($clienteMap[$row->cliente_id])) {
                 continue;
             }
 
-            // Desactivar el boot event que crea obraRubros automaticamente
-            $obra = Obra::withoutEvents(function () use ($row, $clienteMap) {
-                return Obra::create([
-                    'no' => (string) $row->id,
-                    'descripcion' => $row->nombre,
-                    'fecha_inicio' => $row->fecha_inicio,
-                    'fecha_fin' => $row->fecha_fin,
-                    'cliente_id' => $clienteMap[$row->cliente_id],
-                    'tipo_contrato' => $row->tipo_contrato,
-                    'monto' => $row->monto ?? 0,
-                    'monto_iva' => $row->monto_iva ?? 0,
-                    'anticipo' => $row->anticipo ?? 0,
-                    'garantia' => $row->garantia ?? 0,
-                    'peso' => $row->peso ?? 0,
-                    'porcentaje_fabricacion' => $row->porcentaje_fabricacion ?? 0,
-                    'porcentaje_montaje' => $row->porcentaje_montaje ?? 0,
-                    'porcentaje_otros' => $row->porcentaje_otros ?? 0,
-                    'descripcion_otros' => $row->descripcion_otros,
-                    'activa' => $row->activa,
-                ]);
-            });
+            $obra = Obra::where('no', $row->nombre)
+                ->where('cliente_id', $clienteMap[$row->cliente_id])
+                ->first();
+
+            if (! $obra) {
+                // Desactivar el boot event que crea obraRubros automaticamente
+                $obra = Obra::withoutEvents(function () use ($row, $clienteMap) {
+                    return Obra::create([
+                        'no' => $row->nombre,
+                        'descripcion' => $row->descripcion,
+                        'fecha_inicio' => $row->fecha_inicio,
+                        'fecha_fin' => $row->fecha_fin,
+                        'cliente_id' => $clienteMap[$row->cliente_id],
+                        'tipo_contrato' => $row->tipo_contrato,
+                        'monto' => $row->monto ?? 0,
+                        'monto_iva' => $row->monto_iva ?? 0,
+                        'anticipo' => $row->anticipo ?? 0,
+                        'garantia' => $row->garantia ?? 0,
+                        'peso' => $row->peso ?? 0,
+                        'porcentaje_fabricacion' => $row->porcentaje_fabricacion ?? 0,
+                        'porcentaje_montaje' => $row->porcentaje_montaje ?? 0,
+                        'porcentaje_otros' => $row->porcentaje_otros ?? 0,
+                        'descripcion_otros' => $row->descripcion_otros,
+                        'activa' => $row->activa,
+                    ]);
+                });
+                $creados++;
+            } else {
+                $existentes++;
+            }
 
             $map[$row->id] = $obra->id;
         }
 
-        $this->command->info("  → {$rows->count()} proyectos migrados como obras.");
+        $this->command->info("  → {$creados} obras creadas, {$existentes} ya existían.");
 
         return $map;
     }

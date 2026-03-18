@@ -98,6 +98,20 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        'swapi' => [
+            'driver' => 'pgsql',
+            'host' => env('SWAPI_DB_HOST', '127.0.0.1'),
+            'port' => env('SWAPI_DB_PORT', '5432'),
+            'database' => env('SWAPI_DB_DATABASE', 'swapi'),
+            'username' => env('SWAPI_DB_USERNAME', 'postgres'),
+            'password' => env('SWAPI_DB_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
         'billbook' => [
             'driver' => 'pgsql',
             'host' => env('BILLBOOK_DB_HOST', '127.0.0.1'),

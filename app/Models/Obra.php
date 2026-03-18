@@ -146,4 +146,11 @@ class Obra extends Model
     {
         return $this->hasMany(Cob\ConfiguracionDocumento::class, 'obra_id');
     }
+
+    // Calidad relations
+
+    public function etapas(): HasMany
+    {
+        return $this->hasMany(Cal\Etapa::class, 'obra_id');
+    }
 }

@@ -73,6 +73,26 @@ describe('admin rh periodos laborales', function () {
         ]);
     });
 
+    test('gafete pdf can be downloaded', function () {
+        $periodo = PeriodoLaboral::factory()->create();
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.rh.periodos-laborales.gafete-pdf', $periodo));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    });
+
+    test('tarjeta pdf can be downloaded', function () {
+        $periodo = PeriodoLaboral::factory()->create();
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.rh.periodos-laborales.tarjeta-pdf', $periodo));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    });
+
     test('duplicate onboarding is rejected', function () {
         $periodo = PeriodoLaboral::factory()->create();
         $periodo->onboarding()->create(['fecha_inicio' => now(), 'progreso' => 0]);

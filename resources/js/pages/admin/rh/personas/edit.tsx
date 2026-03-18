@@ -8,7 +8,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { RhPersona } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { FileIcon, FolderOpenIcon, Loader2Icon, PencilIcon, TrashIcon, UploadIcon, UserIcon } from 'lucide-react';
+import { CameraIcon, FileIcon, FolderOpenIcon, Loader2Icon, PencilIcon, TrashIcon, UploadIcon, UserIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useRef, useState } from 'react';
 
@@ -37,6 +37,7 @@ export default function PersonaEdit({ persona }: Props) {
         telefono: persona.telefono ?? '',
         fecha_nacimiento: persona.fecha_nacimiento ?? '',
         cv: null as File | null,
+        foto: null as File | null,
         datos_extra: {
             imss: extras?.imss ?? '',
             curp: extras?.curp ?? '',
@@ -159,6 +160,28 @@ export default function PersonaEdit({ persona }: Props) {
 
                             <FormField label="Fecha de Nacimiento" htmlFor="fecha_nacimiento" error={errors.fecha_nacimiento}>
                                 <Input id="fecha_nacimiento" type="date" value={data.fecha_nacimiento} onChange={(e) => setData('fecha_nacimiento', e.target.value)} />
+                            </FormField>
+
+                            <FormField label="Foto" htmlFor="foto" error={errors.foto}>
+                                <div className="flex items-center gap-4">
+                                    {persona.foto?.path ? (
+                                        <img
+                                            src={`/storage/${persona.foto.path}`}
+                                            alt="Foto"
+                                            className="size-20 rounded-md border object-cover"
+                                        />
+                                    ) : (
+                                        <div className="bg-muted flex size-20 items-center justify-center rounded-md border">
+                                            <CameraIcon className="text-muted-foreground size-8" />
+                                        </div>
+                                    )}
+                                    <Input
+                                        id="foto"
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => setData('foto', e.target.files?.[0] ?? null)}
+                                    />
+                                </div>
                             </FormField>
 
                             <FormField label="CV" htmlFor="cv" error={errors.cv}>

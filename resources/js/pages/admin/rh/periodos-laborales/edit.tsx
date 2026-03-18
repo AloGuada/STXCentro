@@ -9,7 +9,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Media, RhOnboarding, RhOnboardingTarea, RhPeriodoLaboral } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { CheckIcon, ClipboardListIcon, FileIcon, FileTextIcon, Loader2Icon, PencilIcon, PlusIcon, TrashIcon, UploadIcon } from 'lucide-react';
+import { BadgeCheckIcon, CheckIcon, ClipboardListIcon, CreditCardIcon, FileIcon, FileTextIcon, Loader2Icon, PencilIcon, PlusIcon, TrashIcon, UploadIcon } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
 
 type Props = {
@@ -99,6 +99,22 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
                         <Button variant="outline" type="button" onClick={handleDescargarContrato}>
                             <FileTextIcon className="size-4" />
                             Descargar Contrato
+                        </Button>
+                        <Button
+                            variant="outline"
+                            type="button"
+                            onClick={() => window.open(`/admin/rh/periodos-laborales/${periodo.id}/gafete-pdf`, '_blank')}
+                        >
+                            <BadgeCheckIcon className="size-4" />
+                            Gafete
+                        </Button>
+                        <Button
+                            variant="outline"
+                            type="button"
+                            onClick={() => window.open(`/admin/rh/periodos-laborales/${periodo.id}/tarjeta-pdf`, '_blank')}
+                        >
+                            <CreditCardIcon className="size-4" />
+                            Tarjeta
                         </Button>
                         <DeleteDialog
                             title="Eliminar periodo laboral"

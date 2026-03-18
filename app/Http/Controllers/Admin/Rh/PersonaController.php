@@ -60,6 +60,17 @@ class PersonaController extends Controller
             $persona->update(['cv_estado' => 'pendiente']);
         }
 
+        if ($request->hasFile('foto')) {
+            $file = $request->file('foto');
+            $persona->foto()->create([
+                'descripcion' => 'foto',
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $file->store('rh/fotos/'.$persona->id, 'public'),
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ]);
+        }
+
         return to_route('admin.rh.personas.index');
     }
 
@@ -67,7 +78,7 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.ver');
 
-        $persona->load(['datosExtra', 'documentos.media', 'periodosLaborales.puesto', 'candidaturas.requisicion', 'media']);
+        $persona->load(['datosExtra', 'documentos.media', 'periodosLaborales.puesto', 'candidaturas.requisicion', 'media', 'foto']);
 
         return Inertia::render('admin/rh/personas/show', [
             'persona' => $persona,
@@ -78,7 +89,7 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.editar');
 
-        $persona->load(['datosExtra', 'documentos.media', 'media']);
+        $persona->load(['datosExtra', 'documentos.media', 'media', 'foto']);
 
         return Inertia::render('admin/rh/personas/edit', [
             'persona' => $persona,
@@ -106,6 +117,22 @@ class PersonaController extends Controller
                 'size' => $file->getSize(),
             ]);
             $persona->update(['cv_estado' => 'pendiente']);
+        }
+
+        if ($request->hasFile('foto')) {
+            if ($persona->foto) {
+                Storage::disk('public')->delete($persona->foto->path);
+                $persona->foto->delete();
+            }
+
+            $file = $request->file('foto');
+            $persona->foto()->create([
+                'descripcion' => 'foto',
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $file->store('rh/fotos/'.$persona->id, 'public'),
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ]);
         }
 
         if ($request->has('datos_extra')) {

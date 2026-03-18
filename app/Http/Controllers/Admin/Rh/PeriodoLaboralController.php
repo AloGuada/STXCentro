@@ -10,6 +10,10 @@ use App\Models\Rh\PeriodoLaboral;
 use App\Models\Rh\Persona;
 use App\Models\Rh\Puesto;
 use App\Models\Rh\Requisicion;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -178,6 +182,78 @@ class PeriodoLaboralController extends Controller
         $filename = 'contrato-'.$persona->nombre.'-'.$persona->apellido.'.pdf';
 
         return $pdf->download($filename);
+    }
+
+    public function generarGafetePdf(PeriodoLaboral $periodoLaboral): HttpResponse
+    {
+        $this->authorize('rh.periodos-laborales.ver');
+
+        $periodoLaboral->load(['persona.foto', 'puesto']);
+
+        $persona = $periodoLaboral->persona;
+
+        $qrBase64 = $this->generarQrBase64($periodoLaboral, $persona);
+
+        $fotoPath = null;
+        if ($persona->foto?->path) {
+            $fullPath = storage_path('app/public/'.$persona->foto->path);
+            if (file_exists($fullPath)) {
+                $fotoPath = $fullPath;
+            }
+        }
+
+        $pdf = Pdf::loadView('pdf.rh.gafete', [
+            'persona' => $persona,
+            'puesto' => $periodoLaboral->puesto?->nombre ?? '',
+            'numero' => str_pad($periodoLaboral->id, 4, '0', STR_PAD_LEFT),
+            'telefono' => $persona->telefono ?? '',
+            'qrBase64' => $qrBase64,
+            'fotoPath' => $fotoPath,
+        ]);
+
+        $filename = 'gafete-'.$persona->nombre.'-'.$persona->apellido.'.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    public function generarTarjetaPdf(PeriodoLaboral $periodoLaboral): HttpResponse
+    {
+        $this->authorize('rh.periodos-laborales.ver');
+
+        $periodoLaboral->load(['persona', 'puesto']);
+
+        $persona = $periodoLaboral->persona;
+
+        $qrBase64 = $this->generarQrBase64($periodoLaboral, $persona);
+
+        $pdf = Pdf::loadView('pdf.rh.tarjeta', [
+            'persona' => $persona,
+            'puesto' => $periodoLaboral->puesto?->nombre ?? '',
+            'numero' => str_pad($periodoLaboral->id, 4, '0', STR_PAD_LEFT),
+            'telefono' => $persona->telefono ?? '',
+            'qrBase64' => $qrBase64,
+        ]);
+
+        $filename = 'tarjeta-'.$persona->nombre.'-'.$persona->apellido.'.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    private function generarQrBase64(PeriodoLaboral $periodoLaboral, Persona $persona): string
+    {
+        $qrData = json_encode([
+            'id' => $periodoLaboral->id,
+            'nombres' => $persona->nombre,
+            'apellidos' => $persona->apellido,
+        ]);
+
+        $renderer = new ImageRenderer(
+            new RendererStyle(200),
+            new SvgImageBackEnd
+        );
+        $writer = new Writer($renderer);
+
+        return base64_encode($writer->writeString($qrData));
     }
 
     public function crearOnboarding(PeriodoLaboral $periodoLaboral): RedirectResponse

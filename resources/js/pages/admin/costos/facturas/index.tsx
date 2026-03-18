@@ -1,10 +1,12 @@
 import { DataTable, type Column } from '@/components/data-table';
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosFactura, CostosFacturaEstatus, PaginatedData } from '@/types/models';
 import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
-import { FileTextIcon } from 'lucide-react';
+import { DownloadIcon, FileTextIcon } from 'lucide-react';
+import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -74,15 +76,50 @@ const estatusOptions = [
     { value: 'cancelada', label: 'Cancelada' },
 ];
 
+function getWeekDateRange(year: number, week: number): { start: string; end: string } {
+    // ISO week: week 1 contains the first Thursday of the year
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7; // Monday = 1
+    const monday = new Date(jan4);
+    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (week - 1) * 7);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const fmt = (d: Date) => d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+    return { start: fmt(monday), end: fmt(sunday) };
+}
+
+function getCurrentWeekNumber(): number {
+    const now = new Date();
+    const jan4 = new Date(now.getFullYear(), 0, 4);
+    const dayOfWeek = jan4.getDay() || 7;
+    const firstMonday = new Date(jan4);
+    firstMonday.setDate(jan4.getDate() - dayOfWeek + 1);
+    const diff = now.getTime() - firstMonday.getTime();
+    return Math.ceil(diff / (7 * 24 * 60 * 60 * 1000));
+}
+
 type Props = {
     facturas: PaginatedData<CostosFactura>;
     filters: { search?: string; estatus?: string };
 };
 
 export default function FacturasIndex({ facturas, filters }: Props) {
+    const currentYear = new Date().getFullYear();
+    const [selectedYear, setSelectedYear] = useState(currentYear);
+    const [selectedWeek, setSelectedWeek] = useState(getCurrentWeekNumber());
+
     const handleEstatusChange = (estatus: string) => {
         router.get('/admin/costos/facturas', { ...filters, estatus: estatus || undefined }, { preserveState: true });
     };
+
+    const weekOptions = Array.from({ length: 53 }, (_, i) => {
+        const week = i + 1;
+        const { start, end } = getWeekDateRange(selectedYear, week);
+        return { value: week, label: `Semana ${week}: ${start} - ${end}` };
+    });
+
+    const downloadUrl = `/admin/costos/facturas/reporte-semanal?anio=${selectedYear}&semana=${selectedWeek}`;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -99,6 +136,62 @@ export default function FacturasIndex({ facturas, filters }: Props) {
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                     </select>
+
+                    <Dialog>
+                        <DialogTrigger className="btn btn-outline btn-sm ml-auto">
+                            <DownloadIcon className="size-4" />
+                            Reporte Semanal
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Reporte Semanal de Facturas</DialogTitle>
+                            </DialogHeader>
+
+                            <div className="space-y-4">
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text">Año</span>
+                                    </label>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={selectedYear}
+                                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                    >
+                                        <option value={currentYear}>{currentYear}</option>
+                                        <option value={currentYear - 1}>{currentYear - 1}</option>
+                                    </select>
+                                </div>
+
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text">Semana</span>
+                                    </label>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={selectedWeek}
+                                        onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                                    >
+                                        {weekOptions.map((opt) => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <DialogFooter>
+                                <DialogClose>Cancelar</DialogClose>
+                                <a
+                                    href={downloadUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn btn-primary"
+                                >
+                                    <DownloadIcon className="size-4" />
+                                    Descargar
+                                </a>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
 
                 <DataTable

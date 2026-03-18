@@ -1600,6 +1600,7 @@ export type RhPersona = {
     cv_estado: 'pendiente' | 'procesando' | 'procesado' | 'error' | null;
     nombre_completo?: string;
     media?: Media | null;
+    foto?: Media | null;
     datos_extra?: RhDatosExtra;
     documentos?: RhPersonaDocumento[];
     periodos_laborales?: RhPeriodoLaboral[];
@@ -1647,13 +1648,14 @@ export type RhPersonaDocumento = {
 export type RhPeriodoLaboral = {
     id: number;
     persona_id: number;
-    puesto_id: number;
+    puesto_id: number | null;
     requisicion_id: number | null;
     fecha_inicio: string;
     fecha_fin: string | null;
     estado: 'activo' | 'terminado' | 'baja';
     salario: number | null;
     tipo_contrato: string | null;
+    numero_empleado: string | null;
     persona?: RhPersona;
     puesto?: RhPuesto;
     requisicion?: RhRequisicion;

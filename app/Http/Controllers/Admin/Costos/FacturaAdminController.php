@@ -7,14 +7,17 @@ use App\Mail\FacturaAceptadaMail;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
 use App\Models\Costos\Pago;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use setasign\Fpdi\Fpdi;
 
 class FacturaAdminController extends Controller
 {
@@ -136,5 +139,101 @@ class FacturaAdminController extends Controller
         });
 
         return back()->with('success', 'Factura aceptada y pago programado para '.$pago->fecha_pago_programada->format('d/m/Y').'.');
+    }
+
+    public function reporteSemanal(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $request->validate([
+            'anio' => 'required|integer|min:2020|max:2100',
+            'semana' => 'required|integer|min:1|max:53',
+        ]);
+
+        $anio = (int) $request->anio;
+        $semana = (int) $request->semana;
+
+        $inicioSemana = Carbon::now()->setISODate($anio, $semana)->startOfWeek();
+        $finSemana = (clone $inicioSemana)->endOfWeek();
+
+        $facturas = Factura::query()
+            ->with(['proveedor:id,razon_social', 'ordenCompra:id,folio', 'mediaPdf', 'entregas.media'])
+            ->whereBetween('fecha_factura', [$inicioSemana->toDateString(), $finSemana->toDateString()])
+            ->orderBy('fecha_factura')
+            ->get();
+
+        if ($facturas->isEmpty()) {
+            return back()->withErrors(['semana' => 'No se encontraron facturas en la semana seleccionada.']);
+        }
+
+        // Generar resumen PDF con DomPDF
+        $resumenPdf = Pdf::loadView('pdf.costos.reporte-semanal-facturas', [
+            'facturas' => $facturas,
+            'semana' => $semana,
+            'anio' => $anio,
+            'fechaInicio' => $inicioSemana->format('d/m/Y'),
+            'fechaFin' => $finSemana->format('d/m/Y'),
+        ])->setPaper('letter', 'landscape')
+            ->setOption('margin-top', 30)
+            ->setOption('margin-bottom', 60)
+            ->setOption('margin-left', 60)
+            ->setOption('margin-right', 60);
+
+        // Recolectar PDFs adjuntos de facturas y entregas
+        $archivosAdjuntos = [];
+        foreach ($facturas as $factura) {
+            if ($factura->mediaPdf && Storage::disk('public')->exists($factura->mediaPdf->path)) {
+                $archivosAdjuntos[] = Storage::disk('public')->path($factura->mediaPdf->path);
+            }
+            foreach ($factura->entregas as $entrega) {
+                if ($entrega->media && $entrega->media->mime === 'application/pdf' && Storage::disk('public')->exists($entrega->media->path)) {
+                    $archivosAdjuntos[] = Storage::disk('public')->path($entrega->media->path);
+                }
+            }
+        }
+
+        // Si no hay adjuntos, devolver solo el resumen
+        if (empty($archivosAdjuntos)) {
+            $filename = "reporte-semanal-facturas-S{$semana}-{$anio}.pdf";
+
+            return $resumenPdf->download($filename);
+        }
+
+        // Mergear con FPDI: resumen + adjuntos
+        $tempResumen = tempnam(sys_get_temp_dir(), 'resumen_').'.pdf';
+        file_put_contents($tempResumen, $resumenPdf->output());
+
+        $merger = new Fpdi;
+
+        // Agregar páginas del resumen
+        $this->agregarPaginasFpdi($merger, $tempResumen);
+
+        // Agregar cada adjunto
+        foreach ($archivosAdjuntos as $archivoPath) {
+            try {
+                $this->agregarPaginasFpdi($merger, $archivoPath);
+            } catch (\Exception $e) {
+                // Si un PDF no se puede leer, continuar con los demás
+                continue;
+            }
+        }
+
+        $filename = "reporte-semanal-facturas-S{$semana}-{$anio}.pdf";
+        $outputPath = tempnam(sys_get_temp_dir(), 'merged_').'.pdf';
+        $merger->Output($outputPath, 'F');
+
+        // Limpiar temporal del resumen
+        @unlink($tempResumen);
+
+        return response()->download($outputPath, $filename)->deleteFileAfterSend(true);
+    }
+
+    private function agregarPaginasFpdi(Fpdi $fpdi, string $filePath): void
+    {
+        $pageCount = $fpdi->setSourceFile($filePath);
+        for ($i = 1; $i <= $pageCount; $i++) {
+            $templateId = $fpdi->importPage($i);
+            $size = $fpdi->getTemplateSize($templateId);
+            $fpdi->AddPage($size['orientation'], [$size['width'], $size['height']]);
+            $fpdi->useTemplate($templateId);
+        }
     }
 }

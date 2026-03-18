@@ -240,6 +240,36 @@ class RolesAndPermissionsSeeder extends Seeder
             'drive.gestionar',
         ];
 
+        // Crear permisos del módulo Calidad
+        $calPermissions = [
+            'cal.obras.ver',
+            'cal.etapas.ver',
+            'cal.etapas.crear',
+            'cal.etapas.editar',
+            'cal.etapas.eliminar',
+            'cal.piezas.ver',
+            'cal.piezas.crear',
+            'cal.piezas.editar',
+            'cal.piezas.eliminar',
+            'cal.planos.ver',
+            'cal.planos.crear',
+            'cal.planos.editar',
+            'cal.planos.eliminar',
+            'cal.reportes.ver',
+            'cal.reportes.crear',
+            'cal.reportes.editar',
+            'cal.reportes.eliminar',
+            'cal.flechas.ver',
+            'cal.flechas.crear',
+            'cal.flechas.editar',
+            'cal.flechas.eliminar',
+            'cal.soldadores.ver',
+            'cal.soldadores.crear',
+            'cal.soldadores.editar',
+            'cal.soldadores.eliminar',
+            'cal.usuarios.gestionar',
+        ];
+
         // Crear permisos Core
         $corePermissions = [
             'usuarios.ver',
@@ -258,7 +288,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'roles.asignar',
         ];
 
-        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $rhPermissions, $drivePermissions, $corePermissions);
+        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $rhPermissions, $drivePermissions, $calPermissions, $corePermissions);
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
@@ -277,6 +307,8 @@ class RolesAndPermissionsSeeder extends Seeder
         $contabilidad = Role::firstOrCreate(['name' => 'contabilidad', 'guard_name' => 'web']);
         $adminCobranza = Role::firstOrCreate(['name' => 'admin-cobranza', 'guard_name' => 'web']);
         $adminRh = Role::firstOrCreate(['name' => 'admin-rh', 'guard_name' => 'web']);
+        $adminCal = Role::firstOrCreate(['name' => 'admin-cal', 'guard_name' => 'web']);
+        $inspectorCal = Role::firstOrCreate(['name' => 'inspector-cal', 'guard_name' => 'web']);
         $empleado = Role::firstOrCreate(['name' => 'empleado', 'guard_name' => 'web']);
 
         // Super admin tiene todos los permisos
@@ -342,6 +374,24 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Admin RH tiene todos los permisos de recursos humanos
         $adminRh->givePermissionTo($rhPermissions);
+
+        // Admin Calidad tiene todos los permisos de calidad
+        $adminCal->givePermissionTo($calPermissions);
+
+        // Inspector Calidad tiene permisos de ver/crear/editar reportes y flechas
+        $inspectorCal->givePermissionTo([
+            'cal.obras.ver',
+            'cal.etapas.ver',
+            'cal.piezas.ver',
+            'cal.planos.ver',
+            'cal.reportes.ver',
+            'cal.reportes.crear',
+            'cal.reportes.editar',
+            'cal.flechas.ver',
+            'cal.flechas.crear',
+            'cal.flechas.editar',
+            'cal.soldadores.ver',
+        ]);
 
         // Empleado tiene permisos básicos de lectura
         $empleado->givePermissionTo([

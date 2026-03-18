@@ -40,7 +40,12 @@ class Persona extends Model
 
     public function media(): MorphOne
     {
-        return $this->morphOne(\App\Models\Media::class, 'mediable');
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'cv');
+    }
+
+    public function foto(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'foto');
     }
 
     public function getNombreCompletoAttribute(): string

@@ -24,6 +24,7 @@ class PeriodoLaboral extends Model
         'estado',
         'salario',
         'tipo_contrato',
+        'numero_empleado',
     ];
 
     /** @return array<string, string> */

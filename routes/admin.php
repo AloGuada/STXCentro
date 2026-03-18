@@ -151,6 +151,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('ordenes-compra/{ordenCompra}/cancelar', [CostosOrdenCompraController::class, 'cancelar'])->name('ordenes-compra.cancelar');
 
         // Facturas
+        Route::get('facturas/reporte-semanal', [CostosFacturaAdminController::class, 'reporteSemanal'])->name('facturas.reporte-semanal');
         Route::resource('facturas', CostosFacturaAdminController::class)->only(['index', 'show'])->parameters(['facturas' => 'factura']);
         Route::post('facturas/{factura}/entregas', [CostosEntregaController::class, 'store'])->name('facturas.entregas.store');
         Route::post('facturas/{factura}/aprobar-costos', [CostosFacturaAdminController::class, 'aprobarCostos'])->name('facturas.aprobar-costos');
@@ -348,6 +349,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('periodos-laborales/{periodoLaboral}/terminar', [RhPeriodoLaboralController::class, 'terminar'])->name('periodos-laborales.terminar');
         Route::post('periodos-laborales/{periodoLaboral}/onboarding', [RhPeriodoLaboralController::class, 'crearOnboarding'])->name('periodos-laborales.onboarding');
         Route::get('periodos-laborales/{periodoLaboral}/contrato-pdf', [RhPeriodoLaboralController::class, 'generarContratoPdf'])->name('periodos-laborales.contrato-pdf');
+        Route::get('periodos-laborales/{periodoLaboral}/gafete-pdf', [RhPeriodoLaboralController::class, 'generarGafetePdf'])->name('periodos-laborales.gafete-pdf');
+        Route::get('periodos-laborales/{periodoLaboral}/tarjeta-pdf', [RhPeriodoLaboralController::class, 'generarTarjetaPdf'])->name('periodos-laborales.tarjeta-pdf');
 
         // Requisiciones
         Route::resource('requisiciones', RhRequisicionController::class)->parameters(['requisiciones' => 'requisicion']);
