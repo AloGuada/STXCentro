@@ -12,14 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('rh_periodos_laborales', function (Blueprint $table) {
-            $table->foreignId('puesto_id')->nullable()->constrained('rh_puestos')->change();
+            $table->unsignedBigInteger('puesto_id')->nullable()->change();
         });
     }
 
     public function down(): void
     {
         Schema::table('rh_periodos_laborales', function (Blueprint $table) {
-            $table->foreignId('puesto_id')->nullable(false)->constrained('rh_puestos')->change();
+            $table->unsignedBigInteger('puesto_id')->nullable(false)->change();
         });
     }
 };
