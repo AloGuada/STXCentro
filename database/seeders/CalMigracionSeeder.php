@@ -32,6 +32,15 @@ class CalMigracionSeeder extends Seeder
     {
         $old = DB::connection('swapi');
 
+        // ─── 0. Limpiar tablas cal_* (orden inverso a dependencias FK) ──
+        $this->command->info('Limpiando tablas de calidad...');
+        DB::table('cal_flechas')->delete();
+        DB::table('cal_reportes')->delete();
+        DB::table('cal_piezas_planos')->delete();
+        DB::table('cal_piezas')->delete();
+        DB::table('cal_etapas')->delete();
+        DB::table('cal_soldadores')->delete();
+
         // ─── 1. Mapear obras por campo 'no' ─────────────────────────────
         $this->command->info('Mapeando obras...');
         $obrasViejas = $old->table('obras')->get();
