@@ -43,7 +43,7 @@ class PermisoPublicoController extends Controller
             'fecha_elaboracion' => now(),
         ]);
 
-        return back()->with('permiso', $permiso);
+        return back()->with('permiso', $permiso->toArray());
     }
 
     public function pdf(PermisoAusencia $permisoAusencia): View

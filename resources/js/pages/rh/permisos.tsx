@@ -61,7 +61,8 @@ function formatFecha(fechaStr: string): string {
 }
 
 export default function PermisosPublico() {
-    const { permiso: permisoCreado } = usePage<{ permiso?: RhPermisoAusencia }>().props;
+    const { flash } = usePage<{ flash: { permiso?: RhPermisoAusencia } }>().props;
+    const permisoCreado = flash?.permiso;
 
     const [permisos, setPermisos] = useState<RhPermisoAusencia[]>([]);
     const [form, setForm] = useState<PermisoForm>(emptyForm);
