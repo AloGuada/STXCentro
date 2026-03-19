@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Cal\ObraController;
 use App\Http\Controllers\Api\Cal\PiezaController;
 use App\Http\Controllers\Api\Cal\PiezaPlanoController;
 use App\Http\Controllers\Api\Cal\ReporteController;
+use App\Http\Controllers\Api\Cal\ReportePdfController;
 use App\Http\Controllers\Api\Cal\SoldadorController;
 use App\Http\Controllers\Api\Cal\UserController;
 use Illuminate\Support\Facades\Route;
@@ -25,7 +26,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('piezas-planos', PiezaPlanoController::class)->parameters(['piezas-planos' => 'piezaPlano']);
 
     Route::apiResource('reportes', ReporteController::class)->parameters(['reportes' => 'reporte']);
-    Route::get('reportes/{reporte}/pdf', [ReporteController::class, 'pdf'])->name('api.reportes.pdf');
+    Route::get('reportes/{reporte}/pdf', [ReportePdfController::class, 'generarReporte'])->name('api.reportes.pdf');
     Route::post('reportes/{reporte}/copiar', [ReporteController::class, 'copiar'])->name('api.reportes.copiar');
     Route::delete('reportes/{reporte}/flechas', [ReporteController::class, 'deleteFlechas'])->name('api.reportes.delete-flechas');
 

@@ -47,12 +47,6 @@ class ReporteController extends Controller
         return response()->json(null, 204);
     }
 
-    public function pdf(Reporte $reporte): JsonResponse
-    {
-        // TODO: Implementar generación de PDF con DomPDF
-        return response()->json(['message' => 'PDF generation not implemented yet'], 501);
-    }
-
     public function copiar(Request $request, Reporte $reporte): JsonResponse
     {
         $nuevoReporte = $reporte->replicate(['aprobado', 'rechazado']);

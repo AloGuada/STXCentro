@@ -9,4 +9,8 @@ namespace App\Models;
  */
 class User extends Usuario
 {
+    public function getMorphClass(): string
+    {
+        return Usuario::class;
+    }
 }
