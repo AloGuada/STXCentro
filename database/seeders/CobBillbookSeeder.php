@@ -397,7 +397,6 @@ class CobBillbookSeeder extends Seeder
                 'monto_pagado' => $row->monto_pagado,
                 'fecha_pago' => $row->fecha_pago,
                 'folio' => $row->folio,
-                'comprobante' => $row->comprobante,
             ]);
             $count++;
         }
@@ -485,7 +484,6 @@ class CobBillbookSeeder extends Seeder
                 'estado' => $row->estado,
                 'comentarios' => $row->comentarios,
                 'fecha_pagado' => $row->fecha_pagado ?? null,
-                'comprobante' => $row->comprobante ?? null,
             ]);
             $count++;
         }
