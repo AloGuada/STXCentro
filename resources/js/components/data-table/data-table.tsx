@@ -3,7 +3,7 @@ import type { PaginatedData } from '@/types/models';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 import { SearchInput } from './search-input';
 
 export type Column<T> = {
@@ -39,7 +39,8 @@ export function DataTable<T extends { id: number | string }>({
     onRowClick,
     emptyMessage = 'No hay registros',
     title,
-}: DataTableProps<T>) {
+    children,
+}: PropsWithChildren<DataTableProps<T>>) {
     const isPaginated = !Array.isArray(data) && 'current_page' in data;
     const items = Array.isArray(data) ? data : data.data;
 
@@ -93,6 +94,7 @@ export function DataTable<T extends { id: number | string }>({
                 <div className="flex items-center justify-between gap-4">
                     {title && <h2 className="text-lg font-semibold">{title}</h2>}
                     <div className="flex flex-1 items-center justify-end gap-4">
+                        {children}
                         {searchable && (
                             <SearchInput
                                 placeholder={searchPlaceholder}

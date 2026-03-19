@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedData, RhPeriodoLaboral } from '@/types/models';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -25,6 +25,11 @@ const estadoVariant = (estado: string) => {
 };
 
 const columns: Column<RhPeriodoLaboral>[] = [
+    {
+        key: 'numero_empleado',
+        label: 'No. Empleado',
+        render: (periodo) => periodo.numero_empleado ?? '-',
+    },
     {
         key: 'persona_id',
         label: 'Persona',
@@ -48,12 +53,23 @@ const columns: Column<RhPeriodoLaboral>[] = [
     },
 ];
 
+const ESTADOS = [
+    { value: '', label: 'Todos' },
+    { value: 'activo', label: 'Activo' },
+    { value: 'terminado', label: 'Terminado' },
+    { value: 'baja', label: 'Baja' },
+];
+
 type Props = {
     periodos: PaginatedData<RhPeriodoLaboral>;
-    filters: { search?: string };
+    filters: { search?: string; estado?: string };
 };
 
 export default function PeriodosLaboralesIndex({ periodos, filters }: Props) {
+    const handleEstadoChange = (estado: string) => {
+        router.get('/admin/rh/periodos-laborales', { ...filters, estado: estado || undefined }, { preserveState: true, preserveScroll: true });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Periodos Laborales" />
@@ -69,7 +85,17 @@ export default function PeriodosLaboralesIndex({ periodos, filters }: Props) {
                     createLabel="Nuevo Periodo Laboral"
                     emptyMessage="No hay periodos laborales registrados"
                     getRowHref={(periodo) => `/admin/rh/periodos-laborales/${periodo.id}/edit`}
-                />
+                >
+                    <select
+                        className="select select-bordered select-sm"
+                        value={filters.estado ?? ''}
+                        onChange={(e) => handleEstadoChange(e.target.value)}
+                    >
+                        {ESTADOS.map((e) => (
+                            <option key={e.value} value={e.value}>{e.label}</option>
+                        ))}
+                    </select>
+                </DataTable>
             </div>
         </AppLayout>
     );

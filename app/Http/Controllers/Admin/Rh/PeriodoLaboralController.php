@@ -36,13 +36,14 @@ class PeriodoLaboralController extends Controller
                     ->orWhere('apellido', 'like', "%{$s}%")
                 )
             )
+            ->when($request->estado, fn ($q, $e) => $q->where('estado', $e))
             ->orderByDesc('fecha_inicio')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('admin/rh/periodos-laborales/index', [
             'periodos' => $periodos,
-            'filters' => $request->only('search'),
+            'filters' => $request->only('search', 'estado'),
         ]);
     }
 
