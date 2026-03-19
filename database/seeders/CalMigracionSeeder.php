@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
  *   2. php artisan db:seed --class=CalMigracionSeeder
  *
  * Mapeo de tablas:
- *   obras          → obras            (match por campo 'no')
+ *   obras          → cal_obras        (tabla propia del módulo calidad)
  *   users          → usuarios         (inspectores, se crean con UUID)
  *   soldadores     → cal_soldadores
  *   etapas         → cal_etapas
@@ -40,24 +40,24 @@ class CalMigracionSeeder extends Seeder
         DB::table('cal_piezas')->delete();
         DB::table('cal_etapas')->delete();
         DB::table('cal_soldadores')->delete();
+        DB::table('cal_obras')->delete();
 
-        // ─── 1. Mapear obras por campo 'no' ─────────────────────────────
-        $this->command->info('Mapeando obras...');
+        // ─── 1. Migrar obras a cal_obras ───────────────────────────────
+        $this->command->info('Migrando obras...');
         $obrasViejas = $old->table('obras')->get();
         $obraMap = []; // old_id → new_id
 
         foreach ($obrasViejas as $obraVieja) {
-            $obraNueva = DB::table('obras')->where('no', $obraVieja->no)->first();
-
-            if (! $obraNueva) {
-                $this->command->warn("  Obra '{$obraVieja->no}' ({$obraVieja->descripcion}) no existe en mono. Saltando.");
-
-                continue;
-            }
-
-            $obraMap[$obraVieja->id] = $obraNueva->id;
+            $newId = DB::table('cal_obras')->insertGetId([
+                'no' => $obraVieja->no,
+                'descripcion' => $obraVieja->descripcion,
+                'activa' => $obraVieja->activa ?? true,
+                'created_at' => $obraVieja->created_at,
+                'updated_at' => $obraVieja->updated_at,
+            ]);
+            $obraMap[$obraVieja->id] = $newId;
         }
-        $this->command->info('  Obras mapeadas: '.count($obraMap));
+        $this->command->info('  Obras migradas: '.count($obraMap));
 
         // ─── 2. Migrar inspectores (users → usuarios) ───────────────────
         $this->command->info('Migrando inspectores...');

@@ -11,7 +11,7 @@ use App\Http\Controllers\Api\Cal\SoldadorController;
 use App\Http\Controllers\Api\Cal\UserController;
 use Illuminate\Support\Facades\Route;
 
-//Route::get('/ping', fn () => response()->json(['status' => 'ok']));
+// Route::get('/ping', fn () => response()->json(['status' => 'ok']));
 
 Route::post('login', [AuthController::class, 'login']);
 
@@ -19,7 +19,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('user', [AuthController::class, 'user']);
     Route::post('logout', [AuthController::class, 'logout']);
 
-    Route::apiResource('obras', ObraController::class)->only(['index', 'show']);
+    Route::apiResource('obras', ObraController::class);
     Route::apiResource('etapas', EtapaController::class)->parameters(['etapas' => 'etapa']);
     Route::apiResource('piezas', PiezaController::class)->parameters(['piezas' => 'pieza']);
     Route::apiResource('piezas-planos', PiezaPlanoController::class)->parameters(['piezas-planos' => 'piezaPlano']);

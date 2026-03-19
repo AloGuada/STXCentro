@@ -2,7 +2,6 @@
 
 namespace App\Models\Cal;
 
-use App\Models\Obra;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,7 +20,7 @@ class Etapa extends Model
 
     public function obra(): BelongsTo
     {
-        return $this->belongsTo(Obra::class, 'obra_id');
+        return $this->belongsTo(\App\Models\Cal\Obra::class, 'obra_id');
     }
 
     public function piezas(): HasMany
