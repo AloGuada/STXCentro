@@ -127,7 +127,7 @@
             @endif
         </div>
 
-        <img class="logo" src="http://172.16.1.240/logo_small.png" alt="Steelex">
+        <img class="logo" src="{{ asset('logo_small.png') }}"alt="Steelex">
 
         <div class="numero">{{ $numero }}</div>
         <div class="nombre">{{ mb_strtoupper($persona->nombre) }}</div>
