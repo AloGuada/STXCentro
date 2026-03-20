@@ -288,9 +288,7 @@
 <table style="width: 100%; margin-bottom: 20px;">
     <tr>
         <td style="width: 100px;">
-            @if(file_exists(public_path('images/logo-steelex.png')))
-                <img src="{{ public_path('images/logo-steelex.png') }}" style="max-width: 80px;">
-            @endif
+            <img src="http://172.16.1.240/logo_small.png" style="max-width: 80px;">
         </td>
         <td class="text-center">
             <span class="bold underline">Formato de ingreso para Contratistas</span>
@@ -360,17 +358,13 @@
 <table style="width: 100%; margin-bottom: 20px;">
     <tr>
         <td style="width: 100px;">
-            @if(file_exists(public_path('images/logo-steelex.png')))
-                <img src="{{ public_path('images/logo-steelex.png') }}" style="max-width: 80px;">
-            @endif
+            <img src="http://172.16.1.240/logo_small.png" style="max-width: 80px;">
         </td>
         <td class="text-center">
             <span class="bold underline">Formato de ingreso para empleados de Planta</span>
         </td>
         <td style="width: 100px;">
-            @if(file_exists(public_path('images/logo-steelex.png')))
-                <img src="{{ public_path('images/logo-steelex.png') }}" style="max-width: 80px;">
-            @endif
+            <img src="http://172.16.1.240/logo_small.png" style="max-width: 80px;">
         </td>
     </tr>
 </table>

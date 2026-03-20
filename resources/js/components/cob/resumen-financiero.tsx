@@ -43,9 +43,17 @@ export function ResumenFinancieroCard({ obra, resumen }: Props) {
                 <div>
                     <div className="text-sm opacity-70">Presupuesto Base</div>
                     <div className="text-lg font-bold">{formatearMXN(resumen.presupuestoEjecutar)}</div>
+                    {resumen.tieneComparativos && resumen.tipoContrato === 'precio_unitario' && (
+                        <div className="text-xs opacity-50 mt-1">
+                            Ajuste: {formatearMXN(resumen.ajustePresupuesto)}
+                        </div>
+                    )}
+                    {resumen.tieneComparativos && resumen.tipoContrato !== 'precio_unitario' && (
+                        <div className="text-xs opacity-50 mt-1">
+                            Comparativo (ref.): {formatearMXN(resumen.montoComparativo)}
+                        </div>
+                    )}
                 </div>
-
-
 
                 <div>
                     <div className="text-sm opacity-70">Facturado</div>

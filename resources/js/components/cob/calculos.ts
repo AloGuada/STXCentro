@@ -19,6 +19,8 @@ export type ResumenFinanciero = {
     estimacionesIngresadas: number;
     facturadasPorCobrar: number;
     tieneComparativos: boolean;
+    montoComparativo: number;
+    tipoContrato: string | null;
 };
 
 export function calcularResumen(
@@ -27,6 +29,7 @@ export function calcularResumen(
     anticipos: CobAnticipo[],
     comparativos: CobComparativo[],
     deducciones: CobDeduccion[],
+    tipoContrato: string | null = null,
 ): ResumenFinanciero {
     const presupuestoPartidas = partidas
         .filter((p) => !p.es_adicional)
@@ -40,9 +43,14 @@ export function calcularResumen(
         .filter((c) => c.estado === 'implementado' || c.estado === 'aprobado')
         .sort((a, b) => (a.id > b.id ? -1 : 1))[0];
 
-    const presupuestoEjecutar = lastComparativo
-        ? Number(lastComparativo.monto_impacto)
-        : presupuestoPartidas + partidasAdicionales;
+    const montoComparativo = lastComparativo ? Number(lastComparativo.monto_impacto) : 0;
+    const basePartidas = presupuestoPartidas + partidasAdicionales;
+
+    // Precio unitario: el comparativo reemplaza el total
+    // Precio alzado: el comparativo es solo referencia, el total es el de partidas
+    const presupuestoEjecutar = lastComparativo && tipoContrato === 'precio_unitario'
+        ? montoComparativo
+        : basePartidas;
 
     const totalAnticiposFacturados = anticipos.reduce((sum, a) => sum + Number(a.monto), 0);
 
@@ -104,6 +112,8 @@ export function calcularResumen(
         estimacionesIngresadas,
         facturadasPorCobrar,
         tieneComparativos,
+        montoComparativo,
+        tipoContrato,
     };
 }
 
@@ -120,6 +130,7 @@ export function calcularDatosProyecto(obra: Obra): DatosProyecto {
         obra.anticipos ?? [],
         obra.comparativos ?? [],
         obra.deducciones ?? [],
+        obra.tipo_contrato ?? null,
     );
 
     const porcentajeFacturado = resumen.presupuestoEjecutar > 0

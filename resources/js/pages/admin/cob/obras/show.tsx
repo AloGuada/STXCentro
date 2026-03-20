@@ -59,6 +59,7 @@ export default function ObraShow({ obra, clientes }: Props) {
         obra.anticipos ?? [],
         obra.comparativos ?? [],
         obra.deducciones ?? [],
+        obra.tipo_contrato ?? null,
     );
 
     return (

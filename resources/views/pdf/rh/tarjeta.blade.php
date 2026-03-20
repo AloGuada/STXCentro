@@ -105,11 +105,7 @@
 <body>
     {{-- FRENTE --}}
     <div class="front">
-        @if (file_exists(public_path('images/steelex-logo.png')))
-            <img class="logo" src="{{ public_path('images/steelex-logo.png') }}" alt="Steelex">
-        @else
-            <div class="logo-text">STEELEX</div>
-        @endif
+        <img class="logo" src="http://172.16.1.240/logo_small.png" alt="Steelex">
 
         <table class="body-table">
             <tr>

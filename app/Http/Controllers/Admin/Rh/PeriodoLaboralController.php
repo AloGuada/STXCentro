@@ -50,13 +50,32 @@ class PeriodoLaboralController extends Controller
                 });
             })
             ->when($request->estado, fn ($q, $e) => $q->where('estado', $e))
-            ->orderBy('fecha_inicio')
+            ->when($request->sort_by, function ($query) use ($request) {
+                $dir = $request->sort_dir === 'desc' ? 'desc' : 'asc';
+
+                return match ($request->sort_by) {
+                    'persona' => $query
+                        ->leftJoin('rh_personas', 'rh_periodos_laborales.persona_id', '=', 'rh_personas.id')
+                        ->orderBy('rh_personas.nombre', $dir)
+                        ->select('rh_periodos_laborales.*'),
+                    'puesto' => $query
+                        ->leftJoin('rh_puestos', 'rh_periodos_laborales.puesto_id', '=', 'rh_puestos.id')
+                        ->orderBy('rh_puestos.nombre', $dir)
+                        ->select('rh_periodos_laborales.*'),
+                    'departamento' => $query
+                        ->leftJoin('rh_puestos as rp_dep', 'rh_periodos_laborales.puesto_id', '=', 'rp_dep.id')
+                        ->leftJoin('departamentos', 'rp_dep.departamento_id', '=', 'departamentos.id')
+                        ->orderBy('departamentos.descripcion', $dir)
+                        ->select('rh_periodos_laborales.*'),
+                    default => $query->orderBy($request->sort_by, $dir),
+                };
+            }, fn ($query) => $query->orderBy('fecha_inicio'))
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('admin/rh/periodos-laborales/index', [
             'periodos' => $periodos,
-            'filters' => $request->only('search', 'estado'),
+            'filters' => $request->only('search', 'estado', 'sort_by', 'sort_dir'),
         ]);
     }
 
@@ -195,7 +214,7 @@ class PeriodoLaboralController extends Controller
 
         $filename = 'contrato-'.$persona->nombre.'-'.$persona->apellido.'.pdf';
 
-        return $pdf->download($filename);
+        return $pdf->stream($filename);
     }
 
     public function generarGafetePdf(PeriodoLaboral $periodoLaboral): HttpResponse
@@ -227,7 +246,7 @@ class PeriodoLaboralController extends Controller
 
         $filename = 'gafete-'.$persona->nombre.'-'.$persona->apellido.'.pdf';
 
-        return $pdf->download($filename);
+        return $pdf->stream($filename);
     }
 
     public function generarTarjetaPdf(PeriodoLaboral $periodoLaboral): HttpResponse
@@ -250,7 +269,7 @@ class PeriodoLaboralController extends Controller
 
         $filename = 'tarjeta-'.$persona->nombre.'-'.$persona->apellido.'.pdf';
 
-        return $pdf->download($filename);
+        return $pdf->stream($filename);
     }
 
     private function generarQrBase64(PeriodoLaboral $periodoLaboral, Persona $persona): string

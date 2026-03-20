@@ -127,11 +127,7 @@
             @endif
         </div>
 
-        @if (file_exists(public_path('images/steelex-logo.png')))
-            <img class="logo" src="{{ public_path('images/steelex-logo.png') }}" alt="Steelex">
-        @else
-            <div class="logo-text">STEELEX</div>
-        @endif
+        <img class="logo" src="http://172.16.1.240/logo_small.png" alt="Steelex">
 
         <div class="numero">{{ $numero }}</div>
         <div class="nombre">{{ mb_strtoupper($persona->nombre) }}</div>

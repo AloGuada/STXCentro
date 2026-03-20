@@ -136,7 +136,7 @@ export default function ObrasIndex({ obras, filters }: Props) {
                                     <th>Obra</th>
                                     <th className="text-right">Presupuesto</th>
                                     <th className="text-right">Pres. a ejecutar</th>
-                                    <th className="text-right">Ajuste</th>
+                                    <th className="text-right">Comp. / Ajuste</th>
                                     <th className="text-right">Deductivas</th>
                                     <th className="text-right">Pres. final</th>
                                     <th className="text-right">Cobrado</th>
@@ -175,7 +175,16 @@ export default function ObrasIndex({ obras, filters }: Props) {
                                             <td className="text-right">{formatearMXN(d.presupuestoPartidas)}</td>
                                             <td className="text-right">{formatearMXN(d.presupuestoEjecutar)}</td>
                                             <td className="text-right">
-                                                {d.tieneComparativos ? formatearMXN(d.ajustePresupuesto) : '-'}
+                                                {d.tieneComparativos
+                                                    ? obra.tipo_contrato === 'precio_unitario'
+                                                        ? formatearMXN(d.ajustePresupuesto)
+                                                        : formatearMXN(d.montoComparativo)
+                                                    : '-'}
+                                                {d.tieneComparativos && (
+                                                    <div className="text-xs opacity-50">
+                                                        {obra.tipo_contrato === 'precio_unitario' ? 'Ajuste' : 'Ref. comparativo'}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="text-right">{formatearMXN(d.totalDeducciones)}</td>
                                             <td className="text-right">{formatearMXN(d.presupuestoFinal)}</td>

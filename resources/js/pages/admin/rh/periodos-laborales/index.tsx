@@ -36,7 +36,7 @@ const ESTADOS = [
 
 type Props = {
     periodos: PaginatedData<RhPeriodoLaboral>;
-    filters: { search?: string; estado?: string };
+    filters: { search?: string; estado?: string; sort_by?: string; sort_dir?: 'asc' | 'desc' };
 };
 
 export default function PeriodosLaboralesIndex({ periodos, filters }: Props) {
@@ -51,32 +51,40 @@ export default function PeriodosLaboralesIndex({ periodos, filters }: Props) {
             key: 'numero_empleado',
             label: 'No. Empleado',
             render: (periodo) => periodo.numero_empleado ?? '-',
+            sortable: true,
         },
         {
             key: 'persona_id',
             label: 'Persona',
             render: (periodo) => periodo.persona ? `${periodo.persona.nombre} ${periodo.persona.apellido}` : '-',
+            sortable: true,
+            sortKey: 'persona',
         },
         {
             key: 'puesto_id',
             label: 'Puesto',
             render: (periodo) => periodo.puesto?.nombre ?? '-',
+            sortable: true,
+            sortKey: 'puesto',
         },
         {
             key: 'departamento',
             label: 'Departamento',
             render: (periodo) => periodo.puesto?.departamento?.nombre ?? '-',
+            sortable: true,
+            sortKey: 'departamento',
         },
         {
             key: 'requisicion_id',
             label: 'Requisición',
             render: (periodo) => periodo.requisicion?.folio ?? '-',
         },
-        { key: 'fecha_inicio', label: 'Fecha Inicio' },
+        { key: 'fecha_inicio', label: 'Fecha Inicio', sortable: true },
         {
             key: 'estado',
             label: 'Estado',
             render: (periodo) => <Badge variant={estadoVariant(periodo.estado)}>{periodo.estado}</Badge>,
+            sortable: true,
         },
         {
             key: 'acciones',
@@ -147,6 +155,8 @@ export default function PeriodosLaboralesIndex({ periodos, filters }: Props) {
                     createLabel="Nuevo Periodo Laboral"
                     emptyMessage="No hay periodos laborales registrados"
                     getRowHref={(periodo) => `/admin/rh/periodos-laborales/${periodo.id}/edit`}
+                    sortBy={filters.sort_by}
+                    sortDir={filters.sort_dir}
                 >
                     <select
                         className="select select-bordered select-sm"

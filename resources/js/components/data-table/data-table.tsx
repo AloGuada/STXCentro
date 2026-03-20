@@ -1,8 +1,8 @@
 import { ButtonLink } from '@/components/ui/button';
 import type { PaginatedData } from '@/types/models';
 import { cn } from '@/lib/utils';
-import { Link } from '@inertiajs/react';
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from 'lucide-react';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { SearchInput } from './search-input';
 
@@ -11,6 +11,8 @@ export type Column<T> = {
     label: string;
     render?: (item: T) => ReactNode;
     className?: string;
+    sortable?: boolean;
+    sortKey?: string;
 };
 
 type DataTableProps<T extends { id: number | string }> = {
@@ -25,6 +27,8 @@ type DataTableProps<T extends { id: number | string }> = {
     onRowClick?: (item: T) => void;
     emptyMessage?: string;
     title?: string;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
 export function DataTable<T extends { id: number | string }>({
@@ -39,10 +43,32 @@ export function DataTable<T extends { id: number | string }>({
     onRowClick,
     emptyMessage = 'No hay registros',
     title,
+    sortBy,
+    sortDir,
     children,
 }: PropsWithChildren<DataTableProps<T>>) {
     const isPaginated = !Array.isArray(data) && 'current_page' in data;
     const items = Array.isArray(data) ? data : data.data;
+
+    const handleSort = (column: Column<T>) => {
+        if (!column.sortable) return;
+        const key = column.sortKey ?? String(column.key);
+        const currentParams = Object.fromEntries(new URLSearchParams(window.location.search));
+        const newDir = sortBy === key && sortDir === 'asc' ? 'desc' : 'asc';
+        router.get(
+            window.location.pathname,
+            { ...currentParams, sort_by: key, sort_dir: newDir, page: undefined },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    };
+
+    const getSortIcon = (column: Column<T>) => {
+        const key = column.sortKey ?? String(column.key);
+        if (sortBy !== key) return <ArrowUpDownIcon className="text-base-content/30 size-3.5" />;
+        return sortDir === 'asc'
+            ? <ArrowUpIcon className="size-3.5" />
+            : <ArrowDownIcon className="size-3.5" />;
+    };
 
     const getCellValue = (item: T, column: Column<T>): ReactNode => {
         if (column.render) {
@@ -117,8 +143,19 @@ export function DataTable<T extends { id: number | string }>({
                     <thead className="sticky top-0 z-10 bg-base-100">
                         <tr>
                             {columns.map((column) => (
-                                <th key={String(column.key)} className={column.className}>
-                                    {column.label}
+                                <th
+                                    key={String(column.key)}
+                                    className={cn(column.className, column.sortable && 'cursor-pointer select-none')}
+                                    onClick={() => column.sortable && handleSort(column)}
+                                >
+                                    {column.sortable ? (
+                                        <span className="inline-flex items-center gap-1">
+                                            {column.label}
+                                            {getSortIcon(column)}
+                                        </span>
+                                    ) : (
+                                        column.label
+                                    )}
                                 </th>
                             ))}
                         </tr>
