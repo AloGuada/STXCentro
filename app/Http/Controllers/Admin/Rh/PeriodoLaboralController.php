@@ -29,15 +29,28 @@ class PeriodoLaboralController extends Controller
         $this->authorize('rh.periodos-laborales.ver');
 
         $periodos = PeriodoLaboral::query()
-            ->with(['persona', 'puesto', 'requisicion'])
-            ->when($request->search, fn ($q, $s) => $q
-                ->whereHas('persona', fn ($pq) => $pq
-                    ->where('nombre', 'like', "%{$s}%")
-                    ->orWhere('apellido', 'like', "%{$s}%")
-                )
-            )
+            ->with(['persona.datosExtra', 'persona.foto', 'persona.periodosLaborales.puesto', 'persona.documentos.media', 'puesto.departamento', 'requisicion'])
+            ->when($request->search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('numero_empleado', 'like', "%{$search}%")
+                        ->orWhere('estado', 'like', "%{$search}%")
+                        ->orWhereHas('persona', fn ($pq) => $pq
+                            ->where('nombre', 'like', "%{$search}%")
+                            ->orWhere('apellido', 'like', "%{$search}%")
+                        )
+                        ->orWhereHas('puesto', fn ($pq) => $pq
+                            ->where('nombre', 'like', "%{$search}%")
+                            ->orWhereHas('departamento', fn ($dq) => $dq
+                                ->where('descripcion', 'like', "%{$search}%")
+                            )
+                        )
+                        ->orWhereHas('requisicion', fn ($rq) => $rq
+                            ->where('folio', 'like', "%{$search}%")
+                        );
+                });
+            })
             ->when($request->estado, fn ($q, $e) => $q->where('estado', $e))
-            ->orderByDesc('fecha_inicio')
+            ->orderBy('fecha_inicio')
             ->paginate(15)
             ->withQueryString();
 

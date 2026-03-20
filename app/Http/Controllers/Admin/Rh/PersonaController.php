@@ -20,11 +20,14 @@ class PersonaController extends Controller
         $this->authorize('rh.personas.ver');
 
         $personas = Persona::query()
-            ->when($request->search, fn ($q, $s) => $q
-                ->where('nombre', 'like', "%{$s}%")
-                ->orWhere('apellido', 'like', "%{$s}%")
-                ->orWhere('email', 'like', "%{$s}%")
-            )
+            ->with('datosExtra')
+            ->when($request->search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('nombre', 'like', "%{$search}%")
+                        ->orWhere('apellido', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
             ->orderBy('apellido')
             ->paginate(15)
             ->withQueryString();

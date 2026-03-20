@@ -18,11 +18,15 @@ class PermisoAusenciaController extends Controller
         $this->authorize('rh.permisos-ausencia.ver');
 
         $permisos = PermisoAusencia::query()
-            ->when($request->search, fn ($q, $s) => $q
-                ->where('nombres', 'like', "%{$s}%")
-                ->orWhere('apellidos', 'like', "%{$s}%")
-                ->orWhere('folio', 'like', "%{$s}%")
-            )
+            ->when($request->search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('folio', 'like', "%{$search}%")
+                        ->orWhere('nombres', 'like', "%{$search}%")
+                        ->orWhere('apellidos', 'like', "%{$search}%")
+                        ->orWhere('tipo', 'like', "%{$search}%")
+                        ->orWhere('modalidad', 'like', "%{$search}%");
+                });
+            })
             ->orderByDesc('created_at')
             ->paginate(15)
             ->withQueryString();

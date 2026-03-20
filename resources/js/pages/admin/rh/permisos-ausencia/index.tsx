@@ -16,7 +16,11 @@ const columns: Column<RhPermisoAusencia>[] = [
     { key: 'apellidos', label: 'Apellidos' },
     { key: 'tipo', label: 'Tipo' },
     { key: 'modalidad', label: 'Modalidad' },
-    { key: 'fecha_permiso', label: 'Fecha Permiso' },
+    {
+        key: 'fecha_permiso',
+        label: 'Fecha Permiso',
+        render: (permiso) => permiso.fecha_permiso ? new Date(permiso.fecha_permiso).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }) : '-',
+    },
 ];
 
 type Props = {

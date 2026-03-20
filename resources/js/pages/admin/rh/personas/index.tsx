@@ -10,11 +10,36 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Personas', href: '/admin/rh/personas' },
 ];
 
+const calcularEdad = (fechaNacimiento: string | null): string => {
+    if (!fechaNacimiento) return '-';
+    const hoy = new Date();
+    const nacimiento = new Date(fechaNacimiento);
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    const m = hoy.getMonth() - nacimiento.getMonth();
+    if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
+    return `${edad} años`;
+};
+
 const columns: Column<RhPersona>[] = [
     { key: 'nombre', label: 'Nombre' },
     { key: 'apellido', label: 'Apellido' },
     { key: 'email', label: 'Email' },
     { key: 'telefono', label: 'Telefono' },
+    {
+        key: 'localidad',
+        label: 'Localidad',
+        render: (persona) => persona.datos_extra?.localidad ?? '-',
+    },
+    {
+        key: 'edad',
+        label: 'Edad',
+        render: (persona) => calcularEdad(persona.fecha_nacimiento),
+    },
+    {
+        key: 'created_at',
+        label: 'Fecha Registro',
+        render: (persona) => new Date(persona.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' }),
+    },
 ];
 
 type Props = {
