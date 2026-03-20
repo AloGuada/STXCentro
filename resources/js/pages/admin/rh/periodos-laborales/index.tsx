@@ -4,8 +4,8 @@ import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogT
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedData, RhPeriodoLaboral, RhPersona, RhPersonaDocumento } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
-import { BadgeCheckIcon, CreditCardIcon, FileIcon, FileTextIcon, SearchIcon } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { BadgeCheckIcon, CreditCardIcon, FileIcon, FileTextIcon, PencilIcon, SearchIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -203,7 +203,12 @@ function PersonaModal({ persona, onClose }: { persona: RhPersona | null; onClose
 
                         {/* Datos personales */}
                         <div>
-                            <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide">Datos Personales</h4>
+                            <div className="mb-2 flex items-center justify-between">
+                                <h4 className="text-sm font-semibold uppercase tracking-wide">Datos Personales</h4>
+                                <Link href={`/admin/rh/personas/${persona.id}/edit`} className="btn btn-ghost btn-xs" title="Editar datos personales">
+                                    <PencilIcon className="size-3.5" />
+                                </Link>
+                            </div>
                             <div className="rounded border p-3">
                                 <InfoRow label="Nombre" value={`${persona.nombre} ${persona.apellido}`} />
                                 <InfoRow label="Email" value={persona.email} />
@@ -215,7 +220,12 @@ function PersonaModal({ persona, onClose }: { persona: RhPersona | null; onClose
                         {/* Datos extra */}
                         {extras && (
                             <div>
-                                <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide">Datos Adicionales</h4>
+                                <div className="mb-2 flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold uppercase tracking-wide">Datos Adicionales</h4>
+                                    <Link href={`/admin/rh/personas/${persona.id}/edit`} className="btn btn-ghost btn-xs" title="Editar datos adicionales">
+                                        <PencilIcon className="size-3.5" />
+                                    </Link>
+                                </div>
                                 <div className="rounded border p-3">
                                     <InfoRow label="CURP" value={extras.curp} />
                                     <InfoRow label="RFC" value={extras.rfc} />
@@ -238,7 +248,9 @@ function PersonaModal({ persona, onClose }: { persona: RhPersona | null; onClose
 
                         {/* Periodos Laborales */}
                         <div>
-                            <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide">Periodos Laborales</h4>
+                            <div className="mb-2 flex items-center justify-between">
+                                <h4 className="text-sm font-semibold uppercase tracking-wide">Periodos Laborales</h4>
+                            </div>
                             {periodos.length > 0 ? (
                                 <div className="overflow-auto rounded border">
                                     <table className="table table-sm">
@@ -248,6 +260,7 @@ function PersonaModal({ persona, onClose }: { persona: RhPersona | null; onClose
                                                 <th>Fecha Inicio</th>
                                                 <th>Fecha Fin</th>
                                                 <th>Estado</th>
+                                                <th></th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -261,6 +274,11 @@ function PersonaModal({ persona, onClose }: { persona: RhPersona | null; onClose
                                                             {p.estado}
                                                         </Badge>
                                                     </td>
+                                                    <td>
+                                                        <Link href={`/admin/rh/periodos-laborales/${p.id}/edit`} className="btn btn-ghost btn-xs" title="Editar periodo">
+                                                            <PencilIcon className="size-3.5" />
+                                                        </Link>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -273,7 +291,12 @@ function PersonaModal({ persona, onClose }: { persona: RhPersona | null; onClose
 
                         {/* Documentos */}
                         <div>
-                            <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide">Documentos</h4>
+                            <div className="mb-2 flex items-center justify-between">
+                                <h4 className="text-sm font-semibold uppercase tracking-wide">Documentos</h4>
+                                <Link href={`/admin/rh/personas/${persona.id}`} className="btn btn-ghost btn-xs" title="Gestionar documentos">
+                                    <PencilIcon className="size-3.5" />
+                                </Link>
+                            </div>
                             {documentos.length > 0 ? (
                                 <div className="flex flex-wrap gap-2">
                                     {documentos.map((doc) => (
