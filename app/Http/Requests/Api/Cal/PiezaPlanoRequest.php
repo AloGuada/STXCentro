@@ -16,18 +16,17 @@ class PiezaPlanoRequest extends FormRequest
      */
     public function rules(): array
     {
-        if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
-            return [
-                'version' => ['required', 'integer', 'min:1'],
-            ];
-        }
-
-        return [
+        $rules = [
             'pieza_id' => ['required', 'exists:cal_piezas,id'],
             'version' => ['required', 'integer', 'min:1'],
-            'pdf_revision' => ['required', 'file', 'mimes:pdf', 'max:10240'],
-            'plano_normal' => ['nullable', 'file', 'max:10240'],
-            'dwg' => ['nullable', 'file', 'max:10240'],
         ];
+
+        if ($this->isMethod('POST')) {
+            $rules['pdf'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
+            $rules['plano_normal'] = ['nullable', 'file', 'max:10240'];
+            $rules['dwg'] = ['nullable', 'file', 'max:10240'];
+        }
+
+        return $rules;
     }
 }

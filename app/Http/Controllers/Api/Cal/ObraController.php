@@ -28,8 +28,8 @@ class ObraController extends Controller
     {
         $validated = $request->validate([
             'no' => ['required', 'string', 'max:255'],
-            'descripcion' => ['nullable', 'string', 'max:255'],
-            'activa' => ['nullable', 'boolean'],
+            'descripcion' => ['required', 'string', 'max:255'],
+            'activa' => ['required', 'boolean'],
         ]);
 
         $obra = Obra::create($validated);
@@ -45,9 +45,9 @@ class ObraController extends Controller
     public function update(Request $request, Obra $obra): JsonResponse
     {
         $validated = $request->validate([
-            'no' => ['sometimes', 'string', 'max:255'],
-            'descripcion' => ['nullable', 'string', 'max:255'],
-            'activa' => ['nullable', 'boolean'],
+            'no' => ['required', 'string', 'max:255'],
+            'descripcion' => ['required', 'string', 'max:255'],
+            'activa' => ['required', 'boolean'],
         ]);
 
         $obra->update($validated);

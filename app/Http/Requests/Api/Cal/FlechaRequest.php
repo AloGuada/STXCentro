@@ -16,16 +16,22 @@ class FlechaRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
-            'reporte_id' => ['required', 'exists:cal_reportes,id'],
+        $rules = [
             'inicio_x' => ['required', 'numeric'],
             'inicio_y' => ['required', 'numeric'],
             'fin_x' => ['required', 'numeric'],
             'fin_y' => ['required', 'numeric'],
-            'esdoble' => ['nullable', 'boolean'],
-            'tipo' => ['nullable', 'string', 'max:255'],
-            'show_number' => ['nullable', 'boolean'],
-            'pagina' => ['nullable', 'integer', 'min:1'],
+            'esdoble' => ['required', 'boolean'],
+            'tipo' => ['required', 'string', 'max:255'],
+            'show_number' => ['required', 'boolean'],
+            'pagina' => ['required', 'integer', 'min:1'],
+            'soldador_id' => ['nullable', 'exists:cal_soldadores,id'],
         ];
+
+        if ($this->isMethod('POST')) {
+            $rules['reporte_id'] = ['required', 'exists:cal_reportes,id'];
+        }
+
+        return $rules;
     }
 }

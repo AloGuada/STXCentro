@@ -24,7 +24,7 @@ class PiezaPlanoController extends Controller
         $data = $request->safe()->only(['pieza_id', 'version']);
         $piezaId = $data['pieza_id'];
 
-        $data['pdf_path'] = $request->file('pdf_revision')->store("cal/planos/{$piezaId}", 'local');
+        $data['pdf_path'] = $request->file('pdf')->store("cal/planos/{$piezaId}", 'local');
 
         if ($request->hasFile('plano_normal')) {
             $data['plano_normal'] = $request->file('plano_normal')->store("cal/planos/{$piezaId}", 'local');
@@ -46,7 +46,7 @@ class PiezaPlanoController extends Controller
 
     public function update(PiezaPlanoRequest $request, PiezaPlano $piezaPlano): JsonResponse
     {
-        $piezaPlano->update($request->safe()->only(['version']));
+        $piezaPlano->update($request->safe()->only(['pieza_id', 'version']));
 
         return response()->json($piezaPlano);
     }

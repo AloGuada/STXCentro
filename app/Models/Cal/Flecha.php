@@ -22,6 +22,7 @@ class Flecha extends Model
         'tipo',
         'show_number',
         'pagina',
+        'soldador_id',
     ];
 
     protected function casts(): array
@@ -39,5 +40,10 @@ class Flecha extends Model
     public function reporte(): BelongsTo
     {
         return $this->belongsTo(Reporte::class, 'reporte_id');
+    }
+
+    public function soldador(): BelongsTo
+    {
+        return $this->belongsTo(Soldador::class, 'soldador_id');
     }
 }

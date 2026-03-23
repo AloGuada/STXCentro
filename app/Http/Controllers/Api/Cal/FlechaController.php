@@ -12,7 +12,7 @@ class FlechaController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Flecha::query();
+        $query = Flecha::with('soldador');
 
         if ($request->has('reporte_id')) {
             $query->where('reporte_id', $request->input('reporte_id'));
@@ -25,19 +25,19 @@ class FlechaController extends Controller
     {
         $flecha = Flecha::create($request->validated());
 
-        return response()->json($flecha, 201);
+        return response()->json($flecha->load('soldador'), 201);
     }
 
     public function show(Flecha $flecha): JsonResponse
     {
-        return response()->json($flecha);
+        return response()->json($flecha->load('soldador'));
     }
 
     public function update(FlechaRequest $request, Flecha $flecha): JsonResponse
     {
         $flecha->update($request->validated());
 
-        return response()->json($flecha);
+        return response()->json($flecha->load('soldador'));
     }
 
     public function destroy(Flecha $flecha): JsonResponse

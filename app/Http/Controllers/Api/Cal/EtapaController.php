@@ -12,7 +12,7 @@ class EtapaController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Etapa::with(['obra', 'piezas.planos.reportes.inspector', 'piezas.planos.reportes.soldador']);
+        $query = Etapa::with(['obra', 'piezas.planos']);
 
         if ($request->has('obra_id')) {
             $query->where('obra_id', $request->input('obra_id'));
@@ -30,7 +30,7 @@ class EtapaController extends Controller
 
     public function show(Etapa $etapa): JsonResponse
     {
-        return response()->json($etapa->load(['obra', 'piezas.planos.reportes.inspector', 'piezas.planos.reportes.soldador']));
+        return response()->json($etapa->load(['obra', 'piezas.planos']));
     }
 
     public function update(EtapaRequest $request, Etapa $etapa): JsonResponse

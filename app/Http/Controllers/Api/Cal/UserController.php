@@ -17,6 +17,7 @@ class UserController extends Controller
             'id' => $u->id,
             'name' => $u->name,
             'email' => $u->email,
+            'rol' => $u->rol,
         ]);
 
         return response()->json($usuarios);
@@ -28,6 +29,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:usuarios,email'],
             'password' => ['required', 'string', 'min:8'],
+            'rol' => ['required', 'string', 'max:255'],
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
@@ -38,6 +40,7 @@ class UserController extends Controller
             'id' => $usuario->id,
             'name' => $usuario->name,
             'email' => $usuario->email,
+            'rol' => $usuario->rol,
         ], 201);
     }
 
@@ -47,6 +50,7 @@ class UserController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
+            'rol' => $user->rol,
         ]);
     }
 
@@ -56,6 +60,7 @@ class UserController extends Controller
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', Rule::unique('usuarios', 'email')->ignore($user->id)],
             'password' => ['nullable', 'string', 'min:8'],
+            'rol' => ['sometimes', 'string', 'max:255'],
         ]);
 
         if (isset($validated['password'])) {
@@ -68,6 +73,7 @@ class UserController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
+            'rol' => $user->rol,
         ]);
     }
 
