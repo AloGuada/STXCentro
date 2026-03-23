@@ -153,7 +153,7 @@ class PeriodoLaboralController extends Controller
         $this->authorize('rh.periodos-laborales.editar');
 
         $periodoLaboral->update([
-            'estado' => 'terminado',
+            'estado' => 'baja',
             'fecha_fin' => now(),
         ]);
 
@@ -195,13 +195,17 @@ class PeriodoLaboralController extends Controller
             ? Carbon::parse($persona->fecha_nacimiento)->age
             : '';
 
+        $salarioNum = (float) ($periodoLaboral->salario ?? 0);
+        $salarioDiario = $salarioNum > 0 ? number_format($salarioNum / 30.4, 2) : '';
+
         $pdf = Pdf::loadView('pdf.rh.contrato-laboral', [
             'periodo' => $periodoLaboral,
             'persona' => $persona,
             'extras' => $extras,
             'puesto' => $periodoLaboral->puesto?->nombre ?? '',
-            'departamento' => $periodoLaboral->puesto?->departamento?->nombre ?? '',
-            'salario' => $periodoLaboral->salario ? number_format((float) $periodoLaboral->salario, 2) : '',
+            'departamento' => $periodoLaboral->puesto?->departamento?->descripcion ?? '',
+            'salario' => $periodoLaboral->salario ? number_format($salarioNum, 2) : '',
+            'salarioDiario' => $salarioDiario,
             'fechaIngreso' => $fechaIngreso,
             'fechaIngresoLarga' => $fechaIngresoLarga,
             'fechaVencimiento' => $fechaVencimiento,
@@ -209,6 +213,7 @@ class PeriodoLaboralController extends Controller
             'sexo' => $sexo,
             'lugarNacimiento' => $lugarNacimiento,
             'edad' => $edad,
+            'numeroEmpleado' => $periodoLaboral->numero_empleado ?? '',
             'tipoContrato' => $periodoLaboral->requisicion?->tipo_contrato_generado ?? $periodoLaboral->tipo_contrato ?? 'planta',
         ])->setPaper('letter', 'portrait');
 

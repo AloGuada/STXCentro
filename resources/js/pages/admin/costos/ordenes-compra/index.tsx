@@ -1,51 +1,80 @@
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosOrdenCompra, CostosOrdenCompraEstatus, PaginatedData } from '@/types/models';
+import type { CostosOrdenCompra, PaginatedData } from '@/types/models';
 import { ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { ArrowRight } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Costos', href: '/admin/costos/ordenes-compra' },
-    { title: 'Ordenes de Compra', href: '/admin/costos/ordenes-compra' },
+    { title: 'Compras', href: '/admin/costos/ordenes-compra' },
 ];
 
+const fmt = (v: number) => {
+    const n = Number(v);
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
+    return `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+};
+
 const columns: Column<CostosOrdenCompra>[] = [
-    { key: 'folio', label: 'Folio' },
     {
-        key: 'referencia',
-        label: 'Referencia',
-        render: (row) => row.referencia ?? '-',
-    },
-    {
-        key: 'proveedor',
-        label: 'Proveedor',
-        render: (row) => row.proveedor?.razon_social ?? '-',
-    },
-    {
-        key: 'facturas_count',
-        label: 'Facturas',
-        render: (row) => row.facturas_count ?? 0,
+        key: 'folio',
+        label: 'Orden de Compra',
+        render: (row) => (
+            <div>
+                <div className="font-semibold text-primary">{row.folio}</div>
+                <div className="text-base-content/50 text-xs">
+                    {row.proveedor?.razon_social ?? '-'} · {new Date(row.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+            </div>
+        ),
     },
     {
         key: 'total',
-        label: 'Total',
-        render: (row) => `$${Number(row.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+        label: 'Monto',
+        render: (row) => <span className="text-sm font-semibold">{fmt(row.total)}</span>,
     },
     {
         key: 'estatus',
-        label: 'Estatus',
+        label: 'Estado',
         render: (row) => (
-            <span className={`badge ${ORDEN_COMPRA_ESTATUS_COLORS[row.estatus]}`}>
+            <span className={`badge badge-sm ${ORDEN_COMPRA_ESTATUS_COLORS[row.estatus]}`}>
                 {ORDEN_COMPRA_ESTATUS_LABELS[row.estatus]}
             </span>
         ),
     },
     {
-        key: 'created_at',
-        label: 'Fecha',
-        render: (row) => new Date(row.created_at).toLocaleDateString(),
+        key: 'counts',
+        label: 'Facturas / Entregas / Pagos',
+        render: (row) => (
+            <div className="flex flex-wrap gap-1.5">
+                <span className="rounded bg-base-200 px-2 py-0.5 text-xs">
+                    <span className="font-semibold">{row.facturas_count ?? 0}</span> facturas
+                </span>
+                <span className="rounded bg-base-200 px-2 py-0.5 text-xs">
+                    <span className="font-semibold">{row.entregas_count ?? 0}</span> entregas
+                </span>
+                <span className="rounded bg-base-200 px-2 py-0.5 text-xs">
+                    <span className="font-semibold">{row.pagos_count ?? 0}</span> pagos
+                </span>
+            </div>
+        ),
+    },
+    {
+        key: 'acciones',
+        label: '',
+        render: (row) => (
+            <Link
+                href={`/admin/costos/ordenes-compra/${row.id}`}
+                className="btn btn-ghost btn-xs gap-1"
+                onClick={(e) => e.stopPropagation()}
+            >
+                Ver detalle <ArrowRight className="size-3" />
+            </Link>
+        ),
     },
 ];
 
@@ -71,21 +100,9 @@ export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Ordenes de Compra" />
+            <Head title="Compras — Órdenes de Compra" />
 
             <div className="p-6">
-                <div className="mb-4 flex items-center gap-4">
-                    <select
-                        className="select select-bordered select-sm"
-                        value={filters.estatus ?? ''}
-                        onChange={(e) => handleEstatusChange(e.target.value)}
-                    >
-                        {estatusOptions.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                    </select>
-                </div>
-
                 <DataTable
                     columns={columns}
                     data={ordenes}
@@ -96,7 +113,17 @@ export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
                     createLabel="Nueva Orden"
                     emptyMessage="No hay ordenes de compra"
                     getRowHref={(row) => `/admin/costos/ordenes-compra/${row.id}`}
-                />
+                >
+                    <select
+                        className="select select-bordered select-sm"
+                        value={filters.estatus ?? ''}
+                        onChange={(e) => handleEstatusChange(e.target.value)}
+                    >
+                        {estatusOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+                </DataTable>
             </div>
         </AppLayout>
     );

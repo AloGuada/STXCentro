@@ -14,7 +14,7 @@
             font-size: 11px;
             color: #000;
             line-height: 1.6;
-            padding: 40px 30px;
+            padding: 50px 55px;
         }
         .page-break {
             page-break-before: always;
@@ -156,7 +156,7 @@
             <div class="photo-placeholder">FOTO</div>
         </td>
         <td class="info-cell">
-            <p>No. de empleado: ________________________</p>
+            <p>No. de empleado: {{ $numeroEmpleado ?: '________________________' }}</p>
             <p>No. de locker: ___________________________</p>
         </td>
     </tr>
@@ -328,7 +328,7 @@
         </td>
         <td style="width: 45%;">
             <table style="width: 100%;">
-                <tr><td>No. de contratista:</td><td>___________</td></tr>
+                <tr><td>No. de contratista:</td><td>{{ $numeroEmpleado ?: '___________' }}</td></tr>
                 <tr><td>No. de Locker:</td><td>___________</td></tr>
                 <tr><td>Area:</td><td class="ingreso-value">{{ $departamento }}</td></tr>
                 <tr><td>Módulo:</td><td>___________</td></tr>
@@ -388,9 +388,8 @@
 </div>
 
 @php
-    $salarioNum = (float) $periodo->salario;
-    $salarioDiario = $salarioNum > 0 ? number_format($salarioNum / 30.4, 2) : '';
-    $salarioMensual = $salarioNum > 0 ? number_format(($salarioNum / 30.4) * 28, 2) : '';
+    $salarioNumLocal = (float) ($periodo->salario ?? 0);
+    $salarioMensual = $salarioNumLocal > 0 ? number_format(($salarioNumLocal / 30.4) * 28, 2) : '';
 @endphp
 
 <table style="width: 100%;">
@@ -410,7 +409,7 @@
         </td>
         <td style="width: 45%; vertical-align: top;">
             <table style="width: 100%;">
-                <tr><td>No. de empleado:</td><td>___________</td></tr>
+                <tr><td>No. de empleado:</td><td>{{ $numeroEmpleado ?: '___________' }}</td></tr>
                 <tr><td>No. de Locker:</td><td>___________</td></tr>
                 <tr><td>No. de mov. IMSS:</td><td>___________</td></tr>
                 <tr><td>Linea de producción:</td><td>___________</td></tr>
@@ -629,7 +628,7 @@
     <p class="clausula">
         QUINTA: EL TRABAJADOR PERCIBIRA POR LA PRESTACION DE LOS SERVICIOS A
         QUE SE REFIERE ESTE CONTRATO UN SALARIO DIARIO DE
-        <span class="underline">$ 278.80</span>
+        <span class="underline">$ {{ $salarioDiario }}</span>
         QUE SERA PAGADO AL TRABAJADOR EN FORMA ______________, AL CUAL SE LE
         APLICARA LA PARTE PROPORCIONAL CORRESPONDIENTE AL DESCANSO SEMANAL,
         CONFORME A LO DISPUESTOS EN EL ARTICULO 72 DE LA LEY FEDERAL DE

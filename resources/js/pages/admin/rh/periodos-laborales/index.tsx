@@ -18,8 +18,6 @@ const estadoVariant = (estado: string) => {
     switch (estado) {
         case 'activo':
             return 'success';
-        case 'terminado':
-            return 'secondary';
         case 'baja':
             return 'ghost';
         default:
@@ -30,7 +28,6 @@ const estadoVariant = (estado: string) => {
 const ESTADOS = [
     { value: '', label: 'Todos' },
     { value: 'activo', label: 'Activo' },
-    { value: 'terminado', label: 'Terminado' },
     { value: 'baja', label: 'Baja' },
 ];
 
@@ -70,7 +67,7 @@ export default function PeriodosLaboralesIndex({ periodos, filters }: Props) {
         {
             key: 'departamento',
             label: 'Departamento',
-            render: (periodo) => periodo.puesto?.departamento?.nombre ?? '-',
+            render: (periodo) => periodo.puesto?.departamento?.descripcion ?? '-',
             sortable: true,
             sortKey: 'departamento',
         },

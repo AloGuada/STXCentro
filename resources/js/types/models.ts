@@ -1111,6 +1111,8 @@ export type CostosOrdenCompra = {
     media?: Media[];
     rubros_afectados?: CostosRubroAfectado[];
     facturas_count?: number;
+    entregas_count?: number;
+    pagos_count?: number;
     created_at: string;
     updated_at: string;
 };
@@ -1652,7 +1654,7 @@ export type RhPeriodoLaboral = {
     requisicion_id: number | null;
     fecha_inicio: string;
     fecha_fin: string | null;
-    estado: 'activo' | 'terminado' | 'baja';
+    estado: 'activo' | 'baja';
     salario: number | null;
     tipo_contrato: string | null;
     numero_empleado: string | null;

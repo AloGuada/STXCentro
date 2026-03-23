@@ -20,9 +20,10 @@ class PeriodoLaboralStoreRequest extends FormRequest
             'requisicion_id' => ['nullable', 'exists:rh_requisiciones,id'],
             'fecha_inicio' => ['required', 'date'],
             'fecha_fin' => ['nullable', 'date', 'after_or_equal:fecha_inicio'],
-            'estado' => ['required', 'string', 'in:activo,terminado,baja'],
+            'estado' => ['required', 'string', 'in:activo,baja'],
             'salario' => ['nullable', 'numeric', 'min:0'],
             'tipo_contrato' => ['nullable', 'string', 'max:255'],
+            'numero_empleado' => ['nullable', 'string', 'max:50'],
         ];
     }
 

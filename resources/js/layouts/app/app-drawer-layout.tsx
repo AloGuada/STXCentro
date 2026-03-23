@@ -118,6 +118,36 @@ const navGroups: NavGroup[] = [
         ],
     },
     {
+        title: 'Costos Test',
+        icon: BadgeDollarSign,
+        items: [
+            { title: 'Proveedores', href: '/admin/proveedores', icon: Building, permission: 'costos.proveedores.ver' },
+            {
+                title: 'Presupuestos', href: '/admin/costos/presupuestos', icon: Calculator, permission: 'costos.obra-rubros.ver',
+                children: [
+                    { title: 'Tipo Rubros', href: '/admin/costos/tipo-rubros', permission: 'costos.tipo-rubros.ver' },
+                    { title: 'Rubros', href: '/admin/costos/rubros', permission: 'costos.rubros.ver' },
+                    { title: 'Afectaciones', href: '/admin/costos/afectaciones', permission: 'costos.afectaciones.ver' },
+                ],
+            },
+            {
+                title: 'Solicitudes de Pago', href: '/admin/costos/solicitudes-pago', icon: FileText, permission: 'costos.solicitudes-pago.ver',
+                children: [
+                    { title: 'Tipo Solicitudes', href: '/admin/costos/tipo-solicitudes', permission: 'costos.tipo-solicitudes.ver' },
+                    { title: 'Niveles Aprobación', href: '/admin/costos/permisos', permission: 'costos.aprobaciones.ver' },
+                    { title: 'Mis Aprobaciones', href: '/admin/costos/aprobaciones', permission: 'costos.aprobaciones.ver' },
+                ],
+            },
+            {
+                title: 'Compras', href: '/admin/costos/ordenes-compra', icon: ShoppingCart, permission: 'costos.ordenes-compra.ver',
+                children: [
+                    { title: 'Facturas', href: '/admin/costos/facturas', permission: 'costos.facturas.ver' },
+                    { title: 'Pagos', href: '/admin/costos/pagos', permission: 'costos.pagos.ver' },
+                ],
+            },
+        ],
+    },
+    {
         title: 'Cobranza',
         icon: Receipt,
         items: [
@@ -185,6 +215,38 @@ const footerNavItems: NavItem[] = [
 ];
 
 function SidebarMenuItem({ item, isActive }: { item: NavItem; isActive: boolean }) {
+    const { isCurrentUrl } = useCurrentUrl();
+
+    if (item.children && item.children.length > 0) {
+        const hasActiveChild = item.children.some((c) => isCurrentUrl(c.href));
+
+        return (
+            <li>
+                <details open={isActive || hasActiveChild}>
+                    <summary className={cn('cursor-pointer', isActive && 'active')}>
+                        {item.icon && <item.icon className="size-4" />}
+                        <Link href={item.href} prefetch onClick={(e) => e.stopPropagation()}>
+                            {item.title}
+                        </Link>
+                    </summary>
+                    <ul className="border-l border-base-300 ml-2">
+                        {item.children.map((child) => (
+                            <li key={child.title}>
+                                <Link
+                                    href={child.href}
+                                    className={cn('text-xs', isCurrentUrl(child.href) && 'active')}
+                                    prefetch
+                                >
+                                    {child.title}
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                </details>
+            </li>
+        );
+    }
+
     return (
         <li>
             <Link
@@ -234,11 +296,21 @@ function SidebarContent() {
     const { can } = useCan();
 
     const filteredGroups = navGroups
-        .map((g) => ({ ...g, items: g.items.filter((i) => !i.permission || can(i.permission)) }))
+        .map((g) => ({
+            ...g,
+            items: g.items
+                .map((i) => ({
+                    ...i,
+                    children: i.children?.filter((c) => !c.permission || can(c.permission)),
+                }))
+                .filter((i) => !i.permission || can(i.permission)),
+        }))
         .filter((g) => g.items.length > 0);
 
-    // Determinar grupo inicial abierto: el que tiene un item activo, o el defaultOpen
-    const initialGroup = filteredGroups.find((g) => g.items.some((i) => isCurrentUrl(i.href)))?.title
+    // Determinar grupo inicial abierto: el que tiene un item activo (o child activo), o el defaultOpen
+    const initialGroup = filteredGroups.find((g) =>
+        g.items.some((i) => isCurrentUrl(i.href) || i.children?.some((c) => isCurrentUrl(c.href)))
+    )?.title
         ?? filteredGroups.find((g) => g.defaultOpen)?.title
         ?? null;
 

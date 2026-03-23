@@ -105,7 +105,7 @@
 <body>
     {{-- FRENTE --}}
     <div class="front">
-        <img class="logo" src="{{ asset('logo_small.png') }}" alt="Steelex">
+        <img class="logo" csrc="{{ asset('logo_small.png') }}" alt="Steelex">
 
         <table class="body-table">
             <tr>

@@ -23,6 +23,20 @@ class OrdenCompraController extends Controller
         $ordenes = OrdenCompra::query()
             ->with(['proveedor:id,razon_social,nombre_comercial', 'departamento:id,descripcion'])
             ->withCount('facturas')
+            ->addSelect([
+                'entregas_count' => DB::table('costos_entregas')
+                    ->join('costos_facturas', 'costos_facturas.id', '=', 'costos_entregas.factura_id')
+                    ->whereColumn('costos_facturas.orden_compra_id', 'costos_ordenes_compra.id')
+                    ->selectRaw('count(*)'),
+                'pagos_count' => DB::table('costos_pagos')
+                    ->join('costos_facturas', function ($join) {
+                        $join->on('costos_facturas.id', '=', 'costos_pagos.pagable_id')
+                            ->where('costos_pagos.pagable_type', 'App\\Models\\Costos\\Factura');
+                    })
+                    ->whereColumn('costos_facturas.orden_compra_id', 'costos_ordenes_compra.id')
+                    ->whereNull('costos_pagos.pago_padre_id')
+                    ->selectRaw('count(*)'),
+            ])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('folio', 'like', "%{$search}%")

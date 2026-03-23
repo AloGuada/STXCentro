@@ -35,6 +35,7 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
         fecha_fin: '',
         salario: reqInicial?.salario ?? '',
         tipo_contrato: reqInicial?.tipo_contrato_generado ?? '',
+        numero_empleado: '',
         estado: 'activo' as 'activo' | 'terminado' | 'baja',
     });
 
@@ -93,7 +94,7 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
                             </FormField>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                             <FormField label="Salario" htmlFor="salario" error={errors.salario}>
                                 <Input id="salario" type="number" step="0.01" value={data.salario} onChange={(e) => setData('salario', e.target.value)} placeholder="0.00" />
                             </FormField>
@@ -101,16 +102,19 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
                             <FormField label="Tipo de Contrato" htmlFor="tipo_contrato" error={errors.tipo_contrato}>
                                 <Input id="tipo_contrato" value={data.tipo_contrato} onChange={(e) => setData('tipo_contrato', e.target.value)} placeholder="Ej: Indefinido, Temporal" />
                             </FormField>
+
+                            <FormField label="No. Empleado" htmlFor="numero_empleado" error={errors.numero_empleado}>
+                                <Input id="numero_empleado" value={data.numero_empleado} onChange={(e) => setData('numero_empleado', e.target.value)} placeholder="Ej: 001" />
+                            </FormField>
                         </div>
 
                         <FormField label="Estado" htmlFor="estado" error={errors.estado} required>
-                            <Select value={data.estado} onValueChange={(v) => setData('estado', v as 'activo' | 'terminado' | 'baja')}>
+                            <Select value={data.estado} onValueChange={(v) => setData('estado', v as 'activo' | 'baja')}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Seleccionar estado" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="activo">Activo</SelectItem>
-                                    <SelectItem value="terminado">Terminado</SelectItem>
                                     <SelectItem value="baja">Baja</SelectItem>
                                 </SelectContent>
                             </Select>
