@@ -103,7 +103,7 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.editar');
 
-        $persona->update($request->safe()->except(['cv', 'datos_extra']));
+        $persona->update($request->safe()->except(['cv', 'foto']));
 
         if ($request->hasFile('cv')) {
             if ($persona->media) {
@@ -138,14 +138,37 @@ class PersonaController extends Controller
             ]);
         }
 
-        if ($request->has('datos_extra')) {
-            $persona->datosExtra()->updateOrCreate(
-                ['persona_id' => $persona->id],
-                $request->validated('datos_extra'),
-            );
-        }
+        return back();
+    }
 
-        return to_route('admin.rh.personas.index');
+    public function updateDatosExtra(Request $request, Persona $persona): RedirectResponse
+    {
+        $this->authorize('rh.personas.editar');
+
+        $validated = $request->validate([
+            'imss' => ['nullable', 'string', 'max:255'],
+            'curp' => ['nullable', 'string', 'max:255'],
+            'rfc' => ['nullable', 'string', 'max:255'],
+            'numero_ine' => ['nullable', 'string', 'max:255'],
+            'estado_civil' => ['nullable', 'string', 'max:255'],
+            'hijos' => ['nullable', 'integer', 'min:0'],
+            'domicilio' => ['nullable', 'string', 'max:500'],
+            'cp' => ['nullable', 'string', 'max:255'],
+            'localidad' => ['nullable', 'string', 'max:255'],
+            'nombre_padre' => ['nullable', 'string', 'max:255'],
+            'nombre_madre' => ['nullable', 'string', 'max:255'],
+            'cuenta_banco' => ['nullable', 'string', 'max:255'],
+            'banco_op' => ['nullable', 'string', 'max:255'],
+            'c_infonavit' => ['nullable', 'string', 'max:255'],
+            'c_fonacot' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $persona->datosExtra()->updateOrCreate(
+            ['persona_id' => $persona->id],
+            $validated,
+        );
+
+        return back();
     }
 
     public function destroy(Persona $persona): RedirectResponse

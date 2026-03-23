@@ -29,7 +29,7 @@ export default function PersonaEdit({ persona }: Props) {
 
     const extras = persona.datos_extra;
 
-    const { data, setData, post, processing, errors } = useForm({
+    const datosForm = useForm({
         _method: 'put' as const,
         nombre: persona.nombre,
         apellido: persona.apellido,
@@ -38,22 +38,25 @@ export default function PersonaEdit({ persona }: Props) {
         fecha_nacimiento: persona.fecha_nacimiento ? String(persona.fecha_nacimiento).slice(0, 10) : '',
         cv: null as File | null,
         foto: null as File | null,
-        datos_extra: {
-            imss: extras?.imss ?? '',
-            curp: extras?.curp ?? '',
-            rfc: extras?.rfc ?? '',
-            estado_civil: extras?.estado_civil ?? '',
-            hijos: extras?.hijos != null ? String(extras.hijos) : '',
-            domicilio: extras?.domicilio ?? '',
-            cp: extras?.cp ?? '',
-            localidad: extras?.localidad ?? '',
-            nombre_padre: extras?.nombre_padre ?? '',
-            nombre_madre: extras?.nombre_madre ?? '',
-            cuenta_banco: extras?.cuenta_banco ?? '',
-            banco_op: extras?.banco_op ?? '',
-            c_infonavit: extras?.c_infonavit ?? '',
-            c_fonacot: extras?.c_fonacot ?? '',
-        },
+    });
+
+    const extrasForm = useForm({
+        _method: 'put' as const,
+        imss: extras?.imss ?? '',
+        curp: extras?.curp ?? '',
+        rfc: extras?.rfc ?? '',
+        numero_ine: extras?.numero_ine ?? '',
+        estado_civil: extras?.estado_civil ?? '',
+        hijos: extras?.hijos != null ? String(extras.hijos) : '',
+        domicilio: extras?.domicilio ?? '',
+        cp: extras?.cp ?? '',
+        localidad: extras?.localidad ?? '',
+        nombre_padre: extras?.nombre_padre ?? '',
+        nombre_madre: extras?.nombre_madre ?? '',
+        cuenta_banco: extras?.cuenta_banco ?? '',
+        banco_op: extras?.banco_op ?? '',
+        c_infonavit: extras?.c_infonavit ?? '',
+        c_fonacot: extras?.c_fonacot ?? '',
     });
 
     const [docTipo, setDocTipo] = useState('');
@@ -61,13 +64,14 @@ export default function PersonaEdit({ persona }: Props) {
     const [docUploading, setDocUploading] = useState(false);
     const docInputRef = useRef<HTMLInputElement>(null);
 
-    const handleSubmit = (e: FormEvent) => {
+    const handleDatosSubmit = (e: FormEvent) => {
         e.preventDefault();
-        post(`/admin/rh/personas/${persona.id}`, { forceFormData: true });
+        datosForm.post(`/admin/rh/personas/${persona.id}`, { forceFormData: true, preserveScroll: true });
     };
 
-    const setExtra = (field: keyof typeof data.datos_extra, value: string) => {
-        setData('datos_extra', { ...data.datos_extra, [field]: value });
+    const handleExtrasSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        extrasForm.put(`/admin/rh/personas/${persona.id}/datos-extra`, { preserveScroll: true });
     };
 
     const handleDocUpload = () => {
@@ -137,32 +141,32 @@ export default function PersonaEdit({ persona }: Props) {
                 {/* Tab: Datos */}
                 {activeTab === 'datos' && (
                     <div className="w-3/4">
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleDatosSubmit} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField label="Nombre" htmlFor="nombre" error={errors.nombre} required>
-                                    <Input id="nombre" value={data.nombre} onChange={(e) => setData('nombre', e.target.value)} placeholder="Nombre" />
+                                <FormField label="Nombre" htmlFor="nombre" error={datosForm.errors.nombre} required>
+                                    <Input id="nombre" value={datosForm.data.nombre} onChange={(e) => datosForm.setData('nombre', e.target.value)} placeholder="Nombre" />
                                 </FormField>
 
-                                <FormField label="Apellido" htmlFor="apellido" error={errors.apellido} required>
-                                    <Input id="apellido" value={data.apellido} onChange={(e) => setData('apellido', e.target.value)} placeholder="Apellido" />
+                                <FormField label="Apellido" htmlFor="apellido" error={datosForm.errors.apellido} required>
+                                    <Input id="apellido" value={datosForm.data.apellido} onChange={(e) => datosForm.setData('apellido', e.target.value)} placeholder="Apellido" />
                                 </FormField>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField label="Email" htmlFor="email" error={errors.email}>
-                                    <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} placeholder="correo@ejemplo.com" />
+                                <FormField label="Email" htmlFor="email" error={datosForm.errors.email}>
+                                    <Input id="email" type="email" value={datosForm.data.email} onChange={(e) => datosForm.setData('email', e.target.value)} placeholder="correo@ejemplo.com" />
                                 </FormField>
 
-                                <FormField label="Telefono" htmlFor="telefono" error={errors.telefono}>
-                                    <Input id="telefono" value={data.telefono} onChange={(e) => setData('telefono', e.target.value)} placeholder="Telefono" />
+                                <FormField label="Telefono" htmlFor="telefono" error={datosForm.errors.telefono}>
+                                    <Input id="telefono" value={datosForm.data.telefono} onChange={(e) => datosForm.setData('telefono', e.target.value)} placeholder="Telefono" />
                                 </FormField>
                             </div>
 
-                            <FormField label="Fecha de Nacimiento" htmlFor="fecha_nacimiento" error={errors.fecha_nacimiento}>
-                                <Input id="fecha_nacimiento" type="date" value={data.fecha_nacimiento} onChange={(e) => setData('fecha_nacimiento', e.target.value)} />
+                            <FormField label="Fecha de Nacimiento" htmlFor="fecha_nacimiento" error={datosForm.errors.fecha_nacimiento}>
+                                <Input id="fecha_nacimiento" type="date" value={datosForm.data.fecha_nacimiento} onChange={(e) => datosForm.setData('fecha_nacimiento', e.target.value)} />
                             </FormField>
 
-                            <FormField label="Foto" htmlFor="foto" error={errors.foto}>
+                            <FormField label="Foto" htmlFor="foto" error={datosForm.errors.foto}>
                                 <div className="flex items-center gap-4">
                                     {persona.foto?.path ? (
                                         <img
@@ -179,18 +183,18 @@ export default function PersonaEdit({ persona }: Props) {
                                         id="foto"
                                         type="file"
                                         accept="image/*"
-                                        onChange={(e) => setData('foto', e.target.files?.[0] ?? null)}
+                                        onChange={(e) => datosForm.setData('foto', e.target.files?.[0] ?? null)}
                                     />
                                 </div>
                             </FormField>
 
-                            <FormField label="CV" htmlFor="cv" error={errors.cv}>
+                            <FormField label="CV" htmlFor="cv" error={datosForm.errors.cv}>
                                 <div className="flex items-center gap-2">
                                     <Input
                                         id="cv"
                                         type="file"
                                         accept=".pdf,.doc,.docx"
-                                        onChange={(e) => setData('cv', e.target.files?.[0] ?? null)}
+                                        onChange={(e) => datosForm.setData('cv', e.target.files?.[0] ?? null)}
                                     />
                                     {persona.media?.path && (
                                         <Button variant="outline" size="sm" asChild className="shrink-0">
@@ -207,8 +211,8 @@ export default function PersonaEdit({ persona }: Props) {
                                 <Button variant="outline" asChild>
                                     <Link href="/admin/rh/personas">Cancelar</Link>
                                 </Button>
-                                <Button type="submit" disabled={processing}>
-                                    {processing && <Loader2Icon className="size-4 animate-spin" />}
+                                <Button type="submit" disabled={datosForm.processing}>
+                                    {datosForm.processing && <Loader2Icon className="size-4 animate-spin" />}
                                     Guardar
                                 </Button>
                             </div>
@@ -219,22 +223,25 @@ export default function PersonaEdit({ persona }: Props) {
                 {/* Tab: Datos Extra */}
                 {activeTab === 'extras' && (
                     <div className="w-3/4">
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleExtrasSubmit} className="space-y-4">
                             <div className="grid grid-cols-3 gap-4">
-                                <FormField label="IMSS" htmlFor="imss">
-                                    <Input id="imss" value={data.datos_extra.imss} onChange={(e) => setExtra('imss', e.target.value)} placeholder="No. IMSS" />
+                                <FormField label="IMSS" htmlFor="imss" error={extrasForm.errors.imss}>
+                                    <Input id="imss" value={extrasForm.data.imss} onChange={(e) => extrasForm.setData('imss', e.target.value)} placeholder="No. IMSS" />
                                 </FormField>
-                                <FormField label="CURP" htmlFor="curp">
-                                    <Input id="curp" value={data.datos_extra.curp} onChange={(e) => setExtra('curp', e.target.value)} placeholder="CURP" maxLength={18} />
+                                <FormField label="CURP" htmlFor="curp" error={extrasForm.errors.curp}>
+                                    <Input id="curp" value={extrasForm.data.curp} onChange={(e) => extrasForm.setData('curp', e.target.value)} placeholder="CURP" />
                                 </FormField>
-                                <FormField label="RFC" htmlFor="rfc">
-                                    <Input id="rfc" value={data.datos_extra.rfc} onChange={(e) => setExtra('rfc', e.target.value)} placeholder="RFC con homoclave" maxLength={13} />
+                                <FormField label="RFC" htmlFor="rfc" error={extrasForm.errors.rfc}>
+                                    <Input id="rfc" value={extrasForm.data.rfc} onChange={(e) => extrasForm.setData('rfc', e.target.value)} placeholder="RFC con homoclave" />
                                 </FormField>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField label="Estado Civil" htmlFor="estado_civil">
-                                    <Select value={data.datos_extra.estado_civil} onValueChange={(v) => setExtra('estado_civil', v)}>
+                            <div className="grid grid-cols-3 gap-4">
+                                <FormField label="No. INE" htmlFor="numero_ine" error={extrasForm.errors.numero_ine}>
+                                    <Input id="numero_ine" value={extrasForm.data.numero_ine} onChange={(e) => extrasForm.setData('numero_ine', e.target.value)} placeholder="Número de INE" />
+                                </FormField>
+                                <FormField label="Estado Civil" htmlFor="estado_civil" error={extrasForm.errors.estado_civil}>
+                                    <Select value={extrasForm.data.estado_civil} onValueChange={(v) => extrasForm.setData('estado_civil', v)}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Seleccionar" />
                                         </SelectTrigger>
@@ -247,45 +254,45 @@ export default function PersonaEdit({ persona }: Props) {
                                         </SelectContent>
                                     </Select>
                                 </FormField>
-                                <FormField label="Hijos" htmlFor="hijos">
-                                    <Input id="hijos" type="number" min="0" value={data.datos_extra.hijos} onChange={(e) => setExtra('hijos', e.target.value)} placeholder="0" />
+                                <FormField label="Hijos" htmlFor="hijos" error={extrasForm.errors.hijos}>
+                                    <Input id="hijos" type="number" min="0" value={extrasForm.data.hijos} onChange={(e) => extrasForm.setData('hijos', e.target.value)} placeholder="0" />
                                 </FormField>
                             </div>
 
                             <div className="grid grid-cols-3 gap-4">
-                                <FormField label="Domicilio" htmlFor="domicilio" className="col-span-2">
-                                    <Input id="domicilio" value={data.datos_extra.domicilio} onChange={(e) => setExtra('domicilio', e.target.value)} placeholder="Calle, numero, colonia" />
+                                <FormField label="Domicilio" htmlFor="domicilio" className="col-span-2" error={extrasForm.errors.domicilio}>
+                                    <Input id="domicilio" value={extrasForm.data.domicilio} onChange={(e) => extrasForm.setData('domicilio', e.target.value)} placeholder="Calle, numero, colonia" />
                                 </FormField>
-                                <FormField label="Codigo Postal" htmlFor="cp">
-                                    <Input id="cp" value={data.datos_extra.cp} onChange={(e) => setExtra('cp', e.target.value)} placeholder="C.P." maxLength={10} />
+                                <FormField label="Codigo Postal" htmlFor="cp" error={extrasForm.errors.cp}>
+                                    <Input id="cp" value={extrasForm.data.cp} onChange={(e) => extrasForm.setData('cp', e.target.value)} placeholder="C.P." />
                                 </FormField>
                             </div>
 
-                            <FormField label="Localidad" htmlFor="localidad">
-                                <Input id="localidad" value={data.datos_extra.localidad} onChange={(e) => setExtra('localidad', e.target.value)} placeholder="Ciudad / Localidad" />
+                            <FormField label="Localidad" htmlFor="localidad" error={extrasForm.errors.localidad}>
+                                <Input id="localidad" value={extrasForm.data.localidad} onChange={(e) => extrasForm.setData('localidad', e.target.value)} placeholder="Ciudad / Localidad" />
                             </FormField>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField label="Nombre del Padre" htmlFor="nombre_padre">
-                                    <Input id="nombre_padre" value={data.datos_extra.nombre_padre} onChange={(e) => setExtra('nombre_padre', e.target.value)} placeholder="Nombre completo" />
+                                <FormField label="Nombre del Padre" htmlFor="nombre_padre" error={extrasForm.errors.nombre_padre}>
+                                    <Input id="nombre_padre" value={extrasForm.data.nombre_padre} onChange={(e) => extrasForm.setData('nombre_padre', e.target.value)} placeholder="Nombre completo" />
                                 </FormField>
-                                <FormField label="Nombre de la Madre" htmlFor="nombre_madre">
-                                    <Input id="nombre_madre" value={data.datos_extra.nombre_madre} onChange={(e) => setExtra('nombre_madre', e.target.value)} placeholder="Nombre completo" />
-                                </FormField>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField label="Cuenta Banco" htmlFor="cuenta_banco">
-                                    <Input id="cuenta_banco" value={data.datos_extra.cuenta_banco} onChange={(e) => setExtra('cuenta_banco', e.target.value)} placeholder="No. de cuenta" />
-                                </FormField>
-                                <FormField label="Banco Operador" htmlFor="banco_op">
-                                    <Input id="banco_op" value={data.datos_extra.banco_op} onChange={(e) => setExtra('banco_op', e.target.value)} placeholder="Nombre del banco" />
+                                <FormField label="Nombre de la Madre" htmlFor="nombre_madre" error={extrasForm.errors.nombre_madre}>
+                                    <Input id="nombre_madre" value={extrasForm.data.nombre_madre} onChange={(e) => extrasForm.setData('nombre_madre', e.target.value)} placeholder="Nombre completo" />
                                 </FormField>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField label="Credito Infonavit" htmlFor="c_infonavit">
-                                    <Select value={data.datos_extra.c_infonavit} onValueChange={(v) => setExtra('c_infonavit', v)}>
+                                <FormField label="Cuenta Banco" htmlFor="cuenta_banco" error={extrasForm.errors.cuenta_banco}>
+                                    <Input id="cuenta_banco" value={extrasForm.data.cuenta_banco} onChange={(e) => extrasForm.setData('cuenta_banco', e.target.value)} placeholder="No. de cuenta" />
+                                </FormField>
+                                <FormField label="Banco Operador" htmlFor="banco_op" error={extrasForm.errors.banco_op}>
+                                    <Input id="banco_op" value={extrasForm.data.banco_op} onChange={(e) => extrasForm.setData('banco_op', e.target.value)} placeholder="Nombre del banco" />
+                                </FormField>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField label="Credito Infonavit" htmlFor="c_infonavit" error={extrasForm.errors.c_infonavit}>
+                                    <Select value={extrasForm.data.c_infonavit} onValueChange={(v) => extrasForm.setData('c_infonavit', v)}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Seleccionar" />
                                         </SelectTrigger>
@@ -295,8 +302,8 @@ export default function PersonaEdit({ persona }: Props) {
                                         </SelectContent>
                                     </Select>
                                 </FormField>
-                                <FormField label="Credito Fonacot" htmlFor="c_fonacot">
-                                    <Select value={data.datos_extra.c_fonacot} onValueChange={(v) => setExtra('c_fonacot', v)}>
+                                <FormField label="Credito Fonacot" htmlFor="c_fonacot" error={extrasForm.errors.c_fonacot}>
+                                    <Select value={extrasForm.data.c_fonacot} onValueChange={(v) => extrasForm.setData('c_fonacot', v)}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Seleccionar" />
                                         </SelectTrigger>
@@ -312,8 +319,8 @@ export default function PersonaEdit({ persona }: Props) {
                                 <Button variant="outline" asChild>
                                     <Link href="/admin/rh/personas">Cancelar</Link>
                                 </Button>
-                                <Button type="submit" disabled={processing}>
-                                    {processing && <Loader2Icon className="size-4 animate-spin" />}
+                                <Button type="submit" disabled={extrasForm.processing}>
+                                    {extrasForm.processing && <Loader2Icon className="size-4 animate-spin" />}
                                     Guardar
                                 </Button>
                             </div>
