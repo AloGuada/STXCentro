@@ -16,7 +16,7 @@ class PeriodoLaboralStoreRequest extends FormRequest
     {
         return [
             'persona_id' => ['required', 'exists:rh_personas,id'],
-            'puesto_id' => ['required', 'exists:rh_puestos,id'],
+            'puesto_id' => ['nullable', 'exists:rh_puestos,id'],
             'requisicion_id' => ['nullable', 'exists:rh_requisiciones,id'],
             'fecha_inicio' => ['required', 'date'],
             'fecha_fin' => ['nullable', 'date', 'after_or_equal:fecha_inicio'],
