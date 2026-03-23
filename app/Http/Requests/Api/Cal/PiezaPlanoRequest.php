@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Api\Cal;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Api\ApiFormRequest;
 
-class PiezaPlanoRequest extends FormRequest
+class PiezaPlanoRequest extends ApiFormRequest
 {
     public function authorize(): bool
     {

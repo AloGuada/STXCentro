@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Api\Cal;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Api\ApiFormRequest;
 
-class EtapaRequest extends FormRequest
+class EtapaRequest extends ApiFormRequest
 {
     public function authorize(): bool
     {
@@ -18,7 +18,7 @@ class EtapaRequest extends FormRequest
     {
         return [
             'descripcion' => ['required', 'string', 'max:255'],
-            'obra_id' => ['required', 'exists:obras,id'],
+            'obra_id' => ['required', 'exists:cal_obras,id'],
         ];
     }
 }
