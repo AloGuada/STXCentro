@@ -35,7 +35,7 @@ export default function PersonaEdit({ persona }: Props) {
         apellido: persona.apellido,
         email: persona.email ?? '',
         telefono: persona.telefono ?? '',
-        fecha_nacimiento: persona.fecha_nacimiento ?? '',
+        fecha_nacimiento: persona.fecha_nacimiento ? String(persona.fecha_nacimiento).slice(0, 10) : '',
         cv: null as File | null,
         foto: null as File | null,
         datos_extra: {

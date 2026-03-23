@@ -32,7 +32,7 @@ class Persona extends Model
     protected function casts(): array
     {
         return [
-            'fecha_nacimiento' => 'date',
+            'fecha_nacimiento' => 'date:Y-m-d',
             'cv_procesado_at' => 'datetime',
             'reintentos' => 'integer',
         ];

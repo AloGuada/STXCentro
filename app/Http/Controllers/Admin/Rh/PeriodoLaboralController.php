@@ -32,20 +32,20 @@ class PeriodoLaboralController extends Controller
             ->with(['persona.datosExtra', 'persona.foto', 'persona.periodosLaborales.puesto', 'persona.documentos.media', 'puesto.departamento', 'requisicion'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
-                    $q->where('numero_empleado', 'like', "%{$search}%")
-                        ->orWhere('estado', 'like', "%{$search}%")
+                    $q->where('numero_empleado', 'ilike', "%{$search}%")
+                        ->orWhere('estado', 'ilike', "%{$search}%")
                         ->orWhereHas('persona', fn ($pq) => $pq
-                            ->where('nombre', 'like', "%{$search}%")
-                            ->orWhere('apellido', 'like', "%{$search}%")
+                            ->where('nombre', 'ilike', "%{$search}%")
+                            ->orWhere('apellido', 'ilike', "%{$search}%")
                         )
                         ->orWhereHas('puesto', fn ($pq) => $pq
-                            ->where('nombre', 'like', "%{$search}%")
+                            ->where('nombre', 'ilike', "%{$search}%")
                             ->orWhereHas('departamento', fn ($dq) => $dq
-                                ->where('descripcion', 'like', "%{$search}%")
+                                ->where('descripcion', 'ilike', "%{$search}%")
                             )
                         )
                         ->orWhereHas('requisicion', fn ($rq) => $rq
-                            ->where('folio', 'like', "%{$search}%")
+                            ->where('folio', 'ilike', "%{$search}%")
                         );
                 });
             })
