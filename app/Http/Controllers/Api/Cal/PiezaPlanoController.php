@@ -6,20 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Cal\PiezaPlanoRequest;
 use App\Models\Cal\PiezaPlano;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class PiezaPlanoController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(int $piezaId): JsonResponse
     {
-        $query = PiezaPlano::with('reportes');
+        $planos = PiezaPlano::with('reportes')
+            ->where('pieza_id', $piezaId)
+            ->get();
 
-        if ($request->has('pieza_id')) {
-            $query->where('pieza_id', $request->input('pieza_id'));
-        }
-
-        return response()->json($query->get());
+        return response()->json($planos);
     }
 
     public function store(PiezaPlanoRequest $request): JsonResponse
@@ -27,9 +24,7 @@ class PiezaPlanoController extends Controller
         $data = $request->safe()->only(['pieza_id', 'version']);
         $piezaId = $data['pieza_id'];
 
-        if ($request->hasFile('pdf')) {
-            $data['pdf_path'] = $request->file('pdf')->store("cal/planos/{$piezaId}", 'local');
-        }
+        $data['pdf_path'] = $request->file('pdf_revision')->store("cal/planos/{$piezaId}", 'local');
 
         if ($request->hasFile('plano_normal')) {
             $data['plano_normal'] = $request->file('plano_normal')->store("cal/planos/{$piezaId}", 'local');
@@ -51,31 +46,7 @@ class PiezaPlanoController extends Controller
 
     public function update(PiezaPlanoRequest $request, PiezaPlano $piezaPlano): JsonResponse
     {
-        $data = $request->safe()->only(['pieza_id', 'version']);
-        $piezaId = $piezaPlano->pieza_id;
-
-        if ($request->hasFile('pdf')) {
-            if ($piezaPlano->pdf_path) {
-                Storage::disk('local')->delete($piezaPlano->pdf_path);
-            }
-            $data['pdf_path'] = $request->file('pdf')->store("cal/planos/{$piezaId}", 'local');
-        }
-
-        if ($request->hasFile('plano_normal')) {
-            if ($piezaPlano->plano_normal) {
-                Storage::disk('local')->delete($piezaPlano->plano_normal);
-            }
-            $data['plano_normal'] = $request->file('plano_normal')->store("cal/planos/{$piezaId}", 'local');
-        }
-
-        if ($request->hasFile('dwg')) {
-            if ($piezaPlano->dwg_path) {
-                Storage::disk('local')->delete($piezaPlano->dwg_path);
-            }
-            $data['dwg_path'] = $request->file('dwg')->store("cal/planos/{$piezaId}", 'local');
-        }
-
-        $piezaPlano->update($data);
+        $piezaPlano->update($request->safe()->only(['version']));
 
         return response()->json($piezaPlano);
     }

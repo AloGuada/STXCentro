@@ -23,7 +23,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('obras', ObraController::class);
     Route::apiResource('etapas', EtapaController::class)->parameters(['etapas' => 'etapa']);
     Route::apiResource('piezas', PiezaController::class)->parameters(['piezas' => 'pieza']);
-    Route::apiResource('piezas-planos', PiezaPlanoController::class)->parameters(['piezas-planos' => 'piezaPlano']);
+    Route::get('piezas-planos/{piezaId}/planos', [PiezaPlanoController::class, 'index']);
+    Route::post('piezas-planos', [PiezaPlanoController::class, 'store']);
+    Route::get('piezas-planos/{piezaPlano}', [PiezaPlanoController::class, 'show']);
+    Route::put('piezas-planos/{piezaPlano}', [PiezaPlanoController::class, 'update']);
+    Route::delete('piezas-planos/{piezaPlano}', [PiezaPlanoController::class, 'destroy']);
 
     Route::apiResource('reportes', ReporteController::class)->parameters(['reportes' => 'reporte']);
     Route::get('reportes/{reporte}/pdf', [ReportePdfController::class, 'generarReporte'])->name('api.reportes.pdf');
