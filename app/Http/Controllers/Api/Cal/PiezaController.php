@@ -37,7 +37,7 @@ class PiezaController extends Controller
     {
         $pieza->update($request->validated());
 
-        return response()->json($pieza);
+        return response()->json($pieza->load('planos'));
     }
 
     public function destroy(Pieza $pieza): JsonResponse
