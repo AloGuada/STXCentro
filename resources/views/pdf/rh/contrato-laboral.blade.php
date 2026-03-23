@@ -246,8 +246,8 @@
         <td class="value">{{ $departamento }}</td>
     </tr>
     <tr>
-        <td class="label">SUELDO:</td>
-        <td class="value">{{ $salario }}</td>
+        <td class="label">SUELDO MENSUAL:</td>
+        <td class="value">{{ $sueldoMensual }}</td>
     </tr>
 </table>
 
@@ -387,10 +387,6 @@
     <div style="clear: both;"></div>
 </div>
 
-@php
-    $salarioNumLocal = (float) ($periodo->salario ?? 0);
-    $salarioMensual = $salarioNumLocal > 0 ? number_format(($salarioNumLocal / 30.4) * 28, 2) : '';
-@endphp
 
 <table style="width: 100%;">
     <tr>
@@ -401,7 +397,7 @@
                 <tr><td class="ingreso-label">Área:</td><td class="ingreso-value">{{ $departamento }}</td></tr>
                 <tr><td class="ingreso-label">Puesto:</td><td class="ingreso-value">{{ $puesto }}</td></tr>
                 <tr><td class="ingreso-label">Categoria:</td><td class="ingreso-value"></td></tr>
-                <tr><td class="ingreso-label">Sueldo mensual:</td><td class="ingreso-value">{{ $salarioMensual }}</td></tr>
+                <tr><td class="ingreso-label">Sueldo mensual:</td><td class="ingreso-value">{{ $sueldoMensual }}</td></tr>
                 <tr><td class="ingreso-label">Salario diario:</td><td class="ingreso-value">{{ $salarioDiario }}</td></tr>
                 <tr><td class="ingreso-label">Banco operador:</td><td class="ingreso-value">{{ $extras->banco_op ?? '' }}</td></tr>
                 <tr><td class="ingreso-label">Correo:</td><td class="ingreso-value">{{ $persona->email ?? '' }}</td></tr>

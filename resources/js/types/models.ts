@@ -1655,7 +1655,8 @@ export type RhPeriodoLaboral = {
     fecha_inicio: string;
     fecha_fin: string | null;
     estado: 'activo' | 'baja';
-    salario: number | null;
+    salario_diario: number | null;
+    sueldo_mensual: number | null;
     tipo_contrato: string | null;
     numero_empleado: string | null;
     persona?: RhPersona;

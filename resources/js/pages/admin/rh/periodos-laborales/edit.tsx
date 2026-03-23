@@ -40,7 +40,8 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
         if (!persona?.apellido) faltantes.push('Apellido de la persona');
         if (!periodo.fecha_inicio) faltantes.push('Fecha de inicio');
         if (!periodo.puesto) faltantes.push('Puesto');
-        if (!periodo.salario) faltantes.push('Salario');
+        if (!periodo.salario_diario) faltantes.push('Salario Diario');
+        if (!periodo.sueldo_mensual) faltantes.push('Sueldo Mensual');
         if (!extras?.curp) faltantes.push('CURP');
         if (!extras?.domicilio) faltantes.push('Domicilio');
         if (!extras?.cp) faltantes.push('Código Postal');
@@ -72,7 +73,8 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
         requisicion_id: periodo.requisicion_id ? String(periodo.requisicion_id) : '',
         fecha_inicio: periodo.fecha_inicio ?? '',
         fecha_fin: periodo.fecha_fin ?? '',
-        salario: periodo.salario ? String(periodo.salario) : '',
+        salario_diario: periodo.salario_diario ? String(periodo.salario_diario) : '',
+        sueldo_mensual: periodo.sueldo_mensual ? String(periodo.sueldo_mensual) : '',
         tipo_contrato: periodo.tipo_contrato ?? '',
         numero_empleado: periodo.numero_empleado ?? '',
         estado: periodo.estado,
@@ -186,11 +188,17 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
                                 </FormField>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4">
-                                <FormField label="Salario" htmlFor="salario" error={errors.salario}>
-                                    <Input id="salario" type="number" step="0.01" value={data.salario} onChange={(e) => setData('salario', e.target.value)} placeholder="0.00" />
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField label="Salario Diario" htmlFor="salario_diario" error={errors.salario_diario}>
+                                    <Input id="salario_diario" type="number" step="0.01" value={data.salario_diario} onChange={(e) => setData('salario_diario', e.target.value)} placeholder="0.00" />
                                 </FormField>
 
+                                <FormField label="Sueldo Mensual" htmlFor="sueldo_mensual" error={errors.sueldo_mensual}>
+                                    <Input id="sueldo_mensual" type="number" step="0.01" value={data.sueldo_mensual} onChange={(e) => setData('sueldo_mensual', e.target.value)} placeholder="0.00" />
+                                </FormField>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
                                 <FormField label="Tipo de Contrato" htmlFor="tipo_contrato" error={errors.tipo_contrato}>
                                     <Input id="tipo_contrato" value={data.tipo_contrato} onChange={(e) => setData('tipo_contrato', e.target.value)} placeholder="Ej: Indefinido, Temporal" />
                                 </FormField>

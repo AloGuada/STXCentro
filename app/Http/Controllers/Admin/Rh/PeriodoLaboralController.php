@@ -195,8 +195,12 @@ class PeriodoLaboralController extends Controller
             ? Carbon::parse($persona->fecha_nacimiento)->age
             : '';
 
-        $salarioNum = (float) ($periodoLaboral->salario ?? 0);
-        $salarioDiario = $salarioNum > 0 ? number_format($salarioNum / 30.4, 2) : '';
+        $salarioDiario = $periodoLaboral->salario_diario
+            ? number_format((float) $periodoLaboral->salario_diario, 2)
+            : '';
+        $sueldoMensual = $periodoLaboral->sueldo_mensual
+            ? number_format((float) $periodoLaboral->sueldo_mensual, 2)
+            : '';
 
         $pdf = Pdf::loadView('pdf.rh.contrato-laboral', [
             'periodo' => $periodoLaboral,
@@ -204,8 +208,8 @@ class PeriodoLaboralController extends Controller
             'extras' => $extras,
             'puesto' => $periodoLaboral->puesto?->nombre ?? '',
             'departamento' => $periodoLaboral->puesto?->departamento?->descripcion ?? '',
-            'salario' => $periodoLaboral->salario ? number_format($salarioNum, 2) : '',
             'salarioDiario' => $salarioDiario,
+            'sueldoMensual' => $sueldoMensual,
             'fechaIngreso' => $fechaIngreso,
             'fechaIngresoLarga' => $fechaIngresoLarga,
             'fechaVencimiento' => $fechaVencimiento,

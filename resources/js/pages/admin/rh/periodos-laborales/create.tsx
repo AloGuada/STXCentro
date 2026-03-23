@@ -33,7 +33,8 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
         requisicion_id: reqId ?? '',
         fecha_inicio: '',
         fecha_fin: '',
-        salario: reqInicial?.salario ?? '',
+        salario_diario: reqInicial?.salario ?? '',
+        sueldo_mensual: '',
         tipo_contrato: reqInicial?.tipo_contrato_generado ?? '',
         numero_empleado: '',
         estado: 'activo' as 'activo' | 'terminado' | 'baja',
@@ -94,11 +95,17 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
                             </FormField>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4">
-                            <FormField label="Salario" htmlFor="salario" error={errors.salario}>
-                                <Input id="salario" type="number" step="0.01" value={data.salario} onChange={(e) => setData('salario', e.target.value)} placeholder="0.00" />
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Salario Diario" htmlFor="salario_diario" error={errors.salario_diario}>
+                                <Input id="salario_diario" type="number" step="0.01" value={data.salario_diario} onChange={(e) => setData('salario_diario', e.target.value)} placeholder="0.00" />
                             </FormField>
 
+                            <FormField label="Sueldo Mensual" htmlFor="sueldo_mensual" error={errors.sueldo_mensual}>
+                                <Input id="sueldo_mensual" type="number" step="0.01" value={data.sueldo_mensual} onChange={(e) => setData('sueldo_mensual', e.target.value)} placeholder="0.00" />
+                            </FormField>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
                             <FormField label="Tipo de Contrato" htmlFor="tipo_contrato" error={errors.tipo_contrato}>
                                 <Input id="tipo_contrato" value={data.tipo_contrato} onChange={(e) => setData('tipo_contrato', e.target.value)} placeholder="Ej: Indefinido, Temporal" />
                             </FormField>

@@ -38,7 +38,7 @@ describe('admin rh periodos laborales', function () {
                 'puesto_id' => $puesto->id,
                 'fecha_inicio' => '2026-01-15',
                 'estado' => 'activo',
-                'salario' => 25000,
+                'salario_diario' => 800,
                 'tipo_contrato' => 'indefinido',
             ]);
 
@@ -57,7 +57,7 @@ describe('admin rh periodos laborales', function () {
 
         $response->assertRedirect();
         $periodo->refresh();
-        expect($periodo->estado)->toBe('terminado');
+        expect($periodo->estado)->toBe('baja');
         expect($periodo->fecha_fin)->not->toBeNull();
     });
 

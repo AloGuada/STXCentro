@@ -22,7 +22,8 @@ class PeriodoLaboral extends Model
         'fecha_inicio',
         'fecha_fin',
         'estado',
-        'salario',
+        'salario_diario',
+        'sueldo_mensual',
         'tipo_contrato',
         'numero_empleado',
     ];
@@ -33,7 +34,8 @@ class PeriodoLaboral extends Model
         return [
             'fecha_inicio' => 'date:Y-m-d',
             'fecha_fin' => 'date:Y-m-d',
-            'salario' => 'decimal:2',
+            'salario_diario' => 'decimal:2',
+            'sueldo_mensual' => 'decimal:2',
         ];
     }
 
