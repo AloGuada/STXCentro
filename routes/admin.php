@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BadgeConfigController;
 use App\Http\Controllers\Admin\Cob\AdendaController as CobAdendaController;
 use App\Http\Controllers\Admin\Cob\AnticipoController as CobAnticipoController;
 use App\Http\Controllers\Admin\Cob\ClienteController as CobClienteController;
@@ -83,6 +84,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::resource('proveedores', ProveedorController::class)->parameters(['proveedores' => 'proveedor']);
     Route::resource('media', MediaController::class);
     Route::resource('tags', TagController::class);
+    Route::resource('badge-configs', BadgeConfigController::class)->parameters(['badge-configs' => 'badgeConfig']);
 
     // Intranet admin routes
     Route::prefix('intra')->name('intra.')->group(function () {
@@ -152,6 +154,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Facturas
         Route::get('facturas/reporte-semanal', [CostosFacturaAdminController::class, 'reporteSemanal'])->name('facturas.reporte-semanal');
+        Route::get('facturas/reporte-semanal-proveedor', [CostosFacturaAdminController::class, 'reporteSemanalProveedor'])->name('facturas.reporte-semanal-proveedor');
         Route::resource('facturas', CostosFacturaAdminController::class)->only(['index', 'show'])->parameters(['facturas' => 'factura']);
         Route::post('facturas/{factura}/entregas', [CostosEntregaController::class, 'store'])->name('facturas.entregas.store');
         Route::post('facturas/{factura}/aprobar-costos', [CostosFacturaAdminController::class, 'aprobarCostos'])->name('facturas.aprobar-costos');

@@ -66,6 +66,7 @@ const navGroups: NavGroup[] = [
             { title: 'Usuarios', href: '/admin/usuarios', icon: Users, permission: 'usuarios.ver' },
             { title: 'Roles', href: '/admin/roles', icon: Shield, permission: 'roles.ver' },
             { title: 'Departamentos', href: '/admin/departamentos', icon: Building, permission: 'departamentos.ver' },
+            { title: 'Badge Configs', href: '/admin/badge-configs', icon: Settings, permission: 'badge-configs.ver' },
         ],
     },
     {
@@ -214,6 +215,19 @@ const footerNavItems: NavItem[] = [
     { title: '---', href: 'https://github.com/laravel/react-starter-kit', icon: Folder },
 ];
 
+function SidebarBadge({ href }: { href: string }) {
+    const { auth } = usePage<SharedData>().props;
+    const badge = auth.badges?.[href];
+
+    if (!badge || badge.count <= 0) return null;
+
+    return (
+        <span className="badge badge-sm badge-primary ml-auto">
+            {badge.count > 99 ? '99+' : badge.count}
+        </span>
+    );
+}
+
 function SidebarMenuItem({ item, isActive }: { item: NavItem; isActive: boolean }) {
     const { isCurrentUrl } = useCurrentUrl();
 
@@ -228,16 +242,18 @@ function SidebarMenuItem({ item, isActive }: { item: NavItem; isActive: boolean 
                         <Link href={item.href} prefetch onClick={(e) => e.stopPropagation()}>
                             {item.title}
                         </Link>
+                        <SidebarBadge href={String(item.href)} />
                     </summary>
                     <ul className="border-l border-base-300 ml-2">
                         {item.children.map((child) => (
                             <li key={child.title}>
                                 <Link
-                                    href={child.href}
+                                    href={String(child.href)}
                                     className={cn('text-xs', isCurrentUrl(child.href) && 'active')}
                                     prefetch
                                 >
                                     {child.title}
+                                    <SidebarBadge href={String(child.href)} />
                                 </Link>
                             </li>
                         ))}
@@ -256,6 +272,7 @@ function SidebarMenuItem({ item, isActive }: { item: NavItem; isActive: boolean 
             >
                 {item.icon && <item.icon className="size-4" />}
                 {item.title}
+                <SidebarBadge href={String(item.href)} />
             </Link>
         </li>
     );

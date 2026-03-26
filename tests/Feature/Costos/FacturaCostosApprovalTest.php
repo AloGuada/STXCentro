@@ -13,7 +13,7 @@ beforeEach(function () {
     Permission::firstOrCreate(['name' => 'costos.facturas.aprobar', 'guard_name' => 'web']);
 });
 
-function crearFacturaPendienteConEntrega(): Factura
+function crearFacturaPendienteAprobacion(): Factura
 {
     $proveedor = Proveedor::factory()->create();
 
@@ -24,16 +24,19 @@ function crearFacturaPendienteConEntrega(): Factura
     $factura = Factura::factory()->create([
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $proveedor->id,
-        'estatus' => 'pendiente_entrega',
+        'estatus' => 'pendiente_aprobacion',
     ]);
 
-    Entrega::factory()->create(['factura_id' => $factura->id]);
+    Entrega::factory()->create([
+        'factura_id' => $factura->id,
+        'tipo' => 'completa',
+    ]);
 
     return $factura;
 }
 
-test('aprueba factura con entrega y cambia a pendiente_pago sin crear pago', function () {
-    $factura = crearFacturaPendienteConEntrega();
+test('aprueba factura con entrega completa y cambia a pendiente_pago', function () {
+    $factura = crearFacturaPendienteAprobacion();
 
     $this->actingAs($this->user)
         ->post("/admin/costos/facturas/{$factura->id}/aprobar-costos")
@@ -45,11 +48,10 @@ test('aprueba factura con entrega y cambia a pendiente_pago sin crear pago', fun
     expect($factura->aprobada_costos_at)->not->toBeNull();
     expect($factura->estatus)->toBe('pendiente_pago');
 
-    // No pago created
     expect(Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->count())->toBe(0);
 });
 
-test('no aprueba factura sin entregas', function () {
+test('no aprueba factura en pendiente_entrega', function () {
     $proveedor = Proveedor::factory()->create();
     $oc = OrdenCompra::factory()->pendienteEntrega()->create(['proveedor_id' => $proveedor->id]);
     $factura = Factura::factory()->create([
@@ -75,7 +77,7 @@ test('no aprueba factura con estatus pendiente_pago', function () {
 });
 
 test('no aprueba factura ya aprobada', function () {
-    $factura = crearFacturaPendienteConEntrega();
+    $factura = crearFacturaPendienteAprobacion();
     $factura->update([
         'aprobada_costos' => true,
         'aprobada_costos_por' => $this->user->id,
@@ -88,7 +90,7 @@ test('no aprueba factura ya aprobada', function () {
 });
 
 test('aprobacion recalcula OC a pendiente_pago', function () {
-    $factura = crearFacturaPendienteConEntrega();
+    $factura = crearFacturaPendienteAprobacion();
 
     $this->actingAs($this->user)
         ->post("/admin/costos/facturas/{$factura->id}/aprobar-costos")

@@ -7,6 +7,7 @@ use App\Mail\FacturaAceptadaMail;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
 use App\Models\Costos\Pago;
+use App\Models\Proveedor;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,13 +33,15 @@ class FacturaAdminController extends Controller
                 });
             })
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
+            ->when($request->orden_compra_id, fn ($q, $id) => $q->where('orden_compra_id', $id))
             ->latest()
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('admin/costos/facturas/index', [
             'facturas' => $facturas,
-            'filters' => $request->only('search', 'estatus'),
+            'filters' => $request->only('search', 'estatus', 'orden_compra_id'),
+            'proveedores' => Proveedor::query()->orderBy('razon_social')->get(['id', 'razon_social']),
         ]);
     }
 
@@ -60,12 +63,8 @@ class FacturaAdminController extends Controller
 
     public function aprobarCostos(Request $request, Factura $factura): RedirectResponse
     {
-        if ($factura->estatus !== 'pendiente_entrega') {
-            return back()->withErrors(['estatus' => 'La factura debe estar pendiente de entrega con entregas registradas.']);
-        }
-
-        if (! $factura->entregas()->exists()) {
-            return back()->withErrors(['estatus' => 'La factura debe tener al menos una entrega registrada.']);
+        if ($factura->estatus !== 'pendiente_aprobacion') {
+            return back()->withErrors(['estatus' => 'La factura debe tener la entrega completa para ser aprobada.']);
         }
 
         if ($factura->aprobada_costos) {
@@ -155,8 +154,9 @@ class FacturaAdminController extends Controller
         $finSemana = (clone $inicioSemana)->endOfWeek();
 
         $facturas = Factura::query()
-            ->with(['proveedor:id,razon_social', 'ordenCompra:id,folio', 'mediaPdf', 'entregas.media'])
-            ->whereBetween('fecha_factura', [$inicioSemana->toDateString(), $finSemana->toDateString()])
+            ->with(['proveedor:id,razon_social', 'ordenCompra:id,folio', 'ordenCompra.pdfFirmado', 'ordenCompra.pdfFormato', 'ordenCompra.archivo', 'mediaPdf', 'entregas.media'])
+            ->whereHas('entregas', fn ($q) => $q->whereBetween('fecha_entrega', [$inicioSemana->toDateString(), $finSemana->toDateString()]))
+            ->orderBy('orden_compra_id')
             ->orderBy('fecha_factura')
             ->get();
 
@@ -177,15 +177,30 @@ class FacturaAdminController extends Controller
             ->setOption('margin-left', 60)
             ->setOption('margin-right', 60);
 
-        // Recolectar PDFs adjuntos de facturas y entregas
+        // Recolectar PDFs agrupados por OC: OC → Facturas → Entregas
         $archivosAdjuntos = [];
-        foreach ($facturas as $factura) {
-            if ($factura->mediaPdf && Storage::disk('public')->exists($factura->mediaPdf->path)) {
-                $archivosAdjuntos[] = Storage::disk('public')->path($factura->mediaPdf->path);
+        $facturasAgrupadas = $facturas->groupBy('orden_compra_id');
+
+        foreach ($facturasAgrupadas as $facturasDeOc) {
+            $oc = $facturasDeOc->first()->ordenCompra;
+
+            // PDF de la orden de compra (firmado > formato > archivo)
+            if ($oc) {
+                $ocPdf = $oc->pdfFirmado ?? $oc->pdfFormato ?? $oc->archivo;
+                if ($ocPdf && Storage::disk('public')->exists($ocPdf->path)) {
+                    $archivosAdjuntos[] = Storage::disk('public')->path($ocPdf->path);
+                }
             }
-            foreach ($factura->entregas as $entrega) {
-                if ($entrega->media && $entrega->media->mime === 'application/pdf' && Storage::disk('public')->exists($entrega->media->path)) {
-                    $archivosAdjuntos[] = Storage::disk('public')->path($entrega->media->path);
+
+            // PDFs de facturas y sus entregas
+            foreach ($facturasDeOc as $factura) {
+                if ($factura->mediaPdf && Storage::disk('public')->exists($factura->mediaPdf->path)) {
+                    $archivosAdjuntos[] = Storage::disk('public')->path($factura->mediaPdf->path);
+                }
+                foreach ($factura->entregas as $entrega) {
+                    if ($entrega->media && $entrega->media->mime === 'application/pdf' && Storage::disk('public')->exists($entrega->media->path)) {
+                        $archivosAdjuntos[] = Storage::disk('public')->path($entrega->media->path);
+                    }
                 }
             }
         }
@@ -221,6 +236,99 @@ class FacturaAdminController extends Controller
         $merger->Output($outputPath, 'F');
 
         // Limpiar temporal del resumen
+        @unlink($tempResumen);
+
+        return response()->download($outputPath, $filename)->deleteFileAfterSend(true);
+    }
+
+    public function reporteSemanalProveedor(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $request->validate([
+            'anio' => 'required|integer|min:2020|max:2100',
+            'semana' => 'required|integer|min:1|max:53',
+            'proveedor_id' => 'required|exists:proveedores,id',
+        ]);
+
+        $anio = (int) $request->anio;
+        $semana = (int) $request->semana;
+        $proveedor = Proveedor::findOrFail($request->proveedor_id);
+
+        $inicioSemana = Carbon::now()->setISODate($anio, $semana)->startOfWeek();
+        $finSemana = (clone $inicioSemana)->endOfWeek();
+
+        $facturas = Factura::query()
+            ->with(['proveedor:id,razon_social', 'ordenCompra:id,folio', 'ordenCompra.pdfFirmado', 'ordenCompra.pdfFormato', 'ordenCompra.archivo', 'mediaPdf', 'entregas.media'])
+            ->where('proveedor_id', $proveedor->id)
+            ->whereHas('entregas', fn ($q) => $q->whereBetween('fecha_entrega', [$inicioSemana->toDateString(), $finSemana->toDateString()]))
+            ->orderBy('orden_compra_id')
+            ->orderBy('fecha_factura')
+            ->get();
+
+        if ($facturas->isEmpty()) {
+            return back()->withErrors(['semana' => 'No se encontraron facturas del proveedor en la semana seleccionada.']);
+        }
+
+        $resumenPdf = Pdf::loadView('pdf.costos.reporte-semanal-facturas-proveedor', [
+            'facturas' => $facturas,
+            'proveedor' => $proveedor,
+            'semana' => $semana,
+            'anio' => $anio,
+            'fechaInicio' => $inicioSemana->format('d/m/Y'),
+            'fechaFin' => $finSemana->format('d/m/Y'),
+        ])->setPaper('letter', 'landscape')
+            ->setOption('margin-top', 30)
+            ->setOption('margin-bottom', 60)
+            ->setOption('margin-left', 60)
+            ->setOption('margin-right', 60);
+
+        // Recolectar PDFs agrupados por OC: OC → Facturas → Entregas
+        $archivosAdjuntos = [];
+        $facturasAgrupadas = $facturas->groupBy('orden_compra_id');
+
+        foreach ($facturasAgrupadas as $facturasDeOc) {
+            $oc = $facturasDeOc->first()->ordenCompra;
+
+            if ($oc) {
+                $ocPdf = $oc->pdfFirmado ?? $oc->pdfFormato ?? $oc->archivo;
+                if ($ocPdf && Storage::disk('public')->exists($ocPdf->path)) {
+                    $archivosAdjuntos[] = Storage::disk('public')->path($ocPdf->path);
+                }
+            }
+
+            foreach ($facturasDeOc as $factura) {
+                if ($factura->mediaPdf && Storage::disk('public')->exists($factura->mediaPdf->path)) {
+                    $archivosAdjuntos[] = Storage::disk('public')->path($factura->mediaPdf->path);
+                }
+                foreach ($factura->entregas as $entrega) {
+                    if ($entrega->media && $entrega->media->mime === 'application/pdf' && Storage::disk('public')->exists($entrega->media->path)) {
+                        $archivosAdjuntos[] = Storage::disk('public')->path($entrega->media->path);
+                    }
+                }
+            }
+        }
+
+        $filename = "reporte-semanal-{$proveedor->id}-S{$semana}-{$anio}.pdf";
+
+        if (empty($archivosAdjuntos)) {
+            return $resumenPdf->download($filename);
+        }
+
+        $tempResumen = tempnam(sys_get_temp_dir(), 'resumen_').'.pdf';
+        file_put_contents($tempResumen, $resumenPdf->output());
+
+        $merger = new Fpdi;
+        $this->agregarPaginasFpdi($merger, $tempResumen);
+
+        foreach ($archivosAdjuntos as $archivoPath) {
+            try {
+                $this->agregarPaginasFpdi($merger, $archivoPath);
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+
+        $outputPath = tempnam(sys_get_temp_dir(), 'merged_').'.pdf';
+        $merger->Output($outputPath, 'F');
         @unlink($tempResumen);
 
         return response()->download($outputPath, $filename)->deleteFileAfterSend(true);

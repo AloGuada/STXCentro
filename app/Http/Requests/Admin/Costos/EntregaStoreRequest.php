@@ -18,6 +18,7 @@ class EntregaStoreRequest extends FormRequest
     {
         return [
             'fecha_entrega' => ['required', 'date'],
+            'tipo' => ['required', 'in:parcial,completa'],
             'observaciones' => ['nullable', 'string'],
             'archivo' => ['nullable', 'file', 'max:10240'],
         ];

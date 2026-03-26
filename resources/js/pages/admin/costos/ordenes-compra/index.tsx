@@ -51,15 +51,27 @@ const columns: Column<CostosOrdenCompra>[] = [
         label: 'Facturas / Entregas / Pagos',
         render: (row) => (
             <div className="flex flex-wrap gap-1.5">
-                <span className="rounded bg-base-200 px-2 py-0.5 text-xs">
+                <Link
+                    href={`/admin/costos/facturas?orden_compra_id=${row.id}`}
+                    className="rounded bg-base-200 px-2 py-0.5 text-xs hover:bg-primary/10 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                >
                     <span className="font-semibold">{row.facturas_count ?? 0}</span> facturas
-                </span>
-                <span className="rounded bg-base-200 px-2 py-0.5 text-xs">
+                </Link>
+                <Link
+                    href={`/admin/costos/facturas?orden_compra_id=${row.id}`}
+                    className="rounded bg-base-200 px-2 py-0.5 text-xs hover:bg-primary/10 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                >
                     <span className="font-semibold">{row.entregas_count ?? 0}</span> entregas
-                </span>
-                <span className="rounded bg-base-200 px-2 py-0.5 text-xs">
+                </Link>
+                <Link
+                    href={`/admin/costos/pagos?orden_compra_id=${row.id}`}
+                    className="rounded bg-base-200 px-2 py-0.5 text-xs hover:bg-primary/10 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                >
                     <span className="font-semibold">{row.pagos_count ?? 0}</span> pagos
-                </span>
+                </Link>
             </div>
         ),
     },

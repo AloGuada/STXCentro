@@ -24,6 +24,7 @@ class EntregaFactory extends Factory
             'recibido_por' => User::factory(),
             'fecha_entrega' => fake()->date(),
             'observaciones' => fake()->optional()->sentence(),
+            'tipo' => fake()->randomElement(['parcial', 'completa']),
         ];
     }
 }

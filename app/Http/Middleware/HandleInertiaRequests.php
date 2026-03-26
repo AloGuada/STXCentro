@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\BadgeConfig;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Middleware;
 
@@ -47,12 +49,14 @@ class HandleInertiaRequests extends Middleware
                     'user' => $request->user('externo')?->load('carpetas'),
                     'guard' => 'externo',
                     'permissions' => [],
+                    'badges' => [],
                 ]
                 : ($isPortal
                     ? [
                         'user' => $request->user('proveedor'),
                         'guard' => 'proveedor',
                         'permissions' => [],
+                        'badges' => [],
                     ]
                     : [
                         'user' => $request->user(),
@@ -67,11 +71,125 @@ class HandleInertiaRequests extends Middleware
                                 ->values()
                                 ->toArray()
                             : [],
+                        'badges' => $request->user()
+                            ? $this->computeBadges($request)
+                            : [],
                     ]),
             'flash' => fn () => [
                 'permiso' => $request->session()->get('permiso'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    /**
+     * Computa badges para el sidebar: nativos (por usuario) + configurables (por rol).
+     *
+     * @return array<string, array{count: int, filterHref: string|null}>
+     */
+    private function computeBadges(Request $request): array
+    {
+        $badges = $this->computeNativeBadges($request);
+
+        $roles = DB::table('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('model_has_roles.model_uuid', $request->user()->getKey())
+            ->pluck('roles.name')
+            ->toArray();
+
+        if (! empty($roles)) {
+            $searchRoles = $roles;
+            if (in_array('super-admin', $roles)) {
+                $searchRoles = BadgeConfig::activo()->distinct()->pluck('rol')->toArray();
+            }
+
+            $configs = BadgeConfig::activo()
+                ->whereIn('rol', $searchRoles)
+                ->get();
+
+            foreach ($configs as $config) {
+                $count = $this->computeBadgeCount($config);
+
+                if ($count > 0) {
+                    $key = $config->nav_href;
+
+                    if (isset($badges[$key])) {
+                        $badges[$key]['count'] += $count;
+                    } else {
+                        $badges[$key] = [
+                            'count' => $count,
+                            'filterHref' => $config->filter_href,
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $badges;
+    }
+
+    /**
+     * Badges nativos que dependen del usuario específico (no del rol).
+     *
+     * @return array<string, array{count: int, filterHref: string|null}>
+     */
+    private function computeNativeBadges(Request $request): array
+    {
+        $badges = [];
+        $userId = $request->user()->getKey();
+
+        $pendientes = DB::table('costos_aprobaciones_solicitud as a')
+            ->where('a.aprobador_id', $userId)
+            ->where('a.estatus', 'pendiente')
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('costos_aprobaciones_solicitud as prev')
+                    ->whereColumn('prev.solicitud_id', 'a.solicitud_id')
+                    ->where('prev.estatus', 'pendiente')
+                    ->whereColumn('prev.nivel', '<', 'a.nivel');
+            })
+            ->count();
+
+        if ($pendientes > 0) {
+            $badges['/admin/costos/aprobaciones'] = [
+                'count' => $pendientes,
+                'filterHref' => '/admin/costos/aprobaciones',
+            ];
+        }
+
+        return $badges;
+    }
+
+    /**
+     * Ejecuta la query de conteo para una badge config.
+     */
+    private function computeBadgeCount(BadgeConfig $config): int
+    {
+        $query = DB::table($config->tabla);
+
+        $value = $this->resolveValue($config->valor_estatus, $config->operador);
+        $query->where($config->campo_estatus, $config->operador, $value);
+
+        if ($config->condiciones_extra) {
+            foreach ($config->condiciones_extra as $condicion) {
+                $op = $condicion['operador'] ?? '=';
+                $val = $this->resolveValue($condicion['valor'], $op);
+                $query->where($condicion['campo'], $op, $val);
+            }
+        }
+
+        return $query->count();
+    }
+
+    /**
+     * Resuelve valores dinámicos (ej: "-7 days" → Carbon date).
+     */
+    private function resolveValue(mixed $value, string $operador): mixed
+    {
+        if (is_string($value) && in_array($operador, ['>=', '<=', '>', '<']) && preg_match('/^-?\d+\s+(days?|hours?|minutes?)$/', $value)) {
+            return Carbon::now()->modify($value);
+        }
+
+        return $value;
     }
 }

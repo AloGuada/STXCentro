@@ -16,6 +16,7 @@ class EntregaController extends Controller
             $entrega = $factura->entregas()->create([
                 'recibido_por' => $request->user()->id,
                 'fecha_entrega' => $request->input('fecha_entrega'),
+                'tipo' => $request->input('tipo'),
                 'observaciones' => $request->input('observaciones'),
             ]);
 
@@ -28,6 +29,10 @@ class EntregaController extends Controller
                     'mime' => $file->getMimeType(),
                     'size' => $file->getSize(),
                 ]);
+            }
+
+            if ($request->input('tipo') === 'completa') {
+                $factura->update(['estatus' => 'pendiente_aprobacion']);
             }
 
             $factura->ordenCompra->recalcularEstatus();

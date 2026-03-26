@@ -5,7 +5,7 @@ import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosFactura } from '@/types/models';
-import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, PAGO_ESTATUS_COLORS, PAGO_ESTATUS_LABELS } from '@/types/models';
+import { ENTREGA_TIPO_LABELS, FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, PAGO_ESTATUS_COLORS, PAGO_ESTATUS_LABELS } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { FileIcon, Loader2Icon } from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
@@ -44,6 +44,7 @@ export default function FacturasShow({ factura }: Props) {
 
     const { data, setData, post, processing, errors } = useForm({
         fecha_entrega: new Date().toISOString().split('T')[0],
+        tipo: 'completa' as 'parcial' | 'completa',
         observaciones: '',
         archivo: null as File | null,
     });
@@ -89,7 +90,7 @@ export default function FacturasShow({ factura }: Props) {
                         {factura.estatus === 'pendiente_entrega' && can('costos.entregas.crear') && (
                             <Button onClick={() => setShowEntregaModal(true)}>Registrar Entrega</Button>
                         )}
-                        {factura.estatus === 'pendiente_entrega' && hasEntregas && !factura.aprobada_costos && can('costos.facturas.aprobar') && (
+                        {factura.estatus === 'pendiente_aprobacion' && !factura.aprobada_costos && can('costos.facturas.aprobar') && (
                             <Button onClick={() => setShowAprobarModal(true)}>
                                 Aprobar Costos
                             </Button>
@@ -138,7 +139,12 @@ export default function FacturasShow({ factura }: Props) {
                             {factura.entregas!.map((e) => (
                                 <div key={e.id} className="rounded-lg border border-base-300 p-4">
                                     <div className="flex justify-between">
-                                        <span className="font-medium">Entrega #{e.id}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-medium">Entrega #{e.id}</span>
+                                            <span className={`badge badge-sm ${e.tipo === 'completa' ? 'badge-success' : 'badge-warning'}`}>
+                                                {ENTREGA_TIPO_LABELS[e.tipo]}
+                                            </span>
+                                        </div>
                                         <span className="text-sm text-base-content/60">
                                             {new Date(e.fecha_entrega).toLocaleDateString()} - {e.recibidor?.name}
                                         </span>
@@ -308,6 +314,17 @@ export default function FacturasShow({ factura }: Props) {
                                         value={data.fecha_entrega}
                                         onChange={(e) => setData('fecha_entrega', e.target.value)}
                                     />
+                                </FormField>
+                                <FormField label="Tipo de Entrega" htmlFor="tipo" error={errors.tipo} required>
+                                    <select
+                                        id="tipo"
+                                        className="select select-bordered w-full"
+                                        value={data.tipo}
+                                        onChange={(e) => setData('tipo', e.target.value as 'parcial' | 'completa')}
+                                    >
+                                        <option value="completa">Completa</option>
+                                        <option value="parcial">Parcial</option>
+                                    </select>
                                 </FormField>
                                 <FormField label="Observaciones" htmlFor="observaciones" error={errors.observaciones}>
                                     <textarea

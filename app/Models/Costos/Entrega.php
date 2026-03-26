@@ -25,6 +25,7 @@ class Entrega extends Model
         'recibido_por',
         'fecha_entrega',
         'observaciones',
+        'tipo',
     ];
 
     /**

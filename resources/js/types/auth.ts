@@ -10,9 +10,15 @@ export type User = {
     [key: string]: unknown;
 };
 
+export type BadgeInfo = {
+    count: number;
+    filterHref: string | null;
+};
+
 export type Auth = {
     user: User;
     permissions: string[];
+    badges: Record<string, BadgeInfo>;
 };
 
 export type TwoFactorSetupData = {

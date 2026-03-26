@@ -29,13 +29,17 @@ class PagoController extends Controller
             })
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
             ->when($request->tipo_pago, fn ($q, $t) => $q->where('tipo_pago', $t))
+            ->when($request->orden_compra_id, function ($q, $ocId) {
+                $q->where('pagable_type', Factura::class)
+                    ->whereIn('pagable_id', Factura::where('orden_compra_id', $ocId)->select('id'));
+            })
             ->latest()
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('admin/costos/pagos/index', [
             'pagos' => $pagos,
-            'filters' => $request->only('search', 'estatus', 'tipo_pago'),
+            'filters' => $request->only('search', 'estatus', 'tipo_pago', 'orden_compra_id'),
         ]);
     }
 

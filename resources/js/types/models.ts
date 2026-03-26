@@ -1128,10 +1128,11 @@ export type CostosOrdenCompraDetalle = {
 };
 
 // Facturas Types
-export type CostosFacturaEstatus = 'pendiente_entrega' | 'pendiente_pago' | 'pagada' | 'cancelada';
+export type CostosFacturaEstatus = 'pendiente_entrega' | 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
 
 export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
     pendiente_entrega: 'Pendiente Entrega',
+    pendiente_aprobacion: 'Pendiente Aprobación',
     pendiente_pago: 'Pendiente Pago',
     pagada: 'Pagada',
     cancelada: 'Cancelada',
@@ -1139,6 +1140,7 @@ export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
 
 export const FACTURA_ESTATUS_COLORS: Record<CostosFacturaEstatus, string> = {
     pendiente_entrega: 'badge-warning',
+    pendiente_aprobacion: 'badge-accent',
     pendiente_pago: 'badge-primary',
     pagada: 'badge-success',
     cancelada: 'badge-error',
@@ -1177,11 +1179,19 @@ export type CostosFactura = {
 };
 
 // Entregas Types
+export type CostosEntregaTipo = 'parcial' | 'completa';
+
+export const ENTREGA_TIPO_LABELS: Record<CostosEntregaTipo, string> = {
+    parcial: 'Parcial',
+    completa: 'Completa',
+};
+
 export type CostosEntrega = {
     id: number;
     factura_id: number;
     recibido_por: string;
     fecha_entrega: string;
+    tipo: CostosEntregaTipo;
     observaciones: string | null;
     media?: Media | null;
     recibidor?: Usuario;
@@ -1812,6 +1822,24 @@ export type DriveArchivo = {
     auto_eliminar_en: string | null;
     link_publico: string | null;
     carpeta?: DriveCarpeta;
+    created_at: string;
+    updated_at: string;
+};
+
+// Badge Config Types
+
+export type BadgeConfig = {
+    id: number;
+    nombre: string;
+    tabla: string;
+    campo_estatus: string;
+    operador: string;
+    valor_estatus: string;
+    condiciones_extra: Array<{ campo: string; operador: string; valor: unknown }> | null;
+    rol: string;
+    nav_href: string;
+    filter_href: string | null;
+    activo: boolean;
     created_at: string;
     updated_at: string;
 };

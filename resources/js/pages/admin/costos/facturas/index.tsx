@@ -2,10 +2,10 @@ import { DataTable, type Column } from '@/components/data-table';
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosFactura, CostosFacturaEstatus, PaginatedData } from '@/types/models';
+import type { CostosFactura, CostosFacturaEstatus, PaginatedData, Proveedor } from '@/types/models';
 import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
-import { DownloadIcon, FileTextIcon } from 'lucide-react';
+import { BuildingIcon, DownloadIcon, FileTextIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -102,24 +102,33 @@ function getCurrentWeekNumber(): number {
 type Props = {
     facturas: PaginatedData<CostosFactura>;
     filters: { search?: string; estatus?: string };
+    proveedores: Pick<Proveedor, 'id' | 'razon_social'>[];
 };
 
-export default function FacturasIndex({ facturas, filters }: Props) {
+export default function FacturasIndex({ facturas, filters, proveedores }: Props) {
     const currentYear = new Date().getFullYear();
     const [selectedYear, setSelectedYear] = useState(currentYear);
     const [selectedWeek, setSelectedWeek] = useState(getCurrentWeekNumber());
+    const [provYear, setProvYear] = useState(currentYear);
+    const [provWeek, setProvWeek] = useState(getCurrentWeekNumber());
+    const [selectedProveedor, setSelectedProveedor] = useState<number | ''>('');
 
     const handleEstatusChange = (estatus: string) => {
         router.get('/admin/costos/facturas', { ...filters, estatus: estatus || undefined }, { preserveState: true });
     };
 
-    const weekOptions = Array.from({ length: 53 }, (_, i) => {
-        const week = i + 1;
-        const { start, end } = getWeekDateRange(selectedYear, week);
-        return { value: week, label: `Semana ${week}: ${start} - ${end}` };
-    });
+    const getWeekOptions = (year: number) =>
+        Array.from({ length: 53 }, (_, i) => {
+            const week = i + 1;
+            const { start, end } = getWeekDateRange(year, week);
+            return { value: week, label: `Semana ${week}: ${start} - ${end}` };
+        });
+
+    const weekOptions = getWeekOptions(selectedYear);
+    const provWeekOptions = getWeekOptions(provYear);
 
     const downloadUrl = `/admin/costos/facturas/reporte-semanal?anio=${selectedYear}&semana=${selectedWeek}`;
+    const downloadProvUrl = `/admin/costos/facturas/reporte-semanal-proveedor?anio=${provYear}&semana=${provWeek}&proveedor_id=${selectedProveedor}`;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -185,6 +194,78 @@ export default function FacturasIndex({ facturas, filters }: Props) {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="btn btn-primary"
+                                >
+                                    <DownloadIcon className="size-4" />
+                                    Descargar
+                                </a>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog>
+                        <DialogTrigger className="btn btn-outline btn-sm">
+                            <BuildingIcon className="size-4" />
+                            Reporte por Proveedor
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Reporte Semanal por Proveedor</DialogTitle>
+                            </DialogHeader>
+
+                            <div className="space-y-4">
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text">Proveedor</span>
+                                    </label>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={selectedProveedor}
+                                        onChange={(e) => setSelectedProveedor(e.target.value ? Number(e.target.value) : '')}
+                                    >
+                                        <option value="">Seleccionar proveedor...</option>
+                                        {proveedores.map((p) => (
+                                            <option key={p.id} value={p.id}>{p.razon_social}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text">Año</span>
+                                    </label>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={provYear}
+                                        onChange={(e) => setProvYear(Number(e.target.value))}
+                                    >
+                                        <option value={currentYear}>{currentYear}</option>
+                                        <option value={currentYear - 1}>{currentYear - 1}</option>
+                                    </select>
+                                </div>
+
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text">Semana</span>
+                                    </label>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={provWeek}
+                                        onChange={(e) => setProvWeek(Number(e.target.value))}
+                                    >
+                                        {provWeekOptions.map((opt) => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <DialogFooter>
+                                <DialogClose>Cancelar</DialogClose>
+                                <a
+                                    href={downloadProvUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`btn btn-primary ${!selectedProveedor ? 'btn-disabled pointer-events-none' : ''}`}
                                 >
                                     <DownloadIcon className="size-4" />
                                     Descargar

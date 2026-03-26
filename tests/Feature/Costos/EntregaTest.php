@@ -24,13 +24,14 @@ function crearOcConFactura(): array
     return [$oc, $factura];
 }
 
-test('registra entrega y factura sigue pendiente_entrega', function () {
+test('entrega parcial mantiene factura en pendiente_entrega', function () {
     [$oc, $factura] = crearOcConFactura();
 
     $this->actingAs($this->user)
         ->post("/admin/costos/facturas/{$factura->id}/entregas", [
             'fecha_entrega' => '2026-02-17',
-            'observaciones' => 'Entrega recibida',
+            'tipo' => 'parcial',
+            'observaciones' => 'Entrega parcial recibida',
         ])
         ->assertRedirect();
 
@@ -38,12 +39,27 @@ test('registra entrega y factura sigue pendiente_entrega', function () {
     expect($factura->estatus)->toBe('pendiente_entrega');
 });
 
-test('entrega recalcula OC a pendiente_aprobacion cuando todas tienen entrega', function () {
+test('entrega completa cambia factura a pendiente_aprobacion', function () {
     [$oc, $factura] = crearOcConFactura();
 
     $this->actingAs($this->user)
         ->post("/admin/costos/facturas/{$factura->id}/entregas", [
             'fecha_entrega' => '2026-02-17',
+            'tipo' => 'completa',
+        ])
+        ->assertRedirect();
+
+    $factura->refresh();
+    expect($factura->estatus)->toBe('pendiente_aprobacion');
+});
+
+test('entrega completa recalcula OC a pendiente_aprobacion cuando todas las facturas tienen entrega completa', function () {
+    [$oc, $factura] = crearOcConFactura();
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/facturas/{$factura->id}/entregas", [
+            'fecha_entrega' => '2026-02-17',
+            'tipo' => 'completa',
         ])
         ->assertRedirect();
 
@@ -51,17 +67,13 @@ test('entrega recalcula OC a pendiente_aprobacion cuando todas tienen entrega', 
     expect($oc->estatus)->toBe('pendiente_aprobacion');
 });
 
-test('entrega no marca OC pendiente_aprobacion si hay facturas sin entrega', function () {
-    [$oc, $factura1] = crearOcConFactura();
-    Factura::factory()->create([
-        'orden_compra_id' => $oc->id,
-        'proveedor_id' => $oc->proveedor_id,
-        'estatus' => 'pendiente_entrega',
-    ]);
+test('entrega parcial no marca OC pendiente_aprobacion', function () {
+    [$oc, $factura] = crearOcConFactura();
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/facturas/{$factura1->id}/entregas", [
+        ->post("/admin/costos/facturas/{$factura->id}/entregas", [
             'fecha_entrega' => '2026-02-17',
+            'tipo' => 'parcial',
         ])
         ->assertRedirect();
 
@@ -75,24 +87,37 @@ test('entrega no crea pago automaticamente', function () {
     $this->actingAs($this->user)
         ->post("/admin/costos/facturas/{$factura->id}/entregas", [
             'fecha_entrega' => '2026-02-17',
+            'tipo' => 'completa',
         ])
         ->assertRedirect();
 
     expect(Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->count())->toBe(0);
 });
 
-test('crea registro de entrega con observaciones', function () {
+test('crea registro de entrega con tipo y observaciones', function () {
     [$oc, $factura] = crearOcConFactura();
 
     $this->actingAs($this->user)
         ->post("/admin/costos/facturas/{$factura->id}/entregas", [
             'fecha_entrega' => '2026-02-17',
+            'tipo' => 'parcial',
             'observaciones' => 'Todo en orden',
         ])
         ->assertRedirect();
 
     $this->assertDatabaseHas('costos_entregas', [
         'factura_id' => $factura->id,
+        'tipo' => 'parcial',
         'observaciones' => 'Todo en orden',
     ]);
+});
+
+test('tipo es requerido al registrar entrega', function () {
+    [$oc, $factura] = crearOcConFactura();
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/facturas/{$factura->id}/entregas", [
+            'fecha_entrega' => '2026-02-17',
+        ])
+        ->assertSessionHasErrors('tipo');
 });

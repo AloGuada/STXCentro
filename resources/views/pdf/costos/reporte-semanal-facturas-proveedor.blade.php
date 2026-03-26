@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Reporte Semanal de Facturas - Semana {{ $semana }}</title>
+    <title>Reporte Semanal - {{ $proveedor->razon_social }} - Semana {{ $semana }}</title>
     <style>
         * {
             margin: 0;
@@ -152,26 +152,28 @@
             </td>
             <td class="code-cell">
                 <div class="code-box">
-                    REPORTE SEMANAL<br>FACTURAS
+                    REPORTE SEMANAL<br>POR PROVEEDOR
                 </div>
             </td>
         </tr>
     </table>
 
     {{-- Title --}}
-    <div class="title">REPORTE SEMANAL DE FACTURAS</div>
+    <div class="title">REPORTE SEMANAL DE FACTURAS - {{ mb_strtoupper($proveedor->razon_social) }}</div>
 
     {{-- Info --}}
     <table class="info-table">
         <tr>
+            <td class="label">Proveedor</td>
+            <td>{{ $proveedor->razon_social }}</td>
             <td class="label">Semana</td>
             <td>{{ $semana }}</td>
-            <td class="label">Año</td>
-            <td>{{ $anio }}</td>
         </tr>
         <tr>
             <td class="label">Periodo</td>
-            <td colspan="3">{{ $fechaInicio }} - {{ $fechaFin }}</td>
+            <td>{{ $fechaInicio }} - {{ $fechaFin }}</td>
+            <td class="label">Año</td>
+            <td>{{ $anio }}</td>
         </tr>
         <tr>
             <td class="label">Total Facturas</td>
@@ -181,37 +183,41 @@
         </tr>
     </table>
 
-    {{-- Resumen por Proveedor --}}
+    {{-- Detalle de Facturas --}}
     @if($facturas->count() > 0)
-        @php $porProveedor = $facturas->groupBy('proveedor_id'); @endphp
-        <table class="detalles-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Proveedor</th>
-                    <th>Facturas</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($porProveedor as $index => $facturasProveedor)
-                @php $proveedor = $facturasProveedor->first()->proveedor; @endphp
-                <tr>
-                    <td class="text-center">{{ $loop->iteration }}</td>
-                    <td>{{ $proveedor?->razon_social ?? 'Sin proveedor' }}</td>
-                    <td class="text-center">{{ $facturasProveedor->count() }}</td>
-                    <td class="text-right">${{ number_format($facturasProveedor->sum('total'), 2) }}</td>
-                </tr>
-                @endforeach
-            </tbody>
-            <tfoot>
-                <tr class="total-row">
-                    <td colspan="2" class="text-right">TOTAL</td>
-                    <td class="text-center">{{ $facturas->count() }}</td>
-                    <td class="text-right">${{ number_format($facturas->sum('total'), 2) }}</td>
-                </tr>
-            </tfoot>
-        </table>
+    <table class="detalles-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Folio</th>
+                <th>OC</th>
+                <th>Fecha</th>
+                <th>Total</th>
+                <th>Estatus</th>
+                <th>Docs</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($facturas as $factura)
+            <tr>
+                <td class="text-center">{{ $loop->iteration }}</td>
+                <td>{{ $factura->folio }}</td>
+                <td>{{ $factura->ordenCompra?->folio ?? '-' }}</td>
+                <td class="text-center">{{ $factura->fecha_factura?->format('d/m/Y') ?? '-' }}</td>
+                <td class="text-right">${{ number_format($factura->total, 2) }}</td>
+                <td class="text-center">{{ ucfirst(str_replace('_', ' ', $factura->estatus)) }}</td>
+                <td class="text-center">{{ ($factura->mediaPdf ? 1 : 0) + $factura->entregas->filter(fn($e) => $e->media)->count() }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+        <tfoot>
+            <tr class="total-row">
+                <td colspan="4" class="text-right">TOTAL</td>
+                <td class="text-right">${{ number_format($facturas->sum('total'), 2) }}</td>
+                <td colspan="2"></td>
+            </tr>
+        </tfoot>
+    </table>
     @else
     <p style="margin: 20px 0; text-align: center;">No se encontraron facturas en esta semana.</p>
     @endif

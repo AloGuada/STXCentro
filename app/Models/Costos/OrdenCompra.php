@@ -177,7 +177,7 @@ class OrdenCompra extends Model
             return;
         }
 
-        if ($facturas->every(fn ($f) => $f->entregas()->exists())) {
+        if ($facturas->every(fn ($f) => in_array($f->estatus, ['pendiente_aprobacion', 'pendiente_pago', 'pagada']))) {
             $this->update(['estatus' => 'pendiente_aprobacion']);
 
             return;

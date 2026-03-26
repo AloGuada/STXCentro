@@ -286,6 +286,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'obras.eliminar',
             'roles.ver',
             'roles.asignar',
+            'badge-configs.ver',
+            'badge-configs.crear',
+            'badge-configs.editar',
+            'badge-configs.eliminar',
         ];
 
         $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $rhPermissions, $drivePermissions, $calPermissions, $corePermissions);

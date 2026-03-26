@@ -27,13 +27,13 @@ test('OC pendiente_entrega cuando tiene factura sin entrega', function () {
     expect($oc->estatus)->toBe('pendiente_entrega');
 });
 
-test('OC pendiente_aprobacion cuando todas las facturas tienen entrega', function () {
+test('OC pendiente_aprobacion cuando todas las facturas tienen entrega completa', function () {
     $oc = OrdenCompra::factory()->create();
-    $factura = Factura::factory()->pendienteEntrega()->create([
+    Factura::factory()->create([
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $oc->proveedor_id,
+        'estatus' => 'pendiente_aprobacion',
     ]);
-    Entrega::factory()->create(['factura_id' => $factura->id]);
 
     $oc->recalcularEstatus();
     $oc->refresh();
