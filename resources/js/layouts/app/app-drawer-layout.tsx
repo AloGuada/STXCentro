@@ -118,36 +118,36 @@ const navGroups: NavGroup[] = [
             { title: 'Cuentas Internas', href: '/admin/costos/cuentas-internas', icon: Users, permission: 'costos.cuentas-internas.ver' },
         ],
     },
-    {
-        title: 'Costos Test',
-        icon: BadgeDollarSign,
-        items: [
-            { title: 'Proveedores', href: '/admin/proveedores', icon: Building, permission: 'costos.proveedores.ver' },
-            {
-                title: 'Presupuestos', href: '/admin/costos/presupuestos', icon: Calculator, permission: 'costos.obra-rubros.ver',
-                children: [
-                    { title: 'Tipo Rubros', href: '/admin/costos/tipo-rubros', permission: 'costos.tipo-rubros.ver' },
-                    { title: 'Rubros', href: '/admin/costos/rubros', permission: 'costos.rubros.ver' },
-                    { title: 'Afectaciones', href: '/admin/costos/afectaciones', permission: 'costos.afectaciones.ver' },
-                ],
-            },
-            {
-                title: 'Solicitudes de Pago', href: '/admin/costos/solicitudes-pago', icon: FileText, permission: 'costos.solicitudes-pago.ver',
-                children: [
-                    { title: 'Tipo Solicitudes', href: '/admin/costos/tipo-solicitudes', permission: 'costos.tipo-solicitudes.ver' },
-                    { title: 'Niveles Aprobación', href: '/admin/costos/permisos', permission: 'costos.aprobaciones.ver' },
-                    { title: 'Mis Aprobaciones', href: '/admin/costos/aprobaciones', permission: 'costos.aprobaciones.ver' },
-                ],
-            },
-            {
-                title: 'Compras', href: '/admin/costos/ordenes-compra', icon: ShoppingCart, permission: 'costos.ordenes-compra.ver',
-                children: [
-                    { title: 'Facturas', href: '/admin/costos/facturas', permission: 'costos.facturas.ver' },
-                    { title: 'Pagos', href: '/admin/costos/pagos', permission: 'costos.pagos.ver' },
-                ],
-            },
-        ],
-    },
+    // {
+    //     title: 'Costos Test',
+    //     icon: BadgeDollarSign,
+    //     items: [
+    //         { title: 'Proveedores', href: '/admin/proveedores', icon: Building, permission: 'costos.proveedores.ver' },
+    //         {
+    //             title: 'Presupuestos', href: '/admin/costos/presupuestos', icon: Calculator, permission: 'costos.obra-rubros.ver',
+    //             children: [
+    //                 { title: 'Tipo Rubros', href: '/admin/costos/tipo-rubros', permission: 'costos.tipo-rubros.ver' },
+    //                 { title: 'Rubros', href: '/admin/costos/rubros', permission: 'costos.rubros.ver' },
+    //                 { title: 'Afectaciones', href: '/admin/costos/afectaciones', permission: 'costos.afectaciones.ver' },
+    //             ],
+    //         },
+    //         {
+    //             title: 'Solicitudes de Pago', href: '/admin/costos/solicitudes-pago', icon: FileText, permission: 'costos.solicitudes-pago.ver',
+    //             children: [
+    //                 { title: 'Tipo Solicitudes', href: '/admin/costos/tipo-solicitudes', permission: 'costos.tipo-solicitudes.ver' },
+    //                 { title: 'Niveles Aprobación', href: '/admin/costos/permisos', permission: 'costos.aprobaciones.ver' },
+    //                 { title: 'Mis Aprobaciones', href: '/admin/costos/aprobaciones', permission: 'costos.aprobaciones.ver' },
+    //             ],
+    //         },
+    //         {
+    //             title: 'Compras', href: '/admin/costos/ordenes-compra', icon: ShoppingCart, permission: 'costos.ordenes-compra.ver',
+    //             children: [
+    //                 { title: 'Facturas', href: '/admin/costos/facturas', permission: 'costos.facturas.ver' },
+    //                 { title: 'Pagos', href: '/admin/costos/pagos', permission: 'costos.pagos.ver' },
+    //             ],
+    //         },
+    //     ],
+    // },
     {
         title: 'Cobranza',
         icon: Receipt,
