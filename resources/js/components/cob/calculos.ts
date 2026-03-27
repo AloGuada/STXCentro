@@ -20,6 +20,8 @@ export type ResumenFinanciero = {
     facturadasPorCobrar: number;
     tieneComparativos: boolean;
     montoComparativo: number;
+    montoComparativoUltimo: number;
+    tieneComparativoCualquiera: boolean;
     tipoContrato: string | null;
 };
 
@@ -43,13 +45,16 @@ export function calcularResumen(
         .filter((c) => c.estado === 'implementado' || c.estado === 'aprobado')
         .sort((a, b) => (a.id > b.id ? -1 : 1))[0];
 
+    const lastComparativoCualquiera = comparativos
+        .sort((a, b) => (a.id > b.id ? -1 : 1))[0];
+
     const montoComparativo = lastComparativo ? Number(lastComparativo.monto_impacto) : 0;
+    const montoComparativoUltimo = lastComparativoCualquiera ? Number(lastComparativoCualquiera.monto_impacto) : 0;
     const basePartidas = presupuestoPartidas + partidasAdicionales;
 
-    // Precio unitario: el comparativo reemplaza el total
-    // Precio alzado: el comparativo es solo referencia, el total es el de partidas
-    const presupuestoEjecutar = lastComparativo && tipoContrato === 'precio_unitario'
-        ? montoComparativo
+    // Si hay comparativo (cualquier estado), se usa como presupuesto base
+    const presupuestoEjecutar = lastComparativoCualquiera
+        ? montoComparativoUltimo
         : basePartidas;
 
     const totalAnticiposFacturados = anticipos.reduce((sum, a) => sum + Number(a.monto), 0);
@@ -92,6 +97,7 @@ export function calcularResumen(
     const facturadasPorCobrar = totalFacturado - totalCobrado;
 
     const tieneComparativos = !!lastComparativo;
+    const tieneComparativoCualquiera = !!lastComparativoCualquiera;
 
     return {
         presupuestoPartidas,
@@ -113,6 +119,8 @@ export function calcularResumen(
         facturadasPorCobrar,
         tieneComparativos,
         montoComparativo,
+        montoComparativoUltimo,
+        tieneComparativoCualquiera,
         tipoContrato,
     };
 }

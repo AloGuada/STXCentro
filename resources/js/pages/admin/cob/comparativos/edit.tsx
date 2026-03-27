@@ -26,7 +26,7 @@ export default function ComparativoEdit({ obra, comparativo }: Props) {
         _method: 'put' as const,
         descripcion: comparativo.descripcion,
         monto_impacto: String(comparativo.monto_impacto),
-        fecha_identificacion: comparativo.fecha_identificacion ?? '',
+        fecha_identificacion: comparativo.fecha_identificacion?.substring(0, 10) ?? '',
         estado: comparativo.estado,
     });
 

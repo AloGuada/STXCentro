@@ -43,11 +43,12 @@ export function ResumenFinancieroCard({ obra, resumen }: Props) {
                 <div>
                     <div className="text-sm opacity-70">Presupuesto Base</div>
                     <div className="text-lg font-bold">{formatearMXN(resumen.presupuestoEjecutar)}</div>
-                    {resumen.tieneComparativos && (() => {
-                        const diferencia = resumen.montoComparativo - (resumen.presupuestoPartidas + resumen.partidasAdicionales);
+                    {resumen.tieneComparativoCualquiera && (() => {
+                        const diferencia = resumen.presupuestoEjecutar - (resumen.presupuestoPartidas + resumen.partidasAdicionales);
+                        const esReferencia = resumen.tipoContrato !== 'precio_unitario' || !resumen.tieneComparativos;
                         return (
                             <div className={`text-xs mt-1 ${diferencia >= 0 ? 'text-success' : 'text-error'}`}>
-                                Ajuste{resumen.tipoContrato !== 'precio_unitario' ? ' (ref.)' : ''}: {diferencia >= 0 ? '+' : ''}{formatearMXN(diferencia)}
+                                Ajuste{esReferencia ? ' (ref.)' : ''}: {diferencia >= 0 ? '+' : ''}{formatearMXN(diferencia)}
                             </div>
                         );
                     })()}
