@@ -105,7 +105,17 @@ export default function AsignacionActivosCreate({ departamentos, equipos }: Prop
                                 </FormField>
                             </div>
 
-                            <div className="mt-4">
+                            <div className="mt-4 space-y-3">
+                                <p className="text-muted-foreground text-sm leading-relaxed">
+                                    Por medio de la presente, hago constar que he recibido un equipo para el desarrollo de mis funciones y
+                                    actividades laborales, en la empresa, TIM DEL MAYAB S.A. DE C.V., con nombre comercial STEELEX.
+                                </p>
+                                <p className="text-muted-foreground text-sm leading-relaxed">
+                                    Yo asumo la responsabilidad y el cuidado de dicho equipo y me comprometo a utilizarlo estrictamente
+                                    para uso de las labores en el área de Construcción. Aquellos daños que sean causados por una mala
+                                    práctica, instalación de software no autorizado o imprudencia mía, asumiré las repercusiones que de
+                                    ello se deriven y los gastos que así se produzcan por lo antes descrito.
+                                </p>
                                 <FormField label="Firma del Empleado" htmlFor="firma_empleado" error={errors.firma_empleado}>
                                     <SignaturePad
                                         value={data.firma_empleado}

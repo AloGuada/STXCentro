@@ -48,6 +48,14 @@ class TicketController extends Controller
                     default => $q,
                 };
             })
+            ->orderBy(
+                Status::query()
+                    ->select('sti_status.orden')
+                    ->join('sti_ticket_historial', 'sti_status.id', '=', 'sti_ticket_historial.status_id')
+                    ->whereColumn('sti_ticket_historial.ticket_id', 'sti_tickets.id')
+                    ->orderByDesc('sti_ticket_historial.created_at')
+                    ->limit(1)
+            )
             ->orderBy('created_at', 'desc')
             ->paginate(15)
             ->withQueryString();
