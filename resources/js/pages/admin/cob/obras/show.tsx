@@ -283,7 +283,7 @@ function EstimacionesTab({ obra }: { obra: Obra }) {
                             <tr key={e.id}>
                                 <td>{e.numero_estimacion}</td>
                                 <td>{e.folio ?? '-'}</td>
-                                <td>{e.inicio && e.fin ? `${e.inicio} - ${e.fin}` : '-'}</td>
+                                <td>{e.inicio && e.fin ? `${formatFecha(e.inicio)} - ${formatFecha(e.fin)}` : '-'}</td>
                                 <td className="text-right">{formatearMXN(e.monto_estimado)}</td>
                                 <td className="text-right">{formatearMXN(e.monto_pagado)}</td>
                                 <td><EstadoBadge estado={e.estado} /></td>
@@ -302,12 +302,13 @@ function EstimacionesTab({ obra }: { obra: Obra }) {
     );
 }
 
-// -- Anticipos Tab --
 function formatFecha(fecha: string | null): string {
     if (!fecha) return '-';
     const d = new Date(fecha);
     return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
+
+// -- Anticipos Tab --
 
 function AnticiposTab({ obra }: { obra: Obra }) {
     return (

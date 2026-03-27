@@ -31,12 +31,17 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
         { title: `Estimacion #${estimacion.numero_estimacion}`, href: '#' },
     ];
 
+    const toDateInput = (value: string | null | undefined): string => {
+        if (!value) return '';
+        return value.substring(0, 10);
+    };
+
     const form = useForm({
         folio: estimacion.folio ?? '',
         tipo: estimacion.tipo ?? '',
-        fecha_emision: estimacion.fecha_emision ?? '',
-        inicio: estimacion.inicio ?? '',
-        fin: estimacion.fin ?? '',
+        fecha_emision: toDateInput(estimacion.fecha_emision),
+        inicio: toDateInput(estimacion.inicio),
+        fin: toDateInput(estimacion.fin),
         monto_estimado: String(estimacion.monto_estimado),
         monto_total: String(estimacion.monto_total),
         moneda: estimacion.moneda,
