@@ -24,4 +24,17 @@ export default defineConfig({
     esbuild: {
         jsx: 'automatic',
     },
+    build: {
+        rollupOptions: {
+            output: {
+                assetFileNames: (assetInfo) => {
+                    // Rename .mjs to .js to fix MIME type issues with pdf.js worker
+                    if (/\.mjs$/.test(assetInfo.names?.[0] ?? '')) {
+                        return 'assets/[name]-[hash].js';
+                    }
+                    return 'assets/[name]-[hash][extname]';
+                },
+            },
+        },
+    },
 });
