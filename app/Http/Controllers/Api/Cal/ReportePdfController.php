@@ -611,7 +611,7 @@ class ReportePdfController extends Controller
 
         $pdf->SetFont('Arial', 'B', 6);
         $pdf->SetXY($margenIzq + ($seccionWidth * 2), $y + 4);
-        $pdf->Cell($seccionWidth, 3, 'ING.OSCAR ROJAS LOPEZ', 0, 1, 'C');
+        $pdf->Cell($seccionWidth, 3, 'ING.PEDRO DUARTE ORTIZ', 0, 1, 'C');
         $pdf->SetXY($margenIzq + ($seccionWidth * 2), $y + 7);
         $pdf->Cell($seccionWidth, 3, 'INSPECTOR VISUAL DE', 0, 1, 'C');
         $pdf->SetXY($margenIzq + ($seccionWidth * 2), $y + 10);
