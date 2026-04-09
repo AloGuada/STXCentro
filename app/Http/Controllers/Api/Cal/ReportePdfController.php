@@ -6,7 +6,6 @@ use App\Helpers\PdfWithShapes;
 use App\Http\Controllers\Controller;
 use App\Models\Cal\Flecha;
 use App\Models\Cal\Reporte;
-use Illuminate\Support\Facades\Storage;
 
 class ReportePdfController extends Controller
 {
@@ -62,7 +61,7 @@ class ReportePdfController extends Controller
                 return response()->json(['error' => 'No hay flechas en este reporte'], 400);
             }
 
-            $pdfPath = Storage::disk('local')->path($reporte->plano->pdf_path);
+            $pdfPath = storage_path('app/public/'.$reporte->plano->pdf_path);
 
             if (! file_exists($pdfPath)) {
                 return response()->json(['error' => 'PDF no encontrado'], 404);

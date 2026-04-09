@@ -24,14 +24,14 @@ class PiezaPlanoController extends Controller
         $data = $request->safe()->only(['pieza_id', 'version']);
         $piezaId = $data['pieza_id'];
 
-        $data['pdf_path'] = $request->file('pdf')->store("cal/planos/{$piezaId}", 'local');
+        $data['pdf_path'] = $request->file('pdf')->store('planos', 'public');
 
         if ($request->hasFile('plano_normal')) {
-            $data['plano_normal'] = $request->file('plano_normal')->store("cal/planos/{$piezaId}", 'local');
+            $data['plano_normal'] = $request->file('plano_normal')->store('plano_normal', 'public');
         }
 
         if ($request->hasFile('dwg')) {
-            $data['dwg_path'] = $request->file('dwg')->store("cal/planos/{$piezaId}", 'local');
+            $data['dwg_path'] = $request->file('dwg')->store('dwg', 'public');
         }
 
         $plano = PiezaPlano::create($data);
@@ -54,13 +54,13 @@ class PiezaPlanoController extends Controller
     public function destroy(PiezaPlano $piezaPlano): JsonResponse
     {
         if ($piezaPlano->pdf_path) {
-            Storage::disk('local')->delete($piezaPlano->pdf_path);
+            Storage::disk('public')->delete($piezaPlano->pdf_path);
         }
         if ($piezaPlano->plano_normal) {
-            Storage::disk('local')->delete($piezaPlano->plano_normal);
+            Storage::disk('public')->delete($piezaPlano->plano_normal);
         }
         if ($piezaPlano->dwg_path) {
-            Storage::disk('local')->delete($piezaPlano->dwg_path);
+            Storage::disk('public')->delete($piezaPlano->dwg_path);
         }
 
         $piezaPlano->delete();
