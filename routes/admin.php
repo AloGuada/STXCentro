@@ -206,7 +206,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Obras cobranza
         Route::get('obras', [CobObraCobranzaController::class, 'index'])->name('obras.index');
+        Route::get('obras/reporte-pdf', [CobObraCobranzaController::class, 'reportePdf'])->name('obras.reporte-pdf');
         Route::get('obras/{obra}', [CobObraCobranzaController::class, 'show'])->name('obras.show');
+        Route::get('obras/{obra}/estado-cuenta-pdf', [CobObraCobranzaController::class, 'estadoCuentaPdf'])->name('obras.estado-cuenta-pdf');
         Route::put('obras/{obra}/financial', [CobObraCobranzaController::class, 'updateFinancial'])->name('obras.update-financial');
 
         // Sub-recursos de obra
@@ -347,6 +349,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('personas/{persona}/datos-extra', [RhPersonaController::class, 'updateDatosExtra'])->name('personas.datos-extra.update');
         Route::post('personas/{persona}/documentos', [RhPersonaController::class, 'storeDocumento'])->name('personas.documentos.store');
         Route::delete('personas/{persona}/documentos/{documento}', [RhPersonaController::class, 'destroyDocumento'])->name('personas.documentos.destroy');
+        Route::post('personas/{persona}/contactos-emergencia', [RhPersonaController::class, 'storeContactoEmergencia'])->name('personas.contactos-emergencia.store');
+        Route::delete('personas/{persona}/contactos-emergencia/{contacto}', [RhPersonaController::class, 'destroyContactoEmergencia'])->name('personas.contactos-emergencia.destroy');
 
         // Periodos Laborales
         Route::resource('periodos-laborales', RhPeriodoLaboralController::class)->parameters(['periodos-laborales' => 'periodoLaboral']);

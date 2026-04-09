@@ -82,4 +82,9 @@ class Persona extends Model
     {
         return $this->hasMany(Candidatura::class, 'persona_id');
     }
+
+    public function contactosEmergencia(): HasMany
+    {
+        return $this->hasMany(ContactoEmergencia::class, 'persona_id');
+    }
 }

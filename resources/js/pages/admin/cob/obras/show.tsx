@@ -72,6 +72,13 @@ export default function ObraShow({ obra, clientes }: Props) {
                         <h1 className="text-2xl font-semibold">{obra.no} - {obra.descripcion}</h1>
                         {obra.cliente && <p className="text-sm opacity-70">Cliente: {obra.cliente.nombre}</p>}
                     </div>
+                    <a
+                        href={`/admin/cob/obras/${obra.id}/estado-cuenta-pdf`}
+                        target="_blank"
+                        className="btn btn-outline btn-sm"
+                    >
+                        Estado de Cuenta PDF
+                    </a>
                 </div>
 
                 {/* Tabs */}

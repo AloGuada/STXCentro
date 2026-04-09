@@ -1617,6 +1617,16 @@ export type RhPersona = {
     documentos?: RhPersonaDocumento[];
     periodos_laborales?: RhPeriodoLaboral[];
     candidaturas?: RhCandidatura[];
+    contactos_emergencia?: RhContactoEmergencia[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhContactoEmergencia = {
+    id: number;
+    persona_id: number;
+    nombre: string;
+    telefono: string;
     created_at: string;
     updated_at: string;
 };

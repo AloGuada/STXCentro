@@ -39,6 +39,7 @@ describe('admin rh periodos laborales', function () {
                 'fecha_inicio' => '2026-01-15',
                 'estado' => 'activo',
                 'salario_diario' => 800,
+                'sueldo_mensual' => 24000,
                 'tipo_contrato' => 'indefinido',
             ]);
 

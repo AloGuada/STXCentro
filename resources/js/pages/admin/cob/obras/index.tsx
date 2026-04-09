@@ -105,11 +105,20 @@ export default function ObrasIndex({ obras, filters }: Props) {
                     </div>
 
                     {activeTab === 'tabla' && (
-                        <SearchInput
-                            placeholder="Buscar obras..."
-                            defaultValue={filters.search}
-                            className="max-w-xs"
-                        />
+                        <div className="flex items-center gap-2">
+                            <SearchInput
+                                placeholder="Buscar obras..."
+                                defaultValue={filters.search}
+                                className="max-w-xs"
+                            />
+                            <a
+                                href="/admin/cob/obras/reporte-pdf"
+                                target="_blank"
+                                className="btn btn-outline btn-sm"
+                            >
+                                PDF
+                            </a>
+                        </div>
                     )}
 
                     {activeTab === 'gantt' && availableYears.length > 0 && (

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Rh;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Rh\PersonaStoreRequest;
 use App\Http\Requests\Admin\Rh\PersonaUpdateRequest;
+use App\Models\Rh\ContactoEmergencia;
 use App\Models\Rh\Persona;
 use App\Models\Rh\PersonaDocumento;
 use Illuminate\Http\RedirectResponse;
@@ -19,22 +20,37 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.ver');
 
+        $sortable = ['nombre', 'apellido', 'email', 'telefono', 'fecha_nacimiento', 'created_at'];
+        $sortBy = in_array($request->sort_by, $sortable) ? $request->sort_by : 'apellido';
+        $sortDir = $request->sort_dir === 'desc' ? 'desc' : 'asc';
+
         $personas = Persona::query()
-            ->with('datosExtra')
+            ->with(['datosExtra', 'periodosLaborales'])
             ->when($request->search, function ($query, $search) {
+                $search = mb_strtolower($search);
                 $query->where(function ($q) use ($search) {
-                    $q->where('nombre', 'like', "%{$search}%")
-                        ->orWhere('apellido', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
+                    $q->whereRaw('LOWER(nombre) like ?', ["%{$search}%"])
+                        ->orWhereRaw('LOWER(apellido) like ?', ["%{$search}%"])
+                        ->orWhereRaw('LOWER(email) like ?', ["%{$search}%"])
+                        ->orWhere('telefono', 'like', "%{$search}%")
+                        ->orWhereHas('datosExtra', function ($q) use ($search) {
+                            $q->whereRaw('LOWER(localidad) like ?', ["%{$search}%"]);
+                        });
                 });
             })
-            ->orderBy('apellido')
+            ->when($request->estado === 'activo', function ($query) {
+                $query->whereHas('periodosLaborales', fn ($q) => $q->where('estado', 'activo'));
+            })
+            ->when($request->estado === 'inactivo', function ($query) {
+                $query->whereDoesntHave('periodosLaborales', fn ($q) => $q->where('estado', 'activo'));
+            })
+            ->orderBy($sortBy, $sortDir)
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('admin/rh/personas/index', [
             'personas' => $personas,
-            'filters' => $request->only('search'),
+            'filters' => $request->only('search', 'sort_by', 'sort_dir', 'estado'),
         ]);
     }
 
@@ -92,7 +108,7 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.editar');
 
-        $persona->load(['datosExtra', 'documentos.media', 'media', 'foto']);
+        $persona->load(['datosExtra', 'documentos.media', 'media', 'foto', 'contactosEmergencia']);
 
         return Inertia::render('admin/rh/personas/edit', [
             'persona' => $persona,
@@ -229,6 +245,29 @@ class PersonaController extends Controller
             Storage::disk('public')->delete($media->path);
             $media->delete();
         }
+
+        return back();
+    }
+
+    public function storeContactoEmergencia(Request $request, Persona $persona): RedirectResponse
+    {
+        $this->authorize('rh.personas.editar');
+
+        $validated = $request->validate([
+            'nombre' => ['required', 'string', 'max:255'],
+            'telefono' => ['required', 'string', 'max:255'],
+        ]);
+
+        $persona->contactosEmergencia()->create($validated);
+
+        return back();
+    }
+
+    public function destroyContactoEmergencia(Persona $persona, ContactoEmergencia $contacto): RedirectResponse
+    {
+        $this->authorize('rh.personas.editar');
+
+        $contacto->delete();
 
         return back();
     }

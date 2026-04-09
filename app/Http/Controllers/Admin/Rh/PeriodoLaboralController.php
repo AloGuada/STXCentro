@@ -164,11 +164,19 @@ class PeriodoLaboralController extends Controller
     {
         $this->authorize('rh.periodos-laborales.ver');
 
-        $periodoLaboral->load(['persona.datosExtra', 'puesto.departamento', 'requisicion']);
+        $periodoLaboral->load(['persona.datosExtra', 'persona.foto', 'persona.contactosEmergencia', 'puesto.departamento', 'requisicion']);
 
         $persona = $periodoLaboral->persona;
         $extras = $persona->datosExtra;
         $curp = $extras->curp ?? '';
+
+        $fotoPath = null;
+        if ($persona->foto?->path) {
+            $fullPath = storage_path('app/public/'.$persona->foto->path);
+            if (file_exists($fullPath)) {
+                $fotoPath = $fullPath;
+            }
+        }
 
         $fechaInicio = $periodoLaboral->fecha_inicio
             ? Carbon::parse($periodoLaboral->fecha_inicio)
@@ -219,6 +227,8 @@ class PeriodoLaboralController extends Controller
             'edad' => $edad,
             'numeroEmpleado' => $periodoLaboral->numero_empleado ?? '',
             'tipoContrato' => $periodoLaboral->requisicion?->tipo_contrato_generado ?? $periodoLaboral->tipo_contrato ?? 'planta',
+            'fotoPath' => $fotoPath,
+            'contactosEmergencia' => $persona->contactosEmergencia ?? collect(),
         ])->setPaper('letter', 'portrait');
 
         $filename = 'contrato-'.$persona->nombre.'-'.$persona->apellido.'.pdf';
@@ -247,7 +257,7 @@ class PeriodoLaboralController extends Controller
         $pdf = Pdf::loadView('pdf.rh.gafete', [
             'persona' => $persona,
             'puesto' => $periodoLaboral->puesto?->nombre ?? '',
-            'numero' => str_pad($periodoLaboral->id, 4, '0', STR_PAD_LEFT),
+            'numero' => $periodoLaboral->numero_empleado ?? str_pad($periodoLaboral->id, 4, '0', STR_PAD_LEFT),
             'telefono' => $persona->telefono ?? '',
             'qrBase64' => $qrBase64,
             'fotoPath' => $fotoPath,
@@ -271,7 +281,7 @@ class PeriodoLaboralController extends Controller
         $pdf = Pdf::loadView('pdf.rh.tarjeta', [
             'persona' => $persona,
             'puesto' => $periodoLaboral->puesto?->nombre ?? '',
-            'numero' => str_pad($periodoLaboral->id, 4, '0', STR_PAD_LEFT),
+            'numero' => $periodoLaboral->numero_empleado ?? str_pad($periodoLaboral->id, 4, '0', STR_PAD_LEFT),
             'telefono' => $persona->telefono ?? '',
             'qrBase64' => $qrBase64,
         ]);

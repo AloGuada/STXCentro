@@ -59,6 +59,11 @@ export default function PersonaEdit({ persona }: Props) {
         c_fonacot: extras?.c_fonacot ?? '',
     });
 
+    const contactoForm = useForm({
+        nombre: '',
+        telefono: '',
+    });
+
     const [docTipo, setDocTipo] = useState('');
     const [docFile, setDocFile] = useState<File | null>(null);
     const [docUploading, setDocUploading] = useState(false);
@@ -325,6 +330,69 @@ export default function PersonaEdit({ persona }: Props) {
                                 </Button>
                             </div>
                         </form>
+
+                        {/* Contactos de Emergencia */}
+                        <div className="mt-8 border-t pt-6">
+                            <h3 className="mb-4 text-lg font-semibold">Contactos de Emergencia</h3>
+
+                            {(persona.contactos_emergencia ?? []).length > 0 && (
+                                <div className="mb-4 space-y-2">
+                                    {persona.contactos_emergencia!.map((contacto) => (
+                                        <div key={contacto.id} className="flex items-center justify-between rounded border p-3">
+                                            <div>
+                                                <span className="font-medium">{contacto.nombre}</span>
+                                                <span className="ml-2 text-muted-foreground">{contacto.telefono}</span>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => {
+                                                    if (confirm('¿Eliminar este contacto de emergencia?')) {
+                                                        router.delete(`/admin/rh/personas/${persona.id}/contactos-emergencia/${contacto.id}`, { preserveScroll: true });
+                                                    }
+                                                }}
+                                            >
+                                                <TrashIcon className="size-4 text-destructive" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    contactoForm.post(`/admin/rh/personas/${persona.id}/contactos-emergencia`, {
+                                        preserveScroll: true,
+                                        onSuccess: () => contactoForm.reset(),
+                                    });
+                                }}
+                                className="space-y-3"
+                            >
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField label="Nombre" htmlFor="contacto_nombre" error={contactoForm.errors.nombre}>
+                                        <Input
+                                            id="contacto_nombre"
+                                            value={contactoForm.data.nombre}
+                                            onChange={(e) => contactoForm.setData('nombre', e.target.value)}
+                                            placeholder="Nombre del contacto"
+                                        />
+                                    </FormField>
+                                    <FormField label="Teléfono" htmlFor="contacto_telefono" error={contactoForm.errors.telefono}>
+                                        <Input
+                                            id="contacto_telefono"
+                                            value={contactoForm.data.telefono}
+                                            onChange={(e) => contactoForm.setData('telefono', e.target.value)}
+                                            placeholder="Número de teléfono"
+                                        />
+                                    </FormField>
+                                </div>
+                                <Button type="submit" disabled={contactoForm.processing || !contactoForm.data.nombre.trim() || !contactoForm.data.telefono.trim()}>
+                                    {contactoForm.processing && <Loader2Icon className="size-4 animate-spin" />}
+                                    Agregar contacto
+                                </Button>
+                            </form>
+                        </div>
                     </div>
                 )}
 

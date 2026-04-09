@@ -153,7 +153,11 @@
 <table class="header-row">
     <tr>
         <td class="photo-cell">
-            <div class="photo-placeholder">FOTO</div>
+            @if($fotoPath)
+                <img src="{{ $fotoPath }}" alt="Foto" style="width: 110px; height: 130px; object-fit: cover;">
+            @else
+                <div class="photo-placeholder">FOTO</div>
+            @endif
         </td>
         <td class="info-cell">
             <p>No. de empleado: {{ $numeroEmpleado ?: '________________________' }}</p>
@@ -261,8 +265,12 @@
 
 <div class="obs-box">
     <p class="bold mb-2">CONTACTOS PARA EMERGENCIA:</p>
-    <p>_________________________________: _________________________________</p>
-    <p>_________________________________: _________________________________</p>
+    @forelse($contactosEmergencia as $contacto)
+        <p>{{ $contacto->nombre }}: {{ $contacto->telefono }}</p>
+    @empty
+        <p>_________________________________: _________________________________</p>
+        <p>_________________________________: _________________________________</p>
+    @endforelse
 </div>
 
 <table class="data-table mb-4">
@@ -305,7 +313,7 @@
         </tr>
         <tr>
             <td>REVISION</td>
-            <td>0</td>
+            <td>1</td>
         </tr>
         <tr>
             <td>FECHA DE APROBACIÓN</td>
@@ -324,6 +332,8 @@
                 <tr><td class="ingreso-label">Nombre:</td><td class="ingreso-value">{{ $persona->nombre }}</td></tr>
                 <tr><td class="ingreso-label">Numero celular:</td><td class="ingreso-value">{{ $persona->telefono ?? '' }}</td></tr>
                 <tr><td class="ingreso-label">Fecha de ingreso:</td><td class="ingreso-value">{{ $fechaIngreso }}</td></tr>
+                <tr><td class="ingreso-label">Sueldo mensual:</td><td class="ingreso-value">{{ $sueldoMensual }}</td></tr>
+                <tr><td class="ingreso-label">Salario diario:</td><td class="ingreso-value">{{ $salarioDiario }}</td></tr>
             </table>
         </td>
         <td style="width: 45%;">
@@ -377,7 +387,7 @@
         </tr>
         <tr>
             <td>REVISION</td>
-            <td>0</td>
+            <td>1</td>
         </tr>
         <tr>
             <td>FECHA DE APROBACIÓN</td>
