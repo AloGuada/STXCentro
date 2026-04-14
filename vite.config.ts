@@ -28,6 +28,7 @@ export default defineConfig({
         include: ['chart.js/auto', 'pptxviewjs'],
     },
     build: {
+        chunkSizeWarningLimit: 900,
         rollupOptions: {
             output: {
                 assetFileNames: (assetInfo) => {
@@ -36,6 +37,12 @@ export default defineConfig({
                         return 'assets/[name]-[hash].js';
                     }
                     return 'assets/[name]-[hash][extname]';
+                },
+                manualChunks: {
+                    'viewer-pdf': ['react-pdf', 'pdfjs-dist'],
+                    'viewer-xlsx': ['xlsx'],
+                    'viewer-docx': ['docx-preview'],
+                    'viewer-pptx': ['pptxviewjs', 'chart.js'],
                 },
             },
         },
