@@ -19,6 +19,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -30,7 +31,7 @@ class SolicitudPagoController extends Controller
     {
         $solicitudes = SolicitudPago::query()
             ->where('solicitante_id', auth()->id())
-            ->with(['departamento', 'proveedor', 'solicitante'])
+            ->with(['departamento', 'proveedor', 'solicitante', 'media'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('folio', 'like', "%{$search}%")
@@ -95,9 +96,10 @@ class SolicitudPagoController extends Controller
             }
 
             // Process uploaded files
-            if ($request->hasFile('archivos')) {
+            $uploadedFiles = $request->file('archivos', []);
+            if (! empty($uploadedFiles)) {
                 $textos = $request->input('archivos_texto', []);
-                foreach ($request->file('archivos') as $documentoId => $files) {
+                foreach ($uploadedFiles as $documentoId => $files) {
                     $fileList = is_array($files) ? $files : [$files];
                     foreach ($fileList as $index => $file) {
                         $path = $file->store("costos/solicitudes/{$solicitud->id}", 'public');
@@ -153,8 +155,11 @@ class SolicitudPagoController extends Controller
             'tipoSolicitud.documentos',
             'detalles.obraRubro.rubro',
             'archivos.documento',
+            'archivos.media',
             'aprobaciones.aprobador',
             'pago',
+            'confirmadorCostos',
+            'confirmadorContabilidad',
         ]);
 
         return Inertia::render('admin/costos/solicitudes-pago/show', [
@@ -428,34 +433,74 @@ class SolicitudPagoController extends Controller
         return back()->with('success', 'Solicitud cancelada.');
     }
 
-    public function crearPago(Request $request, SolicitudPago $solicitudPago): RedirectResponse
+    public function confirmarCostos(Request $request, SolicitudPago $solicitudPago): RedirectResponse
     {
+        Gate::authorize('costos.solicitudes.confirmar-costos');
+
         if ($solicitudPago->estatus !== 'aprobada') {
-            return back()->withErrors(['estatus' => 'Solo se pueden crear pagos para solicitudes aprobadas.']);
+            return back()->withErrors(['estatus' => 'La solicitud debe estar aprobada.']);
         }
 
-        // Si ya existe un pago, redirigir al existente
-        if ($solicitudPago->pago) {
-            return to_route('admin.costos.pagos.show', $solicitudPago->pago);
+        if ($solicitudPago->confirmada_costos) {
+            return back()->withErrors(['confirmada_costos' => 'La solicitud ya fue confirmada por costos.']);
         }
 
-        $request->validate([
-            'tipo_pago' => ['required', 'in:contado,credito'],
-            'fecha_pago_programada' => ['required', 'date'],
-            'fecha_pago_maxima' => ['nullable', 'date', 'after_or_equal:fecha_pago_programada'],
+        $solicitudPago->update([
+            'confirmada_costos' => true,
+            'confirmada_costos_por' => $request->user()->id,
+            'confirmada_costos_at' => now(),
         ]);
 
-        $pago = Pago::create([
+        // Contado: crear pago inmediatamente
+        if ($solicitudPago->tipo_pago !== 'credito') {
+            Pago::create([
+                'pagable_type' => SolicitudPago::class,
+                'pagable_id' => $solicitudPago->id,
+                'monto_pago' => $solicitudPago->monto_total,
+                'moneda' => $solicitudPago->tipo_moneda ?? 'mxn',
+                'tipo_pago' => 'contado',
+                'fecha_pago_programada' => $solicitudPago->fecha_pago_solicitada,
+                'estatus' => 'programado',
+            ]);
+
+            return back()->with('success', 'Solicitud confirmada y pago programado.');
+        }
+
+        return back()->with('success', 'Solicitud confirmada por costos. Pendiente confirmación de contabilidad.');
+    }
+
+    public function confirmarContabilidad(Request $request, SolicitudPago $solicitudPago): RedirectResponse
+    {
+        Gate::authorize('costos.facturas.aceptar-contabilidad');
+
+        if ($solicitudPago->estatus !== 'aprobada') {
+            return back()->withErrors(['estatus' => 'La solicitud debe estar aprobada.']);
+        }
+
+        if (! $solicitudPago->confirmada_costos) {
+            return back()->withErrors(['confirmada_costos' => 'La solicitud debe ser confirmada por costos primero.']);
+        }
+
+        if ($solicitudPago->confirmada_contabilidad) {
+            return back()->withErrors(['confirmada_contabilidad' => 'La solicitud ya fue confirmada por contabilidad.']);
+        }
+
+        $solicitudPago->update([
+            'confirmada_contabilidad' => true,
+            'confirmada_contabilidad_por' => $request->user()->id,
+            'confirmada_contabilidad_at' => now(),
+        ]);
+
+        Pago::create([
             'pagable_type' => SolicitudPago::class,
             'pagable_id' => $solicitudPago->id,
             'monto_pago' => $solicitudPago->monto_total,
             'moneda' => $solicitudPago->tipo_moneda ?? 'mxn',
-            'tipo_pago' => $request->input('tipo_pago'),
-            'fecha_pago_programada' => $request->input('fecha_pago_programada'),
-            'fecha_pago_maxima' => $request->input('fecha_pago_maxima'),
-            'estatus' => 'pendiente',
+            'tipo_pago' => 'credito',
+            'fecha_pago_programada' => $solicitudPago->fecha_pago_solicitada,
+            'estatus' => 'programado',
         ]);
 
-        return to_route('admin.costos.pagos.show', $pago);
+        return back()->with('success', 'Solicitud confirmada por contabilidad y pago programado.');
     }
 }

@@ -122,12 +122,18 @@
             vertical-align: bottom;
             padding: 0 15px;
         }
+        .sig-img {
+            height: 60px;
+            margin-bottom: 5px;
+        }
+        .sig-placeholder {
+            height: 60px;
+        }
         .sig-name {
             font-weight: bold;
             font-size: 10px;
             border-top: 1px solid #000;
             padding-top: 5px;
-            margin-top: 50px;
         }
         .sig-role {
             font-size: 9px;
@@ -266,6 +272,11 @@
         <tr>
             @foreach($cadenaAprobacion as $nivel)
             <td>
+                @if($nivel->aprobador?->firma_path && file_exists(storage_path('app/public/' . $nivel->aprobador->firma_path)))
+                    <img class="sig-img" src="{{ storage_path('app/public/' . $nivel->aprobador->firma_path) }}" alt="Firma">
+                @else
+                    <div class="sig-placeholder"></div>
+                @endif
                 <div class="sig-name">{{ $nivel->aprobador?->name ?? '________________' }}</div>
                 <div class="sig-role">{{ $nivel->permiso->descripcion }} (Nivel {{ $nivel->permiso->nivel }})</div>
             </td>

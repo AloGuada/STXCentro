@@ -4,6 +4,8 @@ import type { BreadcrumbItem } from '@/types';
 import type { CostosPago, CostosPagoEstatus, PaginatedData } from '@/types/models';
 import { PAGO_ESTATUS_COLORS, PAGO_ESTATUS_LABELS, PAGO_TIPO_PAGO_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
+import { FileTextIcon } from 'lucide-react';
+import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -78,8 +80,21 @@ type Props = {
 };
 
 export default function PagosIndex({ pagos, filters }: Props) {
+    const today = new Date();
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const toDateInput = (d: Date) => d.toISOString().split('T')[0];
+
+    const [fechaInicio, setFechaInicio] = useState(toDateInput(firstOfMonth));
+    const [fechaFin, setFechaFin] = useState(toDateInput(today));
+
     const handleFilterChange = (key: string, value: string) => {
         router.get('/admin/costos/pagos', { ...filters, [key]: value || undefined }, { preserveState: true });
+    };
+
+    const handleGenerarReporte = () => {
+        if (!fechaInicio || !fechaFin) return;
+        const url = `/admin/costos/pagos/reporte?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
+        window.open(url, '_blank');
     };
 
     return (
@@ -87,7 +102,7 @@ export default function PagosIndex({ pagos, filters }: Props) {
             <Head title="Pagos" />
 
             <div className="p-6">
-                <div className="mb-4 flex items-center gap-4">
+                <div className="mb-4 flex flex-wrap items-center gap-4">
                     <select
                         className="select select-bordered select-sm"
                         value={filters.estatus ?? ''}
@@ -106,6 +121,36 @@ export default function PagosIndex({ pagos, filters }: Props) {
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                     </select>
+
+                    <div className="ml-auto flex items-end gap-2">
+                        <div className="flex flex-col">
+                            <label className="text-[10px] text-base-content/60">Desde</label>
+                            <input
+                                type="date"
+                                className="input input-bordered input-sm"
+                                value={fechaInicio}
+                                onChange={(e) => setFechaInicio(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] text-base-content/60">Hasta</label>
+                            <input
+                                type="date"
+                                className="input input-bordered input-sm"
+                                value={fechaFin}
+                                onChange={(e) => setFechaFin(e.target.value)}
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-primary"
+                            onClick={handleGenerarReporte}
+                            disabled={!fechaInicio || !fechaFin || fechaInicio > fechaFin}
+                        >
+                            <FileTextIcon className="size-4" />
+                            Generar Reporte
+                        </button>
+                    </div>
                 </div>
 
                 <DataTable

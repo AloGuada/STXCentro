@@ -12,16 +12,22 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class AprobacionController extends Controller
 {
-    public function index(): Response
+    public function index(): Response|RedirectResponse
     {
+        if (! auth()->user()->firma_path) {
+            return redirect()->route('admin.costos.firma.edit')
+                ->with('warning', 'Debe configurar su firma antes de acceder a las aprobaciones.');
+        }
+
         $userId = auth()->id();
 
         $baseQuery = fn () => AprobacionSolicitud::where('aprobador_id', $userId)
-            ->with(['solicitud.departamento', 'solicitud.proveedor', 'solicitud.solicitante']);
+            ->with(['solicitud.departamento', 'solicitud.proveedor', 'solicitud.solicitante', 'solicitud.tipoSolicitud', 'solicitud.archivos', 'solicitud.media', 'solicitud.detalles.obraRubro']);
 
         // Pendientes: estatus='pendiente' y es el turno del aprobador
         $pendientes = $baseQuery()
             ->where('estatus', 'pendiente')
+            ->latest()
             ->get()
             ->filter(function (AprobacionSolicitud $aprobacion) {
                 // Es mi turno si no hay aprobaciones pendientes con nivel menor en la misma solicitud
@@ -49,10 +55,15 @@ class AprobacionController extends Controller
         ]);
     }
 
-    public function show(AprobacionSolicitud $aprobacionSolicitud): Response|HttpResponse
+    public function show(AprobacionSolicitud $aprobacionSolicitud): Response|HttpResponse|RedirectResponse
     {
         if ($aprobacionSolicitud->aprobador_id !== auth()->id()) {
             abort(403);
+        }
+
+        if (! auth()->user()->firma_path) {
+            return redirect()->route('admin.costos.firma.edit')
+                ->with('warning', 'Debe configurar su firma antes de acceder a las aprobaciones.');
         }
 
         $aprobacionSolicitud->load('solicitud');
@@ -64,7 +75,9 @@ class AprobacionController extends Controller
             'proveedor',
             'tipoSolicitud.documentos',
             'detalles.obraRubro.rubro',
+            'detalles.obraRubro.obra',
             'archivos.documento',
+            'archivos.media',
             'aprobaciones.aprobador',
         ]);
 
@@ -95,13 +108,15 @@ class AprobacionController extends Controller
         }
 
         $request->validate([
-            'observaciones' => ['nullable', 'string', 'max:500'],
+            'observaciones' => ['required', 'string', 'max:500'],
         ]);
 
         $aprobacionSolicitud->update([
             'estatus' => 'aprobada',
             'fecha_respuesta' => now(),
             'observaciones' => $request->input('observaciones'),
+            'ip' => $request->ip(),
+            'hostname' => gethostbyaddr($request->ip()) ?: null,
         ]);
 
         // Verificar si era el último nivel pendiente
@@ -136,6 +151,8 @@ class AprobacionController extends Controller
             'estatus' => 'rechazada',
             'fecha_respuesta' => now(),
             'observaciones' => $request->input('observaciones'),
+            'ip' => $request->ip(),
+            'hostname' => gethostbyaddr($request->ip()) ?: null,
         ]);
 
         // Cancelar la solicitud y las demás aprobaciones pendientes

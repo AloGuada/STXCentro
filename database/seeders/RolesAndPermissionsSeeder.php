@@ -106,6 +106,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.facturas.aceptar-contabilidad',
             'costos.cuentas-internas.ver',
             'costos.cuentas-internas.editar',
+            'costos.solicitudes.confirmar-costos',
         ];
 
         // Crear permisos del módulo Produccion

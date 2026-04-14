@@ -33,6 +33,7 @@ class Usuario extends Authenticatable
         'email',
         'password',
         'rol',
+        'firma_path',
     ];
 
     /**

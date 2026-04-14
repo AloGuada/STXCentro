@@ -4,9 +4,35 @@ import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosObraRubro, CostosTipoSolicitud, Departamento, Obra, Proveedor } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, FileTextIcon, Loader2Icon, PlusIcon, Trash2Icon, UploadIcon } from 'lucide-react';
-import { type FormEvent, useMemo, useRef } from 'react';
+import { type FormEvent, useCallback, useMemo, useRef } from 'react';
+
+function getMinViernes(): string {
+    const now = new Date();
+    const day = now.getDay(); // 0=dom, 1=lun, ..., 5=vie
+    const hour = now.getHours();
+
+    // Calcular el viernes de esta semana
+    const viernes = new Date(now);
+    viernes.setDate(now.getDate() + (5 - day + 7) % 7);
+    viernes.setHours(0, 0, 0, 0);
+
+    // Si ya pasó el miércoles a la 1pm (day>=3 && hour>=13, o day>3 sin ser viernes futuro),
+    // el viernes de esta semana queda bloqueado → mínimo es el siguiente viernes
+    const pasoCorteMiercoles = day > 3 || (day === 3 && hour >= 13);
+    // Si hoy es jueves o viernes o sábado/domingo, el viernes calculado podría ser esta semana o la siguiente
+    if (day <= 5 && pasoCorteMiercoles) {
+        viernes.setDate(viernes.getDate() + 7);
+    }
+
+    return viernes.toISOString().split('T')[0];
+}
+
+function esViernes(dateStr: string): boolean {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.getDay() === 5;
+}
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -57,6 +83,13 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
     });
 
     const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+    const minViernes = useMemo(() => getMinViernes(), []);
+
+    const handleFechaChange = useCallback((value: string) => {
+        if (!value || esViernes(value)) {
+            setData('fecha_pago_solicitada', value);
+        }
+    }, [setData]);
 
     const selectedTipo = useMemo(
         () => tipoSolicitudes.find((t) => t.id === Number(data.tipo_solicitud_id)),
@@ -109,7 +142,36 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        post('/admin/costos/solicitudes-pago');
+
+        const formData = new FormData();
+        formData.append('departamento_id', data.departamento_id);
+        formData.append('proveedor_id', data.proveedor_id);
+        formData.append('tipo_solicitud_id', data.tipo_solicitud_id);
+        formData.append('concepto', data.concepto);
+        formData.append('tipo_pago', data.tipo_pago);
+        formData.append('tipo_moneda', data.tipo_moneda);
+        formData.append('fecha_pago_solicitada', data.fecha_pago_solicitada);
+
+        data.detalles.forEach((det, i) => {
+            formData.append(`detalles[${i}][obra_rubro_id]`, det.obra_rubro_id);
+            formData.append(`detalles[${i}][concepto]`, det.concepto);
+            formData.append(`detalles[${i}][cantidad]`, det.cantidad);
+            formData.append(`detalles[${i}][precio_unitario]`, det.precio_unitario);
+        });
+
+        Object.entries(data.archivos).forEach(([docId, files]) => {
+            files.forEach((file, i) => {
+                formData.append(`archivos[${docId}][${i}]`, file);
+            });
+        });
+
+        Object.entries(data.archivos_texto).forEach(([docId, textos]) => {
+            textos.forEach((texto, i) => {
+                formData.append(`archivos_texto[${docId}][${i}]`, texto);
+            });
+        });
+
+        router.post('/admin/costos/solicitudes-pago', formData);
     };
 
     return (
@@ -196,9 +258,11 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                     <Input
                                         id="fecha_pago_solicitada"
                                         type="date"
+                                        min={minViernes}
                                         value={data.fecha_pago_solicitada}
-                                        onChange={(e) => setData('fecha_pago_solicitada', e.target.value)}
+                                        onChange={(e) => handleFechaChange(e.target.value)}
                                     />
+                                    <p className="mt-1 text-[11px] text-base-content/50">Solo viernes. Corte: miércoles 1:00 PM</p>
                                 </FormField>
                             </div>
                         </div>

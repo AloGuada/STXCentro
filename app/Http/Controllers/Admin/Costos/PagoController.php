@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\Costos\ParcializarRequest;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
 use App\Models\Costos\Pago;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class PagoController extends Controller
 {
@@ -209,5 +211,33 @@ class PagoController extends Controller
                 'fecha_pago_realizada' => now(),
             ]);
         }
+    }
+
+    public function reporte(Request $request): HttpResponse
+    {
+        $validated = $request->validate([
+            'fecha_inicio' => ['required', 'date'],
+            'fecha_fin' => ['required', 'date', 'after_or_equal:fecha_inicio'],
+        ]);
+
+        $fechaInicio = Carbon::parse($validated['fecha_inicio'])->startOfDay();
+        $fechaFin = Carbon::parse($validated['fecha_fin'])->endOfDay();
+
+        $pagos = Pago::query()
+            ->whereNull('pago_padre_id')
+            ->whereBetween('created_at', [$fechaInicio, $fechaFin])
+            ->with(['pagable.proveedor'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $pdf = Pdf::loadView('pdf.costos.reporte-pagos', [
+            'pagos' => $pagos,
+            'fechaInicio' => $fechaInicio,
+            'fechaFin' => $fechaFin,
+        ])->setPaper('letter', 'landscape');
+
+        $filename = 'reporte-pagos-'.$fechaInicio->format('Ymd').'-'.$fechaFin->format('Ymd').'.pdf';
+
+        return $pdf->stream($filename);
     }
 }

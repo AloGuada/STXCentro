@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\Costos\AprobacionController as CostosAprobacionCo
 use App\Http\Controllers\Admin\Costos\CuentaInternaController as CostosCuentaInternaController;
 use App\Http\Controllers\Admin\Costos\EntregaController as CostosEntregaController;
 use App\Http\Controllers\Admin\Costos\FacturaAdminController as CostosFacturaAdminController;
+use App\Http\Controllers\Admin\Costos\FirmaController as CostosFirmaController;
 use App\Http\Controllers\Admin\Costos\ObraRubroController as CostosObraRubroController;
 use App\Http\Controllers\Admin\Costos\OrdenCompraController as CostosOrdenCompraController;
 use App\Http\Controllers\Admin\Costos\PagoController as CostosPagoController;
@@ -146,7 +147,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('solicitudes-pago/{solicitudPago}/pdf', [CostosSolicitudPagoController::class, 'generarPdf'])->name('solicitudes-pago.pdf');
         Route::post('solicitudes-pago/{solicitudPago}/upload-firmado', [CostosSolicitudPagoController::class, 'uploadFirmado'])->name('solicitudes-pago.upload-firmado');
         Route::post('solicitudes-pago/{solicitudPago}/cancelar', [CostosSolicitudPagoController::class, 'cancelar'])->name('solicitudes-pago.cancelar');
-        Route::post('solicitudes-pago/{solicitudPago}/crear-pago', [CostosSolicitudPagoController::class, 'crearPago'])->name('solicitudes-pago.crear-pago');
+        Route::post('solicitudes-pago/{solicitudPago}/confirmar-costos', [CostosSolicitudPagoController::class, 'confirmarCostos'])->name('solicitudes-pago.confirmar-costos');
+        Route::post('solicitudes-pago/{solicitudPago}/confirmar-contabilidad', [CostosSolicitudPagoController::class, 'confirmarContabilidad'])->name('solicitudes-pago.confirmar-contabilidad');
 
         // Ordenes de Compra
         Route::resource('ordenes-compra', CostosOrdenCompraController::class)->only(['index', 'create', 'store', 'show', 'destroy'])->parameters(['ordenes-compra' => 'ordenCompra']);
@@ -161,11 +163,17 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('facturas/{factura}/aceptar-contabilidad', [CostosFacturaAdminController::class, 'aceptarContabilidad'])->name('facturas.aceptar-contabilidad');
 
         // Pagos
+        Route::get('pagos/reporte', [CostosPagoController::class, 'reporte'])->name('pagos.reporte');
         Route::resource('pagos', CostosPagoController::class)->only(['index', 'show'])->parameters(['pagos' => 'pago']);
         Route::post('pagos/{pago}/programar', [CostosPagoController::class, 'programar'])->name('pagos.programar');
         Route::get('pagos/{pago}/parcializar', [CostosPagoController::class, 'showParcializar'])->name('pagos.parcializar.show');
         Route::post('pagos/{pago}/parcializar', [CostosPagoController::class, 'parcializar'])->name('pagos.parcializar');
         Route::post('pagos/{pago}/upload-comprobante', [CostosPagoController::class, 'uploadComprobante'])->name('pagos.upload-comprobante');
+
+        // Firma del aprobador
+        Route::get('firma', [CostosFirmaController::class, 'edit'])->name('firma.edit');
+        Route::post('firma', [CostosFirmaController::class, 'update'])->name('firma.update');
+        Route::delete('firma', [CostosFirmaController::class, 'destroy'])->name('firma.destroy');
 
         // Aprobaciones digitales
         Route::get('aprobaciones', [CostosAprobacionController::class, 'index'])->name('aprobaciones.index');
@@ -388,5 +396,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('archivos/{archivo}', [DriveCarpetaController::class, 'destroyArchivo'])->name('archivos.destroy');
         Route::post('archivos/{archivo}/generar-link', [DriveCarpetaController::class, 'generarLink'])->name('archivos.generar-link');
         Route::delete('archivos/{archivo}/revocar-link', [DriveCarpetaController::class, 'revocarLink'])->name('archivos.revocar-link');
+    });
+
+    // Documentacion
+    Route::prefix('documentacion')->name('documentacion.')->group(function () {
+        Route::get('costos', fn () => Inertia\Inertia::render('admin/documentacion/costos'))->name('costos');
     });
 });

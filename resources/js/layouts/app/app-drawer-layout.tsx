@@ -27,6 +27,7 @@ import {
     Monitor,
     Network,
     Package,
+    PenTool,
     Puzzle,
     Receipt,
     Settings,
@@ -111,6 +112,7 @@ const navGroups: NavGroup[] = [
             { title: 'Solicitudes Pago', href: '/admin/costos/solicitudes-pago', icon: FileText, permission: 'costos.solicitudes-pago.ver' },
             { title: 'Niveles Aprobacion', href: '/admin/costos/permisos', icon: CheckSquare, permission: 'costos.aprobaciones.ver' },
             { title: 'Mis Aprobaciones', href: '/admin/costos/aprobaciones', icon: ClipboardCheck, permission: 'costos.aprobaciones.ver' },
+            { title: 'Mi Firma', href: '/admin/costos/firma', icon: PenTool },
             { title: 'Afectaciones', href: '/admin/costos/afectaciones', icon: TrendingDown, permission: 'costos.afectaciones.ver' },
             { title: 'Ordenes Compra', href: '/admin/costos/ordenes-compra', icon: ShoppingCart, permission: 'costos.ordenes-compra.ver' },
             { title: 'Facturas', href: '/admin/costos/facturas', icon: Receipt, permission: 'costos.facturas.ver' },
@@ -118,36 +120,6 @@ const navGroups: NavGroup[] = [
             { title: 'Cuentas Internas', href: '/admin/costos/cuentas-internas', icon: Users, permission: 'costos.cuentas-internas.ver' },
         ],
     },
-    // {
-    //     title: 'Costos Test',
-    //     icon: BadgeDollarSign,
-    //     items: [
-    //         { title: 'Proveedores', href: '/admin/proveedores', icon: Building, permission: 'costos.proveedores.ver' },
-    //         {
-    //             title: 'Presupuestos', href: '/admin/costos/presupuestos', icon: Calculator, permission: 'costos.obra-rubros.ver',
-    //             children: [
-    //                 { title: 'Tipo Rubros', href: '/admin/costos/tipo-rubros', permission: 'costos.tipo-rubros.ver' },
-    //                 { title: 'Rubros', href: '/admin/costos/rubros', permission: 'costos.rubros.ver' },
-    //                 { title: 'Afectaciones', href: '/admin/costos/afectaciones', permission: 'costos.afectaciones.ver' },
-    //             ],
-    //         },
-    //         {
-    //             title: 'Solicitudes de Pago', href: '/admin/costos/solicitudes-pago', icon: FileText, permission: 'costos.solicitudes-pago.ver',
-    //             children: [
-    //                 { title: 'Tipo Solicitudes', href: '/admin/costos/tipo-solicitudes', permission: 'costos.tipo-solicitudes.ver' },
-    //                 { title: 'Niveles Aprobación', href: '/admin/costos/permisos', permission: 'costos.aprobaciones.ver' },
-    //                 { title: 'Mis Aprobaciones', href: '/admin/costos/aprobaciones', permission: 'costos.aprobaciones.ver' },
-    //             ],
-    //         },
-    //         {
-    //             title: 'Compras', href: '/admin/costos/ordenes-compra', icon: ShoppingCart, permission: 'costos.ordenes-compra.ver',
-    //             children: [
-    //                 { title: 'Facturas', href: '/admin/costos/facturas', permission: 'costos.facturas.ver' },
-    //                 { title: 'Pagos', href: '/admin/costos/pagos', permission: 'costos.pagos.ver' },
-    //             ],
-    //         },
-    //     ],
-    // },
     {
         title: 'Cobranza',
         icon: Receipt,
@@ -212,7 +184,7 @@ const mainNavItems: NavItem[] = [
 ];
 
 const footerNavItems: NavItem[] = [
-    { title: '---', href: 'https://github.com/laravel/react-starter-kit', icon: Folder },
+    { title: 'Documentación Costos', href: '/admin/documentacion/costos', icon: BookOpen },
 ];
 
 function SidebarBadge({ href }: { href: string }) {
@@ -280,6 +252,16 @@ function SidebarMenuItem({ item, isActive }: { item: NavItem; isActive: boolean 
 
 function SidebarMenuGroup({ group, isOpen, onToggle }: { group: NavGroup; isOpen: boolean; onToggle: () => void }) {
     const { isCurrentUrl } = useCurrentUrl();
+    const { auth } = usePage<SharedData>().props;
+
+    const hasNotifications = group.items.some((item) => {
+        const itemBadge = auth.badges?.[String(item.href)];
+        if (itemBadge && itemBadge.count > 0) return true;
+        return item.children?.some((child) => {
+            const childBadge = auth.badges?.[String(child.href)];
+            return childBadge && childBadge.count > 0;
+        });
+    });
 
     return (
         <li>
@@ -292,6 +274,12 @@ function SidebarMenuGroup({ group, isOpen, onToggle }: { group: NavGroup; isOpen
                 >
                     {group.icon && <group.icon className="size-4" />}
                     {group.title}
+                    {hasNotifications && (
+                        <span className="relative ml-auto flex size-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
+                            <span className="relative inline-flex size-2 rounded-full bg-primary"></span>
+                        </span>
+                    )}
                 </summary>
                 <ul>
                     {group.items.map((item) => (
@@ -369,21 +357,32 @@ function SidebarContent() {
                 </li>
 
                 {/* Footer items */}
-                {footerNavItems.map((item) => (
-                    <li key={item.title}>
-                        <a href={String(item.href)} target="_blank" rel="noopener noreferrer">
-                            {item.icon && <item.icon className="size-4" />}
-                            {item.title}
-                        </a>
-                    </li>
-                ))}
+                {footerNavItems.map((item) => {
+                    const href = String(item.href);
+                    const isInternal = href.startsWith('/');
+                    return (
+                        <li key={item.title}>
+                            {isInternal ? (
+                                <Link href={href}>
+                                    {item.icon && <item.icon className="size-4" />}
+                                    {item.title}
+                                </Link>
+                            ) : (
+                                <a href={href} target="_blank" rel="noopener noreferrer">
+                                    {item.icon && <item.icon className="size-4" />}
+                                    {item.title}
+                                </a>
+                            )}
+                        </li>
+                    );
+                })}
             </ul>
 
             {/* Usuario */}
             <div className="border-t border-base-300 p-4">
                 <div className="dropdown dropdown-top w-full">
                     <div tabIndex={0} role="button" className="btn btn-ghost w-full justify-start gap-2">
-                        <UserInfo user={auth.user} />
+                        <UserInfo user={auth.user} roles={auth.roles} />
                         <ChevronDown className="ml-auto size-4" />
                     </div>
                     <ul tabIndex={0} className="dropdown-content menu bg-base-200 rounded-box z-50 w-full p-2 shadow-lg mb-2">

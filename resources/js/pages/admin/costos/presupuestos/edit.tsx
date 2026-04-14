@@ -115,7 +115,6 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
                             <span className={`badge badge-sm ${ESTATUS_COLORS[obra.estatus]}`}>
                                 {OBRA_ESTATUS_LABELS[obra.estatus]}
                             </span>
-                            <span>Presupuesto Total: <strong className="font-mono">{fmt(obra.presupuesto_total)}</strong></span>
                         </div>
                     </div>
                 </div>
@@ -214,8 +213,6 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
                 )}
 
                 {/* Agregar rubro */}
-                <div className="divider" />
-                <h3 className="text-md font-medium">Agregar Rubro</h3>
                 {availableRubros.length > 0 ? (
                     <form onSubmit={handleAddObraRubro} className="flex items-end gap-4">
                         <FormField label="Rubro" htmlFor="new_rubro_id" className="flex-1">

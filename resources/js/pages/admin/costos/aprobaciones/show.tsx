@@ -1,10 +1,12 @@
 import { DocumentoUpload } from '@/components/costos/documento-upload';
 import { Button } from '@/components/ui/button';
+import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosAprobacionSolicitud, CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
+import { AlertTriangleIcon } from 'lucide-react';
 import { useState } from 'react';
 
 type Props = {
@@ -26,14 +28,16 @@ function getStepIndex(estatus: CostosSolicitudPagoEstatus): number {
     return steps.findIndex((s) => s.key === estatus);
 }
 
-function RechazoModal({ aprobacionId, onClose }: { aprobacionId: number; onClose: () => void }) {
+function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: number; tipo: 'aprobar' | 'rechazar'; onClose: () => void }) {
     const [observaciones, setObservaciones] = useState('');
     const [processing, setProcessing] = useState(false);
+
+    const esAprobacion = tipo === 'aprobar';
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setProcessing(true);
-        router.post(`/admin/costos/aprobaciones/${aprobacionId}/rechazar`, { observaciones }, {
+        router.post(`/admin/costos/aprobaciones/${aprobacionId}/${tipo}`, { observaciones }, {
             preserveScroll: true,
             onFinish: () => {
                 setProcessing(false);
@@ -45,9 +49,11 @@ function RechazoModal({ aprobacionId, onClose }: { aprobacionId: number; onClose
     return (
         <dialog className="modal modal-open">
             <div className="modal-box">
-                <h3 className="text-lg font-bold">Rechazar solicitud</h3>
+                <h3 className="text-lg font-bold">{esAprobacion ? 'Aprobar solicitud' : 'Rechazar solicitud'}</h3>
                 <p className="py-2 text-sm text-base-content/60">
-                    El rechazo cancelara definitivamente la solicitud.
+                    {esAprobacion
+                        ? 'Agregue sus observaciones para aprobar esta solicitud.'
+                        : 'El rechazo cancelará definitivamente la solicitud.'}
                 </p>
                 <form onSubmit={handleSubmit}>
                     <div className="form-control">
@@ -67,8 +73,12 @@ function RechazoModal({ aprobacionId, onClose }: { aprobacionId: number; onClose
                         <button type="button" className="btn" onClick={onClose} disabled={processing}>
                             Cancelar
                         </button>
-                        <button type="submit" className="btn btn-error" disabled={processing || !observaciones.trim()}>
-                            Rechazar
+                        <button
+                            type="submit"
+                            className={`btn ${esAprobacion ? 'bg-green-600 hover:bg-green-700 text-white' : 'btn-error'}`}
+                            disabled={processing || !observaciones.trim()}
+                        >
+                            {esAprobacion ? 'Aprobar' : 'Rechazar'}
                         </button>
                     </div>
                 </form>
@@ -79,7 +89,7 @@ function RechazoModal({ aprobacionId, onClose }: { aprobacionId: number; onClose
 }
 
 export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
-    const [showRechazo, setShowRechazo] = useState(false);
+    const [modalTipo, setModalTipo] = useState<'aprobar' | 'rechazar' | null>(null);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -91,11 +101,13 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
     const currentStep = getStepIndex(solicitud.estatus);
     const isPending = aprobacion.estatus === 'pendiente';
 
-    const handleAprobar = () => {
-        if (confirm('¿Aprobar esta solicitud?')) {
-            router.post(`/admin/costos/aprobaciones/${aprobacion.id}/aprobar`, {}, { preserveScroll: true });
-        }
-    };
+    const tieneSobrepresupuesto = solicitud.detalles?.some((d) => {
+        if (!d.obra_rubro) return false;
+        const disponible = Number(d.obra_rubro.presupuestado) - Number(d.obra_rubro.acumulado);
+        return Number(d.subtotal) > disponible;
+    }) ?? false;
+
+    const handleAprobar = () => setModalTipo('aprobar');
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -115,7 +127,7 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
                                 <Button className="bg-green-600 hover:bg-green-700" onClick={handleAprobar}>
                                     Aprobar
                                 </Button>
-                                <Button variant="destructive" onClick={() => setShowRechazo(true)}>
+                                <Button variant="destructive" onClick={() => setModalTipo('rechazar')}>
                                     Rechazar
                                 </Button>
                             </>
@@ -135,6 +147,13 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
                             </li>
                         ))}
                     </ul>
+                )}
+
+                {tieneSobrepresupuesto && (
+                    <div className="alert alert-warning mb-6">
+                        <AlertTriangleIcon className="size-5" />
+                        <span>Esta solicitud contiene rubros que exceden el presupuesto disponible. Revise los detalles antes de aprobar.</span>
+                    </div>
                 )}
 
                 {/* Tabs */}
@@ -171,7 +190,7 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
                                 </div>
                                 <div>
                                     <span className="text-sm text-base-content/60">Fecha Pago Solicitada</span>
-                                    <p className="font-medium">{solicitud.fecha_pago_solicitada ? new Date(solicitud.fecha_pago_solicitada).toLocaleDateString() : '-'}</p>
+                                    <p className="font-medium"><FormattedDate value={solicitud.fecha_pago_solicitada} /></p>
                                 </div>
                                 <div>
                                     <span className="text-sm text-base-content/60">Monto Total</span>
@@ -195,28 +214,64 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
                                     <table className="table table-sm">
                                         <thead>
                                             <tr>
+                                                <th>Obra</th>
                                                 <th>Rubro</th>
                                                 <th>Concepto</th>
                                                 <th className="text-right">Cantidad</th>
                                                 <th className="text-right">P. Unitario</th>
                                                 <th className="text-right">Subtotal</th>
+                                                <th className="text-right">Presupuesto</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {solicitud.detalles.map((d) => (
-                                                <tr key={d.id}>
-                                                    <td>{d.obra_rubro?.rubro?.codigo ?? '-'} - {d.obra_rubro?.rubro?.descripcion ?? ''}</td>
-                                                    <td>{d.concepto}</td>
-                                                    <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                                                    <td className="text-right">${Number(d.precio_unitario).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                                                    <td className="text-right">${Number(d.subtotal).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                                                </tr>
-                                            ))}
+                                            {solicitud.detalles.map((d) => {
+                                                const presupuestado = Number(d.obra_rubro?.presupuestado ?? 0);
+                                                const acumulado = Number(d.obra_rubro?.acumulado ?? 0);
+                                                const disponible = presupuestado - acumulado;
+                                                const subtotal = Number(d.subtotal);
+                                                const excede = subtotal > disponible;
+                                                const sobregiro = disponible <= 0;
+                                                const porcentajeUsado = presupuestado > 0 ? (acumulado / presupuestado) * 100 : 0;
+                                                const fmt = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+
+                                                return (
+                                                    <tr key={d.id} className={sobregiro ? 'bg-error/5' : excede ? 'bg-warning/5' : ''}>
+                                                        <td className="text-sm">{d.obra_rubro?.obra?.descripcion ?? '-'}</td>
+                                                        <td>{d.obra_rubro?.rubro?.codigo ?? '-'} - {d.obra_rubro?.rubro?.descripcion ?? ''}</td>
+                                                        <td>{d.concepto}</td>
+                                                        <td className="text-right">{fmt(Number(d.cantidad))}</td>
+                                                        <td className="text-right">${fmt(Number(d.precio_unitario))}</td>
+                                                        <td className="text-right">${fmt(subtotal)}</td>
+                                                        <td className="text-right min-w-48">
+                                                            {d.obra_rubro ? (
+                                                                <div className="space-y-1">
+                                                                    <div className="flex items-center justify-end gap-1">
+                                                                        {(sobregiro || excede) && <AlertTriangleIcon className={`size-3.5 ${sobregiro ? 'text-error' : 'text-warning'}`} />}
+                                                                        <span className={`text-xs font-semibold ${sobregiro ? 'text-error' : excede ? 'text-warning' : 'text-success'}`}>
+                                                                            {sobregiro ? `SOBREGIRO: -$${fmt(Math.abs(disponible))}` : `Disp: $${fmt(disponible)}`}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="w-full bg-base-300 rounded-full h-1.5">
+                                                                        <div
+                                                                            className={`h-1.5 rounded-full ${sobregiro ? 'bg-error' : porcentajeUsado > 80 ? 'bg-warning' : 'bg-success'}`}
+                                                                            style={{ width: `${Math.min(porcentajeUsado, 100)}%` }}
+                                                                        />
+                                                                    </div>
+                                                                    <span className="text-[10px] text-base-content/50 block text-right">
+                                                                        ${fmt(acumulado)} / ${fmt(presupuestado)}
+                                                                    </span>
+                                                                </div>
+                                                            ) : '-'}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                         <tfoot>
                                             <tr>
-                                                <td colSpan={4} className="text-right font-bold">Total</td>
+                                                <td colSpan={5} className="text-right font-bold">Total</td>
                                                 <td className="text-right font-bold">${Number(solicitud.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                                <td />
                                             </tr>
                                         </tfoot>
                                     </table>
@@ -274,7 +329,7 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
                                                         </span>
                                                         {esTurnoActual && <span className="ml-2 text-xs text-warning">Turno actual</span>}
                                                     </td>
-                                                    <td>{a.fecha_respuesta ? new Date(a.fecha_respuesta).toLocaleDateString() : '-'}</td>
+                                                    <td><FormattedDate value={a.fecha_respuesta} /></td>
                                                     <td>{a.observaciones ?? '-'}</td>
                                                 </tr>
                                             );
@@ -289,8 +344,8 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
                 </div>
             </div>
 
-            {showRechazo && (
-                <RechazoModal aprobacionId={aprobacion.id} onClose={() => setShowRechazo(false)} />
+            {modalTipo && (
+                <ObservacionesModal aprobacionId={aprobacion.id} tipo={modalTipo} onClose={() => setModalTipo(null)} />
             )}
         </AppLayout>
     );

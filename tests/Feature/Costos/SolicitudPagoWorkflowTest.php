@@ -2,7 +2,6 @@
 
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
-use App\Models\Costos\Pago;
 use App\Models\Costos\Permiso;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
@@ -123,21 +122,25 @@ describe('admin costos solicitud pago workflow', function () {
         expect((float) $obraRubro->acumulado)->toBe(0.00);
     });
 
-    test('crear pago creates pago record and redirects', function () {
-        $solicitud = SolicitudPago::factory()->aprobada()->create();
+    test('confirmar costos creates pago for contado solicitud', function () {
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.solicitudes.confirmar-costos']);
+        $this->user->givePermissionTo('costos.solicitudes.confirmar-costos');
+
+        $solicitud = SolicitudPago::factory()->aprobada()->create([
+            'tipo_pago' => 'transferencia',
+            'fecha_pago_solicitada' => now()->addDays(5)->toDateString(),
+        ]);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.costos.solicitudes-pago.crear-pago', $solicitud), [
-                'tipo_pago' => 'contado',
-                'fecha_pago_programada' => now()->addDays(5)->toDateString(),
-            ]);
+            ->post(route('admin.costos.solicitudes-pago.confirmar-costos', $solicitud));
 
         $response->assertRedirect();
 
         $solicitud->refresh();
+        expect($solicitud->confirmada_costos)->toBeTrue();
         expect($solicitud->pago)->not->toBeNull();
         expect($solicitud->pago->tipo_pago)->toBe('contado');
-        expect($solicitud->pago->monto_pago)->toBe($solicitud->monto_total);
+        expect($solicitud->pago->estatus)->toBe('programado');
     });
 
     test('cannot upload firmado on non-pendiente solicitud', function () {
@@ -150,34 +153,5 @@ describe('admin costos solicitud pago workflow', function () {
             ]);
 
         $response->assertSessionHasErrors(['estatus']);
-    });
-
-    test('cannot crear pago on non-aprobada solicitud', function () {
-        $solicitud = SolicitudPago::factory()->pendienteFirma()->create();
-
-        $response = $this->actingAs($this->user)
-            ->post(route('admin.costos.solicitudes-pago.crear-pago', $solicitud), [
-                'tipo_pago' => 'contado',
-                'fecha_pago_programada' => now()->addDays(5)->toDateString(),
-            ]);
-
-        $response->assertSessionHasErrors(['estatus']);
-    });
-
-    test('crear pago redirects to existing pago if already exists', function () {
-        $solicitud = SolicitudPago::factory()->aprobada()->create();
-        $pago = Pago::factory()->contado()->create([
-            'pagable_type' => SolicitudPago::class,
-            'pagable_id' => $solicitud->id,
-            'monto_pago' => $solicitud->monto_total,
-        ]);
-
-        $response = $this->actingAs($this->user)
-            ->post(route('admin.costos.solicitudes-pago.crear-pago', $solicitud), [
-                'tipo_pago' => 'contado',
-                'fecha_pago_programada' => now()->addDays(5)->toDateString(),
-            ]);
-
-        $response->assertRedirect(route('admin.costos.pagos.show', $pago));
     });
 });

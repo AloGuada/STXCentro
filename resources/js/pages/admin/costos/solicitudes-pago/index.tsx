@@ -1,10 +1,10 @@
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosSolicitudPago, CostosSolicitudPagoEstatus, PaginatedData } from '@/types/models';
-import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS } from '@/types/models';
+import type { CostosSolicitudPago, PaginatedData } from '@/types/models';
+import { SOLICITUD_PAGO_ESTATUS_LABELS } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
-import { FileDown } from 'lucide-react';
+import { EyeIcon, FileDown, FileCheckIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -12,52 +12,120 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Solicitudes Pago', href: '/admin/costos/solicitudes-pago' },
 ];
 
+const ESTATUS_BADGE: Record<string, string> = {
+    borrador: 'bg-base-200 text-base-content',
+    pendiente_firma: 'bg-amber-100 text-amber-800',
+    aprobada: 'bg-emerald-100 text-emerald-800',
+    pagada: 'bg-sky-100 text-sky-800',
+    cancelada: 'bg-red-100 text-red-800',
+};
+
+const fmtDate = (date: string | null) =>
+    date ? new Date(date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+
 const columns: Column<CostosSolicitudPago>[] = [
-    { key: 'folio', label: 'Folio' },
     {
-        key: 'departamento',
-        label: 'Departamento',
-        render: (row) => row.departamento?.descripcion ?? '-',
+        key: 'folio',
+        label: 'Folio',
+        render: (row) => (
+            <div>
+                <span className="font-mono text-xs font-medium">{row.folio}</span>
+                <div className="mt-0.5 text-[11px] text-base-content/50">{fmtDate(row.created_at)}</div>
+            </div>
+        ),
+    },
+    {
+        key: 'solicitante',
+        label: 'Solicitante',
+        render: (row) => (
+            <div>
+                <div className="text-sm">{row.solicitante?.name ?? '-'}</div>
+                <div className="mt-0.5 text-[11px] text-base-content/50">{row.departamento?.descripcion ?? ''}</div>
+            </div>
+        ),
     },
     {
         key: 'proveedor',
         label: 'Proveedor',
-        render: (row) => row.proveedor?.razon_social ?? '-',
+        render: (row) =>
+            row.proveedor ? (
+                <div>
+                    <div className="text-sm">{row.proveedor.razon_social}</div>
+                    <div className="mt-0.5 text-[11px] text-base-content/50">RFC: {row.proveedor.rfc}</div>
+                </div>
+            ) : (
+                <span className="text-base-content/40">-</span>
+            ),
     },
-    { key: 'concepto', label: 'Concepto' },
+    {
+        key: 'concepto',
+        label: 'Concepto',
+        render: (row) => <span className="text-xs text-base-content/60">{row.concepto}</span>,
+    },
     {
         key: 'monto_total',
         label: 'Total',
-        render: (row) => `$${Number(row.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+        render: (row) => (
+            <span className="font-medium">${Number(row.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+        ),
     },
     {
         key: 'estatus',
         label: 'Estatus',
         render: (row) => (
-            <span className={`badge ${SOLICITUD_PAGO_ESTATUS_COLORS[row.estatus]}`}>
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${ESTATUS_BADGE[row.estatus] ?? ''}`}>
                 {SOLICITUD_PAGO_ESTATUS_LABELS[row.estatus]}
             </span>
         ),
     },
     {
-        key: 'created_at',
-        label: 'Fecha',
-        render: (row) => new Date(row.created_at).toLocaleDateString(),
+        key: 'fecha_pago_solicitada',
+        label: 'Fecha Pago',
+        render: (row) => <span className="text-xs text-base-content/60">{fmtDate(row.fecha_pago_solicitada)}</span>,
+    },
+    {
+        key: 'pdf',
+        label: 'PDF',
+        render: (row) => (
+            <div className="flex gap-1.5">
+                {row.estatus !== 'borrador' && (
+                    <a
+                        href={`/admin/costos/solicitudes-pago/${row.id}/pdf`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60 transition-colors hover:bg-base-200"
+                        title="Descargar PDF generado"
+                    >
+                        <FileDown className="size-3.5" />
+                    </a>
+                )}
+                {row.media && (
+                    <a
+                        href={`/storage/${row.media.path}`}
+                        onClick={(e) => e.stopPropagation()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex size-7 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100"
+                        title="Ver PDF firmado"
+                    >
+                        <FileCheckIcon className="size-3.5" />
+                    </a>
+                )}
+            </div>
+        ),
     },
     {
         key: 'acciones',
         label: '',
-        render: (row) =>
-            row.estatus !== 'borrador' ? (
-                <a
-                    href={`/admin/costos/solicitudes-pago/${row.id}/pdf`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="btn btn-ghost btn-xs"
-                    title="Descargar PDF"
-                >
-                    <FileDown className="size-4" />
-                </a>
-            ) : null,
+        render: (row) => (
+            <a
+                href={row.estatus === 'borrador' ? `/admin/costos/solicitudes-pago/${row.id}/edit` : `/admin/costos/solicitudes-pago/${row.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60 transition-colors hover:bg-base-200"
+                title="Ver detalle"
+            >
+                <EyeIcon className="size-3.5" />
+            </a>
+        ),
     },
 ];
 

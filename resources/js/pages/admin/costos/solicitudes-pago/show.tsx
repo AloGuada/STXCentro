@@ -1,12 +1,13 @@
 import { DocumentoUpload } from '@/components/costos/documento-upload';
 import { Button } from '@/components/ui/button';
+import { FormattedDate } from '@/components/ui/formatted-date';
+import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useRef, useState } from 'react';
-import { Loader2Icon } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { CheckCircleIcon } from 'lucide-react';
 
 type Props = {
     solicitud: CostosSolicitudPago;
@@ -27,6 +28,8 @@ function getStepIndex(estatus: CostosSolicitudPagoEstatus): number {
 }
 
 export default function SolicitudesPagoShow({ solicitud }: Props) {
+    const { can } = useCan();
+
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/solicitudes-pago' },
@@ -35,28 +38,6 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
     ];
 
     const currentStep = getStepIndex(solicitud.estatus);
-    const firmadoInputRef = useRef<HTMLInputElement>(null);
-    const [uploading, setUploading] = useState(false);
-
-    const handleUploadFirmado = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) {
-            return;
-        }
-        setUploading(true);
-        router.post(`/admin/costos/solicitudes-pago/${solicitud.id}/upload-firmado`, { archivo: file }, {
-            forceFormData: true,
-            preserveScroll: true,
-            onFinish: () => setUploading(false),
-        });
-    };
-
-    const [showCrearPago, setShowCrearPago] = useState(false);
-    const crearPagoForm = useForm({
-        tipo_pago: 'contado',
-        fecha_pago_programada: '',
-        fecha_pago_maxima: '',
-    });
 
     const handleCancelar = () => {
         if (confirm('¿Estás seguro de cancelar esta solicitud?')) {
@@ -64,10 +45,20 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
         }
     };
 
-    const handleCrearPago = (e: React.FormEvent) => {
-        e.preventDefault();
-        crearPagoForm.post(`/admin/costos/solicitudes-pago/${solicitud.id}/crear-pago`);
+    const handleConfirmarCostos = () => {
+        if (confirm('¿Confirmar esta solicitud por costos?')) {
+            router.post(`/admin/costos/solicitudes-pago/${solicitud.id}/confirmar-costos`);
+        }
     };
+
+    const handleConfirmarContabilidad = () => {
+        if (confirm('¿Confirmar esta solicitud por contabilidad?')) {
+            router.post(`/admin/costos/solicitudes-pago/${solicitud.id}/confirmar-contabilidad`);
+        }
+    };
+
+    const showConfirmarCostos = solicitud.estatus === 'aprobada' && !solicitud.confirmada_costos && can('costos.solicitudes.confirmar-costos');
+    const showConfirmarContabilidad = solicitud.estatus === 'aprobada' && solicitud.confirmada_costos && !solicitud.confirmada_contabilidad && solicitud.tipo_pago === 'credito' && can('costos.facturas.aceptar-contabilidad');
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -88,30 +79,22 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                             </Button>
                         )}
                         {solicitud.estatus === 'pendiente_firma' && (
-                            <>
-                                <Button variant="outline" asChild>
-                                    <a href={`/admin/costos/solicitudes-pago/${solicitud.id}/pdf`}>Descargar Formato</a>
-                                </Button>
-                                <div>
-                                    <input
-                                        ref={firmadoInputRef}
-                                        type="file"
-                                        accept=".pdf"
-                                        onChange={handleUploadFirmado}
-                                        className="hidden"
-                                    />
-                                    <Button onClick={() => firmadoInputRef.current?.click()} disabled={uploading}>
-                                        {uploading && <Loader2Icon className="size-4 animate-spin" />}
-                                        Subir Formato Firmado
-                                    </Button>
-                                </div>
-                            </>
+                            <Button variant="outline" asChild>
+                                <a href={`/admin/costos/solicitudes-pago/${solicitud.id}/pdf`}>Descargar Formato</a>
+                            </Button>
                         )}
-                        {solicitud.estatus === 'aprobada' && !solicitud.pago && (
-                            <>
-                                <Button onClick={() => setShowCrearPago(true)}>Crear Pago</Button>
-                                <Button variant="destructive" onClick={handleCancelar}>Cancelar</Button>
-                            </>
+                        {showConfirmarCostos && (
+                            <Button className="bg-green-600 hover:bg-green-700" onClick={handleConfirmarCostos}>
+                                Confirmar Costos
+                            </Button>
+                        )}
+                        {showConfirmarContabilidad && (
+                            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleConfirmarContabilidad}>
+                                Confirmar Contabilidad
+                            </Button>
+                        )}
+                        {solicitud.estatus === 'aprobada' && !solicitud.pago && can('costos.solicitudes.confirmar-costos') && (
+                            <Button variant="destructive" onClick={handleCancelar}>Cancelar</Button>
                         )}
                         {solicitud.pago && (
                             <Button asChild>
@@ -135,6 +118,42 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                             </li>
                         ))}
                     </ul>
+                )}
+
+                {/* Confirmaciones */}
+                {solicitud.estatus === 'aprobada' && (
+                    <div className="mb-6 flex gap-4">
+                        <div className={`flex-1 rounded-lg border p-3 ${solicitud.confirmada_costos ? 'border-green-300 bg-green-50' : 'border-base-300 bg-base-200'}`}>
+                            <div className="flex items-center gap-2">
+                                {solicitud.confirmada_costos && <CheckCircleIcon className="size-4 text-green-600" />}
+                                <span className="text-sm font-medium">Costos</span>
+                            </div>
+                            {solicitud.confirmada_costos ? (
+                                <div className="mt-1 text-xs text-base-content/60">
+                                    {solicitud.confirmador_costos?.name} - <FormattedDate value={solicitud.confirmada_costos_at} />
+                                </div>
+                            ) : (
+                                <div className="mt-1 text-xs text-base-content/50">Pendiente</div>
+                            )}
+                        </div>
+                        {solicitud.tipo_pago === 'credito' && (
+                            <div className={`flex-1 rounded-lg border p-3 ${solicitud.confirmada_contabilidad ? 'border-green-300 bg-green-50' : 'border-base-300 bg-base-200'}`}>
+                                <div className="flex items-center gap-2">
+                                    {solicitud.confirmada_contabilidad && <CheckCircleIcon className="size-4 text-green-600" />}
+                                    <span className="text-sm font-medium">Contabilidad</span>
+                                </div>
+                                {solicitud.confirmada_contabilidad ? (
+                                    <div className="mt-1 text-xs text-base-content/60">
+                                        {solicitud.confirmador_contabilidad?.name} - <FormattedDate value={solicitud.confirmada_contabilidad_at} />
+                                    </div>
+                                ) : (
+                                    <div className="mt-1 text-xs text-base-content/50">
+                                        {solicitud.confirmada_costos ? 'Pendiente' : 'Esperando confirmación de costos'}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 {/* Tabs */}
@@ -171,7 +190,7 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                                 </div>
                                 <div>
                                     <span className="text-sm text-base-content/60">Fecha Pago Solicitada</span>
-                                    <p className="font-medium">{solicitud.fecha_pago_solicitada ? new Date(solicitud.fecha_pago_solicitada).toLocaleDateString() : '-'}</p>
+                                    <p className="font-medium"><FormattedDate value={solicitud.fecha_pago_solicitada} /></p>
                                 </div>
                                 <div>
                                     <span className="text-sm text-base-content/60">Monto Total</span>
@@ -236,7 +255,7 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                                         archivos={solicitud.archivos ?? []}
                                         storeUrl={`/admin/costos/solicitudes-pago/${solicitud.id}/archivos`}
                                         destroyUrlPrefix={`/admin/costos/solicitudes-pago/${solicitud.id}/archivos`}
-                                        readOnly={solicitud.estatus === 'cancelada' || solicitud.estatus === 'pagada'}
+                                        readOnly
                                     />
                                 ))}
                             </div>
@@ -274,7 +293,7 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                                                         </span>
                                                         {esTurnoActual && <span className="ml-2 text-xs text-warning">Turno actual</span>}
                                                     </td>
-                                                    <td>{a.fecha_respuesta ? new Date(a.fecha_respuesta).toLocaleDateString() : '-'}</td>
+                                                    <td><FormattedDate value={a.fecha_respuesta} /></td>
                                                     <td>{a.observaciones ?? '-'}</td>
                                                 </tr>
                                             );
@@ -287,57 +306,6 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                         )}
                     </div>
                 </div>
-
-                {/* Modal Crear Pago */}
-                {showCrearPago && (
-                    <div className="modal modal-open">
-                        <div className="modal-box">
-                            <h3 className="text-lg font-bold">Crear Pago</h3>
-                            <form onSubmit={handleCrearPago} className="mt-4 space-y-4">
-                                <div className="form-control">
-                                    <label className="label"><span className="label-text">Tipo de Pago</span></label>
-                                    <select
-                                        className="select select-bordered"
-                                        value={crearPagoForm.data.tipo_pago}
-                                        onChange={(e) => crearPagoForm.setData('tipo_pago', e.target.value)}
-                                    >
-                                        <option value="contado">Contado</option>
-                                        <option value="credito">Crédito</option>
-                                    </select>
-                                </div>
-                                <div className="form-control">
-                                    <label className="label"><span className="label-text">Fecha Pago Programada</span></label>
-                                    <input
-                                        type="date"
-                                        className="input input-bordered"
-                                        value={crearPagoForm.data.fecha_pago_programada}
-                                        onChange={(e) => crearPagoForm.setData('fecha_pago_programada', e.target.value)}
-                                        required
-                                    />
-                                </div>
-                                {crearPagoForm.data.tipo_pago === 'credito' && (
-                                    <div className="form-control">
-                                        <label className="label"><span className="label-text">Fecha Pago Maxima</span></label>
-                                        <input
-                                            type="date"
-                                            className="input input-bordered"
-                                            value={crearPagoForm.data.fecha_pago_maxima}
-                                            onChange={(e) => crearPagoForm.setData('fecha_pago_maxima', e.target.value)}
-                                        />
-                                    </div>
-                                )}
-                                <div className="modal-action">
-                                    <button type="button" className="btn" onClick={() => setShowCrearPago(false)}>Cancelar</button>
-                                    <Button type="submit" disabled={crearPagoForm.processing}>
-                                        {crearPagoForm.processing && <Loader2Icon className="size-4 animate-spin" />}
-                                        Crear Pago
-                                    </Button>
-                                </div>
-                            </form>
-                        </div>
-                        <div className="modal-backdrop" onClick={() => setShowCrearPago(false)}></div>
-                    </div>
-                )}
             </div>
         </AppLayout>
     );

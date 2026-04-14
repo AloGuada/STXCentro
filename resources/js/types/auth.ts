@@ -18,6 +18,7 @@ export type BadgeInfo = {
 export type Auth = {
     user: User;
     permissions: string[];
+    roles?: string[];
     badges: Record<string, BadgeInfo>;
 };
 

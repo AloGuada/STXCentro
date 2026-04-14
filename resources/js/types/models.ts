@@ -4,6 +4,7 @@ export type Usuario = {
     name: string;
     email: string;
     email_verified_at: string | null;
+    firma_path: string | null;
     roles?: Role[];
     created_at: string;
     updated_at: string;
@@ -932,6 +933,12 @@ export type CostosSolicitudPago = {
     fecha_pago_realizada: string | null;
     referencia_pago: string | null;
     estatus: CostosSolicitudPagoEstatus;
+    confirmada_costos: boolean;
+    confirmada_costos_por: string | null;
+    confirmada_costos_at: string | null;
+    confirmada_contabilidad: boolean;
+    confirmada_contabilidad_por: string | null;
+    confirmada_contabilidad_at: string | null;
     solicitante?: Usuario;
     departamento?: Departamento;
     proveedor?: Proveedor;
@@ -940,6 +947,9 @@ export type CostosSolicitudPago = {
     archivos?: CostosSolicitudArchivo[];
     aprobaciones?: CostosAprobacionSolicitud[];
     pago?: CostosPago;
+    media?: Media;
+    confirmador_costos?: Usuario;
+    confirmador_contabilidad?: Usuario;
     created_at: string;
     updated_at: string;
 };
@@ -978,6 +988,8 @@ export type CostosAprobacionSolicitud = {
     estatus: string;
     fecha_respuesta: string | null;
     observaciones: string | null;
+    ip: string | null;
+    hostname: string | null;
     aprobador?: Usuario;
     solicitud?: CostosSolicitudPago;
     created_at: string;

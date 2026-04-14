@@ -8,7 +8,29 @@ import type { BreadcrumbItem } from '@/types';
 import type { CostosObraRubro, CostosSolicitudPago, CostosTipoSolicitud, Departamento, Obra, Proveedor } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { type FormEvent, useMemo } from 'react';
+import { type FormEvent, useCallback, useMemo } from 'react';
+
+function getMinViernes(): string {
+    const now = new Date();
+    const day = now.getDay();
+    const hour = now.getHours();
+
+    const viernes = new Date(now);
+    viernes.setDate(now.getDate() + (5 - day + 7) % 7);
+    viernes.setHours(0, 0, 0, 0);
+
+    const pasoCorteMiercoles = day > 3 || (day === 3 && hour >= 13);
+    if (day <= 5 && pasoCorteMiercoles) {
+        viernes.setDate(viernes.getDate() + 7);
+    }
+
+    return viernes.toISOString().split('T')[0];
+}
+
+function esViernes(dateStr: string): boolean {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.getDay() === 5;
+}
 
 type DetalleForm = {
     id?: number;
@@ -65,6 +87,14 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
             };
         }),
     });
+
+    const minViernes = useMemo(() => getMinViernes(), []);
+
+    const handleFechaChange = useCallback((value: string) => {
+        if (!value || esViernes(value)) {
+            setData('fecha_pago_solicitada', value);
+        }
+    }, [setData]);
 
     const selectedTipo = useMemo(
         () => tipoSolicitudes.find((t) => t.id === Number(data.tipo_solicitud_id)),
@@ -211,9 +241,11 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                                     <Input
                                         id="fecha_pago_solicitada"
                                         type="date"
+                                        min={minViernes}
                                         value={data.fecha_pago_solicitada}
-                                        onChange={(e) => setData('fecha_pago_solicitada', e.target.value)}
+                                        onChange={(e) => handleFechaChange(e.target.value)}
                                     />
+                                    <p className="mt-1 text-[11px] text-base-content/50">Solo viernes. Corte: miércoles 1:00 PM</p>
                                 </FormField>
                             </div>
                         </div>

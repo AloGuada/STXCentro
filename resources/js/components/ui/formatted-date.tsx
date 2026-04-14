@@ -12,7 +12,8 @@ const formatters: Record<string, Intl.DateTimeFormat> = {
 
 export function formatDate(value: string | null | undefined, format: 'short' | 'medium' | 'long' = 'short'): string | null {
     if (!value) return null;
-    const date = new Date(value + (value.length === 10 ? 'T12:00:00' : ''));
+    const dateOnly = value.substring(0, 10);
+    const date = new Date(dateOnly + 'T12:00:00');
     if (isNaN(date.getTime())) return null;
     return formatters[format].format(date);
 }

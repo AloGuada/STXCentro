@@ -2,7 +2,6 @@ import { Form, Head } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
@@ -10,6 +9,7 @@ import AuthLayout from '@/layouts/auth-layout';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
+import { useEffect, useRef } from 'react';
 
 type Props = {
     status?: string;
@@ -22,6 +22,15 @@ export default function Login({
     canResetPassword,
     canRegister,
 }: Props) {
+    const emailRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const saved = localStorage.getItem('last_login_email');
+        if (saved && emailRef.current) {
+            emailRef.current.value = saved;
+        }
+    }, []);
+
     return (
         <AuthLayout
             title="Log in to your account"
@@ -33,6 +42,11 @@ export default function Login({
                 {...store.form()}
                 resetOnSuccess={['password']}
                 className="flex flex-col gap-6"
+                onSubmit={() => {
+                    if (emailRef.current) {
+                        localStorage.setItem('last_login_email', emailRef.current.value);
+                    }
+                }}
             >
                 {({ processing, errors }) => (
                     <>
@@ -40,6 +54,7 @@ export default function Login({
                             <div className="grid gap-2">
                                 <Label htmlFor="email">Email address</Label>
                                 <Input
+                                    ref={emailRef}
                                     id="email"
                                     type="email"
                                     name="email"
@@ -77,14 +92,7 @@ export default function Login({
                                 <InputError message={errors.password} />
                             </div>
 
-                            <div className="flex items-center space-x-3">
-                                <Checkbox
-                                    id="remember"
-                                    name="remember"
-                                    tabIndex={3}
-                                />
-                                <Label htmlFor="remember">Remember me</Label>
-                            </div>
+                            <input type="hidden" name="remember" value="1" />
 
                             <Button
                                 type="submit"

@@ -40,6 +40,12 @@ class SolicitudPago extends Model
         'fecha_pago_realizada',
         'referencia_pago',
         'estatus',
+        'confirmada_costos',
+        'confirmada_costos_por',
+        'confirmada_costos_at',
+        'confirmada_contabilidad',
+        'confirmada_contabilidad_por',
+        'confirmada_contabilidad_at',
         'afectacion_id',
     ];
 
@@ -52,6 +58,10 @@ class SolicitudPago extends Model
             'monto_total' => 'decimal:2',
             'fecha_pago_solicitada' => 'date',
             'fecha_pago_realizada' => 'date',
+            'confirmada_costos' => 'boolean',
+            'confirmada_costos_at' => 'datetime',
+            'confirmada_contabilidad' => 'boolean',
+            'confirmada_contabilidad_at' => 'datetime',
         ];
     }
 
@@ -116,6 +126,16 @@ class SolicitudPago extends Model
     public function pago(): MorphOne
     {
         return $this->morphOne(Pago::class, 'pagable');
+    }
+
+    public function confirmadorCostos(): BelongsTo
+    {
+        return $this->belongsTo(Usuario::class, 'confirmada_costos_por');
+    }
+
+    public function confirmadorContabilidad(): BelongsTo
+    {
+        return $this->belongsTo(Usuario::class, 'confirmada_contabilidad_por');
     }
 
     public function rubrosAfectados(): MorphMany

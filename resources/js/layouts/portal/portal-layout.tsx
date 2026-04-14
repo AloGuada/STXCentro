@@ -31,7 +31,7 @@ function SidebarContent() {
         <div className="flex h-full flex-col">
             <div className="p-4">
                 <Link href="/portal" className="flex items-center gap-2">
-                    <AppLogoIcon className="size-8 fill-current text-[var(--foreground)] dark:text-white" />
+                    <AppLogoIcon className="h-8 text-[var(--foreground)] dark:text-white" />
                     <span className="text-lg font-semibold">Portal</span>
                 </Link>
             </div>

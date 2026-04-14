@@ -71,6 +71,13 @@ class HandleInertiaRequests extends Middleware
                                 ->values()
                                 ->toArray()
                             : [],
+                        'roles' => $request->user()
+                            ? DB::table('model_has_roles')
+                                ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+                                ->where('model_has_roles.model_uuid', $request->user()->getKey())
+                                ->pluck('roles.name')
+                                ->toArray()
+                            : [],
                         'badges' => $request->user()
                             ? $this->computeBadges($request)
                             : [],

@@ -1,21 +1,29 @@
 import { Head, useForm } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import DriveAuthLayout from '@/layouts/drive/drive-auth-layout';
+import { useEffect } from 'react';
 
 export default function DriveLogin() {
     const { data, setData, post, processing, errors } = useForm({
         email: '',
         password: '',
-        remember: false,
+        remember: true,
     });
+
+    useEffect(() => {
+        const saved = localStorage.getItem('last_drive_email');
+        if (saved) {
+            setData('email', saved);
+        }
+    }, []);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+        localStorage.setItem('last_drive_email', data.email);
         post('/drive/login');
     }
 
@@ -57,16 +65,6 @@ export default function DriveLogin() {
                             placeholder="Contraseña"
                         />
                         <InputError message={errors.password} />
-                    </div>
-
-                    <div className="flex items-center space-x-3">
-                        <Checkbox
-                            id="remember"
-                            name="remember"
-                            checked={data.remember}
-                            onCheckedChange={(checked) => setData('remember', !!checked)}
-                        />
-                        <Label htmlFor="remember">Recordarme</Label>
                     </div>
 
                     <Button
