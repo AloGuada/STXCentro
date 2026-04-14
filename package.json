@@ -33,11 +33,14 @@
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
         "@vitejs/plugin-react": "^5.0.0",
+        "chart.js": "^4.5.1",
         "clsx": "^2.1.1",
         "concurrently": "^9.0.1",
+        "docx-preview": "^0.3.7",
         "globals": "^15.14.0",
         "laravel-vite-plugin": "^2.0",
         "lucide-react": "^0.475.0",
+        "pptxviewjs": "^1.1.9",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
         "react-pdf": "^10.3.0",
@@ -46,7 +49,8 @@
         "tailwind-merge": "^3.0.1",
         "tailwindcss": "^4.1.18",
         "typescript": "^5.7.2",
-        "vite": "^7.0.4"
+        "vite": "^7.0.4",
+        "xlsx": "^0.18.5"
     },
     "optionalDependencies": {
         "@rollup/rollup-linux-x64-gnu": "4.9.5",

@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             RolesAndPermissionsSeeder::class,
             StiStatusSeeder::class,
             ProdTipoSeeder::class,
+            DgCarpetasSeeder::class,
         ]);
 
         // Crear usuario de prueba con rol super-admin

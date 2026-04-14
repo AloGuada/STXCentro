@@ -33,6 +33,11 @@ use App\Http\Controllers\Admin\Costos\SolicitudPagoController as CostosSolicitud
 use App\Http\Controllers\Admin\Costos\TipoRubroController as CostosTipoRubroController;
 use App\Http\Controllers\Admin\Costos\TipoSolicitudController as CostosTipoSolicitudController;
 use App\Http\Controllers\Admin\DepartamentoController;
+use App\Http\Controllers\Admin\Dg\CarpetaAccesoController as DgCarpetaAccesoController;
+use App\Http\Controllers\Admin\Dg\CarpetaController as DgCarpetaController;
+use App\Http\Controllers\Admin\Dg\DashboardController as DgDashboardController;
+use App\Http\Controllers\Admin\Dg\MisReportesController as DgMisReportesController;
+use App\Http\Controllers\Admin\Dg\ReporteController as DgReporteController;
 use App\Http\Controllers\Admin\Drive\DriveCarpetaController;
 use App\Http\Controllers\Admin\Drive\DriveDashboardController as DriveAdminDashboardController;
 use App\Http\Controllers\Admin\Drive\DriveExternoController;
@@ -396,6 +401,28 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('archivos/{archivo}', [DriveCarpetaController::class, 'destroyArchivo'])->name('archivos.destroy');
         Route::post('archivos/{archivo}/generar-link', [DriveCarpetaController::class, 'generarLink'])->name('archivos.generar-link');
         Route::delete('archivos/{archivo}/revocar-link', [DriveCarpetaController::class, 'revocarLink'])->name('archivos.revocar-link');
+    });
+
+    // DG Reportes
+    Route::prefix('dg')->name('dg.')->group(function () {
+        Route::get('/', [DgDashboardController::class, 'index'])->name('dashboard');
+        Route::get('mis-reportes', [DgMisReportesController::class, 'index'])->name('mis-reportes');
+        Route::post('carpetas', [DgCarpetaController::class, 'store'])->name('carpetas.store');
+        Route::get('carpetas/{carpeta}', [DgCarpetaController::class, 'show'])->name('carpetas.show');
+        Route::patch('carpetas/{carpeta}', [DgCarpetaController::class, 'update'])->name('carpetas.update');
+        Route::delete('carpetas/{carpeta}', [DgCarpetaController::class, 'destroy'])->name('carpetas.destroy');
+        Route::get('carpetas/{carpeta}/accesos', [DgCarpetaAccesoController::class, 'index'])->name('carpetas.accesos');
+        Route::post('carpetas/{carpeta}/accesos', [DgCarpetaAccesoController::class, 'store'])->name('carpetas.accesos.store');
+        Route::patch('carpetas/{carpeta}/accesos/{usuario}', [DgCarpetaAccesoController::class, 'update'])->name('carpetas.accesos.update');
+        Route::delete('carpetas/{carpeta}/accesos/{usuario}', [DgCarpetaAccesoController::class, 'destroy'])->name('carpetas.accesos.destroy');
+        Route::post('reportes', [DgReporteController::class, 'store'])->name('reportes.store');
+        Route::patch('reportes/{reporte}', [DgReporteController::class, 'update'])->name('reportes.update');
+        Route::delete('reportes/{reporte}', [DgReporteController::class, 'destroy'])->name('reportes.destroy');
+        Route::post('reportes/{reporte}/archivos', [DgReporteController::class, 'uploadArchivo'])->name('reportes.archivos.store');
+        Route::get('archivos/{archivo}/descargar', [DgReporteController::class, 'downloadArchivo'])->name('archivos.descargar');
+        Route::get('archivos/{archivo}/stream', [DgReporteController::class, 'streamArchivo'])->name('archivos.stream');
+        Route::patch('archivos/{archivo}/notas', [DgReporteController::class, 'updateNotas'])->name('archivos.notas.update');
+        Route::delete('archivos/{archivo}', [DgReporteController::class, 'destroyArchivo'])->name('archivos.destroy');
     });
 
     // Documentacion

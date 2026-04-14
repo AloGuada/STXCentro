@@ -24,6 +24,9 @@ export default defineConfig({
     esbuild: {
         jsx: 'automatic',
     },
+    optimizeDeps: {
+        include: ['chart.js/auto', 'pptxviewjs'],
+    },
     build: {
         rollupOptions: {
             output: {

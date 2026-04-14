@@ -4,6 +4,7 @@ import {
     BookOpen,
     Briefcase,
     Building,
+    Building2,
     Calculator,
     CalendarCheck,
     CalendarRange,
@@ -22,6 +23,7 @@ import {
     Image,
     Layers,
     LayoutGrid,
+    KeyRound,
     LogOut,
     MenuIcon,
     Monitor,
@@ -45,6 +47,7 @@ import {
 import { type ReactNode, useState } from 'react';
 import AppLogo from '@/components/app-logo';
 import { Breadcrumbs } from '@/components/breadcrumbs';
+import CambiarPasswordModal from '@/components/cambiar-password-modal';
 import { UserInfo } from '@/components/user-info';
 import { useCan } from '@/hooks/use-can';
 import { useCurrentUrl } from '@/hooks/use-current-url';
@@ -174,6 +177,14 @@ const navGroups: NavGroup[] = [
             { title: 'Dashboard', href: '/admin/drive', icon: LayoutGrid, permission: 'drive.gestionar' },
             { title: 'Carpetas', href: '/admin/drive/carpetas', icon: FolderTree, permission: 'drive.gestionar' },
             { title: 'Usuarios Externos', href: '/admin/drive/externos', icon: Users, permission: 'drive.gestionar' },
+        ],
+    },
+    {
+        title: 'Dirección General',
+        icon: Building2,
+        items: [
+            { title: 'Reportes semanales', href: '/admin/dg', icon: LayoutGrid, permission: 'dg.reportes.ver' },
+            { title: 'Mis reportes', href: '/admin/dg/mis-reportes', icon: FileText, permission: 'dg.reportes.subir' },
         ],
     },
 ];
@@ -321,6 +332,7 @@ function SidebarContent() {
         ?? null;
 
     const [openGroup, setOpenGroup] = useState<string | null>(initialGroup);
+    const [showCambiarPassword, setShowCambiarPassword] = useState(false);
 
     return (
         <div className="flex h-full flex-col">
@@ -388,6 +400,12 @@ function SidebarContent() {
                     </div>
                     <ul tabIndex={0} className="dropdown-content menu bg-base-200 rounded-box z-50 w-full p-2 shadow-lg mb-2">
                         <li>
+                            <button type="button" onClick={() => setShowCambiarPassword(true)}>
+                                <KeyRound className="size-4" />
+                                Cambiar contraseña
+                            </button>
+                        </li>
+                        <li>
                             <Link href="/logout" method="post" as="button" className="text-error">
                                 <LogOut className="size-4" />
                                 Cerrar sesión
@@ -396,6 +414,10 @@ function SidebarContent() {
                     </ul>
                 </div>
             </div>
+
+            {showCambiarPassword && (
+                <CambiarPasswordModal onClose={() => setShowCambiarPassword(false)} />
+            )}
         </div>
     );
 }

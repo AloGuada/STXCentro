@@ -1848,6 +1848,52 @@ export type DriveArchivo = {
     updated_at: string;
 };
 
+// DG Reportes Types
+
+export type DgCarpeta = {
+    id: number;
+    nombre: string;
+    descripcion: string | null;
+    orden: number;
+    usuarios?: (Usuario & { pivot: { puede_escribir: boolean } })[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type DgReporte = {
+    id: number;
+    carpeta_id: number;
+    anio: number;
+    semana: number;
+    creado_por_id: string | null;
+    observaciones: string | null;
+    etiqueta_semana: string;
+    carpeta?: DgCarpeta;
+    creado_por?: Usuario;
+    archivos?: DgReporteArchivo[];
+    archivos_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type DgReporteArchivo = {
+    id: number;
+    reporte_id: number;
+    nombre_original: string;
+    path: string;
+    mime: string | null;
+    size: number | null;
+    subido_por_id: string | null;
+    subido_por?: Usuario;
+    reporte?: DgReporte;
+    notas: string | null;
+    notas_editado_por_id: string | null;
+    notas_actualizado_en: string | null;
+    notas_editado_por?: Usuario;
+    created_at: string;
+    updated_at: string;
+};
+
 // Badge Config Types
 
 export type BadgeConfig = {
