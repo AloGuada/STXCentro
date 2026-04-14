@@ -185,6 +185,7 @@ const mainNavItems: NavItem[] = [
 
 const footerNavItems: NavItem[] = [
     { title: 'Documentación Costos', href: '/admin/documentacion/costos', icon: BookOpen },
+    { title: 'Documentación RH', href: '/admin/documentacion/rh', icon: BookOpen },
 ];
 
 function SidebarBadge({ href }: { href: string }) {

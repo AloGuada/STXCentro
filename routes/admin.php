@@ -401,5 +401,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // Documentacion
     Route::prefix('documentacion')->name('documentacion.')->group(function () {
         Route::get('costos', fn () => Inertia\Inertia::render('admin/documentacion/costos'))->name('costos');
+        Route::get('rh', fn () => Inertia\Inertia::render('admin/documentacion/rh'))->name('rh');
     });
 });
