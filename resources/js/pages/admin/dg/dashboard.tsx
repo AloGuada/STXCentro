@@ -68,7 +68,7 @@ export default function DgDashboard({ carpetas, periodo }: Props) {
                                 href={`/admin/dg/carpetas/${carpeta.id}`}
                                 className={`card relative transition hover:shadow-lg border ${
                                     tieneNoLeidos
-                                        ? 'bg-blue-50 border-blue-500/70 hover:border-blue-500'
+                                        ? 'bg-blue-500/10 border-blue-500/70 hover:border-blue-500'
                                         : 'bg-base-100 border-base-300 hover:border-primary'
                                 }`}
                             >
