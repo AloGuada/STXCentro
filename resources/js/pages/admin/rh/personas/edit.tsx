@@ -8,7 +8,8 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { RhPersona } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { CameraIcon, FileIcon, FolderOpenIcon, Loader2Icon, PencilIcon, TrashIcon, UploadIcon, UserIcon } from 'lucide-react';
+import { checkPdfHasText, type PdfTextCheck } from '@/lib/check-pdf-text';
+import { CameraIcon, CheckCircle2Icon, FileIcon, FolderOpenIcon, Loader2Icon, PencilIcon, TrashIcon, UploadIcon, UserIcon, XCircleIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useRef, useState } from 'react';
 
@@ -63,6 +64,22 @@ export default function PersonaEdit({ persona }: Props) {
         nombre: '',
         telefono: '',
     });
+
+    const [cvCheck, setCvCheck] = useState<PdfTextCheck | null>(null);
+    const [cvChecking, setCvChecking] = useState(false);
+
+    const handleCvChange = async (file: File | null) => {
+        datosForm.setData('cv', file);
+        setCvCheck(null);
+        if (!file) return;
+        if (file.type !== 'application/pdf') return;
+        setCvChecking(true);
+        try {
+            setCvCheck(await checkPdfHasText(file));
+        } finally {
+            setCvChecking(false);
+        }
+    };
 
     const [docTipo, setDocTipo] = useState('');
     const [docFile, setDocFile] = useState<File | null>(null);
@@ -194,20 +211,44 @@ export default function PersonaEdit({ persona }: Props) {
                             </FormField>
 
                             <FormField label="CV" htmlFor="cv" error={datosForm.errors.cv}>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        id="cv"
-                                        type="file"
-                                        accept=".pdf,.doc,.docx"
-                                        onChange={(e) => datosForm.setData('cv', e.target.files?.[0] ?? null)}
-                                    />
-                                    {persona.media?.path && (
-                                        <Button variant="outline" size="sm" asChild className="shrink-0">
-                                            <a href={`/storage/${persona.media.path}`} target="_blank" rel="noopener noreferrer">
-                                                <FileIcon className="size-4" />
-                                                Ver CV
-                                            </a>
-                                        </Button>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            id="cv"
+                                            type="file"
+                                            accept=".pdf,.doc,.docx"
+                                            onChange={(e) => handleCvChange(e.target.files?.[0] ?? null)}
+                                        />
+                                        {persona.media?.path && (
+                                            <Button variant="outline" size="sm" asChild className="shrink-0">
+                                                <a href={`/storage/${persona.media.path}`} target="_blank" rel="noopener noreferrer">
+                                                    <FileIcon className="size-4" />
+                                                    Ver CV
+                                                </a>
+                                            </Button>
+                                        )}
+                                    </div>
+                                    {cvChecking && (
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <Loader2Icon className="size-4 animate-spin" />
+                                            Analizando PDF...
+                                        </div>
+                                    )}
+                                    {cvCheck && !cvChecking && (
+                                        <div
+                                            className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                                                cvCheck.status === 'ok'
+                                                    ? 'border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400'
+                                                    : 'border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400'
+                                            }`}
+                                        >
+                                            {cvCheck.status === 'ok' ? (
+                                                <CheckCircle2Icon className="size-4 shrink-0" />
+                                            ) : (
+                                                <XCircleIcon className="size-4 shrink-0" />
+                                            )}
+                                            <span>{cvCheck.message}</span>
+                                        </div>
                                     )}
                                 </div>
                             </FormField>
