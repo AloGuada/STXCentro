@@ -51,8 +51,11 @@ class ReporteController extends Controller
             return $reporte;
         });
 
-        return to_route('admin.dg.carpetas.show', $reporte->carpeta_id)
-            ->with('success', 'Reporte guardado correctamente.');
+        $destino = $request->user()->can('dg.reportes.ver')
+            ? to_route('admin.dg.carpetas.show', $reporte->carpeta_id)
+            : to_route('admin.dg.mis-reportes');
+
+        return $destino->with('success', 'Reporte guardado correctamente.');
     }
 
     public function update(ReporteUpdateRequest $request, Reporte $reporte): RedirectResponse
