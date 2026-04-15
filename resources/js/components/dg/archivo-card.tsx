@@ -60,14 +60,14 @@ export default function ArchivoCard({ archivo, onVer, puedeEliminar = false }: P
         <div
             className={`relative flex items-center gap-3 bg-base-100 rounded-lg px-3 py-2 transition border ${
                 noLeido
-                    ? 'border-warning ring-2 ring-warning/40 animate-pulse-soft'
+                    ? 'border-blue-500 ring-2 ring-blue-400/50'
                     : 'border-base-300 hover:border-primary'
             }`}
         >
             {noLeido && (
                 <span className="absolute -top-1 -left-1 flex size-3">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-warning opacity-75 animate-ping" />
-                    <span className="relative inline-flex size-3 rounded-full bg-warning" />
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75 animate-ping" />
+                    <span className="relative inline-flex size-3 rounded-full bg-blue-500" />
                 </span>
             )}
 
@@ -76,7 +76,7 @@ export default function ArchivoCard({ archivo, onVer, puedeEliminar = false }: P
                 <p className="font-medium truncate flex items-center gap-1.5" title={archivo.nombre_original}>
                     {archivo.nombre_original}
                     {noLeido && (
-                        <span className="badge badge-warning badge-xs font-semibold">Nuevo</span>
+                        <span className="badge badge-xs font-semibold bg-blue-500 text-white border-blue-500">Nuevo</span>
                     )}
                 </p>
                 <p className="text-xs text-base-content/60 mt-0.5 truncate">

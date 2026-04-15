@@ -68,14 +68,14 @@ export default function DgDashboard({ carpetas, periodo }: Props) {
                                 href={`/admin/dg/carpetas/${carpeta.id}`}
                                 className={`card relative transition hover:shadow-lg border ${
                                     tieneNoLeidos
-                                        ? 'bg-warning/5 border-warning/60 hover:border-warning'
+                                        ? 'bg-blue-50 border-blue-500/70 hover:border-blue-500'
                                         : 'bg-base-100 border-base-300 hover:border-primary'
                                 }`}
                             >
                                 {tieneNoLeidos && (
                                     <span className="absolute -top-2 -right-2 flex">
-                                        <span className="absolute inline-flex h-full w-full rounded-full bg-warning opacity-75 animate-ping" />
-                                        <span className="relative inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full bg-warning text-warning-content text-xs font-bold shadow">
+                                        <span className="absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75 animate-ping" />
+                                        <span className="relative inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full bg-blue-500 text-white text-xs font-bold shadow">
                                             <Bell className="size-3 mr-0.5" />
                                             {carpeta.no_leidos}
                                         </span>
@@ -83,7 +83,7 @@ export default function DgDashboard({ carpetas, periodo }: Props) {
                                 )}
                                 <div className="card-body p-5">
                                     <div className="flex items-start gap-3">
-                                        <div className={`p-2 rounded-lg ${tieneNoLeidos ? 'bg-warning/20 text-warning' : 'bg-primary/10 text-primary'}`}>
+                                        <div className={`p-2 rounded-lg ${tieneNoLeidos ? 'bg-blue-100 text-blue-600' : 'bg-primary/10 text-primary'}`}>
                                             <FolderOpen className="size-6" />
                                         </div>
                                         <div className="flex-1 min-w-0">
