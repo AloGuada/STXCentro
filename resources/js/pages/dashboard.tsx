@@ -18,7 +18,7 @@ export default function Dashboard() {
             <div className="flex h-full flex-1 items-center justify-center p-8">
                 <div className="flex flex-col items-center gap-4 opacity-80">
                     <AppLogoIcon className="h-32 max-w-full text-primary dark:text-white" />
-                    <p className="text-sm text-base-content/60">Sistema integrador empresarial</p>
+                    <p className="text-sm text-base-content/60">Sistema Integrador Empresarial</p>
                 </div>
             </div>
         </AppLayout>

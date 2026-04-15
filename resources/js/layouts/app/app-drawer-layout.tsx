@@ -185,6 +185,7 @@ const navGroups: NavGroup[] = [
         items: [
             { title: 'Reportes semanales', href: '/admin/dg', icon: LayoutGrid, permission: 'dg.reportes.ver' },
             { title: 'Mis reportes', href: '/admin/dg/mis-reportes', icon: FileText },
+            { title: 'Mi Libreta', href: '/admin/dg/notas', icon: PenTool, permission: 'dg.reportes.notas' },
         ],
     },
 ];

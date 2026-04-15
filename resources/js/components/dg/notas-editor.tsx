@@ -3,9 +3,18 @@ import { router } from '@inertiajs/react';
 import { Bold, Check, Highlighter, Italic, List, Loader2, Palette, Strikethrough, Type, Underline } from 'lucide-react';
 
 type Props = {
-    archivoId: number;
+    /** URL PATCH para guardar el contenido */
+    saveUrl: string;
+    /** Nombre del campo en el payload. Default 'notas'. */
+    payloadKey?: string;
     initialHtml: string | null;
     readOnly?: boolean;
+    /** Placeholder cuando está vacío */
+    placeholder?: string;
+    /** Clase extra para el contenedor del contenido editable */
+    contentClassName?: string;
+    /** Estilo inline para el contenedor editable (útil para backgrounds custom) */
+    contentStyle?: React.CSSProperties;
     onSaved?: (html: string) => void;
 };
 
@@ -42,7 +51,16 @@ function exec(cmd: string, value?: string) {
     document.execCommand(cmd, false, value);
 }
 
-export default function NotasEditor({ archivoId, initialHtml, readOnly = false, onSaved }: Props) {
+export default function NotasEditor({
+    saveUrl,
+    payloadKey = 'notas',
+    initialHtml,
+    readOnly = false,
+    placeholder,
+    contentClassName,
+    contentStyle,
+    onSaved,
+}: Props) {
     const editorRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const ultimoGuardado = useRef<string>(initialHtml ?? '');
@@ -50,13 +68,17 @@ export default function NotasEditor({ archivoId, initialHtml, readOnly = false, 
     const [showColors, setShowColors] = useState(false);
     const [showResaltadores, setShowResaltadores] = useState(false);
 
+    // Solo re-inicializa el contenido al cambiar de documento (saveUrl distinto).
+    // Si se vuelve a disparar al cambiar `initialHtml` después de un autosave, se pierde
+    // la posición del cursor — el editor mismo es la fuente de verdad mientras se edita.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (editorRef.current) {
             editorRef.current.innerHTML = initialHtml ?? '';
             ultimoGuardado.current = initialHtml ?? '';
             setEstado('guardado');
         }
-    }, [archivoId, initialHtml]);
+    }, [saveUrl]);
 
     const guardar = useCallback(() => {
         if (!editorRef.current) return;
@@ -67,8 +89,8 @@ export default function NotasEditor({ archivoId, initialHtml, readOnly = false, 
         }
         setEstado('guardando');
         router.patch(
-            `/admin/dg/archivos/${archivoId}/notas`,
-            { notas: html },
+            saveUrl,
+            { [payloadKey]: html },
             {
                 preserveScroll: true,
                 preserveState: true,
@@ -80,7 +102,7 @@ export default function NotasEditor({ archivoId, initialHtml, readOnly = false, 
                 onError: () => setEstado('escribiendo'),
             },
         );
-    }, [archivoId, onSaved]);
+    }, [saveUrl, payloadKey, onSaved]);
 
     const programarGuardado = useCallback(() => {
         setEstado('escribiendo');
@@ -90,7 +112,7 @@ export default function NotasEditor({ archivoId, initialHtml, readOnly = false, 
         }, AUTOSAVE_MS);
     }, [guardar]);
 
-    // Al desmontar o cambiar de archivo: guardar pendientes de inmediato
+    // Al desmontar o cambiar: guardar pendientes de inmediato
     useEffect(() => {
         if (readOnly) return;
 
@@ -102,7 +124,7 @@ export default function NotasEditor({ archivoId, initialHtml, readOnly = false, 
                 if (editorRef.current && editorRef.current.innerHTML !== ultimoGuardado.current) {
                     const html = editorRef.current.innerHTML;
                     const token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
-                    fetch(`/admin/dg/archivos/${archivoId}/notas`, {
+                    fetch(saveUrl, {
                         method: 'PATCH',
                         credentials: 'same-origin',
                         headers: {
@@ -111,12 +133,12 @@ export default function NotasEditor({ archivoId, initialHtml, readOnly = false, 
                             'X-Requested-With': 'XMLHttpRequest',
                             Accept: 'application/json',
                         },
-                        body: JSON.stringify({ notas: html }),
+                        body: JSON.stringify({ [payloadKey]: html }),
                     }).catch(() => {});
                 }
             }
         };
-    }, [archivoId, readOnly]);
+    }, [saveUrl, payloadKey, readOnly]);
 
     if (readOnly) {
         return (
@@ -242,6 +264,7 @@ export default function NotasEditor({ archivoId, initialHtml, readOnly = false, 
                 ref={editorRef}
                 contentEditable
                 suppressContentEditableWarning
+                data-placeholder={placeholder}
                 onInput={programarGuardado}
                 onBlur={() => {
                     if (debounceRef.current) {
@@ -250,8 +273,8 @@ export default function NotasEditor({ archivoId, initialHtml, readOnly = false, 
                     }
                     guardar();
                 }}
-                className="flex-1 overflow-auto p-4 text-base leading-relaxed bg-white text-slate-900 focus:outline-none [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_s]:line-through [&_strike]:line-through [&_u]:underline [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic"
-                style={{ minHeight: '200px' }}
+                className={`flex-1 overflow-auto p-4 text-base leading-relaxed bg-white text-slate-900 focus:outline-none [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_s]:line-through [&_strike]:line-through [&_u]:underline [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic empty:before:content-[attr(data-placeholder)] empty:before:text-base-content/40 empty:before:pointer-events-none ${contentClassName ?? ''}`}
+                style={{ minHeight: '200px', ...contentStyle }}
             />
         </div>
     );

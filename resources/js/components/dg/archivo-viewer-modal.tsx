@@ -355,7 +355,8 @@ export default function ArchivoViewerModal({ archivo, onClose, puedeEditarNotas 
                             </div>
                             <div className="flex-1 overflow-hidden">
                                 <NotasEditor
-                                    archivoId={archivo.id}
+                                    saveUrl={`/admin/dg/archivos/${archivo.id}/notas`}
+                                    payloadKey="notas"
                                     initialHtml={archivo.notas}
                                     readOnly={!puedeEditarNotas}
                                 />

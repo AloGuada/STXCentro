@@ -37,6 +37,7 @@ use App\Http\Controllers\Admin\Dg\CarpetaAccesoController as DgCarpetaAccesoCont
 use App\Http\Controllers\Admin\Dg\CarpetaController as DgCarpetaController;
 use App\Http\Controllers\Admin\Dg\DashboardController as DgDashboardController;
 use App\Http\Controllers\Admin\Dg\MisReportesController as DgMisReportesController;
+use App\Http\Controllers\Admin\Dg\NotaController as DgNotaController;
 use App\Http\Controllers\Admin\Dg\ReporteController as DgReporteController;
 use App\Http\Controllers\Admin\Drive\DriveCarpetaController;
 use App\Http\Controllers\Admin\Drive\DriveDashboardController as DriveAdminDashboardController;
@@ -407,6 +408,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::prefix('dg')->name('dg.')->group(function () {
         Route::get('/', [DgDashboardController::class, 'index'])->name('dashboard');
         Route::get('mis-reportes', [DgMisReportesController::class, 'index'])->name('mis-reportes');
+        Route::get('notas', [DgNotaController::class, 'index'])->name('notas.index');
+        Route::post('notas', [DgNotaController::class, 'store'])->name('notas.store');
+        Route::get('notas/{nota}', [DgNotaController::class, 'show'])->name('notas.show');
+        Route::patch('notas/{nota}', [DgNotaController::class, 'update'])->name('notas.update');
+        Route::delete('notas/{nota}', [DgNotaController::class, 'destroy'])->name('notas.destroy');
         Route::post('carpetas', [DgCarpetaController::class, 'store'])->name('carpetas.store');
         Route::get('carpetas/{carpeta}', [DgCarpetaController::class, 'show'])->name('carpetas.show');
         Route::patch('carpetas/{carpeta}', [DgCarpetaController::class, 'update'])->name('carpetas.update');

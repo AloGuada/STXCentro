@@ -1848,6 +1848,17 @@ export type DriveArchivo = {
     updated_at: string;
 };
 
+// DG Notas (bloc de notas del Director General)
+
+export type DgNota = {
+    id: number;
+    usuario_id: string;
+    titulo: string;
+    contenido: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
 // DG Reportes Types
 
 export type DgCarpeta = {
