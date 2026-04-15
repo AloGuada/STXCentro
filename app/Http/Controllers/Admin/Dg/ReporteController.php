@@ -97,6 +97,8 @@ class ReporteController extends Controller
     {
         $this->authorize('view', $archivo->reporte);
 
+        $this->marcarVistoPorDg($archivo);
+
         return Storage::disk('local')->download($archivo->path, $archivo->nombre_original);
     }
 
@@ -104,9 +106,23 @@ class ReporteController extends Controller
     {
         $this->authorize('view', $archivo->reporte);
 
+        $this->marcarVistoPorDg($archivo);
+
         return Storage::disk('local')->response($archivo->path, $archivo->nombre_original, [
             'Content-Type' => $archivo->mime ?? 'application/octet-stream',
         ]);
+    }
+
+    private function marcarVistoPorDg(ReporteArchivo $archivo): void
+    {
+        $usuario = request()->user();
+        if (! $usuario || ! $usuario->can('dg.reportes.ver')) {
+            return;
+        }
+        if ($archivo->visto_por_dg_en !== null) {
+            return;
+        }
+        $archivo->update(['visto_por_dg_en' => now()]);
     }
 
     public function updateNotas(ArchivoNotasRequest $request, ReporteArchivo $archivo): RedirectResponse

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { FileText, FolderOpen, FolderPlus, Pencil, Trash2 } from 'lucide-react';
+import { Bell, FileText, FolderOpen, FolderPlus, Pencil, Trash2 } from 'lucide-react';
 import { useCan } from '@/hooks/use-can';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -15,6 +15,7 @@ type CarpetaResumen = {
     nombre: string;
     descripcion: string | null;
     puede_escribir: boolean;
+    no_leidos: number;
     semana_actual: { subido: boolean; archivos: number };
     semana_anterior: { subido: boolean; archivos: number };
 };
@@ -59,15 +60,30 @@ export default function DgDashboard({ carpetas, periodo }: Props) {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {carpetas.map((carpeta) => (
+                        {carpetas.map((carpeta) => {
+                            const tieneNoLeidos = carpeta.no_leidos > 0;
+                            return (
                             <Link
                                 key={carpeta.id}
                                 href={`/admin/dg/carpetas/${carpeta.id}`}
-                                className="card bg-base-100 border border-base-300 hover:border-primary hover:shadow-lg transition"
+                                className={`card relative transition hover:shadow-lg border ${
+                                    tieneNoLeidos
+                                        ? 'bg-warning/5 border-warning/60 hover:border-warning'
+                                        : 'bg-base-100 border-base-300 hover:border-primary'
+                                }`}
                             >
+                                {tieneNoLeidos && (
+                                    <span className="absolute -top-2 -right-2 flex">
+                                        <span className="absolute inline-flex h-full w-full rounded-full bg-warning opacity-75 animate-ping" />
+                                        <span className="relative inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full bg-warning text-warning-content text-xs font-bold shadow">
+                                            <Bell className="size-3 mr-0.5" />
+                                            {carpeta.no_leidos}
+                                        </span>
+                                    </span>
+                                )}
                                 <div className="card-body p-5">
                                     <div className="flex items-start gap-3">
-                                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                                        <div className={`p-2 rounded-lg ${tieneNoLeidos ? 'bg-warning/20 text-warning' : 'bg-primary/10 text-primary'}`}>
                                             <FolderOpen className="size-6" />
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -116,7 +132,8 @@ export default function DgDashboard({ carpetas, periodo }: Props) {
                                     </div>
                                 </div>
                             </Link>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

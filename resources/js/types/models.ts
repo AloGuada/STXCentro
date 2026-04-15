@@ -1890,6 +1890,7 @@ export type DgReporteArchivo = {
     notas_editado_por_id: string | null;
     notas_actualizado_en: string | null;
     notas_editado_por?: Usuario;
+    visto_por_dg_en: string | null;
     created_at: string;
     updated_at: string;
 };

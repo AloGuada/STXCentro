@@ -46,11 +46,17 @@ class DashboardController extends Controller
                 ->withCount('archivos')
                 ->first();
 
+            $noLeidos = \App\Models\Dg\ReporteArchivo::query()
+                ->whereNull('visto_por_dg_en')
+                ->whereHas('reporte', fn ($q) => $q->where('carpeta_id', $carpeta->id))
+                ->count();
+
             return [
                 'id' => $carpeta->id,
                 'nombre' => $carpeta->nombre,
                 'descripcion' => $carpeta->descripcion,
                 'puede_escribir' => $usuario ? $carpeta->usuarioPuedeEscribir($usuario) : false,
+                'no_leidos' => $noLeidos,
                 'semana_actual' => [
                     'subido' => $actual !== null && $actual->archivos_count > 0,
                     'archivos' => $actual?->archivos_count ?? 0,

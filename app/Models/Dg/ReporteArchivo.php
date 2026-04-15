@@ -25,6 +25,7 @@ class ReporteArchivo extends Model
         'notas',
         'notas_editado_por_id',
         'notas_actualizado_en',
+        'visto_por_dg_en',
     ];
 
     /** @return array<string, string> */
@@ -33,6 +34,7 @@ class ReporteArchivo extends Model
         return [
             'size' => 'integer',
             'notas_actualizado_en' => 'datetime',
+            'visto_por_dg_en' => 'datetime',
         ];
     }
 

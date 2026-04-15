@@ -5,6 +5,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { CalendarDays, Download, FileSpreadsheet, FileText, FileType, Presentation, Upload } from 'lucide-react';
 import { useState } from 'react';
 import ArchivoViewerModal from '@/components/dg/archivo-viewer-modal';
+import NotasPopover from '@/components/dg/notas-popover';
 import type { DgReporteArchivo } from '@/types/models';
 
 type Paginated<T> = {
@@ -163,6 +164,7 @@ export default function MisReportes({ reportes, carpetas, semana_actual }: Props
                                                 </td>
                                                 <td>
                                                     <div className="flex items-center gap-1">
+                                                        <NotasPopover notas={archivo.notas} />
                                                         <button
                                                             type="button"
                                                             onClick={() => setVerArchivo(archivo)}
