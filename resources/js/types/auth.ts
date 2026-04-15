@@ -20,6 +20,7 @@ export type Auth = {
     permissions: string[];
     roles?: string[];
     badges: Record<string, BadgeInfo>;
+    dg_puede_subir?: boolean;
 };
 
 export type TwoFactorSetupData = {

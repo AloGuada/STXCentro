@@ -184,7 +184,7 @@ const navGroups: NavGroup[] = [
         icon: Building2,
         items: [
             { title: 'Reportes semanales', href: '/admin/dg', icon: LayoutGrid, permission: 'dg.reportes.ver' },
-            { title: 'Mis reportes', href: '/admin/dg/mis-reportes', icon: FileText, permission: 'dg.reportes.subir' },
+            { title: 'Mis reportes', href: '/admin/dg/mis-reportes', icon: FileText },
         ],
     },
 ];
@@ -312,6 +312,8 @@ function SidebarContent() {
     const { isCurrentUrl } = useCurrentUrl();
     const { can } = useCan();
 
+    const dgPuedeSubir = auth?.dg_puede_subir ?? false;
+
     const filteredGroups = navGroups
         .map((g) => ({
             ...g,
@@ -320,7 +322,13 @@ function SidebarContent() {
                     ...i,
                     children: i.children?.filter((c) => !c.permission || can(c.permission)),
                 }))
-                .filter((i) => !i.permission || can(i.permission)),
+                .filter((i) => {
+                    // "Mis reportes": depende de tener al menos una carpeta con puede_escribir
+                    if (i.href === '/admin/dg/mis-reportes') {
+                        return dgPuedeSubir;
+                    }
+                    return !i.permission || can(i.permission);
+                }),
         }))
         .filter((g) => g.items.length > 0);
 

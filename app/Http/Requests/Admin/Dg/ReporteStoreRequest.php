@@ -18,8 +18,8 @@ class ReporteStoreRequest extends FormRequest
     {
         return [
             'carpeta_id' => ['required', 'integer', 'exists:dg_carpetas,id'],
-            'anio' => ['required', 'integer', 'min:2020', 'max:2099'],
-            'semana' => ['required', 'integer', 'min:1', 'max:53'],
+            'anio' => ['nullable', 'integer', 'min:2020', 'max:2099'],
+            'semana' => ['nullable', 'integer', 'min:1', 'max:53'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
             'archivos' => ['nullable', 'array'],
             'archivos.*' => ['file', 'max:51200', 'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx'],

@@ -10,6 +10,7 @@ use App\Http\Requests\Admin\Dg\ReporteUpdateRequest;
 use App\Models\Dg\Carpeta;
 use App\Models\Dg\Reporte;
 use App\Models\Dg\ReporteArchivo;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -25,12 +26,17 @@ class ReporteController extends Controller
         $carpeta = Carpeta::query()->findOrFail($data['carpeta_id']);
         $this->authorize('createForCarpeta', $carpeta);
 
-        $reporte = DB::transaction(function () use ($data, $request) {
+        // Si no llegan `anio`/`semana` (subida desde "Mis reportes"), calcular desde hoy.
+        $hoy = CarbonImmutable::now();
+        $anio = $data['anio'] ?? $hoy->isoWeekYear;
+        $semana = $data['semana'] ?? $hoy->isoWeek;
+
+        $reporte = DB::transaction(function () use ($data, $request, $anio, $semana) {
             $reporte = Reporte::query()->updateOrCreate(
                 [
                     'carpeta_id' => $data['carpeta_id'],
-                    'anio' => $data['anio'],
-                    'semana' => $data['semana'],
+                    'anio' => $anio,
+                    'semana' => $semana,
                 ],
                 [
                     'observaciones' => $data['observaciones'] ?? null,

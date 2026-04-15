@@ -11,7 +11,6 @@ beforeEach(function () {
     Storage::fake('local');
 
     Permission::firstOrCreate(['name' => 'dg.reportes.ver', 'guard_name' => 'web']);
-    Permission::firstOrCreate(['name' => 'dg.reportes.subir', 'guard_name' => 'web']);
     Permission::firstOrCreate(['name' => 'dg.reportes.administrar', 'guard_name' => 'web']);
 
     $this->admin = Usuario::factory()->create();
@@ -47,7 +46,7 @@ test('usuario sin acceso a la carpeta no puede descargar', function () {
 
 test('usuario con puede_escribir puede eliminar archivo de su carpeta', function () {
     $gerente = Usuario::factory()->create();
-    $gerente->givePermissionTo(['dg.reportes.ver', 'dg.reportes.subir']);
+    // Usuario común — solo acceso via pivote
 
     $carpeta = Carpeta::factory()->create();
     $carpeta->usuarios()->attach($gerente->id, ['puede_escribir' => true]);

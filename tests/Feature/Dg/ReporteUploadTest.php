@@ -11,11 +11,10 @@ beforeEach(function () {
     Storage::fake('local');
 
     Permission::firstOrCreate(['name' => 'dg.reportes.ver', 'guard_name' => 'web']);
-    Permission::firstOrCreate(['name' => 'dg.reportes.subir', 'guard_name' => 'web']);
     Permission::firstOrCreate(['name' => 'dg.reportes.administrar', 'guard_name' => 'web']);
 
+    // Usuario sin roles ni permisos — solo tiene acceso via pivote
     $this->gerente = Usuario::factory()->create();
-    $this->gerente->givePermissionTo(['dg.reportes.ver', 'dg.reportes.subir']);
 
     $this->carpeta = Carpeta::factory()->create();
     $this->carpeta->usuarios()->attach($this->gerente->id, ['puede_escribir' => true]);

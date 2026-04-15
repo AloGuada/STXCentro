@@ -242,9 +242,9 @@ class RolesAndPermissionsSeeder extends Seeder
         ];
 
         // Crear permisos del módulo DG Reportes
+        // El acceso a subir reportes se controla por la tabla pivote dg_carpeta_usuario (puede_escribir), no por permiso.
         $dgPermissions = [
             'dg.reportes.ver',
-            'dg.reportes.subir',
             'dg.reportes.administrar',
             'dg.reportes.notas',
         ];
@@ -323,8 +323,11 @@ class RolesAndPermissionsSeeder extends Seeder
         $adminCal = Role::firstOrCreate(['name' => 'admin-cal', 'guard_name' => 'web']);
         $inspectorCal = Role::firstOrCreate(['name' => 'inspector-cal', 'guard_name' => 'web']);
         $empleado = Role::firstOrCreate(['name' => 'empleado', 'guard_name' => 'web']);
-        $gerente = Role::firstOrCreate(['name' => 'gerente', 'guard_name' => 'web']);
         $directorGeneral = Role::firstOrCreate(['name' => 'director-general', 'guard_name' => 'web']);
+
+        // El rol `gerente` fue reemplazado por la ACL por carpeta (dg_carpeta_usuario.puede_escribir).
+        Role::where('name', 'gerente')->delete();
+        Permission::where('name', 'dg.reportes.subir')->delete();
 
         // Super admin tiene todos los permisos
         $superAdmin->givePermissionTo($allPermissions);
@@ -413,12 +416,6 @@ class RolesAndPermissionsSeeder extends Seeder
             'intra.areas.ver',
             'intra.documentos.ver',
             'intra.secciones.ver',
-        ]);
-
-        // Gerente: solo sube reportes desde "Mis reportes" a sus carpetas asignadas.
-        // NO tiene dg.reportes.ver (no entra al dashboard general).
-        $gerente->syncPermissions([
-            'dg.reportes.subir',
         ]);
 
         // Director General: administra carpetas + ve todo + toma notas

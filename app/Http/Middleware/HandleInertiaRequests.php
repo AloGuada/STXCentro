@@ -81,6 +81,12 @@ class HandleInertiaRequests extends Middleware
                         'badges' => $request->user()
                             ? $this->computeBadges($request)
                             : [],
+                        'dg_puede_subir' => $request->user()
+                            ? DB::table('dg_carpeta_usuario')
+                                ->where('usuario_id', $request->user()->getKey())
+                                ->where('puede_escribir', true)
+                                ->exists()
+                            : false,
                     ]),
             'flash' => fn () => [
                 'permiso' => $request->session()->get('permiso'),
