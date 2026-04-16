@@ -427,6 +427,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('reportes/{reporte}/archivos', [DgReporteController::class, 'uploadArchivo'])->name('reportes.archivos.store');
         Route::get('archivos/{archivo}/descargar', [DgReporteController::class, 'downloadArchivo'])->name('archivos.descargar');
         Route::get('archivos/{archivo}/stream', [DgReporteController::class, 'streamArchivo'])->name('archivos.stream');
+        Route::post('archivos/{archivo}/marcar-visto', [DgReporteController::class, 'marcarVisto'])->name('archivos.marcar-visto');
         Route::patch('archivos/{archivo}/notas', [DgReporteController::class, 'updateNotas'])->name('archivos.notas.update');
         Route::delete('archivos/{archivo}', [DgReporteController::class, 'destroyArchivo'])->name('archivos.destroy');
     });

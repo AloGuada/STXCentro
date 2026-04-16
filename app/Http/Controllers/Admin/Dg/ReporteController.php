@@ -125,6 +125,15 @@ class ReporteController extends Controller
         $archivo->update(['visto_por_dg_en' => now()]);
     }
 
+    public function marcarVisto(ReporteArchivo $archivo): RedirectResponse
+    {
+        $this->authorize('view', $archivo->reporte);
+
+        $this->marcarVistoPorDg($archivo);
+
+        return back(303);
+    }
+
     public function updateNotas(ArchivoNotasRequest $request, ReporteArchivo $archivo): RedirectResponse
     {
         $this->authorize('editarNotas', Reporte::class);

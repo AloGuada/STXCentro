@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Download, Loader2, PanelRightClose, PanelRig
 import { renderAsync as renderDocxAsync } from 'docx-preview';
 import * as XLSX from 'xlsx';
 import { PPTXViewer } from 'pptxviewjs';
+import { router } from '@inertiajs/react';
 import { SecurePdfViewer } from '@/components/intra/SecurePdfViewer';
 import NotasEditor from '@/components/dg/notas-editor';
 import type { DgReporteArchivo } from '@/types/models';
@@ -73,6 +74,12 @@ export default function ArchivoViewerModal({ archivo, onClose, puedeEditarNotas 
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none';
     };
+
+    useEffect(() => {
+        if (archivo && archivo.visto_por_dg_en === null) {
+            router.post(`/admin/dg/archivos/${archivo.id}/marcar-visto`, {}, { preserveScroll: true, preserveState: true });
+        }
+    }, [archivo]);
 
     const tipo = archivo ? detectarTipo(archivo.mime, archivo.nombre_original) : 'otro';
     const streamUrl = archivo ? `/admin/dg/archivos/${archivo.id}/stream` : '';
@@ -233,10 +240,10 @@ export default function ArchivoViewerModal({ archivo, onClose, puedeEditarNotas 
                             type="button"
                             onClick={() => setNotasAbiertas((v) => !v)}
                             className={`btn btn-sm ${notasAbiertas ? 'btn-primary' : 'btn-ghost'}`}
-                            title={notasAbiertas ? 'Ocultar notas' : 'Mostrar notas'}
+                            title={notasAbiertas ? 'Ocultar apuntes' : 'Mostrar apuntes'}
                         >
                             {notasAbiertas ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
-                            <StickyNote className="size-4" /> Notas
+                            <StickyNote className="size-4" /> Apuntes
                         </button>
                     )}
                     <a href={downloadUrl} className="btn btn-sm btn-ghost" title="Descargar">

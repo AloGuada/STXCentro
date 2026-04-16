@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Dg\CarpetaRequest;
 use App\Models\Dg\Carpeta;
 use App\Models\Dg\Reporte;
+use App\Models\Dg\ReporteArchivo;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
@@ -43,6 +44,13 @@ class CarpetaController extends Controller
         $usuario = request()->user();
         $puedeSubir = $usuario !== null && $carpeta->usuarioPuedeEscribir($usuario);
         $puedeAdministrar = $usuario !== null && $usuario->can('dg.reportes.administrar');
+
+        if ($usuario && $usuario->can('dg.reportes.ver')) {
+            ReporteArchivo::query()
+                ->whereNull('visto_por_dg_en')
+                ->whereHas('reporte', fn ($q) => $q->where('carpeta_id', $carpeta->id))
+                ->update(['visto_por_dg_en' => now()]);
+        }
 
         return Inertia::render('admin/dg/carpetas/show', [
             'carpeta' => $carpeta->only(['id', 'nombre', 'descripcion']),
