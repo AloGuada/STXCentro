@@ -21,11 +21,11 @@ class PersonaController extends Controller
         $this->authorize('rh.personas.ver');
 
         $sortable = ['nombre', 'apellido', 'email', 'telefono', 'fecha_nacimiento', 'created_at'];
-        $sortBy = in_array($request->sort_by, $sortable) ? $request->sort_by : 'apellido';
-        $sortDir = $request->sort_dir === 'desc' ? 'desc' : 'asc';
+        $sortBy = in_array($request->sort_by, $sortable) ? $request->sort_by : 'created_at';
+        $sortDir = $request->sort_dir === 'desc' ? 'desc' : ($request->sort_by ? 'asc' : 'desc');
 
         $personas = Persona::query()
-            ->with(['datosExtra', 'periodosLaborales'])
+            ->with(['datosExtra', 'periodosLaborales.puesto.departamento', 'periodosLaborales.requisicion', 'foto', 'documentos.media'])
             ->when($request->search, function ($query, $search) {
                 $search = mb_strtolower($search);
                 $query->where(function ($q) use ($search) {

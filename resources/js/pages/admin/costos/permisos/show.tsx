@@ -1,17 +1,88 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosAprobacionDepartamento, CostosPermiso, Departamento, Usuario } from '@/types/models';
+import type { CostosPermiso, Usuario } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
-import { Loader2Icon, PencilIcon } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronDownIcon, Loader2Icon, PencilIcon, XIcon } from 'lucide-react';
+import { useRef, useState } from 'react';
+
+type Departamento = { id: number; descripcion: string };
 
 type Props = {
     permiso: CostosPermiso;
     departamentos: Departamento[];
     usuarios: Usuario[];
-    asignaciones: Record<number, CostosAprobacionDepartamento>;
+    asignaciones: Record<number, string[]>;
 };
+
+function MultiUserSelect({
+    usuarios,
+    selected,
+    onChange,
+}: {
+    usuarios: Usuario[];
+    selected: string[];
+    onChange: (ids: string[]) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const toggle = (id: string) => {
+        onChange(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]);
+    };
+
+    const remove = (id: string) => {
+        onChange(selected.filter((s) => s !== id));
+    };
+
+    const selectedUsers = usuarios.filter((u) => selected.includes(u.id));
+
+    return (
+        <div ref={containerRef} className="relative w-full max-w-md">
+            <div
+                className="flex min-h-9 cursor-pointer flex-wrap items-center gap-1 rounded-md border border-base-300 bg-base-100 px-2 py-1"
+                onClick={() => setOpen(!open)}
+            >
+                {selectedUsers.length === 0 && <span className="text-sm text-base-content/50">Sin asignar</span>}
+                {selectedUsers.map((u) => (
+                    <Badge key={u.id} variant="primary" className="gap-1 text-xs">
+                        {u.name}
+                        <button
+                            type="button"
+                            className="ml-0.5 hover:opacity-70"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                remove(u.id);
+                            }}
+                        >
+                            <XIcon className="size-3" />
+                        </button>
+                    </Badge>
+                ))}
+                <ChevronDownIcon className="ml-auto size-4 shrink-0 text-base-content/50" />
+            </div>
+
+            {open && (
+                <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-base-300 bg-base-100 shadow-lg">
+                    {usuarios.map((u) => (
+                        <label
+                            key={u.id}
+                            className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-base-200"
+                        >
+                            <Checkbox checked={selected.includes(u.id)} onCheckedChange={() => toggle(u.id)} />
+                            <span className="text-sm">{u.name}</span>
+                        </label>
+                    ))}
+                    {usuarios.length === 0 && (
+                        <div className="px-3 py-2 text-sm text-base-content/50">No hay usuarios con el rol requerido</div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function PermisosShow({ permiso, departamentos, usuarios, asignaciones }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -21,34 +92,37 @@ export default function PermisosShow({ permiso, departamentos, usuarios, asignac
         { title: permiso.descripcion, href: `/admin/costos/permisos/${permiso.id}` },
     ];
 
-    const [selections, setSelections] = useState<Record<number, string>>(() => {
-        const initial: Record<number, string> = {};
+    const [selections, setSelections] = useState<Record<number, string[]>>(() => {
+        const initial: Record<number, string[]> = {};
         for (const dept of departamentos) {
-            const asignacion = asignaciones[dept.id];
-            initial[dept.id] = asignacion?.aprobador_id ?? '';
+            initial[dept.id] = asignaciones[dept.id] ?? [];
         }
         return initial;
     });
 
     const [processing, setProcessing] = useState(false);
 
-    const handleChange = (departamentoId: number, aprobadorId: string) => {
-        setSelections((prev) => ({ ...prev, [departamentoId]: aprobadorId }));
+    const handleChange = (departamentoId: number, ids: string[]) => {
+        setSelections((prev) => ({ ...prev, [departamentoId]: ids }));
     };
 
     const handleSave = () => {
         const payload = departamentos.map((dept) => ({
             departamento_id: dept.id,
-            aprobador_id: selections[dept.id] || null,
+            aprobador_ids: selections[dept.id] ?? [],
         }));
 
         setProcessing(true);
-        router.post(`/admin/costos/permisos/${permiso.id}/sync-departamentos`, {
-            asignaciones: payload,
-        }, {
-            preserveScroll: true,
-            onFinish: () => setProcessing(false),
-        });
+        router.post(
+            `/admin/costos/permisos/${permiso.id}/sync-departamentos`,
+            {
+                asignaciones: payload,
+            },
+            {
+                preserveScroll: true,
+                onFinish: () => setProcessing(false),
+            },
+        );
     };
 
     return (
@@ -84,7 +158,7 @@ export default function PermisosShow({ permiso, departamentos, usuarios, asignac
                                 <thead>
                                     <tr>
                                         <th>Departamento</th>
-                                        <th>Aprobador</th>
+                                        <th>Aprobadores</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -92,18 +166,11 @@ export default function PermisosShow({ permiso, departamentos, usuarios, asignac
                                         <tr key={dept.id}>
                                             <td>{dept.descripcion}</td>
                                             <td>
-                                                <select
-                                                    className="select select-bordered select-sm w-full max-w-xs"
-                                                    value={selections[dept.id] ?? ''}
-                                                    onChange={(e) => handleChange(dept.id, e.target.value)}
-                                                >
-                                                    <option value="">Sin asignar</option>
-                                                    {usuarios.map((u) => (
-                                                        <option key={u.id} value={u.id}>
-                                                            {u.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                <MultiUserSelect
+                                                    usuarios={usuarios}
+                                                    selected={selections[dept.id] ?? []}
+                                                    onChange={(ids) => handleChange(dept.id, ids)}
+                                                />
                                             </td>
                                         </tr>
                                     ))}

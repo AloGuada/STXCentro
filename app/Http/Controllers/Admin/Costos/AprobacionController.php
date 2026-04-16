@@ -30,11 +30,25 @@ class AprobacionController extends Controller
             ->latest()
             ->get()
             ->filter(function (AprobacionSolicitud $aprobacion) {
-                // Es mi turno si no hay aprobaciones pendientes con nivel menor en la misma solicitud
-                return ! AprobacionSolicitud::where('solicitud_id', $aprobacion->solicitud_id)
-                    ->where('estatus', 'pendiente')
+                // Es mi turno si todos los niveles anteriores tienen al menos una aprobación
+                $nivelesAnteriores = AprobacionSolicitud::where('solicitud_id', $aprobacion->solicitud_id)
                     ->where('nivel', '<', $aprobacion->nivel)
-                    ->exists();
+                    ->select('nivel')
+                    ->distinct()
+                    ->pluck('nivel');
+
+                foreach ($nivelesAnteriores as $nivel) {
+                    $tieneAprobada = AprobacionSolicitud::where('solicitud_id', $aprobacion->solicitud_id)
+                        ->where('nivel', $nivel)
+                        ->where('estatus', 'aprobada')
+                        ->exists();
+
+                    if (! $tieneAprobada) {
+                        return false;
+                    }
+                }
+
+                return true;
             })
             ->values();
 
@@ -97,14 +111,22 @@ class AprobacionController extends Controller
             return back()->withErrors(['estatus' => 'Esta aprobación ya fue procesada.']);
         }
 
-        // Verificar que es el turno
-        $hayPendientesAnteriores = AprobacionSolicitud::where('solicitud_id', $aprobacionSolicitud->solicitud_id)
-            ->where('estatus', 'pendiente')
+        // Verificar que es el turno (todos los niveles anteriores deben tener al menos una aprobada)
+        $nivelesAnteriores = AprobacionSolicitud::where('solicitud_id', $aprobacionSolicitud->solicitud_id)
             ->where('nivel', '<', $aprobacionSolicitud->nivel)
-            ->exists();
+            ->select('nivel')
+            ->distinct()
+            ->pluck('nivel');
 
-        if ($hayPendientesAnteriores) {
-            return back()->withErrors(['nivel' => 'Aún hay aprobaciones pendientes de niveles anteriores.']);
+        foreach ($nivelesAnteriores as $nivel) {
+            $tieneAprobada = AprobacionSolicitud::where('solicitud_id', $aprobacionSolicitud->solicitud_id)
+                ->where('nivel', $nivel)
+                ->where('estatus', 'aprobada')
+                ->exists();
+
+            if (! $tieneAprobada) {
+                return back()->withErrors(['nivel' => 'Aún hay aprobaciones pendientes de niveles anteriores.']);
+            }
         }
 
         $request->validate([
@@ -119,8 +141,18 @@ class AprobacionController extends Controller
             'hostname' => gethostbyaddr($request->ip()) ?: null,
         ]);
 
-        // Verificar si era el último nivel pendiente
+        // Cancelar las demás aprobaciones pendientes del mismo nivel (lógica OR)
         $solicitud = $aprobacionSolicitud->solicitud;
+        $solicitud->aprobaciones()
+            ->where('nivel', $aprobacionSolicitud->nivel)
+            ->where('id', '!=', $aprobacionSolicitud->id)
+            ->where('estatus', 'pendiente')
+            ->update([
+                'estatus' => 'cancelada',
+                'fecha_respuesta' => now(),
+            ]);
+
+        // Verificar si quedan niveles pendientes
         $quedanPendientes = $solicitud->aprobaciones()
             ->where('estatus', 'pendiente')
             ->exists();

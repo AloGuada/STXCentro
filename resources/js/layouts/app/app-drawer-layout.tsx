@@ -166,7 +166,6 @@ const navGroups: NavGroup[] = [
             { title: 'Puestos', href: '/admin/rh/puestos', icon: Briefcase, permission: 'rh.puestos.ver' },
             { title: 'Requisiciones', href: '/admin/rh/requisiciones', icon: FileCheck, permission: 'rh.requisiciones.ver' },
             { title: 'Personas', href: '/admin/rh/personas', icon: Users, permission: 'rh.personas.ver' },
-            { title: 'Periodos Laborales', href: '/admin/rh/periodos-laborales', icon: CalendarRange, permission: 'rh.periodos-laborales.ver' },
             { title: 'Permisos Ausencia', href: '/admin/rh/permisos-ausencia', icon: CalendarCheck, permission: 'rh.permisos-ausencia.ver' },
         ],
     },

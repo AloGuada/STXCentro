@@ -13,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Spatie\Permission\Models\Role;
 
 class PermisoController extends Controller
 {
@@ -47,11 +48,19 @@ class PermisoController extends Controller
     public function show(Permiso $permiso): Response
     {
         $departamentos = Departamento::orderBy('descripcion')->get(['id', 'descripcion']);
-        $usuarios = Usuario::orderBy('name')->get(['id', 'name']);
+
+        $roleId = Role::where('name', 'admin_costos_alt')->value('id');
+
+        $usuarios = $roleId
+            ? Usuario::whereHas('roles', fn ($q) => $q->where('role_id', $roleId))
+                ->orderBy('name')
+                ->get(['id', 'name'])
+            : collect();
 
         $asignaciones = AprobacionDepartamento::where('permiso_id', $permiso->id)
             ->get()
-            ->keyBy('departamento_id');
+            ->groupBy('departamento_id')
+            ->map(fn ($group) => $group->pluck('aprobador_id')->filter()->values());
 
         return Inertia::render('admin/costos/permisos/show', [
             'permiso' => $permiso,
@@ -87,17 +96,18 @@ class PermisoController extends Controller
         $request->validate([
             'asignaciones' => ['required', 'array'],
             'asignaciones.*.departamento_id' => ['required', 'exists:departamentos,id'],
-            'asignaciones.*.aprobador_id' => ['nullable', 'exists:usuarios,id'],
+            'asignaciones.*.aprobador_ids' => ['nullable', 'array'],
+            'asignaciones.*.aprobador_ids.*' => ['exists:usuarios,id'],
         ]);
 
         AprobacionDepartamento::where('permiso_id', $permiso->id)->delete();
 
         foreach ($request->input('asignaciones', []) as $asignacion) {
-            if (! empty($asignacion['aprobador_id'])) {
+            foreach ($asignacion['aprobador_ids'] ?? [] as $aprobadorId) {
                 AprobacionDepartamento::create([
                     'departamento_id' => $asignacion['departamento_id'],
                     'permiso_id' => $permiso->id,
-                    'aprobador_id' => $asignacion['aprobador_id'],
+                    'aprobador_id' => $aprobadorId,
                 ]);
             }
         }

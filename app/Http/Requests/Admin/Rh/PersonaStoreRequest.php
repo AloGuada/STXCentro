@@ -21,7 +21,7 @@ class PersonaStoreRequest extends FormRequest
             'telefono' => ['nullable', 'string', 'max:50'],
             'fecha_nacimiento' => ['nullable', 'date'],
             'cv' => ['nullable', 'sometimes', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
-            'foto' => ['nullable', 'sometimes', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'foto' => ['nullable', 'sometimes', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ];
     }
 

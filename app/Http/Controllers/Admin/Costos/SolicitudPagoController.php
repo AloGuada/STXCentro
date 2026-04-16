@@ -121,17 +121,17 @@ class SolicitudPagoController extends Controller
 
             $solicitud->update(['monto_total' => $montoTotal]);
 
-            // Crear cadena de aprobaciones del departamento
+            // Crear cadena de aprobaciones del departamento (multiusuario por nivel)
             $cadenaAprobacion = AprobacionDepartamento::where('departamento_id', $solicitud->departamento_id)
                 ->with('permiso')
                 ->get()
                 ->sortBy('permiso.nivel')
                 ->values();
 
-            foreach ($cadenaAprobacion as $nivel) {
+            foreach ($cadenaAprobacion as $asignacion) {
                 $solicitud->aprobaciones()->create([
-                    'nivel' => $nivel->permiso->nivel,
-                    'aprobador_id' => $nivel->aprobador_id,
+                    'nivel' => $asignacion->permiso->nivel,
+                    'aprobador_id' => $asignacion->aprobador_id,
                     'estatus' => 'pendiente',
                 ]);
             }
