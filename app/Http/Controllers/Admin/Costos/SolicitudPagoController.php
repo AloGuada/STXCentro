@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\Costos\SolicitudPagoUpdateRequest;
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Pago;
+use App\Models\Costos\Permiso;
 use App\Models\Costos\SolicitudArchivo;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
@@ -346,19 +347,37 @@ class SolicitudPagoController extends Controller
         if ($solicitudPago->estatus === 'borrador') {
             $solicitudPago->update(['estatus' => 'pendiente_firma']);
 
-            // Crear registros de aprobación
-            foreach ($cadenaAprobacion as $nivel) {
+            // Crear registros de aprobación (uno por aprobador por nivel)
+            foreach ($cadenaAprobacion as $asignacion) {
                 $solicitudPago->aprobaciones()->create([
-                    'nivel' => $nivel->permiso->nivel,
-                    'aprobador_id' => $nivel->aprobador_id,
+                    'nivel' => $asignacion->permiso->nivel,
+                    'aprobador_id' => $asignacion->aprobador_id,
                     'estatus' => 'pendiente',
                 ]);
             }
         }
 
+        // Agrupar aprobaciones por nivel para el PDF (una columna por nivel)
+        $solicitudPago->load('aprobaciones.aprobador');
+        $niveles = Permiso::orderBy('nivel')->get();
+        $aprobacionesPorNivel = $solicitudPago->aprobaciones->groupBy('nivel');
+
+        $firmasPdf = $niveles->filter(fn ($permiso) => $aprobacionesPorNivel->has($permiso->nivel))
+            ->map(function ($permiso) use ($aprobacionesPorNivel) {
+                $aprobaciones = $aprobacionesPorNivel->get($permiso->nivel);
+                $aprobada = $aprobaciones->firstWhere('estatus', 'aprobada');
+
+                return (object) [
+                    'permiso' => $permiso,
+                    'aprobador' => $aprobada?->aprobador,
+                    'aprobada' => $aprobada !== null,
+                ];
+            })
+            ->values();
+
         $pdf = Pdf::loadView('pdf.costos.formato-solicitud-pago', [
             'solicitud' => $solicitudPago,
-            'cadenaAprobacion' => $cadenaAprobacion,
+            'firmasPdf' => $firmasPdf,
         ])->setPaper('letter', 'portrait')
             ->setOption('margin-top', 30)
             ->setOption('margin-bottom', 60)

@@ -302,42 +302,51 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
 
                     <input type="radio" name="aprobacion_show_tabs" role="tab" className="tab" aria-label="Aprobaciones" />
                     <div role="tabpanel" className="tab-content py-4">
-                        {solicitud.aprobaciones && solicitud.aprobaciones.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Nivel</th>
-                                            <th>Aprobador</th>
-                                            <th>Estatus</th>
-                                            <th>Fecha</th>
-                                            <th>Observaciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {solicitud.aprobaciones.map((a) => {
-                                            const esTurnoActual = a.estatus === 'pendiente' && !solicitud.aprobaciones?.some(
-                                                (otra) => otra.estatus === 'pendiente' && otra.nivel < a.nivel
-                                            );
-                                            return (
-                                                <tr key={a.id} className={esTurnoActual ? 'bg-warning/10' : ''}>
-                                                    <td>{a.nivel}</td>
-                                                    <td>{a.aprobador?.name ?? 'Sin asignar'}</td>
-                                                    <td>
-                                                        <span className={`badge ${a.estatus === 'aprobada' ? 'badge-success' : a.estatus === 'rechazada' ? 'badge-error' : a.estatus === 'cancelada' ? 'badge-ghost' : 'badge-warning'}`}>
-                                                            {a.estatus}
-                                                        </span>
-                                                        {esTurnoActual && <span className="ml-2 text-xs text-warning">Turno actual</span>}
-                                                    </td>
-                                                    <td><FormattedDate value={a.fecha_respuesta} /></td>
-                                                    <td>{a.observaciones ?? '-'}</td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
+                        {solicitud.aprobaciones && solicitud.aprobaciones.length > 0 ? (() => {
+                            const niveles = [...new Set(solicitud.aprobaciones.map((a) => a.nivel))].sort((a, b) => a - b);
+                            return (
+                                <div className="overflow-x-auto">
+                                    <table className="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Nivel</th>
+                                                <th>Aprobador</th>
+                                                <th>Estatus</th>
+                                                <th>Fecha</th>
+                                                <th>Observaciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {niveles.map((nivel) => {
+                                                const aprobacionesNivel = solicitud.aprobaciones!.filter((a) => a.nivel === nivel);
+                                                const aprobada = aprobacionesNivel.find((a) => a.estatus === 'aprobada');
+                                                const rechazada = aprobacionesNivel.find((a) => a.estatus === 'rechazada');
+                                                const resultado = aprobada ?? rechazada;
+                                                const pendiente = !resultado;
+                                                const esTurnoActual = pendiente && !niveles.some(
+                                                    (n) => n < nivel && !solicitud.aprobaciones!.some((a) => a.nivel === n && a.estatus === 'aprobada'),
+                                                );
+
+                                                return (
+                                                    <tr key={nivel} className={esTurnoActual ? 'bg-warning/10' : ''}>
+                                                        <td>{nivel}</td>
+                                                        <td>{resultado ? resultado.aprobador?.name ?? 'Sin asignar' : 'Pendiente'}</td>
+                                                        <td>
+                                                            <span className={`badge ${resultado?.estatus === 'aprobada' ? 'badge-success' : resultado?.estatus === 'rechazada' ? 'badge-error' : 'badge-warning'}`}>
+                                                                {resultado?.estatus ?? 'pendiente'}
+                                                            </span>
+                                                            {esTurnoActual && <span className="ml-2 text-xs text-warning">Turno actual</span>}
+                                                        </td>
+                                                        <td><FormattedDate value={resultado?.fecha_respuesta} /></td>
+                                                        <td>{resultado?.observaciones ?? '-'}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })() : (
                             <p className="text-base-content/60">No hay aprobaciones registradas.</p>
                         )}
                     </div>

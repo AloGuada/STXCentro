@@ -270,15 +270,15 @@
     {{-- Signatures --}}
     <table class="signatures-table">
         <tr>
-            @foreach($cadenaAprobacion as $nivel)
+            @foreach($firmasPdf as $firma)
             <td>
-                @if($nivel->aprobador?->firma_path && file_exists(storage_path('app/public/' . $nivel->aprobador->firma_path)))
-                    <img class="sig-img" src="{{ storage_path('app/public/' . $nivel->aprobador->firma_path) }}" alt="Firma">
+                @if($firma->aprobada && $firma->aprobador?->firma_path && file_exists(storage_path('app/public/' . $firma->aprobador->firma_path)))
+                    <img class="sig-img" src="{{ storage_path('app/public/' . $firma->aprobador->firma_path) }}" alt="Firma">
                 @else
                     <div class="sig-placeholder"></div>
                 @endif
-                <div class="sig-name">{{ $nivel->aprobador?->name ?? '________________' }}</div>
-                <div class="sig-role">{{ $nivel->permiso->descripcion }} (Nivel {{ $nivel->permiso->nivel }})</div>
+                <div class="sig-name">{{ $firma->aprobada ? $firma->aprobador?->name : 'Pendiente' }}</div>
+                <div class="sig-role">{{ $firma->permiso->descripcion }} (Nivel {{ $firma->permiso->nivel }})</div>
             </td>
             @endforeach
         </tr>
