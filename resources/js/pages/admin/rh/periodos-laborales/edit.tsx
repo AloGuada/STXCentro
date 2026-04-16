@@ -50,7 +50,7 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
         });
     };
 
-    const handleDescargarContrato = () => {
+    const handleDescargarContrato = (tipo: 'planta' | 'obra') => {
         const faltantes: string[] = [];
         const persona = periodo.persona;
         const extras = persona?.datos_extra;
@@ -76,7 +76,7 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
             return;
         }
 
-        window.open(`/admin/rh/periodos-laborales/${periodo.id}/contrato-pdf`, '_blank');
+        window.open(`/admin/rh/periodos-laborales/${periodo.id}/contrato-pdf?tipo=${tipo}`, '_blank');
     };
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -122,9 +122,13 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-semibold">Editar Periodo Laboral</h1>
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" type="button" onClick={handleDescargarContrato}>
+                        <Button variant="outline" type="button" onClick={() => handleDescargarContrato('planta')}>
                             <FileTextIcon className="size-4" />
-                            Descargar Contrato
+                            Contrato Planta
+                        </Button>
+                        <Button variant="outline" type="button" onClick={() => handleDescargarContrato('obra')}>
+                            <FileTextIcon className="size-4" />
+                            Contrato Obra
                         </Button>
                         <Button
                             variant="outline"
@@ -239,6 +243,7 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="semanal">Semanal</SelectItem>
+                                            <SelectItem value="catorcenal">Catorcenal</SelectItem>
                                             <SelectItem value="quincenal">Quincenal</SelectItem>
                                             <SelectItem value="mensual">Mensual</SelectItem>
                                         </SelectContent>

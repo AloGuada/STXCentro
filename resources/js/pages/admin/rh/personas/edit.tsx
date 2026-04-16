@@ -520,7 +520,6 @@ export default function PersonaEdit({ persona }: Props) {
                 {/* Tab: Documentos */}
                 {activeTab === 'documentos' && (
                     <div className="w-3/4 space-y-6">
-                        {/* Checklist de requisitos */}
                         <div className="rounded-lg border p-4">
                             <div className="mb-3 flex items-center justify-between">
                                 <h3 className="font-semibold">Requisitos para contratacion</h3>
@@ -528,33 +527,59 @@ export default function PersonaEdit({ persona }: Props) {
                                     {checklist.completedRequired} / {checklist.totalRequired} obligatorios
                                 </span>
                             </div>
-                            <div className="space-y-1.5">
-                                {checklist.items.map((item) => (
-                                    <div key={item.key} className="flex items-center gap-2 py-1">
-                                        {item.done ? (
-                                            <CheckCircle2Icon className="size-4 shrink-0 text-green-600" />
-                                        ) : item.required ? (
-                                            <XCircleIcon className="size-4 shrink-0 text-red-500" />
-                                        ) : (
-                                            <CircleIcon className="text-muted-foreground size-4 shrink-0" />
-                                        )}
-                                        <span className={`text-sm ${!item.required && !item.done ? 'text-muted-foreground' : ''}`}>
-                                            {item.label}
-                                            {item.required && <span className="ml-0.5 text-red-500">*</span>}
-                                        </span>
-                                        {item.key === 'cuenta_banco' && (
-                                            <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                <input
-                                                    type="checkbox"
-                                                    className="checkbox checkbox-xs"
-                                                    checked={persona.datos_extra?.tramite_banco ?? false}
-                                                    onChange={handleTramiteBancoToggle}
-                                                />
-                                                Se le tramitara
-                                            </label>
-                                        )}
-                                    </div>
-                                ))}
+                            <div className="space-y-2">
+                                {checklist.items.map((item) => {
+                                    const isDocItem = TIPOS_DOC_PREDEFINIDOS.some((t) => t.value === item.key);
+                                    const existingDoc = persona.documentos?.find((d) => d.tipo_documento === item.key);
+
+                                    return (
+                                        <div key={item.key} className="flex items-center gap-2 rounded border px-3 py-2">
+                                            {item.done ? (
+                                                <CheckCircle2Icon className="size-4 shrink-0 text-green-600" />
+                                            ) : item.required ? (
+                                                <XCircleIcon className="size-4 shrink-0 text-red-500" />
+                                            ) : (
+                                                <CircleIcon className="text-muted-foreground size-4 shrink-0" />
+                                            )}
+                                            <span className={`flex-1 text-sm ${!item.required && !item.done ? 'text-muted-foreground' : ''}`}>
+                                                {item.label}
+                                                {item.required && <span className="ml-0.5 text-red-500">*</span>}
+                                            </span>
+                                            <div className="flex items-center gap-1">
+                                                {item.key === 'cuenta_banco' && (
+                                                    <label className="mr-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="checkbox checkbox-xs"
+                                                            checked={persona.datos_extra?.tramite_banco ?? false}
+                                                            onChange={handleTramiteBancoToggle}
+                                                        />
+                                                        Se le tramitara
+                                                    </label>
+                                                )}
+                                                {existingDoc && (
+                                                    <>
+                                                        <Button variant="ghost" size="sm" asChild>
+                                                            <a href={`/storage/${existingDoc.media?.path}`} target="_blank" rel="noopener noreferrer">
+                                                                <FileIcon className="size-3.5" />
+                                                                Ver
+                                                            </a>
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" className="size-7" onClick={() => removeDocumento(existingDoc.id)}>
+                                                            <TrashIcon className="size-3.5 text-destructive" />
+                                                        </Button>
+                                                    </>
+                                                )}
+                                                {isDocItem && !existingDoc && (
+                                                    <ChecklistUploadButton
+                                                        personaId={persona.id}
+                                                        tipoDocumento={item.key}
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                             <div className="mt-4 border-t pt-4">
                                 <Button
@@ -576,70 +601,51 @@ export default function PersonaEdit({ persona }: Props) {
                                 </Button>
                             </div>
                         </div>
-
-                        {/* Subir documento */}
-                        <div className="space-y-3">
-                            <h3 className="font-semibold">Subir documento</h3>
-                            <div className="grid grid-cols-2 gap-2">
-                                <Select value={docTipo} onValueChange={setDocTipo}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Tipo de documento" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {TIPOS_DOC_PREDEFINIDOS.map((t) => (
-                                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <input
-                                    ref={docInputRef}
-                                    type="file"
-                                    className="file-input file-input-bordered w-full"
-                                    onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
-                                />
-                            </div>
-                            {docTipo === 'otro' && (
-                                <Input
-                                    value={docTipoCustom}
-                                    onChange={(e) => setDocTipoCustom(e.target.value)}
-                                    placeholder="Nombre del tipo de documento"
-                                />
-                            )}
-                            <Button type="button" onClick={handleDocUpload} disabled={!docFile || !docTipoFinal || docUploading}>
-                                {docUploading ? <Loader2Icon className="size-4 animate-spin" /> : <UploadIcon className="size-4" />}
-                                Subir Documento
-                            </Button>
-                        </div>
-
-                        {/* Documentos subidos */}
-                        {(persona.documentos ?? []).length > 0 && (
-                            <div>
-                                <h3 className="mb-3 font-semibold">Documentos subidos</h3>
-                                <ul className="space-y-2">
-                                    {(persona.documentos ?? []).map((doc) => (
-                                        <li key={doc.id} className="flex items-center justify-between rounded border px-3 py-2">
-                                            <div className="flex items-center gap-3">
-                                                <FileIcon className="text-muted-foreground size-5" />
-                                                <div>
-                                                    <a href={`/storage/${doc.media?.path}`} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline">
-                                                        {doc.media?.nombre_original ?? 'Documento'}
-                                                    </a>
-                                                    <div className="flex items-center gap-2 text-sm">
-                                                        <Badge variant="outline">{doc.tipo_documento}</Badge>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <Button type="button" variant="ghost" size="icon" onClick={() => removeDocumento(doc.id)}>
-                                                <TrashIcon className="size-4" />
-                                            </Button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>
         </AppLayout>
+    );
+}
+
+function ChecklistUploadButton({ personaId, tipoDocumento }: { personaId: number; tipoDocumento: string }) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState(false);
+
+    const handleFile = (file: File) => {
+        const formData = new FormData();
+        formData.append('archivo', file);
+        formData.append('tipo_documento', tipoDocumento);
+        router.post(`/admin/rh/personas/${personaId}/documentos`, formData, {
+            preserveScroll: true,
+            onStart: () => setUploading(true),
+            onFinish: () => {
+                setUploading(false);
+                if (inputRef.current) inputRef.current.value = '';
+            },
+        });
+    };
+
+    return (
+        <>
+            <input
+                ref={inputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFile(file);
+                }}
+            />
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => inputRef.current?.click()}
+                disabled={uploading}
+            >
+                {uploading ? <Loader2Icon className="size-3.5 animate-spin" /> : <UploadIcon className="size-3.5" />}
+                Subir
+            </Button>
+        </>
     );
 }

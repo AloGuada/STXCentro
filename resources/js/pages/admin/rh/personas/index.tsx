@@ -109,12 +109,22 @@ export default function PersonasIndex({ personas, filters }: Props) {
                         {periodo && (
                             <>
                                 <a
-                                    href={`/admin/rh/periodos-laborales/${periodo.id}/contrato-pdf`}
+                                    href={`/admin/rh/periodos-laborales/${periodo.id}/contrato-pdf?tipo=planta`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
                                     className="btn btn-ghost btn-xs"
-                                    title="Descargar Contrato"
+                                    title="Contrato Planta"
+                                >
+                                    <FileTextIcon className="size-4" />
+                                </a>
+                                <a
+                                    href={`/admin/rh/periodos-laborales/${periodo.id}/contrato-pdf?tipo=obra`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="btn btn-ghost btn-xs"
+                                    title="Contrato Obra"
                                 >
                                     <FileTextIcon className="size-4" />
                                 </a>

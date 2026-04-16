@@ -16,7 +16,7 @@ class PeriodoLaboralUpdateRequest extends FormRequest
     {
         return [
             'persona_id' => ['required', 'exists:rh_personas,id'],
-            'puesto_id' => ['required', 'exists:rh_puestos,id'],
+            'puesto_id' => ['nullable', 'exists:rh_puestos,id'],
             'requisicion_id' => ['nullable', 'exists:rh_requisiciones,id'],
             'fecha_inicio' => ['required', 'date'],
             'fecha_fin' => ['nullable', 'date', 'after_or_equal:fecha_inicio'],
@@ -24,7 +24,7 @@ class PeriodoLaboralUpdateRequest extends FormRequest
             'salario_diario' => ['required', 'numeric', 'min:0'],
             'sueldo_mensual' => ['required', 'numeric', 'min:0'],
             'sueldo_real' => ['nullable', 'numeric', 'min:0'],
-            'periodicidad_pago' => ['nullable', 'string', 'in:semanal,quincenal,mensual'],
+            'periodicidad_pago' => ['nullable', 'string', 'in:semanal,catorcenal,quincenal,mensual'],
             'tipo_salario' => ['nullable', 'string', 'in:fijo,destajo'],
             'tipo_contrato' => ['nullable', 'string', 'max:255'],
             'numero_empleado' => ['nullable', 'string', 'max:50'],

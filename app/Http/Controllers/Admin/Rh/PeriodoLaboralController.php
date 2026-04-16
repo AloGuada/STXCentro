@@ -165,7 +165,7 @@ class PeriodoLaboralController extends Controller
         return back();
     }
 
-    public function generarContratoPdf(PeriodoLaboral $periodoLaboral): HttpResponse
+    public function generarContratoPdf(Request $request, PeriodoLaboral $periodoLaboral): HttpResponse
     {
         $this->authorize('rh.periodos-laborales.ver');
 
@@ -231,7 +231,7 @@ class PeriodoLaboralController extends Controller
             'lugarNacimiento' => $lugarNacimiento,
             'edad' => $edad,
             'numeroEmpleado' => $periodoLaboral->numero_empleado ?? '',
-            'tipoContrato' => $periodoLaboral->requisicion?->tipo_contrato_generado ?? $periodoLaboral->tipo_contrato ?? 'planta',
+            'tipoContrato' => $request->query('tipo', $periodoLaboral->tipo_contrato ?? 'planta'),
             'fotoPath' => $fotoPath,
             'contactosEmergencia' => $persona->contactosEmergencia ?? collect(),
         ])->setPaper('letter', 'portrait');

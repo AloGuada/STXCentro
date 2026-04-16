@@ -14,7 +14,7 @@
             font-size: 11px;
             color: #000;
             line-height: 1.6;
-            padding: 50px 55px;
+            padding: 60px 75px;
         }
         .page-break {
             page-break-before: always;

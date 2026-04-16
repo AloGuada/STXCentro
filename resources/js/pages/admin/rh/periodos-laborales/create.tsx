@@ -121,6 +121,7 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="semanal">Semanal</SelectItem>
+                                        <SelectItem value="catorcenal">Catorcenal</SelectItem>
                                         <SelectItem value="quincenal">Quincenal</SelectItem>
                                         <SelectItem value="mensual">Mensual</SelectItem>
                                     </SelectContent>
