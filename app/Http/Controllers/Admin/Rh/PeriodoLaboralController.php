@@ -148,13 +148,18 @@ class PeriodoLaboralController extends Controller
         return to_route('admin.rh.periodos-laborales.index');
     }
 
-    public function terminar(PeriodoLaboral $periodoLaboral): RedirectResponse
+    public function terminar(Request $request, PeriodoLaboral $periodoLaboral): RedirectResponse
     {
         $this->authorize('rh.periodos-laborales.editar');
+
+        $request->validate([
+            'motivo_baja' => ['required', 'string', 'max:1000'],
+        ]);
 
         $periodoLaboral->update([
             'estado' => 'baja',
             'fecha_fin' => now(),
+            'motivo_baja' => $request->motivo_baja,
         ]);
 
         return back();

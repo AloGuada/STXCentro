@@ -35,6 +35,15 @@ class PersonaController extends Controller
                         ->orWhere('telefono', 'like', "%{$search}%")
                         ->orWhereHas('datosExtra', function ($q) use ($search) {
                             $q->whereRaw('LOWER(localidad) like ?', ["%{$search}%"]);
+                        })
+                        ->orWhereHas('periodosLaborales', function ($q) use ($search) {
+                            $q->where('numero_empleado', 'like', "%{$search}%")
+                                ->orWhereHas('puesto', function ($q) use ($search) {
+                                    $q->whereRaw('LOWER(nombre) like ?', ["%{$search}%"])
+                                        ->orWhereHas('departamento', function ($q) use ($search) {
+                                            $q->whereRaw('LOWER(descripcion) like ?', ["%{$search}%"]);
+                                        });
+                                });
                         });
                 });
             })
@@ -108,7 +117,7 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.editar');
 
-        $persona->load(['datosExtra', 'documentos.media', 'media', 'foto', 'contactosEmergencia']);
+        $persona->load(['datosExtra', 'documentos.media', 'media', 'foto', 'contactosEmergencia', 'periodosLaborales.puesto.departamento']);
 
         return Inertia::render('admin/rh/personas/edit', [
             'persona' => $persona,
@@ -177,6 +186,7 @@ class PersonaController extends Controller
             'banco_op' => ['nullable', 'string', 'max:255'],
             'c_infonavit' => ['nullable', 'string', 'max:255'],
             'c_fonacot' => ['nullable', 'string', 'max:255'],
+            'tramite_banco' => ['nullable', 'boolean'],
         ]);
 
         $persona->datosExtra()->updateOrCreate(

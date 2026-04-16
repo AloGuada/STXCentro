@@ -23,8 +23,12 @@ class PeriodoLaboralStoreRequest extends FormRequest
             'estado' => ['required', 'string', 'in:activo,baja'],
             'salario_diario' => ['required', 'numeric', 'min:0'],
             'sueldo_mensual' => ['required', 'numeric', 'min:0'],
+            'sueldo_real' => ['nullable', 'numeric', 'min:0'],
+            'periodicidad_pago' => ['nullable', 'string', 'in:semanal,quincenal,mensual'],
+            'tipo_salario' => ['nullable', 'string', 'in:fijo,destajo'],
             'tipo_contrato' => ['nullable', 'string', 'max:255'],
             'numero_empleado' => ['nullable', 'string', 'max:50'],
+            'tipo_empleado' => ['nullable', 'string', 'in:planta,contratista,becario,foraneo'],
         ];
     }
 

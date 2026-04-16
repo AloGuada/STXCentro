@@ -1661,6 +1661,7 @@ export type RhDatosExtra = {
     rfc: string | null;
     numero_ine: string | null;
     banco_op: string | null;
+    tramite_banco: boolean;
     texto_cv: string | null;
     created_at: string;
     updated_at: string;
@@ -1689,8 +1690,13 @@ export type RhPeriodoLaboral = {
     estado: 'activo' | 'baja';
     salario_diario: number | null;
     sueldo_mensual: number | null;
+    sueldo_real: number | null;
+    periodicidad_pago: 'semanal' | 'quincenal' | 'mensual' | null;
+    tipo_salario: 'fijo' | 'destajo' | null;
     tipo_contrato: string | null;
     numero_empleado: string | null;
+    tipo_empleado: 'planta' | 'contratista' | 'becario' | 'foraneo' | null;
+    motivo_baja: string | null;
     persona?: RhPersona;
     puesto?: RhPuesto;
     requisicion?: RhRequisicion;

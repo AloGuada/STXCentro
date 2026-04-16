@@ -9,9 +9,9 @@ import type { BreadcrumbItem } from '@/types';
 import type { RhPersona } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { checkPdfHasText, type PdfTextCheck } from '@/lib/check-pdf-text';
-import { CameraIcon, CheckCircle2Icon, FileIcon, FolderOpenIcon, Loader2Icon, PencilIcon, TrashIcon, UploadIcon, UserIcon, XCircleIcon } from 'lucide-react';
+import { BriefcaseIcon, CameraIcon, CheckCircle2Icon, CircleIcon, FileIcon, FolderOpenIcon, Loader2Icon, PencilIcon, TrashIcon, UploadIcon, UserIcon, XCircleIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 type Props = {
     persona: RhPersona;
@@ -58,6 +58,7 @@ export default function PersonaEdit({ persona }: Props) {
         banco_op: extras?.banco_op ?? '',
         c_infonavit: extras?.c_infonavit ?? '',
         c_fonacot: extras?.c_fonacot ?? '',
+        tramite_banco: extras?.tramite_banco ?? false,
     });
 
     const contactoForm = useForm({
@@ -82,9 +83,52 @@ export default function PersonaEdit({ persona }: Props) {
     };
 
     const [docTipo, setDocTipo] = useState('');
+    const [docTipoCustom, setDocTipoCustom] = useState('');
     const [docFile, setDocFile] = useState<File | null>(null);
     const [docUploading, setDocUploading] = useState(false);
     const docInputRef = useRef<HTMLInputElement>(null);
+
+    const TIPOS_DOC_PREDEFINIDOS = [
+        { value: 'curp', label: 'CURP' },
+        { value: 'acta_nacimiento', label: 'Acta de nacimiento' },
+        { value: 'nss_imss', label: 'NSS (IMSS)' },
+        { value: 'constancia_fiscal', label: 'Constancia situacion fiscal' },
+        { value: 'ine', label: 'INE' },
+        { value: 'comprobante_domicilio', label: 'Comprobante domicilio' },
+        { value: 'cv', label: 'CV' },
+        { value: 'solicitud_empleo', label: 'Solicitud de empleo' },
+        { value: 'certificado_estudio', label: 'Certificado de estudio' },
+        { value: 'retencion_infonavit', label: 'Hoja retencion Infonavit' },
+        { value: 'otro', label: 'Otro...' },
+    ];
+
+    const hasTipoDoc = (tipo: string) => persona.documentos?.some((d) => d.tipo_documento === tipo);
+
+    const esDeptoConstruccion = persona.periodos_laborales?.some(
+        (pl) => pl.estado === 'activo' && pl.puesto?.departamento?.descripcion?.toLowerCase().includes('construc'),
+    );
+
+    const checklist = useMemo(() => {
+        type CheckItem = { key: string; label: string; required: boolean; done: boolean };
+        const items: CheckItem[] = [
+            { key: 'curp', label: 'CURP', required: true, done: !!persona.datos_extra?.curp && !!hasTipoDoc('curp') },
+            { key: 'acta_nacimiento', label: 'Acta de nacimiento', required: true, done: !!hasTipoDoc('acta_nacimiento') },
+            { key: 'nss_imss', label: 'NSS (pagina IMSS)', required: true, done: !!persona.datos_extra?.imss && !!hasTipoDoc('nss_imss') },
+            { key: 'constancia_fiscal', label: 'Constancia situacion fiscal', required: true, done: !!hasTipoDoc('constancia_fiscal') },
+            { key: 'ine', label: 'INE', required: !!esDeptoConstruccion, done: !!hasTipoDoc('ine') },
+            { key: 'comprobante_domicilio', label: 'Comprobante domicilio (3 meses)', required: true, done: !!hasTipoDoc('comprobante_domicilio') },
+            { key: 'cuenta_banco', label: 'Cuenta banco (Banorte)', required: !persona.datos_extra?.tramite_banco, done: !!persona.datos_extra?.cuenta_banco },
+            { key: 'cv', label: 'CV o solicitud de empleo', required: false, done: !!hasTipoDoc('cv') || !!hasTipoDoc('solicitud_empleo') || !!persona.media },
+            { key: 'certificado_estudio', label: 'Ultimo certificado de estudio', required: false, done: !!hasTipoDoc('certificado_estudio') },
+            { key: 'retencion_infonavit', label: 'Hoja retencion Infonavit', required: false, done: !!hasTipoDoc('retencion_infonavit') },
+            { key: 'contacto_emergencia', label: 'Contacto de emergencia', required: true, done: (persona.contactos_emergencia?.length ?? 0) > 0 },
+            { key: 'contacto_comunicacion', label: 'Correo electronico o telefono', required: true, done: !!persona.email || !!persona.telefono },
+        ];
+        const requiredItems = items.filter((i) => i.required);
+        const completedRequired = requiredItems.filter((i) => i.done).length;
+        const allRequiredDone = completedRequired === requiredItems.length;
+        return { items, completedRequired, totalRequired: requiredItems.length, allRequiredDone };
+    }, [persona]);
 
     const handleDatosSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -96,11 +140,13 @@ export default function PersonaEdit({ persona }: Props) {
         extrasForm.put(`/admin/rh/personas/${persona.id}/datos-extra`, { preserveScroll: true });
     };
 
+    const docTipoFinal = docTipo === 'otro' ? docTipoCustom.trim() : docTipo;
+
     const handleDocUpload = () => {
-        if (!docFile || !docTipo.trim()) return;
+        if (!docFile || !docTipoFinal) return;
         const formData = new FormData();
         formData.append('archivo', docFile);
-        formData.append('tipo_documento', docTipo.trim());
+        formData.append('tipo_documento', docTipoFinal);
 
         router.post(`/admin/rh/personas/${persona.id}/documentos`, formData, {
             preserveScroll: true,
@@ -108,10 +154,34 @@ export default function PersonaEdit({ persona }: Props) {
             onFinish: () => {
                 setDocUploading(false);
                 setDocTipo('');
+                setDocTipoCustom('');
                 setDocFile(null);
                 if (docInputRef.current) docInputRef.current.value = '';
             },
         });
+    };
+
+    const handleTramiteBancoToggle = () => {
+        router.put(`/admin/rh/personas/${persona.id}/datos-extra`, {
+            ...{
+                imss: extras?.imss ?? '',
+                curp: extras?.curp ?? '',
+                rfc: extras?.rfc ?? '',
+                numero_ine: extras?.numero_ine ?? '',
+                estado_civil: extras?.estado_civil ?? '',
+                hijos: extras?.hijos != null ? String(extras.hijos) : '',
+                domicilio: extras?.domicilio ?? '',
+                cp: extras?.cp ?? '',
+                localidad: extras?.localidad ?? '',
+                nombre_padre: extras?.nombre_padre ?? '',
+                nombre_madre: extras?.nombre_madre ?? '',
+                cuenta_banco: extras?.cuenta_banco ?? '',
+                banco_op: extras?.banco_op ?? '',
+                c_infonavit: extras?.c_infonavit ?? '',
+                c_fonacot: extras?.c_fonacot ?? '',
+            },
+            tramite_banco: !persona.datos_extra?.tramite_banco,
+        }, { preserveScroll: true });
     };
 
     const removeDocumento = (docId: number) => {
@@ -336,6 +406,16 @@ export default function PersonaEdit({ persona }: Props) {
                                 </FormField>
                             </div>
 
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    className="checkbox checkbox-sm"
+                                    checked={extrasForm.data.tramite_banco}
+                                    onChange={(e) => extrasForm.setData('tramite_banco', e.target.checked)}
+                                />
+                                <span className="text-sm">Se le tramitara cuenta de banco</span>
+                            </label>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <FormField label="Credito Infonavit" htmlFor="c_infonavit" error={extrasForm.errors.c_infonavit}>
                                     <Select value={extrasForm.data.c_infonavit} onValueChange={(v) => extrasForm.setData('c_infonavit', v)}>
@@ -439,14 +519,78 @@ export default function PersonaEdit({ persona }: Props) {
 
                 {/* Tab: Documentos */}
                 {activeTab === 'documentos' && (
-                    <div className="w-3/4">
-                        <div className="mb-4 space-y-3">
+                    <div className="w-3/4 space-y-6">
+                        {/* Checklist de requisitos */}
+                        <div className="rounded-lg border p-4">
+                            <div className="mb-3 flex items-center justify-between">
+                                <h3 className="font-semibold">Requisitos para contratacion</h3>
+                                <span className={`text-sm font-medium ${checklist.allRequiredDone ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                    {checklist.completedRequired} / {checklist.totalRequired} obligatorios
+                                </span>
+                            </div>
+                            <div className="space-y-1.5">
+                                {checklist.items.map((item) => (
+                                    <div key={item.key} className="flex items-center gap-2 py-1">
+                                        {item.done ? (
+                                            <CheckCircle2Icon className="size-4 shrink-0 text-green-600" />
+                                        ) : item.required ? (
+                                            <XCircleIcon className="size-4 shrink-0 text-red-500" />
+                                        ) : (
+                                            <CircleIcon className="text-muted-foreground size-4 shrink-0" />
+                                        )}
+                                        <span className={`text-sm ${!item.required && !item.done ? 'text-muted-foreground' : ''}`}>
+                                            {item.label}
+                                            {item.required && <span className="ml-0.5 text-red-500">*</span>}
+                                        </span>
+                                        {item.key === 'cuenta_banco' && (
+                                            <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                <input
+                                                    type="checkbox"
+                                                    className="checkbox checkbox-xs"
+                                                    checked={persona.datos_extra?.tramite_banco ?? false}
+                                                    onChange={handleTramiteBancoToggle}
+                                                />
+                                                Se le tramitara
+                                            </label>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-4 border-t pt-4">
+                                <Button
+                                    asChild={checklist.allRequiredDone}
+                                    disabled={!checklist.allRequiredDone}
+                                    className={checklist.allRequiredDone ? 'bg-green-600 hover:bg-green-700' : ''}
+                                >
+                                    {checklist.allRequiredDone ? (
+                                        <Link href={`/admin/rh/periodos-laborales/create?persona_id=${persona.id}`}>
+                                            <BriefcaseIcon className="size-4" />
+                                            Contratar
+                                        </Link>
+                                    ) : (
+                                        <>
+                                            <BriefcaseIcon className="size-4" />
+                                            Contratar (faltan {checklist.totalRequired - checklist.completedRequired} requisitos)
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Subir documento */}
+                        <div className="space-y-3">
+                            <h3 className="font-semibold">Subir documento</h3>
                             <div className="grid grid-cols-2 gap-2">
-                                <Input
-                                    value={docTipo}
-                                    onChange={(e) => setDocTipo(e.target.value)}
-                                    placeholder="Tipo de documento (ej: INE, CURP, Comprobante)"
-                                />
+                                <Select value={docTipo} onValueChange={setDocTipo}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Tipo de documento" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {TIPOS_DOC_PREDEFINIDOS.map((t) => (
+                                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                                 <input
                                     ref={docInputRef}
                                     type="file"
@@ -454,35 +598,44 @@ export default function PersonaEdit({ persona }: Props) {
                                     onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
                                 />
                             </div>
-                            <Button type="button" onClick={handleDocUpload} disabled={!docFile || !docTipo.trim() || docUploading}>
+                            {docTipo === 'otro' && (
+                                <Input
+                                    value={docTipoCustom}
+                                    onChange={(e) => setDocTipoCustom(e.target.value)}
+                                    placeholder="Nombre del tipo de documento"
+                                />
+                            )}
+                            <Button type="button" onClick={handleDocUpload} disabled={!docFile || !docTipoFinal || docUploading}>
                                 {docUploading ? <Loader2Icon className="size-4 animate-spin" /> : <UploadIcon className="size-4" />}
                                 Subir Documento
                             </Button>
                         </div>
 
-                        {(persona.documentos ?? []).length > 0 ? (
-                            <ul className="space-y-2">
-                                {(persona.documentos ?? []).map((doc) => (
-                                    <li key={doc.id} className="flex items-center justify-between rounded border px-3 py-2">
-                                        <div className="flex items-center gap-3">
-                                            <FileIcon className="text-muted-foreground size-5" />
-                                            <div>
-                                                <a href={`/storage/${doc.media?.path}`} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline">
-                                                    {doc.media?.nombre_original ?? 'Documento'}
-                                                </a>
-                                                <div className="flex items-center gap-2 text-sm">
-                                                    <Badge variant="outline">{doc.tipo_documento}</Badge>
+                        {/* Documentos subidos */}
+                        {(persona.documentos ?? []).length > 0 && (
+                            <div>
+                                <h3 className="mb-3 font-semibold">Documentos subidos</h3>
+                                <ul className="space-y-2">
+                                    {(persona.documentos ?? []).map((doc) => (
+                                        <li key={doc.id} className="flex items-center justify-between rounded border px-3 py-2">
+                                            <div className="flex items-center gap-3">
+                                                <FileIcon className="text-muted-foreground size-5" />
+                                                <div>
+                                                    <a href={`/storage/${doc.media?.path}`} target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline">
+                                                        {doc.media?.nombre_original ?? 'Documento'}
+                                                    </a>
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <Badge variant="outline">{doc.tipo_documento}</Badge>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeDocumento(doc.id)}>
-                                            <TrashIcon className="size-4" />
-                                        </Button>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-muted-foreground text-sm">No hay documentos adjuntos.</p>
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => removeDocumento(doc.id)}>
+                                                <TrashIcon className="size-4" />
+                                            </Button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
                         )}
                     </div>
                 )}

@@ -31,6 +31,7 @@ class DatosExtra extends Model
         'rfc',
         'numero_ine',
         'banco_op',
+        'tramite_banco',
         'texto_cv',
     ];
 
@@ -39,6 +40,7 @@ class DatosExtra extends Model
     {
         return [
             'hijos' => 'integer',
+            'tramite_banco' => 'boolean',
         ];
     }
 

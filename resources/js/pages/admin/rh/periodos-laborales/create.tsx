@@ -35,8 +35,12 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
         fecha_fin: '',
         salario_diario: reqInicial?.salario ?? '',
         sueldo_mensual: '',
+        sueldo_real: '',
+        periodicidad_pago: '',
+        tipo_salario: '',
         tipo_contrato: reqInicial?.tipo_contrato_generado ?? '',
         numero_empleado: '',
+        tipo_empleado: '',
         estado: 'activo' as 'activo' | 'terminado' | 'baja',
     });
 
@@ -95,23 +99,78 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
                             </FormField>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Salario Diario" htmlFor="salario_diario" error={errors.salario_diario}>
+                        <div className="grid grid-cols-3 gap-4">
+                            <FormField label="Salario Diario" htmlFor="salario_diario" error={errors.salario_diario} required>
                                 <Input id="salario_diario" type="number" step="0.01" value={data.salario_diario} onChange={(e) => setData('salario_diario', e.target.value)} placeholder="0.00" />
                             </FormField>
 
-                            <FormField label="Sueldo Mensual" htmlFor="sueldo_mensual" error={errors.sueldo_mensual}>
+                            <FormField label="Sueldo Mensual" htmlFor="sueldo_mensual" error={errors.sueldo_mensual} required>
                                 <Input id="sueldo_mensual" type="number" step="0.01" value={data.sueldo_mensual} onChange={(e) => setData('sueldo_mensual', e.target.value)} placeholder="0.00" />
+                            </FormField>
+
+                            <FormField label="Sueldo Real" htmlFor="sueldo_real" error={errors.sueldo_real}>
+                                <Input id="sueldo_real" type="number" step="0.01" value={data.sueldo_real} onChange={(e) => setData('sueldo_real', e.target.value)} placeholder="0.00" />
+                            </FormField>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <FormField label="Periodicidad de Pago" htmlFor="periodicidad_pago" error={errors.periodicidad_pago}>
+                                <Select value={data.periodicidad_pago} onValueChange={(v) => setData('periodicidad_pago', v)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="semanal">Semanal</SelectItem>
+                                        <SelectItem value="quincenal">Quincenal</SelectItem>
+                                        <SelectItem value="mensual">Mensual</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </FormField>
+
+                            <FormField label="Tipo de Salario" htmlFor="tipo_salario" error={errors.tipo_salario}>
+                                <Select value={data.tipo_salario} onValueChange={(v) => setData('tipo_salario', v)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="fijo">Fijo</SelectItem>
+                                        <SelectItem value="destajo">Destajo</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </FormField>
+
+                            <FormField label="Tipo de Contrato" htmlFor="tipo_contrato" error={errors.tipo_contrato}>
+                                <Select value={data.tipo_contrato} onValueChange={(v) => setData('tipo_contrato', v)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="indefinido">Indefinido</SelectItem>
+                                        <SelectItem value="temporal">Temporal</SelectItem>
+                                        <SelectItem value="prueba">Prueba</SelectItem>
+                                        <SelectItem value="obra_determinada">Obra determinada</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </FormField>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Tipo de Contrato" htmlFor="tipo_contrato" error={errors.tipo_contrato}>
-                                <Input id="tipo_contrato" value={data.tipo_contrato} onChange={(e) => setData('tipo_contrato', e.target.value)} placeholder="Ej: Indefinido, Temporal" />
+                            <FormField label="No. Empleado" htmlFor="numero_empleado" error={errors.numero_empleado}>
+                                <Input id="numero_empleado" value={data.numero_empleado} onChange={(e) => setData('numero_empleado', e.target.value)} placeholder="Ej: P-001" />
                             </FormField>
 
-                            <FormField label="No. Empleado" htmlFor="numero_empleado" error={errors.numero_empleado}>
-                                <Input id="numero_empleado" value={data.numero_empleado} onChange={(e) => setData('numero_empleado', e.target.value)} placeholder="Ej: 001" />
+                            <FormField label="Tipo de Empleado" htmlFor="tipo_empleado" error={errors.tipo_empleado}>
+                                <Select value={data.tipo_empleado} onValueChange={(v) => setData('tipo_empleado', v)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="planta">Planta</SelectItem>
+                                        <SelectItem value="contratista">Contratista</SelectItem>
+                                        <SelectItem value="becario">Becario</SelectItem>
+                                        <SelectItem value="foraneo">Foraneo</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </FormField>
                         </div>
 

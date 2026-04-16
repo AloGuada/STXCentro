@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,7 +10,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Media, RhOnboarding, RhOnboardingTarea, RhPeriodoLaboral } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { BadgeCheckIcon, CheckIcon, ClipboardListIcon, CreditCardIcon, FileIcon, FileTextIcon, Loader2Icon, PencilIcon, PlusIcon, TrashIcon, UploadIcon } from 'lucide-react';
+import { BadgeCheckIcon, CheckIcon, ClipboardListIcon, CreditCardIcon, FileIcon, FileTextIcon, Loader2Icon, PencilIcon, PlusIcon, TrashIcon, UploadIcon, UserXIcon } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
 
 type Props = {
@@ -30,6 +31,24 @@ type Props = {
 export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisiciones, periodosActivos }: Props) {
     const personaNombre = periodo.persona ? `${periodo.persona.nombre} ${periodo.persona.apellido}` : 'Periodo';
     const [activeTab, setActiveTab] = useState<'datos' | 'onboarding'>('datos');
+    const [showBajaModal, setShowBajaModal] = useState(false);
+    const [motivoBaja, setMotivoBaja] = useState('');
+    const [bajaProcessing, setBajaProcessing] = useState(false);
+
+    const handleBaja = () => {
+        if (!motivoBaja.trim()) return;
+        setBajaProcessing(true);
+        router.post(`/admin/rh/periodos-laborales/${periodo.id}/terminar`, {
+            motivo_baja: motivoBaja.trim(),
+        }, {
+            preserveScroll: true,
+            onFinish: () => {
+                setBajaProcessing(false);
+                setShowBajaModal(false);
+                setMotivoBaja('');
+            },
+        });
+    };
 
     const handleDescargarContrato = () => {
         const faltantes: string[] = [];
@@ -75,8 +94,12 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
         fecha_fin: periodo.fecha_fin ?? '',
         salario_diario: periodo.salario_diario ? String(periodo.salario_diario) : '',
         sueldo_mensual: periodo.sueldo_mensual ? String(periodo.sueldo_mensual) : '',
+        sueldo_real: periodo.sueldo_real ? String(periodo.sueldo_real) : '',
+        periodicidad_pago: periodo.periodicidad_pago ?? '',
+        tipo_salario: periodo.tipo_salario ?? '',
         tipo_contrato: periodo.tipo_contrato ?? '',
         numero_empleado: periodo.numero_empleado ?? '',
+        tipo_empleado: periodo.tipo_empleado ?? '',
         estado: periodo.estado,
     });
 
@@ -119,6 +142,12 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
                             <CreditCardIcon className="size-4" />
                             Tarjeta
                         </Button>
+                        {periodo.estado === 'activo' && (
+                            <Button variant="destructive" type="button" onClick={() => setShowBajaModal(true)}>
+                                <UserXIcon className="size-4" />
+                                Dar de Baja
+                            </Button>
+                        )}
                         <DeleteDialog
                             title="Eliminar periodo laboral"
                             description={`¿Estas seguro de eliminar este periodo laboral de "${personaNombre}"? Esta accion no se puede deshacer.`}
@@ -188,23 +217,78 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
                                 </FormField>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField label="Salario Diario" htmlFor="salario_diario" error={errors.salario_diario}>
+                            <div className="grid grid-cols-3 gap-4">
+                                <FormField label="Salario Diario" htmlFor="salario_diario" error={errors.salario_diario} required>
                                     <Input id="salario_diario" type="number" step="0.01" value={data.salario_diario} onChange={(e) => setData('salario_diario', e.target.value)} placeholder="0.00" />
                                 </FormField>
 
-                                <FormField label="Sueldo Mensual" htmlFor="sueldo_mensual" error={errors.sueldo_mensual}>
+                                <FormField label="Sueldo Mensual" htmlFor="sueldo_mensual" error={errors.sueldo_mensual} required>
                                     <Input id="sueldo_mensual" type="number" step="0.01" value={data.sueldo_mensual} onChange={(e) => setData('sueldo_mensual', e.target.value)} placeholder="0.00" />
+                                </FormField>
+
+                                <FormField label="Sueldo Real" htmlFor="sueldo_real" error={errors.sueldo_real}>
+                                    <Input id="sueldo_real" type="number" step="0.01" value={data.sueldo_real} onChange={(e) => setData('sueldo_real', e.target.value)} placeholder="0.00" />
+                                </FormField>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <FormField label="Periodicidad de Pago" htmlFor="periodicidad_pago" error={errors.periodicidad_pago}>
+                                    <Select value={data.periodicidad_pago} onValueChange={(v) => setData('periodicidad_pago', v)}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccionar" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="semanal">Semanal</SelectItem>
+                                            <SelectItem value="quincenal">Quincenal</SelectItem>
+                                            <SelectItem value="mensual">Mensual</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </FormField>
+
+                                <FormField label="Tipo de Salario" htmlFor="tipo_salario" error={errors.tipo_salario}>
+                                    <Select value={data.tipo_salario} onValueChange={(v) => setData('tipo_salario', v)}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccionar" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="fijo">Fijo</SelectItem>
+                                            <SelectItem value="destajo">Destajo</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </FormField>
+
+                                <FormField label="Tipo de Contrato" htmlFor="tipo_contrato" error={errors.tipo_contrato}>
+                                    <Select value={data.tipo_contrato} onValueChange={(v) => setData('tipo_contrato', v)}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccionar" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="indefinido">Indefinido</SelectItem>
+                                            <SelectItem value="temporal">Temporal</SelectItem>
+                                            <SelectItem value="prueba">Prueba</SelectItem>
+                                            <SelectItem value="obra_determinada">Obra determinada</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </FormField>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField label="Tipo de Contrato" htmlFor="tipo_contrato" error={errors.tipo_contrato}>
-                                    <Input id="tipo_contrato" value={data.tipo_contrato} onChange={(e) => setData('tipo_contrato', e.target.value)} placeholder="Ej: Indefinido, Temporal" />
+                                <FormField label="No. Empleado" htmlFor="numero_empleado" error={errors.numero_empleado}>
+                                    <Input id="numero_empleado" value={data.numero_empleado} onChange={(e) => setData('numero_empleado', e.target.value)} placeholder="Ej: P-001" />
                                 </FormField>
 
-                                <FormField label="No. Empleado" htmlFor="numero_empleado" error={errors.numero_empleado}>
-                                    <Input id="numero_empleado" value={data.numero_empleado} onChange={(e) => setData('numero_empleado', e.target.value)} placeholder="Ej: 001" />
+                                <FormField label="Tipo de Empleado" htmlFor="tipo_empleado" error={errors.tipo_empleado}>
+                                    <Select value={data.tipo_empleado} onValueChange={(v) => setData('tipo_empleado', v)}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccionar" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="planta">Planta</SelectItem>
+                                            <SelectItem value="contratista">Contratista</SelectItem>
+                                            <SelectItem value="becario">Becario</SelectItem>
+                                            <SelectItem value="foraneo">Foraneo</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </FormField>
                             </div>
 
@@ -260,6 +344,44 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
                     </div>
                 )}
             </div>
+
+            {/* Modal Dar de Baja */}
+            <Dialog open={showBajaModal} onOpenChange={setShowBajaModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Dar de Baja - {personaNombre}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <p className="text-muted-foreground text-sm">
+                            Se cambiara el estado a <strong>Baja</strong> y se registrara la fecha de hoy como fecha de fin.
+                        </p>
+                        {periodo.motivo_baja && (
+                            <div className="rounded border bg-muted/50 p-3 text-sm">
+                                <span className="font-medium">Motivo anterior:</span> {periodo.motivo_baja}
+                            </div>
+                        )}
+                        <FormField label="Motivo de baja" htmlFor="motivo_baja" required>
+                            <textarea
+                                id="motivo_baja"
+                                className="textarea textarea-bordered w-full"
+                                value={motivoBaja}
+                                onChange={(e) => setMotivoBaja(e.target.value)}
+                                placeholder="Describa el motivo de la baja..."
+                                rows={4}
+                            />
+                        </FormField>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button variant="outline">Cancelar</Button>
+                        </DialogClose>
+                        <Button variant="destructive" onClick={handleBaja} disabled={!motivoBaja.trim() || bajaProcessing}>
+                            {bajaProcessing && <Loader2Icon className="size-4 animate-spin" />}
+                            Confirmar Baja
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }
