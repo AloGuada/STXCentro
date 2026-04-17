@@ -23,6 +23,7 @@ class ObraFactory extends Factory
             'fecha_inicio' => fake()->optional()->date(),
             'fecha_fin' => fake()->optional()->date(),
             'presupuesto_total' => fake()->randomFloat(2, 0, 10000000),
+            'ingreso_real' => fake()->optional()->randomFloat(4, 0, 10000000),
             'estatus' => fake()->randomElement(['planificacion', 'en_proceso', 'activa', 'suspendida', 'completada', 'cancelada']),
         ];
     }

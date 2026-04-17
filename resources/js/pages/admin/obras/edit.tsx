@@ -31,6 +31,7 @@ export default function ObrasEdit({ obra, rubros }: Props) {
         fecha_inicio: obra.fecha_inicio ? obra.fecha_inicio.substring(0, 10) : '',
         fecha_fin: obra.fecha_fin ? obra.fecha_fin.substring(0, 10) : '',
         presupuesto_total: String(obra.presupuesto_total),
+        ingreso_real: obra.ingreso_real !== null && obra.ingreso_real !== undefined ? String(obra.ingreso_real) : '',
         estatus: obra.estatus,
     });
 
@@ -177,6 +178,18 @@ export default function ObrasEdit({ obra, rubros }: Props) {
                                     />
                                 </FormField>
                             </div>
+
+                            <FormField label="Ingreso Real" htmlFor="ingreso_real" error={errors.ingreso_real}>
+                                <Input
+                                    id="ingreso_real"
+                                    type="number"
+                                    step="0.0001"
+                                    min="0"
+                                    value={data.ingreso_real}
+                                    onChange={(e) => setData('ingreso_real', e.target.value)}
+                                    placeholder="0.00"
+                                />
+                            </FormField>
 
                             <div className="flex justify-end gap-2">
                                 <Button variant="outline" asChild>

@@ -1,9 +1,11 @@
 import { DataTable, type Column } from '@/components/data-table';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Obra, ObraEstatus, PaginatedData } from '@/types/models';
 import { OBRA_ESTATUS_LABELS } from '@/types/models';
 import { Head } from '@inertiajs/react';
+import { DownloadIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -81,6 +83,14 @@ export default function PresupuestosIndex({ obras, filters }: Props) {
             <Head title="Presupuestos" />
 
             <div className="p-6">
+                <div className="mb-4 flex justify-end">
+                    <Button asChild variant="outline">
+                        <a href="/admin/costos/presupuestos/reporte-pdf" target="_blank" rel="noopener noreferrer">
+                            <DownloadIcon className="size-4" />
+                            Descargar Reporte
+                        </a>
+                    </Button>
+                </div>
                 <DataTable
                     columns={columns}
                     data={obras}

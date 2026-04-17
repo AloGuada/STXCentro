@@ -55,6 +55,7 @@ export type Obra = {
     fecha_inicio: string | null;
     fecha_fin: string | null;
     presupuesto_total: number;
+    ingreso_real: number | null;
     estatus: ObraEstatus;
     obra_rubros?: CostosObraRubro[];
     // Cobranza fields

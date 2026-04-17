@@ -22,6 +22,7 @@ export default function ObrasCreate() {
         fecha_inicio: '',
         fecha_fin: '',
         presupuesto_total: '0',
+        ingreso_real: '',
         estatus: 'planificacion' as ObraEstatus,
     });
 
@@ -101,6 +102,18 @@ export default function ObrasCreate() {
                                 />
                             </FormField>
                         </div>
+
+                        <FormField label="Ingreso Real" htmlFor="ingreso_real" error={errors.ingreso_real}>
+                            <Input
+                                id="ingreso_real"
+                                type="number"
+                                step="0.0001"
+                                min="0"
+                                value={data.ingreso_real}
+                                onChange={(e) => setData('ingreso_real', e.target.value)}
+                                placeholder="0.00"
+                            />
+                        </FormField>
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>

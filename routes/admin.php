@@ -195,6 +195,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Presupuestos (vista por obra)
         Route::get('presupuestos', [CostosPresupuestoController::class, 'index'])->name('presupuestos.index');
+        Route::get('presupuestos/reporte-pdf', [CostosPresupuestoController::class, 'generarReportePdf'])->name('presupuestos.reporte-pdf');
         Route::get('presupuestos/{obra}/edit', [CostosPresupuestoController::class, 'edit'])->name('presupuestos.edit');
 
         // Cuentas Internas
