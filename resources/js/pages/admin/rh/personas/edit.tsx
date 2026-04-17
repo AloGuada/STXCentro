@@ -111,9 +111,9 @@ export default function PersonaEdit({ persona }: Props) {
     const checklist = useMemo(() => {
         type CheckItem = { key: string; label: string; required: boolean; done: boolean };
         const items: CheckItem[] = [
-            { key: 'curp', label: 'CURP', required: true, done: !!persona.datos_extra?.curp && !!hasTipoDoc('curp') },
+            { key: 'curp', label: 'CURP', required: true, done: !!hasTipoDoc('curp') },
             { key: 'acta_nacimiento', label: 'Acta de nacimiento', required: true, done: !!hasTipoDoc('acta_nacimiento') },
-            { key: 'nss_imss', label: 'NSS (pagina IMSS)', required: true, done: !!persona.datos_extra?.imss && !!hasTipoDoc('nss_imss') },
+            { key: 'nss_imss', label: 'NSS (pagina IMSS)', required: true, done: !!hasTipoDoc('nss_imss') },
             { key: 'constancia_fiscal', label: 'Constancia situacion fiscal', required: true, done: !!hasTipoDoc('constancia_fiscal') },
             { key: 'ine', label: 'INE', required: !!esDeptoConstruccion, done: !!hasTipoDoc('ine') },
             { key: 'comprobante_domicilio', label: 'Comprobante domicilio (3 meses)', required: true, done: !!hasTipoDoc('comprobante_domicilio') },
@@ -565,6 +565,12 @@ export default function PersonaEdit({ persona }: Props) {
                                                                 Ver
                                                             </a>
                                                         </Button>
+                                                        <ChecklistUploadButton
+                                                            personaId={persona.id}
+                                                            tipoDocumento={item.key}
+                                                            replaceDocId={existingDoc.id}
+                                                            label="Cambiar"
+                                                        />
                                                         <Button variant="ghost" size="icon" className="size-7" onClick={() => removeDocumento(existingDoc.id)}>
                                                             <TrashIcon className="size-3.5 text-destructive" />
                                                         </Button>
@@ -608,22 +614,44 @@ export default function PersonaEdit({ persona }: Props) {
     );
 }
 
-function ChecklistUploadButton({ personaId, tipoDocumento }: { personaId: number; tipoDocumento: string }) {
+function ChecklistUploadButton({
+    personaId,
+    tipoDocumento,
+    replaceDocId,
+    label = 'Subir',
+}: {
+    personaId: number;
+    tipoDocumento: string;
+    replaceDocId?: number;
+    label?: string;
+}) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
 
     const handleFile = (file: File) => {
-        const formData = new FormData();
-        formData.append('archivo', file);
-        formData.append('tipo_documento', tipoDocumento);
-        router.post(`/admin/rh/personas/${personaId}/documentos`, formData, {
-            preserveScroll: true,
-            onStart: () => setUploading(true),
-            onFinish: () => {
-                setUploading(false);
-                if (inputRef.current) inputRef.current.value = '';
-            },
-        });
+        const upload = () => {
+            const formData = new FormData();
+            formData.append('archivo', file);
+            formData.append('tipo_documento', tipoDocumento);
+            router.post(`/admin/rh/personas/${personaId}/documentos`, formData, {
+                preserveScroll: true,
+                onFinish: () => {
+                    setUploading(false);
+                    if (inputRef.current) inputRef.current.value = '';
+                },
+            });
+        };
+
+        setUploading(true);
+        if (replaceDocId) {
+            router.delete(`/admin/rh/personas/${personaId}/documentos/${replaceDocId}`, {
+                preserveScroll: true,
+                onSuccess: () => upload(),
+                onError: () => setUploading(false),
+            });
+        } else {
+            upload();
+        }
     };
 
     return (
@@ -638,13 +666,13 @@ function ChecklistUploadButton({ personaId, tipoDocumento }: { personaId: number
                 }}
             />
             <Button
-                variant="outline"
+                variant={replaceDocId ? 'ghost' : 'outline'}
                 size="sm"
                 onClick={() => inputRef.current?.click()}
                 disabled={uploading}
             >
                 {uploading ? <Loader2Icon className="size-3.5 animate-spin" /> : <UploadIcon className="size-3.5" />}
-                Subir
+                {label}
             </Button>
         </>
     );
