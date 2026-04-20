@@ -79,8 +79,8 @@ const navGroups: NavGroup[] = [
         items: [
             { title: 'Obras', href: '/admin/obras', icon: Briefcase, permission: 'obras.ver' },
             { title: 'Conceptos', href: '/admin/prod/conceptos', icon: Puzzle, permission: 'prod.conceptos.ver' },
-            { title: 'Media', href: '/admin/media', icon: Image },
-            { title: 'Tags', href: '/admin/tags', icon: Tag },
+            { title: 'Media', href: '/admin/media', icon: Image, role: 'super-admin' },
+            { title: 'Tags', href: '/admin/tags', icon: Tag, role: 'super-admin' },
         ],
     },
     {
@@ -115,7 +115,6 @@ const navGroups: NavGroup[] = [
             { title: 'Solicitudes Pago', href: '/admin/costos/solicitudes-pago', icon: FileText, permission: 'costos.solicitudes-pago.ver' },
             { title: 'Niveles Aprobacion', href: '/admin/costos/permisos', icon: CheckSquare, permission: 'costos.aprobaciones.ver' },
             { title: 'Mis Aprobaciones', href: '/admin/costos/aprobaciones', icon: ClipboardCheck, permission: 'costos.aprobaciones.ver' },
-            { title: 'Mi Firma', href: '/admin/costos/firma', icon: PenTool },
             { title: 'Afectaciones', href: '/admin/costos/afectaciones', icon: TrendingDown, permission: 'costos.afectaciones.ver' },
             { title: 'Ordenes Compra', href: '/admin/costos/ordenes-compra', icon: ShoppingCart, permission: 'costos.ordenes-compra.ver' },
             { title: 'Facturas', href: '/admin/costos/facturas', icon: Receipt, permission: 'costos.facturas.ver' },
@@ -196,6 +195,7 @@ const mainNavItems: NavItem[] = [
 
 const footerNavItems: NavItem[] = [
     { title: 'Permisos de Ausencia', href: '/rh/permisos', icon: CalendarCheck },
+    { title: 'Tickets de Soporte', href: '/sti/tickets', icon: Ticket },
     { title: 'Documentación Costos', href: '/admin/documentacion/costos', icon: BookOpen },
     { title: 'Documentación RH', href: '/admin/documentacion/rh', icon: BookOpen },
 ];
@@ -311,7 +311,7 @@ function SidebarMenuGroup({ group, isOpen, onToggle }: { group: NavGroup; isOpen
 function SidebarContent() {
     const { auth } = usePage<SharedData>().props;
     const { isCurrentUrl } = useCurrentUrl();
-    const { can } = useCan();
+    const { can, hasRole } = useCan();
 
     const dgPuedeSubir = auth?.dg_puede_subir ?? false;
 
@@ -321,14 +321,16 @@ function SidebarContent() {
             items: g.items
                 .map((i) => ({
                     ...i,
-                    children: i.children?.filter((c) => !c.permission || can(c.permission)),
+                    children: i.children?.filter(
+                        (c) => (!c.permission || can(c.permission)) && (!c.role || hasRole(c.role)),
+                    ),
                 }))
                 .filter((i) => {
                     // "Mis reportes": depende de tener al menos una carpeta con puede_escribir
                     if (i.href === '/admin/dg/mis-reportes') {
                         return dgPuedeSubir;
                     }
-                    return !i.permission || can(i.permission);
+                    return (!i.permission || can(i.permission)) && (!i.role || hasRole(i.role));
                 }),
         }))
         .filter((g) => g.items.length > 0);
@@ -414,6 +416,14 @@ function SidebarContent() {
                                 Cambiar contraseña
                             </button>
                         </li>
+                        {auth.es_aprobador_costos && (
+                            <li>
+                                <Link href="/admin/costos/firma" prefetch>
+                                    <PenTool className="size-4" />
+                                    Mi firma
+                                </Link>
+                            </li>
+                        )}
                         <li>
                             <Link href="/logout" method="post" as="button" className="text-error">
                                 <LogOut className="size-4" />

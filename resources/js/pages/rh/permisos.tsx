@@ -1,9 +1,14 @@
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import IntraLayout from '@/layouts/intra-layout';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
 import type { RhPermisoAusencia } from '@/types/models';
 import { Head, router, usePage } from '@inertiajs/react';
 import { FileText, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Permisos de Ausencia', href: '/rh/permisos' },
+];
 
 const STORAGE_KEY = 'permisos';
 
@@ -113,15 +118,15 @@ export default function PermisosPublico() {
     };
 
     return (
-        <IntraLayout>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Permisos de Ausencia" />
 
             <div className="mx-auto w-11/12 max-w-5xl py-10">
                 {/* Header */}
                 <div className="mb-6 flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Permisos de Ausencia</h1>
-                        <p className="mt-1 text-sm text-slate-400">
+                        <h1 className="text-2xl font-bold">Permisos de Ausencia</h1>
+                        <p className="mt-1 text-sm text-base-content/70">
                             Los permisos registrados en este dispositivo aparecen en la lista.
                         </p>
                     </div>
@@ -243,10 +248,10 @@ export default function PermisosPublico() {
                 </div>
 
                 {/* Tabla */}
-                <div className="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800/40">
+                <div className="overflow-x-auto rounded-xl border border-base-300 bg-base-100">
                     <table className="table">
                         <thead>
-                            <tr className="border-slate-700 text-slate-300">
+                            <tr>
                                 <th>Folio</th>
                                 <th>Empleado</th>
                                 <th>Tipo</th>
@@ -259,12 +264,12 @@ export default function PermisosPublico() {
                         <tbody>
                             {permisos.length > 0 ? (
                                 permisos.map((p) => (
-                                    <tr key={p.id} className="border-slate-700 text-slate-200">
+                                    <tr key={p.id}>
                                         <td className="font-mono text-xs">{p.folio}</td>
                                         <td>
                                             {p.nombres} {p.apellidos}
                                             {p.numero_empleado && (
-                                                <span className="ml-1 text-xs text-slate-400">({p.numero_empleado})</span>
+                                                <span className="ml-1 text-xs text-base-content/60">({p.numero_empleado})</span>
                                             )}
                                         </td>
                                         <td>{p.tipo ?? '—'}</td>
@@ -294,7 +299,7 @@ export default function PermisosPublico() {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={7} className="py-12 text-center text-slate-500">
+                                    <td colSpan={7} className="py-12 text-center text-base-content/50">
                                         No hay permisos registrados en este dispositivo.
                                     </td>
                                 </tr>
@@ -303,10 +308,10 @@ export default function PermisosPublico() {
                     </table>
                 </div>
 
-                <p className="mt-4 text-center text-xs text-slate-600">
+                <p className="mt-4 text-center text-xs text-base-content/50">
                     Los permisos se almacenan localmente en este navegador. Para consultar el historial completo, contacta a Capital Humano.
                 </p>
             </div>
-        </IntraLayout>
+        </AppLayout>
     );
 }

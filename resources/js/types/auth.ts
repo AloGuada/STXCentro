@@ -21,6 +21,7 @@ export type Auth = {
     roles?: string[];
     badges: Record<string, BadgeInfo>;
     dg_puede_subir?: boolean;
+    es_aprobador_costos?: boolean;
 };
 
 export type TwoFactorSetupData = {

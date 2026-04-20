@@ -89,8 +89,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::resource('obras', ObraController::class);
     Route::post('obras/{obra}/import-conceptos', [ObraController::class, 'importConceptos'])->name('obras.import-conceptos');
     Route::resource('proveedores', ProveedorController::class)->parameters(['proveedores' => 'proveedor']);
-    Route::resource('media', MediaController::class);
-    Route::resource('tags', TagController::class);
+    Route::middleware('role:super-admin')->group(function () {
+        Route::resource('media', MediaController::class);
+        Route::resource('tags', TagController::class);
+    });
     Route::resource('badge-configs', BadgeConfigController::class)->parameters(['badge-configs' => 'badgeConfig']);
 
     // Intranet admin routes
@@ -177,9 +179,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('pagos/{pago}/upload-comprobante', [CostosPagoController::class, 'uploadComprobante'])->name('pagos.upload-comprobante');
 
         // Firma del aprobador
-        Route::get('firma', [CostosFirmaController::class, 'edit'])->name('firma.edit');
-        Route::post('firma', [CostosFirmaController::class, 'update'])->name('firma.update');
-        Route::delete('firma', [CostosFirmaController::class, 'destroy'])->name('firma.destroy');
+        Route::middleware('can:aprobador-costos')->group(function () {
+            Route::get('firma', [CostosFirmaController::class, 'edit'])->name('firma.edit');
+            Route::post('firma', [CostosFirmaController::class, 'update'])->name('firma.update');
+            Route::delete('firma', [CostosFirmaController::class, 'destroy'])->name('firma.destroy');
+        });
 
         // Aprobaciones digitales
         Route::get('aprobaciones', [CostosAprobacionController::class, 'index'])->name('aprobaciones.index');

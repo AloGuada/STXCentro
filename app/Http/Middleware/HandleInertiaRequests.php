@@ -87,6 +87,9 @@ class HandleInertiaRequests extends Middleware
                                 ->where('puede_escribir', true)
                                 ->exists()
                             : false,
+                        'es_aprobador_costos' => $request->user()
+                            ? $request->user()->can('aprobador-costos')
+                            : false,
                     ]),
             'flash' => fn () => [
                 'permiso' => $request->session()->get('permiso'),

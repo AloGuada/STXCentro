@@ -4,10 +4,13 @@ import type { SharedData } from '@/types';
 export function useCan() {
     const { auth } = usePage<SharedData>().props;
     const permissions = auth.permissions ?? [];
+    const roles = auth.roles ?? [];
 
     const can = (permission: string): boolean => permissions.includes(permission);
 
     const canAny = (perms: string[]): boolean => perms.some((p) => permissions.includes(p));
 
-    return { can, canAny };
+    const hasRole = (role: string): boolean => roles.includes(role);
+
+    return { can, canAny, hasRole };
 }

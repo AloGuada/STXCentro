@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Costos\AprobacionDepartamento;
+use App\Models\Usuario;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -24,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->registerGates();
     }
 
     protected function configureDefaults(): void
@@ -42,6 +46,14 @@ class AppServiceProvider extends ServiceProvider
                 ->symbols()
                 ->uncompromised()
             : null
+        );
+    }
+
+    protected function registerGates(): void
+    {
+        Gate::define('aprobador-costos', fn (Usuario $user): bool => AprobacionDepartamento::query()
+            ->where('aprobador_id', $user->getKey())
+            ->exists()
         );
     }
 }
