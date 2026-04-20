@@ -14,7 +14,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -137,24 +136,12 @@ class ReporteController extends Controller
 
     public function updateNotas(ArchivoNotasRequest $request, ReporteArchivo $archivo): RedirectResponse
     {
-        Log::info('DG.updateNotas INICIO', [
-            'archivo_id' => $archivo->id,
-            'user_id' => optional($request->user())->getKey(),
-            'content_length' => strlen((string) $request->input('notas', '')),
-            'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
-        ]);
-
         $this->authorize('editarNotas', Reporte::class);
-        Log::info('DG.updateNotas AUTHORIZED');
 
         $archivo->update([
             'notas' => $request->string('notas')->toString() ?: null,
             'notas_editado_por_id' => $request->user()->getKey(),
             'notas_actualizado_en' => now(),
-        ]);
-        Log::info('DG.updateNotas UPDATED', [
-            'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
-            'peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
         ]);
 
         return back(303)->with('success', 'Notas guardadas.');

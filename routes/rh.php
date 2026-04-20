@@ -5,15 +5,15 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| RH Public Routes
+| RH Routes (autenticadas)
 |--------------------------------------------------------------------------
 |
-| These routes are publicly accessible without authentication.
-| They provide employee self-service forms (permisos de ausencia, etc.).
+| Formularios de autoservicio para empleados (permisos de ausencia, etc.).
+| Requieren sesión iniciada.
 |
 */
 
-Route::prefix('rh')->name('rh.publico.')->group(function (): void {
+Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.publico.')->group(function (): void {
     Route::get('/permisos', [PermisoPublicoController::class, 'index'])->name('permisos.index');
     Route::post('/permisos', [PermisoPublicoController::class, 'store'])->name('permisos.store');
     Route::get('/permisos/{permisoAusencia}/pdf', [PermisoPublicoController::class, 'pdf'])->name('permisos.pdf');
