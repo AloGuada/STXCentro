@@ -146,9 +146,8 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
                                         <SelectValue placeholder="Seleccionar" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="indefinido">Indefinido</SelectItem>
-                                        <SelectItem value="temporal">Temporal</SelectItem>
-                                        <SelectItem value="prueba">Prueba</SelectItem>
+                                        <SelectItem value="indeterminado">Indeterminado</SelectItem>
+                                        <SelectItem value="determinado">Determinado</SelectItem>
                                         <SelectItem value="obra_determinada">Obra determinada</SelectItem>
                                     </SelectContent>
                                 </Select>

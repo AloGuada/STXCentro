@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
-import AuthLayout from '@/layouts/auth-layout';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
 import type { Departamento, StiStatus, StiTicket, StiTicketComentario, StiTicketHistorial } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeftIcon, CheckCircleIcon, ClockIcon, Loader2Icon, MessageSquareIcon, SendIcon, UserIcon, WrenchIcon } from 'lucide-react';
@@ -50,11 +51,16 @@ export default function TicketShow({ ticket }: Props) {
         }
     };
 
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Tickets de Soporte', href: '/sti/tickets' },
+        { title: `Ticket #${ticket.id}`, href: `/sti/ticket/${ticket.id}` },
+    ];
+
     return (
-        <AuthLayout title={`Ticket #${ticket.id}`} description="Detalle del ticket de soporte">
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Ticket #${ticket.id} - Soporte TI`} />
 
-            <div className="mx-auto w-full max-w-3xl">
+            <div className="mx-auto w-full max-w-3xl p-6 md:p-10">
                 {/* Header */}
                 <div className="mb-4 flex items-center gap-4">
                     <Link href="/sti/tickets" className="btn btn-ghost btn-sm">
@@ -274,6 +280,6 @@ export default function TicketShow({ ticket }: Props) {
                     </div>
                 </div>
             </div>
-        </AuthLayout>
+        </AppLayout>
     );
 }

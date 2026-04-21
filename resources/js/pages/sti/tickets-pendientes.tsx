@@ -1,7 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
 import type { Departamento, PaginatedData, StiStatus, StiTicket, StiTicketComentario, StiTicketHistorial } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
 import { ClockIcon, PlusIcon, TicketIcon } from 'lucide-react';
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Tickets de Soporte', href: '/sti/tickets' },
+];
 
 type TicketWithRelations = StiTicket & {
     departamento: Departamento;
@@ -15,10 +21,10 @@ type Props = {
 
 export default function TicketsPendientes({ tickets }: Props) {
     return (
-        <div className="flex min-h-svh flex-col items-center bg-background p-6 pt-10 md:p-10">
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Tickets Pendientes - Soporte TI" />
 
-            <div className="mx-auto w-full max-w-5xl">
+            <div className="mx-auto w-full max-w-5xl p-6 md:p-10">
                 <Card>
                     <CardHeader>
                         <div className="flex items-center justify-between">
@@ -107,6 +113,6 @@ export default function TicketsPendientes({ tickets }: Props) {
                     </CardContent>
                 </Card>
             </div>
-        </div>
+        </AppLayout>
     );
 }

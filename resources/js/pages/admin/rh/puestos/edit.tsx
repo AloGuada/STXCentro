@@ -42,6 +42,7 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
     });
 
     const [skillNivel, setSkillNivel] = useState('basico');
+    const [skillTipo, setSkillTipo] = useState('hard');
     const [reqValor, setReqValor] = useState('');
     const [newActividad, setNewActividad] = useState('');
     const [newDocNombre, setNewDocNombre] = useState('');
@@ -71,6 +72,7 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
     const handleSkillCreate = (nombre: string) => {
         router.post(`/admin/rh/puestos/${puesto.id}/skills`, {
             nombre,
+            tipo: skillTipo,
             nivel_requerido: skillNivel,
         }, { preserveScroll: true });
     };
@@ -222,6 +224,10 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
                                 onCreate={handleSkillCreate}
                                 className="w-full flex-1"
                             />
+                            <Select value={skillTipo} onValueChange={setSkillTipo} className="w-40 shrink-0">
+                                <SelectItem value="hard">Hard skill</SelectItem>
+                                <SelectItem value="soft">Soft skill</SelectItem>
+                            </Select>
                             <Select value={skillNivel} onValueChange={setSkillNivel} className="w-40 shrink-0">
                                 <SelectItem value="basico">Basico</SelectItem>
                                 <SelectItem value="intermedio">Intermedio</SelectItem>

@@ -47,17 +47,12 @@ export default function RequisicionCreate({ puestos }: Props) {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Puesto" htmlFor="puesto_id" error={errors.puesto_id} required>
-                            <Select value={data.puesto_id} onValueChange={(v) => setData('puesto_id', v)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar puesto" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {puestos.map((p) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                            {p.nombre}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
+                            <Select value={data.puesto_id} onValueChange={(v) => setData('puesto_id', v)} placeholder="Selecciona un puesto">
+                                {puestos.map((p) => (
+                                    <SelectItem key={p.id} value={String(p.id)}>
+                                        {p.nombre}
+                                    </SelectItem>
+                                ))}
                             </Select>
                         </FormField>
 

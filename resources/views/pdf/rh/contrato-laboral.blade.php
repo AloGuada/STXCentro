@@ -431,8 +431,18 @@
 <div class="text-center mt-8">
     <p class="mb-2">Firma y fecha de Capital Humano</p>
     <p class="mb-6">________________________________________</p>
-    <p class="mb-2">Firma y fecha de Planta</p>
-    <p class="mb-6">________________________________________</p>
+    <table style="width: 100%; margin-bottom: 16px;">
+        <tr>
+            <td class="text-center" style="width: 50%;">
+                <p class="mb-2">Firma y fecha de Gerente de Planta</p>
+                <p>________________________________________</p>
+            </td>
+            <td class="text-center" style="width: 50%;">
+                <p class="mb-2">Firma y fecha de Jefe de Área</p>
+                <p>________________________________________</p>
+            </td>
+        </tr>
+    </table>
     <p class="mb-2">Nombre y Firma de recibido del Responsable de nómina</p>
     <p class="mb-6">________________________________________</p>
 </div>

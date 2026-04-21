@@ -29,8 +29,8 @@ export default function PuestoCreate({ departamentos, puestos }: Props) {
         descripcion: '',
         codigo: '',
         ubicacion: '',
-        hora_entrada: '',
-        hora_salida: '',
+        hora_entrada: '08:00',
+        hora_salida: '18:00',
         puesto_jefe_id: '',
     });
 
