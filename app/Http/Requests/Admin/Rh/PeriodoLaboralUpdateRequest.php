@@ -22,7 +22,7 @@ class PeriodoLaboralUpdateRequest extends FormRequest
             'fecha_fin' => ['nullable', 'date', 'after_or_equal:fecha_inicio'],
             'estado' => ['required', 'string', 'in:activo,baja'],
             'salario_diario' => ['required', 'numeric', 'min:0'],
-            'sueldo_mensual' => ['required', 'numeric', 'min:0'],
+            'sueldo_mensual' => ['required', 'string', 'max:255'],
             'sueldo_real' => ['nullable', 'numeric', 'min:0'],
             'periodicidad_pago' => ['nullable', 'string', 'in:semanal,catorcenal,quincenal,mensual'],
             'tipo_salario' => ['nullable', 'string', 'in:fijo,destajo'],

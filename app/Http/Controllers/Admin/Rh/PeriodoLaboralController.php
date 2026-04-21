@@ -211,9 +211,7 @@ class PeriodoLaboralController extends Controller
         $salarioDiario = $periodoLaboral->salario_diario
             ? number_format((float) $periodoLaboral->salario_diario, 2)
             : '';
-        $sueldoMensual = $periodoLaboral->sueldo_mensual
-            ? number_format((float) $periodoLaboral->sueldo_mensual, 2)
-            : '';
+        $sueldoMensual = $periodoLaboral->sueldo_mensual ?? '';
 
         $pdf = Pdf::loadView('pdf.rh.contrato-laboral', [
             'periodo' => $periodoLaboral,

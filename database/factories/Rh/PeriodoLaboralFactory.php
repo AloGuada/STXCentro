@@ -23,7 +23,7 @@ class PeriodoLaboralFactory extends Factory
             'fecha_inicio' => fake()->dateTimeBetween('-2 years', 'now'),
             'estado' => 'activo',
             'salario_diario' => fake()->optional()->randomFloat(2, 200, 3000),
-            'sueldo_mensual' => fake()->optional()->randomFloat(2, 5000, 80000),
+            'sueldo_mensual' => fake()->optional()->numerify('####0.00'),
             'tipo_contrato' => fake()->optional()->randomElement(['indefinido', 'temporal', 'prueba']),
         ];
     }

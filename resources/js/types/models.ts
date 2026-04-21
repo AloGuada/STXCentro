@@ -1690,7 +1690,7 @@ export type RhPeriodoLaboral = {
     fecha_fin: string | null;
     estado: 'activo' | 'baja';
     salario_diario: number | null;
-    sueldo_mensual: number | null;
+    sueldo_mensual: string | null;
     sueldo_real: number | null;
     periodicidad_pago: 'semanal' | 'catorcenal' | 'quincenal' | 'mensual' | null;
     tipo_salario: 'fijo' | 'destajo' | null;

@@ -105,7 +105,7 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
                             </FormField>
 
                             <FormField label="Sueldo Mensual" htmlFor="sueldo_mensual" error={errors.sueldo_mensual} required>
-                                <Input id="sueldo_mensual" type="number" step="0.01" value={data.sueldo_mensual} onChange={(e) => setData('sueldo_mensual', e.target.value)} placeholder="0.00" />
+                                <Input id="sueldo_mensual" value={data.sueldo_mensual} onChange={(e) => setData('sueldo_mensual', e.target.value)} placeholder="Sueldo mensual" />
                             </FormField>
 
                             <FormField label="Sueldo Real" htmlFor="sueldo_real" error={errors.sueldo_real}>

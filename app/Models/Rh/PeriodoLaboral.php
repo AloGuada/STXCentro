@@ -40,7 +40,6 @@ class PeriodoLaboral extends Model
             'fecha_inicio' => 'date:Y-m-d',
             'fecha_fin' => 'date:Y-m-d',
             'salario_diario' => 'decimal:2',
-            'sueldo_mensual' => 'decimal:2',
             'sueldo_real' => 'decimal:2',
         ];
     }
