@@ -229,6 +229,7 @@ class PeriodoLaboralController extends Controller
             'lugarNacimiento' => $lugarNacimiento,
             'edad' => $edad,
             'numeroEmpleado' => $periodoLaboral->numero_empleado ?? '',
+            'numeroLocker' => $periodoLaboral->numero_locker ?? '',
             'tipoContrato' => $request->query('tipo', $periodoLaboral->tipo_contrato ?? 'planta'),
             'fotoPath' => $fotoPath,
             'contactosEmergencia' => $persona->contactosEmergencia ?? collect(),

@@ -40,6 +40,7 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
         tipo_salario: '',
         tipo_contrato: reqInicial?.tipo_contrato_generado ?? '',
         numero_empleado: '',
+        numero_locker: '',
         tipo_empleado: '',
         estado: 'activo' as 'activo' | 'terminado' | 'baja',
     });
@@ -154,9 +155,13 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
                             </FormField>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                             <FormField label="No. Empleado" htmlFor="numero_empleado" error={errors.numero_empleado}>
                                 <Input id="numero_empleado" value={data.numero_empleado} onChange={(e) => setData('numero_empleado', e.target.value)} placeholder="Ej: P-001" />
+                            </FormField>
+
+                            <FormField label="No. Locker" htmlFor="numero_locker" error={errors.numero_locker}>
+                                <Input id="numero_locker" value={data.numero_locker} onChange={(e) => setData('numero_locker', e.target.value)} placeholder="Ej: L-042" />
                             </FormField>
 
                             <FormField label="Tipo de Empleado" htmlFor="tipo_empleado" error={errors.tipo_empleado}>

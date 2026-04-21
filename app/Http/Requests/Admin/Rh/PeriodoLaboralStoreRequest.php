@@ -28,6 +28,7 @@ class PeriodoLaboralStoreRequest extends FormRequest
             'tipo_salario' => ['nullable', 'string', 'in:fijo,destajo'],
             'tipo_contrato' => ['nullable', 'string', 'max:255'],
             'numero_empleado' => ['nullable', 'string', 'max:50'],
+            'numero_locker' => ['nullable', 'string', 'max:50'],
             'tipo_empleado' => ['nullable', 'string', 'in:planta,contratista,becario,foraneo'],
         ];
     }

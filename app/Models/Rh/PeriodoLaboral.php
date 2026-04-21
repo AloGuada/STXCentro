@@ -29,6 +29,7 @@ class PeriodoLaboral extends Model
         'tipo_salario',
         'tipo_contrato',
         'numero_empleado',
+        'numero_locker',
         'tipo_empleado',
         'motivo_baja',
     ];

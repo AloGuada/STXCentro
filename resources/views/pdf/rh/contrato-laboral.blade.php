@@ -161,7 +161,7 @@
         </td>
         <td class="info-cell">
             <p>No. de empleado: {{ $numeroEmpleado ?: '________________________' }}</p>
-            <p>No. de locker: ___________________________</p>
+            <p>No. de locker: {{ $numeroLocker ?: '___________________________' }}</p>
         </td>
     </tr>
 </table>
@@ -339,7 +339,7 @@
         <td style="width: 45%;">
             <table style="width: 100%;">
                 <tr><td>No. de contratista:</td><td>{{ $numeroEmpleado ?: '___________' }}</td></tr>
-                <tr><td>No. de Locker:</td><td>___________</td></tr>
+                <tr><td>No. de Locker:</td><td>{{ $numeroLocker ?: '___________' }}</td></tr>
                 <tr><td>Area:</td><td class="ingreso-value">{{ $departamento }}</td></tr>
                 <tr><td>Módulo:</td><td>___________</td></tr>
                 <tr><td>Contratista encargado:</td><td>___________</td></tr>
@@ -416,7 +416,7 @@
         <td style="width: 45%; vertical-align: top;">
             <table style="width: 100%;">
                 <tr><td>No. de empleado:</td><td>{{ $numeroEmpleado ?: '___________' }}</td></tr>
-                <tr><td>No. de Locker:</td><td>___________</td></tr>
+                <tr><td>No. de Locker:</td><td>{{ $numeroLocker ?: '___________' }}</td></tr>
                 <tr><td>No. de mov. IMSS:</td><td>___________</td></tr>
                 <tr><td>Linea de producción:</td><td>___________</td></tr>
                 <tr><td>Infonavit:</td><td>{{ ($extras->c_infonavit ?? false) ? 'SI' : 'NO' }}</td></tr>

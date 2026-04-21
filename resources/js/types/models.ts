@@ -1696,6 +1696,7 @@ export type RhPeriodoLaboral = {
     tipo_salario: 'fijo' | 'destajo' | null;
     tipo_contrato: string | null;
     numero_empleado: string | null;
+    numero_locker: string | null;
     tipo_empleado: 'planta' | 'contratista' | 'becario' | 'foraneo' | null;
     motivo_baja: string | null;
     persona?: RhPersona;
