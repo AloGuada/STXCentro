@@ -290,7 +290,7 @@
 </div>
 
 {{-- ==================== PÁGINA 3: FORMATO DE INGRESO (condicional) ==================== --}}
-@if($tipoContrato === 'contratista')
+@if($tipoContrato != 'contratista')
 <div class="page-break"></div>
 
 <table style="width: 100%; margin-bottom: 20px;">

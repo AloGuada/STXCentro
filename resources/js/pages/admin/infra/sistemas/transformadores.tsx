@@ -22,19 +22,19 @@ export default function TransformadoresCreate({ fecha, turno }: Props) {
         { title: `Registrar Transformadores${turno ? ` - ${turno.nombre}` : ''}`, href: '#' },
     ];
     const { data, setData, post, processing, errors } = useForm({
-        linea_a: '',
-        linea_a_max: '',
-        date_a: '',
+        linea_A: '',
+        linea_A_max: '',
+        date_A: '',
         voltaje_a: '',
         registro_a: '',
-        linea_b: '',
-        linea_b_max: '',
-        date_b: '',
+        linea_B: '',
+        linea_B_max: '',
+        date_B: '',
         voltaje_b: '',
         registro_b: '',
-        linea_c: '',
-        linea_c_max: '',
-        date_c: '',
+        linea_C: '',
+        linea_C_max: '',
+        date_C: '',
         voltaje_c: '',
         registro_c: '',
         total_1: '',
@@ -60,9 +60,9 @@ export default function TransformadoresCreate({ fecha, turno }: Props) {
     };
 
     const lineas = [
-        { key: 'a', label: 'Linea A', codEnergia: '11', codRegistro: '212', codPotencia: '41', codFecha: '71', codHora: '81' },
-        { key: 'b', label: 'Linea B', codEnergia: '12', codRegistro: '234', codPotencia: '42', codFecha: '72', codHora: '82' },
-        { key: 'c', label: 'Linea C', codEnergia: '13', codRegistro: '256', codPotencia: '43', codFecha: '73', codHora: '83' },
+        { key: 'a', upper: 'A', label: 'Linea A', codEnergia: '11', codRegistro: '212', codPotencia: '41', codFecha: '71', codHora: '81' },
+        { key: 'b', upper: 'B', label: 'Linea B', codEnergia: '12', codRegistro: '234', codPotencia: '42', codFecha: '72', codHora: '82' },
+        { key: 'c', upper: 'C', label: 'Linea C', codEnergia: '13', codRegistro: '256', codPotencia: '43', codFecha: '73', codHora: '83' },
     ] as const;
 
     return (
@@ -121,16 +121,16 @@ export default function TransformadoresCreate({ fecha, turno }: Props) {
                                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                                         <FormField
                                             label={`Energía Consumida kWh (${linea.codEnergia})`}
-                                            htmlFor={`linea_${linea.key}`}
-                                            error={errors[`linea_${linea.key}` as keyof typeof errors]}
+                                            htmlFor={`linea_${linea.upper}`}
+                                            error={errors[`linea_${linea.upper}` as keyof typeof errors]}
                                         >
                                             <Input
-                                                id={`linea_${linea.key}`}
+                                                id={`linea_${linea.upper}`}
                                                 type="number"
                                                 step="0.01"
-                                                value={data[`linea_${linea.key}` as keyof typeof data] as string}
+                                                value={data[`linea_${linea.upper}` as keyof typeof data] as string}
                                                 onChange={(e) =>
-                                                    setData(`linea_${linea.key}` as keyof typeof data, e.target.value as never)
+                                                    setData(`linea_${linea.upper}` as keyof typeof data, e.target.value as never)
                                                 }
                                                 placeholder="0.0"
                                             />
@@ -153,31 +153,31 @@ export default function TransformadoresCreate({ fecha, turno }: Props) {
                                         </FormField>
                                         <FormField
                                             label={`Potencia Instantánea kW (${linea.codPotencia})`}
-                                            htmlFor={`linea_${linea.key}_max`}
-                                            error={errors[`linea_${linea.key}_max` as keyof typeof errors]}
+                                            htmlFor={`linea_${linea.upper}_max`}
+                                            error={errors[`linea_${linea.upper}_max` as keyof typeof errors]}
                                         >
                                             <Input
-                                                id={`linea_${linea.key}_max`}
+                                                id={`linea_${linea.upper}_max`}
                                                 type="number"
                                                 step="0.01"
-                                                value={data[`linea_${linea.key}_max` as keyof typeof data] as string}
+                                                value={data[`linea_${linea.upper}_max` as keyof typeof data] as string}
                                                 onChange={(e) =>
-                                                    setData(`linea_${linea.key}_max` as keyof typeof data, e.target.value as never)
+                                                    setData(`linea_${linea.upper}_max` as keyof typeof data, e.target.value as never)
                                                 }
                                                 placeholder="0.0"
                                             />
                                         </FormField>
                                         <FormField
                                             label={`Fecha/Hora (${linea.codFecha}/${linea.codHora})`}
-                                            htmlFor={`date_${linea.key}`}
-                                            error={errors[`date_${linea.key}` as keyof typeof errors]}
+                                            htmlFor={`date_${linea.upper}`}
+                                            error={errors[`date_${linea.upper}` as keyof typeof errors]}
                                         >
                                             <Input
-                                                id={`date_${linea.key}`}
+                                                id={`date_${linea.upper}`}
                                                 type="datetime-local"
-                                                value={data[`date_${linea.key}` as keyof typeof data] as string}
+                                                value={data[`date_${linea.upper}` as keyof typeof data] as string}
                                                 onChange={(e) =>
-                                                    setData(`date_${linea.key}` as keyof typeof data, e.target.value as never)
+                                                    setData(`date_${linea.upper}` as keyof typeof data, e.target.value as never)
                                                 }
                                             />
                                         </FormField>
