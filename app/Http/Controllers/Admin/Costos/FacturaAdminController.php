@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Admin\Costos;
 use App\Enums\Costos\FacturaEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
+use App\Http\Requests\Admin\Costos\FacturaStoreRequest;
 use App\Mail\FacturaAceptadaMail;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
+use App\Models\Costos\FacturaDetalle;
+use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\Pago;
 use App\Models\Proveedor;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -47,11 +50,131 @@ class FacturaAdminController extends Controller
         ]);
     }
 
+    public function create(Request $request): Response
+    {
+        Gate::authorize('costos.facturas.crear');
+
+        $ordenes = OrdenCompra::query()
+            ->whereIn('estatus', [
+                FacturaEstatus::PendienteEntrega->value,
+                'pendiente_factura',
+                'pendiente_entrega',
+                'pendiente_aprobacion',
+                'pendiente_pago',
+            ])
+            ->with('proveedor:id,razon_social')
+            ->orderByDesc('id')
+            ->get(['id', 'folio', 'proveedor_id', 'moneda', 'total']);
+
+        $ordenCompra = null;
+        if ($request->filled('orden_compra_id')) {
+            $ordenCompra = OrdenCompra::with([
+                'proveedor:id,razon_social,nombre_comercial',
+                'detalles.obraRubro.rubro',
+                'detalles.obraRubro.obra',
+                'entregas.detalles',
+                'facturas' => fn ($q) => $q->where('estatus', '!=', FacturaEstatus::Cancelada->value),
+                'facturas.detalles',
+            ])->find($request->integer('orden_compra_id'));
+        }
+
+        return Inertia::render('admin/costos/facturas/create', [
+            'ordenes' => $ordenes,
+            'ordenCompra' => $ordenCompra,
+        ]);
+    }
+
+    public function store(FacturaStoreRequest $request): RedirectResponse
+    {
+        Gate::authorize('costos.facturas.crear');
+
+        $oc = OrdenCompra::with(['detalles', 'facturas' => fn ($q) => $q->where('estatus', '!=', FacturaEstatus::Cancelada->value), 'facturas.detalles'])
+            ->findOrFail($request->integer('orden_compra_id'));
+
+        // Valida que cada partida pertenezca a esta OC y que no se sobre-facture.
+        $ocdIds = $oc->detalles->pluck('id')->all();
+        $yaFacturadoPorPartida = [];
+        foreach ($oc->facturas as $f) {
+            foreach ($f->detalles as $fd) {
+                $yaFacturadoPorPartida[$fd->orden_compra_detalle_id]
+                    = ($yaFacturadoPorPartida[$fd->orden_compra_detalle_id] ?? 0) + (float) $fd->cantidad;
+            }
+        }
+
+        $enviandoPorPartida = [];
+        foreach ($request->input('detalles') as $i => $d) {
+            $ocdId = (int) $d['orden_compra_detalle_id'];
+
+            if (! in_array($ocdId, $ocdIds, true)) {
+                return back()->withErrors([
+                    "detalles.{$i}.orden_compra_detalle_id" => 'La partida no pertenece a esta OC.',
+                ])->withInput();
+            }
+
+            $enviandoPorPartida[$ocdId] = ($enviandoPorPartida[$ocdId] ?? 0) + (float) $d['cantidad'];
+
+            $ocd = $oc->detalles->firstWhere('id', $ocdId);
+            $saldoFacturable = (float) $ocd->cantidad - ($yaFacturadoPorPartida[$ocdId] ?? 0);
+
+            if ($enviandoPorPartida[$ocdId] > $saldoFacturable + 0.001) {
+                return back()->withErrors([
+                    "detalles.{$i}.cantidad" => sprintf(
+                        'Excede el saldo facturable (%.2f %s) de la partida "%s".',
+                        $saldoFacturable, $ocd->unidad, $ocd->descripcion,
+                    ),
+                ])->withInput();
+            }
+        }
+
+        DB::transaction(function () use ($request, $oc) {
+            $subtotal = 0;
+            $detalles = [];
+            foreach ($request->input('detalles') as $d) {
+                $sub = round((float) $d['cantidad'] * (float) $d['precio_unitario'], 2);
+                $subtotal += $sub;
+                $detalles[] = $d + ['subtotal' => $sub];
+            }
+
+            $iva = (float) $request->input('iva', 0);
+            $total = round($subtotal + $iva, 2);
+
+            $factura = Factura::create([
+                'orden_compra_id' => $oc->id,
+                'proveedor_id' => $oc->proveedor_id,
+                'uuid_fiscal' => $request->input('uuid_fiscal'),
+                'folio_fiscal' => $request->input('folio_fiscal'),
+                'subtotal' => $subtotal,
+                'iva' => $iva,
+                'total' => $total,
+                'moneda' => $request->input('moneda', $oc->moneda),
+                'fecha_factura' => $request->input('fecha_factura'),
+                'notas' => $request->input('notas'),
+                'estatus' => 'pendiente_entrega',
+            ]);
+
+            foreach ($detalles as $d) {
+                FacturaDetalle::create([
+                    'factura_id' => $factura->id,
+                    'orden_compra_detalle_id' => $d['orden_compra_detalle_id'],
+                    'cantidad' => $d['cantidad'],
+                    'precio_unitario' => $d['precio_unitario'],
+                    'subtotal' => $d['subtotal'],
+                ]);
+            }
+
+            $oc->recalcularEstatus();
+        });
+
+        return to_route('admin.costos.facturas.index')
+            ->with('success', 'Factura creada correctamente.');
+    }
+
     public function show(Factura $factura): Response
     {
         $factura->load([
             'proveedor',
             'ordenCompra.detalles.obraRubro.rubro',
+            'detalles.ordenCompraDetalle',
             'entregas.recibidoPor',
             'pago.pagosParciales',
             'aprobadaCostosPor',

@@ -150,6 +150,11 @@ class Factura extends Model
         return $this->hasMany(Entrega::class, 'orden_compra_id', 'orden_compra_id');
     }
 
+    public function detalles(): HasMany
+    {
+        return $this->hasMany(FacturaDetalle::class, 'factura_id');
+    }
+
     public function pago(): MorphOne
     {
         return $this->morphOne(Pago::class, 'pagable');

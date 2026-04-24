@@ -1224,12 +1224,28 @@ export type CostosFactura = {
     orden_compra?: CostosOrdenCompra;
     proveedor?: Proveedor;
     entregas?: CostosEntrega[];
+    detalles?: CostosFacturaDetalle[];
     media?: Media[];
     media_pdf?: Media | null;
     pago?: CostosPago;
     aprobada_costos_por_usuario?: Usuario;
     aceptada_contabilidad_por_usuario?: Usuario;
     activities?: CostosActivity[];
+    locked_by: string | null;
+    locked_at: string | null;
+    locked_by_user?: Pick<Usuario, 'id' | 'name'> | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosFacturaDetalle = {
+    id: number;
+    factura_id: number;
+    orden_compra_detalle_id: number;
+    cantidad: number;
+    precio_unitario: number;
+    subtotal: number;
+    orden_compra_detalle?: CostosOrdenCompraDetalle;
     created_at: string;
     updated_at: string;
 };

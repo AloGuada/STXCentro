@@ -122,6 +122,37 @@ export default function FacturasShow({ factura }: Props) {
                     </div>
                 </div>
 
+                {/* Partidas */}
+                {factura.detalles && factura.detalles.length > 0 && (
+                    <div className="mb-6">
+                        <h2 className="text-lg font-medium mb-3">Partidas facturadas</h2>
+                        <div className="overflow-x-auto">
+                            <table className="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Partida de OC</th>
+                                        <th className="text-right">Cantidad</th>
+                                        <th>Unidad</th>
+                                        <th className="text-right">P. unitario</th>
+                                        <th className="text-right">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {factura.detalles.map((d) => (
+                                        <tr key={d.id}>
+                                            <td>{d.orden_compra_detalle?.descripcion ?? '-'}</td>
+                                            <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
+                                            <td>{d.orden_compra_detalle?.unidad ?? '-'}</td>
+                                            <td className="text-right">{formatMoney(d.precio_unitario)}</td>
+                                            <td className="text-right">{formatMoney(d.subtotal)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
                 {/* Entregas */}
                 <div className="mb-6">
                     <h2 className="text-lg font-medium mb-3">Entregas</h2>

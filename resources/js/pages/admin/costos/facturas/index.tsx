@@ -4,8 +4,9 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosFactura, CostosFacturaEstatus, PaginatedData, Proveedor } from '@/types/models';
 import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
-import { BuildingIcon, DownloadIcon, FileTextIcon } from 'lucide-react';
+import { useCan } from '@/hooks/use-can';
+import { Head, Link, router } from '@inertiajs/react';
+import { BuildingIcon, DownloadIcon, FileTextIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -106,6 +107,7 @@ type Props = {
 };
 
 export default function FacturasIndex({ facturas, filters, proveedores }: Props) {
+    const { can } = useCan();
     const currentYear = new Date().getFullYear();
     const [selectedYear, setSelectedYear] = useState(currentYear);
     const [selectedWeek, setSelectedWeek] = useState(getCurrentWeekNumber());
@@ -146,8 +148,15 @@ export default function FacturasIndex({ facturas, filters, proveedores }: Props)
                         ))}
                     </select>
 
+                    {can('costos.facturas.crear') && (
+                        <Link href="/admin/costos/facturas/create" className="btn btn-primary btn-sm ml-auto">
+                            <PlusIcon className="size-4" />
+                            Nueva factura
+                        </Link>
+                    )}
+
                     <Dialog>
-                        <DialogTrigger className="btn btn-outline btn-sm ml-auto">
+                        <DialogTrigger className={`btn btn-outline btn-sm${can('costos.facturas.crear') ? '' : ' ml-auto'}`}>
                             <DownloadIcon className="size-4" />
                             Reporte Semanal
                         </DialogTrigger>
