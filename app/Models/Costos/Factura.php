@@ -16,13 +16,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Carbon;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\FacturaFactory>
  */
 class Factura extends Model
 {
-    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine;
+    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_facturas';
 
@@ -152,5 +154,24 @@ class Factura extends Model
     public function aceptadaContabilidadPor(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'aceptada_contabilidad_por');
+    }
+
+    public function activities(): MorphMany
+    {
+        return $this->activitiesAsSubject();
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('costos')
+            ->logOnly([
+                'folio', 'estatus', 'total', 'uuid_fiscal',
+                'aprobada_costos', 'aceptada_contabilidad',
+                'motivo_rechazo', 'fecha_pago_calculada',
+            ])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $event) => "Factura {$this->folio}: {$event}");
     }
 }

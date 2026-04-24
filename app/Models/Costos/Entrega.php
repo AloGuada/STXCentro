@@ -7,13 +7,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\EntregaFactory>
  */
 class Entrega extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $table = 'costos_entregas';
 
@@ -51,5 +53,20 @@ class Entrega extends Model
     public function recibidoPor(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'recibido_por');
+    }
+
+    public function activities(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->activitiesAsSubject();
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('costos')
+            ->logOnly(['factura_id', 'fecha_entrega', 'tipo'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $event) => "Entrega ({$this->tipo}): {$event}");
     }
 }

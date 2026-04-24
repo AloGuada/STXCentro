@@ -18,13 +18,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Facades\Auth;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\OrdenCompraFactory>
  */
 class OrdenCompra extends Model
 {
-    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine;
+    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_ordenes_compra';
 
@@ -114,6 +116,11 @@ class OrdenCompra extends Model
     public function rubrosAfectados(): MorphMany
     {
         return $this->morphMany(RubroAfectado::class, 'entrada');
+    }
+
+    public function activities(): MorphMany
+    {
+        return $this->activitiesAsSubject();
     }
 
     /**
@@ -230,5 +237,15 @@ class OrdenCompra extends Model
             'usuario_aplica_id' => $userId,
             'fecha_aplicacion' => now(),
         ]);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('costos')
+            ->logOnly(['folio', 'estatus', 'total', 'proveedor_id', 'obra_id', 'departamento_id'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $event) => "Orden de compra {$this->folio}: {$event}");
     }
 }

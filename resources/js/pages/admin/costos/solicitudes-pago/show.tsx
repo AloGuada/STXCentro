@@ -1,3 +1,4 @@
+import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { DocumentoUpload } from '@/components/costos/documento-upload';
 import { Button } from '@/components/ui/button';
@@ -311,6 +312,11 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                             <p className="text-base-content/60">No hay aprobaciones registradas.</p>
                         )}
                     </div>
+                </div>
+
+                <div className="mt-8">
+                    <h2 className="text-lg font-medium mb-3">Historial</h2>
+                    <ActivityTimeline activities={solicitud.activities ?? []} />
                 </div>
 
                 <CancelarModal

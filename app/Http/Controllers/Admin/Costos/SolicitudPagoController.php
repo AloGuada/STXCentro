@@ -163,6 +163,7 @@ class SolicitudPagoController extends Controller
             'pago',
             'confirmadorCostos',
             'confirmadorContabilidad',
+            'activities.causer',
         ]);
 
         return Inertia::render('admin/costos/solicitudes-pago/show', [

@@ -16,13 +16,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Facades\Auth;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\SolicitudPagoFactory>
  */
 class SolicitudPago extends Model
 {
-    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine;
+    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_solicitudes_pago';
 
@@ -133,6 +135,11 @@ class SolicitudPago extends Model
         return $this->morphMany(RubroAfectado::class, 'entrada');
     }
 
+    public function activities(): MorphMany
+    {
+        return $this->activitiesAsSubject();
+    }
+
     /**
      * Aplica el impacto presupuestal: incrementa acumulado en obra_rubros y crea rubros afectados.
      */
@@ -158,5 +165,18 @@ class SolicitudPago extends Model
                 'fecha_aplicacion' => now(),
             ]);
         }
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('costos')
+            ->logOnly([
+                'folio', 'estatus', 'monto_total',
+                'confirmada_costos', 'confirmada_contabilidad',
+            ])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $event) => "Solicitud {$this->folio}: {$event}");
     }
 }

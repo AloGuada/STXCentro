@@ -12,11 +12,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 class Pago extends Model
 {
     /** @use HasFactory<\Database\Factories\Costos\PagoFactory> */
-    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine;
+    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_pagos';
 
@@ -88,5 +90,23 @@ class Pago extends Model
     public function tieneParcialidades(): bool
     {
         return $this->pagosParciales()->exists();
+    }
+
+    public function activities(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->activitiesAsSubject();
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('costos')
+            ->logOnly([
+                'folio', 'estatus', 'monto_pago',
+                'fecha_pago_programada', 'fecha_pago_realizada',
+            ])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $event) => "Pago {$this->folio}: {$event}");
     }
 }

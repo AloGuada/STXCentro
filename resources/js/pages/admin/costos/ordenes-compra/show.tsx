@@ -1,3 +1,4 @@
+import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
@@ -36,7 +37,7 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
 
     const { can } = useCan();
     const currentStep = getStepIndex(ordenCompra.estatus);
-    const [activeTab, setActiveTab] = useState<'datos' | 'facturas'>('datos');
+    const [activeTab, setActiveTab] = useState<'datos' | 'facturas' | 'historial'>('datos');
     const [showCancelarModal, setShowCancelarModal] = useState(false);
 
     const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
@@ -102,6 +103,7 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                 <div className="tabs tabs-bordered mb-6">
                     <button className={`tab ${activeTab === 'datos' ? 'tab-active' : ''}`} onClick={() => setActiveTab('datos')}>Datos</button>
                     <button className={`tab ${activeTab === 'facturas' ? 'tab-active' : ''}`} onClick={() => setActiveTab('facturas')}>Facturas ({ordenCompra.facturas?.length ?? 0})</button>
+                    <button className={`tab ${activeTab === 'historial' ? 'tab-active' : ''}`} onClick={() => setActiveTab('historial')}>Historial ({ordenCompra.activities?.length ?? 0})</button>
                 </div>
 
                 {activeTab === 'datos' && (
@@ -219,6 +221,10 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                             </div>
                         )}
                     </div>
+                )}
+
+                {activeTab === 'historial' && (
+                    <ActivityTimeline activities={ordenCompra.activities ?? []} />
                 )}
 
                 <CancelarModal

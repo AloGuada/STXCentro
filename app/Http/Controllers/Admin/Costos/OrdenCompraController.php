@@ -131,6 +131,7 @@ class OrdenCompraController extends Controller
             'facturas.entregas.media',
             'media',
             'rubrosAfectados.obraRubro.rubro',
+            'activities.causer',
         ]);
 
         $ordenCompra->append(['total_facturado', 'total_pagado', 'saldo_pendiente']);

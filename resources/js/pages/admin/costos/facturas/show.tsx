@@ -1,3 +1,4 @@
+import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
@@ -187,6 +188,11 @@ export default function FacturasShow({ factura }: Props) {
                         </div>
                     </div>
                 )}
+
+                <div className="mt-8">
+                    <h2 className="text-lg font-medium mb-3">Historial</h2>
+                    <ActivityTimeline activities={factura.activities ?? []} />
+                </div>
 
                 {/* Aprobar Costos Modal */}
                 {showAprobarModal && (

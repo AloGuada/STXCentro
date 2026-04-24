@@ -951,6 +951,7 @@ export type CostosSolicitudPago = {
     media?: Media;
     confirmador_costos?: Usuario;
     confirmador_contabilidad?: Usuario;
+    activities?: CostosActivity[];
     created_at: string;
     updated_at: string;
 };
@@ -1129,6 +1130,7 @@ export type CostosOrdenCompra = {
     total_facturado?: number;
     total_pagado?: number;
     saldo_pendiente?: number;
+    activities?: CostosActivity[];
     created_at: string;
     updated_at: string;
 };
@@ -1170,6 +1172,20 @@ export const FACTURA_ESTATUS_COLORS: Record<CostosFacturaEstatus, string> = {
     cancelada: 'badge-error',
 };
 
+// Auditoria (spatie/laravel-activitylog)
+export type CostosActivity = {
+    id: number;
+    log_name: string | null;
+    event: string | null;
+    description: string;
+    attribute_changes: {
+        attributes?: Record<string, unknown>;
+        old?: Record<string, unknown>;
+    } | null;
+    created_at: string;
+    causer?: Usuario | null;
+};
+
 export type CostosFactura = {
     id: number;
     folio: string;
@@ -1202,6 +1218,7 @@ export type CostosFactura = {
     pago?: CostosPago;
     aprobada_costos_por_usuario?: Usuario;
     aceptada_contabilidad_por_usuario?: Usuario;
+    activities?: CostosActivity[];
     created_at: string;
     updated_at: string;
 };

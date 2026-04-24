@@ -56,6 +56,7 @@ class FacturaAdminController extends Controller
             'pago.pagosParciales',
             'aprobadaCostosPor',
             'aceptadaContabilidadPor',
+            'activities.causer',
         ]);
 
         return Inertia::render('admin/costos/facturas/show', [
