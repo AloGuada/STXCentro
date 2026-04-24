@@ -14,6 +14,7 @@ type Props = {
 
 export default function Login({ status }: Props) {
     const emailRef = useRef<HTMLInputElement>(null);
+    const pendingEmailRef = useRef<string>('');
 
     useEffect(() => {
         const saved = localStorage.getItem('last_login_email');
@@ -33,9 +34,12 @@ export default function Login({ status }: Props) {
                 {...store.form()}
                 resetOnSuccess={['password']}
                 className="flex flex-col gap-6"
-                onSubmit={() => {
-                    if (emailRef.current) {
-                        localStorage.setItem('last_login_email', emailRef.current.value);
+                onBefore={() => {
+                    pendingEmailRef.current = emailRef.current?.value ?? '';
+                }}
+                onSuccess={() => {
+                    if (pendingEmailRef.current) {
+                        localStorage.setItem('last_login_email', pendingEmailRef.current);
                     }
                 }}
             >
