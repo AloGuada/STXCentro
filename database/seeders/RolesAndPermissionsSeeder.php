@@ -101,6 +101,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.facturas.ver',
             'costos.facturas.recibir',
             'costos.facturas.aprobar',
+            'costos.facturas.cancelar',
             'costos.entregas.crear',
             'costos.pagos.programar',
             'costos.facturas.aceptar-contabilidad',
@@ -366,6 +367,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.ordenes-compra.aprobar',
             'costos.ordenes-compra.cancelar',
             'costos.facturas.ver',
+            'costos.facturas.cancelar',
             'costos.proveedores.ver',
             'costos.proveedores.editar',
         ]);

@@ -140,6 +140,26 @@ class FacturaAdminController extends Controller
         return back()->with('success', 'Factura aceptada y pago programado para '.$pago->fecha_pago_programada->format('d/m/Y').'.');
     }
 
+    public function cancelar(Factura $factura): RedirectResponse
+    {
+        Gate::authorize('costos.facturas.cancelar');
+
+        if (in_array($factura->estatus, ['pagada', 'cancelada'], true)) {
+            return back()->withErrors(['estatus' => 'La factura ya está '.$factura->estatus.'.']);
+        }
+
+        if ($factura->aceptada_contabilidad) {
+            return back()->withErrors(['estatus' => 'No se puede cerrar una factura con pago programado. Cancele primero el pago.']);
+        }
+
+        DB::transaction(function () use ($factura) {
+            $factura->update(['estatus' => 'cancelada']);
+            $factura->ordenCompra?->recalcularEstatus();
+        });
+
+        return back()->with('success', 'Factura cerrada.');
+    }
+
     public function reporteSemanal(Request $request): \Symfony\Component\HttpFoundation\Response
     {
         $request->validate([

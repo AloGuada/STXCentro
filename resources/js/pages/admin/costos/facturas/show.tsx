@@ -26,8 +26,10 @@ export default function FacturasShow({ factura }: Props) {
     const [showEntregaModal, setShowEntregaModal] = useState(false);
     const [showAprobarModal, setShowAprobarModal] = useState(false);
     const [showAceptarModal, setShowAceptarModal] = useState(false);
+    const [showCerrarModal, setShowCerrarModal] = useState(false);
     const [aprobarProcessing, setAprobarProcessing] = useState(false);
     const [aceptarProcessing, setAceptarProcessing] = useState(false);
+    const [cerrarProcessing, setCerrarProcessing] = useState(false);
     const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
     const fechaPago = useMemo(() => {
@@ -98,6 +100,11 @@ export default function FacturasShow({ factura }: Props) {
                         {factura.estatus === 'pendiente_pago' && factura.aprobada_costos && !factura.aceptada_contabilidad && can('costos.facturas.aceptar-contabilidad') && (
                             <Button onClick={() => setShowAceptarModal(true)}>
                                 Aceptar y Programar Pago
+                            </Button>
+                        )}
+                        {factura.estatus !== 'pagada' && factura.estatus !== 'cancelada' && !factura.aceptada_contabilidad && can('costos.facturas.cancelar') && (
+                            <Button variant="destructive" onClick={() => setShowCerrarModal(true)}>
+                                Cerrar factura
                             </Button>
                         )}
                     </div>
@@ -298,6 +305,59 @@ export default function FacturasShow({ factura }: Props) {
                             </div>
                         </div>
                         <div className="modal-backdrop" onClick={() => setShowAceptarModal(false)}></div>
+                    </dialog>
+                )}
+
+                {/* Cerrar Factura Modal */}
+                {showCerrarModal && (
+                    <dialog className="modal modal-open">
+                        <div className="modal-box">
+                            <h3 className="font-bold text-lg mb-4">Cerrar factura</h3>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-base-content/60">Folio Factura</span>
+                                    <span className="font-medium">{factura.folio}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-base-content/60">Proveedor</span>
+                                    <span className="font-medium">{factura.proveedor?.razon_social}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-base-content/60">Total</span>
+                                    <span className="font-medium">{formatMoney(factura.total)}</span>
+                                </div>
+                            </div>
+                            <p className="mt-4 text-sm text-base-content/60">
+                                La factura quedará marcada como cancelada y no podrá continuar su flujo de aprobación o pago. Esta acción no se puede deshacer.
+                            </p>
+                            <div className="modal-action">
+                                <Button variant="outline" onClick={() => setShowCerrarModal(false)} disabled={cerrarProcessing}>
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    disabled={cerrarProcessing}
+                                    onClick={() => {
+                                        setCerrarProcessing(true);
+                                        router.post(
+                                            `/admin/costos/facturas/${factura.id}/cancelar`,
+                                            {},
+                                            {
+                                                preserveScroll: true,
+                                                onFinish: () => {
+                                                    setCerrarProcessing(false);
+                                                    setShowCerrarModal(false);
+                                                },
+                                            },
+                                        );
+                                    }}
+                                >
+                                    {cerrarProcessing && <Loader2Icon className="size-4 animate-spin" />}
+                                    Cerrar factura
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="modal-backdrop" onClick={() => setShowCerrarModal(false)}></div>
                     </dialog>
                 )}
 
