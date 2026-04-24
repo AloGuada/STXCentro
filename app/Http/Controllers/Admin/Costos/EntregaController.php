@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\FacturaEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\EntregaStoreRequest;
 use App\Models\Costos\Factura;
@@ -32,7 +33,7 @@ class EntregaController extends Controller
             }
 
             if ($request->input('tipo') === 'completa') {
-                $factura->update(['estatus' => 'pendiente_aprobacion']);
+                $factura->transitionTo(FacturaEstatus::PendienteAprobacion);
             }
 
             $factura->ordenCompra->recalcularEstatus();

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Costos;
 
 use App\Enums\Costos\AprobacionEstatus;
+use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Models\Costos\AprobacionSolicitud;
 use Illuminate\Http\RedirectResponse;
@@ -159,7 +160,7 @@ class AprobacionController extends Controller
             ->exists();
 
         if (! $quedanPendientes) {
-            $solicitud->update(['estatus' => 'aprobada']);
+            $solicitud->transitionTo(SolicitudPagoEstatus::Aprobada);
             $solicitud->aplicarImpactoPresupuestal(auth()->id());
         }
 
@@ -190,7 +191,7 @@ class AprobacionController extends Controller
 
         // Cancelar la solicitud y las demás aprobaciones pendientes
         $solicitud = $aprobacionSolicitud->solicitud;
-        $solicitud->update(['estatus' => 'cancelada']);
+        $solicitud->transitionTo(SolicitudPagoEstatus::Cancelada);
 
         $solicitud->aprobaciones()
             ->where('estatus', 'pendiente')

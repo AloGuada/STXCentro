@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\PagoEstatus;
+use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\AbonoComprobanteRequest;
 use App\Http\Requests\Admin\Costos\ParcializarRequest;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
 use App\Models\Costos\Pago;
+use App\Models\Costos\SolicitudPago;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -131,7 +134,7 @@ class PagoController extends Controller
                 ]);
             }
 
-            $pago->update(['estatus' => 'parcial']);
+            $pago->transitionTo(PagoEstatus::Parcial);
         });
 
         return back()->with('success', 'Pago parcializado correctamente.');
@@ -183,10 +186,8 @@ class PagoController extends Controller
             return;
         }
 
-        $parent->update([
-            'fecha_pago_realizada' => now(),
-            'estatus' => 'pagado',
-        ]);
+        $parent->update(['fecha_pago_realizada' => now()]);
+        $parent->transitionTo(PagoEstatus::Pagado);
 
         if ($parent->esHijo()) {
             $this->checkAndMarkParentAsPaid($parent->pagoPadre);
@@ -204,13 +205,11 @@ class PagoController extends Controller
         }
 
         if ($pagable instanceof Factura) {
-            $pagable->update(['estatus' => 'pagada']);
+            $pagable->transitionTo(FacturaEstatus::Pagada);
             $pagable->ordenCompra->recalcularEstatus();
-        } elseif (method_exists($pagable, 'update')) {
-            $pagable->update([
-                'estatus' => 'pagada',
-                'fecha_pago_realizada' => now(),
-            ]);
+        } elseif ($pagable instanceof SolicitudPago) {
+            $pagable->update(['fecha_pago_realizada' => now()]);
+            $pagable->transitionTo(SolicitudPagoEstatus::Pagada);
         }
     }
 

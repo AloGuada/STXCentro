@@ -346,7 +346,7 @@ class SolicitudPagoController extends Controller
 
         // Cambiar estatus a pendiente_firma
         if ($solicitudPago->estatus === SolicitudPagoEstatus::Borrador) {
-            $solicitudPago->update(['estatus' => 'pendiente_firma']);
+            $solicitudPago->transitionTo(SolicitudPagoEstatus::PendienteFirma);
 
             // Crear registros de aprobación (uno por aprobador por nivel)
             foreach ($cadenaAprobacion as $asignacion) {
@@ -448,7 +448,7 @@ class SolicitudPagoController extends Controller
             ]);
         }
 
-        $solicitudPago->update(['estatus' => 'cancelada']);
+        $solicitudPago->transitionTo(SolicitudPagoEstatus::Cancelada);
 
         return back()->with('success', 'Solicitud cancelada.');
     }

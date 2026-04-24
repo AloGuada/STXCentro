@@ -196,7 +196,7 @@ class AfectacionPresupuestalController extends Controller
         $estatusAnterior = $afectacion->estatus->value;
 
         if ($afectacion->estatus === AfectacionEstatus::Borrador) {
-            $afectacion->update(['estatus' => 'pendiente_firma']);
+            $afectacion->transitionTo(AfectacionEstatus::PendienteFirma);
 
             $afectacion->historial()->create([
                 'estatus_anterior' => $estatusAnterior,
@@ -296,7 +296,7 @@ class AfectacionPresupuestalController extends Controller
             ]);
         }
 
-        $afectacion->update(['estatus' => 'cancelada']);
+        $afectacion->transitionTo(AfectacionEstatus::Cancelada);
 
         $afectacion->historial()->create([
             'estatus_anterior' => $estatusAnterior,

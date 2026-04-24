@@ -154,7 +154,7 @@ class FacturaAdminController extends Controller
         }
 
         DB::transaction(function () use ($factura) {
-            $factura->update(['estatus' => 'cancelada']);
+            $factura->transitionTo(FacturaEstatus::Cancelada);
             $factura->ordenCompra?->recalcularEstatus();
         });
 

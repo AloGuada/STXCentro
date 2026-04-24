@@ -19,7 +19,7 @@ enum AfectacionEstatus: string implements HasStateTransitions
         return match ($this) {
             self::Borrador => [self::PendienteFirma, self::Cancelada],
             self::PendienteFirma => [self::Aprobada, self::Cancelada],
-            self::Aprobada,
+            self::Aprobada => [self::Cancelada],
             self::Cancelada => [],
         };
     }

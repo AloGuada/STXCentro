@@ -63,12 +63,13 @@ describe('allowedTransitions por enum', function () {
         expect(AprobacionEstatus::Rechazada->allowedTransitions())->toBe([]);
     });
 
-    test('Afectacion: borrador -> pendiente_firma -> aprobada, con cancelada como escape', function () {
+    test('Afectacion: borrador -> pendiente_firma -> aprobada, cancelable hasta aprobada', function () {
         expect(AfectacionEstatus::Borrador->allowedTransitions())
             ->toBe([AfectacionEstatus::PendienteFirma, AfectacionEstatus::Cancelada]);
         expect(AfectacionEstatus::PendienteFirma->allowedTransitions())
             ->toBe([AfectacionEstatus::Aprobada, AfectacionEstatus::Cancelada]);
-        expect(AfectacionEstatus::Aprobada->allowedTransitions())->toBe([]);
+        expect(AfectacionEstatus::Aprobada->allowedTransitions())->toBe([AfectacionEstatus::Cancelada]);
+        expect(AfectacionEstatus::Cancelada->allowedTransitions())->toBe([]);
     });
 
     test('RubroAfectado: aplicado puede cancelarse', function () {

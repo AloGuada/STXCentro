@@ -166,7 +166,7 @@ class OrdenCompraController extends Controller
         DB::transaction(function () use ($ordenCompra) {
             $ordenCompra->load('detalles');
             $ordenCompra->revertirImpactoPresupuestal();
-            $ordenCompra->update(['estatus' => 'cancelada']);
+            $ordenCompra->transitionTo(OrdenCompraEstatus::Cancelada);
         });
 
         return back()->with('success', 'Orden de compra cancelada.');
