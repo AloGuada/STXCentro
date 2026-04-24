@@ -2,7 +2,9 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Models\Concerns\HasMonthlyFolio;
+use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
 use App\Models\Proveedor;
 use App\Models\Usuario;
@@ -19,11 +21,13 @@ use Illuminate\Support\Facades\Auth;
  */
 class SolicitudPago extends Model
 {
-    use HasFactory, HasMonthlyFolio;
+    use HasFactory, HasMonthlyFolio, HasStateMachine;
 
     protected $table = 'costos_solicitudes_pago';
 
     protected static string $folioPrefix = 'SP';
+
+    protected static string $stateEnum = SolicitudPagoEstatus::class;
 
     /**
      * @var list<string>

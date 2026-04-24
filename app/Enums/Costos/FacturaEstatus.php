@@ -2,13 +2,29 @@
 
 namespace App\Enums\Costos;
 
-enum FacturaEstatus: string
+use App\Enums\Contracts\HasStateTransitions;
+
+enum FacturaEstatus: string implements HasStateTransitions
 {
     case PendienteEntrega = 'pendiente_entrega';
     case PendienteAprobacion = 'pendiente_aprobacion';
     case PendientePago = 'pendiente_pago';
     case Pagada = 'pagada';
     case Cancelada = 'cancelada';
+
+    /**
+     * @return array<int, self>
+     */
+    public function allowedTransitions(): array
+    {
+        return match ($this) {
+            self::PendienteEntrega => [self::PendienteAprobacion, self::Cancelada],
+            self::PendienteAprobacion => [self::PendientePago, self::Cancelada],
+            self::PendientePago => [self::Pagada, self::Cancelada],
+            self::Pagada,
+            self::Cancelada => [],
+        };
+    }
 
     public function label(): string
     {

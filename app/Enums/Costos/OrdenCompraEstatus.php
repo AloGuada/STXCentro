@@ -2,7 +2,9 @@
 
 namespace App\Enums\Costos;
 
-enum OrdenCompraEstatus: string
+use App\Enums\Contracts\HasStateTransitions;
+
+enum OrdenCompraEstatus: string implements HasStateTransitions
 {
     case PendienteFactura = 'pendiente_factura';
     case PendienteEntrega = 'pendiente_entrega';
@@ -10,6 +12,24 @@ enum OrdenCompraEstatus: string
     case PendientePago = 'pendiente_pago';
     case Pagada = 'pagada';
     case Cancelada = 'cancelada';
+
+    /**
+     * Transiciones permitidas desde este estado por acción directa del usuario.
+     * Los recálculos automáticos (recalcularEstatus) siguen vía ->update() directo.
+     *
+     * @return array<int, self>
+     */
+    public function allowedTransitions(): array
+    {
+        return match ($this) {
+            self::PendienteFactura,
+            self::PendienteEntrega,
+            self::PendienteAprobacion => [self::Cancelada],
+            self::PendientePago,
+            self::Pagada,
+            self::Cancelada => [],
+        };
+    }
 
     public function label(): string
     {

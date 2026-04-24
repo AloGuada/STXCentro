@@ -2,7 +2,9 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\AfectacionEstatus;
 use App\Models\Concerns\HasMonthlyFolio;
+use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
 use App\Models\Proveedor;
 use App\Models\Usuario;
@@ -17,11 +19,13 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
  */
 class AfectacionPresupuestal extends Model
 {
-    use HasFactory, HasMonthlyFolio;
+    use HasFactory, HasMonthlyFolio, HasStateMachine;
 
     protected $table = 'costos_afectaciones_presupuestales';
 
     protected static string $folioPrefix = 'AF';
+
+    protected static string $stateEnum = AfectacionEstatus::class;
 
     /**
      * @var list<string>

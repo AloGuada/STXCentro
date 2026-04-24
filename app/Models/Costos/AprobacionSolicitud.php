@@ -2,13 +2,19 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\AprobacionEstatus;
+use App\Models\Concerns\HasStateMachine;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AprobacionSolicitud extends Model
 {
+    use HasStateMachine;
+
     protected $table = 'costos_aprobaciones_solicitud';
+
+    protected static string $stateEnum = AprobacionEstatus::class;
 
     /**
      * @var list<string>

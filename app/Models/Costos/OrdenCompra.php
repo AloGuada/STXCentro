@@ -2,7 +2,9 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\OrdenCompraEstatus;
 use App\Models\Concerns\HasMonthlyFolio;
+use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
@@ -20,11 +22,13 @@ use Illuminate\Support\Facades\Auth;
  */
 class OrdenCompra extends Model
 {
-    use HasFactory, HasMonthlyFolio;
+    use HasFactory, HasMonthlyFolio, HasStateMachine;
 
     protected $table = 'costos_ordenes_compra';
 
     protected static string $folioPrefix = 'OC';
+
+    protected static string $stateEnum = OrdenCompraEstatus::class;
 
     /**
      * @var list<string>

@@ -2,10 +2,23 @@
 
 namespace App\Enums\Costos;
 
-enum RubroAfectadoEstatus: string
+use App\Enums\Contracts\HasStateTransitions;
+
+enum RubroAfectadoEstatus: string implements HasStateTransitions
 {
     case Aplicado = 'aplicado';
     case Cancelado = 'cancelado';
+
+    /**
+     * @return array<int, self>
+     */
+    public function allowedTransitions(): array
+    {
+        return match ($this) {
+            self::Aplicado => [self::Cancelado],
+            self::Cancelado => [],
+        };
+    }
 
     public function label(): string
     {

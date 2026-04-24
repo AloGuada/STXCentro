@@ -2,7 +2,9 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\PagoEstatus;
 use App\Models\Concerns\HasMonthlyFolio;
+use App\Models\Concerns\HasStateMachine;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,11 +15,13 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 class Pago extends Model
 {
     /** @use HasFactory<\Database\Factories\Costos\PagoFactory> */
-    use HasFactory, HasMonthlyFolio;
+    use HasFactory, HasMonthlyFolio, HasStateMachine;
 
     protected $table = 'costos_pagos';
 
     protected static string $folioPrefix = 'PG';
+
+    protected static string $stateEnum = PagoEstatus::class;
 
     /**
      * @var list<string>

@@ -2,13 +2,29 @@
 
 namespace App\Enums\Costos;
 
-enum SolicitudPagoEstatus: string
+use App\Enums\Contracts\HasStateTransitions;
+
+enum SolicitudPagoEstatus: string implements HasStateTransitions
 {
     case Borrador = 'borrador';
     case PendienteFirma = 'pendiente_firma';
     case Aprobada = 'aprobada';
     case Pagada = 'pagada';
     case Cancelada = 'cancelada';
+
+    /**
+     * @return array<int, self>
+     */
+    public function allowedTransitions(): array
+    {
+        return match ($this) {
+            self::Borrador => [self::PendienteFirma, self::Cancelada],
+            self::PendienteFirma => [self::Aprobada, self::Cancelada],
+            self::Aprobada => [self::Pagada, self::Cancelada],
+            self::Pagada,
+            self::Cancelada => [],
+        };
+    }
 
     public function label(): string
     {

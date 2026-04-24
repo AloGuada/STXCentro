@@ -2,11 +2,25 @@
 
 namespace App\Enums\Costos;
 
-enum AfectacionEstatus: string
+use App\Enums\Contracts\HasStateTransitions;
+
+enum AfectacionEstatus: string implements HasStateTransitions
 {
     case Borrador = 'borrador';
     case Aprobada = 'aprobada';
     case Cancelada = 'cancelada';
+
+    /**
+     * @return array<int, self>
+     */
+    public function allowedTransitions(): array
+    {
+        return match ($this) {
+            self::Borrador => [self::Aprobada, self::Cancelada],
+            self::Aprobada,
+            self::Cancelada => [],
+        };
+    }
 
     public function label(): string
     {

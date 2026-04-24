@@ -2,7 +2,9 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\FacturaEstatus;
 use App\Models\Concerns\HasMonthlyFolio;
+use App\Models\Concerns\HasStateMachine;
 use App\Models\Proveedor;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,11 +19,13 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
  */
 class Factura extends Model
 {
-    use HasFactory, HasMonthlyFolio;
+    use HasFactory, HasMonthlyFolio, HasStateMachine;
 
     protected $table = 'costos_facturas';
 
     protected static string $folioPrefix = 'FA';
+
+    protected static string $stateEnum = FacturaEstatus::class;
 
     /**
      * @var list<string>
