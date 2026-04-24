@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
@@ -13,16 +14,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\OrdenCompraFactory>
  */
 class OrdenCompra extends Model
 {
-    use HasFactory;
+    use HasFactory, HasMonthlyFolio;
 
     protected $table = 'costos_ordenes_compra';
+
+    protected static string $folioPrefix = 'OC';
 
     /**
      * @var list<string>
@@ -50,24 +52,6 @@ class OrdenCompra extends Model
             'total' => 'decimal:2',
             'fecha_entrega_esperada' => 'date',
         ];
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $oc) {
-            if (empty($oc->folio)) {
-                $prefix = sprintf('OC-%s%s', now()->format('Y'), now()->format('m'));
-                $last = DB::table('costos_ordenes_compra')
-                    ->where('folio', 'like', "{$prefix}%")
-                    ->max('folio');
-
-                $next = $last
-                    ? ((int) substr($last, -2)) + 1
-                    : 1;
-
-                $oc->folio = sprintf('%s%02d', $prefix, $next);
-            }
-        });
     }
 
     public function proveedor(): BelongsTo

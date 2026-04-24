@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Departamento;
 use App\Models\Proveedor;
 use App\Models\Usuario;
@@ -10,16 +11,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\AfectacionPresupuestalFactory>
  */
 class AfectacionPresupuestal extends Model
 {
-    use HasFactory;
+    use HasFactory, HasMonthlyFolio;
 
     protected $table = 'costos_afectaciones_presupuestales';
+
+    protected static string $folioPrefix = 'AF';
 
     /**
      * @var list<string>
@@ -50,24 +52,6 @@ class AfectacionPresupuestal extends Model
             'monto_total' => 'decimal:2',
             'fecha_aprobacion' => 'datetime',
         ];
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $afectacion) {
-            if (empty($afectacion->folio)) {
-                $prefix = sprintf('AF-%s%s', now()->format('Y'), now()->format('m'));
-                $last = DB::table('costos_afectaciones_presupuestales')
-                    ->where('folio', 'like', "{$prefix}%")
-                    ->max('folio');
-
-                $next = $last
-                    ? ((int) substr($last, -2)) + 1
-                    : 1;
-
-                $afectacion->folio = sprintf('%s%02d', $prefix, $next);
-            }
-        });
     }
 
     public function departamento(): BelongsTo

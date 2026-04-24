@@ -84,3 +84,43 @@ test('valida campos requeridos al subir factura', function () {
         ->post('/portal/facturas', [])
         ->assertSessionHasErrors(['orden_compra_id', 'total']);
 });
+
+test('rechaza factura con uuid_fiscal duplicado', function () {
+    $uuid = '12345678-1234-1234-1234-123456789012';
+
+    Factura::factory()->create([
+        'proveedor_id' => $this->proveedor->id,
+        'uuid_fiscal' => $uuid,
+    ]);
+
+    $oc = OrdenCompra::factory()->aprobada()->create(['proveedor_id' => $this->proveedor->id]);
+
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->post('/portal/facturas', [
+            'orden_compra_id' => $oc->id,
+            'uuid_fiscal' => $uuid,
+            'total' => 5000,
+        ])
+        ->assertSessionHasErrors(['uuid_fiscal']);
+});
+
+test('permite multiples facturas sin uuid_fiscal', function () {
+    $ocA = OrdenCompra::factory()->aprobada()->create(['proveedor_id' => $this->proveedor->id]);
+    $ocB = OrdenCompra::factory()->aprobada()->create(['proveedor_id' => $this->proveedor->id]);
+
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->post('/portal/facturas', [
+            'orden_compra_id' => $ocA->id,
+            'total' => 1000,
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->post('/portal/facturas', [
+            'orden_compra_id' => $ocB->id,
+            'total' => 2000,
+        ])
+        ->assertRedirect();
+
+    expect(Factura::where('proveedor_id', $this->proveedor->id)->count())->toBe(2);
+});

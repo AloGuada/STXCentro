@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Proveedor;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,16 +11,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\FacturaFactory>
  */
 class Factura extends Model
 {
-    use HasFactory;
+    use HasFactory, HasMonthlyFolio;
 
     protected $table = 'costos_facturas';
+
+    protected static string $folioPrefix = 'FA';
 
     /**
      * @var list<string>
@@ -60,24 +62,6 @@ class Factura extends Model
             'aceptada_contabilidad' => 'boolean',
             'aceptada_contabilidad_at' => 'datetime',
         ];
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $factura) {
-            if (empty($factura->folio)) {
-                $prefix = sprintf('FA-%s%s', now()->format('Y'), now()->format('m'));
-                $last = DB::table('costos_facturas')
-                    ->where('folio', 'like', "{$prefix}%")
-                    ->max('folio');
-
-                $next = $last
-                    ? ((int) substr($last, -2)) + 1
-                    : 1;
-
-                $factura->folio = sprintf('%s%02d', $prefix, $next);
-            }
-        });
     }
 
     public function media(): MorphMany

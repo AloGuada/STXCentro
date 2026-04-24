@@ -2,20 +2,22 @@
 
 namespace App\Models\Costos;
 
+use App\Models\Concerns\HasMonthlyFolio;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Illuminate\Support\Facades\DB;
 
 class Pago extends Model
 {
     /** @use HasFactory<\Database\Factories\Costos\PagoFactory> */
-    use HasFactory;
+    use HasFactory, HasMonthlyFolio;
 
     protected $table = 'costos_pagos';
+
+    protected static string $folioPrefix = 'PG';
 
     /**
      * @var list<string>
@@ -50,24 +52,6 @@ class Pago extends Model
             'fecha_pago_maxima' => 'date',
             'fecha_pago_realizada' => 'date',
         ];
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $pago) {
-            if (empty($pago->folio)) {
-                $prefix = sprintf('PG-%s%s', now()->format('Y'), now()->format('m'));
-                $last = DB::table('costos_pagos')
-                    ->where('folio', 'like', "{$prefix}%")
-                    ->max('folio');
-
-                $next = $last
-                    ? ((int) substr($last, -2)) + 1
-                    : 1;
-
-                $pago->folio = sprintf('%s%02d', $prefix, $next);
-            }
-        });
     }
 
     public function media(): MorphOne

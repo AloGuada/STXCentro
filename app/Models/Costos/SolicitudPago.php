@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Departamento;
 use App\Models\Proveedor;
 use App\Models\Usuario;
@@ -12,16 +13,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\SolicitudPagoFactory>
  */
 class SolicitudPago extends Model
 {
-    use HasFactory;
+    use HasFactory, HasMonthlyFolio;
 
     protected $table = 'costos_solicitudes_pago';
+
+    protected static string $folioPrefix = 'SP';
 
     /**
      * @var list<string>
@@ -63,24 +65,6 @@ class SolicitudPago extends Model
             'confirmada_contabilidad' => 'boolean',
             'confirmada_contabilidad_at' => 'datetime',
         ];
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $solicitud) {
-            if (empty($solicitud->folio)) {
-                $prefix = sprintf('SP-%s%s', now()->format('Y'), now()->format('m'));
-                $last = DB::table('costos_solicitudes_pago')
-                    ->where('folio', 'like', "{$prefix}%")
-                    ->max('folio');
-
-                $next = $last
-                    ? ((int) substr($last, -2)) + 1
-                    : 1;
-
-                $solicitud->folio = sprintf('%s%02d', $prefix, $next);
-            }
-        });
     }
 
     public function media(): MorphOne
