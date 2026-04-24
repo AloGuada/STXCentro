@@ -81,7 +81,7 @@ describe('cancelacion de orden de compra', function () {
         ]);
 
         $this->actingAs($this->user)
-            ->post(route('admin.costos.ordenes-compra.cancelar', $oc))
+            ->post(route('admin.costos.ordenes-compra.cancelar', $oc), ['motivo' => 'Cancelación motivada por test'])
             ->assertSessionHasErrors(['estatus']);
 
         expect($oc->fresh()->estatus->value)->toBe('pendiente_entrega');
@@ -101,7 +101,7 @@ describe('cancelacion de orden de compra', function () {
         ]);
 
         $this->actingAs($this->user)
-            ->post(route('admin.costos.ordenes-compra.cancelar', $oc))
+            ->post(route('admin.costos.ordenes-compra.cancelar', $oc), ['motivo' => 'Cancelación motivada por test'])
             ->assertRedirect();
 
         expect($oc->fresh()->estatus->value)->toBe('cancelada');

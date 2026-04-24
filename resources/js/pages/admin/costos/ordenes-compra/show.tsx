@@ -1,10 +1,11 @@
+import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosOrdenCompra, CostosOrdenCompraEstatus } from '@/types/models';
 import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { FileIcon } from 'lucide-react';
 import { useState } from 'react';
 
@@ -36,14 +37,9 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
     const { can } = useCan();
     const currentStep = getStepIndex(ordenCompra.estatus);
     const [activeTab, setActiveTab] = useState<'datos' | 'facturas'>('datos');
+    const [showCancelarModal, setShowCancelarModal] = useState(false);
 
     const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-
-    const handleCancelar = () => {
-        if (confirm('Cancelar esta orden de compra?')) {
-            router.post(`/admin/costos/ordenes-compra/${ordenCompra.id}/cancelar`);
-        }
-    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -64,7 +60,7 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
 
                     <div className="flex gap-2">
                         {['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.ordenes-compra.cancelar') && (
-                            <Button variant="destructive" onClick={handleCancelar}>Cancelar</Button>
+                            <Button variant="destructive" onClick={() => setShowCancelarModal(true)}>Cancelar</Button>
                         )}
                     </div>
                 </div>
@@ -202,6 +198,15 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                         )}
                     </div>
                 )}
+
+                <CancelarModal
+                    open={showCancelarModal}
+                    onClose={() => setShowCancelarModal(false)}
+                    url={`/admin/costos/ordenes-compra/${ordenCompra.id}/cancelar`}
+                    title={`Cancelar orden ${ordenCompra.folio}`}
+                    description="La orden quedará cancelada y se revertirá su impacto presupuestal. Esta acción no se puede deshacer."
+                    submitLabel="Cancelar orden"
+                />
             </div>
         </AppLayout>
     );

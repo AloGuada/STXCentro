@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Costos;
 use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\OrdenCompraEstatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Http\Requests\Admin\Costos\OrdenCompraStoreRequest;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
@@ -156,7 +157,7 @@ class OrdenCompraController extends Controller
         return to_route('admin.costos.ordenes-compra.index');
     }
 
-    public function cancelar(OrdenCompra $ordenCompra): RedirectResponse
+    public function cancelar(CancelarRequest $request, OrdenCompra $ordenCompra): RedirectResponse
     {
         Gate::authorize('costos.ordenes-compra.cancelar');
 
@@ -168,10 +169,11 @@ class OrdenCompraController extends Controller
             return back()->withErrors(['estatus' => 'No se puede cancelar una orden con facturas activas. Cancele primero las facturas.']);
         }
 
-        DB::transaction(function () use ($ordenCompra) {
+        DB::transaction(function () use ($ordenCompra, $request) {
             $ordenCompra->load('detalles');
             $ordenCompra->revertirImpactoPresupuestal();
             $ordenCompra->transitionTo(OrdenCompraEstatus::Cancelada);
+            $ordenCompra->registrarCancelacion($request->validated('motivo'), $request->user()->id);
         });
 
         return back()->with('success', 'Orden de compra cancelada.');

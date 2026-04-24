@@ -6,6 +6,7 @@ use App\Enums\Costos\AfectacionEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\AfectacionPresupuestalStoreRequest;
 use App\Http\Requests\Admin\Costos\AfectacionPresupuestalUpdateRequest;
+use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Models\Costos\AfectacionDetalle;
 use App\Models\Costos\AfectacionPresupuestal;
 use App\Models\Costos\ObraRubro;
@@ -270,7 +271,7 @@ class AfectacionPresupuestalController extends Controller
         return back()->with('success', 'Afectación aprobada correctamente.');
     }
 
-    public function cancelar(AfectacionPresupuestal $afectacion): RedirectResponse
+    public function cancelar(CancelarRequest $request, AfectacionPresupuestal $afectacion): RedirectResponse
     {
         if (! in_array($afectacion->estatus, [AfectacionEstatus::PendienteFirma, AfectacionEstatus::Aprobada], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar afectaciones pendientes o aprobadas.']);
@@ -297,6 +298,7 @@ class AfectacionPresupuestalController extends Controller
         }
 
         $afectacion->transitionTo(AfectacionEstatus::Cancelada);
+        $afectacion->registrarCancelacion($request->validated('motivo'), $request->user()->id);
 
         $afectacion->historial()->create([
             'estatus_anterior' => $estatusAnterior,

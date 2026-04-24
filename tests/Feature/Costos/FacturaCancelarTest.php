@@ -28,7 +28,7 @@ test('cierra factura pendiente y queda cancelada', function () {
     $factura = crearFacturaCancelable('pendiente_entrega');
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/facturas/{$factura->id}/cancelar")
+        ->post("/admin/costos/facturas/{$factura->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertRedirect();
 
     expect($factura->fresh()->estatus->value)->toBe('cancelada');
@@ -38,7 +38,7 @@ test('no cierra factura ya pagada', function () {
     $factura = crearFacturaCancelable('pagada');
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/facturas/{$factura->id}/cancelar")
+        ->post("/admin/costos/facturas/{$factura->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertSessionHasErrors('estatus');
 
     expect($factura->fresh()->estatus->value)->toBe('pagada');
@@ -48,7 +48,7 @@ test('no cierra factura ya cancelada', function () {
     $factura = crearFacturaCancelable('cancelada');
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/facturas/{$factura->id}/cancelar")
+        ->post("/admin/costos/facturas/{$factura->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertSessionHasErrors('estatus');
 });
 
@@ -62,7 +62,7 @@ test('no cierra factura aceptada por contabilidad', function () {
     ]);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/facturas/{$factura->id}/cancelar")
+        ->post("/admin/costos/facturas/{$factura->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertSessionHasErrors('estatus');
 
     expect($factura->fresh()->estatus->value)->toBe('pendiente_pago');
@@ -73,7 +73,7 @@ test('sin permiso no puede cerrar factura', function () {
     $factura = crearFacturaCancelable('pendiente_entrega');
 
     $this->actingAs($otro)
-        ->post("/admin/costos/facturas/{$factura->id}/cancelar")
+        ->post("/admin/costos/facturas/{$factura->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertForbidden();
 
     expect($factura->fresh()->estatus->value)->toBe('pendiente_entrega');

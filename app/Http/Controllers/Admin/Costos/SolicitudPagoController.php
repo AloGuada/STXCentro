@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Costos;
 
 use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoUpdateRequest;
 use App\Models\Costos\AprobacionDepartamento;
@@ -424,7 +425,7 @@ class SolicitudPagoController extends Controller
         return back()->with('success', 'Solicitud aprobada correctamente.');
     }
 
-    public function cancelar(SolicitudPago $solicitudPago): RedirectResponse
+    public function cancelar(CancelarRequest $request, SolicitudPago $solicitudPago): RedirectResponse
     {
         if (! in_array($solicitudPago->estatus, [SolicitudPagoEstatus::PendienteFirma, SolicitudPagoEstatus::Aprobada], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar solicitudes pendientes o aprobadas.']);
@@ -449,6 +450,7 @@ class SolicitudPagoController extends Controller
         }
 
         $solicitudPago->transitionTo(SolicitudPagoEstatus::Cancelada);
+        $solicitudPago->registrarCancelacion($request->validated('motivo'), $request->user()->id);
 
         return back()->with('success', 'Solicitud cancelada.');
     }

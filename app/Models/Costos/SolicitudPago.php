@@ -3,6 +3,7 @@
 namespace App\Models\Costos;
 
 use App\Enums\Costos\SolicitudPagoEstatus;
+use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
@@ -21,7 +22,7 @@ use Illuminate\Support\Facades\Auth;
  */
 class SolicitudPago extends Model
 {
-    use HasFactory, HasMonthlyFolio, HasStateMachine;
+    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine;
 
     protected $table = 'costos_solicitudes_pago';
 

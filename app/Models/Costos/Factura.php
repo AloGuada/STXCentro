@@ -3,6 +3,7 @@
 namespace App\Models\Costos;
 
 use App\Enums\Costos\FacturaEstatus;
+use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Proveedor;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
  */
 class Factura extends Model
 {
-    use HasFactory, HasMonthlyFolio, HasStateMachine;
+    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine;
 
     protected $table = 'costos_facturas';
 

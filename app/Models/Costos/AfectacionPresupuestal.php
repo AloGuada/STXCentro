@@ -3,6 +3,7 @@
 namespace App\Models\Costos;
 
 use App\Enums\Costos\AfectacionEstatus;
+use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
  */
 class AfectacionPresupuestal extends Model
 {
-    use HasFactory, HasMonthlyFolio, HasStateMachine;
+    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine;
 
     protected $table = 'costos_afectaciones_presupuestales';
 

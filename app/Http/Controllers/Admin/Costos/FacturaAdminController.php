@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Costos;
 
 use App\Enums\Costos\FacturaEstatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Mail\FacturaAceptadaMail;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
@@ -141,7 +142,7 @@ class FacturaAdminController extends Controller
         return back()->with('success', 'Factura aceptada y pago programado para '.$pago->fecha_pago_programada->format('d/m/Y').'.');
     }
 
-    public function cancelar(Factura $factura): RedirectResponse
+    public function cancelar(CancelarRequest $request, Factura $factura): RedirectResponse
     {
         Gate::authorize('costos.facturas.cancelar');
 
@@ -153,8 +154,9 @@ class FacturaAdminController extends Controller
             return back()->withErrors(['estatus' => 'No se puede cerrar una factura con pago programado. Cancele primero el pago.']);
         }
 
-        DB::transaction(function () use ($factura) {
+        DB::transaction(function () use ($factura, $request) {
             $factura->transitionTo(FacturaEstatus::Cancelada);
+            $factura->registrarCancelacion($request->validated('motivo'), $request->user()->id);
             $factura->ordenCompra?->recalcularEstatus();
         });
 

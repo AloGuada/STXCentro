@@ -111,7 +111,7 @@ describe('admin costos solicitud pago workflow', function () {
         ]);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.costos.solicitudes-pago.cancelar', $solicitud));
+            ->post(route('admin.costos.solicitudes-pago.cancelar', $solicitud), ['motivo' => 'Cancelación motivada por test']);
 
         $response->assertRedirect();
 

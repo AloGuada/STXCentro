@@ -3,6 +3,7 @@
 namespace App\Models\Costos;
 
 use App\Enums\Costos\PagoEstatus;
+use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 class Pago extends Model
 {
     /** @use HasFactory<\Database\Factories\Costos\PagoFactory> */
-    use HasFactory, HasMonthlyFolio, HasStateMachine;
+    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine;
 
     protected $table = 'costos_pagos';
 

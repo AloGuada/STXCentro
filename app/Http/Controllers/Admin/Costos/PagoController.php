@@ -7,6 +7,7 @@ use App\Enums\Costos\PagoEstatus;
 use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\AbonoComprobanteRequest;
+use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Http\Requests\Admin\Costos\ParcializarRequest;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
@@ -176,6 +177,26 @@ class PagoController extends Controller
         });
 
         return back()->with('success', 'Comprobante subido y pago marcado como pagado.');
+    }
+
+    public function cancelar(CancelarRequest $request, Pago $pago): RedirectResponse
+    {
+        Gate::authorize('costos.pagos.cancelar');
+
+        if (in_array($pago->estatus, [PagoEstatus::Pagado, PagoEstatus::Cancelado], true)) {
+            return back()->withErrors(['estatus' => 'Este pago ya está '.$pago->estatus->value.'.']);
+        }
+
+        if ($pago->media()->exists()) {
+            return back()->withErrors(['estatus' => 'No se puede cancelar un pago con comprobante. Elimine el comprobante primero.']);
+        }
+
+        DB::transaction(function () use ($pago, $request) {
+            $pago->transitionTo(PagoEstatus::Cancelado);
+            $pago->registrarCancelacion($request->validated('motivo'), $request->user()->id);
+        });
+
+        return back()->with('success', 'Pago cancelado.');
     }
 
     private function checkAndMarkParentAsPaid(Pago $parent): void

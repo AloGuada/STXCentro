@@ -89,7 +89,7 @@ test('cancela una orden pendiente y revierte impacto', function () {
     ]);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar")
+        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertRedirect();
 
     $oc->refresh();
@@ -105,7 +105,7 @@ test('no permite cancelar orden en pendiente_pago', function () {
     $oc = OrdenCompra::factory()->create(['creado_por' => $this->user->id, 'estatus' => 'pendiente_pago']);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar")
+        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertSessionHasErrors('estatus');
 });
 
@@ -113,7 +113,7 @@ test('no permite cancelar sin permiso', function () {
     $oc = OrdenCompra::factory()->create(['creado_por' => $this->user->id]);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar")
+        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertForbidden();
 });
 

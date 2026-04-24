@@ -4,6 +4,7 @@ namespace App\Models\Costos;
 
 use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\OrdenCompraEstatus;
+use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
@@ -23,7 +24,7 @@ use Illuminate\Support\Facades\Auth;
  */
 class OrdenCompra extends Model
 {
-    use HasFactory, HasMonthlyFolio, HasStateMachine;
+    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine;
 
     protected $table = 'costos_ordenes_compra';
 

@@ -97,7 +97,7 @@ describe('rubros afectados polymorphic', function () {
         ]);
 
         $this->actingAs($this->user)
-            ->post(route('admin.costos.afectaciones.cancelar', $afectacion));
+            ->post(route('admin.costos.afectaciones.cancelar', $afectacion), ['motivo' => 'Cancelación motivada por test']);
 
         $rubros = RubroAfectado::where('entrada_type', AfectacionPresupuestal::class)
             ->where('entrada_id', $afectacion->id)

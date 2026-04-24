@@ -82,7 +82,7 @@ describe('afectacion presupuestal workflow', function () {
         ]);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.costos.afectaciones.cancelar', $afectacion));
+            ->post(route('admin.costos.afectaciones.cancelar', $afectacion), ['motivo' => 'Cancelación motivada por test']);
 
         $response->assertRedirect();
         $afectacion->refresh();
@@ -102,7 +102,7 @@ describe('afectacion presupuestal workflow', function () {
         ]);
 
         $this->actingAs($this->user)
-            ->post(route('admin.costos.afectaciones.cancelar', $afectacion));
+            ->post(route('admin.costos.afectaciones.cancelar', $afectacion), ['motivo' => 'Cancelación motivada por test']);
 
         $afectacion->refresh();
         expect($afectacion->estatus->value)->toBe('cancelada');
@@ -128,7 +128,7 @@ describe('afectacion presupuestal workflow', function () {
         $afectacion = AfectacionPresupuestal::factory()->create(['estatus' => 'borrador']);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.costos.afectaciones.cancelar', $afectacion));
+            ->post(route('admin.costos.afectaciones.cancelar', $afectacion), ['motivo' => 'Cancelación motivada por test']);
 
         $response->assertSessionHasErrors(['estatus']);
     });

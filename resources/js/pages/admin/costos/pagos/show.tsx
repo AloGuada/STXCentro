@@ -1,3 +1,4 @@
+import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -137,6 +138,8 @@ export default function PagosShow({ pago }: Props) {
     const esProgramado = pago.estatus === 'programado';
     const [showProgramarModal, setShowProgramarModal] = useState(false);
     const [programarProcessing, setProgramarProcessing] = useState(false);
+    const [showCancelarModal, setShowCancelarModal] = useState(false);
+    const puedeCancelar = can('costos.pagos.cancelar') && !['pagado', 'cancelado'].includes(pago.estatus) && !pago.media;
 
     const proveedor = pago.pagable && 'proveedor' in pago.pagable ? pago.pagable.proveedor : null;
     const diasCredito = proveedor?.dias_credito_default ?? 0;
@@ -182,6 +185,11 @@ export default function PagosShow({ pago }: Props) {
                         <Button variant="outline" asChild>
                             <Link href="/admin/costos/pagos">Volver</Link>
                         </Button>
+                        {puedeCancelar && (
+                            <Button variant="destructive" onClick={() => setShowCancelarModal(true)}>
+                                Cancelar pago
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -361,6 +369,15 @@ export default function PagosShow({ pago }: Props) {
                         <div className="modal-backdrop" onClick={() => setShowProgramarModal(false)}></div>
                     </dialog>
                 )}
+
+                <CancelarModal
+                    open={showCancelarModal}
+                    onClose={() => setShowCancelarModal(false)}
+                    url={`/admin/costos/pagos/${pago.id}/cancelar`}
+                    title={`Cancelar pago ${pago.folio}`}
+                    description="El pago quedará cancelado. No se puede cancelar un pago con comprobante subido."
+                    submitLabel="Cancelar pago"
+                />
             </div>
         </AppLayout>
     );

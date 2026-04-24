@@ -178,6 +178,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('pagos/{pago}/parcializar', [CostosPagoController::class, 'showParcializar'])->name('pagos.parcializar.show');
         Route::post('pagos/{pago}/parcializar', [CostosPagoController::class, 'parcializar'])->name('pagos.parcializar');
         Route::post('pagos/{pago}/upload-comprobante', [CostosPagoController::class, 'uploadComprobante'])->name('pagos.upload-comprobante');
+        Route::post('pagos/{pago}/cancelar', [CostosPagoController::class, 'cancelar'])->name('pagos.cancelar');
 
         // Firma del aprobador
         Route::middleware('can:aprobador-costos')->group(function () {
