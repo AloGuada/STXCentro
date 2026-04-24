@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\OrdenCompraEstatus;
 use App\Http\Controllers\Controller;
@@ -78,7 +79,7 @@ class OrdenCompraController extends Controller
             if ($request->hasFile('archivo')) {
                 $file = $request->file('archivo');
                 $oc->media()->create([
-                    'descripcion' => 'archivo',
+                    'descripcion' => DocumentoTipo::OcArchivo->value,
                     'nombre_original' => $file->getClientOriginalName(),
                     'path' => $file->store('costos/ordenes-compra', 'public'),
                     'mime' => $file->getMimeType(),

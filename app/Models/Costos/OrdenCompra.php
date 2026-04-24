@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\OrdenCompraEstatus;
 use App\Models\Concerns\HasCancelacion;
@@ -109,17 +110,17 @@ class OrdenCompra extends Model
 
     public function archivo(): MorphOne
     {
-        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'archivo');
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', DocumentoTipo::OcArchivo->value);
     }
 
     public function pdfFormato(): MorphOne
     {
-        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'pdf_formato');
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', DocumentoTipo::OcPdfFormato->value);
     }
 
     public function pdfFirmado(): MorphOne
     {
-        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'pdf_firmado');
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', DocumentoTipo::OcPdfFirmado->value);
     }
 
     public function rubrosAfectados(): MorphMany

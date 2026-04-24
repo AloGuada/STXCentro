@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\PagoEstatus;
 use App\Enums\Costos\SolicitudPagoEstatus;
@@ -156,7 +157,7 @@ class PagoController extends Controller
 
         DB::transaction(function () use ($pago, $file, $path, $request) {
             $pago->media()->create([
-                'descripcion' => 'comprobante',
+                'descripcion' => DocumentoTipo::ComprobantePago->value,
                 'nombre_original' => $file->getClientOriginalName(),
                 'path' => $path,
                 'mime' => $file->getMimeType(),

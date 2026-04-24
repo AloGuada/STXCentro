@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Portal;
 
+use App\Enums\Costos\DocumentoTipo;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Portal\PortalFacturaStoreRequest;
 use App\Models\Costos\Factura;
@@ -60,7 +61,7 @@ class PortalFacturaController extends Controller
         if ($request->hasFile('xml')) {
             $file = $request->file('xml');
             $factura->media()->create([
-                'descripcion' => 'xml',
+                'descripcion' => DocumentoTipo::XmlFactura->value,
                 'nombre_original' => $file->getClientOriginalName(),
                 'path' => $file->store("facturas/{$proveedor->id}", 'public'),
                 'mime' => $file->getMimeType(),
@@ -71,7 +72,7 @@ class PortalFacturaController extends Controller
         if ($request->hasFile('pdf')) {
             $file = $request->file('pdf');
             $factura->media()->create([
-                'descripcion' => 'pdf',
+                'descripcion' => DocumentoTipo::PdfFactura->value,
                 'nombre_original' => $file->getClientOriginalName(),
                 'path' => $file->store("facturas/{$proveedor->id}", 'public'),
                 'mime' => $file->getMimeType(),

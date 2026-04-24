@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
@@ -107,7 +108,7 @@ class SolicitudPagoController extends Controller
                     foreach ($fileList as $index => $file) {
                         $path = $file->store("costos/solicitudes/{$solicitud->id}", 'public');
                         $media = \App\Models\Media::create([
-                            'descripcion' => 'solicitud_archivo',
+                            'descripcion' => DocumentoTipo::SolicitudArchivo->value,
                             'nombre_original' => $file->getClientOriginalName(),
                             'path' => $path,
                             'mime' => $file->getMimeType(),
@@ -283,7 +284,7 @@ class SolicitudPagoController extends Controller
         $path = $file->store("costos/solicitudes/{$solicitudPago->id}", 'public');
 
         $media = \App\Models\Media::create([
-            'descripcion' => 'solicitud_archivo',
+            'descripcion' => DocumentoTipo::SolicitudArchivo->value,
             'nombre_original' => $file->getClientOriginalName(),
             'path' => $path,
             'mime' => $file->getMimeType(),
@@ -407,7 +408,7 @@ class SolicitudPagoController extends Controller
 
         $file = $request->file('archivo');
         $solicitudPago->media()->create([
-            'descripcion' => 'comprobante_aprobacion',
+            'descripcion' => DocumentoTipo::SolicitudFirmada->value,
             'nombre_original' => $file->getClientOriginalName(),
             'path' => $file->store('costos/firmados', 'public'),
             'mime' => $file->getMimeType(),

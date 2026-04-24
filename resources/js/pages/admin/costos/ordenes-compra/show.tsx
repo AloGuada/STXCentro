@@ -140,11 +140,11 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                                     <span className="text-sm text-base-content/60">Fecha Entrega Esperada</span>
                                     <p className="font-medium">{ordenCompra.fecha_entrega_esperada ? new Date(ordenCompra.fecha_entrega_esperada).toLocaleDateString() : '-'}</p>
                                 </div>
-                                {ordenCompra.media?.find((m) => m.descripcion === 'archivo') && (
+                                {ordenCompra.media?.find((m) => m.descripcion === 'oc_archivo') && (
                                     <div>
                                         <span className="text-sm text-base-content/60">Archivo</span>
                                         <p>
-                                            <a href={`/storage/${ordenCompra.media!.find((m) => m.descripcion === 'archivo')!.path}`} target="_blank" rel="noopener noreferrer" className="link link-primary inline-flex items-center gap-1">
+                                            <a href={`/storage/${ordenCompra.media!.find((m) => m.descripcion === 'oc_archivo')!.path}`} target="_blank" rel="noopener noreferrer" className="link link-primary inline-flex items-center gap-1">
                                                 <FileIcon className="size-4" /> Ver archivo
                                             </a>
                                         </p>

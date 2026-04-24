@@ -1167,6 +1167,31 @@ export const BASE_DIAS_CREDITO_LABELS: Record<CostosBaseDiasCredito, string> = {
     aprobacion: 'Fecha de aprobación',
 };
 
+// Clasificación canónica de archivos adjuntos del módulo Costos.
+// Espejo de App\Enums\Costos\DocumentoTipo.
+export type CostosDocumentoTipo =
+    | 'xml_factura'
+    | 'pdf_factura'
+    | 'oc_archivo'
+    | 'oc_pdf_formato'
+    | 'oc_pdf_firmado'
+    | 'evidencia_recepcion'
+    | 'comprobante_pago'
+    | 'solicitud_archivo'
+    | 'solicitud_firmada';
+
+export const DOCUMENTO_TIPO_LABELS: Record<CostosDocumentoTipo, string> = {
+    xml_factura: 'XML de factura',
+    pdf_factura: 'PDF de factura',
+    oc_archivo: 'Archivo de OC',
+    oc_pdf_formato: 'Formato de OC (PDF)',
+    oc_pdf_firmado: 'OC firmada (PDF)',
+    evidencia_recepcion: 'Evidencia de recepción',
+    comprobante_pago: 'Comprobante de pago',
+    solicitud_archivo: 'Anexo de solicitud',
+    solicitud_firmada: 'Solicitud firmada',
+};
+
 export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
     pendiente_entrega: 'Pendiente Entrega',
     pendiente_aprobacion: 'Pendiente Aprobación',

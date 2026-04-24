@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\DocumentoTipo;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\EntregaStoreRequest;
 use App\Models\Costos\EntregaDetalle;
@@ -72,7 +73,7 @@ class EntregaController extends Controller
             if ($request->hasFile('archivo')) {
                 $file = $request->file('archivo');
                 $entrega->media()->create([
-                    'descripcion' => 'archivo',
+                    'descripcion' => DocumentoTipo::EvidenciaRecepcion->value,
                     'nombre_original' => $file->getClientOriginalName(),
                     'path' => $file->store('costos/entregas', 'public'),
                     'mime' => $file->getMimeType(),

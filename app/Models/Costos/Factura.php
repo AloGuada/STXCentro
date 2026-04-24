@@ -3,6 +3,7 @@
 namespace App\Models\Costos;
 
 use App\Enums\Costos\BaseDiasCredito;
+use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\FacturaEstatus;
 use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasEditLock;
@@ -122,12 +123,12 @@ class Factura extends Model
 
     public function mediaXml(): MorphOne
     {
-        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'xml');
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', DocumentoTipo::XmlFactura->value);
     }
 
     public function mediaPdf(): MorphOne
     {
-        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'pdf');
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', DocumentoTipo::PdfFactura->value);
     }
 
     public function ordenCompra(): BelongsTo
