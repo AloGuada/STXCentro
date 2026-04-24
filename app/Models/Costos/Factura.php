@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\BaseDiasCredito;
 use App\Enums\Costos\FacturaEstatus;
 use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasMonthlyFolio;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Support\Carbon;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\FacturaFactory>
@@ -45,6 +47,9 @@ class Factura extends Model
         'estatus',
         'notas',
         'motivo_rechazo',
+        'dias_credito',
+        'base_dias_credito',
+        'fecha_pago_calculada',
         'aprobada_costos',
         'aprobada_costos_por',
         'aprobada_costos_at',
@@ -63,12 +68,45 @@ class Factura extends Model
             'iva' => 'decimal:2',
             'total' => 'decimal:2',
             'fecha_factura' => 'date',
+            'dias_credito' => 'integer',
+            'fecha_pago_calculada' => 'date',
             'aprobada_costos' => 'boolean',
             'aprobada_costos_at' => 'datetime',
             'aceptada_contabilidad' => 'boolean',
             'aceptada_contabilidad_at' => 'datetime',
             'estatus' => FacturaEstatus::class,
+            'base_dias_credito' => BaseDiasCredito::class,
         ];
+    }
+
+    /**
+     * Calcula la fecha tentativa de pago aplicando los días de crédito sobre
+     * la base configurada (factura, recepción o aprobación) y ajustando al
+     * próximo viernes hábil si la fecha resultante no cae en viernes.
+     *
+     * Retorna null si falta información para calcular (ej. base=aprobacion
+     * pero la factura aún no ha sido aprobada por costos).
+     */
+    public function calcularFechaPago(): ?Carbon
+    {
+        $base = $this->base_dias_credito ?? BaseDiasCredito::Factura;
+        $dias = (int) ($this->dias_credito ?? $this->proveedor?->dias_credito_default ?? 0);
+
+        $fechaBase = match ($base) {
+            BaseDiasCredito::Factura => $this->fecha_factura,
+            BaseDiasCredito::Recepcion => $this->entregas()->latest('fecha_entrega')->value('fecha_entrega'),
+            BaseDiasCredito::Aprobacion => $this->aprobada_costos_at,
+        };
+
+        if (! $fechaBase) {
+            return null;
+        }
+
+        $fecha = Carbon::parse($fechaBase)->addDays($dias);
+
+        return $fecha->dayOfWeek === Carbon::FRIDAY
+            ? $fecha
+            : $fecha->next(Carbon::FRIDAY);
     }
 
     public function media(): MorphMany

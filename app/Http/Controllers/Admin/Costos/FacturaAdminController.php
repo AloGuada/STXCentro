@@ -104,20 +104,21 @@ class FacturaAdminController extends Controller
         }
 
         $pago = DB::transaction(function () use ($request, $factura) {
-            $factura->update([
+            $proveedor = $factura->proveedor;
+
+            // Copia dias_credito del proveedor si la factura no tiene override.
+            if ($factura->dias_credito === null) {
+                $factura->dias_credito = $proveedor?->dias_credito_default ?? 0;
+            }
+
+            $factura->fill([
                 'aceptada_contabilidad' => true,
                 'aceptada_contabilidad_por' => $request->user()->id,
                 'aceptada_contabilidad_at' => now(),
-            ]);
+                'fecha_pago_calculada' => $factura->calcularFechaPago() ?? Carbon::today(),
+            ])->save();
 
-            $proveedor = $factura->proveedor;
             $tipoPago = $proveedor && $proveedor->maneja_credito ? 'credito' : 'contado';
-            $diasCredito = $proveedor?->dias_credito_default ?? 0;
-
-            $fechaBase = Carbon::today()->addDays($diasCredito);
-            $fechaPago = $fechaBase->dayOfWeek === Carbon::FRIDAY
-                ? $fechaBase
-                : $fechaBase->next(Carbon::FRIDAY);
 
             $pago = Pago::create([
                 'pagable_type' => Factura::class,
@@ -125,7 +126,7 @@ class FacturaAdminController extends Controller
                 'monto_pago' => $factura->total,
                 'moneda' => $factura->moneda,
                 'tipo_pago' => $tipoPago,
-                'fecha_pago_programada' => $fechaPago,
+                'fecha_pago_programada' => $factura->fecha_pago_calculada,
                 'estatus' => 'programado',
             ]);
 

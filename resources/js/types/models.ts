@@ -1126,6 +1126,9 @@ export type CostosOrdenCompra = {
     facturas_count?: number;
     entregas_count?: number;
     pagos_count?: number;
+    total_facturado?: number;
+    total_pagado?: number;
+    saldo_pendiente?: number;
     created_at: string;
     updated_at: string;
 };
@@ -1142,6 +1145,14 @@ export type CostosOrdenCompraDetalle = {
 
 // Facturas Types
 export type CostosFacturaEstatus = 'pendiente_entrega' | 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
+
+export type CostosBaseDiasCredito = 'factura' | 'recepcion' | 'aprobacion';
+
+export const BASE_DIAS_CREDITO_LABELS: Record<CostosBaseDiasCredito, string> = {
+    factura: 'Fecha de factura',
+    recepcion: 'Fecha de recepción',
+    aprobacion: 'Fecha de aprobación',
+};
 
 export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
     pendiente_entrega: 'Pendiente Entrega',
@@ -1173,6 +1184,10 @@ export type CostosFactura = {
     fecha_factura: string | null;
     estatus: CostosFacturaEstatus;
     notas: string | null;
+    motivo_rechazo: string | null;
+    dias_credito: number | null;
+    base_dias_credito: CostosBaseDiasCredito;
+    fecha_pago_calculada: string | null;
     aprobada_costos: boolean;
     aprobada_costos_por: string | null;
     aprobada_costos_at: string | null;

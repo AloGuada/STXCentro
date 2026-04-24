@@ -18,7 +18,7 @@ beforeEach(function () {
     $this->user->givePermissionTo('costos.facturas.aceptar-contabilidad');
 });
 
-function crearFacturaAprobadaCostos(?Proveedor $proveedor = null): Factura
+function crearFacturaAprobadaCostos(?Proveedor $proveedor = null, ?string $fechaFactura = null): Factura
 {
     $proveedor = $proveedor ?? Proveedor::factory()->create(['email' => 'proveedor@test.com']);
 
@@ -29,6 +29,7 @@ function crearFacturaAprobadaCostos(?Proveedor $proveedor = null): Factura
     $factura = Factura::factory()->pendientePago()->create([
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $proveedor->id,
+        'fecha_factura' => $fechaFactura ?? '2026-02-17',
     ]);
 
     Entrega::factory()->create(['factura_id' => $factura->id]);
@@ -60,10 +61,11 @@ test('contabilidad acepta factura y crea pago programado', function () {
 
 test('pago programado con dias credito ajusta al viernes', function () {
     Mail::fake();
-    Carbon::setTestNow(Carbon::parse('2026-02-17')); // martes
 
     $proveedor = Proveedor::factory()->create(['dias_credito_default' => 30, 'email' => null]);
-    $factura = crearFacturaAprobadaCostos($proveedor);
+    // Factura emitida el martes 2026-02-17; 30 dias naturales -> jueves 2026-03-19,
+    // ajuste al siguiente viernes = 2026-03-20.
+    $factura = crearFacturaAprobadaCostos($proveedor, '2026-02-17');
 
     $this->actingAs($this->user)
         ->post("/admin/costos/facturas/{$factura->id}/aceptar-contabilidad")
@@ -72,10 +74,7 @@ test('pago programado con dias credito ajusta al viernes', function () {
     $pago = Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->first();
     expect($pago->estatus->value)->toBe('programado');
     expect($pago->fecha_pago_programada->dayOfWeek)->toBe(Carbon::FRIDAY);
-    // 2026-02-17 + 30 days = 2026-03-19 (jueves), next friday = 2026-03-20
     expect($pago->fecha_pago_programada->format('Y-m-d'))->toBe('2026-03-20');
-
-    Carbon::setTestNow();
 });
 
 test('no acepta factura sin aprobacion costos', function () {

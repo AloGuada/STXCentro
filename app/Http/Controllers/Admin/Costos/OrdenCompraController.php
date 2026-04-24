@@ -133,6 +133,8 @@ class OrdenCompraController extends Controller
             'rubrosAfectados.obraRubro.rubro',
         ]);
 
+        $ordenCompra->append(['total_facturado', 'total_pagado', 'saldo_pendiente']);
+
         return Inertia::render('admin/costos/ordenes-compra/show', [
             'ordenCompra' => $ordenCompra,
         ]);

@@ -76,6 +76,28 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     </ul>
                 )}
 
+                {/* Panel de saldos */}
+                <div className="stats stats-horizontal shadow mb-6 w-full">
+                    <div className="stat">
+                        <div className="stat-title">Total OC</div>
+                        <div className="stat-value text-base">{formatMoney(ordenCompra.total)}</div>
+                    </div>
+                    <div className="stat">
+                        <div className="stat-title">Facturado</div>
+                        <div className="stat-value text-base">{formatMoney(ordenCompra.total_facturado ?? 0)}</div>
+                    </div>
+                    <div className="stat">
+                        <div className="stat-title">Pagado</div>
+                        <div className="stat-value text-base">{formatMoney(ordenCompra.total_pagado ?? 0)}</div>
+                    </div>
+                    <div className="stat">
+                        <div className="stat-title">Saldo Pendiente</div>
+                        <div className={`stat-value text-base ${(ordenCompra.saldo_pendiente ?? 0) > 0 ? 'text-warning' : 'text-success'}`}>
+                            {formatMoney(ordenCompra.saldo_pendiente ?? 0)}
+                        </div>
+                    </div>
+                </div>
+
                 {/* Tabs */}
                 <div className="tabs tabs-bordered mb-6">
                     <button className={`tab ${activeTab === 'datos' ? 'tab-active' : ''}`} onClick={() => setActiveTab('datos')}>Datos</button>
