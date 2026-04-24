@@ -105,6 +105,6 @@ describe('rubros afectados polymorphic', function () {
 
         $abono = $rubros->firstWhere('tipo_movimiento', 'abono');
         expect($abono)->not->toBeNull();
-        expect($abono->estatus)->toBe('cancelado');
+        expect($abono->estatus->value)->toBe('cancelado');
     });
 });

@@ -21,7 +21,7 @@ describe('afectacion presupuestal workflow', function () {
 
         $response->assertOk();
         $afectacion->refresh();
-        expect($afectacion->estatus)->toBe('pendiente_firma');
+        expect($afectacion->estatus->value)->toBe('pendiente_firma');
         expect($afectacion->historial)->toHaveCount(1);
     });
 
@@ -43,7 +43,7 @@ describe('afectacion presupuestal workflow', function () {
 
         $response->assertRedirect();
         $afectacion->refresh();
-        expect($afectacion->estatus)->toBe('aprobada');
+        expect($afectacion->estatus->value)->toBe('aprobada');
         expect($afectacion->aprobado_por)->toBe($this->user->id);
 
         $obraRubro->refresh();
@@ -69,7 +69,7 @@ describe('afectacion presupuestal workflow', function () {
         $afectacion->refresh();
         expect($afectacion->rubrosAfectados)->toHaveCount(1);
         expect($afectacion->rubrosAfectados->first()->tipo_movimiento)->toBe('cargo');
-        expect($afectacion->rubrosAfectados->first()->estatus)->toBe('aplicado');
+        expect($afectacion->rubrosAfectados->first()->estatus->value)->toBe('aplicado');
     });
 
     test('cancelar reverts budget if aprobada', function () {
@@ -86,7 +86,7 @@ describe('afectacion presupuestal workflow', function () {
 
         $response->assertRedirect();
         $afectacion->refresh();
-        expect($afectacion->estatus)->toBe('cancelada');
+        expect($afectacion->estatus->value)->toBe('cancelada');
 
         $obraRubro->refresh();
         expect((float) $obraRubro->acumulado)->toBe(0.00);
@@ -105,7 +105,7 @@ describe('afectacion presupuestal workflow', function () {
             ->post(route('admin.costos.afectaciones.cancelar', $afectacion));
 
         $afectacion->refresh();
-        expect($afectacion->estatus)->toBe('cancelada');
+        expect($afectacion->estatus->value)->toBe('cancelada');
 
         $obraRubro->refresh();
         expect((float) $obraRubro->acumulado)->toBe(0.00);

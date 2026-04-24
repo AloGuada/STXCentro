@@ -25,7 +25,7 @@ test('lista facturas', function () {
 
 test('filtra facturas por estatus', function () {
     Factura::factory()->create(['estatus' => 'pendiente_entrega']);
-    Factura::factory()->create(['estatus' => 'entrega_completa']);
+    Factura::factory()->create(['estatus' => 'pendiente_aprobacion']);
 
     $this->actingAs($this->user)
         ->get('/admin/costos/facturas?estatus=pendiente_entrega')

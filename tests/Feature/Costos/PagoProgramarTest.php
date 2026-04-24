@@ -49,7 +49,7 @@ test('programa pago pendiente con fecha en viernes', function () {
         ->assertRedirect();
 
     $pago->refresh();
-    expect($pago->estatus)->toBe('programado');
+    expect($pago->estatus->value)->toBe('programado');
     expect($pago->fecha_pago_programada->dayOfWeek)->toBe(Carbon::FRIDAY);
 
     Carbon::setTestNow();
@@ -66,7 +66,7 @@ test('programa pago con dias credito ajusta al viernes', function () {
         ->assertRedirect();
 
     $pago->refresh();
-    expect($pago->estatus)->toBe('programado');
+    expect($pago->estatus->value)->toBe('programado');
     expect($pago->fecha_pago_programada->dayOfWeek)->toBe(Carbon::FRIDAY);
     // 2026-02-17 + 30 days = 2026-03-19 (jueves), next friday = 2026-03-20
     expect($pago->fecha_pago_programada->format('Y-m-d'))->toBe('2026-03-20');

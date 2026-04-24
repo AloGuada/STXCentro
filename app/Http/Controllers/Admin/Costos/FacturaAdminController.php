@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\FacturaEstatus;
 use App\Http\Controllers\Controller;
 use App\Mail\FacturaAceptadaMail;
 use App\Mail\PagoProgramadoMail;
@@ -63,7 +64,7 @@ class FacturaAdminController extends Controller
 
     public function aprobarCostos(Request $request, Factura $factura): RedirectResponse
     {
-        if ($factura->estatus !== 'pendiente_aprobacion') {
+        if ($factura->estatus !== FacturaEstatus::PendienteAprobacion) {
             return back()->withErrors(['estatus' => 'La factura debe tener la entrega completa para ser aprobada.']);
         }
 
@@ -89,7 +90,7 @@ class FacturaAdminController extends Controller
     {
         Gate::authorize('costos.facturas.aceptar-contabilidad');
 
-        if ($factura->estatus !== 'pendiente_pago') {
+        if ($factura->estatus !== FacturaEstatus::PendientePago) {
             return back()->withErrors(['estatus' => 'La factura debe estar pendiente de pago.']);
         }
 
@@ -144,8 +145,8 @@ class FacturaAdminController extends Controller
     {
         Gate::authorize('costos.facturas.cancelar');
 
-        if (in_array($factura->estatus, ['pagada', 'cancelada'], true)) {
-            return back()->withErrors(['estatus' => 'La factura ya está '.$factura->estatus.'.']);
+        if (in_array($factura->estatus, [FacturaEstatus::Pagada, FacturaEstatus::Cancelada], true)) {
+            return back()->withErrors(['estatus' => 'La factura ya está '.$factura->estatus->value.'.']);
         }
 
         if ($factura->aceptada_contabilidad) {

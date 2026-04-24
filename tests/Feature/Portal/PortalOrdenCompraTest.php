@@ -26,10 +26,10 @@ test('lista ordenes de compra del proveedor', function () {
         );
 });
 
-test('no muestra ordenes en borrador', function () {
+test('no muestra ordenes canceladas', function () {
     OrdenCompra::factory()->create([
         'proveedor_id' => $this->proveedor->id,
-        'estatus' => 'borrador',
+        'estatus' => 'cancelada',
     ]);
 
     $this->actingAs($this->proveedor, 'proveedor')

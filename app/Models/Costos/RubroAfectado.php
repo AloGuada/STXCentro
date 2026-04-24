@@ -42,6 +42,7 @@ class RubroAfectado extends Model
             'monto' => 'decimal:2',
             'sobre_giro' => 'boolean',
             'fecha_aplicacion' => 'datetime',
+            'estatus' => RubroAfectadoEstatus::class,
         ];
     }
 

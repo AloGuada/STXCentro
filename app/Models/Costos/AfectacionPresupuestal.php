@@ -55,6 +55,7 @@ class AfectacionPresupuestal extends Model
             'fecha' => 'date',
             'monto_total' => 'decimal:2',
             'fecha_aprobacion' => 'datetime',
+            'estatus' => AfectacionEstatus::class,
         ];
     }
 

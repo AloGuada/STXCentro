@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\AfectacionEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\AfectacionPresupuestalStoreRequest;
 use App\Http\Requests\Admin\Costos\AfectacionPresupuestalUpdateRequest;
@@ -107,7 +108,7 @@ class AfectacionPresupuestalController extends Controller
 
     public function edit(AfectacionPresupuestal $afectacion): Response|RedirectResponse
     {
-        if ($afectacion->estatus !== 'borrador') {
+        if ($afectacion->estatus !== AfectacionEstatus::Borrador) {
             return to_route('admin.costos.afectaciones.show', $afectacion);
         }
 
@@ -124,7 +125,7 @@ class AfectacionPresupuestalController extends Controller
 
     public function update(AfectacionPresupuestalUpdateRequest $request, AfectacionPresupuestal $afectacion): RedirectResponse
     {
-        if ($afectacion->estatus !== 'borrador') {
+        if ($afectacion->estatus !== AfectacionEstatus::Borrador) {
             return back()->withErrors(['estatus' => 'Solo se pueden editar afectaciones en borrador.']);
         }
 
@@ -174,7 +175,7 @@ class AfectacionPresupuestalController extends Controller
 
     public function destroy(AfectacionPresupuestal $afectacion): RedirectResponse
     {
-        if ($afectacion->estatus !== 'borrador') {
+        if ($afectacion->estatus !== AfectacionEstatus::Borrador) {
             return back()->withErrors(['estatus' => 'Solo se pueden eliminar afectaciones en borrador.']);
         }
 
@@ -192,9 +193,9 @@ class AfectacionPresupuestalController extends Controller
             'detalles.obraRubro.rubro',
         ]);
 
-        $estatusAnterior = $afectacion->estatus;
+        $estatusAnterior = $afectacion->estatus->value;
 
-        if ($afectacion->estatus === 'borrador') {
+        if ($afectacion->estatus === AfectacionEstatus::Borrador) {
             $afectacion->update(['estatus' => 'pendiente_firma']);
 
             $afectacion->historial()->create([
@@ -224,13 +225,13 @@ class AfectacionPresupuestalController extends Controller
             'archivo' => ['required', 'file', 'mimes:pdf', 'max:10240'],
         ]);
 
-        if ($afectacion->estatus !== 'pendiente_firma') {
+        if ($afectacion->estatus !== AfectacionEstatus::PendienteFirma) {
             return back()->withErrors(['estatus' => 'La afectación debe estar en pendiente de firma.']);
         }
 
         $path = $request->file('archivo')->store('costos/afectaciones-firmados', 'public');
 
-        $estatusAnterior = $afectacion->estatus;
+        $estatusAnterior = $afectacion->estatus->value;
 
         $afectacion->update([
             'pdf_firmado_path' => $path,
@@ -271,14 +272,14 @@ class AfectacionPresupuestalController extends Controller
 
     public function cancelar(AfectacionPresupuestal $afectacion): RedirectResponse
     {
-        if (! in_array($afectacion->estatus, ['pendiente_firma', 'aprobada'])) {
+        if (! in_array($afectacion->estatus, [AfectacionEstatus::PendienteFirma, AfectacionEstatus::Aprobada], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar afectaciones pendientes o aprobadas.']);
         }
 
-        $estatusAnterior = $afectacion->estatus;
+        $estatusAnterior = $afectacion->estatus->value;
 
         // Revert budget impact if was approved
-        if ($afectacion->estatus === 'aprobada') {
+        if ($afectacion->estatus === AfectacionEstatus::Aprobada) {
             foreach ($afectacion->detalles as $detalle) {
                 ObraRubro::where('id', $detalle->obra_rubro_id)
                     ->decrement('acumulado', (float) $detalle->monto);

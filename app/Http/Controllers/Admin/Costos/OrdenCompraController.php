@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\OrdenCompraEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\OrdenCompraStoreRequest;
 use App\Models\Costos\ObraRubro;
@@ -142,7 +143,7 @@ class OrdenCompraController extends Controller
         }
 
         DB::transaction(function () use ($ordenCompra) {
-            if (in_array($ordenCompra->estatus, ['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion'])) {
+            if (in_array($ordenCompra->estatus, [OrdenCompraEstatus::PendienteFactura, OrdenCompraEstatus::PendienteEntrega, OrdenCompraEstatus::PendienteAprobacion], true)) {
                 $ordenCompra->load('detalles');
                 $ordenCompra->revertirImpactoPresupuestal();
             }
@@ -158,7 +159,7 @@ class OrdenCompraController extends Controller
     {
         Gate::authorize('costos.ordenes-compra.cancelar');
 
-        if (! in_array($ordenCompra->estatus, ['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion'])) {
+        if (! in_array($ordenCompra->estatus, [OrdenCompraEstatus::PendienteFactura, OrdenCompraEstatus::PendienteEntrega, OrdenCompraEstatus::PendienteAprobacion], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar órdenes pendientes.']);
         }
 

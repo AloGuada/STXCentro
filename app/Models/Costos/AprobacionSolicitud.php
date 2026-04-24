@@ -38,6 +38,7 @@ class AprobacionSolicitud extends Model
         return [
             'nivel' => 'integer',
             'fecha_respuesta' => 'datetime',
+            'estatus' => AprobacionEstatus::class,
         ];
     }
 

@@ -31,7 +31,7 @@ test('cierra factura pendiente y queda cancelada', function () {
         ->post("/admin/costos/facturas/{$factura->id}/cancelar")
         ->assertRedirect();
 
-    expect($factura->fresh()->estatus)->toBe('cancelada');
+    expect($factura->fresh()->estatus->value)->toBe('cancelada');
 });
 
 test('no cierra factura ya pagada', function () {
@@ -41,7 +41,7 @@ test('no cierra factura ya pagada', function () {
         ->post("/admin/costos/facturas/{$factura->id}/cancelar")
         ->assertSessionHasErrors('estatus');
 
-    expect($factura->fresh()->estatus)->toBe('pagada');
+    expect($factura->fresh()->estatus->value)->toBe('pagada');
 });
 
 test('no cierra factura ya cancelada', function () {
@@ -65,7 +65,7 @@ test('no cierra factura aceptada por contabilidad', function () {
         ->post("/admin/costos/facturas/{$factura->id}/cancelar")
         ->assertSessionHasErrors('estatus');
 
-    expect($factura->fresh()->estatus)->toBe('pendiente_pago');
+    expect($factura->fresh()->estatus->value)->toBe('pendiente_pago');
 });
 
 test('sin permiso no puede cerrar factura', function () {
@@ -76,5 +76,5 @@ test('sin permiso no puede cerrar factura', function () {
         ->post("/admin/costos/facturas/{$factura->id}/cancelar")
         ->assertForbidden();
 
-    expect($factura->fresh()->estatus)->toBe('pendiente_entrega');
+    expect($factura->fresh()->estatus->value)->toBe('pendiente_entrega');
 });

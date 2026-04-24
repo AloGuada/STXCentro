@@ -35,7 +35,7 @@ describe('admin costos solicitud pago workflow', function () {
         $response->assertHeader('content-type', 'application/pdf');
 
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('pendiente_firma');
+        expect($solicitud->estatus->value)->toBe('pendiente_firma');
         expect($solicitud->aprobaciones)->toHaveCount(1);
     });
 
@@ -77,7 +77,7 @@ describe('admin costos solicitud pago workflow', function () {
         $response->assertRedirect();
 
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('aprobada');
+        expect($solicitud->estatus->value)->toBe('aprobada');
         expect($solicitud->media)->not->toBeNull();
     });
 
@@ -116,7 +116,7 @@ describe('admin costos solicitud pago workflow', function () {
         $response->assertRedirect();
 
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('cancelada');
+        expect($solicitud->estatus->value)->toBe('cancelada');
 
         $obraRubro->refresh();
         expect((float) $obraRubro->acumulado)->toBe(0.00);
@@ -140,7 +140,7 @@ describe('admin costos solicitud pago workflow', function () {
         expect($solicitud->confirmada_costos)->toBeTrue();
         expect($solicitud->pago)->not->toBeNull();
         expect($solicitud->pago->tipo_pago)->toBe('contado');
-        expect($solicitud->pago->estatus)->toBe('programado');
+        expect($solicitud->pago->estatus->value)->toBe('programado');
     });
 
     test('cannot upload firmado on non-pendiente solicitud', function () {

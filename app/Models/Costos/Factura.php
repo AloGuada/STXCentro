@@ -65,6 +65,7 @@ class Factura extends Model
             'aprobada_costos_at' => 'datetime',
             'aceptada_contabilidad' => 'boolean',
             'aceptada_contabilidad_at' => 'datetime',
+            'estatus' => FacturaEstatus::class,
         ];
     }
 

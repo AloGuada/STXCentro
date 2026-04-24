@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\SolicitudPagoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoUpdateRequest;
@@ -170,7 +171,7 @@ class SolicitudPagoController extends Controller
 
     public function edit(SolicitudPago $solicitudPago): Response|RedirectResponse
     {
-        if ($solicitudPago->estatus !== 'borrador') {
+        if ($solicitudPago->estatus !== SolicitudPagoEstatus::Borrador) {
             return to_route('admin.costos.solicitudes-pago.show', $solicitudPago);
         }
 
@@ -188,7 +189,7 @@ class SolicitudPagoController extends Controller
 
     public function update(SolicitudPagoUpdateRequest $request, SolicitudPago $solicitudPago): RedirectResponse
     {
-        if ($solicitudPago->estatus !== 'borrador') {
+        if ($solicitudPago->estatus !== SolicitudPagoEstatus::Borrador) {
             return back()->withErrors(['estatus' => 'Solo se pueden editar solicitudes en borrador.']);
         }
 
@@ -256,7 +257,7 @@ class SolicitudPagoController extends Controller
 
     public function destroy(SolicitudPago $solicitudPago): RedirectResponse
     {
-        if ($solicitudPago->estatus !== 'borrador') {
+        if ($solicitudPago->estatus !== SolicitudPagoEstatus::Borrador) {
             return back()->withErrors(['estatus' => 'Solo se pueden eliminar solicitudes en borrador.']);
         }
 
@@ -344,7 +345,7 @@ class SolicitudPagoController extends Controller
             ->values();
 
         // Cambiar estatus a pendiente_firma
-        if ($solicitudPago->estatus === 'borrador') {
+        if ($solicitudPago->estatus === SolicitudPagoEstatus::Borrador) {
             $solicitudPago->update(['estatus' => 'pendiente_firma']);
 
             // Crear registros de aprobación (uno por aprobador por nivel)
@@ -395,7 +396,7 @@ class SolicitudPagoController extends Controller
             'archivo' => ['required', 'file', 'mimes:pdf', 'max:10240'],
         ]);
 
-        if ($solicitudPago->estatus !== 'pendiente_firma') {
+        if ($solicitudPago->estatus !== SolicitudPagoEstatus::PendienteFirma) {
             return back()->withErrors(['estatus' => 'La solicitud debe estar en pendiente de firma.']);
         }
 
@@ -425,12 +426,12 @@ class SolicitudPagoController extends Controller
 
     public function cancelar(SolicitudPago $solicitudPago): RedirectResponse
     {
-        if (! in_array($solicitudPago->estatus, ['pendiente_firma', 'aprobada'])) {
+        if (! in_array($solicitudPago->estatus, [SolicitudPagoEstatus::PendienteFirma, SolicitudPagoEstatus::Aprobada], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar solicitudes pendientes o aprobadas.']);
         }
 
         // Revertir impacto si estaba aprobada
-        if ($solicitudPago->estatus === 'aprobada') {
+        if ($solicitudPago->estatus === SolicitudPagoEstatus::Aprobada) {
             foreach ($solicitudPago->detalles as $detalle) {
                 ObraRubro::where('id', $detalle->obra_rubro_id)
                     ->decrement('acumulado', (float) $detalle->subtotal);
@@ -456,7 +457,7 @@ class SolicitudPagoController extends Controller
     {
         Gate::authorize('costos.solicitudes.confirmar-costos');
 
-        if ($solicitudPago->estatus !== 'aprobada') {
+        if ($solicitudPago->estatus !== SolicitudPagoEstatus::Aprobada) {
             return back()->withErrors(['estatus' => 'La solicitud debe estar aprobada.']);
         }
 
@@ -492,7 +493,7 @@ class SolicitudPagoController extends Controller
     {
         Gate::authorize('costos.facturas.aceptar-contabilidad');
 
-        if ($solicitudPago->estatus !== 'aprobada') {
+        if ($solicitudPago->estatus !== SolicitudPagoEstatus::Aprobada) {
             return back()->withErrors(['estatus' => 'La solicitud debe estar aprobada.']);
         }
 

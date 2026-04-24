@@ -11,7 +11,7 @@ test('OC pendiente_factura cuando no tiene facturas', function () {
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_factura');
+    expect($oc->estatus->value)->toBe('pendiente_factura');
 });
 
 test('OC pendiente_entrega cuando tiene factura sin entrega', function () {
@@ -24,7 +24,7 @@ test('OC pendiente_entrega cuando tiene factura sin entrega', function () {
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_entrega');
+    expect($oc->estatus->value)->toBe('pendiente_entrega');
 });
 
 test('OC pendiente_aprobacion cuando todas las facturas tienen entrega completa', function () {
@@ -38,7 +38,7 @@ test('OC pendiente_aprobacion cuando todas las facturas tienen entrega completa'
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_aprobacion');
+    expect($oc->estatus->value)->toBe('pendiente_aprobacion');
 });
 
 test('OC pendiente_entrega cuando alguna factura no tiene entrega', function () {
@@ -59,7 +59,7 @@ test('OC pendiente_entrega cuando alguna factura no tiene entrega', function () 
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_entrega');
+    expect($oc->estatus->value)->toBe('pendiente_entrega');
 });
 
 test('OC pendiente_pago cuando todas las facturas estan aprobadas', function () {
@@ -74,7 +74,7 @@ test('OC pendiente_pago cuando todas las facturas estan aprobadas', function () 
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_pago');
+    expect($oc->estatus->value)->toBe('pendiente_pago');
 });
 
 test('OC pendiente_pago con mix de pendiente_pago y pagada', function () {
@@ -94,7 +94,7 @@ test('OC pendiente_pago con mix de pendiente_pago y pagada', function () {
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_pago');
+    expect($oc->estatus->value)->toBe('pendiente_pago');
 });
 
 test('OC pagada cuando todas las facturas estan pagadas', function () {
@@ -114,7 +114,7 @@ test('OC pagada cuando todas las facturas estan pagadas', function () {
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pagada');
+    expect($oc->estatus->value)->toBe('pagada');
 });
 
 test('factura cancelada no bloquea progreso de OC', function () {
@@ -135,7 +135,7 @@ test('factura cancelada no bloquea progreso de OC', function () {
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pagada');
+    expect($oc->estatus->value)->toBe('pagada');
 });
 
 test('OC pendiente_factura cuando todas facturas canceladas', function () {
@@ -149,5 +149,5 @@ test('OC pendiente_factura cuando todas facturas canceladas', function () {
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_factura');
+    expect($oc->estatus->value)->toBe('pendiente_factura');
 });

@@ -75,12 +75,12 @@ describe('admin costos pagos', function () {
         $response->assertRedirect();
 
         $pago->refresh();
-        expect($pago->estatus)->toBe('pagado');
+        expect($pago->estatus->value)->toBe('pagado');
         expect($pago->media)->not->toBeNull();
         expect($pago->fecha_pago_realizada)->not->toBeNull();
 
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('pagada');
+        expect($solicitud->estatus->value)->toBe('pagada');
     });
 
     test('credito parcializar validates suma equals monto', function () {
@@ -111,12 +111,12 @@ describe('admin costos pagos', function () {
         $response->assertRedirect();
 
         $pago->refresh();
-        expect($pago->estatus)->toBe('parcial');
+        expect($pago->estatus->value)->toBe('parcial');
         expect($pago->pagosParciales)->toHaveCount(2);
 
         $hijo1 = $pago->pagosParciales->first();
         expect($hijo1->pago_padre_id)->toBe($pago->id);
-        expect($hijo1->estatus)->toBe('programado');
+        expect($hijo1->estatus->value)->toBe('programado');
         expect($hijo1->numero_parcialidad)->toBe(1);
         expect($hijo1->folio)->toStartWith('PG-');
     });
@@ -134,7 +134,7 @@ describe('admin costos pagos', function () {
 
         $pago->refresh();
         $pago->pagosParciales->each(function ($hijo) {
-            expect($hijo->estatus)->toBe('programado');
+            expect($hijo->estatus->value)->toBe('programado');
         });
     });
 
@@ -161,10 +161,10 @@ describe('admin costos pagos', function () {
         $response->assertRedirect();
 
         $pago->refresh();
-        expect($pago->estatus)->toBe('pagado');
+        expect($pago->estatus->value)->toBe('pagado');
 
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('pagada');
+        expect($solicitud->estatus->value)->toBe('pagada');
     });
 
     test('cannot parcializar pago contado', function () {
@@ -226,7 +226,7 @@ describe('admin costos pagos', function () {
         $response->assertRedirect();
 
         $hijo2->refresh();
-        expect($hijo2->estatus)->toBe('parcial');
+        expect($hijo2->estatus->value)->toBe('parcial');
         expect($hijo2->pagosParciales)->toHaveCount(2);
 
         // Pagar ambos nietos - la cascada debe marcar hijo2, raíz y solicitud como pagados
@@ -243,12 +243,12 @@ describe('admin costos pagos', function () {
             ]);
 
         $hijo2->refresh();
-        expect($hijo2->estatus)->toBe('pagado');
+        expect($hijo2->estatus->value)->toBe('pagado');
 
         $raiz->refresh();
-        expect($raiz->estatus)->toBe('pagado');
+        expect($raiz->estatus->value)->toBe('pagado');
 
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('pagada');
+        expect($solicitud->estatus->value)->toBe('pagada');
     });
 });

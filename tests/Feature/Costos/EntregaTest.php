@@ -36,7 +36,7 @@ test('entrega parcial mantiene factura en pendiente_entrega', function () {
         ->assertRedirect();
 
     $factura->refresh();
-    expect($factura->estatus)->toBe('pendiente_entrega');
+    expect($factura->estatus->value)->toBe('pendiente_entrega');
 });
 
 test('entrega completa cambia factura a pendiente_aprobacion', function () {
@@ -50,7 +50,7 @@ test('entrega completa cambia factura a pendiente_aprobacion', function () {
         ->assertRedirect();
 
     $factura->refresh();
-    expect($factura->estatus)->toBe('pendiente_aprobacion');
+    expect($factura->estatus->value)->toBe('pendiente_aprobacion');
 });
 
 test('entrega completa recalcula OC a pendiente_aprobacion cuando todas las facturas tienen entrega completa', function () {
@@ -64,7 +64,7 @@ test('entrega completa recalcula OC a pendiente_aprobacion cuando todas las fact
         ->assertRedirect();
 
     $oc->refresh();
-    expect($oc->estatus)->toBe('pendiente_aprobacion');
+    expect($oc->estatus->value)->toBe('pendiente_aprobacion');
 });
 
 test('entrega parcial no marca OC pendiente_aprobacion', function () {
@@ -78,7 +78,7 @@ test('entrega parcial no marca OC pendiente_aprobacion', function () {
         ->assertRedirect();
 
     $oc->refresh();
-    expect($oc->estatus)->toBe('pendiente_entrega');
+    expect($oc->estatus->value)->toBe('pendiente_entrega');
 });
 
 test('entrega no crea pago automaticamente', function () {

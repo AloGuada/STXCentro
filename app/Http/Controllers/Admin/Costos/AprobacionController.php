@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\AprobacionEstatus;
 use App\Http\Controllers\Controller;
 use App\Models\Costos\AprobacionSolicitud;
 use Illuminate\Http\RedirectResponse;
@@ -107,7 +108,7 @@ class AprobacionController extends Controller
             abort(403);
         }
 
-        if ($aprobacionSolicitud->estatus !== 'pendiente') {
+        if ($aprobacionSolicitud->estatus !== AprobacionEstatus::Pendiente) {
             return back()->withErrors(['estatus' => 'Esta aprobación ya fue procesada.']);
         }
 
@@ -171,7 +172,7 @@ class AprobacionController extends Controller
             abort(403);
         }
 
-        if ($aprobacionSolicitud->estatus !== 'pendiente') {
+        if ($aprobacionSolicitud->estatus !== AprobacionEstatus::Pendiente) {
             return back()->withErrors(['estatus' => 'Esta aprobación ya fue procesada.']);
         }
 

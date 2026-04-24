@@ -55,6 +55,7 @@ class Pago extends Model
             'fecha_pago_programada' => 'date',
             'fecha_pago_maxima' => 'date',
             'fecha_pago_realizada' => 'date',
+            'estatus' => PagoEstatus::class,
         ];
     }
 

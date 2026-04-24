@@ -7,6 +7,7 @@ use App\Enums\Contracts\HasStateTransitions;
 enum AfectacionEstatus: string implements HasStateTransitions
 {
     case Borrador = 'borrador';
+    case PendienteFirma = 'pendiente_firma';
     case Aprobada = 'aprobada';
     case Cancelada = 'cancelada';
 
@@ -16,7 +17,8 @@ enum AfectacionEstatus: string implements HasStateTransitions
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::Borrador => [self::Aprobada, self::Cancelada],
+            self::Borrador => [self::PendienteFirma, self::Cancelada],
+            self::PendienteFirma => [self::Aprobada, self::Cancelada],
             self::Aprobada,
             self::Cancelada => [],
         };
@@ -26,6 +28,7 @@ enum AfectacionEstatus: string implements HasStateTransitions
     {
         return match ($this) {
             self::Borrador => 'Borrador',
+            self::PendienteFirma => 'Pendiente de firma',
             self::Aprobada => 'Aprobada',
             self::Cancelada => 'Cancelada',
         };

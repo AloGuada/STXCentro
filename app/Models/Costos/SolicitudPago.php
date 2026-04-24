@@ -68,6 +68,7 @@ class SolicitudPago extends Model
             'confirmada_costos_at' => 'datetime',
             'confirmada_contabilidad' => 'boolean',
             'confirmada_contabilidad_at' => 'datetime',
+            'estatus' => SolicitudPagoEstatus::class,
         ];
     }
 

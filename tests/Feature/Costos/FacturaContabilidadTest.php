@@ -52,7 +52,7 @@ test('contabilidad acepta factura y crea pago programado', function () {
     expect(Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->count())->toBe(1);
 
     $pago = Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->first();
-    expect($pago->estatus)->toBe('programado');
+    expect($pago->estatus->value)->toBe('programado');
     expect($pago->fecha_pago_programada)->not->toBeNull();
     expect($pago->fecha_pago_programada->dayOfWeek)->toBe(Carbon::FRIDAY);
     expect((float) $pago->monto_pago)->toBe((float) $factura->total);
@@ -70,7 +70,7 @@ test('pago programado con dias credito ajusta al viernes', function () {
         ->assertRedirect();
 
     $pago = Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->first();
-    expect($pago->estatus)->toBe('programado');
+    expect($pago->estatus->value)->toBe('programado');
     expect($pago->fecha_pago_programada->dayOfWeek)->toBe(Carbon::FRIDAY);
     // 2026-02-17 + 30 days = 2026-03-19 (jueves), next friday = 2026-03-20
     expect($pago->fecha_pago_programada->format('Y-m-d'))->toBe('2026-03-20');
@@ -194,5 +194,5 @@ test('aceptacion recalcula OC estatus', function () {
 
     $factura->refresh();
     $factura->ordenCompra->refresh();
-    expect($factura->ordenCompra->estatus)->toBe('pendiente_pago');
+    expect($factura->ordenCompra->estatus->value)->toBe('pendiente_pago');
 });

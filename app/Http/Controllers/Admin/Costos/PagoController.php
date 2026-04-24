@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\PagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\AbonoComprobanteRequest;
 use App\Http\Requests\Admin\Costos\ParcializarRequest;
@@ -58,7 +59,7 @@ class PagoController extends Controller
     {
         Gate::authorize('costos.pagos.programar');
 
-        if ($pago->estatus !== 'pendiente') {
+        if ($pago->estatus !== PagoEstatus::Pendiente) {
             return back()->withErrors(['estatus' => 'Solo se puede programar un pago pendiente.']);
         }
 
@@ -93,7 +94,7 @@ class PagoController extends Controller
             return back()->withErrors(['tipo_pago' => 'Solo pagos a crédito pueden parcializarse.']);
         }
 
-        if ($pago->estatus !== 'programado') {
+        if ($pago->estatus !== PagoEstatus::Programado) {
             return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado.']);
         }
 
@@ -110,7 +111,7 @@ class PagoController extends Controller
 
     public function parcializar(ParcializarRequest $request, Pago $pago): RedirectResponse
     {
-        if ($pago->estatus !== 'programado') {
+        if ($pago->estatus !== PagoEstatus::Programado) {
             return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado.']);
         }
 
@@ -138,7 +139,7 @@ class PagoController extends Controller
 
     public function uploadComprobante(AbonoComprobanteRequest $request, Pago $pago): RedirectResponse
     {
-        if ($pago->estatus !== 'programado') {
+        if ($pago->estatus !== PagoEstatus::Programado) {
             return back()->withErrors(['estatus' => 'Solo se puede subir comprobante a un pago programado.']);
         }
 

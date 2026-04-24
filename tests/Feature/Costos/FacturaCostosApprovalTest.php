@@ -46,7 +46,7 @@ test('aprueba factura con entrega completa y cambia a pendiente_pago', function 
     expect($factura->aprobada_costos)->toBeTrue();
     expect($factura->aprobada_costos_por)->toBe($this->user->id);
     expect($factura->aprobada_costos_at)->not->toBeNull();
-    expect($factura->estatus)->toBe('pendiente_pago');
+    expect($factura->estatus->value)->toBe('pendiente_pago');
 
     expect(Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->count())->toBe(0);
 });
@@ -98,5 +98,5 @@ test('aprobacion recalcula OC a pendiente_pago', function () {
 
     $factura->refresh();
     $factura->ordenCompra->refresh();
-    expect($factura->ordenCompra->estatus)->toBe('pendiente_pago');
+    expect($factura->ordenCompra->estatus->value)->toBe('pendiente_pago');
 });

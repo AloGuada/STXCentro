@@ -63,7 +63,7 @@ test('crea orden de compra pendiente_factura y aplica impacto presupuestal', fun
 
     $created = OrdenCompra::first();
     expect($created->folio)->toStartWith('OC-');
-    expect($created->estatus)->toBe('pendiente_factura');
+    expect($created->estatus->value)->toBe('pendiente_factura');
     expect((float) $created->total)->toBe(5000.0);
 
     $obraRubro->refresh();
@@ -93,7 +93,7 @@ test('cancela una orden pendiente y revierte impacto', function () {
         ->assertRedirect();
 
     $oc->refresh();
-    expect($oc->estatus)->toBe('cancelada');
+    expect($oc->estatus->value)->toBe('cancelada');
 
     $obraRubro->refresh();
     expect((float) $obraRubro->acumulado)->toBe(0.0);

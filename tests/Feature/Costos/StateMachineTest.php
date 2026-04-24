@@ -63,8 +63,10 @@ describe('allowedTransitions por enum', function () {
         expect(AprobacionEstatus::Rechazada->allowedTransitions())->toBe([]);
     });
 
-    test('Afectacion: borrador puede aprobarse o cancelarse', function () {
+    test('Afectacion: borrador -> pendiente_firma -> aprobada, con cancelada como escape', function () {
         expect(AfectacionEstatus::Borrador->allowedTransitions())
+            ->toBe([AfectacionEstatus::PendienteFirma, AfectacionEstatus::Cancelada]);
+        expect(AfectacionEstatus::PendienteFirma->allowedTransitions())
             ->toBe([AfectacionEstatus::Aprobada, AfectacionEstatus::Cancelada]);
         expect(AfectacionEstatus::Aprobada->allowedTransitions())->toBe([]);
     });
@@ -82,7 +84,7 @@ describe('transitionTo en modelos', function () {
 
         $oc->transitionTo(OrdenCompraEstatus::Cancelada);
 
-        expect($oc->fresh()->estatus)->toBe('cancelada');
+        expect($oc->fresh()->estatus)->toBe(OrdenCompraEstatus::Cancelada);
     });
 
     test('OrdenCompra rechaza transicion no permitida (pendiente_factura -> pagada)', function () {
@@ -104,7 +106,7 @@ describe('transitionTo en modelos', function () {
 
         $factura->transitionTo(FacturaEstatus::PendienteAprobacion);
 
-        expect($factura->fresh()->estatus)->toBe('pendiente_aprobacion');
+        expect($factura->fresh()->estatus)->toBe(FacturaEstatus::PendienteAprobacion);
     });
 
     test('Factura no puede saltar de pendiente_entrega a pagada', function () {
@@ -119,7 +121,7 @@ describe('transitionTo en modelos', function () {
 
         $pago->transitionTo(PagoEstatus::Pagado);
 
-        expect($pago->fresh()->estatus)->toBe('pagado');
+        expect($pago->fresh()->estatus)->toBe(PagoEstatus::Pagado);
     });
 
     test('SolicitudPago: borrador -> pendiente_firma', function () {
@@ -127,15 +129,15 @@ describe('transitionTo en modelos', function () {
 
         $solicitud->transitionTo(SolicitudPagoEstatus::PendienteFirma);
 
-        expect($solicitud->fresh()->estatus)->toBe('pendiente_firma');
+        expect($solicitud->fresh()->estatus)->toBe(SolicitudPagoEstatus::PendienteFirma);
     });
 
-    test('Afectacion: borrador -> aprobada', function () {
+    test('Afectacion: borrador -> pendiente_firma', function () {
         $afectacion = AfectacionPresupuestal::factory()->create(['estatus' => 'borrador']);
 
-        $afectacion->transitionTo(AfectacionEstatus::Aprobada);
+        $afectacion->transitionTo(AfectacionEstatus::PendienteFirma);
 
-        expect($afectacion->fresh()->estatus)->toBe('aprobada');
+        expect($afectacion->fresh()->estatus)->toBe(AfectacionEstatus::PendienteFirma);
     });
 
     test('excepcion incluye fromState, toState y entity', function () {

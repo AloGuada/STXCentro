@@ -84,7 +84,7 @@ describe('admin costos aprobaciones', function () {
         $response->assertRedirect();
 
         $aprobacion->refresh();
-        expect($aprobacion->estatus)->toBe('aprobada');
+        expect($aprobacion->estatus->value)->toBe('aprobada');
         expect($aprobacion->fecha_respuesta)->not->toBeNull();
         expect($aprobacion->observaciones)->toBe('Todo en orden');
         expect($aprobacion->ip)->not->toBeNull();
@@ -113,7 +113,7 @@ describe('admin costos aprobaciones', function () {
             ]);
 
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('aprobada');
+        expect($solicitud->estatus->value)->toBe('aprobada');
 
         $obraRubro->refresh();
         expect((float) $obraRubro->acumulado)->toBe(3000.00);
@@ -151,13 +151,13 @@ describe('admin costos aprobaciones', function () {
         $response->assertRedirect();
 
         $aprobacion->refresh();
-        expect($aprobacion->estatus)->toBe('rechazada');
+        expect($aprobacion->estatus->value)->toBe('rechazada');
         expect($aprobacion->observaciones)->toBe('No cumple requisitos');
         expect($aprobacion->ip)->not->toBeNull();
         expect($aprobacion->hostname)->not->toBeNull();
 
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('cancelada');
+        expect($solicitud->estatus->value)->toBe('cancelada');
     });
 
     test('rejection cancels remaining pending aprobaciones', function () {
@@ -181,7 +181,7 @@ describe('admin costos aprobaciones', function () {
             ]);
 
         $aprobacion2->refresh();
-        expect($aprobacion2->estatus)->toBe('cancelada');
+        expect($aprobacion2->estatus->value)->toBe('cancelada');
     });
 
     test('rejection requires observaciones', function () {
@@ -368,7 +368,7 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
         $response->assertRedirect();
 
         $solicitud = SolicitudPago::latest('id')->first();
-        expect($solicitud->estatus)->toBe('pendiente_firma');
+        expect($solicitud->estatus->value)->toBe('pendiente_firma');
         expect((float) $solicitud->monto_total)->toBe(15000.00);
         expect($solicitud->aprobaciones)->toHaveCount(3);
 
@@ -389,13 +389,13 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
             ->assertRedirect();
 
         $aprobaciones[0]->refresh();
-        expect($aprobaciones[0]->estatus)->toBe('aprobada');
+        expect($aprobaciones[0]->estatus->value)->toBe('aprobada');
         expect($aprobaciones[0]->ip)->not->toBeNull();
         expect($aprobaciones[0]->hostname)->not->toBeNull();
 
         // Solicitud sigue en pendiente_firma (faltan niveles)
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('pendiente_firma');
+        expect($solicitud->estatus->value)->toBe('pendiente_firma');
 
         // Presupuesto NO se afecta aún
         $obraRubro->refresh();
@@ -409,12 +409,12 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
             ->assertRedirect();
 
         $aprobaciones[1]->refresh();
-        expect($aprobaciones[1]->estatus)->toBe('aprobada');
+        expect($aprobaciones[1]->estatus->value)->toBe('aprobada');
         expect($aprobaciones[1]->ip)->not->toBeNull();
 
         // Aún pendiente (falta nivel 3)
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('pendiente_firma');
+        expect($solicitud->estatus->value)->toBe('pendiente_firma');
         $obraRubro->refresh();
         expect((float) $obraRubro->acumulado)->toBe(0.00);
 
@@ -426,11 +426,11 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
             ->assertRedirect();
 
         $aprobaciones[2]->refresh();
-        expect($aprobaciones[2]->estatus)->toBe('aprobada');
+        expect($aprobaciones[2]->estatus->value)->toBe('aprobada');
 
         // Solicitud cambia a aprobada
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('aprobada');
+        expect($solicitud->estatus->value)->toBe('aprobada');
 
         // Presupuesto impactado
         $obraRubro->refresh();
@@ -457,6 +457,6 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
         expect($pago)->not->toBeNull();
         expect((float) $pago->monto_pago)->toBe(15000.00);
         expect($pago->tipo_pago)->toBe('contado');
-        expect($pago->estatus)->toBe('programado');
+        expect($pago->estatus->value)->toBe('programado');
     });
 });

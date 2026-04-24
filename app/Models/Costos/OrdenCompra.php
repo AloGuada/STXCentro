@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\OrdenCompraEstatus;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
@@ -55,6 +56,7 @@ class OrdenCompra extends Model
         return [
             'total' => 'decimal:2',
             'fecha_entrega_esperada' => 'date',
+            'estatus' => OrdenCompraEstatus::class,
         ];
     }
 
@@ -145,7 +147,7 @@ class OrdenCompra extends Model
      */
     public function recalcularEstatus(): void
     {
-        $facturas = $this->facturas()->where('estatus', '!=', 'cancelada')->get();
+        $facturas = $this->facturas()->where('estatus', '!=', FacturaEstatus::Cancelada->value)->get();
 
         if ($facturas->isEmpty()) {
             $this->update(['estatus' => 'pendiente_factura']);
@@ -153,19 +155,19 @@ class OrdenCompra extends Model
             return;
         }
 
-        if ($facturas->every(fn ($f) => $f->estatus === 'pagada')) {
+        if ($facturas->every(fn ($f) => $f->estatus === FacturaEstatus::Pagada)) {
             $this->update(['estatus' => 'pagada']);
 
             return;
         }
 
-        if ($facturas->every(fn ($f) => in_array($f->estatus, ['pendiente_pago', 'pagada']))) {
+        if ($facturas->every(fn ($f) => in_array($f->estatus, [FacturaEstatus::PendientePago, FacturaEstatus::Pagada], true))) {
             $this->update(['estatus' => 'pendiente_pago']);
 
             return;
         }
 
-        if ($facturas->every(fn ($f) => in_array($f->estatus, ['pendiente_aprobacion', 'pendiente_pago', 'pagada']))) {
+        if ($facturas->every(fn ($f) => in_array($f->estatus, [FacturaEstatus::PendienteAprobacion, FacturaEstatus::PendientePago, FacturaEstatus::Pagada], true))) {
             $this->update(['estatus' => 'pendiente_aprobacion']);
 
             return;
