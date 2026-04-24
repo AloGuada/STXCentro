@@ -91,16 +91,23 @@ class OrdenCompraController extends Controller
             }
 
             foreach ($request->input('detalles', []) as $detalle) {
-                $monto = (float) $detalle['monto'];
+                $cantidad = (float) $detalle['cantidad'];
+                $precioUnitario = (float) $detalle['precio_unitario'];
+                $subtotal = round($cantidad * $precioUnitario, 2);
+
                 $oc->detalles()->create([
                     'obra_rubro_id' => $detalle['obra_rubro_id'],
-                    'monto' => $monto,
+                    'descripcion' => $detalle['descripcion'],
+                    'unidad' => $detalle['unidad'],
+                    'cantidad' => $cantidad,
+                    'precio_unitario' => $precioUnitario,
+                    'subtotal' => $subtotal,
                 ]);
 
                 $obraRubro = ObraRubro::find($detalle['obra_rubro_id']);
                 if ($obraRubro) {
                     $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
-                    if ($monto > $disponible) {
+                    if ($subtotal > $disponible) {
                         $warnings[] = "El rubro {$obraRubro->rubro?->codigo} excede el presupuesto disponible.";
                     }
                 }

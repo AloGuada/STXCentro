@@ -28,7 +28,10 @@ class OrdenCompraStoreRequest extends FormRequest
             'archivo' => ['nullable', 'file', 'max:10240'],
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.obra_rubro_id' => ['required', 'exists:costos_obra_rubros,id'],
-            'detalles.*.monto' => ['required', 'numeric', 'min:0.01'],
+            'detalles.*.descripcion' => ['required', 'string', 'max:255'],
+            'detalles.*.unidad' => ['required', 'string', 'max:20'],
+            'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],
+            'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
         ];
     }
 
@@ -41,8 +44,11 @@ class OrdenCompraStoreRequest extends FormRequest
             'detalles.required' => 'Debe agregar al menos un detalle.',
             'detalles.min' => 'Debe agregar al menos un detalle.',
             'detalles.*.obra_rubro_id.required' => 'El rubro es obligatorio.',
-            'detalles.*.monto.required' => 'El monto es obligatorio.',
-            'detalles.*.monto.min' => 'El monto debe ser mayor a cero.',
+            'detalles.*.descripcion.required' => 'La descripción de la partida es obligatoria.',
+            'detalles.*.unidad.required' => 'La unidad es obligatoria.',
+            'detalles.*.cantidad.required' => 'La cantidad es obligatoria.',
+            'detalles.*.cantidad.min' => 'La cantidad debe ser mayor a cero.',
+            'detalles.*.precio_unitario.required' => 'El precio unitario es obligatorio.',
         ];
     }
 }

@@ -1145,7 +1145,11 @@ export type CostosOrdenCompraDetalle = {
     id: number;
     orden_compra_id: number;
     obra_rubro_id: number;
-    monto: number;
+    descripcion: string;
+    unidad: string;
+    cantidad: number;
+    precio_unitario: number;
+    subtotal: number;
     obra_rubro?: CostosObraRubro;
     created_at: string;
     updated_at: string;

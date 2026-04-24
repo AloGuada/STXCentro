@@ -52,7 +52,10 @@ test('crea orden de compra pendiente_factura y aplica impacto presupuestal', fun
             'detalles' => [
                 [
                     'obra_rubro_id' => $obraRubro->id,
-                    'monto' => 5000,
+                    'descripcion' => 'Cemento gris',
+                    'unidad' => 'bulto',
+                    'cantidad' => 10,
+                    'precio_unitario' => 500,
                 ],
             ],
         ])
@@ -85,7 +88,9 @@ test('cancela una orden pendiente y revierte impacto', function () {
     OrdenCompraDetalle::factory()->create([
         'orden_compra_id' => $oc->id,
         'obra_rubro_id' => $obraRubro->id,
-        'monto' => 5000,
+        'cantidad' => 1,
+        'precio_unitario' => 5000,
+        'subtotal' => 5000,
     ]);
 
     $this->actingAs($this->user)
@@ -123,7 +128,9 @@ test('elimina una orden sin facturas y revierte impacto', function () {
     OrdenCompraDetalle::factory()->create([
         'orden_compra_id' => $oc->id,
         'obra_rubro_id' => $obraRubro->id,
-        'monto' => 5000,
+        'cantidad' => 1,
+        'precio_unitario' => 5000,
+        'subtotal' => 5000,
     ]);
 
     $this->actingAs($this->user)
@@ -143,4 +150,60 @@ test('no permite eliminar orden con facturas', function () {
     $this->actingAs($this->user)
         ->delete("/admin/costos/ordenes-compra/{$oc->id}")
         ->assertSessionHasErrors('estatus');
+});
+
+test('calcula subtotal = cantidad * precio_unitario por partida', function () {
+    $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+    $oc = OrdenCompra::factory()->make();
+
+    $this->actingAs($this->user)
+        ->post('/admin/costos/ordenes-compra', [
+            'proveedor_id' => $oc->proveedor_id,
+            'departamento_id' => $oc->departamento_id,
+            'moneda' => 'mxn',
+            'total' => 3750,
+            'detalles' => [
+                [
+                    'obra_rubro_id' => $obraRubro->id,
+                    'descripcion' => 'Varilla corrugada 3/8"',
+                    'unidad' => 'pza',
+                    'cantidad' => 15,
+                    'precio_unitario' => 250,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $detalle = OrdenCompraDetalle::first();
+    expect((float) $detalle->cantidad)->toBe(15.0);
+    expect((float) $detalle->precio_unitario)->toBe(250.0);
+    expect((float) $detalle->subtotal)->toBe(3750.0);
+    expect($detalle->descripcion)->toBe('Varilla corrugada 3/8"');
+    expect($detalle->unidad)->toBe('pza');
+
+    // Impacto presupuestal usa subtotal, no cantidad ni precio_unitario sueltos
+    $obraRubro->refresh();
+    expect((float) $obraRubro->acumulado)->toBe(3750.0);
+});
+
+test('validation requiere descripcion, unidad, cantidad y precio_unitario por partida', function () {
+    $obraRubro = ObraRubro::factory()->create();
+    $oc = OrdenCompra::factory()->make();
+
+    $this->actingAs($this->user)
+        ->post('/admin/costos/ordenes-compra', [
+            'proveedor_id' => $oc->proveedor_id,
+            'departamento_id' => $oc->departamento_id,
+            'moneda' => 'mxn',
+            'total' => 1000,
+            'detalles' => [
+                ['obra_rubro_id' => $obraRubro->id],
+            ],
+        ])
+        ->assertSessionHasErrors([
+            'detalles.0.descripcion',
+            'detalles.0.unidad',
+            'detalles.0.cantidad',
+            'detalles.0.precio_unitario',
+        ]);
 });

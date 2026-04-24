@@ -21,7 +21,11 @@ class OrdenCompraDetalle extends Model
     protected $fillable = [
         'orden_compra_id',
         'obra_rubro_id',
-        'monto',
+        'descripcion',
+        'unidad',
+        'cantidad',
+        'precio_unitario',
+        'subtotal',
     ];
 
     /**
@@ -30,7 +34,9 @@ class OrdenCompraDetalle extends Model
     protected function casts(): array
     {
         return [
-            'monto' => 'decimal:2',
+            'cantidad' => 'decimal:2',
+            'precio_unitario' => 'decimal:2',
+            'subtotal' => 'decimal:2',
         ];
     }
 

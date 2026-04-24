@@ -168,14 +168,14 @@ class OrdenCompra extends Model
 
         foreach ($this->detalles as $detalle) {
             ObraRubro::where('id', $detalle->obra_rubro_id)
-                ->increment('acumulado', (float) $detalle->monto);
+                ->increment('acumulado', (float) $detalle->subtotal);
 
             $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
             $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
 
             $this->rubrosAfectados()->create([
                 'obra_rubro_id' => $detalle->obra_rubro_id,
-                'monto' => $detalle->monto,
+                'monto' => $detalle->subtotal,
                 'sobre_giro' => $disponible < 0,
                 'descripcion' => $obraRubro->rubro?->descripcion,
                 'tipo_movimiento' => 'cargo',
@@ -229,7 +229,7 @@ class OrdenCompra extends Model
 
         foreach ($this->detalles as $detalle) {
             ObraRubro::where('id', $detalle->obra_rubro_id)
-                ->decrement('acumulado', (float) $detalle->monto);
+                ->decrement('acumulado', (float) $detalle->subtotal);
         }
 
         $this->rubrosAfectados()->create([

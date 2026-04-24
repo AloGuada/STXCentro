@@ -93,7 +93,9 @@ describe('cancelacion de orden de compra', function () {
         OrdenCompraDetalle::factory()->create([
             'orden_compra_id' => $oc->id,
             'obra_rubro_id' => $obraRubro->id,
-            'monto' => 5000,
+            'cantidad' => 1,
+            'precio_unitario' => 5000,
+            'subtotal' => 5000,
         ]);
         Factura::factory()->create([
             'orden_compra_id' => $oc->id,

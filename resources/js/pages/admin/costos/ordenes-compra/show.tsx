@@ -157,22 +157,28 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
 
                         {/* Rubros table */}
                         <div>
-                            <h2 className="text-lg font-medium mb-3">Rubros</h2>
+                            <h2 className="text-lg font-medium mb-3">Partidas</h2>
                             <div className="overflow-x-auto">
                                 <table className="table table-sm">
                                     <thead>
                                         <tr>
-                                            <th>Obra</th>
+                                            <th>Descripción</th>
                                             <th>Rubro</th>
-                                            <th className="text-right">Monto</th>
+                                            <th className="text-right">Cantidad</th>
+                                            <th>Unidad</th>
+                                            <th className="text-right">P. Unitario</th>
+                                            <th className="text-right">Subtotal</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {ordenCompra.detalles?.map((d) => (
                                             <tr key={d.id}>
-                                                <td>{d.obra_rubro?.obra ? `${d.obra_rubro.obra.no} - ${d.obra_rubro.obra.descripcion}` : '-'}</td>
+                                                <td>{d.descripcion}</td>
                                                 <td>{d.obra_rubro?.rubro?.codigo} - {d.obra_rubro?.rubro?.descripcion}</td>
-                                                <td className="text-right">{formatMoney(d.monto)}</td>
+                                                <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
+                                                <td>{d.unidad}</td>
+                                                <td className="text-right">{formatMoney(d.precio_unitario)}</td>
+                                                <td className="text-right">{formatMoney(d.subtotal)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
