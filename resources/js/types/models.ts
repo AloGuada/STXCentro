@@ -952,6 +952,9 @@ export type CostosSolicitudPago = {
     confirmador_costos?: Usuario;
     confirmador_contabilidad?: Usuario;
     activities?: CostosActivity[];
+    locked_by: string | null;
+    locked_at: string | null;
+    locked_by_user?: Pick<Usuario, 'id' | 'name'> | null;
     created_at: string;
     updated_at: string;
 };
@@ -1035,6 +1038,9 @@ export type CostosAfectacionPresupuestal = {
     detalles?: CostosAfectacionDetalle[];
     historial?: CostosAfectacionHistorial[];
     rubros_afectados?: CostosRubroAfectado[];
+    locked_by: string | null;
+    locked_at: string | null;
+    locked_by_user?: Pick<Usuario, 'id' | 'name'> | null;
     created_at: string;
     updated_at: string;
 };

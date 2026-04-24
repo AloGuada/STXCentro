@@ -177,7 +177,7 @@ class SolicitudPagoController extends Controller
             return to_route('admin.costos.solicitudes-pago.show', $solicitudPago);
         }
 
-        $solicitudPago->load(['detalles.obraRubro.rubro', 'tipoSolicitud.documentos', 'archivos.documento']);
+        $solicitudPago->load(['detalles.obraRubro.rubro', 'tipoSolicitud.documentos', 'archivos.documento', 'lockedBy:id,name']);
 
         return Inertia::render('admin/costos/solicitudes-pago/edit', [
             'solicitud' => $solicitudPago,
@@ -194,6 +194,8 @@ class SolicitudPagoController extends Controller
         if ($solicitudPago->estatus !== SolicitudPagoEstatus::Borrador) {
             return back()->withErrors(['estatus' => 'Solo se pueden editar solicitudes en borrador.']);
         }
+
+        $solicitudPago->assertVersion($request->input('_version'));
 
         $warnings = [];
 
@@ -246,6 +248,7 @@ class SolicitudPagoController extends Controller
             }
 
             $solicitudPago->update(['monto_total' => $montoTotal]);
+            $solicitudPago->unlock();
         });
 
         $redirect = to_route('admin.costos.solicitudes-pago.index');

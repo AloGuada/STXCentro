@@ -4,6 +4,7 @@ namespace App\Models\Costos;
 
 use App\Enums\Costos\PagoEstatus;
 use App\Models\Concerns\HasCancelacion;
+use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,7 +19,7 @@ use Spatie\Activitylog\Support\LogOptions;
 class Pago extends Model
 {
     /** @use HasFactory<\Database\Factories\Costos\PagoFactory> */
-    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
+    use HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_pagos';
 
@@ -45,6 +46,8 @@ class Pago extends Model
         'notas',
         'pago_padre_id',
         'numero_parcialidad',
+        'locked_by',
+        'locked_at',
     ];
 
     /**
@@ -59,6 +62,7 @@ class Pago extends Model
             'fecha_pago_maxima' => 'date',
             'fecha_pago_realizada' => 'date',
             'estatus' => PagoEstatus::class,
+            'locked_at' => 'datetime',
         ];
     }
 

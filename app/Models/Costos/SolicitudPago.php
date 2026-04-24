@@ -4,6 +4,7 @@ namespace App\Models\Costos;
 
 use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Models\Concerns\HasCancelacion;
+use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
@@ -24,7 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class SolicitudPago extends Model
 {
-    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
+    use HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_solicitudes_pago';
 
@@ -56,6 +57,8 @@ class SolicitudPago extends Model
         'confirmada_contabilidad_por',
         'confirmada_contabilidad_at',
         'afectacion_id',
+        'locked_by',
+        'locked_at',
     ];
 
     /**
@@ -72,6 +75,7 @@ class SolicitudPago extends Model
             'confirmada_contabilidad' => 'boolean',
             'confirmada_contabilidad_at' => 'datetime',
             'estatus' => SolicitudPagoEstatus::class,
+            'locked_at' => 'datetime',
         ];
     }
 

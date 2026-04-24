@@ -167,6 +167,7 @@ describe('admin costos solicitudes pago', function () {
                         'precio_unitario' => 200,
                     ],
                 ],
+                '_version' => $solicitud->updated_at->toIso8601String(),
             ]);
 
         $response->assertRedirect(route('admin.costos.solicitudes-pago.index'));

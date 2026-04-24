@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\Cob\TipoRetencionController as CobTipoRetencionCo
 use App\Http\Controllers\Admin\Costos\AfectacionPresupuestalController as CostosAfectacionPresupuestalController;
 use App\Http\Controllers\Admin\Costos\AprobacionController as CostosAprobacionController;
 use App\Http\Controllers\Admin\Costos\CuentaInternaController as CostosCuentaInternaController;
+use App\Http\Controllers\Admin\Costos\EditLockController as CostosEditLockController;
 use App\Http\Controllers\Admin\Costos\EntregaController as CostosEntregaController;
 use App\Http\Controllers\Admin\Costos\FacturaAdminController as CostosFacturaAdminController;
 use App\Http\Controllers\Admin\Costos\FirmaController as CostosFirmaController;
@@ -143,6 +144,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     // Costos admin routes
     Route::prefix('costos')->name('costos.')->group(function () {
+        // Edit lock transversal (aplica a cualquier entidad bloqueable de costos)
+        Route::post('lock/{type}/{id}', [CostosEditLockController::class, 'lock'])->name('lock');
+        Route::post('unlock/{type}/{id}', [CostosEditLockController::class, 'unlock'])->name('unlock');
+
         Route::resource('tipo-rubros', CostosTipoRubroController::class)->parameters(['tipo-rubros' => 'tipoRubro']);
         Route::resource('rubros', CostosRubroController::class)->parameters(['rubros' => 'rubro']);
         Route::resource('tipo-solicitudes', CostosTipoSolicitudController::class)->parameters(['tipo-solicitudes' => 'tipoSolicitud']);

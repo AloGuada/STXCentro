@@ -5,6 +5,7 @@ namespace App\Models\Costos;
 use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\OrdenCompraEstatus;
 use App\Models\Concerns\HasCancelacion;
+use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
@@ -26,7 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class OrdenCompra extends Model
 {
-    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
+    use HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_ordenes_compra';
 
@@ -49,6 +50,8 @@ class OrdenCompra extends Model
         'fecha_entrega_esperada',
         'notas',
         'estatus',
+        'locked_by',
+        'locked_at',
     ];
 
     /**
@@ -60,6 +63,7 @@ class OrdenCompra extends Model
             'total' => 'decimal:2',
             'fecha_entrega_esperada' => 'date',
             'estatus' => OrdenCompraEstatus::class,
+            'locked_at' => 'datetime',
         ];
     }
 

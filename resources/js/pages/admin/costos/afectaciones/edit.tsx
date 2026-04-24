@@ -1,7 +1,9 @@
+import { EditLockBanner } from '@/components/costos/edit-lock-banner';
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useEditLock } from '@/hooks/use-edit-lock';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosAfectacionPresupuestal, CostosObraRubro, Departamento, Obra, Proveedor } from '@/types/models';
@@ -33,6 +35,9 @@ export default function AfectacionesEdit({ afectacion, departamentos, proveedore
         { title: afectacion.folio, href: `/admin/costos/afectaciones/${afectacion.id}/edit` },
     ];
 
+    const lockState = useEditLock('afectacion', afectacion.id);
+    const readonly = lockState.status !== 'owned';
+
     const { data, setData, put, processing, errors } = useForm<{
         fecha: string;
         tipo_origen: string;
@@ -40,12 +45,14 @@ export default function AfectacionesEdit({ afectacion, departamentos, proveedore
         departamento_id: string;
         proveedor_id: string;
         detalles: DetalleForm[];
+        _version: string;
     }>({
         fecha: afectacion.fecha ? afectacion.fecha.slice(0, 10) : '',
         tipo_origen: afectacion.tipo_origen,
         descripcion: afectacion.descripcion,
         departamento_id: String(afectacion.departamento_id),
         proveedor_id: afectacion.proveedor_id ? String(afectacion.proveedor_id) : '',
+        _version: afectacion.updated_at,
         detalles: (afectacion.detalles ?? []).map((d) => ({
             id: d.id,
             obra_rubro_id: String(d.obra_rubro_id),
@@ -104,6 +111,8 @@ export default function AfectacionesEdit({ afectacion, departamentos, proveedore
                             deleteUrl={`/admin/costos/afectaciones/${afectacion.id}`}
                         />
                     </div>
+
+                    <EditLockBanner state={lockState} />
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Info General */}
@@ -282,7 +291,7 @@ export default function AfectacionesEdit({ afectacion, departamentos, proveedore
                             <Button variant="outline" asChild>
                                 <Link href="/admin/costos/afectaciones">Cancelar</Link>
                             </Button>
-                            <Button type="submit" disabled={processing}>
+                            <Button type="submit" disabled={processing || readonly}>
                                 {processing && <Loader2Icon className="size-4 animate-spin" />}
                                 Guardar
                             </Button>

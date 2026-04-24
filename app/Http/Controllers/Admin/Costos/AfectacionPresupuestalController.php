@@ -113,7 +113,7 @@ class AfectacionPresupuestalController extends Controller
             return to_route('admin.costos.afectaciones.show', $afectacion);
         }
 
-        $afectacion->load(['detalles.obraRubro.rubro']);
+        $afectacion->load(['detalles.obraRubro.rubro', 'lockedBy:id,name']);
 
         return Inertia::render('admin/costos/afectaciones/edit', [
             'afectacion' => $afectacion,
@@ -129,6 +129,8 @@ class AfectacionPresupuestalController extends Controller
         if ($afectacion->estatus !== AfectacionEstatus::Borrador) {
             return back()->withErrors(['estatus' => 'Solo se pueden editar afectaciones en borrador.']);
         }
+
+        $afectacion->assertVersion($request->input('_version'));
 
         DB::transaction(function () use ($request, $afectacion) {
             $afectacion->update($request->safe()->except('detalles'));
@@ -169,6 +171,7 @@ class AfectacionPresupuestalController extends Controller
             }
 
             $afectacion->update(['monto_total' => $montoTotal]);
+            $afectacion->unlock();
         });
 
         return to_route('admin.costos.afectaciones.index');

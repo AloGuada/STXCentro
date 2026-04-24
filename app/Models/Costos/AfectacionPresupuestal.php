@@ -4,6 +4,7 @@ namespace App\Models\Costos;
 
 use App\Enums\Costos\AfectacionEstatus;
 use App\Models\Concerns\HasCancelacion;
+use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
@@ -22,7 +23,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class AfectacionPresupuestal extends Model
 {
-    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
+    use HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_afectaciones_presupuestales';
 
@@ -47,6 +48,8 @@ class AfectacionPresupuestal extends Model
         'fecha_aprobacion',
         'pdf_formato_path',
         'pdf_firmado_path',
+        'locked_by',
+        'locked_at',
     ];
 
     /**
@@ -59,6 +62,7 @@ class AfectacionPresupuestal extends Model
             'monto_total' => 'decimal:2',
             'fecha_aprobacion' => 'datetime',
             'estatus' => AfectacionEstatus::class,
+            'locked_at' => 'datetime',
         ];
     }
 

@@ -5,6 +5,7 @@ namespace App\Models\Costos;
 use App\Enums\Costos\BaseDiasCredito;
 use App\Enums\Costos\FacturaEstatus;
 use App\Models\Concerns\HasCancelacion;
+use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Proveedor;
@@ -24,7 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Factura extends Model
 {
-    use HasCancelacion, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
+    use HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_facturas';
 
@@ -58,6 +59,8 @@ class Factura extends Model
         'aceptada_contabilidad',
         'aceptada_contabilidad_por',
         'aceptada_contabilidad_at',
+        'locked_by',
+        'locked_at',
     ];
 
     /**
@@ -78,6 +81,7 @@ class Factura extends Model
             'aceptada_contabilidad_at' => 'datetime',
             'estatus' => FacturaEstatus::class,
             'base_dias_credito' => BaseDiasCredito::class,
+            'locked_at' => 'datetime',
         ];
     }
 

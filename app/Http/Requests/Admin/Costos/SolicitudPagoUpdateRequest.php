@@ -30,6 +30,7 @@ class SolicitudPagoUpdateRequest extends FormRequest
             'detalles.*.concepto' => ['required', 'string', 'max:255'],
             'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],
             'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
+            '_version' => ['nullable', 'string'],
         ];
     }
 
