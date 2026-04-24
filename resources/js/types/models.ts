@@ -1234,6 +1234,8 @@ export type CostosFactura = {
     locked_by: string | null;
     locked_at: string | null;
     locked_by_user?: Pick<Usuario, 'id' | 'name'> | null;
+    cobertura_completa?: boolean;
+    cobertura_por_partida?: Record<number, { disponible: number; cubierta: boolean }>;
     created_at: string;
     updated_at: string;
 };

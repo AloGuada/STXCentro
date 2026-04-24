@@ -125,7 +125,14 @@ export default function FacturasShow({ factura }: Props) {
                 {/* Partidas */}
                 {factura.detalles && factura.detalles.length > 0 && (
                     <div className="mb-6">
-                        <h2 className="text-lg font-medium mb-3">Partidas facturadas</h2>
+                        <div className="flex items-center justify-between mb-3">
+                            <h2 className="text-lg font-medium">Partidas facturadas</h2>
+                            {factura.estatus === 'pendiente_entrega' && (
+                                <span className={`badge ${factura.cobertura_completa ? 'badge-success' : 'badge-warning'}`}>
+                                    {factura.cobertura_completa ? 'Recepción completa' : 'Pendiente de recepción'}
+                                </span>
+                            )}
+                        </div>
                         <div className="overflow-x-auto">
                             <table className="table table-sm">
                                 <thead>
@@ -135,18 +142,33 @@ export default function FacturasShow({ factura }: Props) {
                                         <th>Unidad</th>
                                         <th className="text-right">P. unitario</th>
                                         <th className="text-right">Subtotal</th>
+                                        <th className="text-right">Disponible</th>
+                                        <th>Cobertura</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {factura.detalles.map((d) => (
-                                        <tr key={d.id}>
-                                            <td>{d.orden_compra_detalle?.descripcion ?? '-'}</td>
-                                            <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
-                                            <td>{d.orden_compra_detalle?.unidad ?? '-'}</td>
-                                            <td className="text-right">{formatMoney(d.precio_unitario)}</td>
-                                            <td className="text-right">{formatMoney(d.subtotal)}</td>
-                                        </tr>
-                                    ))}
+                                    {factura.detalles.map((d) => {
+                                        const cobertura = factura.cobertura_por_partida?.[d.id];
+                                        return (
+                                            <tr key={d.id}>
+                                                <td>{d.orden_compra_detalle?.descripcion ?? '-'}</td>
+                                                <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
+                                                <td>{d.orden_compra_detalle?.unidad ?? '-'}</td>
+                                                <td className="text-right">{formatMoney(d.precio_unitario)}</td>
+                                                <td className="text-right">{formatMoney(d.subtotal)}</td>
+                                                <td className="text-right">
+                                                    {cobertura ? Number(cobertura.disponible).toLocaleString('es-MX') : '—'}
+                                                </td>
+                                                <td>
+                                                    {cobertura && (
+                                                        <span className={`badge badge-sm ${cobertura.cubierta ? 'badge-success' : 'badge-warning'}`}>
+                                                            {cobertura.cubierta ? 'Cubierta' : 'Sin cubrir'}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

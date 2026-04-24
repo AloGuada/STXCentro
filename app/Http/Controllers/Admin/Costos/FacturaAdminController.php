@@ -162,6 +162,11 @@ class FacturaAdminController extends Controller
                 ]);
             }
 
+            // Si la factura nace ya cubierta (recepciones previas suficientes),
+            // recalcularEstatus la promueve automaticamente a pendiente_aprobacion.
+            $factura->load('detalles');
+            $factura->recalcularEstatus();
+
             $oc->recalcularEstatus();
         });
 
@@ -181,6 +186,8 @@ class FacturaAdminController extends Controller
             'aceptadaContabilidadPor',
             'activities.causer',
         ]);
+
+        $factura->append(['cobertura_completa', 'cobertura_por_partida']);
 
         return Inertia::render('admin/costos/facturas/show', [
             'factura' => $factura,

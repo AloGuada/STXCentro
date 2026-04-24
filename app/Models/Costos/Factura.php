@@ -170,6 +170,103 @@ class Factura extends Model
         return $this->belongsTo(Usuario::class, 'aceptada_contabilidad_por');
     }
 
+    /**
+     * Cantidad recibida total de una partida de OC (todas las entregas).
+     */
+    protected function cantidadRecibidaDePartida(int $ocdId): float
+    {
+        return (float) EntregaDetalle::query()
+            ->where('orden_compra_detalle_id', $ocdId)
+            ->sum('cantidad_recibida');
+    }
+
+    /**
+     * Cantidad ya facturada de una partida de OC por OTRAS facturas activas
+     * (no canceladas) creadas antes que esta. Permite cobertura cronológica
+     * FIFO cuando varias facturas comparten la misma partida.
+     */
+    protected function cantidadFacturadaPreviaDePartida(int $ocdId): float
+    {
+        return (float) FacturaDetalle::query()
+            ->where('orden_compra_detalle_id', $ocdId)
+            ->whereHas('factura', function ($q) {
+                $q->where('estatus', '!=', FacturaEstatus::Cancelada->value)
+                    ->where('id', '!=', $this->id ?? 0)
+                    ->where('created_at', '<=', $this->created_at ?? now());
+            })
+            ->sum('cantidad');
+    }
+
+    /**
+     * ¿Una partida de esta factura está cubierta por recepciones?
+     * Disponible para partida = recibido_total - facturado_por_facturas_previas.
+     */
+    public function partidaCubierta(FacturaDetalle $fd): bool
+    {
+        $recibido = $this->cantidadRecibidaDePartida($fd->orden_compra_detalle_id);
+        $previo = $this->cantidadFacturadaPreviaDePartida($fd->orden_compra_detalle_id);
+        $disponible = $recibido - $previo;
+
+        return (float) $fd->cantidad <= $disponible + 0.001;
+    }
+
+    /**
+     * La factura está completamente cubierta si todas sus partidas tienen
+     * recepción suficiente. Sirve para promover de pendiente_entrega a
+     * pendiente_aprobacion automaticamente.
+     */
+    public function getCoberturaCompletaAttribute(): bool
+    {
+        $this->loadMissing('detalles');
+
+        if ($this->detalles->isEmpty()) {
+            return false;
+        }
+
+        return $this->detalles->every(fn (FacturaDetalle $fd) => $this->partidaCubierta($fd));
+    }
+
+    /**
+     * Snapshot para UI: por cada FacturaDetalle.id, cuánto disponible hay para
+     * cubrirla y si está cubierta. Disponible = recibido_total − facturado_previo.
+     *
+     * @return array<int, array{disponible: float, cubierta: bool}>
+     */
+    public function getCoberturaPorPartidaAttribute(): array
+    {
+        $this->loadMissing('detalles');
+
+        $out = [];
+        foreach ($this->detalles as $fd) {
+            $recibido = $this->cantidadRecibidaDePartida($fd->orden_compra_detalle_id);
+            $previo = $this->cantidadFacturadaPreviaDePartida($fd->orden_compra_detalle_id);
+            $disponible = $recibido - $previo;
+
+            $out[$fd->id] = [
+                'disponible' => round(max(0, $disponible), 2),
+                'cubierta' => (float) $fd->cantidad <= $disponible + 0.001,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Si la factura está en pendiente_entrega y todas sus partidas ya tienen
+     * recepción suficiente, la promueve a pendiente_aprobacion.
+     */
+    public function recalcularEstatus(): void
+    {
+        if ($this->estatus !== FacturaEstatus::PendienteEntrega) {
+            return;
+        }
+
+        if ($this->cobertura_completa) {
+            $this->transitionTo(FacturaEstatus::PendienteAprobacion);
+            $this->ordenCompra?->recalcularEstatus();
+        }
+    }
+
     public function activities(): MorphMany
     {
         return $this->activitiesAsSubject();
