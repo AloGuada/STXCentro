@@ -26,6 +26,7 @@ class AprobacionSolicitud extends Model
         'estatus',
         'fecha_respuesta',
         'observaciones',
+        'motivo_rechazo',
         'ip',
         'hostname',
     ];

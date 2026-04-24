@@ -153,6 +153,7 @@ describe('admin costos aprobaciones', function () {
         $aprobacion->refresh();
         expect($aprobacion->estatus->value)->toBe('rechazada');
         expect($aprobacion->observaciones)->toBe('No cumple requisitos');
+        expect($aprobacion->motivo_rechazo)->toBe('No cumple requisitos');
         expect($aprobacion->ip)->not->toBeNull();
         expect($aprobacion->hostname)->not->toBeNull();
 
@@ -177,7 +178,7 @@ describe('admin costos aprobaciones', function () {
 
         $this->actingAs($this->user)
             ->post(route('admin.costos.aprobaciones.rechazar', $aprobacion1), [
-                'observaciones' => 'Rechazado',
+                'observaciones' => 'Solicitud rechazada por inconsistencias',
             ]);
 
         $aprobacion2->refresh();

@@ -178,13 +178,19 @@ class AprobacionController extends Controller
         }
 
         $request->validate([
-            'observaciones' => ['required', 'string', 'max:500'],
+            'observaciones' => ['required', 'string', 'min:10', 'max:500'],
+        ], [
+            'observaciones.required' => 'Debe indicar el motivo del rechazo.',
+            'observaciones.min' => 'El motivo del rechazo debe tener al menos 10 caracteres.',
         ]);
+
+        $motivo = $request->input('observaciones');
 
         $aprobacionSolicitud->update([
             'estatus' => 'rechazada',
             'fecha_respuesta' => now(),
-            'observaciones' => $request->input('observaciones'),
+            'observaciones' => $motivo,
+            'motivo_rechazo' => $motivo,
             'ip' => $request->ip(),
             'hostname' => gethostbyaddr($request->ip()) ?: null,
         ]);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\OrdenCompraEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\OrdenCompraStoreRequest;
@@ -161,6 +162,10 @@ class OrdenCompraController extends Controller
 
         if (! in_array($ordenCompra->estatus, [OrdenCompraEstatus::PendienteFactura, OrdenCompraEstatus::PendienteEntrega, OrdenCompraEstatus::PendienteAprobacion], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar órdenes pendientes.']);
+        }
+
+        if ($ordenCompra->facturas()->where('estatus', '!=', FacturaEstatus::Cancelada->value)->exists()) {
+            return back()->withErrors(['estatus' => 'No se puede cancelar una orden con facturas activas. Cancele primero las facturas.']);
         }
 
         DB::transaction(function () use ($ordenCompra) {

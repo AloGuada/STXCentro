@@ -43,6 +43,7 @@ class Factura extends Model
         'fecha_factura',
         'estatus',
         'notas',
+        'motivo_rechazo',
         'aprobada_costos',
         'aprobada_costos_por',
         'aprobada_costos_at',
