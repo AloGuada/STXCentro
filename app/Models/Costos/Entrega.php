@@ -6,6 +6,7 @@ use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -23,7 +24,7 @@ class Entrega extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'factura_id',
+        'orden_compra_id',
         'recibido_por',
         'fecha_entrega',
         'observaciones',
@@ -45,9 +46,14 @@ class Entrega extends Model
         return $this->morphOne(\App\Models\Media::class, 'mediable');
     }
 
-    public function factura(): BelongsTo
+    public function ordenCompra(): BelongsTo
     {
-        return $this->belongsTo(Factura::class, 'factura_id');
+        return $this->belongsTo(OrdenCompra::class, 'orden_compra_id');
+    }
+
+    public function detalles(): HasMany
+    {
+        return $this->hasMany(EntregaDetalle::class, 'entrega_id');
     }
 
     public function recibidoPor(): BelongsTo
@@ -64,7 +70,7 @@ class Entrega extends Model
     {
         return LogOptions::defaults()
             ->useLogName('costos')
-            ->logOnly(['factura_id', 'fecha_entrega', 'tipo'])
+            ->logOnly(['orden_compra_id', 'fecha_entrega', 'tipo'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->setDescriptionForEvent(fn (string $event) => "Entrega ({$this->tipo}): {$event}");

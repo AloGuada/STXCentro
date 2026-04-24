@@ -49,7 +49,7 @@ test('OC pendiente_entrega cuando alguna factura no tiene entrega', function () 
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $proveedor->id,
     ]);
-    Entrega::factory()->create(['factura_id' => $factura1->id]);
+    Entrega::factory()->create(['orden_compra_id' => $factura1->orden_compra_id]);
 
     Factura::factory()->pendienteEntrega()->create([
         'orden_compra_id' => $oc->id,

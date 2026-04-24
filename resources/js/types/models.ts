@@ -1128,6 +1128,7 @@ export type CostosOrdenCompra = {
     creador?: Usuario;
     detalles?: CostosOrdenCompraDetalle[];
     facturas?: CostosFactura[];
+    entregas?: CostosEntrega[];
     media?: Media[];
     rubros_afectados?: CostosRubroAfectado[];
     facturas_count?: number;
@@ -1243,13 +1244,25 @@ export const ENTREGA_TIPO_LABELS: Record<CostosEntregaTipo, string> = {
 
 export type CostosEntrega = {
     id: number;
-    factura_id: number;
+    orden_compra_id: number;
     recibido_por: string;
     fecha_entrega: string;
     tipo: CostosEntregaTipo;
     observaciones: string | null;
     media?: Media | null;
     recibidor?: Usuario;
+    detalles?: CostosEntregaDetalle[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosEntregaDetalle = {
+    id: number;
+    entrega_id: number;
+    orden_compra_detalle_id: number;
+    cantidad_recibida: number;
+    observaciones: string | null;
+    orden_compra_detalle?: CostosOrdenCompraDetalle;
     created_at: string;
     updated_at: string;
 };

@@ -32,7 +32,7 @@ function crearFacturaAprobadaCostos(?Proveedor $proveedor = null, ?string $fecha
         'fecha_factura' => $fechaFactura ?? '2026-02-17',
     ]);
 
-    Entrega::factory()->create(['factura_id' => $factura->id]);
+    Entrega::factory()->create(['orden_compra_id' => $factura->orden_compra_id]);
 
     return $factura;
 }

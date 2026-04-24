@@ -1,5 +1,6 @@
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
+import { EntregaModal } from '@/components/costos/entrega-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -39,6 +40,7 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
     const currentStep = getStepIndex(ordenCompra.estatus);
     const [activeTab, setActiveTab] = useState<'datos' | 'facturas' | 'historial'>('datos');
     const [showCancelarModal, setShowCancelarModal] = useState(false);
+    const [showEntregaModal, setShowEntregaModal] = useState(false);
 
     const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
@@ -60,6 +62,9 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     </div>
 
                     <div className="flex gap-2">
+                        {['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.entregas.crear') && (
+                            <Button onClick={() => setShowEntregaModal(true)}>Registrar entrega</Button>
+                        )}
                         {['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.ordenes-compra.cancelar') && (
                             <Button variant="destructive" onClick={() => setShowCancelarModal(true)}>Cancelar</Button>
                         )}
@@ -240,6 +245,12 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     title={`Cancelar orden ${ordenCompra.folio}`}
                     description="La orden quedará cancelada y se revertirá su impacto presupuestal. Esta acción no se puede deshacer."
                     submitLabel="Cancelar orden"
+                />
+
+                <EntregaModal
+                    open={showEntregaModal}
+                    onClose={() => setShowEntregaModal(false)}
+                    ordenCompra={ordenCompra}
                 />
             </div>
         </AppLayout>

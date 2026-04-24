@@ -97,6 +97,11 @@ class OrdenCompra extends Model
         return $this->hasMany(Factura::class, 'orden_compra_id');
     }
 
+    public function entregas(): HasMany
+    {
+        return $this->hasMany(Entrega::class, 'orden_compra_id');
+    }
+
     public function media(): MorphMany
     {
         return $this->morphMany(\App\Models\Media::class, 'mediable');

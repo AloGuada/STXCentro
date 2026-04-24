@@ -25,12 +25,8 @@ class OrdenCompraController extends Controller
     {
         $ordenes = OrdenCompra::query()
             ->with(['proveedor:id,razon_social,nombre_comercial', 'departamento:id,descripcion'])
-            ->withCount('facturas')
+            ->withCount(['facturas', 'entregas'])
             ->addSelect([
-                'entregas_count' => DB::table('costos_entregas')
-                    ->join('costos_facturas', 'costos_facturas.id', '=', 'costos_entregas.factura_id')
-                    ->whereColumn('costos_facturas.orden_compra_id', 'costos_ordenes_compra.id')
-                    ->selectRaw('count(*)'),
                 'pagos_count' => DB::table('costos_pagos')
                     ->join('costos_facturas', function ($join) {
                         $join->on('costos_facturas.id', '=', 'costos_pagos.pagable_id')
@@ -135,6 +131,9 @@ class OrdenCompraController extends Controller
             'creador',
             'detalles.obraRubro.rubro',
             'detalles.obraRubro.obra',
+            'entregas.detalles',
+            'entregas.recibidoPor:id,name',
+            'entregas.media',
             'facturas.entregas.media',
             'media',
             'rubrosAfectados.obraRubro.rubro',

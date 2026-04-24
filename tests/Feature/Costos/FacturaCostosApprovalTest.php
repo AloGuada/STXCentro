@@ -28,7 +28,7 @@ function crearFacturaPendienteAprobacion(): Factura
     ]);
 
     Entrega::factory()->create([
-        'factura_id' => $factura->id,
+        'orden_compra_id' => $factura->orden_compra_id,
         'tipo' => 'completa',
     ]);
 

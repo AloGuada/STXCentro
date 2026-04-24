@@ -140,9 +140,14 @@ class Factura extends Model
         return $this->belongsTo(Proveedor::class);
     }
 
+    /**
+     * Entregas registradas contra la misma OC. La relación se resuelve
+     * matcheando orden_compra_id local vs orden_compra_id de entrega.
+     * Mantiene la API $factura->entregas aunque el schema las ligue a OC.
+     */
     public function entregas(): HasMany
     {
-        return $this->hasMany(Entrega::class, 'factura_id');
+        return $this->hasMany(Entrega::class, 'orden_compra_id', 'orden_compra_id');
     }
 
     public function pago(): MorphOne
