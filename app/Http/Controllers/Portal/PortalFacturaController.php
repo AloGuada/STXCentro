@@ -7,14 +7,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Portal\PortalFacturaStoreRequest;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
+use App\Services\Costos\CfdiXmlParser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class PortalFacturaController extends Controller
 {
+    public function __construct(private readonly CfdiXmlParser $cfdiParser) {}
+
     public function index(Request $request): Response
     {
         $proveedor = Auth::guard('proveedor')->user();
@@ -45,16 +49,44 @@ class PortalFacturaController extends Controller
 
         abort_if($oc->proveedor_id !== $proveedor->id, 403);
 
+        $fiscal = [];
+        if ($request->hasFile('xml')) {
+            try {
+                $fiscal = $this->cfdiParser->parse(
+                    file_get_contents($request->file('xml')->getRealPath()) ?: ''
+                );
+            } catch (RuntimeException $e) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['xml' => $e->getMessage()]);
+            }
+
+            if (! empty($fiscal['uuid_fiscal'])
+                && Factura::where('uuid_fiscal', $fiscal['uuid_fiscal'])->exists()) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['xml' => 'Ya existe una factura registrada con el UUID fiscal del XML.']);
+            }
+        }
+
+        $subtotal = $fiscal['subtotal'] ?? $validated['total'];
+        $total = $fiscal['total'] ?? $validated['total'];
+        $ivaTrasladado = $fiscal['iva_trasladado'] ?? 0;
+
         $factura = Factura::create([
             'orden_compra_id' => $oc->id,
             'proveedor_id' => $proveedor->id,
-            'uuid_fiscal' => $validated['uuid_fiscal'] ?? null,
-            'folio_fiscal' => $validated['folio_fiscal'] ?? null,
-            'subtotal' => $validated['total'],
-            'iva' => 0,
-            'total' => $validated['total'],
+            'uuid_fiscal' => $fiscal['uuid_fiscal'] ?? ($validated['uuid_fiscal'] ?? null),
+            'folio_fiscal' => $fiscal['folio_fiscal'] ?? ($validated['folio_fiscal'] ?? null),
+            'subtotal' => $subtotal,
+            'iva' => $ivaTrasladado,
+            'iva_trasladado' => $ivaTrasladado,
+            'iva_retenido' => $fiscal['iva_retenido'] ?? 0,
+            'isr_retenido' => $fiscal['isr_retenido'] ?? 0,
+            'impuestos_detalle' => $fiscal['impuestos_detalle'] ?? null,
+            'total' => $total,
             'moneda' => $oc->moneda,
-            'fecha_factura' => $validated['fecha_factura'] ?? null,
+            'fecha_factura' => $fiscal['fecha_factura'] ?? ($validated['fecha_factura'] ?? null),
             'notas' => $validated['notas'] ?? null,
         ]);
 

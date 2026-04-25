@@ -1231,6 +1231,10 @@ export type CostosFactura = {
     folio_fiscal: string | null;
     subtotal: number;
     iva: number;
+    iva_trasladado: number;
+    iva_retenido: number;
+    isr_retenido: number;
+    impuestos_detalle: CostosImpuestosDetalle | null;
     total: number;
     moneda: string;
     fecha_factura: string | null;
@@ -1263,6 +1267,22 @@ export type CostosFactura = {
     cobertura_por_partida?: Record<number, { disponible: number; cubierta: boolean }>;
     created_at: string;
     updated_at: string;
+};
+
+export type CostosImpuestosDetalle = {
+    traslados: Array<{
+        impuesto: string;
+        tipo_factor: string;
+        tasa: string;
+        base: number;
+        importe: number;
+    }>;
+    retenciones: Array<{
+        impuesto: string;
+        importe: number;
+    }>;
+    total_trasladados: number;
+    total_retenidos: number;
 };
 
 export type CostosFacturaDetalle = {

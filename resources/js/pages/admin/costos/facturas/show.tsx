@@ -175,6 +175,104 @@ export default function FacturasShow({ factura }: Props) {
                     </div>
                 )}
 
+                {/* Desglose fiscal */}
+                <div className="mb-6">
+                    <h2 className="text-lg font-medium mb-3">Desglose fiscal</h2>
+                    <div className="rounded-lg border border-base-300 p-4">
+                        <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                                <dt className="text-base-content/60">Subtotal</dt>
+                                <dd className="font-medium">{formatMoney(factura.subtotal)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">IVA trasladado</dt>
+                                <dd className="font-medium">{formatMoney(factura.iva_trasladado)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">IVA retenido</dt>
+                                <dd className="font-medium">{formatMoney(factura.iva_retenido)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">ISR retenido</dt>
+                                <dd className="font-medium">{formatMoney(factura.isr_retenido)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">Total</dt>
+                                <dd className="font-medium">{formatMoney(factura.total)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">UUID fiscal</dt>
+                                <dd className="font-mono text-xs break-all">{factura.uuid_fiscal ?? '—'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">Folio fiscal</dt>
+                                <dd>{factura.folio_fiscal ?? '—'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">Fecha factura</dt>
+                                <dd>{factura.fecha_factura ?? '—'}</dd>
+                            </div>
+                        </dl>
+                        {factura.impuestos_detalle && (
+                            <details className="mt-3">
+                                <summary className="cursor-pointer text-sm text-base-content/70">
+                                    Ver detalle por concepto (CFDI)
+                                </summary>
+                                <div className="mt-2 space-y-3">
+                                    {factura.impuestos_detalle.traslados.length > 0 && (
+                                        <div>
+                                            <div className="text-xs font-medium mb-1">Traslados</div>
+                                            <table className="table table-xs">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Impuesto</th>
+                                                        <th>Factor</th>
+                                                        <th>Tasa</th>
+                                                        <th className="text-right">Base</th>
+                                                        <th className="text-right">Importe</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {factura.impuestos_detalle.traslados.map((t, i) => (
+                                                        <tr key={i}>
+                                                            <td>{t.impuesto}</td>
+                                                            <td>{t.tipo_factor}</td>
+                                                            <td>{t.tasa}</td>
+                                                            <td className="text-right">{formatMoney(t.base)}</td>
+                                                            <td className="text-right">{formatMoney(t.importe)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                    {factura.impuestos_detalle.retenciones.length > 0 && (
+                                        <div>
+                                            <div className="text-xs font-medium mb-1">Retenciones</div>
+                                            <table className="table table-xs">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Impuesto</th>
+                                                        <th className="text-right">Importe</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {factura.impuestos_detalle.retenciones.map((r, i) => (
+                                                        <tr key={i}>
+                                                            <td>{r.impuesto}</td>
+                                                            <td className="text-right">{formatMoney(r.importe)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </details>
+                        )}
+                    </div>
+                </div>
+
                 {/* Entregas */}
                 <div className="mb-6">
                     <h2 className="text-lg font-medium mb-3">Entregas</h2>
