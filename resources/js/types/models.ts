@@ -919,6 +919,44 @@ export const TIPO_MONEDA_LABELS: Record<CostosTipoMoneda, string> = {
     eur: 'EUR',
 };
 
+// Notas de crédito (Fase 12)
+export type CostosNotaCreditoEstatus = 'vigente' | 'cancelada';
+
+export const NOTA_CREDITO_ESTATUS_LABELS: Record<CostosNotaCreditoEstatus, string> = {
+    vigente: 'Vigente',
+    cancelada: 'Cancelada',
+};
+
+export const NOTA_CREDITO_ESTATUS_COLORS: Record<CostosNotaCreditoEstatus, string> = {
+    vigente: 'badge-success',
+    cancelada: 'badge-error',
+};
+
+export type CostosNotaCredito = {
+    id: number;
+    folio: string;
+    factura_id: number;
+    uuid_fiscal: string | null;
+    folio_fiscal: string | null;
+    subtotal: number;
+    iva_trasladado: number;
+    monto: number;
+    impuestos_detalle: CostosImpuestosDetalle | null;
+    concepto: string;
+    fecha_emision: string;
+    estatus: CostosNotaCreditoEstatus;
+    motivo_cancelacion: string | null;
+    creado_por: string | null;
+    factura?: Pick<CostosFactura, 'id' | 'folio' | 'total' | 'proveedor_id'> & { proveedor?: Pick<Proveedor, 'id' | 'razon_social'> };
+    creador?: Pick<Usuario, 'id' | 'name'>;
+    media?: Media[];
+    media_xml?: Media | null;
+    media_pdf?: Media | null;
+    activities?: CostosActivity[];
+    created_at: string;
+    updated_at: string;
+};
+
 // Anticipos (Fase 11)
 export type CostosAnticipoEstatus = 'vigente' | 'agotado' | 'cancelado';
 
@@ -1416,6 +1454,9 @@ export type CostosFactura = {
     cobertura_por_partida?: Record<number, { disponible: number; cubierta: boolean }>;
     anticipos_aplicados?: CostosAnticipoAplicacion[];
     monto_anticipos?: number;
+    notas_credito?: CostosNotaCredito[];
+    monto_notas_credito?: number;
+    saldo_facturado?: number;
     created_at: string;
     updated_at: string;
 };

@@ -5,6 +5,7 @@ namespace App\Models\Costos;
 use App\Enums\Costos\BaseDiasCredito;
 use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\FacturaEstatus;
+use App\Enums\Costos\NotaCreditoEstatus;
 use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
@@ -174,12 +175,37 @@ class Factura extends Model
         return $this->hasMany(AnticipoAplicacion::class, 'factura_id');
     }
 
+    public function notasCredito(): HasMany
+    {
+        return $this->hasMany(NotaCredito::class, 'factura_id');
+    }
+
     /**
      * Total de anticipos aplicados a esta factura.
      */
     public function getMontoAnticiposAttribute(): float
     {
         return (float) $this->anticiposAplicados()->sum('monto');
+    }
+
+    /**
+     * Total de notas de credito vigentes (no canceladas) sobre esta factura.
+     */
+    public function getMontoNotasCreditoAttribute(): float
+    {
+        return (float) $this->notasCredito()
+            ->where('estatus', NotaCreditoEstatus::Vigente->value)
+            ->sum('monto');
+    }
+
+    /**
+     * Saldo pendiente de la factura: total - anticipos - notas de credito.
+     * No descuenta pagos ya aplicados (eso es responsabilidad del flujo de
+     * pagos). Solo refleja lo que reduce el monto facturado.
+     */
+    public function getSaldoFacturadoAttribute(): float
+    {
+        return max(0.0, (float) $this->total - $this->monto_anticipos - $this->monto_notas_credito);
     }
 
     public function aprobadaCostosPor(): BelongsTo

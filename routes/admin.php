@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\Costos\EditLockController as CostosEditLockContro
 use App\Http\Controllers\Admin\Costos\EntregaController as CostosEntregaController;
 use App\Http\Controllers\Admin\Costos\FacturaAdminController as CostosFacturaAdminController;
 use App\Http\Controllers\Admin\Costos\FirmaController as CostosFirmaController;
+use App\Http\Controllers\Admin\Costos\NotaCreditoController as CostosNotaCreditoController;
 use App\Http\Controllers\Admin\Costos\ObraRubroController as CostosObraRubroController;
 use App\Http\Controllers\Admin\Costos\OrdenCompraController as CostosOrdenCompraController;
 use App\Http\Controllers\Admin\Costos\PagoController as CostosPagoController;
@@ -157,6 +158,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('tipo-solicitudes', CostosTipoSolicitudController::class)->parameters(['tipo-solicitudes' => 'tipoSolicitud']);
         Route::resource('permisos', CostosPermisoController::class)->parameters(['permisos' => 'permiso']);
         Route::post('permisos/{permiso}/sync-departamentos', [CostosPermisoController::class, 'syncDepartamentos'])->name('permisos.sync-departamentos');
+        // Notas de crédito (Fase 12)
+        Route::resource('notas-credito', CostosNotaCreditoController::class)->only(['index', 'store', 'show'])->parameters(['notas-credito' => 'notaCredito']);
+        Route::post('notas-credito/{notaCredito}/cancelar', [CostosNotaCreditoController::class, 'cancelar'])->name('notas-credito.cancelar');
+
         // Anticipos a proveedor (Fase 11)
         Route::resource('anticipos', CostosAnticipoController::class)->only(['index', 'create', 'store', 'show'])->parameters(['anticipos' => 'anticipo']);
         Route::post('anticipos/aplicar', [CostosAnticipoController::class, 'aplicar'])->name('anticipos.aplicar');

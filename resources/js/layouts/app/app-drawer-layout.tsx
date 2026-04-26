@@ -114,6 +114,7 @@ const navGroups: NavGroup[] = [
             { title: 'Presupuestos', href: '/admin/costos/presupuestos', icon: Calculator, permission: 'costos.obra-rubros.ver' },
             { title: 'Requisiciones', href: '/admin/costos/requisiciones', icon: FileText, permission: 'costos.requisiciones.ver' },
             { title: 'Anticipos', href: '/admin/costos/anticipos', icon: FileText, permission: 'costos.anticipos.ver' },
+            { title: 'Notas de crédito', href: '/admin/costos/notas-credito', icon: FileText, permission: 'costos.notas-credito.ver' },
             { title: 'Solicitudes Pago', href: '/admin/costos/solicitudes-pago', icon: FileText, permission: 'costos.solicitudes-pago.ver' },
             { title: 'Niveles Aprobacion', href: '/admin/costos/permisos', icon: CheckSquare, permission: 'costos.aprobaciones.ver' },
             { title: 'Mis Aprobaciones', href: '/admin/costos/aprobaciones', icon: ClipboardCheck, permission: 'costos.aprobaciones.ver' },

@@ -1,6 +1,7 @@
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { AplicarAnticipoModal } from '@/components/costos/aplicar-anticipo-modal';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
+import { RegistrarNotaCreditoModal } from '@/components/costos/registrar-nota-credito-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -311,6 +312,9 @@ export default function FacturasShow({ factura }: Props) {
                 {/* Anticipos aplicados */}
                 <AnticiposAplicadosPanel factura={factura} canAplicar={can('costos.anticipos.aplicar')} />
 
+                {/* Notas de credito */}
+                <NotasCreditoPanel factura={factura} canCrear={can('costos.notas-credito.crear')} />
+
                 {/* Pago */}
                 {factura.pago && (
                     <div>
@@ -465,6 +469,92 @@ export default function FacturasShow({ factura }: Props) {
 
             </div>
         </AppLayout>
+    );
+}
+
+function NotasCreditoPanel({ factura, canCrear }: { factura: CostosFactura; canCrear: boolean }) {
+    const [open, setOpen] = useState(false);
+    const fmt = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+    const notas = factura.notas_credito ?? [];
+    const totalNotas = Number(factura.monto_notas_credito ?? 0);
+    const saldoFacturado = Number(factura.saldo_facturado ?? factura.total);
+
+    const puedeCrear = canCrear && !['cancelada'].includes(factura.estatus);
+
+    return (
+        <div className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-medium">Notas de crédito</h2>
+                {puedeCrear && (
+                    <Button onClick={() => setOpen(true)}>Registrar nota de crédito</Button>
+                )}
+            </div>
+
+            <div className="rounded-lg border border-base-300 p-4">
+                <div className="mb-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                        <div className="text-xs text-base-content/60">Total facturado</div>
+                        <div className="font-semibold">{fmt(factura.total)}</div>
+                    </div>
+                    <div>
+                        <div className="text-xs text-base-content/60">Notas de crédito vigentes</div>
+                        <div className="font-semibold">{fmt(totalNotas)}</div>
+                    </div>
+                    <div>
+                        <div className="text-xs text-base-content/60">Saldo facturado</div>
+                        <div className="font-semibold text-success">{fmt(saldoFacturado)}</div>
+                    </div>
+                </div>
+
+                {notas.length === 0 ? (
+                    <p className="text-sm text-base-content/60">No hay notas de crédito sobre esta factura.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Folio</th>
+                                    <th>Fecha</th>
+                                    <th>Concepto</th>
+                                    <th className="text-right">Monto</th>
+                                    <th>Estatus</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {notas.map((n) => (
+                                    <tr key={n.id}>
+                                        <td>
+                                            <Link
+                                                href={`/admin/costos/notas-credito/${n.id}`}
+                                                className="link link-primary font-mono text-xs"
+                                            >
+                                                {n.folio}
+                                            </Link>
+                                        </td>
+                                        <td className="text-xs text-base-content/60">{n.fecha_emision}</td>
+                                        <td className="text-xs">{n.concepto}</td>
+                                        <td className="text-right font-medium">{fmt(n.monto)}</td>
+                                        <td>
+                                            <span className={`badge badge-sm ${n.estatus === 'vigente' ? 'badge-success' : 'badge-error'}`}>
+                                                {n.estatus}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            <RegistrarNotaCreditoModal
+                facturaId={factura.id}
+                saldoFacturado={saldoFacturado}
+                open={open}
+                onClose={() => setOpen(false)}
+            />
+        </div>
     );
 }
 

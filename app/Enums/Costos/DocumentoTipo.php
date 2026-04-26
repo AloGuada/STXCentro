@@ -16,6 +16,10 @@ enum DocumentoTipo: string
     case XmlFactura = 'xml_factura';
     case PdfFactura = 'pdf_factura';
 
+    // Nota de crédito (CFDI tipo Egreso)
+    case XmlNotaCredito = 'xml_nota_credito';
+    case PdfNotaCredito = 'pdf_nota_credito';
+
     // Orden de compra
     case OcArchivo = 'oc_archivo';
     case OcPdfFormato = 'oc_pdf_formato';
@@ -36,6 +40,8 @@ enum DocumentoTipo: string
         return match ($this) {
             self::XmlFactura => 'XML de factura',
             self::PdfFactura => 'PDF de factura',
+            self::XmlNotaCredito => 'XML de nota de crédito',
+            self::PdfNotaCredito => 'PDF de nota de crédito',
             self::OcArchivo => 'Archivo de OC',
             self::OcPdfFormato => 'Formato de OC (PDF)',
             self::OcPdfFirmado => 'OC firmada (PDF)',
@@ -52,8 +58,10 @@ enum DocumentoTipo: string
     public function mimes(): string
     {
         return match ($this) {
-            self::XmlFactura => 'xml,txt',
+            self::XmlFactura,
+            self::XmlNotaCredito => 'xml,txt',
             self::PdfFactura,
+            self::PdfNotaCredito,
             self::OcPdfFormato,
             self::OcPdfFirmado,
             self::ComprobantePago,

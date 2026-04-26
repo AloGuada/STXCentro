@@ -121,6 +121,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.anticipos.crear',
             'costos.anticipos.aplicar',
             'costos.anticipos.cancelar',
+            // Notas de crédito (Fase 12)
+            'costos.notas-credito.ver',
+            'costos.notas-credito.crear',
+            'costos.notas-credito.cancelar',
         ];
 
         // Crear permisos del módulo Produccion
@@ -413,6 +417,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.anticipos.crear',
             'costos.anticipos.aplicar',
             'costos.anticipos.cancelar',
+            'costos.notas-credito.ver',
+            'costos.notas-credito.crear',
+            'costos.notas-credito.cancelar',
         ]);
 
         // Admin Cobranza tiene todos los permisos de cobranza
