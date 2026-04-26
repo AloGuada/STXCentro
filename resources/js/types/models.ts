@@ -919,6 +919,61 @@ export const TIPO_MONEDA_LABELS: Record<CostosTipoMoneda, string> = {
     eur: 'EUR',
 };
 
+// Anticipos (Fase 11)
+export type CostosAnticipoEstatus = 'vigente' | 'agotado' | 'cancelado';
+
+export const ANTICIPO_ESTATUS_LABELS: Record<CostosAnticipoEstatus, string> = {
+    vigente: 'Vigente',
+    agotado: 'Agotado',
+    cancelado: 'Cancelado',
+};
+
+export const ANTICIPO_ESTATUS_COLORS: Record<CostosAnticipoEstatus, string> = {
+    vigente: 'badge-success',
+    agotado: 'badge-neutral',
+    cancelado: 'badge-error',
+};
+
+export type CostosAnticipo = {
+    id: number;
+    folio: string;
+    proveedor_id: number;
+    obra_id: number | null;
+    monto: number;
+    saldo_disponible: number;
+    moneda: string;
+    estatus: CostosAnticipoEstatus;
+    referencia: string | null;
+    fecha: string;
+    notas: string | null;
+    creado_por: string | null;
+    locked_by: string | null;
+    locked_at: string | null;
+    proveedor?: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>;
+    obra?: { id: number; descripcion: string };
+    creador?: Pick<Usuario, 'id' | 'name'>;
+    aplicaciones?: CostosAnticipoAplicacion[];
+    pago?: CostosPago;
+    activities?: CostosActivity[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosAnticipoAplicacion = {
+    id: number;
+    anticipo_id: number;
+    factura_id: number;
+    monto: number;
+    fecha: string;
+    usuario_id: string | null;
+    notas: string | null;
+    factura?: Pick<CostosFactura, 'id' | 'folio' | 'total'>;
+    anticipo?: Pick<CostosAnticipo, 'id' | 'folio' | 'monto'>;
+    usuario?: Pick<Usuario, 'id' | 'name'>;
+    created_at: string;
+    updated_at: string;
+};
+
 // Requisiciones (Fase 10.2)
 export type CostosRequisicionEstatus =
     | 'borrador'
@@ -1359,6 +1414,8 @@ export type CostosFactura = {
     locked_by_user?: Pick<Usuario, 'id' | 'name'> | null;
     cobertura_completa?: boolean;
     cobertura_por_partida?: Record<number, { disponible: number; cubierta: boolean }>;
+    anticipos_aplicados?: CostosAnticipoAplicacion[];
+    monto_anticipos?: number;
     created_at: string;
     updated_at: string;
 };

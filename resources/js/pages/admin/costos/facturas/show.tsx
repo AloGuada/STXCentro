@@ -1,4 +1,5 @@
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
+import { AplicarAnticipoModal } from '@/components/costos/aplicar-anticipo-modal';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
@@ -307,6 +308,9 @@ export default function FacturasShow({ factura }: Props) {
                     )}
                 </div>
 
+                {/* Anticipos aplicados */}
+                <AnticiposAplicadosPanel factura={factura} canAplicar={can('costos.anticipos.aplicar')} />
+
                 {/* Pago */}
                 {factura.pago && (
                     <div>
@@ -461,5 +465,87 @@ export default function FacturasShow({ factura }: Props) {
 
             </div>
         </AppLayout>
+    );
+}
+
+function AnticiposAplicadosPanel({ factura, canAplicar }: { factura: CostosFactura; canAplicar: boolean }) {
+    const [open, setOpen] = useState(false);
+    const fmt = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+    const aplicaciones = factura.anticipos_aplicados ?? [];
+    const totalAnticipos = Number(factura.monto_anticipos ?? 0);
+    const saldoFactura = Math.max(0, Number(factura.total) - totalAnticipos);
+
+    const puedeAplicar = canAplicar
+        && saldoFactura > 0.001
+        && !['pagada', 'cancelada'].includes(factura.estatus);
+
+    return (
+        <div className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-medium">Anticipos aplicados</h2>
+                {puedeAplicar && (
+                    <Button onClick={() => setOpen(true)}>Aplicar anticipo</Button>
+                )}
+            </div>
+
+            <div className="rounded-lg border border-base-300 p-4">
+                <div className="mb-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                        <div className="text-xs text-base-content/60">Total factura</div>
+                        <div className="font-semibold">{fmt(factura.total)}</div>
+                    </div>
+                    <div>
+                        <div className="text-xs text-base-content/60">Aplicado en anticipos</div>
+                        <div className="font-semibold">{fmt(totalAnticipos)}</div>
+                    </div>
+                    <div>
+                        <div className="text-xs text-base-content/60">Saldo pendiente</div>
+                        <div className="font-semibold text-success">{fmt(saldoFactura)}</div>
+                    </div>
+                </div>
+
+                {aplicaciones.length === 0 ? (
+                    <p className="text-sm text-base-content/60">No se han aplicado anticipos a esta factura.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Anticipo</th>
+                                    <th>Fecha</th>
+                                    <th className="text-right">Monto</th>
+                                    <th>Aplicó</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {aplicaciones.map((a) => (
+                                    <tr key={a.id}>
+                                        <td>
+                                            <Link
+                                                href={`/admin/costos/anticipos/${a.anticipo_id}`}
+                                                className="link link-primary font-mono text-xs"
+                                            >
+                                                {a.anticipo?.folio ?? `#${a.anticipo_id}`}
+                                            </Link>
+                                        </td>
+                                        <td className="text-xs text-base-content/60">{a.fecha}</td>
+                                        <td className="text-right font-medium">{fmt(a.monto)}</td>
+                                        <td className="text-xs text-base-content/60">{a.usuario?.name ?? '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            <AplicarAnticipoModal
+                facturaId={factura.id}
+                saldoFactura={saldoFactura}
+                open={open}
+                onClose={() => setOpen(false)}
+            />
+        </div>
     );
 }

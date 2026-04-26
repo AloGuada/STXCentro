@@ -116,6 +116,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.requisiciones.cotizar',
             'costos.requisiciones.aprobar',
             'costos.requisiciones.cancelar',
+            // Anticipos a proveedor (Fase 11)
+            'costos.anticipos.ver',
+            'costos.anticipos.crear',
+            'costos.anticipos.aplicar',
+            'costos.anticipos.cancelar',
         ];
 
         // Crear permisos del módulo Produccion
@@ -404,6 +409,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.pagos.editar',
             'costos.facturas.ver',
             'costos.facturas.aceptar-contabilidad',
+            'costos.anticipos.ver',
+            'costos.anticipos.crear',
+            'costos.anticipos.aplicar',
+            'costos.anticipos.cancelar',
         ]);
 
         // Admin Cobranza tiene todos los permisos de cobranza

@@ -185,9 +185,11 @@ class FacturaAdminController extends Controller
             'aprobadaCostosPor',
             'aceptadaContabilidadPor',
             'activities.causer',
+            'anticiposAplicados.anticipo:id,folio',
+            'anticiposAplicados.usuario:id,name',
         ]);
 
-        $factura->append(['cobertura_completa', 'cobertura_por_partida']);
+        $factura->append(['cobertura_completa', 'cobertura_por_partida', 'monto_anticipos']);
 
         return Inertia::render('admin/costos/facturas/show', [
             'factura' => $factura,

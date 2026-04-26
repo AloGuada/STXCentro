@@ -169,6 +169,19 @@ class Factura extends Model
         return $this->morphOne(Pago::class, 'pagable');
     }
 
+    public function anticiposAplicados(): HasMany
+    {
+        return $this->hasMany(AnticipoAplicacion::class, 'factura_id');
+    }
+
+    /**
+     * Total de anticipos aplicados a esta factura.
+     */
+    public function getMontoAnticiposAttribute(): float
+    {
+        return (float) $this->anticiposAplicados()->sum('monto');
+    }
+
     public function aprobadaCostosPor(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'aprobada_costos_por');

@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\Cob\PartidaController as CobPartidaController;
 use App\Http\Controllers\Admin\Cob\PenalizacionController as CobPenalizacionController;
 use App\Http\Controllers\Admin\Cob\TipoRetencionController as CobTipoRetencionController;
 use App\Http\Controllers\Admin\Costos\AfectacionPresupuestalController as CostosAfectacionPresupuestalController;
+use App\Http\Controllers\Admin\Costos\AnticipoController as CostosAnticipoController;
 use App\Http\Controllers\Admin\Costos\AprobacionController as CostosAprobacionController;
 use App\Http\Controllers\Admin\Costos\CuentaInternaController as CostosCuentaInternaController;
 use App\Http\Controllers\Admin\Costos\EditLockController as CostosEditLockController;
@@ -156,6 +157,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('tipo-solicitudes', CostosTipoSolicitudController::class)->parameters(['tipo-solicitudes' => 'tipoSolicitud']);
         Route::resource('permisos', CostosPermisoController::class)->parameters(['permisos' => 'permiso']);
         Route::post('permisos/{permiso}/sync-departamentos', [CostosPermisoController::class, 'syncDepartamentos'])->name('permisos.sync-departamentos');
+        // Anticipos a proveedor (Fase 11)
+        Route::resource('anticipos', CostosAnticipoController::class)->only(['index', 'create', 'store', 'show'])->parameters(['anticipos' => 'anticipo']);
+        Route::post('anticipos/aplicar', [CostosAnticipoController::class, 'aplicar'])->name('anticipos.aplicar');
+        Route::post('anticipos/{anticipo}/cancelar', [CostosAnticipoController::class, 'cancelar'])->name('anticipos.cancelar');
+        Route::get('facturas/{factura}/anticipos-disponibles', [CostosAnticipoController::class, 'disponiblesParaFactura'])->name('facturas.anticipos-disponibles');
+
         // Requisiciones (Fase 10.2)
         Route::resource('requisiciones', CostosRequisicionController::class)->parameters(['requisiciones' => 'requisicion']);
         Route::post('requisiciones/{requisicion}/cancelar', [CostosRequisicionController::class, 'cancelar'])->name('requisiciones.cancelar');
