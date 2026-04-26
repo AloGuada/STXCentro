@@ -20,6 +20,7 @@ class OrdenCompraDetalle extends Model
      */
     protected $fillable = [
         'orden_compra_id',
+        'requisicion_detalle_id',
         'obra_rubro_id',
         'descripcion',
         'unidad',
@@ -48,5 +49,10 @@ class OrdenCompraDetalle extends Model
     public function obraRubro(): BelongsTo
     {
         return $this->belongsTo(ObraRubro::class, 'obra_rubro_id');
+    }
+
+    public function requisicionDetalle(): BelongsTo
+    {
+        return $this->belongsTo(RequisicionDetalle::class, 'requisicion_detalle_id');
     }
 }

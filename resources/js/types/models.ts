@@ -1214,6 +1214,7 @@ export type CostosOrdenCompra = {
     fecha_entrega_esperada: string | null;
     notas: string | null;
     estatus: CostosOrdenCompraEstatus;
+    requisicion_id: number | null;
     proveedor?: Proveedor;
     obra?: Obra;
     departamento?: Departamento;
@@ -1237,6 +1238,7 @@ export type CostosOrdenCompra = {
 export type CostosOrdenCompraDetalle = {
     id: number;
     orden_compra_id: number;
+    requisicion_detalle_id: number | null;
     obra_rubro_id: number;
     descripcion: string;
     unidad: string;

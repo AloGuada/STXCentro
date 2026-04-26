@@ -1,6 +1,7 @@
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { ComparativaCotizacion } from '@/components/costos/comparativa-cotizacion';
+import { GenerarOrdenesModal } from '@/components/costos/generar-ordenes-modal';
 import { SeleccionDistribucion } from '@/components/costos/seleccion-distribucion';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
@@ -14,11 +15,12 @@ import { useState } from 'react';
 type Props = {
     requisicion: CostosRequisicion;
     proveedores: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>[];
+    rubros: Array<{ id: number; label: string }>;
 };
 
 type Tab = 'datos' | 'cotizacion' | 'aprobacion' | 'ocs';
 
-export default function RequisicionesShow({ requisicion, proveedores }: Props) {
+export default function RequisicionesShow({ requisicion, proveedores, rubros }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/requisiciones' },
@@ -30,6 +32,7 @@ export default function RequisicionesShow({ requisicion, proveedores }: Props) {
     const [tab, setTab] = useState<Tab>('datos');
     const [enviando, setEnviando] = useState(false);
     const [cancelando, setCancelando] = useState(false);
+    const [generandoOcs, setGenerandoOcs] = useState(false);
 
     const editable = ['borrador', 'rechazada'].includes(requisicion.estatus);
     const cotizable = ['borrador', 'cotizada', 'rechazada'].includes(requisicion.estatus);
@@ -77,6 +80,12 @@ export default function RequisicionesShow({ requisicion, proveedores }: Props) {
                             </Button>
                         )}
 
+                        {requisicion.estatus === 'aprobada' && can('costos.requisiciones.cotizar') && (
+                            <Button onClick={() => setGenerandoOcs(true)}>
+                                Generar OCs
+                            </Button>
+                        )}
+
                         {!['convertida', 'cancelada'].includes(requisicion.estatus) && can('costos.requisiciones.cancelar') && (
                             <Button variant="outline" className="text-error" onClick={() => setCancelando(true)}>
                                 Cancelar
@@ -91,6 +100,13 @@ export default function RequisicionesShow({ requisicion, proveedores }: Props) {
                     url={`/admin/costos/requisiciones/${requisicion.id}/cancelar`}
                     title="Cancelar requisición"
                     description="Esta acción detiene el flujo y no se puede revertir."
+                />
+
+                <GenerarOrdenesModal
+                    requisicion={requisicion}
+                    rubros={rubros}
+                    open={generandoOcs}
+                    onClose={() => setGenerandoOcs(false)}
                 />
 
                 {requisicion.motivo_rechazo && (

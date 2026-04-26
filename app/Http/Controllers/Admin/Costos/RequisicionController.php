@@ -2,14 +2,20 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\OrdenCompraEstatus;
 use App\Enums\Costos\RequisicionEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
+use App\Http\Requests\Admin\Costos\GenerarOrdenesRequest;
 use App\Http\Requests\Admin\Costos\RequisicionStoreRequest;
 use App\Http\Requests\Admin\Costos\RequisicionUpdateRequest;
 use App\Models\Costos\AprobacionDepartamento;
+use App\Models\Costos\ObraRubro;
+use App\Models\Costos\OrdenCompra;
+use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionDetalle;
+use App\Models\Costos\RequisicionSeleccion;
 use App\Models\Departamento;
 use App\Models\Proveedor;
 use Illuminate\Http\RedirectResponse;
@@ -102,6 +108,13 @@ class RequisicionController extends Controller
             'proveedores' => Proveedor::where('activo', true)
                 ->orderBy('razon_social')
                 ->get(['id', 'razon_social', 'nombre_comercial']),
+            'rubros' => ObraRubro::with(['obra:id,nombre', 'rubro:id,descripcion'])
+                ->get()
+                ->map(fn ($or) => [
+                    'id' => $or->id,
+                    'label' => sprintf('%s · %s', $or->obra?->nombre ?? '-', $or->rubro?->descripcion ?? '-'),
+                ])
+                ->values(),
         ]);
     }
 
@@ -251,5 +264,99 @@ class RequisicionController extends Controller
         });
 
         return back()->with('success', 'Requisición enviada a aprobación.');
+    }
+
+    /**
+     * Genera N ordenes de compra (1 por proveedor) desde una requisicion
+     * aprobada. Cada seleccion lleva su `obra_rubro_id` capturado en este
+     * paso. Registra trazabilidad via `requisicion_id` y `requisicion_detalle_id`.
+     * Aplica impacto presupuestal por OC. Idempotente: si ya hay OCs
+     * generadas, bloquea.
+     */
+    public function generarOrdenes(GenerarOrdenesRequest $request, Requisicion $requisicion): RedirectResponse
+    {
+        if ($requisicion->estatus !== RequisicionEstatus::Aprobada) {
+            return back()->withErrors(['estatus' => 'Solo requisiciones aprobadas pueden generar OCs.']);
+        }
+
+        if ($requisicion->ordenesGeneradas()->exists()) {
+            return back()->withErrors(['estatus' => 'Esta requisición ya tiene OCs generadas.']);
+        }
+
+        $rubroPorSeleccion = collect($request->input('rubros', []))
+            ->keyBy('seleccion_id')
+            ->map(fn ($r) => (int) $r['obra_rubro_id']);
+
+        $requisicion->load('detalles.selecciones.cotizacionPrecio', 'detalles.selecciones.proveedor');
+
+        // Verificar que todas las selecciones traen rubro
+        $todasSelecciones = $requisicion->detalles->flatMap->selecciones;
+        foreach ($todasSelecciones as $sel) {
+            if (! $rubroPorSeleccion->has($sel->id)) {
+                return back()->withErrors([
+                    'rubros' => "Falta asignar rubro a una selección (#{$sel->id}).",
+                ]);
+            }
+        }
+
+        $userId = $request->user()->id;
+
+        DB::transaction(function () use ($requisicion, $todasSelecciones, $rubroPorSeleccion, $request, $userId) {
+            // Agrupar selecciones por proveedor -> 1 OC por grupo
+            $porProveedor = $todasSelecciones->groupBy('proveedor_id');
+
+            foreach ($porProveedor as $proveedorId => $selecciones) {
+                $total = $selecciones->reduce(function ($acc, RequisicionSeleccion $s) {
+                    $precio = (float) ($s->cotizacionPrecio?->precio_unitario ?? 0);
+
+                    return $acc + $precio * (float) $s->cantidad;
+                }, 0.0);
+
+                $oc = OrdenCompra::create([
+                    'requisicion_id' => $requisicion->id,
+                    'proveedor_id' => $proveedorId,
+                    'departamento_id' => $requisicion->departamento_id,
+                    'creado_por' => $userId,
+                    'moneda' => $request->string('moneda'),
+                    'total' => round($total, 2),
+                    'fecha_entrega_esperada' => $request->input('fecha_entrega_esperada'),
+                    'notas' => $request->input('notas'),
+                    'estatus' => OrdenCompraEstatus::PendienteFactura->value,
+                ]);
+
+                foreach ($selecciones as $sel) {
+                    /** @var RequisicionSeleccion $sel */
+                    $detalle = $sel->detalle ?? RequisicionDetalle::find($sel->requisicion_detalle_id);
+                    $precioUnit = (float) ($sel->cotizacionPrecio?->precio_unitario ?? 0);
+                    $cantidad = (float) $sel->cantidad;
+                    $subtotal = round($precioUnit * $cantidad, 2);
+
+                    $ocDetalle = OrdenCompraDetalle::create([
+                        'orden_compra_id' => $oc->id,
+                        'requisicion_detalle_id' => $sel->requisicion_detalle_id,
+                        'obra_rubro_id' => $rubroPorSeleccion[$sel->id],
+                        'descripcion' => $detalle->descripcion,
+                        'unidad' => $detalle->unidad,
+                        'cantidad' => $cantidad,
+                        'precio_unitario' => $precioUnit,
+                        'subtotal' => $subtotal,
+                    ]);
+
+                    // Marca la seleccion con su rubro y la OC partida creada
+                    $sel->update([
+                        'obra_rubro_id' => $rubroPorSeleccion[$sel->id],
+                        'orden_compra_detalle_id' => $ocDetalle->id,
+                    ]);
+                }
+
+                $oc->load('detalles');
+                $oc->aplicarImpactoPresupuestal($userId);
+            }
+
+            $requisicion->transitionTo(RequisicionEstatus::Convertida);
+        });
+
+        return to_route('admin.costos.requisiciones.show', $requisicion)
+            ->with('success', 'Órdenes de compra generadas correctamente.');
     }
 }

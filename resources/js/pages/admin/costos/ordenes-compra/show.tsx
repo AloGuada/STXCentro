@@ -58,6 +58,14 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                                 {ORDEN_COMPRA_ESTATUS_LABELS[ordenCompra.estatus]}
                             </span>
                             <span className="text-lg font-semibold">{formatMoney(ordenCompra.total)}</span>
+                            {ordenCompra.requisicion_id && (
+                                <Link
+                                    href={`/admin/costos/requisiciones/${ordenCompra.requisicion_id}`}
+                                    className="link link-primary text-sm"
+                                >
+                                    Ver requisición de origen
+                                </Link>
+                            )}
                         </div>
                     </div>
 

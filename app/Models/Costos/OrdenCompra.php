@@ -42,6 +42,7 @@ class OrdenCompra extends Model
     protected $fillable = [
         'folio',
         'referencia',
+        'requisicion_id',
         'proveedor_id',
         'obra_id',
         'departamento_id',
@@ -126,6 +127,11 @@ class OrdenCompra extends Model
     public function rubrosAfectados(): MorphMany
     {
         return $this->morphMany(RubroAfectado::class, 'entrada');
+    }
+
+    public function requisicion(): BelongsTo
+    {
+        return $this->belongsTo(Requisicion::class, 'requisicion_id');
     }
 
     public function activities(): MorphMany
