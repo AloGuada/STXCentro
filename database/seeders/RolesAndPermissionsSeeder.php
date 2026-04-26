@@ -110,6 +110,12 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.cuentas-internas.ver',
             'costos.cuentas-internas.editar',
             'costos.solicitudes.confirmar-costos',
+            // Requisiciones (Fase 10.2)
+            'costos.requisiciones.ver',
+            'costos.requisiciones.crear',
+            'costos.requisiciones.cotizar',
+            'costos.requisiciones.aprobar',
+            'costos.requisiciones.cancelar',
         ];
 
         // Crear permisos del módulo Produccion
@@ -379,6 +385,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.facturas.ver',
             'costos.proveedores.ver',
             'costos.proveedores.editar',
+            'costos.requisiciones.ver',
+            'costos.requisiciones.cotizar',
+            'costos.requisiciones.cancelar',
         ]);
 
         // costos-almacen registra recepciones contra OC y ve facturas/OC relacionadas.

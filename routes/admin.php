@@ -29,6 +29,9 @@ use App\Http\Controllers\Admin\Costos\OrdenCompraController as CostosOrdenCompra
 use App\Http\Controllers\Admin\Costos\PagoController as CostosPagoController;
 use App\Http\Controllers\Admin\Costos\PermisoController as CostosPermisoController;
 use App\Http\Controllers\Admin\Costos\PresupuestoController as CostosPresupuestoController;
+use App\Http\Controllers\Admin\Costos\RequisicionController as CostosRequisicionController;
+use App\Http\Controllers\Admin\Costos\RequisicionCotizacionController as CostosRequisicionCotizacionController;
+use App\Http\Controllers\Admin\Costos\RequisicionSeleccionController as CostosRequisicionSeleccionController;
 use App\Http\Controllers\Admin\Costos\RubroController as CostosRubroController;
 use App\Http\Controllers\Admin\Costos\SolicitudPagoController as CostosSolicitudPagoController;
 use App\Http\Controllers\Admin\Costos\TipoRubroController as CostosTipoRubroController;
@@ -153,6 +156,15 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('tipo-solicitudes', CostosTipoSolicitudController::class)->parameters(['tipo-solicitudes' => 'tipoSolicitud']);
         Route::resource('permisos', CostosPermisoController::class)->parameters(['permisos' => 'permiso']);
         Route::post('permisos/{permiso}/sync-departamentos', [CostosPermisoController::class, 'syncDepartamentos'])->name('permisos.sync-departamentos');
+        // Requisiciones (Fase 10.2)
+        Route::resource('requisiciones', CostosRequisicionController::class)->parameters(['requisiciones' => 'requisicion']);
+        Route::post('requisiciones/{requisicion}/cancelar', [CostosRequisicionController::class, 'cancelar'])->name('requisiciones.cancelar');
+        Route::post('requisiciones/{requisicion}/enviar-aprobacion', [CostosRequisicionController::class, 'enviarAprobacion'])->name('requisiciones.enviar-aprobacion');
+        Route::post('requisiciones/cotizaciones', [CostosRequisicionCotizacionController::class, 'store'])->name('requisiciones.cotizaciones.store');
+        Route::delete('requisiciones/cotizaciones/{precio}', [CostosRequisicionCotizacionController::class, 'destroy'])->name('requisiciones.cotizaciones.destroy');
+        Route::post('requisiciones/selecciones', [CostosRequisicionSeleccionController::class, 'store'])->name('requisiciones.selecciones.store');
+        Route::delete('requisiciones/selecciones/{seleccion}', [CostosRequisicionSeleccionController::class, 'destroy'])->name('requisiciones.selecciones.destroy');
+
         Route::resource('solicitudes-pago', CostosSolicitudPagoController::class)->parameters(['solicitudes-pago' => 'solicitudPago']);
         Route::post('solicitudes-pago/{solicitudPago}/archivos', [CostosSolicitudPagoController::class, 'storeArchivo'])->name('solicitudes-pago.archivos.store');
         Route::patch('solicitudes-pago/{solicitudPago}/archivos/{solicitudArchivo}', [CostosSolicitudPagoController::class, 'updateArchivo'])->name('solicitudes-pago.archivos.update');

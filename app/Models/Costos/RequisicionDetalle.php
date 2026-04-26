@@ -1,0 +1,54 @@
+<?php
+
+namespace App\Models\Costos;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+/**
+ * @use HasFactory<\Database\Factories\Costos\RequisicionDetalleFactory>
+ */
+class RequisicionDetalle extends Model
+{
+    use HasFactory;
+
+    protected $table = 'costos_requisicion_detalle';
+
+    /**
+     * @var list<string>
+     */
+    protected $fillable = [
+        'requisicion_id',
+        'descripcion',
+        'unidad',
+        'cantidad',
+        'notas',
+    ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'cantidad' => 'decimal:2',
+        ];
+    }
+
+    public function requisicion(): BelongsTo
+    {
+        return $this->belongsTo(Requisicion::class, 'requisicion_id');
+    }
+
+    public function cotizaciones(): HasMany
+    {
+        return $this->hasMany(RequisicionCotizacionPrecio::class, 'requisicion_detalle_id');
+    }
+
+    public function selecciones(): HasMany
+    {
+        return $this->hasMany(RequisicionSeleccion::class, 'requisicion_detalle_id');
+    }
+}
