@@ -154,13 +154,14 @@ class HandleInertiaRequests extends Middleware
         $badges = [];
         $userId = $request->user()->getKey();
 
-        $pendientes = DB::table('costos_aprobaciones_solicitud as a')
+        $pendientes = DB::table('costos_aprobaciones as a')
             ->where('a.aprobador_id', $userId)
             ->where('a.estatus', 'pendiente')
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
-                    ->from('costos_aprobaciones_solicitud as prev')
-                    ->whereColumn('prev.solicitud_id', 'a.solicitud_id')
+                    ->from('costos_aprobaciones as prev')
+                    ->whereColumn('prev.aprobable_type', 'a.aprobable_type')
+                    ->whereColumn('prev.aprobable_id', 'a.aprobable_id')
                     ->where('prev.estatus', 'pendiente')
                     ->whereColumn('prev.nivel', '<', 'a.nivel');
             })

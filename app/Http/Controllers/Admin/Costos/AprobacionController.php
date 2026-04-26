@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Contracts\Costos\Aprobable;
 use App\Enums\Costos\AprobacionEstatus;
-use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
-use App\Models\Costos\AprobacionSolicitud;
+use App\Models\Costos\Aprobacion;
+use App\Models\Costos\SolicitudPago;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,35 +24,17 @@ class AprobacionController extends Controller
 
         $userId = auth()->id();
 
-        $baseQuery = fn () => AprobacionSolicitud::where('aprobador_id', $userId)
-            ->with(['solicitud.departamento', 'solicitud.proveedor', 'solicitud.solicitante', 'solicitud.tipoSolicitud', 'solicitud.archivos', 'solicitud.media', 'solicitud.detalles.obraRubro']);
+        // Solo SolicitudPago se muestra hoy en este index. Otros tipos
+        // (Requisicion, etc.) tienen su propio listado en su modulo.
+        $baseQuery = fn () => Aprobacion::where('aprobador_id', $userId)
+            ->where('aprobable_type', SolicitudPago::class)
+            ->with(['aprobable.departamento', 'aprobable.proveedor', 'aprobable.solicitante', 'aprobable.tipoSolicitud', 'aprobable.archivos', 'aprobable.media', 'aprobable.detalles.obraRubro']);
 
-        // Pendientes: estatus='pendiente' y es el turno del aprobador
         $pendientes = $baseQuery()
             ->where('estatus', 'pendiente')
             ->latest()
             ->get()
-            ->filter(function (AprobacionSolicitud $aprobacion) {
-                // Es mi turno si todos los niveles anteriores tienen al menos una aprobación
-                $nivelesAnteriores = AprobacionSolicitud::where('solicitud_id', $aprobacion->solicitud_id)
-                    ->where('nivel', '<', $aprobacion->nivel)
-                    ->select('nivel')
-                    ->distinct()
-                    ->pluck('nivel');
-
-                foreach ($nivelesAnteriores as $nivel) {
-                    $tieneAprobada = AprobacionSolicitud::where('solicitud_id', $aprobacion->solicitud_id)
-                        ->where('nivel', $nivel)
-                        ->where('estatus', 'aprobada')
-                        ->exists();
-
-                    if (! $tieneAprobada) {
-                        return false;
-                    }
-                }
-
-                return true;
-            })
+            ->filter(fn (Aprobacion $a) => $this->esTurno($a))
             ->values();
 
         $aprobadas = $baseQuery()
@@ -64,14 +47,17 @@ class AprobacionController extends Controller
             ->latest('fecha_respuesta')
             ->get();
 
+        // Para vistas legacy expone tambien `solicitud` cargado.
+        $pendientes->loadMissing('aprobable.solicitante');
+
         return Inertia::render('admin/costos/aprobaciones/index', [
-            'pendientes' => $pendientes,
-            'aprobadas' => $aprobadas,
-            'rechazadas' => $rechazadas,
+            'pendientes' => $pendientes->map(fn (Aprobacion $a) => $this->withSolicitudShim($a)),
+            'aprobadas' => $aprobadas->map(fn (Aprobacion $a) => $this->withSolicitudShim($a)),
+            'rechazadas' => $rechazadas->map(fn (Aprobacion $a) => $this->withSolicitudShim($a)),
         ]);
     }
 
-    public function show(AprobacionSolicitud $aprobacionSolicitud): Response|HttpResponse|RedirectResponse
+    public function show(Aprobacion $aprobacionSolicitud): Response|HttpResponse|RedirectResponse
     {
         if ($aprobacionSolicitud->aprobador_id !== auth()->id()) {
             abort(403);
@@ -82,28 +68,30 @@ class AprobacionController extends Controller
                 ->with('warning', 'Debe configurar su firma antes de acceder a las aprobaciones.');
         }
 
-        $aprobacionSolicitud->load('solicitud');
-        $solicitud = $aprobacionSolicitud->solicitud;
+        $aprobacionSolicitud->load('aprobable');
+        $aprobable = $aprobacionSolicitud->aprobable;
 
-        $solicitud->load([
-            'solicitante',
-            'departamento',
-            'proveedor',
-            'tipoSolicitud.documentos',
-            'detalles.obraRubro.rubro',
-            'detalles.obraRubro.obra',
-            'archivos.documento',
-            'archivos.media',
-            'aprobaciones.aprobador',
-        ]);
+        if ($aprobable instanceof SolicitudPago) {
+            $aprobable->load([
+                'solicitante',
+                'departamento',
+                'proveedor',
+                'tipoSolicitud.documentos',
+                'detalles.obraRubro.rubro',
+                'detalles.obraRubro.obra',
+                'archivos.documento',
+                'archivos.media',
+                'aprobaciones.aprobador',
+            ]);
+        }
 
         return Inertia::render('admin/costos/aprobaciones/show', [
-            'aprobacion' => $aprobacionSolicitud,
-            'solicitud' => $solicitud,
+            'aprobacion' => $this->withSolicitudShim($aprobacionSolicitud),
+            'solicitud' => $aprobable,
         ]);
     }
 
-    public function aprobar(Request $request, AprobacionSolicitud $aprobacionSolicitud): RedirectResponse
+    public function aprobar(Request $request, Aprobacion $aprobacionSolicitud): RedirectResponse
     {
         if ($aprobacionSolicitud->aprobador_id !== auth()->id()) {
             abort(403);
@@ -113,22 +101,8 @@ class AprobacionController extends Controller
             return back()->withErrors(['estatus' => 'Esta aprobación ya fue procesada.']);
         }
 
-        // Verificar que es el turno (todos los niveles anteriores deben tener al menos una aprobada)
-        $nivelesAnteriores = AprobacionSolicitud::where('solicitud_id', $aprobacionSolicitud->solicitud_id)
-            ->where('nivel', '<', $aprobacionSolicitud->nivel)
-            ->select('nivel')
-            ->distinct()
-            ->pluck('nivel');
-
-        foreach ($nivelesAnteriores as $nivel) {
-            $tieneAprobada = AprobacionSolicitud::where('solicitud_id', $aprobacionSolicitud->solicitud_id)
-                ->where('nivel', $nivel)
-                ->where('estatus', 'aprobada')
-                ->exists();
-
-            if (! $tieneAprobada) {
-                return back()->withErrors(['nivel' => 'Aún hay aprobaciones pendientes de niveles anteriores.']);
-            }
+        if (! $this->esTurno($aprobacionSolicitud)) {
+            return back()->withErrors(['nivel' => 'Aún hay aprobaciones pendientes de niveles anteriores.']);
         }
 
         $request->validate([
@@ -143,9 +117,9 @@ class AprobacionController extends Controller
             'hostname' => gethostbyaddr($request->ip()) ?: null,
         ]);
 
-        // Cancelar las demás aprobaciones pendientes del mismo nivel (lógica OR)
-        $solicitud = $aprobacionSolicitud->solicitud;
-        $solicitud->aprobaciones()
+        // Cancelar las demas aprobaciones pendientes del mismo nivel (logica OR)
+        $aprobable = $aprobacionSolicitud->aprobable;
+        $aprobable->cadenaAprobacion()
             ->where('nivel', $aprobacionSolicitud->nivel)
             ->where('id', '!=', $aprobacionSolicitud->id)
             ->where('estatus', 'pendiente')
@@ -154,20 +128,18 @@ class AprobacionController extends Controller
                 'fecha_respuesta' => now(),
             ]);
 
-        // Verificar si quedan niveles pendientes
-        $quedanPendientes = $solicitud->aprobaciones()
+        $quedanPendientes = $aprobable->cadenaAprobacion()
             ->where('estatus', 'pendiente')
             ->exists();
 
-        if (! $quedanPendientes) {
-            $solicitud->transitionTo(SolicitudPagoEstatus::Aprobada);
-            $solicitud->aplicarImpactoPresupuestal(auth()->id());
+        if (! $quedanPendientes && $aprobable instanceof Aprobable) {
+            $aprobable->onAprobacionCompleta(auth()->id());
         }
 
         return back()->with('success', 'Aprobación registrada correctamente.');
     }
 
-    public function rechazar(Request $request, AprobacionSolicitud $aprobacionSolicitud): RedirectResponse
+    public function rechazar(Request $request, Aprobacion $aprobacionSolicitud): RedirectResponse
     {
         if ($aprobacionSolicitud->aprobador_id !== auth()->id()) {
             abort(403);
@@ -195,17 +167,58 @@ class AprobacionController extends Controller
             'hostname' => gethostbyaddr($request->ip()) ?: null,
         ]);
 
-        // Cancelar la solicitud y las demás aprobaciones pendientes
-        $solicitud = $aprobacionSolicitud->solicitud;
-        $solicitud->transitionTo(SolicitudPagoEstatus::Cancelada);
-
-        $solicitud->aprobaciones()
+        $aprobable = $aprobacionSolicitud->aprobable;
+        $aprobable->cadenaAprobacion()
             ->where('estatus', 'pendiente')
             ->update([
                 'estatus' => 'cancelada',
                 'fecha_respuesta' => now(),
             ]);
 
+        if ($aprobable instanceof Aprobable) {
+            $aprobable->onAprobacionRechazada($motivo, auth()->id());
+        }
+
         return back()->with('success', 'Solicitud rechazada.');
+    }
+
+    /**
+     * Es mi turno si todos los niveles anteriores tienen al menos una aprobada.
+     */
+    private function esTurno(Aprobacion $aprobacion): bool
+    {
+        $nivelesAnteriores = Aprobacion::where('aprobable_type', $aprobacion->aprobable_type)
+            ->where('aprobable_id', $aprobacion->aprobable_id)
+            ->where('nivel', '<', $aprobacion->nivel)
+            ->select('nivel')
+            ->distinct()
+            ->pluck('nivel');
+
+        foreach ($nivelesAnteriores as $nivel) {
+            $tieneAprobada = Aprobacion::where('aprobable_type', $aprobacion->aprobable_type)
+                ->where('aprobable_id', $aprobacion->aprobable_id)
+                ->where('nivel', $nivel)
+                ->where('estatus', 'aprobada')
+                ->exists();
+
+            if (! $tieneAprobada) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Garantiza que las vistas heredadas (que esperan `aprobacion.solicitud`)
+     * sigan funcionando aunque el modelo ya sea polimorfico.
+     */
+    private function withSolicitudShim(Aprobacion $a): Aprobacion
+    {
+        if ($a->aprobable instanceof SolicitudPago) {
+            $a->setRelation('solicitud', $a->aprobable);
+        }
+
+        return $a;
     }
 }

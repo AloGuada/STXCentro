@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Contracts\Costos\Aprobable;
 use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasEditLock;
@@ -23,9 +24,11 @@ use Spatie\Activitylog\Support\LogOptions;
 /**
  * @use HasFactory<\Database\Factories\Costos\SolicitudPagoFactory>
  */
-class SolicitudPago extends Model
+class SolicitudPago extends Model implements Aprobable
 {
     use HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
+
+    public const TIPO_APROBACION = 'solicitud_pago';
 
     protected $table = 'costos_solicitudes_pago';
 
@@ -114,9 +117,30 @@ class SolicitudPago extends Model
         return $this->hasMany(SolicitudArchivo::class, 'solicitud_id');
     }
 
-    public function aprobaciones(): HasMany
+    public function aprobaciones(): MorphMany
     {
-        return $this->hasMany(AprobacionSolicitud::class, 'solicitud_id');
+        return $this->morphMany(Aprobacion::class, 'aprobable');
+    }
+
+    public function cadenaAprobacion(): MorphMany
+    {
+        return $this->aprobaciones();
+    }
+
+    public function tipoAprobacion(): string
+    {
+        return self::TIPO_APROBACION;
+    }
+
+    public function onAprobacionCompleta(?string $userId = null): void
+    {
+        $this->transitionTo(SolicitudPagoEstatus::Aprobada);
+        $this->aplicarImpactoPresupuestal($userId);
+    }
+
+    public function onAprobacionRechazada(string $motivo, ?string $userId = null): void
+    {
+        $this->transitionTo(SolicitudPagoEstatus::Cancelada);
     }
 
     public function pago(): MorphOne
