@@ -919,6 +919,98 @@ export const TIPO_MONEDA_LABELS: Record<CostosTipoMoneda, string> = {
     eur: 'EUR',
 };
 
+// Requisiciones (Fase 10.2)
+export type CostosRequisicionEstatus =
+    | 'borrador'
+    | 'cotizada'
+    | 'pendiente_aprobacion'
+    | 'aprobada'
+    | 'rechazada'
+    | 'convertida'
+    | 'cancelada';
+
+export const REQUISICION_ESTATUS_LABELS: Record<CostosRequisicionEstatus, string> = {
+    borrador: 'Borrador',
+    cotizada: 'Cotizada',
+    pendiente_aprobacion: 'Pendiente de aprobación',
+    aprobada: 'Aprobada',
+    rechazada: 'Rechazada',
+    convertida: 'Convertida en OC',
+    cancelada: 'Cancelada',
+};
+
+export const REQUISICION_ESTATUS_COLORS: Record<CostosRequisicionEstatus, string> = {
+    borrador: 'badge-ghost',
+    cotizada: 'badge-info',
+    pendiente_aprobacion: 'badge-warning',
+    aprobada: 'badge-success',
+    rechazada: 'badge-error',
+    convertida: 'badge-primary',
+    cancelada: 'badge-neutral',
+};
+
+export type CostosRequisicion = {
+    id: number;
+    folio: string;
+    solicitante_id: string;
+    departamento_id: number;
+    concepto: string;
+    justificacion: string | null;
+    fecha_requerida: string | null;
+    estatus: CostosRequisicionEstatus;
+    motivo_rechazo: string | null;
+    locked_by: string | null;
+    locked_at: string | null;
+    solicitante?: Pick<Usuario, 'id' | 'name'>;
+    departamento?: Pick<Departamento, 'id' | 'descripcion'>;
+    detalles?: CostosRequisicionDetalle[];
+    aprobaciones?: CostosAprobacionSolicitud[];
+    ordenes_generadas?: Array<Pick<CostosOrdenCompra, 'id' | 'folio' | 'proveedor_id' | 'total' | 'estatus'> & { proveedor?: Pick<Proveedor, 'id' | 'razon_social'> }>;
+    activities?: CostosActivity[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosRequisicionDetalle = {
+    id: number;
+    requisicion_id: number;
+    descripcion: string;
+    unidad: string;
+    cantidad: number;
+    notas: string | null;
+    cotizaciones?: CostosRequisicionCotizacionPrecio[];
+    selecciones?: CostosRequisicionSeleccion[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosRequisicionCotizacionPrecio = {
+    id: number;
+    requisicion_detalle_id: number;
+    proveedor_id: number;
+    precio_unitario: number;
+    tiempo_entrega_dias: number | null;
+    observaciones: string | null;
+    media_id: number | null;
+    proveedor?: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosRequisicionSeleccion = {
+    id: number;
+    requisicion_detalle_id: number;
+    cotizacion_precio_id: number;
+    proveedor_id: number;
+    cantidad: number;
+    obra_rubro_id: number | null;
+    orden_compra_detalle_id: number | null;
+    cotizacion_precio?: CostosRequisicionCotizacionPrecio;
+    proveedor?: Pick<Proveedor, 'id' | 'razon_social'>;
+    created_at: string;
+    updated_at: string;
+};
+
 export type CostosSolicitudPago = {
     id: number;
     folio: string;
