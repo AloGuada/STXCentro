@@ -125,6 +125,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.notas-credito.ver',
             'costos.notas-credito.crear',
             'costos.notas-credito.cancelar',
+            // Devoluciones a proveedor (Fase 13)
+            'costos.devoluciones.ver',
+            'costos.devoluciones.crear',
+            'costos.devoluciones.cancelar',
         ];
 
         // Crear permisos del módulo Produccion
@@ -404,6 +408,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.ordenes-compra.ver',
             'costos.facturas.ver',
             'costos.entregas.crear',
+            'costos.devoluciones.ver',
+            'costos.devoluciones.crear',
+            'costos.devoluciones.cancelar',
         ]);
 
         // Contabilidad acepta facturas, crea pagos y los programa

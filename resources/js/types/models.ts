@@ -919,6 +919,43 @@ export const TIPO_MONEDA_LABELS: Record<CostosTipoMoneda, string> = {
     eur: 'EUR',
 };
 
+// Devoluciones a proveedor (Fase 13)
+export type CostosDevolucionEstatus = 'vigente' | 'cancelada';
+
+export const DEVOLUCION_ESTATUS_LABELS: Record<CostosDevolucionEstatus, string> = {
+    vigente: 'Vigente',
+    cancelada: 'Cancelada',
+};
+
+export const DEVOLUCION_ESTATUS_COLORS: Record<CostosDevolucionEstatus, string> = {
+    vigente: 'badge-success',
+    cancelada: 'badge-error',
+};
+
+export type CostosDevolucion = {
+    id: number;
+    folio: string;
+    entrega_detalle_id: number;
+    cantidad: number;
+    motivo: string;
+    fecha: string;
+    estatus: CostosDevolucionEstatus;
+    motivo_cancelacion: string | null;
+    creado_por: string | null;
+    entrega_detalle?: {
+        id: number;
+        cantidad_recibida: number;
+        entrega?: { id: number; orden_compra_id: number; fecha_entrega: string; orden_compra?: Pick<CostosOrdenCompra, 'id' | 'folio'> & { proveedor?: Pick<Proveedor, 'id' | 'razon_social'> } };
+        orden_compra_detalle?: Pick<CostosOrdenCompraDetalle, 'id' | 'descripcion' | 'unidad'>;
+    };
+    creador?: Pick<Usuario, 'id' | 'name'>;
+    media?: Media[];
+    evidencia?: Media | null;
+    activities?: CostosActivity[];
+    created_at: string;
+    updated_at: string;
+};
+
 // Notas de crédito (Fase 12)
 export type CostosNotaCreditoEstatus = 'vigente' | 'cancelada';
 

@@ -28,6 +28,9 @@ enum DocumentoTipo: string
     // Recepción
     case EvidenciaRecepcion = 'evidencia_recepcion';
 
+    // Devolución (Fase 13)
+    case EvidenciaDevolucion = 'evidencia_devolucion';
+
     // Pago
     case ComprobantePago = 'comprobante_pago';
 
@@ -46,6 +49,7 @@ enum DocumentoTipo: string
             self::OcPdfFormato => 'Formato de OC (PDF)',
             self::OcPdfFirmado => 'OC firmada (PDF)',
             self::EvidenciaRecepcion => 'Evidencia de recepción',
+            self::EvidenciaDevolucion => 'Evidencia de devolución',
             self::ComprobantePago => 'Comprobante de pago',
             self::SolicitudArchivo => 'Anexo de solicitud',
             self::SolicitudFirmada => 'Solicitud firmada',
@@ -66,7 +70,8 @@ enum DocumentoTipo: string
             self::OcPdfFirmado,
             self::ComprobantePago,
             self::SolicitudFirmada => 'pdf',
-            self::EvidenciaRecepcion => 'pdf,jpg,jpeg,png,webp',
+            self::EvidenciaRecepcion,
+            self::EvidenciaDevolucion => 'pdf,jpg,jpeg,png,webp',
             self::OcArchivo,
             self::SolicitudArchivo => 'pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx',
         };
