@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Costos;
 
 use App\Http\Controllers\Controller;
+use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Rubro;
 use App\Models\Costos\TipoRubro;
 use App\Models\Obra;
@@ -16,6 +17,8 @@ class PresupuestoController extends Controller
 {
     public function index(Request $request): Response
     {
+        $umbral = (int) config('costos.umbral_alerta_porcentaje', 90);
+
         $obras = Obra::query()
             ->withSum('obraRubros', 'presupuestado')
             ->withSum('obraRubros', 'acumulado')
@@ -27,9 +30,61 @@ class PresupuestoController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        // Calcular en PHP en lugar de SQL para evitar quirks de SQLite con
+        // division decimal. El COUNT total no es enorme (rubros por obra
+        // suelen ser <100) así que es aceptable.
+        $rubros = ObraRubro::query()
+            ->select('id', 'presupuestado', 'acumulado')
+            ->get();
+
+        $sobregiros = 0;
+        $criticos = 0;
+        $totalPresupuestado = 0.0;
+        $totalAcumulado = 0.0;
+        $umbralPct = (float) $umbral;
+
+        foreach ($rubros as $r) {
+            $presup = (float) $r->presupuestado;
+            $acum = (float) $r->acumulado;
+            $totalPresupuestado += $presup;
+            $totalAcumulado += $acum;
+
+            if ($presup <= 0.0) {
+                if ($acum > 0.0) {
+                    $sobregiros++;
+                }
+
+                continue;
+            }
+
+            $pct = ($acum / $presup) * 100.0;
+            if ($pct > 100.0) {
+                $sobregiros++;
+            } elseif ($pct >= $umbralPct) {
+                $criticos++;
+            }
+        }
+
+        $rubrosStats = (object) [
+            'total' => $rubros->count(),
+            'sobregiros' => $sobregiros,
+            'criticos' => $criticos,
+            'total_presupuestado' => $totalPresupuestado,
+            'total_acumulado' => $totalAcumulado,
+        ];
+
         return Inertia::render('admin/costos/presupuestos/index', [
             'obras' => $obras,
             'filters' => $request->only('search'),
+            'stats' => [
+                'total_rubros' => (int) ($rubrosStats->total ?? 0),
+                'sobregiros' => (int) ($rubrosStats->sobregiros ?? 0),
+                'criticos' => (int) ($rubrosStats->criticos ?? 0),
+                'total_presupuestado' => (float) ($rubrosStats->total_presupuestado ?? 0),
+                'total_acumulado' => (float) ($rubrosStats->total_acumulado ?? 0),
+                'umbral_alerta' => $umbral,
+                'bloquear_sobregiro' => (bool) config('costos.bloquear_sobregiro', false),
+            ],
         ]);
     }
 

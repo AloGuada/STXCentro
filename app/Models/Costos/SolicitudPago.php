@@ -170,16 +170,22 @@ class SolicitudPago extends Model implements Aprobable
 
     /**
      * Aplica el impacto presupuestal: incrementa acumulado en obra_rubros y crea rubros afectados.
+     * Pasa por ValidadorPresupuesto antes de incrementar — si bloquear_sobregiro=true
+     * y el monto excede disponible, lanza SobregiroPresupuestalException y aborta.
      */
     public function aplicarImpactoPresupuestal(?string $userId = null): void
     {
         $userId = $userId ?? Auth::id();
+        $validador = app(\App\Services\Costos\ValidadorPresupuesto::class);
 
         foreach ($this->detalles as $detalle) {
+            $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
+            $validador->validar($obraRubro, (float) $detalle->subtotal, $this);
+
             ObraRubro::where('id', $detalle->obra_rubro_id)
                 ->increment('acumulado', (float) $detalle->subtotal);
 
-            $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
+            $obraRubro->refresh();
             $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
 
             $this->rubrosAfectados()->create([
