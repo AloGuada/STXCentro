@@ -12,7 +12,7 @@ Route::get('dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 require __DIR__.'/admin.php';
-// require __DIR__.'/intra.php'; // deshabilitado: intranet pública con documentos ISO
+require __DIR__.'/intra.php';
 require __DIR__.'/rh.php';
 require __DIR__.'/sti.php';
 require __DIR__.'/portal.php';
