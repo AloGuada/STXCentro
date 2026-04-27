@@ -877,6 +877,7 @@ export type CostosPermiso = {
     id: number;
     descripcion: string;
     nivel: number;
+    tipo_aprobacion: 'solicitud_pago' | 'requisicion';
     created_at: string;
     updated_at: string;
 };

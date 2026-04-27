@@ -19,6 +19,7 @@ class PermisoStoreRequest extends FormRequest
         return [
             'descripcion' => ['required', 'string', 'max:255'],
             'nivel' => ['required', 'integer', 'min:1'],
+            'tipo_aprobacion' => ['required', 'in:solicitud_pago,requisicion'],
         ];
     }
 

@@ -13,6 +13,15 @@ const breadcrumbs: BreadcrumbItem[] = [
 const columns: Column<CostosPermiso>[] = [
     { key: 'descripcion', label: 'Descripcion' },
     { key: 'nivel', label: 'Nivel' },
+    {
+        key: 'tipo_aprobacion',
+        label: 'Tipo',
+        render: (p) => (
+            <span className={`badge badge-sm ${p.tipo_aprobacion === 'requisicion' ? 'badge-info' : 'badge-ghost'}`}>
+                {p.tipo_aprobacion === 'requisicion' ? 'Requisición' : 'Solicitud de pago'}
+            </span>
+        ),
+    },
 ];
 
 type Props = {
