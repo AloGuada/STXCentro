@@ -41,6 +41,20 @@ class RequisicionSeleccionController extends Controller
             ]);
         }
 
+        // Consolidacion: si ya existe una seleccion para la misma partida y
+        // mismo precio cotizado (mismo proveedor), suma cantidades en lugar
+        // de crear una fila duplicada — al generar la OC quedaria un solo
+        // detalle limpio en vez de dos identicos.
+        $existente = RequisicionSeleccion::where('requisicion_detalle_id', $cotizacion->requisicion_detalle_id)
+            ->where('cotizacion_precio_id', $cotizacion->id)
+            ->first();
+
+        if ($existente) {
+            $existente->increment('cantidad', $cantidad);
+
+            return back()->with('success', 'Cantidad sumada a la selección existente.');
+        }
+
         RequisicionSeleccion::create([
             'requisicion_detalle_id' => $cotizacion->requisicion_detalle_id,
             'cotizacion_precio_id' => $cotizacion->id,

@@ -97,6 +97,65 @@ test('seleccion no puede exceder cantidad de partida', function () {
         ->assertSessionHasErrors(['cantidad']);
 });
 
+test('seleccion del mismo proveedor se consolida sumando cantidades', function () {
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $detalle = RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'cantidad' => 20,
+    ]);
+    $precio = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+    ]);
+
+    $this->actingAs($this->compras)
+        ->post('/admin/costos/requisiciones/selecciones', [
+            'cotizacion_precio_id' => $precio->id,
+            'cantidad' => 5,
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($this->compras)
+        ->post('/admin/costos/requisiciones/selecciones', [
+            'cotizacion_precio_id' => $precio->id,
+            'cantidad' => 7,
+        ])
+        ->assertRedirect();
+
+    // Solo una fila, con cantidad sumada
+    expect(RequisicionSeleccion::where('cotizacion_precio_id', $precio->id)->count())->toBe(1);
+    expect((float) RequisicionSeleccion::where('cotizacion_precio_id', $precio->id)->first()->cantidad)
+        ->toBe(12.0);
+});
+
+test('consolidacion respeta el limite de cantidad solicitada', function () {
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $detalle = RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'cantidad' => 10,
+    ]);
+    $precio = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+    ]);
+
+    $this->actingAs($this->compras)
+        ->post('/admin/costos/requisiciones/selecciones', [
+            'cotizacion_precio_id' => $precio->id,
+            'cantidad' => 8,
+        ])
+        ->assertRedirect();
+
+    // Intento sumar 5 (8+5 = 13 > 10) — debe fallar y no incrementar
+    $this->actingAs($this->compras)
+        ->post('/admin/costos/requisiciones/selecciones', [
+            'cotizacion_precio_id' => $precio->id,
+            'cantidad' => 5,
+        ])
+        ->assertSessionHasErrors(['cantidad']);
+
+    expect((float) RequisicionSeleccion::where('cotizacion_precio_id', $precio->id)->first()->cantidad)
+        ->toBe(8.0);
+});
+
 test('seleccion permite split entre dos proveedores', function () {
     $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
