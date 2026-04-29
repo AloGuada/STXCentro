@@ -69,6 +69,27 @@ test('siguienteFolio retoma desde el max existente del mes', function () {
     expect($siguiente)->toBe('IV20260316');
 });
 
+test('siguienteFolio compara sufijo numericamente, no lexicograficamente', function () {
+    // Caso real: el bug del orden lexicografico haria que 'IV20260399' >
+    // 'IV202603105' por comparacion de chars, asignando un folio que ya existe.
+    Reporte::factory()->create([
+        'plano_id' => $this->plano->id,
+        'es_plantilla' => false,
+        'folio' => 'IV20260399',
+        'created_at' => '2026-03-15 10:00:00',
+    ]);
+    Reporte::factory()->create([
+        'plano_id' => $this->plano->id,
+        'es_plantilla' => false,
+        'folio' => 'IV202603105',
+        'created_at' => '2026-03-15 12:00:00',
+    ]);
+
+    $siguiente = Reporte::siguienteFolio(now()->parse('2026-03-20'));
+
+    expect($siguiente)->toBe('IV202603106');
+});
+
 test('copiar reporte regenera folio en lugar de duplicarlo', function () {
     $original = Reporte::factory()->create([
         'plano_id' => $this->plano->id,

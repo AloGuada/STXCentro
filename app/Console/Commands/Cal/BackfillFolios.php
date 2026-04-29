@@ -77,13 +77,21 @@ class BackfillFolios extends Command
             $prefix = sprintf('IV%s%s', $fecha->format('Y'), $fecha->format('m'));
 
             if (! isset($contadores[$prefix])) {
-                $ultimoFolio = Reporte::where('folio', 'like', $prefix.'%')
+                // Comparacion numerica del sufijo (no lexicografica) — IV20260399
+                // ordenado por string es mayor que IV202603100, lo cual nos haria
+                // chocar con folios de 3+ digitos pre-existentes.
+                $folios = Reporte::where('folio', 'like', $prefix.'%')
                     ->where('es_plantilla', false)
-                    ->orderByDesc('folio')
-                    ->value('folio');
-                $contadores[$prefix] = $ultimoFolio
-                    ? (int) substr($ultimoFolio, strlen($prefix))
-                    : 0;
+                    ->pluck('folio');
+                $prefixLen = strlen($prefix);
+                $maxNumero = 0;
+                foreach ($folios as $f) {
+                    $sufijo = substr($f, $prefixLen);
+                    if (ctype_digit($sufijo)) {
+                        $maxNumero = max($maxNumero, (int) $sufijo);
+                    }
+                }
+                $contadores[$prefix] = $maxNumero;
             }
 
             $contadores[$prefix]++;

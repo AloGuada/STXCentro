@@ -33,22 +33,32 @@ class Reporte extends Model
 
     /**
      * Siguiente folio disponible para el mes de la fecha dada. Formato
-     * IV{YYYY}{MM}{NN} donde NN es el incremental del mes (01..99+).
-     * El folio se busca por max(folio) like 'IVYYYYMM%' para no depender
-     * de orden cronologico de created_at (a prueba de inserts retroactivos).
+     * IV{YYYY}{MM}{NN+} donde NN es el incremental del mes (puede pasar de 99
+     * cuando hay alta actividad, queda como 100, 101, ...).
+     *
+     * Importante: NO usa orderByDesc('folio') porque el orden lexicografico
+     * miente cuando hay folios de longitud distinta — 'IV20260399' >
+     * 'IV202603100' lexicograficamente. Cargamos todos los folios del mes
+     * y comparamos numericamente el sufijo en PHP.
      */
     public static function siguienteFolio(CarbonInterface $fecha): string
     {
         $prefix = sprintf('IV%s%s', $fecha->format('Y'), $fecha->format('m'));
+        $prefixLen = strlen($prefix);
 
-        $ultimoFolio = static::where('folio', 'like', $prefix.'%')
+        $folios = static::where('folio', 'like', $prefix.'%')
             ->where('es_plantilla', false)
-            ->orderByDesc('folio')
-            ->value('folio');
+            ->pluck('folio');
 
-        $next = $ultimoFolio ? ((int) substr($ultimoFolio, strlen($prefix))) + 1 : 1;
+        $maxNumero = 0;
+        foreach ($folios as $folio) {
+            $sufijo = substr($folio, $prefixLen);
+            if (ctype_digit($sufijo)) {
+                $maxNumero = max($maxNumero, (int) $sufijo);
+            }
+        }
 
-        return sprintf('%s%02d', $prefix, $next);
+        return sprintf('%s%02d', $prefix, $maxNumero + 1);
     }
 
     protected $fillable = [
