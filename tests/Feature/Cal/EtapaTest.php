@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Cal\Etapa;
-use App\Models\Obra;
+use App\Models\Cal\Obra;
 use App\Models\User;
 
 beforeEach(function () {

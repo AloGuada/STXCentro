@@ -49,7 +49,9 @@ class ReporteController extends Controller
 
     public function copiar(Request $request, Reporte $reporte): JsonResponse
     {
-        $nuevoReporte = $reporte->replicate(['aprobado', 'rechazado']);
+        // `folio` se excluye para que el booted del modelo lo regenere fresco;
+        // copiar el folio del original creaba duplicados en BD.
+        $nuevoReporte = $reporte->replicate(['aprobado', 'rechazado', 'folio']);
         $nuevoReporte->consecutivo = $request->input('consecutivo', $reporte->consecutivo);
         $nuevoReporte->comentario = $request->input('comentario', $reporte->comentario);
         $nuevoReporte->es_plantilla = false;

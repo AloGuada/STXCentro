@@ -29,7 +29,8 @@ class ReporteFactory extends Factory
             'linea' => fake()->optional()->numberBetween(1, 20),
             'modulo' => fake()->optional()->numberBetween(1, 10),
             'comentario' => fake()->optional()->sentence(),
-            'folio' => fake()->optional()->bothify('FOL-####'),
+            // folio se autogenera en Reporte::booted() para no-plantillas
+            'folio' => null,
             'soldador_id' => Soldador::factory(),
         ];
     }
