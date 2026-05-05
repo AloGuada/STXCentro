@@ -2,6 +2,7 @@
 
 namespace Database\Factories\Costos;
 
+use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionDetalle;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -20,6 +21,7 @@ class RequisicionDetalleFactory extends Factory
     {
         return [
             'requisicion_id' => Requisicion::factory(),
+            'obra_rubro_id' => ObraRubro::factory(),
             'descripcion' => fake()->words(3, true),
             'unidad' => 'pza',
             'cantidad' => fake()->randomFloat(2, 1, 100),

@@ -36,11 +36,6 @@ const columns: Column<CostosRequisicion>[] = [
         ),
     },
     {
-        key: 'concepto',
-        label: 'Concepto',
-        render: (row) => <span className="text-xs text-base-content/60">{row.concepto}</span>,
-    },
-    {
         key: 'fecha_requerida',
         label: 'Fecha requerida',
         render: (row) => <span className="text-xs text-base-content/60">{fmtDate(row.fecha_requerida)}</span>,
@@ -105,7 +100,7 @@ export default function RequisicionesIndex({ requisiciones, filters, departament
                     data={requisiciones}
                     searchable
                     searchValue={filters.search}
-                    searchPlaceholder="Buscar por folio o concepto..."
+                    searchPlaceholder="Buscar por folio..."
                     createHref="/admin/costos/requisiciones/create"
                     createLabel="Nueva requisición"
                     emptyMessage="No hay requisiciones"

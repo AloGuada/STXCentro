@@ -28,6 +28,7 @@ class RequisicionSeleccionController extends Controller
         $this->ensureEditable($cotizacion->detalle->requisicion->estatus);
 
         $cantidad = (float) $request->input('cantidad');
+        $numeroOc = (int) ($request->input('numero_oc') ?: 1);
         $cantidadPartida = (float) $cotizacion->detalle->cantidad;
         $sumaPrevia = (float) $cotizacion->detalle->selecciones->sum('cantidad');
 
@@ -41,12 +42,13 @@ class RequisicionSeleccionController extends Controller
             ]);
         }
 
-        // Consolidacion: si ya existe una seleccion para la misma partida y
-        // mismo precio cotizado (mismo proveedor), suma cantidades en lugar
-        // de crear una fila duplicada — al generar la OC quedaria un solo
-        // detalle limpio en vez de dos identicos.
+        // Consolidacion por (partida, precio cotizado, numero_oc): el mismo
+        // proveedor en distintas OCs (numero_oc != ) produce filas separadas
+        // para que liberar() agrupe correctamente y compras pueda partir
+        // la compra del mismo proveedor en varias OCs.
         $existente = RequisicionSeleccion::where('requisicion_detalle_id', $cotizacion->requisicion_detalle_id)
             ->where('cotizacion_precio_id', $cotizacion->id)
+            ->where('numero_oc', $numeroOc)
             ->first();
 
         if ($existente) {
@@ -58,6 +60,7 @@ class RequisicionSeleccionController extends Controller
         RequisicionSeleccion::create([
             'requisicion_detalle_id' => $cotizacion->requisicion_detalle_id,
             'cotizacion_precio_id' => $cotizacion->id,
+            'numero_oc' => $numeroOc,
             'proveedor_id' => $cotizacion->proveedor_id,
             'cantidad' => $cantidad,
         ]);

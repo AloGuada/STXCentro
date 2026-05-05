@@ -4,6 +4,7 @@ namespace App\Models\Costos;
 
 use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\FacturaEstatus;
+use App\Enums\Costos\ModoPago;
 use App\Enums\Costos\OrdenCompraEstatus;
 use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasEditLock;
@@ -48,7 +49,11 @@ class OrdenCompra extends Model
         'departamento_id',
         'creado_por',
         'moneda',
+        'tipo_pago',
+        'dias_credito',
+        'forma_pago',
         'total',
+        'envio',
         'fecha_entrega_esperada',
         'notas',
         'estatus',
@@ -63,7 +68,10 @@ class OrdenCompra extends Model
     {
         return [
             'total' => 'decimal:2',
+            'envio' => 'decimal:2',
+            'dias_credito' => 'integer',
             'fecha_entrega_esperada' => 'date',
+            'tipo_pago' => ModoPago::class,
             'estatus' => OrdenCompraEstatus::class,
             'locked_at' => 'datetime',
         ];

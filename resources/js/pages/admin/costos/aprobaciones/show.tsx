@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosAprobacionSolicitud, CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon } from 'lucide-react';
 import { useState } from 'react';
 
@@ -29,22 +29,22 @@ function getStepIndex(estatus: CostosSolicitudPagoEstatus): number {
 }
 
 function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: number; tipo: 'aprobar' | 'rechazar'; onClose: () => void }) {
-    const [observaciones, setObservaciones] = useState('');
-    const [processing, setProcessing] = useState(false);
-
     const esAprobacion = tipo === 'aprobar';
+    const minLen = esAprobacion ? 1 : 10;
+    const { data, setData, post, processing, errors, reset } = useForm({ observaciones: '' });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setProcessing(true);
-        router.post(`/admin/costos/aprobaciones/${aprobacionId}/${tipo}`, { observaciones }, {
+        post(`/admin/costos/aprobaciones/${aprobacionId}/${tipo}`, {
             preserveScroll: true,
-            onFinish: () => {
-                setProcessing(false);
+            onSuccess: () => {
+                reset();
                 onClose();
             },
         });
     };
+
+    const tooShort = data.observaciones.trim().length < minLen;
 
     return (
         <dialog className="modal modal-open">
@@ -53,7 +53,7 @@ function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: num
                 <p className="py-2 text-sm text-base-content/60">
                     {esAprobacion
                         ? 'Agregue sus observaciones para aprobar esta solicitud.'
-                        : 'El rechazo cancelará definitivamente la solicitud.'}
+                        : 'El rechazo cancelará definitivamente la solicitud. Mínimo 10 caracteres.'}
                 </p>
                 <form onSubmit={handleSubmit}>
                     <div className="form-control">
@@ -61,13 +61,16 @@ function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: num
                             <span className="label-text">Observaciones (obligatorias)</span>
                         </label>
                         <textarea
-                            className="textarea textarea-bordered"
+                            className={`textarea textarea-bordered ${errors.observaciones ? 'textarea-error' : ''}`}
                             rows={3}
-                            value={observaciones}
-                            onChange={(e) => setObservaciones(e.target.value)}
+                            value={data.observaciones}
+                            onChange={(e) => setData('observaciones', e.target.value)}
                             required
                             maxLength={500}
                         />
+                        {errors.observaciones && (
+                            <span className="text-error text-xs mt-1">{errors.observaciones}</span>
+                        )}
                     </div>
                     <div className="modal-action">
                         <button type="button" className="btn" onClick={onClose} disabled={processing}>
@@ -76,7 +79,7 @@ function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: num
                         <button
                             type="submit"
                             className={`btn ${esAprobacion ? 'bg-green-600 hover:bg-green-700 text-white' : 'btn-error'}`}
-                            disabled={processing || !observaciones.trim()}
+                            disabled={processing || tooShort}
                         >
                             {esAprobacion ? 'Aprobar' : 'Rechazar'}
                         </button>

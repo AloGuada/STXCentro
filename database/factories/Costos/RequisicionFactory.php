@@ -22,7 +22,6 @@ class RequisicionFactory extends Factory
         return [
             'solicitante_id' => User::factory(),
             'departamento_id' => Departamento::factory(),
-            'concepto' => fake()->sentence(),
             'justificacion' => fake()->optional()->paragraph(),
             'fecha_requerida' => fake()->optional()->date(),
             'estatus' => 'borrador',

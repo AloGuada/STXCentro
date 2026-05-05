@@ -41,7 +41,6 @@ class Requisicion extends Model implements Aprobable
         'folio',
         'solicitante_id',
         'departamento_id',
-        'concepto',
         'justificacion',
         'fecha_requerida',
         'estatus',
@@ -139,7 +138,7 @@ class Requisicion extends Model implements Aprobable
     {
         return LogOptions::defaults()
             ->useLogName('costos')
-            ->logOnly(['folio', 'estatus', 'departamento_id', 'concepto'])
+            ->logOnly(['folio', 'estatus', 'departamento_id'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->setDescriptionForEvent(fn (string $event) => "Requisición {$this->folio}: {$event}");

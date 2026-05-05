@@ -2,6 +2,7 @@
 
 use App\Models\Costos\Aprobacion;
 use App\Models\Costos\AprobacionDepartamento;
+use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Permiso;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
@@ -38,13 +39,15 @@ beforeEach(function () {
 });
 
 test('cualquier usuario con permiso crear puede crear una requisicion en borrador', function () {
+    $rubroA = ObraRubro::factory()->create();
+    $rubroB = ObraRubro::factory()->create();
+
     $this->actingAs($this->user)
         ->post('/admin/costos/requisiciones', [
             'departamento_id' => $this->depto->id,
-            'concepto' => 'Materiales para obra X',
             'detalles' => [
-                ['descripcion' => 'Tornillos 1/4"', 'unidad' => 'pza', 'cantidad' => 100],
-                ['descripcion' => 'Cable AWG 12', 'unidad' => 'm', 'cantidad' => 50],
+                ['descripcion' => 'Tornillos 1/4"', 'unidad' => 'pza', 'cantidad' => 100, 'obra_rubro_id' => $rubroA->id],
+                ['descripcion' => 'Cable AWG 12', 'unidad' => 'm', 'cantidad' => 50, 'obra_rubro_id' => $rubroB->id],
             ],
         ])
         ->assertRedirect();
@@ -54,6 +57,18 @@ test('cualquier usuario con permiso crear puede crear una requisicion en borrado
     expect($req->estatus->value)->toBe('borrador');
     expect($req->folio)->toStartWith('REQ-');
     expect($req->detalles()->count())->toBe(2);
+    expect($req->detalles()->first()->obra_rubro_id)->toBe($rubroA->id);
+});
+
+test('crear requisicion sin rubro por partida falla', function () {
+    $this->actingAs($this->user)
+        ->post('/admin/costos/requisiciones', [
+            'departamento_id' => $this->depto->id,
+            'detalles' => [
+                ['descripcion' => 'Algo', 'unidad' => 'pza', 'cantidad' => 1],
+            ],
+        ])
+        ->assertSessionHasErrors(['detalles.0.obra_rubro_id']);
 });
 
 test('compras captura precio cotizado y la requisicion pasa a cotizada', function () {
@@ -261,6 +276,78 @@ test('no puede enviar a aprobacion sin selecciones completas', function () {
     $this->actingAs($this->compras)
         ->post("/admin/costos/requisiciones/{$req->id}/enviar-aprobacion")
         ->assertSessionHasErrors(['selecciones']);
+});
+
+test('no puede enviar a aprobacion si una partida no tiene rubro asignado', function () {
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $detalle = RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'obra_rubro_id' => null,
+        'cantidad' => 5,
+    ]);
+    $precio = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+    ]);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+        'cotizacion_precio_id' => $precio->id,
+        'proveedor_id' => $precio->proveedor_id,
+        'cantidad' => 5,
+    ]);
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/enviar-aprobacion")
+        ->assertSessionHasErrors(['detalles']);
+});
+
+test('numero_oc consolida por (partida, precio, numero_oc) y crea filas separadas para distintos OC#', function () {
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $detalle = RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'cantidad' => 20,
+    ]);
+    $precio = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+    ]);
+
+    // OC#1 con 5 unidades
+    $this->actingAs($this->compras)
+        ->post('/admin/costos/requisiciones/selecciones', [
+            'cotizacion_precio_id' => $precio->id,
+            'cantidad' => 5,
+            'numero_oc' => 1,
+        ])
+        ->assertRedirect();
+
+    // OC#1 con 3 más → debe consolidar en la misma fila
+    $this->actingAs($this->compras)
+        ->post('/admin/costos/requisiciones/selecciones', [
+            'cotizacion_precio_id' => $precio->id,
+            'cantidad' => 3,
+            'numero_oc' => 1,
+        ])
+        ->assertRedirect();
+
+    // OC#2 con 4 → fila distinta
+    $this->actingAs($this->compras)
+        ->post('/admin/costos/requisiciones/selecciones', [
+            'cotizacion_precio_id' => $precio->id,
+            'cantidad' => 4,
+            'numero_oc' => 2,
+        ])
+        ->assertRedirect();
+
+    expect(RequisicionSeleccion::where('cotizacion_precio_id', $precio->id)->count())->toBe(2);
+
+    $oc1 = RequisicionSeleccion::where('cotizacion_precio_id', $precio->id)
+        ->where('numero_oc', 1)
+        ->first();
+    expect((float) $oc1->cantidad)->toBe(8.0);
+
+    $oc2 = RequisicionSeleccion::where('cotizacion_precio_id', $precio->id)
+        ->where('numero_oc', 2)
+        ->first();
+    expect((float) $oc2->cantidad)->toBe(4.0);
 });
 
 test('rechazo permite volver a borrador para re-cotizar', function () {

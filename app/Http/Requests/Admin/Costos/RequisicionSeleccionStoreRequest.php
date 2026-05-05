@@ -19,6 +19,7 @@ class RequisicionSeleccionStoreRequest extends FormRequest
         return [
             'cotizacion_precio_id' => ['required', 'exists:costos_requisicion_cotizacion_precio,id'],
             'cantidad' => ['required', 'numeric', 'min:0.01'],
+            'numero_oc' => ['nullable', 'integer', 'min:1', 'max:50'],
         ];
     }
 }

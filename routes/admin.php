@@ -160,11 +160,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('permisos', CostosPermisoController::class)->parameters(['permisos' => 'permiso']);
         Route::post('permisos/{permiso}/sync-departamentos', [CostosPermisoController::class, 'syncDepartamentos'])->name('permisos.sync-departamentos');
         // Devoluciones a proveedor (Fase 13)
-        Route::resource('devoluciones', CostosDevolucionController::class)->only(['index', 'create', 'store', 'show'])->parameters(['devoluciones' => 'devolucion']);
+        Route::resource('devoluciones', CostosDevolucionController::class)->only(['index', 'store', 'show'])->parameters(['devoluciones' => 'devolucion']);
         Route::post('devoluciones/{devolucion}/cancelar', [CostosDevolucionController::class, 'cancelar'])->name('devoluciones.cancelar');
 
         // Notas de crédito (Fase 12)
-        Route::resource('notas-credito', CostosNotaCreditoController::class)->only(['index', 'store', 'show'])->parameters(['notas-credito' => 'notaCredito']);
+        Route::resource('notas-credito', CostosNotaCreditoController::class)->only(['index', 'show'])->parameters(['notas-credito' => 'notaCredito']);
         Route::post('notas-credito/{notaCredito}/cancelar', [CostosNotaCreditoController::class, 'cancelar'])->name('notas-credito.cancelar');
 
         // Anticipos a proveedor (Fase 11)
@@ -177,7 +177,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('requisiciones', CostosRequisicionController::class)->parameters(['requisiciones' => 'requisicion']);
         Route::post('requisiciones/{requisicion}/cancelar', [CostosRequisicionController::class, 'cancelar'])->name('requisiciones.cancelar');
         Route::post('requisiciones/{requisicion}/enviar-aprobacion', [CostosRequisicionController::class, 'enviarAprobacion'])->name('requisiciones.enviar-aprobacion');
-        Route::post('requisiciones/{requisicion}/generar-ordenes', [CostosRequisicionController::class, 'generarOrdenes'])->name('requisiciones.generar-ordenes');
+        Route::post('requisiciones/{requisicion}/liberar', [CostosRequisicionController::class, 'liberar'])->name('requisiciones.liberar');
         Route::post('requisiciones/cotizaciones', [CostosRequisicionCotizacionController::class, 'store'])->name('requisiciones.cotizaciones.store');
         Route::delete('requisiciones/cotizaciones/{precio}', [CostosRequisicionCotizacionController::class, 'destroy'])->name('requisiciones.cotizaciones.destroy');
         Route::post('requisiciones/selecciones', [CostosRequisicionSeleccionController::class, 'store'])->name('requisiciones.selecciones.store');

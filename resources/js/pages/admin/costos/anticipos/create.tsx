@@ -24,12 +24,16 @@ const breadcrumbs: BreadcrumbItem[] = [
 type Props = {
     proveedores: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>[];
     obras: Pick<Obra, 'id' | 'descripcion'>[];
+    preset?: {
+        proveedor_id: number | null;
+        obra_id: number | null;
+    };
 };
 
-export default function AnticiposCreate({ proveedores, obras }: Props) {
+export default function AnticiposCreate({ proveedores, obras, preset }: Props) {
     const { data, setData, post, processing, errors } = useForm<FormData>({
-        proveedor_id: '',
-        obra_id: '',
+        proveedor_id: preset?.proveedor_id ?? '',
+        obra_id: preset?.obra_id ?? '',
         monto: 0,
         moneda: 'mxn',
         fecha: new Date().toISOString().slice(0, 10),

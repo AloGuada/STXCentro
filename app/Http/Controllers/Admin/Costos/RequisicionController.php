@@ -6,7 +6,7 @@ use App\Enums\Costos\OrdenCompraEstatus;
 use App\Enums\Costos\RequisicionEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
-use App\Http\Requests\Admin\Costos\GenerarOrdenesRequest;
+use App\Http\Requests\Admin\Costos\RequisicionLiberarRequest;
 use App\Http\Requests\Admin\Costos\RequisicionStoreRequest;
 use App\Http\Requests\Admin\Costos\RequisicionUpdateRequest;
 use App\Models\Costos\AprobacionDepartamento;
@@ -33,10 +33,7 @@ class RequisicionController extends Controller
 
         $requisiciones = Requisicion::query()
             ->with(['solicitante:id,name', 'departamento:id,descripcion'])
-            ->when($request->search, fn ($q, $s) => $q->where(function ($qq) use ($s) {
-                $qq->where('folio', 'like', "%{$s}%")
-                    ->orWhere('concepto', 'like', "%{$s}%");
-            }))
+            ->when($request->search, fn ($q, $s) => $q->where('folio', 'like', "%{$s}%"))
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
             ->when($request->departamento_id, fn ($q, $d) => $q->where('departamento_id', $d))
             ->latest()
@@ -56,6 +53,7 @@ class RequisicionController extends Controller
 
         return Inertia::render('admin/costos/requisiciones/create', [
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
+            'obraRubros' => $this->obraRubrosOptions(),
         ]);
     }
 
@@ -65,7 +63,6 @@ class RequisicionController extends Controller
             $requisicion = Requisicion::create([
                 'solicitante_id' => $request->user()->id,
                 'departamento_id' => $request->integer('departamento_id'),
-                'concepto' => $request->string('concepto'),
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
                 'estatus' => RequisicionEstatus::Borrador->value,
@@ -76,6 +73,7 @@ class RequisicionController extends Controller
                     'descripcion' => $d['descripcion'],
                     'unidad' => $d['unidad'] ?? 'pza',
                     'cantidad' => $d['cantidad'],
+                    'obra_rubro_id' => $d['obra_rubro_id'],
                     'notas' => $d['notas'] ?? null,
                 ]);
             }
@@ -94,6 +92,8 @@ class RequisicionController extends Controller
         $requisicion->load([
             'solicitante:id,name',
             'departamento:id,descripcion',
+            'detalles.obraRubro.obra:id,descripcion',
+            'detalles.obraRubro.rubro:id,codigo,descripcion',
             'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
             'detalles.selecciones.cotizacionPrecio',
             'detalles.selecciones.proveedor:id,razon_social',
@@ -108,14 +108,46 @@ class RequisicionController extends Controller
             'proveedores' => Proveedor::where('activo', true)
                 ->orderBy('razon_social')
                 ->get(['id', 'razon_social', 'nombre_comercial']),
-            'rubros' => ObraRubro::with(['obra:id,nombre', 'rubro:id,descripcion'])
-                ->get()
-                ->map(fn ($or) => [
-                    'id' => $or->id,
-                    'label' => sprintf('%s · %s', $or->obra?->nombre ?? '-', $or->rubro?->descripcion ?? '-'),
-                ])
-                ->values(),
+            'obraRubros' => $this->obraRubrosOptions(),
+            'aprobacionPendienteId' => $this->aprobacionPendienteParaUsuario($requisicion),
         ]);
+    }
+
+    /**
+     * Devuelve el id de la aprobación pendiente del usuario actual cuando es
+     * su turno en la cadena de firmas. Si no es su turno o no tiene firma
+     * asignada, devuelve null.
+     */
+    private function aprobacionPendienteParaUsuario(Requisicion $requisicion): ?int
+    {
+        $userId = auth()->id();
+        if (! $userId) {
+            return null;
+        }
+
+        $mias = $requisicion->aprobaciones
+            ->where('aprobador_id', $userId)
+            ->where('estatus', 'pendiente');
+
+        foreach ($mias as $aprobacion) {
+            $nivelesAnteriores = $requisicion->aprobaciones
+                ->where('nivel', '<', $aprobacion->nivel)
+                ->pluck('nivel')
+                ->unique();
+
+            $todosAprobados = $nivelesAnteriores->every(
+                fn ($nivel) => $requisicion->aprobaciones
+                    ->where('nivel', $nivel)
+                    ->where('estatus', 'aprobada')
+                    ->isNotEmpty()
+            );
+
+            if ($todosAprobados) {
+                return $aprobacion->id;
+            }
+        }
+
+        return null;
     }
 
     public function edit(Requisicion $requisicion): Response
@@ -132,6 +164,7 @@ class RequisicionController extends Controller
         return Inertia::render('admin/costos/requisiciones/edit', [
             'requisicion' => $requisicion,
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
+            'obraRubros' => $this->obraRubrosOptions(),
         ]);
     }
 
@@ -146,7 +179,6 @@ class RequisicionController extends Controller
         DB::transaction(function () use ($request, $requisicion) {
             $requisicion->update([
                 'departamento_id' => $request->integer('departamento_id'),
-                'concepto' => $request->string('concepto'),
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
             ]);
@@ -168,6 +200,7 @@ class RequisicionController extends Controller
                             'descripcion' => $d['descripcion'],
                             'unidad' => $d['unidad'] ?? 'pza',
                             'cantidad' => $d['cantidad'],
+                            'obra_rubro_id' => $d['obra_rubro_id'],
                             'notas' => $d['notas'] ?? null,
                         ]);
                 } else {
@@ -175,6 +208,7 @@ class RequisicionController extends Controller
                         'descripcion' => $d['descripcion'],
                         'unidad' => $d['unidad'] ?? 'pza',
                         'cantidad' => $d['cantidad'],
+                        'obra_rubro_id' => $d['obra_rubro_id'],
                         'notas' => $d['notas'] ?? null,
                     ]);
                 }
@@ -196,7 +230,7 @@ class RequisicionController extends Controller
     {
         Gate::authorize('costos.requisiciones.cancelar');
 
-        if (in_array($requisicion->estatus, [RequisicionEstatus::Convertida, RequisicionEstatus::Cancelada], true)) {
+        if (in_array($requisicion->estatus, [RequisicionEstatus::Liberada, RequisicionEstatus::Cancelada], true)) {
             return back()->withErrors(['estatus' => 'No se puede cancelar una requisición en este estado.']);
         }
 
@@ -214,8 +248,8 @@ class RequisicionController extends Controller
 
     /**
      * Envia la requisicion a la cadena de firmas. Solo permitido en `cotizada`
-     * y exige que cada partida tenga al menos una seleccion cuya cantidad
-     * total no exceda la cantidad solicitada.
+     * y exige captura completa: rubro por detalle, modo de pago, partidas
+     * cubiertas 100% por selecciones, y cada seleccion con precio capturado.
      */
     public function enviarAprobacion(Request $request, Requisicion $requisicion): RedirectResponse
     {
@@ -225,9 +259,15 @@ class RequisicionController extends Controller
             return back()->withErrors(['estatus' => 'La requisición debe estar cotizada para enviarse a aprobación.']);
         }
 
-        $requisicion->load('detalles.selecciones');
+        $requisicion->load('detalles.selecciones.cotizacionPrecio');
 
         foreach ($requisicion->detalles as $detalle) {
+            if (empty($detalle->obra_rubro_id)) {
+                return back()->withErrors([
+                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene rubro asignado.",
+                ]);
+            }
+
             $sumaSelecciones = (float) $detalle->selecciones->sum('cantidad');
             $cantidadPartida = (float) $detalle->cantidad;
 
@@ -237,10 +277,24 @@ class RequisicionController extends Controller
                 ]);
             }
 
+            if ($sumaSelecciones + 0.001 < $cantidadPartida) {
+                return back()->withErrors([
+                    'selecciones' => "La partida \"{$detalle->descripcion}\" no está cubierta al 100% por las selecciones.",
+                ]);
+            }
+
             if ($sumaSelecciones > $cantidadPartida + 0.001) {
                 return back()->withErrors([
                     'selecciones' => "La partida \"{$detalle->descripcion}\" tiene selecciones por encima de la cantidad solicitada.",
                 ]);
+            }
+
+            foreach ($detalle->selecciones as $sel) {
+                if (! $sel->cotizacionPrecio || ! $sel->cotizacionPrecio->precio_unitario) {
+                    return back()->withErrors([
+                        'selecciones' => "La partida \"{$detalle->descripcion}\" tiene una selección sin precio cotizado.",
+                    ]);
+                }
             }
         }
 
@@ -267,60 +321,106 @@ class RequisicionController extends Controller
     }
 
     /**
-     * Genera N ordenes de compra (1 por proveedor) desde una requisicion
-     * aprobada. Cada seleccion lleva su `obra_rubro_id` capturado en este
-     * paso. Registra trazabilidad via `requisicion_id` y `requisicion_detalle_id`.
-     * Aplica impacto presupuestal por OC. Idempotente: si ya hay OCs
-     * generadas, bloquea.
+     * Compras libera la requisicion aprobada: agrupa selecciones por
+     * (proveedor, numero_oc), crea N OCs con su rubro heredado del detalle.
+     * El payload `ocs[]` define modo_pago, envio, notas y fecha por OC.
+     * `total` = subtotal_lineas + envio + IVA(16%). Aplica impacto
+     * presupuestal en la misma transaccion. Idempotente: si ya hay OCs,
+     * bloquea.
      */
-    public function generarOrdenes(GenerarOrdenesRequest $request, Requisicion $requisicion): RedirectResponse
+    public function liberar(RequisicionLiberarRequest $request, Requisicion $requisicion): RedirectResponse
     {
         if ($requisicion->estatus !== RequisicionEstatus::Aprobada) {
-            return back()->withErrors(['estatus' => 'Solo requisiciones aprobadas pueden generar OCs.']);
+            return back()->withErrors(['estatus' => 'Solo requisiciones aprobadas se pueden liberar.']);
         }
 
         if ($requisicion->ordenesGeneradas()->exists()) {
             return back()->withErrors(['estatus' => 'Esta requisición ya tiene OCs generadas.']);
         }
 
-        $rubroPorSeleccion = collect($request->input('rubros', []))
-            ->keyBy('seleccion_id')
-            ->map(fn ($r) => (int) $r['obra_rubro_id']);
+        $requisicion->load([
+            'detalles.selecciones.cotizacionPrecio',
+            'detalles.selecciones.proveedor',
+        ]);
 
-        $requisicion->load('detalles.selecciones.cotizacionPrecio', 'detalles.selecciones.proveedor');
-
-        // Verificar que todas las selecciones traen rubro
-        $todasSelecciones = $requisicion->detalles->flatMap->selecciones;
-        foreach ($todasSelecciones as $sel) {
-            if (! $rubroPorSeleccion->has($sel->id)) {
+        foreach ($requisicion->detalles as $detalle) {
+            if (empty($detalle->obra_rubro_id)) {
                 return back()->withErrors([
-                    'rubros' => "Falta asignar rubro a una selección (#{$sel->id}).",
+                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene rubro asignado.",
+                ]);
+            }
+        }
+
+        $todasSelecciones = $requisicion->detalles->flatMap->selecciones;
+
+        // Indexa el payload `ocs[]` por (proveedor_id, numero_oc) para
+        // resolver overrides (modo_pago, envio, notas, fecha_entrega) por OC.
+        $ocsPayload = collect($request->input('ocs', []))
+            ->keyBy(fn ($oc) => $oc['proveedor_id'].'|'.$oc['numero_oc']);
+
+        $grupos = $todasSelecciones->groupBy(
+            fn (RequisicionSeleccion $s) => $s->proveedor_id.'|'.((int) ($s->numero_oc ?: 1))
+        );
+
+        foreach ($grupos as $key => $_) {
+            if (! $ocsPayload->has($key)) {
+                return back()->withErrors([
+                    'ocs' => "Falta capturar la OC para la combinación proveedor-OC# {$key}.",
                 ]);
             }
         }
 
         $userId = $request->user()->id;
 
-        DB::transaction(function () use ($requisicion, $todasSelecciones, $rubroPorSeleccion, $request, $userId) {
-            // Agrupar selecciones por proveedor -> 1 OC por grupo
-            $porProveedor = $todasSelecciones->groupBy('proveedor_id');
+        DB::transaction(function () use ($requisicion, $grupos, $ocsPayload, $userId) {
+            foreach ($grupos as $key => $selecciones) {
+                $payload = $ocsPayload[$key];
+                $proveedorId = (int) $payload['proveedor_id'];
+                $numeroOc = (int) $payload['numero_oc'];
+                $modoPago = (string) $payload['modo_pago'];
+                $moneda = (string) $payload['moneda'];
+                $envio = (float) ($payload['envio'] ?? 0);
+                $notas = $payload['notas'] ?? null;
 
-            foreach ($porProveedor as $proveedorId => $selecciones) {
-                $total = $selecciones->reduce(function ($acc, RequisicionSeleccion $s) {
+                // La fecha de entrega esperada se calcula a partir de los días
+                // de entrega cotizados: hoy + max(tiempo_entrega_dias) de las
+                // selecciones de esta OC. Si ninguna selección lo trae, queda
+                // null (se asume "lo antes posible").
+                $diasMax = $selecciones->max(
+                    fn (RequisicionSeleccion $s) => (int) ($s->cotizacionPrecio?->tiempo_entrega_dias ?? 0)
+                );
+                $fechaEntrega = $diasMax > 0
+                    ? now()->addDays($diasMax)->format('Y-m-d')
+                    : null;
+
+                $proveedor = Proveedor::find($proveedorId);
+
+                $subtotalLineas = $selecciones->reduce(function ($acc, RequisicionSeleccion $s) {
                     $precio = (float) ($s->cotizacionPrecio?->precio_unitario ?? 0);
 
                     return $acc + $precio * (float) $s->cantidad;
                 }, 0.0);
+
+                $base = $subtotalLineas + $envio;
+                $iva = $base * 0.16;
+                $total = $base + $iva;
+
+                $diasCredito = ($modoPago === 'credito' && $proveedor?->maneja_credito)
+                    ? (int) ($proveedor->dias_credito_default ?? 0)
+                    : 0;
 
                 $oc = OrdenCompra::create([
                     'requisicion_id' => $requisicion->id,
                     'proveedor_id' => $proveedorId,
                     'departamento_id' => $requisicion->departamento_id,
                     'creado_por' => $userId,
-                    'moneda' => $request->string('moneda'),
+                    'moneda' => $moneda,
+                    'tipo_pago' => $modoPago,
+                    'dias_credito' => $diasCredito,
+                    'envio' => round($envio, 2),
                     'total' => round($total, 2),
-                    'fecha_entrega_esperada' => $request->input('fecha_entrega_esperada'),
-                    'notas' => $request->input('notas'),
+                    'fecha_entrega_esperada' => $fechaEntrega,
+                    'notas' => $notas,
                     'estatus' => OrdenCompraEstatus::PendienteFactura->value,
                 ]);
 
@@ -334,7 +434,7 @@ class RequisicionController extends Controller
                     $ocDetalle = OrdenCompraDetalle::create([
                         'orden_compra_id' => $oc->id,
                         'requisicion_detalle_id' => $sel->requisicion_detalle_id,
-                        'obra_rubro_id' => $rubroPorSeleccion[$sel->id],
+                        'obra_rubro_id' => $detalle->obra_rubro_id,
                         'descripcion' => $detalle->descripcion,
                         'unidad' => $detalle->unidad,
                         'cantidad' => $cantidad,
@@ -342,9 +442,8 @@ class RequisicionController extends Controller
                         'subtotal' => $subtotal,
                     ]);
 
-                    // Marca la seleccion con su rubro y la OC partida creada
                     $sel->update([
-                        'obra_rubro_id' => $rubroPorSeleccion[$sel->id],
+                        'obra_rubro_id' => $detalle->obra_rubro_id,
                         'orden_compra_detalle_id' => $ocDetalle->id,
                     ]);
                 }
@@ -353,10 +452,40 @@ class RequisicionController extends Controller
                 $oc->aplicarImpactoPresupuestal($userId);
             }
 
-            $requisicion->transitionTo(RequisicionEstatus::Convertida);
+            $requisicion->transitionTo(RequisicionEstatus::Liberada);
         });
 
         return to_route('admin.costos.requisiciones.show', $requisicion)
-            ->with('success', 'Órdenes de compra generadas correctamente.');
+            ->with('success', 'Requisición liberada y órdenes de compra generadas.');
+    }
+
+    /**
+     * Lista de obra-rubros con info presupuestal para selectores.
+     * `disponible` = presupuestado - acumulado; `sobregiro` cuando es negativo.
+     *
+     * @return \Illuminate\Support\Collection<int, array{id: int, label: string, presupuestado: float, acumulado: float, disponible: float, sobregiro: bool}>
+     */
+    private function obraRubrosOptions(): \Illuminate\Support\Collection
+    {
+        return ObraRubro::with(['obra:id,descripcion', 'rubro:id,codigo,descripcion'])
+            ->get()
+            ->map(function ($or) {
+                $disponible = $or->disponible;
+
+                return [
+                    'id' => $or->id,
+                    'label' => sprintf(
+                        '%s · %s %s',
+                        $or->obra?->descripcion ?? '-',
+                        $or->rubro?->codigo ?? '',
+                        $or->rubro?->descripcion ?? '-',
+                    ),
+                    'presupuestado' => (float) $or->presupuestado,
+                    'acumulado' => (float) $or->acumulado,
+                    'disponible' => $disponible,
+                    'sobregiro' => $disponible < 0,
+                ];
+            })
+            ->values();
     }
 }

@@ -16,6 +16,10 @@ use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
+// El alta de devoluciones se hace desde el show de la OC (rol almacén,
+// permite seleccionar items efectivamente recibidos). El index/show admin
+// se conserva como vista de gestión y consulta histórica.
+
 class DevolucionController extends Controller
 {
     public function index(Request $request): Response
@@ -42,47 +46,6 @@ class DevolucionController extends Controller
         return Inertia::render('admin/costos/devoluciones/index', [
             'devoluciones' => $devoluciones,
             'filters' => $request->only('search', 'estatus'),
-        ]);
-    }
-
-    public function create(Request $request): Response
-    {
-        Gate::authorize('costos.devoluciones.crear');
-
-        // Lista de partidas recibidas con saldo no devuelto > 0, agrupadas por OC.
-        $entregaDetalles = EntregaDetalle::query()
-            ->with([
-                'entrega:id,orden_compra_id,fecha_entrega',
-                'entrega.ordenCompra:id,folio,proveedor_id',
-                'entrega.ordenCompra.proveedor:id,razon_social',
-                'ordenCompraDetalle:id,descripcion,unidad',
-                'devoluciones',
-            ])
-            ->get()
-            ->map(function (EntregaDetalle $ed) {
-                $devueltaVigente = (float) $ed->devoluciones
-                    ->where('estatus', DevolucionEstatus::Vigente->value)
-                    ->sum('cantidad');
-                $disponible = (float) $ed->cantidad_recibida - $devueltaVigente;
-
-                return [
-                    'id' => $ed->id,
-                    'oc_folio' => $ed->entrega?->ordenCompra?->folio,
-                    'oc_id' => $ed->entrega?->ordenCompra?->id,
-                    'proveedor' => $ed->entrega?->ordenCompra?->proveedor?->razon_social,
-                    'fecha_entrega' => $ed->entrega?->fecha_entrega?->format('Y-m-d'),
-                    'partida_descripcion' => $ed->ordenCompraDetalle?->descripcion,
-                    'unidad' => $ed->ordenCompraDetalle?->unidad,
-                    'cantidad_recibida' => (float) $ed->cantidad_recibida,
-                    'cantidad_disponible' => $disponible,
-                ];
-            })
-            ->filter(fn ($row) => $row['cantidad_disponible'] > 0.001)
-            ->values();
-
-        return Inertia::render('admin/costos/devoluciones/create', [
-            'entregaDetalles' => $entregaDetalles,
-            'preselectId' => $request->integer('entrega_detalle_id') ?: null,
         ]);
     }
 

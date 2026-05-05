@@ -1,12 +1,13 @@
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
+import { DevolverItemModal } from '@/components/costos/devolver-item-modal';
 import { EntregaModal } from '@/components/costos/entrega-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosOrdenCompra, CostosOrdenCompraEstatus } from '@/types/models';
-import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
+import { DEVOLUCION_ESTATUS_COLORS, DEVOLUCION_ESTATUS_LABELS, FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
 import { FileIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -28,6 +29,13 @@ function getStepIndex(estatus: CostosOrdenCompraEstatus): number {
     return steps.findIndex((s) => s.key === estatus);
 }
 
+type DevolverTarget = {
+    entregaDetalleId: number;
+    partidaDescripcion: string;
+    unidad: string;
+    cantidadDisponible: number;
+};
+
 export default function OrdenesCompraShow({ ordenCompra }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -38,11 +46,25 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
 
     const { can } = useCan();
     const currentStep = getStepIndex(ordenCompra.estatus);
-    const [activeTab, setActiveTab] = useState<'datos' | 'facturas' | 'historial'>('datos');
+    const [activeTab, setActiveTab] = useState<'datos' | 'facturas' | 'recepciones' | 'historial'>('datos');
     const [showCancelarModal, setShowCancelarModal] = useState(false);
     const [showEntregaModal, setShowEntregaModal] = useState(false);
+    const [devolverTarget, setDevolverTarget] = useState<DevolverTarget | null>(null);
 
     const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+    const puedeCrearAnticipo = can('costos.anticipos.crear')
+        && !['cancelada', 'pagada'].includes(ordenCompra.estatus);
+
+    const puedeDevolver = can('costos.devoluciones.crear')
+        && ordenCompra.estatus !== 'cancelada';
+
+    const totalRecepciones = ordenCompra.entregas?.reduce(
+        (sum, e) => sum + (e.detalles?.length ?? 0),
+        0,
+    ) ?? 0;
+
+    const anticipoCreateUrl = `/admin/costos/anticipos/create?proveedor_id=${ordenCompra.proveedor_id}${ordenCompra.obra_id ? `&obra_id=${ordenCompra.obra_id}` : ''}`;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -72,6 +94,11 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     <div className="flex gap-2">
                         {['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.entregas.crear') && (
                             <Button onClick={() => setShowEntregaModal(true)}>Registrar entrega</Button>
+                        )}
+                        {puedeCrearAnticipo && (
+                            <Button variant="outline" asChild>
+                                <Link href={anticipoCreateUrl}>Crear anticipo</Link>
+                            </Button>
                         )}
                         {['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.ordenes-compra.cancelar') && (
                             <Button variant="destructive" onClick={() => setShowCancelarModal(true)}>Cancelar</Button>
@@ -116,6 +143,7 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                 <div className="tabs tabs-bordered mb-6">
                     <button className={`tab ${activeTab === 'datos' ? 'tab-active' : ''}`} onClick={() => setActiveTab('datos')}>Datos</button>
                     <button className={`tab ${activeTab === 'facturas' ? 'tab-active' : ''}`} onClick={() => setActiveTab('facturas')}>Facturas ({ordenCompra.facturas?.length ?? 0})</button>
+                    <button className={`tab ${activeTab === 'recepciones' ? 'tab-active' : ''}`} onClick={() => setActiveTab('recepciones')}>Recepciones ({totalRecepciones})</button>
                     <button className={`tab ${activeTab === 'historial' ? 'tab-active' : ''}`} onClick={() => setActiveTab('historial')}>Historial ({ordenCompra.activities?.length ?? 0})</button>
                 </div>
 
@@ -242,6 +270,136 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     </div>
                 )}
 
+                {activeTab === 'recepciones' && (
+                    <div className="space-y-4">
+                        {(!ordenCompra.entregas || ordenCompra.entregas.length === 0) ? (
+                            <p className="text-base-content/60">No hay entregas registradas.</p>
+                        ) : (
+                            ordenCompra.entregas.map((entrega) => (
+                                <div key={entrega.id} className="rounded-lg border border-base-300 p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div>
+                                            <span className="font-medium">Entrega #{entrega.id}</span>
+                                            <span className="ml-2 badge badge-sm badge-outline">{entrega.tipo}</span>
+                                            <span className="ml-2 text-sm text-base-content/60">
+                                                {new Date(entrega.fecha_entrega).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        {entrega.recibidor?.name && (
+                                            <span className="text-sm text-base-content/60">
+                                                Recibió: {entrega.recibidor.name}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {entrega.observaciones && (
+                                        <p className="text-sm text-base-content/60 mb-2">{entrega.observaciones}</p>
+                                    )}
+
+                                    <table className="table table-xs">
+                                        <thead>
+                                            <tr>
+                                                <th>Partida</th>
+                                                <th className="text-right">Recibido</th>
+                                                <th className="text-right">Devuelto</th>
+                                                <th className="text-right">Disponible</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {entrega.detalles?.map((d) => {
+                                                const partida = d.orden_compra_detalle ?? ordenCompra.detalles?.find((od) => od.id === d.orden_compra_detalle_id);
+                                                const descripcion = partida?.descripcion ?? `Partida #${d.orden_compra_detalle_id}`;
+                                                const unidad = partida?.unidad ?? '';
+                                                const recibida = Number(d.cantidad_recibida);
+                                                const devueltaVigente = (d.devoluciones ?? [])
+                                                    .filter((dev) => dev.estatus === 'vigente')
+                                                    .reduce((s, dev) => s + Number(dev.cantidad), 0);
+                                                const disponible = Math.max(0, recibida - devueltaVigente);
+
+                                                return (
+                                                    <tr key={d.id}>
+                                                        <td>{descripcion}</td>
+                                                        <td className="text-right">
+                                                            {recibida.toLocaleString('es-MX')} {unidad}
+                                                        </td>
+                                                        <td className="text-right">
+                                                            {devueltaVigente.toLocaleString('es-MX')}
+                                                        </td>
+                                                        <td className="text-right">
+                                                            <strong>{disponible.toLocaleString('es-MX')}</strong>
+                                                        </td>
+                                                        <td className="text-right">
+                                                            {puedeDevolver && disponible > 0.001 ? (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    onClick={() => setDevolverTarget({
+                                                                        entregaDetalleId: d.id,
+                                                                        partidaDescripcion: descripcion,
+                                                                        unidad,
+                                                                        cantidadDisponible: disponible,
+                                                                    })}
+                                                                >
+                                                                    Devolver
+                                                                </Button>
+                                                            ) : (
+                                                                <span className="text-xs text-base-content/40">—</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+
+                                    {entrega.detalles?.some((d) => (d.devoluciones ?? []).length > 0) && (
+                                        <div className="mt-3 border-t border-base-200 pt-3">
+                                            <p className="text-xs text-base-content/60 mb-2">Devoluciones registradas</p>
+                                            <table className="table table-xs">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Folio</th>
+                                                        <th>Partida</th>
+                                                        <th className="text-right">Cantidad</th>
+                                                        <th>Fecha</th>
+                                                        <th>Motivo</th>
+                                                        <th>Estatus</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {entrega.detalles?.flatMap((d) =>
+                                                        (d.devoluciones ?? []).map((dev) => {
+                                                            const partida = d.orden_compra_detalle ?? ordenCompra.detalles?.find((od) => od.id === d.orden_compra_detalle_id);
+                                                            return (
+                                                                <tr key={dev.id}>
+                                                                    <td>
+                                                                        <Link href={`/admin/costos/devoluciones/${dev.id}`} className="link link-primary font-mono text-xs">
+                                                                            {dev.folio}
+                                                                        </Link>
+                                                                    </td>
+                                                                    <td className="text-xs">{partida?.descripcion ?? '-'}</td>
+                                                                    <td className="text-right">{Number(dev.cantidad).toLocaleString('es-MX')}</td>
+                                                                    <td className="text-xs">{dev.fecha}</td>
+                                                                    <td className="text-xs">{dev.motivo}</td>
+                                                                    <td>
+                                                                        <span className={`badge badge-xs ${DEVOLUCION_ESTATUS_COLORS[dev.estatus]}`}>
+                                                                            {DEVOLUCION_ESTATUS_LABELS[dev.estatus]}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
+
                 {activeTab === 'historial' && (
                     <ActivityTimeline activities={ordenCompra.activities ?? []} />
                 )}
@@ -260,6 +418,17 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     onClose={() => setShowEntregaModal(false)}
                     ordenCompra={ordenCompra}
                 />
+
+                {devolverTarget && (
+                    <DevolverItemModal
+                        entregaDetalleId={devolverTarget.entregaDetalleId}
+                        partidaDescripcion={devolverTarget.partidaDescripcion}
+                        unidad={devolverTarget.unidad}
+                        cantidadDisponible={devolverTarget.cantidadDisponible}
+                        open={true}
+                        onClose={() => setDevolverTarget(null)}
+                    />
+                )}
             </div>
         </AppLayout>
     );

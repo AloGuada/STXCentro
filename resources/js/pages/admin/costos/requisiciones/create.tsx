@@ -1,20 +1,21 @@
+import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Departamento } from '@/types/models';
+import type { Departamento, ObraRubroOption } from '@/types/models';
 import { Head, useForm } from '@inertiajs/react';
-import { Trash2Icon, PlusIcon } from 'lucide-react';
+import { PlusIcon, Trash2Icon } from 'lucide-react';
 
 type Detalle = {
     descripcion: string;
     unidad: string;
     cantidad: number;
+    obra_rubro_id: number | '';
     notas: string;
 };
 
 type FormData = {
     departamento_id: number | '';
-    concepto: string;
     justificacion: string;
     fecha_requerida: string;
     detalles: Detalle[];
@@ -29,19 +30,27 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 type Props = {
     departamentos: Pick<Departamento, 'id' | 'descripcion'>[];
+    obraRubros: ObraRubroOption[];
 };
 
-export default function RequisicionesCreate({ departamentos }: Props) {
+const blankDetalle = (): Detalle => ({
+    descripcion: '',
+    unidad: 'pza',
+    cantidad: 1,
+    obra_rubro_id: '',
+    notas: '',
+});
+
+export default function RequisicionesCreate({ departamentos, obraRubros }: Props) {
     const { data, setData, post, processing, errors } = useForm<FormData>({
         departamento_id: '',
-        concepto: '',
         justificacion: '',
         fecha_requerida: '',
-        detalles: [{ descripcion: '', unidad: 'pza', cantidad: 1, notas: '' }],
+        detalles: [blankDetalle()],
     });
 
     const addDetalle = () => {
-        setData('detalles', [...data.detalles, { descripcion: '', unidad: 'pza', cantidad: 1, notas: '' }]);
+        setData('detalles', [...data.detalles, blankDetalle()]);
     };
 
     const removeDetalle = (idx: number) => {
@@ -92,18 +101,6 @@ export default function RequisicionesCreate({ departamentos }: Props) {
                     </div>
 
                     <div className="md:col-span-2">
-                        <label className="label label-text">Concepto / título *</label>
-                        <input
-                            type="text"
-                            className="input input-bordered w-full"
-                            value={data.concepto}
-                            onChange={(e) => setData('concepto', e.target.value)}
-                            placeholder="Ej: Materiales para obra Galaxy"
-                        />
-                        {errors.concepto && <p className="text-error text-sm mt-1">{errors.concepto}</p>}
-                    </div>
-
-                    <div className="md:col-span-2">
                         <label className="label label-text">Justificación</label>
                         <textarea
                             className="textarea textarea-bordered w-full"
@@ -127,6 +124,7 @@ export default function RequisicionesCreate({ departamentos }: Props) {
                         <thead>
                             <tr>
                                 <th>Descripción *</th>
+                                <th className="min-w-[220px]">Rubro *</th>
                                 <th className="w-24">Unidad</th>
                                 <th className="w-28 text-right">Cantidad *</th>
                                 <th>Notas</th>
@@ -145,6 +143,16 @@ export default function RequisicionesCreate({ departamentos }: Props) {
                                         />
                                         {errors[`detalles.${i}.descripcion` as keyof typeof errors] && (
                                             <p className="text-error text-xs mt-1">{errors[`detalles.${i}.descripcion` as keyof typeof errors]}</p>
+                                        )}
+                                    </td>
+                                    <td>
+                                        <RubroSelector
+                                            value={d.obra_rubro_id}
+                                            options={obraRubros}
+                                            onChange={(value) => updateDetalle(i, 'obra_rubro_id', value)}
+                                        />
+                                        {errors[`detalles.${i}.obra_rubro_id` as keyof typeof errors] && (
+                                            <p className="text-error text-xs mt-1">{errors[`detalles.${i}.obra_rubro_id` as keyof typeof errors]}</p>
                                         )}
                                     </td>
                                     <td>
@@ -203,3 +211,4 @@ export default function RequisicionesCreate({ departamentos }: Props) {
         </AppLayout>
     );
 }
+

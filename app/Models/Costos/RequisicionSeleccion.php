@@ -22,6 +22,7 @@ class RequisicionSeleccion extends Model
     protected $fillable = [
         'requisicion_detalle_id',
         'cotizacion_precio_id',
+        'numero_oc',
         'proveedor_id',
         'cantidad',
         'obra_rubro_id',
@@ -35,6 +36,7 @@ class RequisicionSeleccion extends Model
     {
         return [
             'cantidad' => 'decimal:2',
+            'numero_oc' => 'integer',
         ];
     }
 

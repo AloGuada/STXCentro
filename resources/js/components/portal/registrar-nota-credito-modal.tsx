@@ -11,12 +11,7 @@ type Props = {
 
 const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
-/**
- * Modal para registrar una nota de credito sobre la factura abierta.
- * Permite capturar concepto + monto + fecha + (opcional) XML CFDI y PDF.
- * Si hay XML, el backend autollena uuid/totales/impuestos del XML.
- */
-export function RegistrarNotaCreditoModal({ facturaId, saldoFacturado, open, onClose }: Props) {
+export function PortalRegistrarNotaCreditoModal({ facturaId, saldoFacturado, open, onClose }: Props) {
     const [monto, setMonto] = useState<string>('');
     const [concepto, setConcepto] = useState<string>('');
     const [fecha, setFecha] = useState<string>(new Date().toISOString().slice(0, 10));
@@ -54,7 +49,7 @@ export function RegistrarNotaCreditoModal({ facturaId, saldoFacturado, open, onC
         if (xml) data.xml = xml;
         if (pdf) data.pdf = pdf;
 
-        router.post('/admin/costos/notas-credito', data, {
+        router.post('/portal/notas-credito', data, {
             forceFormData: true,
             preserveScroll: true,
             onError: (errors) => {
@@ -75,7 +70,7 @@ export function RegistrarNotaCreditoModal({ facturaId, saldoFacturado, open, onC
     return (
         <dialog className="modal modal-open">
             <div className="modal-box max-w-xl">
-                <h3 className="font-bold text-lg mb-3">Registrar nota de crédito</h3>
+                <h3 className="font-bold text-lg mb-3">Subir nota de crédito</h3>
                 <p className="mb-3 text-sm text-base-content/60">
                     Saldo facturado disponible: <strong>{formatMoney(saldoFacturado)}</strong>
                 </p>
@@ -144,7 +139,7 @@ export function RegistrarNotaCreditoModal({ facturaId, saldoFacturado, open, onC
                 <div className="modal-action">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Cancelar</Button>
                     <Button onClick={submit} disabled={submitting}>
-                        {submitting ? 'Guardando...' : 'Registrar nota'}
+                        {submitting ? 'Guardando...' : 'Subir nota'}
                     </Button>
                 </div>
             </div>

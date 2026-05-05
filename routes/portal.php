@@ -3,6 +3,7 @@
 use App\Http\Controllers\Portal\PortalAuthController;
 use App\Http\Controllers\Portal\PortalDashboardController;
 use App\Http\Controllers\Portal\PortalFacturaController;
+use App\Http\Controllers\Portal\PortalNotaCreditoController;
 use App\Http\Controllers\Portal\PortalOrdenCompraController;
 use App\Http\Controllers\Portal\PortalPagoController;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +28,9 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::resource('facturas', PortalFacturaController::class)
             ->only(['index', 'store', 'show'])
             ->parameters(['facturas' => 'factura']);
+
+        Route::post('notas-credito', [PortalNotaCreditoController::class, 'store'])
+            ->name('notas-credito.store');
 
         Route::resource('pagos', PortalPagoController::class)
             ->only(['index', 'show'])

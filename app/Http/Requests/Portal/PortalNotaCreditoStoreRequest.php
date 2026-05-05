@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Http\Requests\Admin\Costos;
+namespace App\Http\Requests\Portal;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class NotaCreditoStoreRequest extends FormRequest
+class PortalNotaCreditoStoreRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('costos.notas-credito.crear') ?? false;
+        return true;
     }
 
     /**

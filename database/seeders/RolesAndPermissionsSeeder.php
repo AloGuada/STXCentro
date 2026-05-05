@@ -110,11 +110,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.cuentas-internas.ver',
             'costos.cuentas-internas.editar',
             'costos.solicitudes.confirmar-costos',
+            'costos.solicitudes-pago.aprobar',
             // Requisiciones (Fase 10.2)
             'costos.requisiciones.ver',
             'costos.requisiciones.crear',
             'costos.requisiciones.cotizar',
             'costos.requisiciones.aprobar',
+            'costos.requisiciones.liberar',
             'costos.requisiciones.cancelar',
             // Anticipos a proveedor (Fase 11)
             'costos.anticipos.ver',
@@ -400,6 +402,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.proveedores.editar',
             'costos.requisiciones.ver',
             'costos.requisiciones.cotizar',
+            'costos.requisiciones.liberar',
             'costos.requisiciones.cancelar',
         ]);
 

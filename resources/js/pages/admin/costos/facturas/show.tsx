@@ -1,7 +1,6 @@
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { AplicarAnticipoModal } from '@/components/costos/aplicar-anticipo-modal';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
-import { RegistrarNotaCreditoModal } from '@/components/costos/registrar-nota-credito-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -313,7 +312,7 @@ export default function FacturasShow({ factura }: Props) {
                 <AnticiposAplicadosPanel factura={factura} canAplicar={can('costos.anticipos.aplicar')} />
 
                 {/* Notas de credito */}
-                <NotasCreditoPanel factura={factura} canCrear={can('costos.notas-credito.crear')} />
+                <NotasCreditoPanel factura={factura} />
 
                 {/* Pago */}
                 {factura.pago && (
@@ -472,23 +471,18 @@ export default function FacturasShow({ factura }: Props) {
     );
 }
 
-function NotasCreditoPanel({ factura, canCrear }: { factura: CostosFactura; canCrear: boolean }) {
-    const [open, setOpen] = useState(false);
+function NotasCreditoPanel({ factura }: { factura: CostosFactura }) {
     const fmt = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
     const notas = factura.notas_credito ?? [];
     const totalNotas = Number(factura.monto_notas_credito ?? 0);
     const saldoFacturado = Number(factura.saldo_facturado ?? factura.total);
 
-    const puedeCrear = canCrear && !['cancelada'].includes(factura.estatus);
-
     return (
         <div className="mt-6">
             <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-lg font-medium">Notas de crédito</h2>
-                {puedeCrear && (
-                    <Button onClick={() => setOpen(true)}>Registrar nota de crédito</Button>
-                )}
+                <span className="text-xs text-base-content/50">El alta la realiza el proveedor desde su portal</span>
             </div>
 
             <div className="rounded-lg border border-base-300 p-4">
@@ -548,12 +542,6 @@ function NotasCreditoPanel({ factura, canCrear }: { factura: CostosFactura; canC
                 )}
             </div>
 
-            <RegistrarNotaCreditoModal
-                facturaId={factura.id}
-                saldoFacturado={saldoFacturado}
-                open={open}
-                onClose={() => setOpen(false)}
-            />
         </div>
     );
 }

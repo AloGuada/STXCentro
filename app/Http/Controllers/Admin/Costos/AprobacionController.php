@@ -6,6 +6,7 @@ use App\Contracts\Costos\Aprobable;
 use App\Enums\Costos\AprobacionEstatus;
 use App\Http\Controllers\Controller;
 use App\Models\Costos\Aprobacion;
+use App\Models\Costos\Requisicion;
 use App\Models\Costos\SolicitudPago;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,11 +25,26 @@ class AprobacionController extends Controller
 
         $userId = auth()->id();
 
-        // Solo SolicitudPago se muestra hoy en este index. Otros tipos
-        // (Requisicion, etc.) tienen su propio listado en su modulo.
         $baseQuery = fn () => Aprobacion::where('aprobador_id', $userId)
-            ->where('aprobable_type', SolicitudPago::class)
-            ->with(['aprobable.departamento', 'aprobable.proveedor', 'aprobable.solicitante', 'aprobable.tipoSolicitud', 'aprobable.archivos', 'aprobable.media', 'aprobable.detalles.obraRubro']);
+            ->whereIn('aprobable_type', [SolicitudPago::class, Requisicion::class])
+            ->with(['aprobable' => function ($morphTo) {
+                $morphTo->morphWith([
+                    SolicitudPago::class => [
+                        'departamento',
+                        'proveedor',
+                        'solicitante',
+                        'tipoSolicitud',
+                        'archivos',
+                        'media',
+                        'detalles.obraRubro',
+                    ],
+                    Requisicion::class => [
+                        'departamento',
+                        'solicitante',
+                        'detalles.selecciones.cotizacionPrecio',
+                    ],
+                ]);
+            }]);
 
         $pendientes = $baseQuery()
             ->where('estatus', 'pendiente')
@@ -47,13 +63,10 @@ class AprobacionController extends Controller
             ->latest('fecha_respuesta')
             ->get();
 
-        // Para vistas legacy expone tambien `solicitud` cargado.
-        $pendientes->loadMissing('aprobable.solicitante');
-
         return Inertia::render('admin/costos/aprobaciones/index', [
-            'pendientes' => $pendientes->map(fn (Aprobacion $a) => $this->withSolicitudShim($a)),
-            'aprobadas' => $aprobadas->map(fn (Aprobacion $a) => $this->withSolicitudShim($a)),
-            'rechazadas' => $rechazadas->map(fn (Aprobacion $a) => $this->withSolicitudShim($a)),
+            'pendientes' => $pendientes->map(fn (Aprobacion $a) => $this->shape($a)),
+            'aprobadas' => $aprobadas->map(fn (Aprobacion $a) => $this->shape($a)),
+            'rechazadas' => $rechazadas->map(fn (Aprobacion $a) => $this->shape($a)),
         ]);
     }
 
@@ -70,6 +83,13 @@ class AprobacionController extends Controller
 
         $aprobacionSolicitud->load('aprobable');
         $aprobable = $aprobacionSolicitud->aprobable;
+
+        // Las requisiciones tienen su propia vista de detalle (con cotizaciones,
+        // árbol de partidas, etc). Mandamos al aprobador a esa vista; los
+        // botones de Firmar/Rechazar viven en la pestaña "Aprobación" de show.
+        if ($aprobable instanceof Requisicion) {
+            return redirect()->route('admin.costos.requisiciones.show', $aprobable);
+        }
 
         if ($aprobable instanceof SolicitudPago) {
             $aprobable->load([
@@ -220,5 +240,38 @@ class AprobacionController extends Controller
         }
 
         return $a;
+    }
+
+    /**
+     * Forma el row para la bandeja unificada: discrimina tipo y, en el caso
+     * de Requisicion, calcula el total estimado a partir de las selecciones.
+     */
+    private function shape(Aprobacion $a): Aprobacion
+    {
+        $aprobable = $a->aprobable;
+
+        if ($aprobable instanceof SolicitudPago) {
+            $a->setAttribute('tipo', 'solicitud_pago');
+            $a->setRelation('solicitud', $aprobable);
+        } elseif ($aprobable instanceof Requisicion) {
+            $a->setAttribute('tipo', 'requisicion');
+            $a->setRelation('requisicion', $aprobable);
+            $a->setAttribute('requisicion_total', $this->totalEstimadoRequisicion($aprobable));
+        }
+
+        return $a;
+    }
+
+    private function totalEstimadoRequisicion(Requisicion $req): float
+    {
+        $total = 0.0;
+        foreach ($req->detalles as $detalle) {
+            foreach ($detalle->selecciones as $sel) {
+                $precio = (float) ($sel->cotizacionPrecio?->precio_unitario ?? 0);
+                $total += $precio * (float) $sel->cantidad;
+            }
+        }
+
+        return round($total, 2);
     }
 }

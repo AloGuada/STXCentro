@@ -11,7 +11,7 @@ enum RequisicionEstatus: string implements HasStateTransitions
     case PendienteAprobacion = 'pendiente_aprobacion';
     case Aprobada = 'aprobada';
     case Rechazada = 'rechazada';
-    case Convertida = 'convertida';
+    case Liberada = 'liberada';
     case Cancelada = 'cancelada';
 
     /**
@@ -23,9 +23,9 @@ enum RequisicionEstatus: string implements HasStateTransitions
             self::Borrador => [self::Cotizada, self::Cancelada],
             self::Cotizada => [self::Borrador, self::PendienteAprobacion, self::Cancelada],
             self::PendienteAprobacion => [self::Aprobada, self::Rechazada, self::Cancelada],
-            self::Aprobada => [self::Convertida, self::Cancelada],
+            self::Aprobada => [self::Liberada, self::Cancelada],
             self::Rechazada => [self::Borrador, self::Cancelada],
-            self::Convertida,
+            self::Liberada,
             self::Cancelada => [],
         };
     }
@@ -38,7 +38,7 @@ enum RequisicionEstatus: string implements HasStateTransitions
             self::PendienteAprobacion => 'Pendiente de aprobación',
             self::Aprobada => 'Aprobada',
             self::Rechazada => 'Rechazada',
-            self::Convertida => 'Convertida en OC',
+            self::Liberada => 'Liberada',
             self::Cancelada => 'Cancelada',
         };
     }

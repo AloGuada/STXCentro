@@ -46,7 +46,7 @@ class AnticipoController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
         Gate::authorize('costos.anticipos.crear');
 
@@ -55,6 +55,10 @@ class AnticipoController extends Controller
                 ->orderBy('razon_social')
                 ->get(['id', 'razon_social', 'nombre_comercial']),
             'obras' => Obra::orderBy('descripcion')->get(['id', 'descripcion']),
+            'preset' => [
+                'proveedor_id' => $request->integer('proveedor_id') ?: null,
+                'obra_id' => $request->integer('obra_id') ?: null,
+            ],
         ]);
     }
 

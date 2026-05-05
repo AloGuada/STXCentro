@@ -1057,7 +1057,7 @@ export type CostosRequisicionEstatus =
     | 'pendiente_aprobacion'
     | 'aprobada'
     | 'rechazada'
-    | 'convertida'
+    | 'liberada'
     | 'cancelada';
 
 export const REQUISICION_ESTATUS_LABELS: Record<CostosRequisicionEstatus, string> = {
@@ -1066,7 +1066,7 @@ export const REQUISICION_ESTATUS_LABELS: Record<CostosRequisicionEstatus, string
     pendiente_aprobacion: 'Pendiente de aprobación',
     aprobada: 'Aprobada',
     rechazada: 'Rechazada',
-    convertida: 'Convertida en OC',
+    liberada: 'Liberada',
     cancelada: 'Cancelada',
 };
 
@@ -1076,8 +1076,24 @@ export const REQUISICION_ESTATUS_COLORS: Record<CostosRequisicionEstatus, string
     pendiente_aprobacion: 'badge-warning',
     aprobada: 'badge-success',
     rechazada: 'badge-error',
-    convertida: 'badge-primary',
+    liberada: 'badge-primary',
     cancelada: 'badge-neutral',
+};
+
+export type ModoPago = 'contado' | 'credito';
+
+export const MODO_PAGO_LABELS: Record<ModoPago, string> = {
+    contado: 'Contado',
+    credito: 'Crédito',
+};
+
+export type ObraRubroOption = {
+    id: number;
+    label: string;
+    presupuestado: number;
+    acumulado: number;
+    disponible: number;
+    sobregiro: boolean;
 };
 
 export type CostosRequisicion = {
@@ -1085,7 +1101,6 @@ export type CostosRequisicion = {
     folio: string;
     solicitante_id: string;
     departamento_id: number;
-    concepto: string;
     justificacion: string | null;
     fecha_requerida: string | null;
     estatus: CostosRequisicionEstatus;
@@ -1105,10 +1120,18 @@ export type CostosRequisicion = {
 export type CostosRequisicionDetalle = {
     id: number;
     requisicion_id: number;
+    obra_rubro_id: number | null;
     descripcion: string;
     unidad: string;
     cantidad: number;
     notas: string | null;
+    obra_rubro?: {
+        id: number;
+        presupuestado: number | string;
+        acumulado: number | string;
+        obra?: { id: number; descripcion: string };
+        rubro?: { id: number; codigo: string; descripcion: string };
+    };
     cotizaciones?: CostosRequisicionCotizacionPrecio[];
     selecciones?: CostosRequisicionSeleccion[];
     created_at: string;
@@ -1132,6 +1155,7 @@ export type CostosRequisicionSeleccion = {
     id: number;
     requisicion_detalle_id: number;
     cotizacion_precio_id: number;
+    numero_oc: number;
     proveedor_id: number;
     cantidad: number;
     obra_rubro_id: number | null;
@@ -1219,7 +1243,13 @@ export type CostosAprobacionSolicitud = {
     ip: string | null;
     hostname: string | null;
     aprobador?: Usuario;
+    // Discriminador para la bandeja polimórfica
+    tipo?: 'solicitud_pago' | 'requisicion';
+    aprobable_type?: string;
+    aprobable_id?: number;
     solicitud?: CostosSolicitudPago;
+    requisicion?: CostosRequisicion;
+    requisicion_total?: number;
     created_at: string;
     updated_at: string;
 };
@@ -1341,7 +1371,11 @@ export type CostosOrdenCompra = {
     departamento_id: number;
     creado_por: string;
     moneda: CostosTipoMoneda;
+    tipo_pago: ModoPago | null;
+    dias_credito: number;
+    forma_pago: string;
     total: number;
+    envio: number;
     fecha_entrega_esperada: string | null;
     notas: string | null;
     estatus: CostosOrdenCompraEstatus;
@@ -1556,6 +1590,7 @@ export type CostosEntregaDetalle = {
     cantidad_recibida: number;
     observaciones: string | null;
     orden_compra_detalle?: CostosOrdenCompraDetalle;
+    devoluciones?: CostosDevolucion[];
     created_at: string;
     updated_at: string;
 };

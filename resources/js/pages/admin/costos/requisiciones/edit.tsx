@@ -1,7 +1,8 @@
+import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosRequisicion, Departamento } from '@/types/models';
+import type { CostosRequisicion, Departamento, ObraRubroOption } from '@/types/models';
 import { Head, useForm } from '@inertiajs/react';
 import { PlusIcon, Trash2Icon } from 'lucide-react';
 
@@ -10,12 +11,12 @@ type Detalle = {
     descripcion: string;
     unidad: string;
     cantidad: number;
+    obra_rubro_id: number | '';
     notas: string;
 };
 
 type FormData = {
     departamento_id: number;
-    concepto: string;
     justificacion: string;
     fecha_requerida: string;
     detalles: Detalle[];
@@ -25,9 +26,10 @@ type FormData = {
 type Props = {
     requisicion: CostosRequisicion;
     departamentos: Pick<Departamento, 'id' | 'descripcion'>[];
+    obraRubros: ObraRubroOption[];
 };
 
-export default function RequisicionesEdit({ requisicion, departamentos }: Props) {
+export default function RequisicionesEdit({ requisicion, departamentos, obraRubros }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/requisiciones' },
@@ -38,7 +40,6 @@ export default function RequisicionesEdit({ requisicion, departamentos }: Props)
 
     const { data, setData, put, processing, errors } = useForm<FormData>({
         departamento_id: requisicion.departamento_id,
-        concepto: requisicion.concepto,
         justificacion: requisicion.justificacion ?? '',
         fecha_requerida: requisicion.fecha_requerida ?? '',
         detalles: (requisicion.detalles ?? []).map((d) => ({
@@ -46,13 +47,14 @@ export default function RequisicionesEdit({ requisicion, departamentos }: Props)
             descripcion: d.descripcion,
             unidad: d.unidad,
             cantidad: Number(d.cantidad),
+            obra_rubro_id: d.obra_rubro_id ?? '',
             notas: d.notas ?? '',
         })),
         _version: requisicion.updated_at,
     });
 
     const addDetalle = () => {
-        setData('detalles', [...data.detalles, { descripcion: '', unidad: 'pza', cantidad: 1, notas: '' }]);
+        setData('detalles', [...data.detalles, { descripcion: '', unidad: 'pza', cantidad: 1, obra_rubro_id: '', notas: '' }]);
     };
 
     const removeDetalle = (idx: number) => {
@@ -100,16 +102,6 @@ export default function RequisicionesEdit({ requisicion, departamentos }: Props)
                     </div>
 
                     <div className="md:col-span-2">
-                        <label className="label label-text">Concepto *</label>
-                        <input
-                            type="text"
-                            className="input input-bordered w-full"
-                            value={data.concepto}
-                            onChange={(e) => setData('concepto', e.target.value)}
-                        />
-                    </div>
-
-                    <div className="md:col-span-2">
                         <label className="label label-text">Justificación</label>
                         <textarea
                             className="textarea textarea-bordered w-full"
@@ -132,6 +124,7 @@ export default function RequisicionesEdit({ requisicion, departamentos }: Props)
                         <thead>
                             <tr>
                                 <th>Descripción *</th>
+                                <th className="min-w-[220px]">Rubro *</th>
                                 <th className="w-24">Unidad</th>
                                 <th className="w-28 text-right">Cantidad *</th>
                                 <th>Notas</th>
@@ -147,6 +140,13 @@ export default function RequisicionesEdit({ requisicion, departamentos }: Props)
                                             className="input input-bordered input-sm w-full"
                                             value={d.descripcion}
                                             onChange={(e) => updateDetalle(i, 'descripcion', e.target.value)}
+                                        />
+                                    </td>
+                                    <td>
+                                        <RubroSelector
+                                            value={d.obra_rubro_id}
+                                            options={obraRubros}
+                                            onChange={(value) => updateDetalle(i, 'obra_rubro_id', value)}
                                         />
                                     </td>
                                     <td>

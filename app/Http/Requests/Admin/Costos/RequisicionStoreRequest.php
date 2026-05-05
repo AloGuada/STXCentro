@@ -18,13 +18,13 @@ class RequisicionStoreRequest extends FormRequest
     {
         return [
             'departamento_id' => ['required', 'exists:departamentos,id'],
-            'concepto' => ['required', 'string', 'max:255'],
             'justificacion' => ['nullable', 'string'],
             'fecha_requerida' => ['nullable', 'date'],
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.descripcion' => ['required', 'string', 'max:255'],
             'detalles.*.unidad' => ['required', 'string', 'max:20'],
             'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],
+            'detalles.*.obra_rubro_id' => ['required', 'exists:costos_obra_rubros,id'],
             'detalles.*.notas' => ['nullable', 'string'],
         ];
     }
@@ -38,6 +38,7 @@ class RequisicionStoreRequest extends FormRequest
             'detalles.required' => 'Debe registrar al menos una partida.',
             'detalles.min' => 'Debe registrar al menos una partida.',
             'detalles.*.cantidad.min' => 'La cantidad debe ser mayor a cero.',
+            'detalles.*.obra_rubro_id.required' => 'Cada partida requiere un rubro de obra.',
         ];
     }
 }

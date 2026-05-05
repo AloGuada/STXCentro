@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosAprobacionSolicitud } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, CheckIcon, EyeIcon, FileCheckIcon, FileTextIcon, PaperclipIcon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 
@@ -23,22 +23,22 @@ const fmtDate = (date: string | null) =>
 const fmtMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
 function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: number; tipo: 'aprobar' | 'rechazar'; onClose: () => void }) {
-    const [observaciones, setObservaciones] = useState('');
-    const [processing, setProcessing] = useState(false);
-
     const esAprobacion = tipo === 'aprobar';
+    const minLen = esAprobacion ? 1 : 10;
+    const { data, setData, post, processing, errors, reset } = useForm({ observaciones: '' });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setProcessing(true);
-        router.post(`/admin/costos/aprobaciones/${aprobacionId}/${tipo}`, { observaciones }, {
+        post(`/admin/costos/aprobaciones/${aprobacionId}/${tipo}`, {
             preserveScroll: true,
-            onFinish: () => {
-                setProcessing(false);
+            onSuccess: () => {
+                reset();
                 onClose();
             },
         });
     };
+
+    const tooShort = data.observaciones.trim().length < minLen;
 
     return (
         <dialog className="modal modal-open">
@@ -47,7 +47,7 @@ function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: num
                 <p className="py-2 text-sm text-base-content/60">
                     {esAprobacion
                         ? 'Agregue sus observaciones para aprobar esta solicitud.'
-                        : 'El rechazo cancelará definitivamente la solicitud.'}
+                        : 'El rechazo cancelará definitivamente la solicitud. Mínimo 10 caracteres.'}
                 </p>
                 <form onSubmit={handleSubmit}>
                     <div className="form-control">
@@ -55,13 +55,16 @@ function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: num
                             <span className="label-text">Observaciones (obligatorias)</span>
                         </label>
                         <textarea
-                            className="textarea textarea-bordered"
+                            className={`textarea textarea-bordered ${errors.observaciones ? 'textarea-error' : ''}`}
                             rows={3}
-                            value={observaciones}
-                            onChange={(e) => setObservaciones(e.target.value)}
+                            value={data.observaciones}
+                            onChange={(e) => setData('observaciones', e.target.value)}
                             required
                             maxLength={500}
                         />
+                        {errors.observaciones && (
+                            <span className="text-error text-xs mt-1">{errors.observaciones}</span>
+                        )}
                     </div>
                     <div className="modal-action">
                         <button type="button" className="btn" onClick={onClose} disabled={processing}>
@@ -70,7 +73,7 @@ function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: num
                         <button
                             type="submit"
                             className={`btn ${esAprobacion ? 'bg-green-600 hover:bg-green-700 text-white' : 'btn-error'}`}
-                            disabled={processing || !observaciones.trim()}
+                            disabled={processing || tooShort}
                         >
                             {esAprobacion ? 'Aprobar' : 'Rechazar'}
                         </button>
@@ -97,6 +100,77 @@ function PdfModal({ url, title, onClose }: { url: string; title: string; onClose
     );
 }
 
+type RowDisplay = {
+    folio: string;
+    createdAt: string | null;
+    solicitanteName: string;
+    departamentoNombre: string;
+    proveedor: { razon_social: string; rfc?: string | null } | null;
+    tipoLabel: string;
+    monto: number;
+    montoSobregiro: number;
+    detailHref: string;
+    archivosCount: number;
+    pdfUrl: string | null;
+    pdfTitle: string;
+    firmadoUrl: string | null;
+    firmadoTitle: string;
+    estatusOrigen: string | null;
+};
+
+function buildDisplay(a: CostosAprobacionSolicitud, computeSobregiro: boolean): RowDisplay | null {
+    if (a.tipo === 'requisicion' && a.requisicion) {
+        const req = a.requisicion;
+        return {
+            folio: req.folio,
+            createdAt: req.created_at,
+            solicitanteName: req.solicitante?.name ?? '-',
+            departamentoNombre: req.departamento?.descripcion ?? '',
+            proveedor: null,
+            tipoLabel: 'Requisición de compras',
+            monto: a.requisicion_total ?? 0,
+            montoSobregiro: 0,
+            detailHref: `/admin/costos/requisiciones/${req.id}`,
+            archivosCount: 0,
+            pdfUrl: null,
+            pdfTitle: '',
+            firmadoUrl: null,
+            firmadoTitle: '',
+            estatusOrigen: req.estatus,
+        };
+    }
+
+    const sol = a.solicitud;
+    if (!sol) return null;
+
+    const montoSobregiro = computeSobregiro
+        ? (sol.detalles ?? []).reduce((sum, d) => {
+              if (!d.obra_rubro) return sum;
+              const disponible = Number(d.obra_rubro.presupuestado) - Number(d.obra_rubro.acumulado);
+              const exceso = Number(d.subtotal) - disponible;
+              return exceso > 0 ? sum + exceso : sum;
+          }, 0)
+        : 0;
+
+    return {
+        folio: sol.folio ?? '-',
+        createdAt: sol.created_at ?? null,
+        solicitanteName: sol.solicitante?.name ?? '-',
+        departamentoNombre: sol.departamento?.descripcion ?? '',
+        proveedor: sol.proveedor ? { razon_social: sol.proveedor.razon_social, rfc: sol.proveedor.rfc } : null,
+        tipoLabel: sol.tipo_solicitud?.titulo ?? '-',
+        monto: Number(sol.monto_total ?? 0),
+        montoSobregiro,
+        detailHref: `/admin/costos/aprobaciones/${a.id}`,
+        archivosCount: sol.archivos?.length ?? 0,
+        pdfUrl: sol.estatus !== 'borrador' ? `/admin/costos/solicitudes-pago/${sol.id}/pdf` : null,
+        pdfTitle: `Formato ${sol.folio}`,
+        firmadoUrl: sol.media ? `/storage/${sol.media.path}` : null,
+        firmadoTitle: `Firmado ${sol.folio}`,
+        estatusOrigen: sol.estatus ?? null,
+    };
+}
+
 function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; tipo: 'pendientes' | 'aprobadas' | 'rechazadas' }) {
     const [modalState, setModalState] = useState<{ id: number; tipo: 'aprobar' | 'rechazar' } | null>(null);
     const [pdfModal, setPdfModal] = useState<{ url: string; title: string } | null>(null);
@@ -116,10 +190,11 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                 <table className="table">
                     <thead className="sticky top-0 z-10 bg-base-100">
                         <tr>
+                            <th>Tipo</th>
                             <th>Folio</th>
                             <th>Solicitante</th>
                             <th>Proveedor</th>
-                            <th>Tipo Solicitud</th>
+                            <th>Concepto</th>
                             <th className="text-right">Monto</th>
                             <th>Docs</th>
                             {tipo !== 'pendientes' && <th>Fecha</th>}
@@ -129,76 +204,78 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                     </thead>
                     <tbody>
                         {items.map((a) => {
-                            const sol = a.solicitud;
-                            const montoSobregiro = tipo === 'pendientes'
-                                ? (sol?.detalles ?? []).reduce((sum, d) => {
-                                    if (!d.obra_rubro) return sum;
-                                    const disponible = Number(d.obra_rubro.presupuestado) - Number(d.obra_rubro.acumulado);
-                                    const exceso = Number(d.subtotal) - disponible;
-                                    return exceso > 0 ? sum + exceso : sum;
-                                }, 0)
-                                : 0;
-                            const tieneSobregiro = montoSobregiro > 0;
+                            const d = buildDisplay(a, tipo === 'pendientes');
+                            if (!d) return null;
+                            const tieneSobregiro = d.montoSobregiro > 0;
+                            const esRequisicion = a.tipo === 'requisicion';
+
                             return (
                                 <tr key={a.id} className={tieneSobregiro ? 'bg-error/10' : 'hover'}>
                                     <td>
+                                        <span className={`badge badge-sm ${esRequisicion ? 'badge-info' : 'badge-ghost'}`}>
+                                            {esRequisicion ? 'Requisición' : 'Pago'}
+                                        </span>
+                                    </td>
+                                    <td>
                                         <div>
-                                            <span className="font-mono text-xs font-medium">{sol?.folio ?? '-'}</span>
-                                            <div className="mt-0.5 text-[11px] text-base-content/50">{fmtDate(sol?.created_at ?? null)}</div>
+                                            <span className="font-mono text-xs font-medium">{d.folio}</span>
+                                            <div className="mt-0.5 text-[11px] text-base-content/50">{fmtDate(d.createdAt)}</div>
                                         </div>
                                     </td>
                                     <td>
                                         <div>
-                                            <div className="text-sm">{sol?.solicitante?.name ?? '-'}</div>
-                                            <div className="mt-0.5 text-[11px] text-base-content/50">{sol?.departamento?.descripcion ?? ''}</div>
+                                            <div className="text-sm">{d.solicitanteName}</div>
+                                            <div className="mt-0.5 text-[11px] text-base-content/50">{d.departamentoNombre}</div>
                                         </div>
                                     </td>
                                     <td>
-                                        {sol?.proveedor ? (
+                                        {d.proveedor ? (
                                             <div>
-                                                <div className="text-sm">{sol.proveedor.razon_social}</div>
-                                                <div className="mt-0.5 text-[11px] text-base-content/50">RFC: {sol.proveedor.rfc}</div>
+                                                <div className="text-sm">{d.proveedor.razon_social}</div>
+                                                {d.proveedor.rfc && (
+                                                    <div className="mt-0.5 text-[11px] text-base-content/50">RFC: {d.proveedor.rfc}</div>
+                                                )}
                                             </div>
                                         ) : (
                                             <span className="text-base-content/40">-</span>
                                         )}
                                     </td>
-                                    <td><span className="text-xs text-base-content/60">{sol?.tipo_solicitud?.titulo ?? '-'}</span></td>
+                                    <td><span className="text-xs text-base-content/60">{d.tipoLabel}</span></td>
                                     <td className="text-right">
                                         <div className="flex items-center justify-end gap-1">
                                             {tieneSobregiro && <AlertTriangleIcon className="size-4 text-error" title="Sobregiro en rubro" />}
-                                            <span className="font-medium">{fmtMoney(sol?.monto_total ?? 0)}</span>
+                                            <span className="font-medium">{fmtMoney(d.monto)}</span>
                                         </div>
                                         {tieneSobregiro && (
-                                            <div className="mt-0.5 text-[11px] font-semibold text-error">Sobregiro: {fmtMoney(montoSobregiro)}</div>
+                                            <div className="mt-0.5 text-[11px] font-semibold text-error">Sobregiro: {fmtMoney(d.montoSobregiro)}</div>
                                         )}
                                     </td>
                                     <td>
                                         <div className="flex gap-1.5">
-                                            {(sol?.archivos?.length ?? 0) > 0 && (
-                                                <span className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60" title={`${sol!.archivos!.length} archivo(s)`}>
+                                            {d.archivosCount > 0 && (
+                                                <span className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60" title={`${d.archivosCount} archivo(s)`}>
                                                     <PaperclipIcon className="size-3.5" />
                                                 </span>
                                             )}
-                                            {sol?.estatus !== 'borrador' && (
+                                            {d.pdfUrl && (
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); setPdfModal({ url: `/admin/costos/solicitudes-pago/${sol?.id}/pdf`, title: `Formato ${sol?.folio}` }); }}
+                                                    onClick={(e) => { e.stopPropagation(); setPdfModal({ url: d.pdfUrl!, title: d.pdfTitle }); }}
                                                     className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60 transition-colors hover:bg-base-200"
                                                     title="Ver PDF"
                                                 >
                                                     <FileTextIcon className="size-3.5" />
                                                 </button>
                                             )}
-                                            {sol?.media && (
+                                            {d.firmadoUrl && (
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); setPdfModal({ url: `/storage/${sol.media!.path}`, title: `Firmado ${sol?.folio}` }); }}
+                                                    onClick={(e) => { e.stopPropagation(); setPdfModal({ url: d.firmadoUrl!, title: d.firmadoTitle }); }}
                                                     className="flex size-7 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100"
                                                     title="Ver PDF firmado"
                                                 >
                                                     <FileCheckIcon className="size-3.5" />
                                                 </button>
                                             )}
-                                            {(sol?.archivos?.length ?? 0) === 0 && sol?.estatus === 'borrador' && !sol?.media && (
+                                            {d.archivosCount === 0 && !d.pdfUrl && !d.firmadoUrl && (
                                                 <span className="text-xs text-base-content/40">-</span>
                                             )}
                                         </div>
@@ -230,7 +307,7 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                                                 </>
                                             )}
                                             <Link
-                                                href={`/admin/costos/aprobaciones/${a.id}`}
+                                                href={d.detailHref}
                                                 className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60 transition-colors hover:bg-base-200"
                                                 title="Ver detalle"
                                             >

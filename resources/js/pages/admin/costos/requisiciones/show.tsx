@@ -1,26 +1,93 @@
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
-import { ComparativaCotizacion } from '@/components/costos/comparativa-cotizacion';
-import { GenerarOrdenesModal } from '@/components/costos/generar-ordenes-modal';
-import { SeleccionDistribucion } from '@/components/costos/seleccion-distribucion';
+import type { OcOverride } from '@/components/costos/cotizacion-tree';
+import { CotizacionTree } from '@/components/costos/cotizacion-tree';
+import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosRequisicion, Proveedor } from '@/types/models';
 import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 
 type Props = {
     requisicion: CostosRequisicion;
-    proveedores: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>[];
-    rubros: Array<{ id: number; label: string }>;
+    proveedores: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial' | 'maneja_credito'>[];
+    obraRubros: Array<{ id: number; label: string }>;
+    aprobacionPendienteId: number | null;
 };
 
 type Tab = 'datos' | 'cotizacion' | 'aprobacion' | 'ocs';
 
-export default function RequisicionesShow({ requisicion, proveedores, rubros }: Props) {
+const fmtDate = (date: string | null) =>
+    date ? new Date(date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+
+function FirmarRequisicionModal({ aprobacionId, tipo, onClose }: { aprobacionId: number; tipo: 'aprobar' | 'rechazar'; onClose: () => void }) {
+    const esAprobacion = tipo === 'aprobar';
+    const minLen = esAprobacion ? 1 : 10;
+    const { data, setData, post, processing, errors, reset } = useForm({ observaciones: '' });
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        post(`/admin/costos/aprobaciones/${aprobacionId}/${tipo}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                reset();
+                onClose();
+            },
+        });
+    };
+
+    const tooShort = data.observaciones.trim().length < minLen;
+
+    return (
+        <dialog className="modal modal-open">
+            <div className="modal-box">
+                <h3 className="text-lg font-bold">{esAprobacion ? 'Aprobar requisición' : 'Rechazar requisición'}</h3>
+                <p className="py-2 text-sm text-base-content/60">
+                    {esAprobacion
+                        ? 'Agregue sus observaciones para firmar esta requisición.'
+                        : 'El rechazo cancelará la requisición y deberá rehacerse. Mínimo 10 caracteres.'}
+                </p>
+                <form onSubmit={handleSubmit}>
+                    <div className="form-control">
+                        <label className="label">
+                            <span className="label-text">Observaciones (obligatorias)</span>
+                        </label>
+                        <textarea
+                            className={`textarea textarea-bordered ${errors.observaciones ? 'textarea-error' : ''}`}
+                            rows={3}
+                            value={data.observaciones}
+                            onChange={(e) => setData('observaciones', e.target.value)}
+                            required
+                            maxLength={500}
+                        />
+                        {errors.observaciones && (
+                            <span className="text-error text-xs mt-1">{errors.observaciones}</span>
+                        )}
+                    </div>
+                    <div className="modal-action">
+                        <button type="button" className="btn" onClick={onClose} disabled={processing}>
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            className={`btn ${esAprobacion ? 'bg-green-600 hover:bg-green-700 text-white' : 'btn-error'}`}
+                            disabled={processing || tooShort}
+                        >
+                            {esAprobacion ? 'Aprobar' : 'Rechazar'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div className="modal-backdrop" onClick={onClose} />
+        </dialog>
+    );
+}
+
+export default function RequisicionesShow({ requisicion, proveedores, aprobacionPendienteId }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/requisiciones' },
@@ -32,7 +99,9 @@ export default function RequisicionesShow({ requisicion, proveedores, rubros }: 
     const [tab, setTab] = useState<Tab>('datos');
     const [enviando, setEnviando] = useState(false);
     const [cancelando, setCancelando] = useState(false);
-    const [generandoOcs, setGenerandoOcs] = useState(false);
+    const [liberando, setLiberando] = useState(false);
+    const [ocOverrides, setOcOverrides] = useState<OcOverride[]>([]);
+    const [firmando, setFirmando] = useState<'aprobar' | 'rechazar' | null>(null);
 
     const editable = ['borrador', 'rechazada'].includes(requisicion.estatus);
     const cotizable = ['borrador', 'cotizada', 'rechazada'].includes(requisicion.estatus);
@@ -61,10 +130,9 @@ export default function RequisicionesShow({ requisicion, proveedores, rubros }: 
                                 {REQUISICION_ESTATUS_LABELS[requisicion.estatus]}
                             </span>
                             <span className="text-sm text-base-content/60">
-                                {requisicion.solicitante?.name} · {requisicion.departamento?.descripcion}
+                                {requisicion.solicitante?.name} · {requisicion.departamento?.descripcion} · {fmtDate(requisicion.created_at)}
                             </span>
                         </div>
-                        <p className="mt-2 text-sm">{requisicion.concepto}</p>
                     </div>
 
                     <div className="flex gap-2">
@@ -80,13 +148,13 @@ export default function RequisicionesShow({ requisicion, proveedores, rubros }: 
                             </Button>
                         )}
 
-                        {requisicion.estatus === 'aprobada' && can('costos.requisiciones.cotizar') && (
-                            <Button onClick={() => setGenerandoOcs(true)}>
-                                Generar OCs
+                        {requisicion.estatus === 'aprobada' && can('costos.requisiciones.liberar') && (
+                            <Button onClick={() => setLiberando(true)}>
+                                Liberar
                             </Button>
                         )}
 
-                        {!['convertida', 'cancelada'].includes(requisicion.estatus) && can('costos.requisiciones.cancelar') && (
+                        {!['liberada', 'cancelada'].includes(requisicion.estatus) && can('costos.requisiciones.cancelar') && (
                             <Button variant="outline" className="text-error" onClick={() => setCancelando(true)}>
                                 Cancelar
                             </Button>
@@ -102,11 +170,11 @@ export default function RequisicionesShow({ requisicion, proveedores, rubros }: 
                     description="Esta acción detiene el flujo y no se puede revertir."
                 />
 
-                <GenerarOrdenesModal
+                <LiberarRequisicionModal
                     requisicion={requisicion}
-                    rubros={rubros}
-                    open={generandoOcs}
-                    onClose={() => setGenerandoOcs(false)}
+                    ocs={ocOverrides}
+                    open={liberando}
+                    onClose={() => setLiberando(false)}
                 />
 
                 {requisicion.motivo_rechazo && (
@@ -149,20 +217,43 @@ export default function RequisicionesShow({ requisicion, proveedores, rubros }: 
                                 <thead>
                                     <tr>
                                         <th>Descripción</th>
+                                        <th>Rubro</th>
+                                        <th className="text-right">Disponible</th>
                                         <th>Unidad</th>
                                         <th className="text-right">Cantidad</th>
                                         <th>Notas</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {requisicion.detalles?.map((d) => (
-                                        <tr key={d.id}>
-                                            <td>{d.descripcion}</td>
-                                            <td>{d.unidad}</td>
-                                            <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
-                                            <td className="text-xs text-base-content/60">{d.notas ?? '-'}</td>
-                                        </tr>
-                                    ))}
+                                    {requisicion.detalles?.map((d) => {
+                                        const presupuestado = Number(d.obra_rubro?.presupuestado ?? 0);
+                                        const acumulado = Number(d.obra_rubro?.acumulado ?? 0);
+                                        const disponible = presupuestado - acumulado;
+                                        const sobregiro = !!d.obra_rubro && disponible < 0;
+                                        const fmtMoney = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+                                        return (
+                                            <tr key={d.id} className={sobregiro ? 'bg-error/5' : ''}>
+                                                <td>{d.descripcion}</td>
+                                                <td className="text-xs">
+                                                    {d.obra_rubro
+                                                        ? `${d.obra_rubro.obra?.descripcion ?? '-'} · ${d.obra_rubro.rubro?.codigo ?? ''} ${d.obra_rubro.rubro?.descripcion ?? ''}`
+                                                        : <span className="text-warning">Sin rubro</span>}
+                                                </td>
+                                                <td className={`text-right text-xs font-medium ${sobregiro ? 'text-error' : ''}`}>
+                                                    {d.obra_rubro ? (
+                                                        <>
+                                                            {fmtMoney(disponible)}
+                                                            {sobregiro && <span className="ml-1">⚠</span>}
+                                                        </>
+                                                    ) : '—'}
+                                                </td>
+                                                <td>{d.unidad}</td>
+                                                <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
+                                                <td className="text-xs text-base-content/60">{d.notas ?? '-'}</td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -170,22 +261,29 @@ export default function RequisicionesShow({ requisicion, proveedores, rubros }: 
                 )}
 
                 {tab === 'cotizacion' && can('costos.requisiciones.cotizar') && (
-                    <div className="space-y-6">
-                        <ComparativaCotizacion
-                            requisicion={requisicion}
-                            proveedores={proveedores}
-                            editable={cotizable}
-                        />
-                        <SeleccionDistribucion
-                            requisicion={requisicion}
-                            editable={cotizable}
-                        />
-                    </div>
+                    <CotizacionTree
+                        requisicion={requisicion}
+                        proveedores={proveedores}
+                        editable={cotizable}
+                        onPreviewChange={setOcOverrides}
+                    />
                 )}
 
                 {tab === 'aprobacion' && (
                     <div className="rounded-lg border border-base-300 p-4">
-                        <h3 className="mb-3 font-medium">Cadena de firmas</h3>
+                        <div className="mb-3 flex items-center justify-between">
+                            <h3 className="font-medium">Cadena de firmas</h3>
+                            {aprobacionPendienteId && (
+                                <div className="flex gap-2">
+                                    <Button className="bg-green-600 hover:bg-green-700" onClick={() => setFirmando('aprobar')}>
+                                        Firmar
+                                    </Button>
+                                    <Button variant="destructive" onClick={() => setFirmando('rechazar')}>
+                                        Rechazar
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
                         {!requisicion.aprobaciones || requisicion.aprobaciones.length === 0 ? (
                             <p className="text-sm text-base-content/60">Aún no se ha enviado a aprobación.</p>
                         ) : (
@@ -221,6 +319,14 @@ export default function RequisicionesShow({ requisicion, proveedores, rubros }: 
                             </div>
                         )}
                     </div>
+                )}
+
+                {firmando && aprobacionPendienteId && (
+                    <FirmarRequisicionModal
+                        aprobacionId={aprobacionPendienteId}
+                        tipo={firmando}
+                        onClose={() => setFirmando(null)}
+                    />
                 )}
 
                 {tab === 'ocs' && (

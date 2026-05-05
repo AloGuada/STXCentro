@@ -38,6 +38,7 @@ describe('admin costos permisos', function () {
             ->post(route('admin.costos.permisos.store'), [
                 'descripcion' => 'Jefe Depto',
                 'nivel' => 1,
+                'tipo_aprobacion' => 'solicitud_pago',
             ]);
 
         $response->assertRedirect(route('admin.costos.permisos.index'));
@@ -84,6 +85,7 @@ describe('admin costos permisos', function () {
             ->put(route('admin.costos.permisos.update', $permiso), [
                 'descripcion' => 'Gerente',
                 'nivel' => 2,
+                'tipo_aprobacion' => 'solicitud_pago',
             ]);
 
         $response->assertRedirect(route('admin.costos.permisos.index'));

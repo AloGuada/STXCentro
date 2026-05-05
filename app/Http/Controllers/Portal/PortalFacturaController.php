@@ -128,8 +128,11 @@ class PortalFacturaController extends Controller
         $factura->load([
             'ordenCompra:id,folio',
             'entregas.recibidoPor:id,name',
+            'notasCredito' => fn ($q) => $q->latest(),
             'pago',
         ]);
+
+        $factura->append(['monto_notas_credito', 'monto_anticipos', 'saldo_facturado']);
 
         return Inertia::render('portal/facturas/show', [
             'factura' => $factura,
