@@ -195,7 +195,6 @@ const mainNavItems: NavItem[] = [
 
 const footerNavItems: NavItem[] = [
     { title: 'Permisos de Ausencia', href: '/rh/permisos', icon: CalendarCheck },
-    { title: 'Tickets de Soporte', href: '/sti/tickets', icon: Ticket },
     { title: 'Documentación Costos', href: '/admin/documentacion/costos', icon: BookOpen },
     { title: 'Documentación RH', href: '/admin/documentacion/rh', icon: BookOpen },
 ];
