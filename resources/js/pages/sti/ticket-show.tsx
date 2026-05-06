@@ -1,6 +1,4 @@
 import { Button } from '@/components/ui/button';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
 import type { Departamento, StiStatus, StiTicket, StiTicketComentario, StiTicketHistorial } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeftIcon, CheckCircleIcon, ClockIcon, Loader2Icon, MessageSquareIcon, SendIcon, UserIcon, WrenchIcon } from 'lucide-react';
@@ -38,7 +36,7 @@ export default function TicketShow({ ticket }: Props) {
         e.preventDefault();
         if (!data.comentario.trim()) return;
 
-        post(`/sti/ticket/${ticket.id}/comentario`, {
+        post(`/sti/reportes/tickets/${ticket.id}/comentario`, {
             preserveScroll: true,
             onSuccess: () => reset('comentario'),
         });
@@ -51,19 +49,14 @@ export default function TicketShow({ ticket }: Props) {
         }
     };
 
-    const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Tickets de Soporte', href: '/sti/tickets' },
-        { title: `Ticket #${ticket.id}`, href: `/sti/ticket/${ticket.id}` },
-    ];
-
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <div className="min-h-screen bg-base-200">
             <Head title={`Ticket #${ticket.id} - Soporte TI`} />
 
             <div className="mx-auto w-full max-w-3xl p-6 md:p-10">
                 {/* Header */}
                 <div className="mb-4 flex items-center gap-4">
-                    <Link href="/sti/tickets" className="btn btn-ghost btn-sm">
+                    <Link href="/sti/reportes/tickets" className="btn btn-ghost btn-sm">
                         <ArrowLeftIcon className="size-4" />
                         Volver
                     </Link>
@@ -280,6 +273,6 @@ export default function TicketShow({ ticket }: Props) {
                     </div>
                 </div>
             </div>
-        </AppLayout>
+        </div>
     );
 }
