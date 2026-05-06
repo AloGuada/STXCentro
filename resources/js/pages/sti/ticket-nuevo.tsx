@@ -23,7 +23,7 @@ export default function TicketNuevo({ departamentos }: Props) {
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        post('/sti/ticket', {
+        post('/sti/reportes/tickets', {
             onSuccess: () => reset(),
         });
     };

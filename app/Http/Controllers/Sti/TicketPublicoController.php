@@ -61,7 +61,7 @@ class TicketPublicoController extends Controller
             ]);
         }
 
-        return to_route('sti.ticket.create')->with('success', 'Ticket enviado correctamente. Un técnico se pondrá en contacto contigo.');
+        return to_route('sti.reportes.tickets.create')->with('success', 'Ticket enviado correctamente. Un técnico se pondrá en contacto contigo.');
     }
 
     public function show(Ticket $ticket): Response

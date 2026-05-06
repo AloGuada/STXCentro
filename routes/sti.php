@@ -4,14 +4,15 @@ use App\Http\Controllers\Sti\TicketPublicoController;
 use Illuminate\Support\Facades\Route;
 
 // Rutas STI públicas: cualquier usuario puede levantar un ticket sin login
-Route::prefix('sti')->name('sti.')->group(function () {
-    Route::get('/ticket/nuevo', [TicketPublicoController::class, 'create'])->name('ticket.create');
-    Route::post('/ticket', [TicketPublicoController::class, 'store'])->name('ticket.store');
+// (se restringe por IP en nginx — ver location ^~ /sti/reportes/)
+Route::prefix('sti/reportes')->name('sti.reportes.')->group(function () {
+    Route::get('/tickets/nuevo', [TicketPublicoController::class, 'create'])->name('tickets.create');
+    Route::post('/tickets', [TicketPublicoController::class, 'store'])->name('tickets.store');
 });
 
 // Rutas STI autenticadas: ver listado, detalle y comentar
 Route::middleware(['auth', 'verified'])->prefix('sti')->name('sti.')->group(function () {
     Route::get('/tickets', [TicketPublicoController::class, 'index'])->name('ticket.index');
-    Route::get('/ticket/{ticket}', [TicketPublicoController::class, 'show'])->name('ticket.show');
-    Route::post('/ticket/{ticket}/comentario', [TicketPublicoController::class, 'storeComentario'])->name('ticket.comentario.store');
+    Route::get('/tickets/{ticket}', [TicketPublicoController::class, 'show'])->name('ticket.show');
+    Route::post('/tickets/{ticket}/comentario', [TicketPublicoController::class, 'storeComentario'])->name('ticket.comentario.store');
 });

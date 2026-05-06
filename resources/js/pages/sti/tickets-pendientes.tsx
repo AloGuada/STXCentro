@@ -35,7 +35,7 @@ export default function TicketsPendientes({ tickets }: Props) {
                                 </CardTitle>
                                 <CardDescription>Lista de tickets en proceso de atencion. Haz clic en un ticket para ver su historial.</CardDescription>
                             </div>
-                            <Link href="/sti/ticket/nuevo" className="btn btn-primary btn-sm">
+                            <Link href="/sti/reportes/tickets/nuevo" className="btn btn-primary btn-sm">
                                 <PlusIcon className="size-4" />
                                 Nuevo Ticket
                             </Link>
