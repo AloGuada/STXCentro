@@ -167,8 +167,11 @@ describe('admin costos pagos', function () {
         expect($solicitud->estatus->value)->toBe('pagada');
     });
 
-    test('cannot parcializar pago contado', function () {
-        $pago = Pago::factory()->contado()->create();
+    test('puede parcializar pago contado', function () {
+        $pago = Pago::factory()->contado()->create([
+            'monto_pago' => 10000,
+            'estatus' => 'programado',
+        ]);
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.pagos.parcializar', $pago), [
@@ -178,7 +181,10 @@ describe('admin costos pagos', function () {
                 ],
             ]);
 
-        $response->assertSessionHasErrors(['tipo_pago']);
+        $response->assertRedirect();
+        $pago->refresh();
+        expect($pago->pagosParciales()->count())->toBe(2);
+        expect($pago->estatus->value)->toBe('parcial');
     });
 
     test('cannot parcializar already parcializado pago', function () {

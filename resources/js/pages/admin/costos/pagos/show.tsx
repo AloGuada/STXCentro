@@ -253,18 +253,9 @@ export default function PagosShow({ pago }: Props) {
                     </div>
                 )}
 
-                {/* Contado programado: subir comprobante */}
-                {!esCredito && esProgramado && (
-                    <div className="mb-8">
-                        <ComprobanteUpload
-                            url={`/admin/costos/pagos/${pago.id}/upload-comprobante`}
-                            label="Subir Comprobante de Pago"
-                        />
-                    </div>
-                )}
-
-                {/* Crédito programado sin parcialidades: parcializar o pagar en una exhibición */}
-                {esCredito && esProgramado && parciales.length === 0 && (
+                {/* Programado sin parcialidades: parcializar o pagar en una exhibición.
+                    Aplica a contado y crédito por igual. */}
+                {esProgramado && parciales.length === 0 && (
                     <div className="mb-8 space-y-2">
                         <p className="text-sm text-base-content/60">Seleccione cómo liquidar este pago:</p>
                         <div className="flex gap-3">

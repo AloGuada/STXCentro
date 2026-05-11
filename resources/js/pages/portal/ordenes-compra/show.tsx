@@ -82,31 +82,6 @@ export default function PortalOrdenCompraShow({ ordenCompra }: Props) {
                     </div>
                 </div>
 
-                {/* Rubros */}
-                {ordenCompra.detalles && ordenCompra.detalles.length > 0 && (
-                    <div className="mb-6">
-                        <h2 className="text-lg font-medium mb-3">Rubros</h2>
-                        <div className="overflow-x-auto">
-                            <table className="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Rubro</th>
-                                        <th className="text-right">Monto</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {ordenCompra.detalles.map((d) => (
-                                        <tr key={d.id}>
-                                            <td>{d.obra_rubro?.rubro?.codigo} - {d.obra_rubro?.rubro?.descripcion}</td>
-                                            <td className="text-right">{formatMoney(d.monto)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
                 {/* Facturas */}
                 <div className="mb-6">
                     <h2 className="text-lg font-medium mb-3">Facturas</h2>

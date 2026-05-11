@@ -95,10 +95,6 @@ class PagoController extends Controller
 
     public function showParcializar(Pago $pago): Response|RedirectResponse
     {
-        if ($pago->tipo_pago !== 'credito') {
-            return back()->withErrors(['tipo_pago' => 'Solo pagos a crédito pueden parcializarse.']);
-        }
-
         if ($pago->estatus !== PagoEstatus::Programado) {
             return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado.']);
         }

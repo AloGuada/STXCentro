@@ -236,9 +236,21 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                                             <tr key={d.id} className={sobregiro ? 'bg-error/5' : ''}>
                                                 <td>{d.descripcion}</td>
                                                 <td className="text-xs">
-                                                    {d.obra_rubro
-                                                        ? `${d.obra_rubro.obra?.descripcion ?? '-'} · ${d.obra_rubro.rubro?.codigo ?? ''} ${d.obra_rubro.rubro?.descripcion ?? ''}`
-                                                        : <span className="text-warning">Sin rubro</span>}
+                                                    {d.obra_rubro ? (
+                                                        <div className="space-y-0.5">
+                                                            <div className="font-medium">
+                                                                {d.obra_rubro.obra?.no && (
+                                                                    <span className="badge badge-ghost badge-xs mr-1 font-mono">OP-{d.obra_rubro.obra.no}</span>
+                                                                )}
+                                                                {d.obra_rubro.obra?.descripcion ?? '-'}
+                                                            </div>
+                                                            <div className="text-base-content/60">
+                                                                {d.obra_rubro.rubro?.codigo} · {d.obra_rubro.rubro?.descripcion}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-warning">Sin rubro</span>
+                                                    )}
                                                 </td>
                                                 <td className={`text-right text-xs font-medium ${sobregiro ? 'text-error' : ''}`}>
                                                     {d.obra_rubro ? (

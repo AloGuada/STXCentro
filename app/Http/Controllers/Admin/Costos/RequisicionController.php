@@ -92,7 +92,7 @@ class RequisicionController extends Controller
         $requisicion->load([
             'solicitante:id,name',
             'departamento:id,descripcion',
-            'detalles.obraRubro.obra:id,descripcion',
+            'detalles.obraRubro.obra:id,no,descripcion',
             'detalles.obraRubro.rubro:id,codigo,descripcion',
             'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
             'detalles.selecciones.cotizacionPrecio',
@@ -467,15 +467,18 @@ class RequisicionController extends Controller
      */
     private function obraRubrosOptions(): \Illuminate\Support\Collection
     {
-        return ObraRubro::with(['obra:id,descripcion', 'rubro:id,codigo,descripcion'])
+        return ObraRubro::with(['obra:id,no,descripcion', 'rubro:id,codigo,descripcion'])
             ->get()
             ->map(function ($or) {
                 $disponible = $or->disponible;
 
+                $opPrefix = $or->obra?->no ? 'OP-'.$or->obra->no.' · ' : '';
+
                 return [
                     'id' => $or->id,
                     'label' => sprintf(
-                        '%s · %s %s',
+                        '%s%s · %s %s',
+                        $opPrefix,
                         $or->obra?->descripcion ?? '-',
                         $or->rubro?->codigo ?? '',
                         $or->rubro?->descripcion ?? '-',
