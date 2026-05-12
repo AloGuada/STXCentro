@@ -21,7 +21,7 @@ export default function SeccionShow({ seccion }: Props) {
 
             <div className="flex flex-col px-6 py-8">
                 {/* Title */}
-                <h1 className="mb-2 text-lg text-slate-300">{seccion.descripcion}</h1>
+                <h1 className="mb-2 text-lg text-base-content/70">{seccion.descripcion}</h1>
 
                 {/* PDF Viewer */}
                 {pdfUrl ? (
@@ -30,7 +30,7 @@ export default function SeccionShow({ seccion }: Props) {
                     </div>
                 ) : (
                     <div className="flex items-center justify-center py-20">
-                        <p className="text-slate-400">No hay documento disponible</p>
+                        <p className="text-base-content/60">No hay documento disponible</p>
                     </div>
                 )}
             </div>

@@ -13,11 +13,11 @@ function DocumentCard({ documento }: { documento: Documento }) {
     return (
         <Link
             href={`/intra/doc/${documento.id}`}
-            className="flex flex-col items-center justify-center rounded-xl border border-slate-600 bg-slate-800/30 p-4 text-center transition hover:border-slate-500 hover:bg-slate-700/30"
+            className="flex flex-col items-center justify-center rounded-xl border border-base-300 bg-base-100 p-4 text-center shadow-sm transition hover:border-primary/60 hover:bg-base-100/80"
         >
-            <span className="text-sm font-medium text-white">{documento.descripcion}</span>
+            <span className="text-sm font-medium text-base-content">{documento.descripcion}</span>
             {documento.codigo && (
-                <span className="mt-1 text-xs text-slate-400">{documento.codigo}</span>
+                <span className="mt-1 text-xs text-base-content/60">{documento.codigo}</span>
             )}
         </Link>
     );
@@ -33,7 +33,7 @@ export default function AreaShow({ area, documentosPorTipo, breadcrumbs }: Props
 
             <div className="px-6 py-8">
                 {/* Title */}
-                <h1 className="mb-8 text-center text-4xl font-bold italic text-white">
+                <h1 className="mb-8 text-center text-4xl font-bold italic text-base-content">
                     {area.descripcion}
                 </h1>
 
@@ -45,9 +45,9 @@ export default function AreaShow({ area, documentosPorTipo, breadcrumbs }: Props
                                 <Link
                                     key={child.id}
                                     href={`/intra/area/${child.id}`}
-                                    className="flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800/30 p-6 text-center transition hover:border-slate-500 hover:bg-slate-700/30"
+                                    className="flex items-center justify-center rounded-xl border border-base-300 bg-base-100 p-6 text-center shadow-sm transition hover:border-primary/60 hover:bg-base-100/80"
                                 >
-                                    <span className="text-lg font-semibold text-white">
+                                    <span className="text-lg font-semibold text-base-content">
                                         {child.descripcion}
                                     </span>
                                 </Link>
@@ -59,7 +59,7 @@ export default function AreaShow({ area, documentosPorTipo, breadcrumbs }: Props
                 {/* Documents grouped by type */}
                 {Object.entries(documentosPorTipo).map(([tipo, data]) => (
                     <section key={tipo} className="mb-8">
-                        <h2 className="mb-4 text-lg font-semibold text-slate-300">
+                        <h2 className="mb-4 text-lg font-semibold text-base-content/70">
                             {data.label}
                         </h2>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -73,7 +73,7 @@ export default function AreaShow({ area, documentosPorTipo, breadcrumbs }: Props
                 {/* Empty state */}
                 {Object.keys(documentosPorTipo).length === 0 && (!area.children || area.children.length === 0) && (
                     <div className="flex items-center justify-center py-20">
-                        <p className="text-slate-400">No hay contenido disponible en esta área</p>
+                        <p className="text-base-content/60">No hay contenido disponible en esta área</p>
                     </div>
                 )}
             </div>
