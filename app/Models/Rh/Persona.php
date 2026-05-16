@@ -5,7 +5,6 @@ namespace App\Models\Rh;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Persona extends Model
@@ -26,6 +25,27 @@ class Persona extends Model
         'cv_procesado_at',
         'error_procesamiento',
         'reintentos',
+        'imss',
+        'curp',
+        'rfc',
+        'numero_ine',
+        'estado_civil',
+        'hijos',
+        'domicilio',
+        'cp',
+        'localidad',
+        'nombre_padre',
+        'nombre_madre',
+        'cuenta_banco',
+        'banco_op',
+        'c_infonavit',
+        'c_fonacot',
+        'tramite_banco',
+        'texto_cv',
+        'contacto_emergencia_1_nombre',
+        'contacto_emergencia_1_telefono',
+        'contacto_emergencia_2_nombre',
+        'contacto_emergencia_2_telefono',
     ];
 
     /** @return array<string, string> */
@@ -35,6 +55,8 @@ class Persona extends Model
             'fecha_nacimiento' => 'date:Y-m-d',
             'cv_procesado_at' => 'datetime',
             'reintentos' => 'integer',
+            'hijos' => 'integer',
+            'tramite_banco' => 'boolean',
         ];
     }
 
@@ -51,11 +73,6 @@ class Persona extends Model
     public function getNombreCompletoAttribute(): string
     {
         return "{$this->nombre} {$this->apellido}";
-    }
-
-    public function datosExtra(): HasOne
-    {
-        return $this->hasOne(DatosExtra::class, 'persona_id');
     }
 
     public function documentos(): HasMany
@@ -81,10 +98,5 @@ class Persona extends Model
     public function candidaturas(): HasMany
     {
         return $this->hasMany(Candidatura::class, 'persona_id');
-    }
-
-    public function contactosEmergencia(): HasMany
-    {
-        return $this->hasMany(ContactoEmergencia::class, 'persona_id');
     }
 }

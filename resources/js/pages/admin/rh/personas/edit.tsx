@@ -28,8 +28,6 @@ export default function PersonaEdit({ persona }: Props) {
         { title: 'Editar', href: `/admin/rh/personas/${persona.id}/edit` },
     ];
 
-    const extras = persona.datos_extra;
-
     const datosForm = useForm({
         _method: 'put' as const,
         nombre: persona.nombre,
@@ -43,27 +41,28 @@ export default function PersonaEdit({ persona }: Props) {
 
     const extrasForm = useForm({
         _method: 'put' as const,
-        imss: extras?.imss ?? '',
-        curp: extras?.curp ?? '',
-        rfc: extras?.rfc ?? '',
-        numero_ine: extras?.numero_ine ?? '',
-        estado_civil: extras?.estado_civil ?? '',
-        hijos: extras?.hijos != null ? String(extras.hijos) : '',
-        domicilio: extras?.domicilio ?? '',
-        cp: extras?.cp ?? '',
-        localidad: extras?.localidad ?? '',
-        nombre_padre: extras?.nombre_padre ?? '',
-        nombre_madre: extras?.nombre_madre ?? '',
-        cuenta_banco: extras?.cuenta_banco ?? '',
-        banco_op: extras?.banco_op ?? '',
-        c_infonavit: extras?.c_infonavit ?? '',
-        c_fonacot: extras?.c_fonacot ?? '',
-        tramite_banco: extras?.tramite_banco ?? false,
-    });
-
-    const contactoForm = useForm({
-        nombre: '',
-        telefono: '',
+        nombre: persona.nombre,
+        apellido: persona.apellido,
+        imss: persona.imss ?? '',
+        curp: persona.curp ?? '',
+        rfc: persona.rfc ?? '',
+        numero_ine: persona.numero_ine ?? '',
+        estado_civil: persona.estado_civil ?? '',
+        hijos: persona.hijos != null ? String(persona.hijos) : '',
+        domicilio: persona.domicilio ?? '',
+        cp: persona.cp ?? '',
+        localidad: persona.localidad ?? '',
+        nombre_padre: persona.nombre_padre ?? '',
+        nombre_madre: persona.nombre_madre ?? '',
+        cuenta_banco: persona.cuenta_banco ?? '',
+        banco_op: persona.banco_op ?? '',
+        c_infonavit: persona.c_infonavit ?? '',
+        c_fonacot: persona.c_fonacot ?? '',
+        tramite_banco: persona.tramite_banco ?? false,
+        contacto_emergencia_1_nombre: persona.contacto_emergencia_1_nombre ?? '',
+        contacto_emergencia_1_telefono: persona.contacto_emergencia_1_telefono ?? '',
+        contacto_emergencia_2_nombre: persona.contacto_emergencia_2_nombre ?? '',
+        contacto_emergencia_2_telefono: persona.contacto_emergencia_2_telefono ?? '',
     });
 
     const [cvCheck, setCvCheck] = useState<PdfTextCheck | null>(null);
@@ -117,11 +116,11 @@ export default function PersonaEdit({ persona }: Props) {
             { key: 'constancia_fiscal', label: 'Constancia situacion fiscal', required: true, done: !!hasTipoDoc('constancia_fiscal') },
             { key: 'ine', label: 'INE', required: !!esDeptoConstruccion, done: !!hasTipoDoc('ine') },
             { key: 'comprobante_domicilio', label: 'Comprobante domicilio (3 meses)', required: true, done: !!hasTipoDoc('comprobante_domicilio') },
-            { key: 'cuenta_banco', label: 'Cuenta banco (Banorte)', required: !persona.datos_extra?.tramite_banco, done: !!persona.datos_extra?.cuenta_banco },
+            { key: 'cuenta_banco', label: 'Cuenta banco (Banorte)', required: !persona.tramite_banco, done: !!persona.cuenta_banco },
             { key: 'cv', label: 'CV o solicitud de empleo', required: false, done: !!hasTipoDoc('cv') || !!hasTipoDoc('solicitud_empleo') || !!persona.media },
             { key: 'certificado_estudio', label: 'Ultimo certificado de estudio', required: false, done: !!hasTipoDoc('certificado_estudio') },
             { key: 'retencion_infonavit', label: 'Hoja retencion Infonavit', required: false, done: !!hasTipoDoc('retencion_infonavit') },
-            { key: 'contacto_emergencia', label: 'Contacto de emergencia', required: true, done: (persona.contactos_emergencia?.length ?? 0) > 0 },
+            { key: 'contacto_emergencia', label: 'Contacto de emergencia', required: true, done: !!persona.contacto_emergencia_1_nombre },
             { key: 'contacto_comunicacion', label: 'Correo electronico o telefono', required: true, done: !!persona.email || !!persona.telefono },
         ];
         const requiredItems = items.filter((i) => i.required);
@@ -137,7 +136,7 @@ export default function PersonaEdit({ persona }: Props) {
 
     const handleExtrasSubmit = (e: FormEvent) => {
         e.preventDefault();
-        extrasForm.put(`/admin/rh/personas/${persona.id}/datos-extra`, { preserveScroll: true });
+        extrasForm.put(`/admin/rh/personas/${persona.id}`, { preserveScroll: true });
     };
 
     const docTipoFinal = docTipo === 'otro' ? docTipoCustom.trim() : docTipo;
@@ -162,25 +161,25 @@ export default function PersonaEdit({ persona }: Props) {
     };
 
     const handleTramiteBancoToggle = () => {
-        router.put(`/admin/rh/personas/${persona.id}/datos-extra`, {
-            ...{
-                imss: extras?.imss ?? '',
-                curp: extras?.curp ?? '',
-                rfc: extras?.rfc ?? '',
-                numero_ine: extras?.numero_ine ?? '',
-                estado_civil: extras?.estado_civil ?? '',
-                hijos: extras?.hijos != null ? String(extras.hijos) : '',
-                domicilio: extras?.domicilio ?? '',
-                cp: extras?.cp ?? '',
-                localidad: extras?.localidad ?? '',
-                nombre_padre: extras?.nombre_padre ?? '',
-                nombre_madre: extras?.nombre_madre ?? '',
-                cuenta_banco: extras?.cuenta_banco ?? '',
-                banco_op: extras?.banco_op ?? '',
-                c_infonavit: extras?.c_infonavit ?? '',
-                c_fonacot: extras?.c_fonacot ?? '',
-            },
-            tramite_banco: !persona.datos_extra?.tramite_banco,
+        router.put(`/admin/rh/personas/${persona.id}`, {
+            nombre: persona.nombre,
+            apellido: persona.apellido,
+            imss: persona.imss ?? '',
+            curp: persona.curp ?? '',
+            rfc: persona.rfc ?? '',
+            numero_ine: persona.numero_ine ?? '',
+            estado_civil: persona.estado_civil ?? '',
+            hijos: persona.hijos != null ? String(persona.hijos) : '',
+            domicilio: persona.domicilio ?? '',
+            cp: persona.cp ?? '',
+            localidad: persona.localidad ?? '',
+            nombre_padre: persona.nombre_padre ?? '',
+            nombre_madre: persona.nombre_madre ?? '',
+            cuenta_banco: persona.cuenta_banco ?? '',
+            banco_op: persona.banco_op ?? '',
+            c_infonavit: persona.c_infonavit ?? '',
+            c_fonacot: persona.c_fonacot ?? '',
+            tramite_banco: !persona.tramite_banco,
         }, { preserveScroll: true });
     };
 
@@ -452,67 +451,57 @@ export default function PersonaEdit({ persona }: Props) {
                             </div>
                         </form>
 
-                        {/* Contactos de Emergencia */}
+                        {/* Contactos de Emergencia (hasta 2) */}
                         <div className="mt-8 border-t pt-6">
                             <h3 className="mb-4 text-lg font-semibold">Contactos de Emergencia</h3>
 
-                            {(persona.contactos_emergencia ?? []).length > 0 && (
-                                <div className="mb-4 space-y-2">
-                                    {persona.contactos_emergencia!.map((contacto) => (
-                                        <div key={contacto.id} className="flex items-center justify-between rounded border p-3">
-                                            <div>
-                                                <span className="font-medium">{contacto.nombre}</span>
-                                                <span className="ml-2 text-muted-foreground">{contacto.telefono}</span>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => {
-                                                    if (confirm('¿Eliminar este contacto de emergencia?')) {
-                                                        router.delete(`/admin/rh/personas/${persona.id}/contactos-emergencia/${contacto.id}`, { preserveScroll: true });
-                                                    }
-                                                }}
-                                            >
-                                                <TrashIcon className="size-4 text-destructive" />
-                                            </Button>
-                                        </div>
-                                    ))}
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="mb-2 text-sm font-medium">Contacto 1</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField label="Nombre" htmlFor="ce1_nombre" error={extrasForm.errors.contacto_emergencia_1_nombre}>
+                                            <Input
+                                                id="ce1_nombre"
+                                                value={extrasForm.data.contacto_emergencia_1_nombre}
+                                                onChange={(e) => extrasForm.setData('contacto_emergencia_1_nombre', e.target.value)}
+                                                placeholder="Nombre del contacto"
+                                            />
+                                        </FormField>
+                                        <FormField label="Teléfono" htmlFor="ce1_telefono" error={extrasForm.errors.contacto_emergencia_1_telefono}>
+                                            <Input
+                                                id="ce1_telefono"
+                                                value={extrasForm.data.contacto_emergencia_1_telefono}
+                                                onChange={(e) => extrasForm.setData('contacto_emergencia_1_telefono', e.target.value)}
+                                                placeholder="Número de teléfono"
+                                            />
+                                        </FormField>
+                                    </div>
                                 </div>
-                            )}
 
-                            <form
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    contactoForm.post(`/admin/rh/personas/${persona.id}/contactos-emergencia`, {
-                                        preserveScroll: true,
-                                        onSuccess: () => contactoForm.reset(),
-                                    });
-                                }}
-                                className="space-y-3"
-                            >
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField label="Nombre" htmlFor="contacto_nombre" error={contactoForm.errors.nombre}>
-                                        <Input
-                                            id="contacto_nombre"
-                                            value={contactoForm.data.nombre}
-                                            onChange={(e) => contactoForm.setData('nombre', e.target.value)}
-                                            placeholder="Nombre del contacto"
-                                        />
-                                    </FormField>
-                                    <FormField label="Teléfono" htmlFor="contacto_telefono" error={contactoForm.errors.telefono}>
-                                        <Input
-                                            id="contacto_telefono"
-                                            value={contactoForm.data.telefono}
-                                            onChange={(e) => contactoForm.setData('telefono', e.target.value)}
-                                            placeholder="Número de teléfono"
-                                        />
-                                    </FormField>
+                                <div>
+                                    <p className="mb-2 text-sm font-medium">Contacto 2</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField label="Nombre" htmlFor="ce2_nombre" error={extrasForm.errors.contacto_emergencia_2_nombre}>
+                                            <Input
+                                                id="ce2_nombre"
+                                                value={extrasForm.data.contacto_emergencia_2_nombre}
+                                                onChange={(e) => extrasForm.setData('contacto_emergencia_2_nombre', e.target.value)}
+                                                placeholder="Nombre del contacto"
+                                            />
+                                        </FormField>
+                                        <FormField label="Teléfono" htmlFor="ce2_telefono" error={extrasForm.errors.contacto_emergencia_2_telefono}>
+                                            <Input
+                                                id="ce2_telefono"
+                                                value={extrasForm.data.contacto_emergencia_2_telefono}
+                                                onChange={(e) => extrasForm.setData('contacto_emergencia_2_telefono', e.target.value)}
+                                                placeholder="Número de teléfono"
+                                            />
+                                        </FormField>
+                                    </div>
                                 </div>
-                                <Button type="submit" disabled={contactoForm.processing || !contactoForm.data.nombre.trim() || !contactoForm.data.telefono.trim()}>
-                                    {contactoForm.processing && <Loader2Icon className="size-4 animate-spin" />}
-                                    Agregar contacto
-                                </Button>
-                            </form>
+
+                                <p className="text-xs text-muted-foreground">Los contactos se guardan junto con los demás datos extra al presionar &quot;Guardar&quot;.</p>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -551,7 +540,7 @@ export default function PersonaEdit({ persona }: Props) {
                                                         <input
                                                             type="checkbox"
                                                             className="checkbox checkbox-xs"
-                                                            checked={persona.datos_extra?.tramite_banco ?? false}
+                                                            checked={persona.tramite_banco ?? false}
                                                             onChange={handleTramiteBancoToggle}
                                                         />
                                                         Se le tramitara

@@ -182,7 +182,7 @@ function InfoRow({ label, value }: { label: string; value: string | number | nul
 }
 
 function PersonaModal({ persona, onClose }: { persona: RhPersona | null; onClose: () => void }) {
-    const extras = persona?.datos_extra;
+    const extras = persona;
     const periodos = persona?.periodos_laborales ?? [];
     const documentos = persona?.documentos ?? [];
 

@@ -30,7 +30,7 @@ class PeriodoLaboralController extends Controller
         $this->authorize('rh.periodos-laborales.ver');
 
         $periodos = PeriodoLaboral::query()
-            ->with(['persona.datosExtra', 'persona.foto', 'persona.periodosLaborales.puesto', 'persona.documentos.media', 'puesto.departamento', 'requisicion'])
+            ->with(['persona.foto', 'persona.periodosLaborales.puesto', 'persona.documentos.media', 'puesto.departamento', 'requisicion'])
             ->when($request->search, function ($query, $search) {
                 $needle = '%'.mb_strtolower($search).'%';
                 $query->where(function ($q) use ($needle) {
@@ -112,7 +112,7 @@ class PeriodoLaboralController extends Controller
     {
         $this->authorize('rh.periodos-laborales.editar');
 
-        $periodoLaboral->load(['persona.datosExtra', 'puesto', 'onboarding.tareas.responsable.persona', 'onboarding.tareas.media', 'requisicion']);
+        $periodoLaboral->load(['persona', 'puesto', 'onboarding.tareas.responsable.persona', 'onboarding.tareas.media', 'requisicion']);
 
         $periodosActivos = PeriodoLaboral::query()
             ->where('estado', 'activo')
@@ -167,10 +167,10 @@ class PeriodoLaboralController extends Controller
     {
         $this->authorize('rh.periodos-laborales.ver');
 
-        $periodoLaboral->load(['persona.datosExtra', 'persona.foto', 'persona.contactosEmergencia', 'puesto.departamento', 'requisicion']);
+        $periodoLaboral->load(['persona.foto', 'puesto.departamento', 'requisicion']);
 
         $persona = $periodoLaboral->persona;
-        $extras = $persona->datosExtra;
+        $extras = $persona;
         $curp = $extras->curp ?? '';
 
         $fotoPath = null;
@@ -230,7 +230,10 @@ class PeriodoLaboralController extends Controller
             'numeroLocker' => $periodoLaboral->numero_locker ?? '',
             'tipoContrato' => $request->query('tipo', $periodoLaboral->tipo_contrato ?? 'planta'),
             'fotoPath' => $fotoPath,
-            'contactosEmergencia' => $persona->contactosEmergencia ?? collect(),
+            'contactosEmergencia' => collect([
+                (object) ['nombre' => $persona->contacto_emergencia_1_nombre, 'telefono' => $persona->contacto_emergencia_1_telefono],
+                (object) ['nombre' => $persona->contacto_emergencia_2_nombre, 'telefono' => $persona->contacto_emergencia_2_telefono],
+            ])->filter(fn ($c) => ! empty($c->nombre))->values(),
         ])->setPaper('letter', 'portrait');
 
         $filename = 'contrato-'.$persona->nombre.'-'.$persona->apellido.'.pdf';

@@ -359,11 +359,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Personas
         Route::resource('personas', RhPersonaController::class)->parameters(['personas' => 'persona']);
-        Route::put('personas/{persona}/datos-extra', [RhPersonaController::class, 'updateDatosExtra'])->name('personas.datos-extra.update');
         Route::post('personas/{persona}/documentos', [RhPersonaController::class, 'storeDocumento'])->name('personas.documentos.store');
         Route::delete('personas/{persona}/documentos/{documento}', [RhPersonaController::class, 'destroyDocumento'])->name('personas.documentos.destroy');
-        Route::post('personas/{persona}/contactos-emergencia', [RhPersonaController::class, 'storeContactoEmergencia'])->name('personas.contactos-emergencia.store');
-        Route::delete('personas/{persona}/contactos-emergencia/{contacto}', [RhPersonaController::class, 'destroyContactoEmergencia'])->name('personas.contactos-emergencia.destroy');
 
         // Periodos Laborales
         Route::resource('periodos-laborales', RhPeriodoLaboralController::class)->parameters(['periodos-laborales' => 'periodoLaboral']);

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin\Rh;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Rh\PersonaStoreRequest;
 use App\Http\Requests\Admin\Rh\PersonaUpdateRequest;
-use App\Models\Rh\ContactoEmergencia;
 use App\Models\Rh\Persona;
 use App\Models\Rh\PersonaDocumento;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +25,7 @@ class PersonaController extends Controller
         $sortDir = $request->sort_dir === 'desc' ? 'desc' : ($request->sort_by ? 'asc' : 'desc');
 
         $personas = Persona::query()
-            ->with(['datosExtra', 'periodosLaborales.puesto.departamento', 'periodosLaborales.requisicion', 'foto', 'documentos.media'])
+            ->with(['periodosLaborales.puesto.departamento', 'periodosLaborales.requisicion', 'foto', 'documentos.media'])
             ->when($request->search, function ($query, $search) {
                 $search = mb_strtolower($search);
                 $query->where(function ($q) use ($search) {
@@ -34,9 +33,7 @@ class PersonaController extends Controller
                         ->orWhereRaw('LOWER(apellido) like ?', ["%{$search}%"])
                         ->orWhereRaw('LOWER(email) like ?', ["%{$search}%"])
                         ->orWhere('telefono', 'like', "%{$search}%")
-                        ->orWhereHas('datosExtra', function ($q) use ($search) {
-                            $q->whereRaw('LOWER(localidad) like ?', ["%{$search}%"]);
-                        })
+                        ->orWhereRaw('LOWER(localidad) like ?', ["%{$search}%"])
                         ->orWhereHas('periodosLaborales', function ($q) use ($search) {
                             $q->where('numero_empleado', 'like', "%{$search}%")
                                 ->orWhereHas('puesto', function ($q) use ($search) {
@@ -122,7 +119,7 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.ver');
 
-        $persona->load(['datosExtra', 'documentos.media', 'periodosLaborales.puesto', 'candidaturas.requisicion', 'media', 'foto']);
+        $persona->load(['documentos.media', 'periodosLaborales.puesto', 'candidaturas.requisicion', 'media', 'foto']);
 
         return Inertia::render('admin/rh/personas/show', [
             'persona' => $persona,
@@ -133,7 +130,7 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.editar');
 
-        $persona->load(['datosExtra', 'documentos.media', 'media', 'foto', 'contactosEmergencia', 'periodosLaborales.puesto.departamento']);
+        $persona->load(['documentos.media', 'media', 'foto', 'periodosLaborales.puesto.departamento']);
 
         return Inertia::render('admin/rh/personas/edit', [
             'persona' => $persona,
@@ -204,37 +201,6 @@ class PersonaController extends Controller
         return back();
     }
 
-    public function updateDatosExtra(Request $request, Persona $persona): RedirectResponse
-    {
-        $this->authorize('rh.personas.editar');
-
-        $validated = $request->validate([
-            'imss' => ['nullable', 'string', 'max:255'],
-            'curp' => ['nullable', 'string', 'max:255'],
-            'rfc' => ['nullable', 'string', 'max:255'],
-            'numero_ine' => ['nullable', 'string', 'max:255'],
-            'estado_civil' => ['nullable', 'string', 'max:255'],
-            'hijos' => ['nullable', 'integer', 'min:0'],
-            'domicilio' => ['nullable', 'string', 'max:500'],
-            'cp' => ['nullable', 'string', 'max:255'],
-            'localidad' => ['nullable', 'string', 'max:255'],
-            'nombre_padre' => ['nullable', 'string', 'max:255'],
-            'nombre_madre' => ['nullable', 'string', 'max:255'],
-            'cuenta_banco' => ['nullable', 'string', 'max:255'],
-            'banco_op' => ['nullable', 'string', 'max:255'],
-            'c_infonavit' => ['nullable', 'string', 'max:255'],
-            'c_fonacot' => ['nullable', 'string', 'max:255'],
-            'tramite_banco' => ['nullable', 'boolean'],
-        ]);
-
-        $persona->datosExtra()->updateOrCreate(
-            ['persona_id' => $persona->id],
-            $validated,
-        );
-
-        return back();
-    }
-
     public function destroy(Persona $persona): RedirectResponse
     {
         $this->authorize('rh.personas.eliminar');
@@ -300,29 +266,6 @@ class PersonaController extends Controller
             Storage::disk('public')->delete($media->path);
             $media->delete();
         }
-
-        return back();
-    }
-
-    public function storeContactoEmergencia(Request $request, Persona $persona): RedirectResponse
-    {
-        $this->authorize('rh.personas.editar');
-
-        $validated = $request->validate([
-            'nombre' => ['required', 'string', 'max:255'],
-            'telefono' => ['required', 'string', 'max:255'],
-        ]);
-
-        $persona->contactosEmergencia()->create($validated);
-
-        return back();
-    }
-
-    public function destroyContactoEmergencia(Persona $persona, ContactoEmergencia $contacto): RedirectResponse
-    {
-        $this->authorize('rh.personas.editar');
-
-        $contacto->delete();
 
         return back();
     }

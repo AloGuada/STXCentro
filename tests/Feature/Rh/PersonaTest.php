@@ -84,7 +84,9 @@ describe('admin rh personas', function () {
         $persona = Persona::factory()->create();
 
         $response = $this->actingAs($this->user)
-            ->put(route('admin.rh.personas.datos-extra.update', $persona), [
+            ->put(route('admin.rh.personas.update', $persona), [
+                'nombre' => $persona->nombre,
+                'apellido' => $persona->apellido,
                 'curp' => 'GARC850101HYNRRL09',
                 'rfc' => 'GARC850101AB',
                 'imss' => '12345678901',
@@ -98,8 +100,8 @@ describe('admin rh personas', function () {
             ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('rh_datos_extras', [
-            'persona_id' => $persona->id,
+        $this->assertDatabaseHas('rh_personas', [
+            'id' => $persona->id,
             'curp' => 'GARC850101HYNRRL09',
             'rfc' => 'GARC850101AB',
             'estado_civil' => 'soltero',

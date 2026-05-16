@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Departamento;
 use App\Models\Rh\Actividad;
 use App\Models\Rh\Candidatura;
-use App\Models\Rh\DatosExtra;
 use App\Models\Rh\DocumentoPuesto;
 use App\Models\Rh\Onboarding;
 use App\Models\Rh\OnboardingTarea;
@@ -52,7 +51,6 @@ class RhDevSeeder extends Seeder
         DB::table('rh_permisos_ausencia')->delete();
         DB::table('rh_periodos_laborales')->delete();
         DB::table('rh_persona_documentos')->delete();
-        DB::table('rh_datos_extras')->delete();
         DB::table('rh_personas')->delete();
         DB::table('rh_actividades')->delete();
         DB::table('rh_documentos_puesto')->delete();
@@ -246,11 +244,6 @@ class RhDevSeeder extends Seeder
                 'email' => strtolower(str_replace(' ', '', $data['nombre'])).'.'.strtolower(explode(' ', $data['apellido'])[0]).'@steelex.com.mx',
                 'telefono' => fake()->phoneNumber(),
                 'fecha_nacimiento' => fake()->dateTimeBetween('-50 years', '-20 years'),
-            ]);
-
-            // Datos extra
-            DatosExtra::create([
-                'persona_id' => $persona->id,
                 'estado_civil' => fake()->randomElement(['soltero', 'casado', 'divorciado']),
                 'hijos' => fake()->numberBetween(0, 4),
                 'localidad' => fake()->city(),

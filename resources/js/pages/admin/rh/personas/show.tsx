@@ -86,53 +86,51 @@ export default function PersonaShow({ persona }: Props) {
                     </div>
 
                     {/* Datos Extra */}
-                    {persona.datos_extra && (
-                        <div className="mb-8 rounded border p-4">
-                            <h2 className="mb-4 text-lg font-semibold">Datos Extra</h2>
-                            <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
-                                <div>
-                                    <dt className="text-muted-foreground text-sm">Estado Civil</dt>
-                                    <dd>{persona.datos_extra.estado_civil ?? '-'}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-muted-foreground text-sm">Hijos</dt>
-                                    <dd>{persona.datos_extra.hijos ?? '-'}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-muted-foreground text-sm">Localidad</dt>
-                                    <dd>{persona.datos_extra.localidad ?? '-'}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-muted-foreground text-sm">Domicilio</dt>
-                                    <dd>{persona.datos_extra.domicilio ?? '-'}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-muted-foreground text-sm">CP</dt>
-                                    <dd>{persona.datos_extra.cp ?? '-'}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-muted-foreground text-sm">CURP</dt>
-                                    <dd>{persona.datos_extra.curp ?? '-'}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-muted-foreground text-sm">RFC</dt>
-                                    <dd>{persona.datos_extra.rfc ?? '-'}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-muted-foreground text-sm">IMSS</dt>
-                                    <dd>{persona.datos_extra.imss ?? '-'}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-muted-foreground text-sm">Cuenta Banco</dt>
-                                    <dd>{persona.datos_extra.cuenta_banco ?? '-'}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-muted-foreground text-sm">Banco</dt>
-                                    <dd>{persona.datos_extra.banco_op ?? '-'}</dd>
-                                </div>
-                            </dl>
-                        </div>
-                    )}
+                    <div className="mb-8 rounded border p-4">
+                        <h2 className="mb-4 text-lg font-semibold">Datos Extra</h2>
+                        <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+                            <div>
+                                <dt className="text-muted-foreground text-sm">Estado Civil</dt>
+                                <dd>{persona.estado_civil ?? '-'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-sm">Hijos</dt>
+                                <dd>{persona.hijos ?? '-'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-sm">Localidad</dt>
+                                <dd>{persona.localidad ?? '-'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-sm">Domicilio</dt>
+                                <dd>{persona.domicilio ?? '-'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-sm">CP</dt>
+                                <dd>{persona.cp ?? '-'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-sm">CURP</dt>
+                                <dd>{persona.curp ?? '-'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-sm">RFC</dt>
+                                <dd>{persona.rfc ?? '-'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-sm">IMSS</dt>
+                                <dd>{persona.imss ?? '-'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-sm">Cuenta Banco</dt>
+                                <dd>{persona.cuenta_banco ?? '-'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-sm">Banco</dt>
+                                <dd>{persona.banco_op ?? '-'}</dd>
+                            </div>
+                        </dl>
+                    </div>
 
                     {/* Documentos */}
                     <div className="mb-8 rounded border p-4">
