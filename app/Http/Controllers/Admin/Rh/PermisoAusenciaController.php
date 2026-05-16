@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\Rh\PermisoAusenciaUpdateRequest;
 use App\Models\Rh\PermisoAusencia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,12 +49,15 @@ class PermisoAusenciaController extends Controller
     {
         $this->authorize('rh.permisos-ausencia.crear');
 
-        $folio = 'PA-'.date('Y').'-'.str_pad((string) (PermisoAusencia::whereYear('created_at', date('Y'))->count() + 1), 4, '0', STR_PAD_LEFT);
+        DB::transaction(function () use ($request) {
+            $count = PermisoAusencia::whereYear('created_at', date('Y'))->lockForUpdate()->count();
+            $folio = 'PA-'.date('Y').'-'.str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
 
-        PermisoAusencia::create(array_merge($request->validated(), [
-            'folio' => $folio,
-            'fecha_elaboracion' => now(),
-        ]));
+            PermisoAusencia::create(array_merge($request->validated(), [
+                'folio' => $folio,
+                'fecha_elaboracion' => now(),
+            ]));
+        });
 
         return to_route('admin.rh.permisos-ausencia.index');
     }

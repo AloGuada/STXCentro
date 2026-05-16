@@ -64,9 +64,7 @@ use App\Http\Controllers\Admin\Rh\PeriodoLaboralController as RhPeriodoLaboralCo
 use App\Http\Controllers\Admin\Rh\PermisoAusenciaController as RhPermisoAusenciaController;
 use App\Http\Controllers\Admin\Rh\PersonaController as RhPersonaController;
 use App\Http\Controllers\Admin\Rh\PuestoController as RhPuestoController;
-use App\Http\Controllers\Admin\Rh\RequerimientoController as RhRequerimientoController;
 use App\Http\Controllers\Admin\Rh\RequisicionController as RhRequisicionController;
-use App\Http\Controllers\Admin\Rh\SkillController as RhSkillController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\Sti\AsignacionActivoController as StiAsignacionActivoController;
 use App\Http\Controllers\Admin\Sti\DashboardController as StiDashboardController;
@@ -347,10 +345,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // Recursos Humanos admin routes
     Route::prefix('rh')->name('rh.')->group(function () {
         Route::get('dashboard', [RhDashboardController::class, 'index'])->name('dashboard.index');
-
-        // Catalogos
-        Route::resource('skills', RhSkillController::class);
-        Route::resource('requerimientos', RhRequerimientoController::class)->parameters(['requerimientos' => 'requerimiento']);
 
         // Puestos
         Route::resource('puestos', RhPuestoController::class)->parameters(['puestos' => 'puesto']);

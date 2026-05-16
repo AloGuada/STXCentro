@@ -10,6 +10,7 @@ use App\Models\Rh\Persona;
 use App\Models\Rh\PersonaDocumento;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -74,29 +75,44 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.crear');
 
-        $persona = Persona::create($request->safe()->except('cv'));
+        $uploadedPaths = [];
 
-        if ($request->hasFile('cv')) {
-            $file = $request->file('cv');
-            $persona->media()->create([
-                'descripcion' => 'cv',
-                'nombre_original' => $file->getClientOriginalName(),
-                'path' => $file->store('rh/cv/'.$persona->id, 'public'),
-                'mime' => $file->getMimeType(),
-                'size' => $file->getSize(),
-            ]);
-            $persona->update(['cv_estado' => 'pendiente']);
-        }
+        try {
+            DB::transaction(function () use ($request, &$uploadedPaths) {
+                $persona = Persona::create($request->safe()->except(['cv', 'foto']));
 
-        if ($request->hasFile('foto')) {
-            $file = $request->file('foto');
-            $persona->foto()->create([
-                'descripcion' => 'foto',
-                'nombre_original' => $file->getClientOriginalName(),
-                'path' => $file->store('rh/fotos/'.$persona->id, 'public'),
-                'mime' => $file->getMimeType(),
-                'size' => $file->getSize(),
-            ]);
+                if ($request->hasFile('cv')) {
+                    $file = $request->file('cv');
+                    $path = $file->store('rh/cv/'.$persona->id, 'public');
+                    $uploadedPaths[] = $path;
+                    $persona->media()->create([
+                        'descripcion' => 'cv',
+                        'nombre_original' => $file->getClientOriginalName(),
+                        'path' => $path,
+                        'mime' => $file->getMimeType(),
+                        'size' => $file->getSize(),
+                    ]);
+                    $persona->update(['cv_estado' => 'pendiente']);
+                }
+
+                if ($request->hasFile('foto')) {
+                    $file = $request->file('foto');
+                    $path = $file->store('rh/fotos/'.$persona->id, 'public');
+                    $uploadedPaths[] = $path;
+                    $persona->foto()->create([
+                        'descripcion' => 'foto',
+                        'nombre_original' => $file->getClientOriginalName(),
+                        'path' => $path,
+                        'mime' => $file->getMimeType(),
+                        'size' => $file->getSize(),
+                    ]);
+                }
+            });
+        } catch (\Throwable $e) {
+            foreach ($uploadedPaths as $path) {
+                Storage::disk('public')->delete($path);
+            }
+            throw $e;
         }
 
         return to_route('admin.rh.personas.index');
@@ -128,39 +144,61 @@ class PersonaController extends Controller
     {
         $this->authorize('rh.personas.editar');
 
-        $persona->update($request->safe()->except(['cv', 'foto']));
+        $uploadedPaths = [];
+        $oldPathsToDelete = [];
 
-        if ($request->hasFile('cv')) {
-            if ($persona->media) {
-                Storage::disk('public')->delete($persona->media->path);
-                $persona->media->delete();
+        try {
+            DB::transaction(function () use ($request, $persona, &$uploadedPaths, &$oldPathsToDelete) {
+                $persona->update($request->safe()->except(['cv', 'foto']));
+
+                if ($request->hasFile('cv')) {
+                    $file = $request->file('cv');
+                    $path = $file->store('rh/cv/'.$persona->id, 'public');
+                    $uploadedPaths[] = $path;
+
+                    if ($persona->media) {
+                        $oldPathsToDelete[] = $persona->media->path;
+                        $persona->media->delete();
+                    }
+
+                    $persona->media()->create([
+                        'descripcion' => 'cv',
+                        'nombre_original' => $file->getClientOriginalName(),
+                        'path' => $path,
+                        'mime' => $file->getMimeType(),
+                        'size' => $file->getSize(),
+                    ]);
+                    $persona->update(['cv_estado' => 'pendiente']);
+                }
+
+                if ($request->hasFile('foto')) {
+                    $file = $request->file('foto');
+                    $path = $file->store('rh/fotos/'.$persona->id, 'public');
+                    $uploadedPaths[] = $path;
+
+                    if ($persona->foto) {
+                        $oldPathsToDelete[] = $persona->foto->path;
+                        $persona->foto->delete();
+                    }
+
+                    $persona->foto()->create([
+                        'descripcion' => 'foto',
+                        'nombre_original' => $file->getClientOriginalName(),
+                        'path' => $path,
+                        'mime' => $file->getMimeType(),
+                        'size' => $file->getSize(),
+                    ]);
+                }
+            });
+        } catch (\Throwable $e) {
+            foreach ($uploadedPaths as $path) {
+                Storage::disk('public')->delete($path);
             }
-
-            $file = $request->file('cv');
-            $persona->media()->create([
-                'descripcion' => 'cv',
-                'nombre_original' => $file->getClientOriginalName(),
-                'path' => $file->store('rh/cv/'.$persona->id, 'public'),
-                'mime' => $file->getMimeType(),
-                'size' => $file->getSize(),
-            ]);
-            $persona->update(['cv_estado' => 'pendiente']);
+            throw $e;
         }
 
-        if ($request->hasFile('foto')) {
-            if ($persona->foto) {
-                Storage::disk('public')->delete($persona->foto->path);
-                $persona->foto->delete();
-            }
-
-            $file = $request->file('foto');
-            $persona->foto()->create([
-                'descripcion' => 'foto',
-                'nombre_original' => $file->getClientOriginalName(),
-                'path' => $file->store('rh/fotos/'.$persona->id, 'public'),
-                'mime' => $file->getMimeType(),
-                'size' => $file->getSize(),
-            ]);
+        foreach ($oldPathsToDelete as $path) {
+            Storage::disk('public')->delete($path);
         }
 
         return back();
@@ -225,21 +263,28 @@ class PersonaController extends Controller
         $file = $request->file('archivo');
         $path = $file->store('rh/personas/'.$persona->id, 'public');
 
-        $media = \App\Models\Media::create([
-            'descripcion' => 'persona_documento',
-            'nombre_original' => $file->getClientOriginalName(),
-            'path' => $path,
-            'mime' => $file->getMimeType(),
-            'size' => $file->getSize(),
-        ]);
+        try {
+            DB::transaction(function () use ($request, $persona, $file, $path) {
+                $media = \App\Models\Media::create([
+                    'descripcion' => 'persona_documento',
+                    'nombre_original' => $file->getClientOriginalName(),
+                    'path' => $path,
+                    'mime' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                ]);
 
-        $persona->documentos()->create([
-            'media_id' => $media->id,
-            'tipo_documento' => $request->tipo_documento,
-            'fecha_emision' => $request->fecha_emision,
-            'fecha_vigencia' => $request->fecha_vigencia,
-            'notas' => $request->notas,
-        ]);
+                $persona->documentos()->create([
+                    'media_id' => $media->id,
+                    'tipo_documento' => $request->tipo_documento,
+                    'fecha_emision' => $request->fecha_emision,
+                    'fecha_vigencia' => $request->fecha_vigencia,
+                    'notas' => $request->notas,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            Storage::disk('public')->delete($path);
+            throw $e;
+        }
 
         return back();
     }

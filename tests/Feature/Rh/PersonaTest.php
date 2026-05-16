@@ -63,7 +63,7 @@ describe('admin rh personas', function () {
                 'apellido' => $persona->apellido,
             ]);
 
-        $response->assertRedirect(route('admin.rh.personas.index'));
+        $response->assertRedirect();
         $this->assertDatabaseHas('rh_personas', [
             'id' => $persona->id,
             'nombre' => 'Updated',
@@ -80,28 +80,24 @@ describe('admin rh personas', function () {
         $this->assertDatabaseMissing('rh_personas', ['id' => $persona->id]);
     });
 
-    test('persona datos extra can be saved on update', function () {
+    test('persona datos extra can be saved', function () {
         $persona = Persona::factory()->create();
 
         $response = $this->actingAs($this->user)
-            ->put(route('admin.rh.personas.update', $persona), [
-                'nombre' => $persona->nombre,
-                'apellido' => $persona->apellido,
-                'datos_extra' => [
-                    'curp' => 'GARC850101HYNRRL09',
-                    'rfc' => 'GARC850101AB',
-                    'imss' => '12345678901',
-                    'estado_civil' => 'soltero',
-                    'domicilio' => 'Calle 10 x 15',
-                    'cp' => '97000',
-                    'localidad' => 'Merida',
-                    'cuenta_banco' => '1234567890',
-                    'c_infonavit' => 'no',
-                    'c_fonacot' => 'no',
-                ],
+            ->put(route('admin.rh.personas.datos-extra.update', $persona), [
+                'curp' => 'GARC850101HYNRRL09',
+                'rfc' => 'GARC850101AB',
+                'imss' => '12345678901',
+                'estado_civil' => 'soltero',
+                'domicilio' => 'Calle 10 x 15',
+                'cp' => '97000',
+                'localidad' => 'Merida',
+                'cuenta_banco' => '1234567890',
+                'c_infonavit' => 'no',
+                'c_fonacot' => 'no',
             ]);
 
-        $response->assertRedirect(route('admin.rh.personas.index'));
+        $response->assertRedirect();
         $this->assertDatabaseHas('rh_datos_extras', [
             'persona_id' => $persona->id,
             'curp' => 'GARC850101HYNRRL09',

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Rh\PeriodoLaboralStoreRequest;
+use App\Http\Requests\Admin\Rh\PeriodoLaboralTerminarRequest;
 use App\Http\Requests\Admin\Rh\PeriodoLaboralUpdateRequest;
 use App\Models\Rh\Onboarding;
 use App\Models\Rh\PeriodoLaboral;
@@ -31,21 +32,22 @@ class PeriodoLaboralController extends Controller
         $periodos = PeriodoLaboral::query()
             ->with(['persona.datosExtra', 'persona.foto', 'persona.periodosLaborales.puesto', 'persona.documentos.media', 'puesto.departamento', 'requisicion'])
             ->when($request->search, function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('numero_empleado', 'ilike', "%{$search}%")
-                        ->orWhere('estado', 'ilike', "%{$search}%")
+                $needle = '%'.mb_strtolower($search).'%';
+                $query->where(function ($q) use ($needle) {
+                    $q->whereRaw('LOWER(numero_empleado) like ?', [$needle])
+                        ->orWhereRaw('LOWER(estado) like ?', [$needle])
                         ->orWhereHas('persona', fn ($pq) => $pq
-                            ->where('nombre', 'ilike', "%{$search}%")
-                            ->orWhere('apellido', 'ilike', "%{$search}%")
+                            ->whereRaw('LOWER(nombre) like ?', [$needle])
+                            ->orWhereRaw('LOWER(apellido) like ?', [$needle])
                         )
                         ->orWhereHas('puesto', fn ($pq) => $pq
-                            ->where('nombre', 'ilike', "%{$search}%")
+                            ->whereRaw('LOWER(nombre) like ?', [$needle])
                             ->orWhereHas('departamento', fn ($dq) => $dq
-                                ->where('descripcion', 'ilike', "%{$search}%")
+                                ->whereRaw('LOWER(descripcion) like ?', [$needle])
                             )
                         )
                         ->orWhereHas('requisicion', fn ($rq) => $rq
-                            ->where('folio', 'ilike', "%{$search}%")
+                            ->whereRaw('LOWER(folio) like ?', [$needle])
                         );
                 });
             })
@@ -148,18 +150,14 @@ class PeriodoLaboralController extends Controller
         return to_route('admin.rh.periodos-laborales.index');
     }
 
-    public function terminar(Request $request, PeriodoLaboral $periodoLaboral): RedirectResponse
+    public function terminar(PeriodoLaboralTerminarRequest $request, PeriodoLaboral $periodoLaboral): RedirectResponse
     {
         $this->authorize('rh.periodos-laborales.editar');
-
-        $request->validate([
-            'motivo_baja' => ['required', 'string', 'max:1000'],
-        ]);
 
         $periodoLaboral->update([
             'estado' => 'baja',
             'fecha_fin' => now(),
-            'motivo_baja' => $request->motivo_baja,
+            'motivo_baja' => $request->validated('motivo_baja'),
         ]);
 
         return back();
