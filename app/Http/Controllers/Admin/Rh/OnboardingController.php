@@ -21,14 +21,9 @@ class OnboardingController extends Controller
 
         $onboarding->load(['periodo.persona', 'periodo.puesto', 'tareas.responsable.persona', 'tareas.media']);
 
-        $periodosActivos = PeriodoLaboral::query()
-            ->where('estado', 'activo')
-            ->with('persona')
-            ->get()
-            ->map(fn (PeriodoLaboral $p) => [
-                'id' => $p->id,
-                'nombre' => $p->persona->nombre.' '.$p->persona->apellido,
-            ]);
+        $periodosActivos = PeriodoLaboral::activosConPersona()->get()->map(
+            fn (PeriodoLaboral $p) => ['id' => $p->id, 'nombre' => $p->persona->nombre.' '.$p->persona->apellido]
+        );
 
         return Inertia::render('admin/rh/onboarding/show', [
             'onboarding' => $onboarding,

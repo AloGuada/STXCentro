@@ -114,14 +114,9 @@ class PeriodoLaboralController extends Controller
 
         $periodoLaboral->load(['persona', 'puesto', 'onboarding.tareas.responsable.persona', 'onboarding.tareas.media', 'requisicion']);
 
-        $periodosActivos = PeriodoLaboral::query()
-            ->where('estado', 'activo')
-            ->with('persona')
-            ->get()
-            ->map(fn (PeriodoLaboral $p) => [
-                'id' => $p->id,
-                'nombre' => $p->persona->nombre.' '.$p->persona->apellido,
-            ]);
+        $periodosActivos = PeriodoLaboral::activosConPersona()->get()->map(
+            fn (PeriodoLaboral $p) => ['id' => $p->id, 'nombre' => $p->persona->nombre.' '.$p->persona->apellido]
+        );
 
         return Inertia::render('admin/rh/periodos-laborales/edit', [
             'periodo' => $periodoLaboral,
