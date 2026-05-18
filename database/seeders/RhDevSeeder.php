@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Departamento;
+use App\Models\Media;
 use App\Models\Rh\Actividad;
 use App\Models\Rh\Candidatura;
 use App\Models\Rh\DocumentoPuesto;
@@ -258,13 +259,18 @@ class RhDevSeeder extends Seeder
 
             // 2-4 documentos personales
             foreach (fake()->randomElements($tiposDoc, random_int(2, 4)) as $tipo) {
+                $apellidoSlug = strtolower(explode(' ', $data['apellido'])[0]);
+                $media = Media::create([
+                    'descripcion' => 'persona_documento',
+                    'nombre_original' => $tipo.'_'.$apellidoSlug.'.pdf',
+                    'path' => 'rh/documentos/'.$persona->id.'/'.$tipo.'.pdf',
+                    'mime' => 'application/pdf',
+                    'size' => random_int(50000, 3000000),
+                ]);
                 PersonaDocumento::create([
                     'persona_id' => $persona->id,
+                    'media_id' => $media->id,
                     'tipo_documento' => $tipo,
-                    'nombre_archivo' => $tipo.'_'.strtolower(explode(' ', $data['apellido'])[0]).'.pdf',
-                    'ruta_archivo' => 'rh/documentos/'.$persona->id.'/'.$tipo.'.pdf',
-                    'extension' => 'pdf',
-                    'tamano' => random_int(50000, 3000000),
                 ]);
             }
 
@@ -287,12 +293,14 @@ class RhDevSeeder extends Seeder
             $puesto = $puestos[$i % $puestos->count()];
             $fechaInicio = Carbon::now()->subMonths(random_int(1, 24))->subDays(random_int(0, 28));
 
+            $salarioDiario = fake()->randomFloat(2, 300, 2200);
             $periodo = PeriodoLaboral::create([
                 'persona_id' => $persona->id,
                 'puesto_id' => $puesto->id,
                 'fecha_inicio' => $fechaInicio,
                 'estado' => 'activo',
-                'salario' => fake()->randomFloat(2, 8000, 65000),
+                'salario_diario' => $salarioDiario,
+                'sueldo_mensual' => (string) round($salarioDiario * 30, 2),
                 'tipo_contrato' => fake()->randomElement($contratos),
             ]);
 
@@ -305,13 +313,15 @@ class RhDevSeeder extends Seeder
             $fechaInicio = Carbon::now()->subMonths(random_int(12, 36));
             $fechaFin = $fechaInicio->copy()->addMonths(random_int(3, 12));
 
+            $salarioDiario = fake()->randomFloat(2, 300, 1500);
             $periodo = PeriodoLaboral::create([
                 'persona_id' => $persona->id,
                 'puesto_id' => $puesto->id,
                 'fecha_inicio' => $fechaInicio,
                 'fecha_fin' => $fechaFin,
-                'estado' => 'terminado',
-                'salario' => fake()->randomFloat(2, 8000, 45000),
+                'estado' => 'baja',
+                'salario_diario' => $salarioDiario,
+                'sueldo_mensual' => (string) round($salarioDiario * 30, 2),
                 'tipo_contrato' => 'temporal',
             ]);
 
