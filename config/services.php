@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'ollama' => [
+        'url' => env('OLLAMA_URL', 'http://localhost:11434/api/generate'),
+        'model' => env('OLLAMA_MODEL', 'deepseek-v2'),
+        'timeout' => env('OLLAMA_TIMEOUT', 180),
+        'max_retries' => env('OLLAMA_MAX_RETRIES', 3),
+        'temperature' => env('OLLAMA_TEMPERATURE', 0.3),
+    ],
+
 ];

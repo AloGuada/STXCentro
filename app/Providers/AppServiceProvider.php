@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Usuario;
+use App\Services\Rh\Cv\OllamaClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(OllamaClient::class, fn () => OllamaClient::fromConfig());
     }
 
     /**

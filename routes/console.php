@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('drive:limpiar-archivos')->hourly();
+Schedule::command('rh:resolve-cv')->everyFiveMinutes()->withoutOverlapping();
