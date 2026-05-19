@@ -20,6 +20,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -316,11 +317,31 @@ class PeriodoLaboralController extends Controller
             return back()->withErrors(['onboarding' => 'Este periodo ya tiene un onboarding asociado.']);
         }
 
-        Onboarding::create([
-            'periodo_id' => $periodoLaboral->id,
-            'fecha_inicio' => now(),
-            'progreso' => 0,
-        ]);
+        DB::transaction(function () use ($periodoLaboral) {
+            $onboarding = Onboarding::create([
+                'periodo_id' => $periodoLaboral->id,
+                'fecha_inicio' => now(),
+                'progreso' => 0,
+            ]);
+
+            $puesto = $periodoLaboral->puesto;
+            if ($puesto === null) {
+                return;
+            }
+
+            $plantillas = $puesto->plantillasOnboarding()->orderBy('orden')->orderBy('id')->get();
+            $fechaInicio = Carbon::parse($onboarding->fecha_inicio);
+
+            foreach ($plantillas as $tpl) {
+                $onboarding->tareas()->create([
+                    'titulo' => $tpl->titulo,
+                    'descripcion' => $tpl->descripcion,
+                    'fecha_vencimiento' => $tpl->dias_desde_inicio !== null
+                        ? $fechaInicio->copy()->addDays($tpl->dias_desde_inicio)
+                        : null,
+                ]);
+            }
+        });
 
         return back();
     }

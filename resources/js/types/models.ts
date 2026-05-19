@@ -1593,6 +1593,18 @@ export type RhPuesto = {
     requerimientos?: RhRequerimiento[];
     actividades?: RhActividad[];
     documentos_puesto?: RhDocumentoPuesto[];
+    plantillas_onboarding?: RhOnboardingTareaPlantilla[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhOnboardingTareaPlantilla = {
+    id: number;
+    puesto_id: number;
+    titulo: string;
+    descripcion: string | null;
+    dias_desde_inicio: number | null;
+    orden: number;
     created_at: string;
     updated_at: string;
 };

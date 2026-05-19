@@ -57,6 +57,11 @@ class Puesto extends Model
         return $this->hasMany(Actividad::class, 'puesto_id');
     }
 
+    public function plantillasOnboarding(): HasMany
+    {
+        return $this->hasMany(OnboardingTareaPlantilla::class, 'puesto_id');
+    }
+
     public function documentosPuesto(): HasMany
     {
         return $this->hasMany(DocumentoPuesto::class, 'puesto_id');

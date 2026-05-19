@@ -48,6 +48,9 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
     const [newDocNombre, setNewDocNombre] = useState('');
     const [newDocFrecuencia, setNewDocFrecuencia] = useState('');
     const [newDocCargo, setNewDocCargo] = useState('');
+    const [newTplTitulo, setNewTplTitulo] = useState('');
+    const [newTplDescripcion, setNewTplDescripcion] = useState('');
+    const [newTplDias, setNewTplDias] = useState('');
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -109,6 +112,26 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
 
     const removeActividad = (actividadId: number) => {
         router.delete(`/admin/rh/puestos/${puesto.id}/actividades/${actividadId}`, { preserveScroll: true });
+    };
+
+    const addPlantillaOnboarding = () => {
+        if (!newTplTitulo.trim()) return;
+        router.post(`/admin/rh/puestos/${puesto.id}/plantilla-onboarding`, {
+            titulo: newTplTitulo.trim(),
+            descripcion: newTplDescripcion.trim() || null,
+            dias_desde_inicio: newTplDias === '' ? null : Number(newTplDias),
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setNewTplTitulo('');
+                setNewTplDescripcion('');
+                setNewTplDias('');
+            },
+        });
+    };
+
+    const removePlantillaOnboarding = (plantillaId: number) => {
+        router.delete(`/admin/rh/puestos/${puesto.id}/plantilla-onboarding/${plantillaId}`, { preserveScroll: true });
     };
 
     const addDocumentoPuesto = () => {
@@ -327,6 +350,59 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
                             </ul>
                         ) : (
                             <p className="text-muted-foreground text-sm">No hay actividades registradas.</p>
+                        )}
+                    </div>
+
+                    {/* Plantilla de Onboarding */}
+                    <div className="mt-8 border-t pt-6">
+                        <h2 className="mb-2 text-lg font-semibold">Plantilla de Onboarding</h2>
+                        <p className="text-muted-foreground mb-4 text-sm">
+                            Estas tareas se copian automáticamente al crear el onboarding de un nuevo periodo laboral.
+                        </p>
+                        <div className="mb-4 grid grid-cols-12 gap-2">
+                            <Input
+                                value={newTplTitulo}
+                                onChange={(e) => setNewTplTitulo(e.target.value)}
+                                placeholder="Título"
+                                className="col-span-4"
+                            />
+                            <Input
+                                value={newTplDescripcion}
+                                onChange={(e) => setNewTplDescripcion(e.target.value)}
+                                placeholder="Descripción (opcional)"
+                                className="col-span-5"
+                            />
+                            <Input
+                                type="number"
+                                min="0"
+                                value={newTplDias}
+                                onChange={(e) => setNewTplDias(e.target.value)}
+                                placeholder="Días"
+                                className="col-span-2"
+                            />
+                            <Button type="button" variant="outline" onClick={addPlantillaOnboarding} disabled={!newTplTitulo.trim()} className="col-span-1">
+                                <PlusIcon className="size-4" />
+                            </Button>
+                        </div>
+                        {(puesto.plantillas_onboarding ?? []).length > 0 ? (
+                            <ul className="space-y-2">
+                                {(puesto.plantillas_onboarding ?? []).map((tpl) => (
+                                    <li key={tpl.id} className="flex items-start justify-between gap-2 rounded border px-3 py-2">
+                                        <div className="flex-1">
+                                            <div className="font-medium">{tpl.titulo}</div>
+                                            {tpl.descripcion && <div className="text-muted-foreground text-sm">{tpl.descripcion}</div>}
+                                            {tpl.dias_desde_inicio !== null && (
+                                                <div className="text-muted-foreground text-xs">Vence a los {tpl.dias_desde_inicio} días</div>
+                                            )}
+                                        </div>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => removePlantillaOnboarding(tpl.id)}>
+                                            <TrashIcon className="size-4" />
+                                        </Button>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-muted-foreground text-sm">Sin plantilla. Al crear onboarding, no se copiarán tareas predefinidas.</p>
                         )}
                     </div>
 

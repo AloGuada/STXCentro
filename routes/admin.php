@@ -356,6 +356,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('puestos/{puesto}/actividades/{actividad}', [RhPuestoController::class, 'destroyActividad'])->name('puestos.actividades.destroy');
         Route::post('puestos/{puesto}/documentos-puesto', [RhPuestoController::class, 'storeDocumentoPuesto'])->name('puestos.documentos-puesto.store');
         Route::delete('puestos/{puesto}/documentos-puesto/{documentoPuesto}', [RhPuestoController::class, 'destroyDocumentoPuesto'])->name('puestos.documentos-puesto.destroy');
+        Route::post('puestos/{puesto}/plantilla-onboarding', [RhPuestoController::class, 'storePlantillaOnboarding'])->name('puestos.plantilla-onboarding.store');
+        Route::put('puestos/{puesto}/plantilla-onboarding/{plantilla}', [RhPuestoController::class, 'updatePlantillaOnboarding'])->name('puestos.plantilla-onboarding.update');
+        Route::delete('puestos/{puesto}/plantilla-onboarding/{plantilla}', [RhPuestoController::class, 'destroyPlantillaOnboarding'])->name('puestos.plantilla-onboarding.destroy');
 
         // Personas
         Route::resource('personas', RhPersonaController::class)->parameters(['personas' => 'persona']);
