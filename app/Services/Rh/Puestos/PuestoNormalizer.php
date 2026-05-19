@@ -189,4 +189,35 @@ class PuestoNormalizer
     {
         return mb_convert_case(trim($s), MB_CASE_TITLE, 'UTF-8');
     }
+
+    /**
+     * Limpia un item crudo del Excel (skill, experiencia, certificación) aplicando:
+     * 1. Strip prefijos de bullet (`* `, `1.- `, `1- `, `1) `, `1. `).
+     * 2. Strip metadata al inicio tipo `(10 AÑOS) X` → `X`.
+     * 3. Trim whitespace.
+     * 4. Retorna null si tras limpiar queda < 3 chars o > 120 chars (descripciones largas).
+     */
+    public function limpiarItem(string $raw): ?string
+    {
+        $s = trim($raw);
+        if ($s === '') {
+            return null;
+        }
+
+        // Strip prefijos de bullet: `* `, `1.- `, `1- `, `1) `, `1. `, `01.- `, etc.
+        // Acepta cualquier secuencia de [* - dígitos . )] seguida de uno o más espacios.
+        $s = (string) preg_replace('/^[\*\-\d\.\)]+\s+/', '', $s);
+
+        // Strip metadata al inicio: `(10 AÑOS) X`, `(5 años) Y`
+        $s = (string) preg_replace('/^\(\s*\d+\s*A[ÑN]OS?\s*\)\s*/iu', '', $s);
+
+        // Colapsar espacios múltiples
+        $s = trim((string) preg_replace('/\s+/u', ' ', $s));
+
+        if (mb_strlen($s) < 3 || mb_strlen($s) > 120) {
+            return null;
+        }
+
+        return $s;
+    }
 }

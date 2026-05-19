@@ -143,8 +143,9 @@ class PuestoImporter
     {
         $out = [];
         foreach ($items as $it) {
-            $nombre = (string) ($it['nombre'] ?? '');
-            if ($this->normalizer->esSkillBasura($nombre)) {
+            $crudo = (string) ($it['nombre'] ?? '');
+            $nombre = $this->normalizer->limpiarItem($crudo);
+            if ($nombre === null || $this->normalizer->esSkillBasura($nombre)) {
                 continue;
             }
             $key = $this->normalizer->dedupKey($nombre);
@@ -176,9 +177,9 @@ class PuestoImporter
     private function prepararRequerimientos(array $items, string $prefijoDesc, ?string $valor, bool $dryRun): array
     {
         $out = [];
-        foreach ($items as $desc) {
-            $desc = trim((string) $desc);
-            if ($desc === '' || mb_strtoupper($desc) === 'N/A') {
+        foreach ($items as $crudo) {
+            $desc = $this->normalizer->limpiarItem((string) $crudo);
+            if ($desc === null || mb_strtoupper($desc) === 'N/A') {
                 continue;
             }
             $descripcionFinal = $prefijoDesc.': '.$desc;
