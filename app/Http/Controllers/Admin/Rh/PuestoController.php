@@ -26,13 +26,15 @@ class PuestoController extends Controller
         $puestos = Puesto::query()
             ->with('departamento')
             ->when($request->search, fn ($q, $s) => $q->where('nombre', 'like', "%{$s}%"))
+            ->when($request->departamento_id, fn ($q, $d) => $q->where('departamento_id', $d))
             ->orderBy('nombre')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('admin/rh/puestos/index', [
             'puestos' => $puestos,
-            'filters' => $request->only('search'),
+            'filters' => $request->only('search', 'departamento_id'),
+            'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
         ]);
     }
 
