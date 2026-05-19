@@ -1,5 +1,6 @@
 import { CreatableCombobox } from '@/components/ui/creatable-combobox';
 import { DeleteDialog } from '@/components/delete-dialog';
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { FormField } from '@/components/form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Departamento, RhActividad, RhDocumentoPuesto, RhPuesto, RhRequerimiento, RhSkill } from '@/types/models';
 import { Head, Link, useForm, router } from '@inertiajs/react';
-import { Loader2Icon, PlusIcon, TrashIcon, XIcon } from 'lucide-react';
+import { BriefcaseIcon, ClipboardListIcon, FileTextIcon, ListChecksIcon, Loader2Icon, PencilIcon, PlusIcon, SparklesIcon, TrashIcon, XIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
@@ -22,13 +23,17 @@ type Props = {
     allRequerimientos: RhRequerimiento[];
 };
 
+type TabKey = 'datos' | 'skills' | 'requerimientos' | 'actividades' | 'plantilla' | 'documentos';
+
 export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkills, allRequerimientos }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'RH', href: '/admin/rh/skills' },
+        { title: 'RH', href: '/admin/rh/puestos' },
         { title: 'Puestos', href: '/admin/rh/puestos' },
         { title: puesto.nombre, href: `/admin/rh/puestos/${puesto.id}/edit` },
     ];
+
+    const [activeTab, setActiveTab] = useState<TabKey>('datos');
 
     const { data, setData, put, processing, errors } = useForm({
         nombre: puesto.nombre,
@@ -52,6 +57,17 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
     const [newTplDescripcion, setNewTplDescripcion] = useState('');
     const [newTplDias, setNewTplDias] = useState('');
 
+    // Estado para el Dialog "Crear nueva skill"
+    const [skillDialogOpen, setSkillDialogOpen] = useState(false);
+    const [newSkillNombre, setNewSkillNombre] = useState('');
+    const [newSkillTipo, setNewSkillTipo] = useState('hard');
+    const [newSkillNivel, setNewSkillNivel] = useState('basico');
+
+    // Estado para el Dialog "Crear nuevo requerimiento"
+    const [reqDialogOpen, setReqDialogOpen] = useState(false);
+    const [newReqDescripcion, setNewReqDescripcion] = useState('');
+    const [newReqValor, setNewReqValor] = useState('');
+
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         put(`/admin/rh/puestos/${puesto.id}`);
@@ -72,16 +88,25 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
         }, { preserveScroll: true });
     };
 
-    const handleSkillCreate = (nombre: string) => {
-        router.post(`/admin/rh/puestos/${puesto.id}/skills`, {
-            nombre,
-            tipo: skillTipo,
-            nivel_requerido: skillNivel,
-        }, { preserveScroll: true });
-    };
-
     const removeSkill = (skillId: number) => {
         router.delete(`/admin/rh/puestos/${puesto.id}/skills/${skillId}`, { preserveScroll: true });
+    };
+
+    const submitNewSkill = () => {
+        if (!newSkillNombre.trim()) return;
+        router.post(`/admin/rh/puestos/${puesto.id}/skills`, {
+            nombre: newSkillNombre.trim(),
+            tipo: newSkillTipo,
+            nivel_requerido: newSkillNivel,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setNewSkillNombre('');
+                setNewSkillTipo('hard');
+                setNewSkillNivel('basico');
+                setSkillDialogOpen(false);
+            },
+        });
     };
 
     const handleRequerimientoSelect = (option: { value: string }) => {
@@ -91,15 +116,23 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
         }, { preserveScroll: true, onSuccess: () => setReqValor('') });
     };
 
-    const handleRequerimientoCreate = (descripcion: string) => {
-        router.post(`/admin/rh/puestos/${puesto.id}/requerimientos`, {
-            descripcion,
-            valor: reqValor || undefined,
-        }, { preserveScroll: true, onSuccess: () => setReqValor('') });
-    };
-
     const removeRequerimiento = (requerimientoId: number) => {
         router.delete(`/admin/rh/puestos/${puesto.id}/requerimientos/${requerimientoId}`, { preserveScroll: true });
+    };
+
+    const submitNewRequerimiento = () => {
+        if (!newReqDescripcion.trim()) return;
+        router.post(`/admin/rh/puestos/${puesto.id}/requerimientos`, {
+            descripcion: newReqDescripcion.trim(),
+            valor: newReqValor.trim() || undefined,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setNewReqDescripcion('');
+                setNewReqValor('');
+                setReqDialogOpen(false);
+            },
+        });
     };
 
     const addActividad = () => {
@@ -150,113 +183,206 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
         router.delete(`/admin/rh/puestos/${puesto.id}/documentos-puesto/${docId}`, { preserveScroll: true });
     };
 
+    const tabs: { key: TabKey; label: string; icon: typeof PencilIcon; count?: number }[] = [
+        { key: 'datos', label: 'Datos', icon: PencilIcon },
+        { key: 'skills', label: 'Skills', icon: SparklesIcon, count: (puesto.skills ?? []).length },
+        { key: 'requerimientos', label: 'Requerimientos', icon: ListChecksIcon, count: (puesto.requerimientos ?? []).length },
+        { key: 'actividades', label: 'Actividades', icon: BriefcaseIcon, count: (puesto.actividades ?? []).length },
+        { key: 'plantilla', label: 'Plantilla Onboarding', icon: ClipboardListIcon, count: (puesto.plantillas_onboarding ?? []).length },
+        { key: 'documentos', label: 'Documentos', icon: FileTextIcon, count: (puesto.documentos_puesto ?? []).length },
+    ];
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Editar ${puesto.nombre}`} />
 
-            <div className="p-6">
-                <div className="w-3/4">
-                    <div className="mb-6 flex items-center justify-between">
-                        <h1 className="text-2xl font-semibold">Editar Puesto</h1>
-                        <DeleteDialog
-                            title="Eliminar puesto"
-                            description={`¿Estas seguro de eliminar el puesto "${puesto.nombre}"? Esta accion no se puede deshacer.`}
-                            deleteUrl={`/admin/rh/puestos/${puesto.id}`}
-                        />
+            <div className="space-y-6 p-6">
+                <div className="flex items-center justify-between">
+                    <h1 className="text-2xl font-semibold">Editar Puesto: {puesto.nombre}</h1>
+                    <DeleteDialog
+                        title="Eliminar puesto"
+                        description={`¿Estas seguro de eliminar el puesto "${puesto.nombre}"? Esta accion no se puede deshacer.`}
+                        deleteUrl={`/admin/rh/puestos/${puesto.id}`}
+                    />
+                </div>
+
+                {/* Tabs */}
+                <div className="tabs tabs-boxed">
+                    {tabs.map((t) => {
+                        const Icon = t.icon;
+                        return (
+                            <button
+                                key={t.key}
+                                type="button"
+                                className={`tab ${activeTab === t.key ? 'tab-active' : ''}`}
+                                onClick={() => setActiveTab(t.key)}
+                            >
+                                <Icon className="mr-1 size-4" />
+                                {t.label}
+                                {t.count !== undefined && t.count > 0 && (
+                                    <Badge variant="secondary" className="ml-2">{t.count}</Badge>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Tab: Datos */}
+                {activeTab === 'datos' && (
+                    <div className="w-3/4">
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <FormField label="Nombre" htmlFor="nombre" error={errors.nombre} required>
+                                <Input id="nombre" value={data.nombre} onChange={(e) => setData('nombre', e.target.value)} placeholder="Nombre del puesto" />
+                            </FormField>
+
+                            <FormField label="Departamento" htmlFor="departamento_id" error={errors.departamento_id} required>
+                                <Select value={data.departamento_id} onValueChange={(v) => setData('departamento_id', v)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar departamento" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {departamentos.map((dep) => (
+                                            <SelectItem key={dep.id} value={String(dep.id)}>
+                                                {dep.descripcion}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </FormField>
+
+                            <FormField label="Descripcion" htmlFor="descripcion" error={errors.descripcion}>
+                                <textarea id="descripcion" className="textarea textarea-bordered w-full" value={data.descripcion} onChange={(e) => setData('descripcion', e.target.value)} placeholder="Descripcion del puesto" />
+                            </FormField>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField label="Codigo" htmlFor="codigo" error={errors.codigo}>
+                                    <Input id="codigo" value={data.codigo} onChange={(e) => setData('codigo', e.target.value)} placeholder="Codigo del puesto" />
+                                </FormField>
+
+                                <FormField label="Ubicacion" htmlFor="ubicacion" error={errors.ubicacion}>
+                                    <Input id="ubicacion" value={data.ubicacion} onChange={(e) => setData('ubicacion', e.target.value)} placeholder="Ubicacion" />
+                                </FormField>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField label="Hora de Entrada" htmlFor="hora_entrada" error={errors.hora_entrada}>
+                                    <Input id="hora_entrada" type="time" value={data.hora_entrada} onChange={(e) => setData('hora_entrada', e.target.value)} />
+                                </FormField>
+
+                                <FormField label="Hora de Salida" htmlFor="hora_salida" error={errors.hora_salida}>
+                                    <Input id="hora_salida" type="time" value={data.hora_salida} onChange={(e) => setData('hora_salida', e.target.value)} />
+                                </FormField>
+                            </div>
+
+                            <FormField label="Puesto Jefe" htmlFor="puesto_jefe_id" error={errors.puesto_jefe_id}>
+                                <Select value={data.puesto_jefe_id} onValueChange={(v) => setData('puesto_jefe_id', v)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar puesto jefe (opcional)" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {puestosJefe.map((p) => (
+                                            <SelectItem key={p.id} value={String(p.id)}>
+                                                {p.nombre}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </FormField>
+
+                            <div className="flex justify-end gap-2">
+                                <Button variant="outline" asChild>
+                                    <Link href="/admin/rh/puestos">Cancelar</Link>
+                                </Button>
+                                <Button type="submit" disabled={processing}>
+                                    {processing && <Loader2Icon className="size-4 animate-spin" />}
+                                    Guardar
+                                </Button>
+                            </div>
+                        </form>
                     </div>
+                )}
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <FormField label="Nombre" htmlFor="nombre" error={errors.nombre} required>
-                            <Input id="nombre" value={data.nombre} onChange={(e) => setData('nombre', e.target.value)} placeholder="Nombre del puesto" />
-                        </FormField>
-
-                        <FormField label="Departamento" htmlFor="departamento_id" error={errors.departamento_id} required>
-                            <Select value={data.departamento_id} onValueChange={(v) => setData('departamento_id', v)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar departamento" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {departamentos.map((dep) => (
-                                        <SelectItem key={dep.id} value={String(dep.id)}>
-                                            {dep.descripcion}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </FormField>
-
-                        <FormField label="Descripcion" htmlFor="descripcion" error={errors.descripcion}>
-                            <textarea id="descripcion" className="textarea textarea-bordered w-full" value={data.descripcion} onChange={(e) => setData('descripcion', e.target.value)} placeholder="Descripcion del puesto" />
-                        </FormField>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Codigo" htmlFor="codigo" error={errors.codigo}>
-                                <Input id="codigo" value={data.codigo} onChange={(e) => setData('codigo', e.target.value)} placeholder="Codigo del puesto" />
-                            </FormField>
-
-                            <FormField label="Ubicacion" htmlFor="ubicacion" error={errors.ubicacion}>
-                                <Input id="ubicacion" value={data.ubicacion} onChange={(e) => setData('ubicacion', e.target.value)} placeholder="Ubicacion" />
-                            </FormField>
+                {/* Tab: Skills */}
+                {activeTab === 'skills' && (
+                    <div className="w-3/4 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-muted-foreground text-sm">Busca y asigna skills al puesto, o crea una nueva.</p>
+                            <Dialog open={skillDialogOpen} onOpenChange={setSkillDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button type="button">
+                                        <PlusIcon className="mr-1 size-4" />
+                                        Crear nueva skill
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Crear nueva skill</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-3">
+                                        <FormField label="Nombre" htmlFor="new_skill_nombre" required>
+                                            <Input
+                                                id="new_skill_nombre"
+                                                value={newSkillNombre}
+                                                onChange={(e) => setNewSkillNombre(e.target.value)}
+                                                placeholder="Ej. Manejo de SAP"
+                                                autoFocus
+                                            />
+                                        </FormField>
+                                        <FormField label="Tipo" htmlFor="new_skill_tipo" required>
+                                            <Select value={newSkillTipo} onValueChange={setNewSkillTipo}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="hard">Hard skill (técnica)</SelectItem>
+                                                    <SelectItem value="soft">Soft skill (interpersonal)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </FormField>
+                                        <FormField label="Nivel requerido" htmlFor="new_skill_nivel" required>
+                                            <Select value={newSkillNivel} onValueChange={setNewSkillNivel}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="basico">Básico</SelectItem>
+                                                    <SelectItem value="intermedio">Intermedio</SelectItem>
+                                                    <SelectItem value="avanzado">Avanzado</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </FormField>
+                                    </div>
+                                    <DialogFooter>
+                                        <DialogClose asChild>
+                                            <Button variant="outline" type="button">Cancelar</Button>
+                                        </DialogClose>
+                                        <Button type="button" onClick={submitNewSkill} disabled={!newSkillNombre.trim()}>
+                                            Crear y asignar
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Hora de Entrada" htmlFor="hora_entrada" error={errors.hora_entrada}>
-                                <Input id="hora_entrada" type="time" value={data.hora_entrada} onChange={(e) => setData('hora_entrada', e.target.value)} />
-                            </FormField>
-
-                            <FormField label="Hora de Salida" htmlFor="hora_salida" error={errors.hora_salida}>
-                                <Input id="hora_salida" type="time" value={data.hora_salida} onChange={(e) => setData('hora_salida', e.target.value)} />
-                            </FormField>
-                        </div>
-
-                        <FormField label="Puesto Jefe" htmlFor="puesto_jefe_id" error={errors.puesto_jefe_id}>
-                            <Select value={data.puesto_jefe_id} onValueChange={(v) => setData('puesto_jefe_id', v)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar puesto jefe (opcional)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {puestosJefe.map((p) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                            {p.nombre}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </FormField>
-
-                        <div className="flex justify-end gap-2">
-                            <Button variant="outline" asChild>
-                                <Link href="/admin/rh/puestos">Cancelar</Link>
-                            </Button>
-                            <Button type="submit" disabled={processing}>
-                                {processing && <Loader2Icon className="size-4 animate-spin" />}
-                                Guardar
-                            </Button>
-                        </div>
-                    </form>
-
-                    {/* Skills */}
-                    <div className="mt-8 border-t pt-6">
-                        <h2 className="mb-4 text-lg font-semibold">Skills</h2>
-                        <div className="mb-4 flex gap-2">
+                        <div className="flex gap-2">
                             <CreatableCombobox
                                 options={skillOptions}
-                                placeholder="Buscar o crear skill..."
+                                placeholder="Buscar skill existente..."
                                 creatableLabel="Crear skill"
                                 onSelect={handleSkillSelect}
-                                onCreate={handleSkillCreate}
+                                onCreate={(nombre) => {
+                                    setNewSkillNombre(nombre);
+                                    setSkillDialogOpen(true);
+                                }}
                                 className="w-full flex-1"
                             />
-                            <Select value={skillTipo} onValueChange={setSkillTipo} className="w-40 shrink-0">
-                                <SelectItem value="hard">Hard skill</SelectItem>
-                                <SelectItem value="soft">Soft skill</SelectItem>
-                            </Select>
                             <Select value={skillNivel} onValueChange={setSkillNivel} className="w-40 shrink-0">
-                                <SelectItem value="basico">Basico</SelectItem>
+                                <SelectItem value="basico">Básico</SelectItem>
                                 <SelectItem value="intermedio">Intermedio</SelectItem>
                                 <SelectItem value="avanzado">Avanzado</SelectItem>
                             </Select>
                         </div>
+
                         {(puesto.skills ?? []).length > 0 ? (
                             <ul className="space-y-2">
                                 {(puesto.skills ?? []).map((skill) => (
@@ -278,26 +404,75 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
                             <p className="text-muted-foreground text-sm">No hay skills asignados.</p>
                         )}
                     </div>
+                )}
 
-                    {/* Requerimientos */}
-                    <div className="mt-8 border-t pt-6">
-                        <h2 className="mb-4 text-lg font-semibold">Requerimientos</h2>
-                        <div className="mb-4 flex gap-2">
+                {/* Tab: Requerimientos */}
+                {activeTab === 'requerimientos' && (
+                    <div className="w-3/4 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-muted-foreground text-sm">Busca y asigna requerimientos al puesto, o crea uno nuevo.</p>
+                            <Dialog open={reqDialogOpen} onOpenChange={setReqDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button type="button">
+                                        <PlusIcon className="mr-1 size-4" />
+                                        Crear nuevo requerimiento
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Crear nuevo requerimiento</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-3">
+                                        <FormField label="Descripción" htmlFor="new_req_desc" required>
+                                            <Input
+                                                id="new_req_desc"
+                                                value={newReqDescripcion}
+                                                onChange={(e) => setNewReqDescripcion(e.target.value)}
+                                                placeholder="Ej. Experiencia: 3 años en almacén"
+                                                autoFocus
+                                            />
+                                        </FormField>
+                                        <FormField label="Valor (opcional)" htmlFor="new_req_valor">
+                                            <Input
+                                                id="new_req_valor"
+                                                value={newReqValor}
+                                                onChange={(e) => setNewReqValor(e.target.value)}
+                                                placeholder="Ej. INDISTINTO, 18-45 AÑOS"
+                                            />
+                                        </FormField>
+                                    </div>
+                                    <DialogFooter>
+                                        <DialogClose asChild>
+                                            <Button variant="outline" type="button">Cancelar</Button>
+                                        </DialogClose>
+                                        <Button type="button" onClick={submitNewRequerimiento} disabled={!newReqDescripcion.trim()}>
+                                            Crear y asignar
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+
+                        <div className="flex gap-2">
                             <CreatableCombobox
                                 options={requerimientoOptions}
-                                placeholder="Buscar o crear requerimiento..."
+                                placeholder="Buscar requerimiento existente..."
                                 creatableLabel="Crear requerimiento"
                                 onSelect={handleRequerimientoSelect}
-                                onCreate={handleRequerimientoCreate}
+                                onCreate={(descripcion) => {
+                                    setNewReqDescripcion(descripcion);
+                                    setReqDialogOpen(true);
+                                }}
                                 className="w-full flex-1"
                             />
                             <Input
                                 value={reqValor}
                                 onChange={(e) => setReqValor(e.target.value)}
-                                placeholder="Valor"
+                                placeholder="Valor (opcional)"
                                 className="w-40 shrink-0"
                             />
                         </div>
+
                         {(puesto.requerimientos ?? []).length > 0 ? (
                             <ul className="space-y-2">
                                 {(puesto.requerimientos ?? []).map((req) => (
@@ -316,15 +491,16 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
                             <p className="text-muted-foreground text-sm">No hay requerimientos asignados.</p>
                         )}
                     </div>
+                )}
 
-                    {/* Actividades */}
-                    <div className="mt-8 border-t pt-6">
-                        <h2 className="mb-4 text-lg font-semibold">Actividades</h2>
-                        <div className="mb-4 flex gap-2">
+                {/* Tab: Actividades */}
+                {activeTab === 'actividades' && (
+                    <div className="w-3/4 space-y-4">
+                        <div className="flex gap-2">
                             <Input
                                 value={newActividad}
                                 onChange={(e) => setNewActividad(e.target.value)}
-                                placeholder="Descripcion de la actividad"
+                                placeholder="Descripción de la actividad"
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                         e.preventDefault();
@@ -352,14 +528,15 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
                             <p className="text-muted-foreground text-sm">No hay actividades registradas.</p>
                         )}
                     </div>
+                )}
 
-                    {/* Plantilla de Onboarding */}
-                    <div className="mt-8 border-t pt-6">
-                        <h2 className="mb-2 text-lg font-semibold">Plantilla de Onboarding</h2>
-                        <p className="text-muted-foreground mb-4 text-sm">
+                {/* Tab: Plantilla de Onboarding */}
+                {activeTab === 'plantilla' && (
+                    <div className="w-3/4 space-y-4">
+                        <p className="text-muted-foreground text-sm">
                             Estas tareas se copian automáticamente al crear el onboarding de un nuevo periodo laboral.
                         </p>
-                        <div className="mb-4 grid grid-cols-12 gap-2">
+                        <div className="grid grid-cols-12 gap-2">
                             <Input
                                 value={newTplTitulo}
                                 onChange={(e) => setNewTplTitulo(e.target.value)}
@@ -405,11 +582,12 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
                             <p className="text-muted-foreground text-sm">Sin plantilla. Al crear onboarding, no se copiarán tareas predefinidas.</p>
                         )}
                     </div>
+                )}
 
-                    {/* Documentos del Puesto */}
-                    <div className="mt-8 border-t pt-6">
-                        <h2 className="mb-4 text-lg font-semibold">Documentos del Puesto</h2>
-                        <div className="mb-4 flex gap-2">
+                {/* Tab: Documentos */}
+                {activeTab === 'documentos' && (
+                    <div className="w-3/4 space-y-4">
+                        <div className="flex gap-2">
                             <Input
                                 value={newDocNombre}
                                 onChange={(e) => setNewDocNombre(e.target.value)}
@@ -456,7 +634,7 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
                             <p className="text-muted-foreground text-sm">No hay documentos registrados.</p>
                         )}
                     </div>
-                </div>
+                )}
             </div>
         </AppLayout>
     );
