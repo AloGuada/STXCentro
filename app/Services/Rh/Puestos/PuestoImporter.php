@@ -77,12 +77,12 @@ class PuestoImporter
                 Puesto::find($puestoId)->skills()->syncWithoutDetaching($skillsAttach);
             }
 
-            // Requerimientos
+            // Requerimientos (solo de la seccion REQUISITOS DEL PUESTO: requisitos KV + experiencia + certificaciones).
+            // La seccion REQUERIMIENTOS del Excel (computadora/telefono/auto/EPP) se IGNORA — son recursos del puesto, no requisitos para la persona.
             $reqIds = array_merge(
                 $this->prepararRequerimientos($bloque['experiencia'] ?? [], 'Experiencia', null, $dryRun),
                 $this->prepararRequerimientos($bloque['certificaciones'] ?? [], 'Certificación', null, $dryRun),
                 $this->prepararRequerimientosKV($bloque['requisitos'] ?? [], $dryRun),
-                $this->prepararRequerimientosKV($bloque['recursos'] ?? [], $dryRun),
             );
 
             if (! $dryRun && $puestoId !== null && $reqIds !== []) {
@@ -143,31 +143,27 @@ class PuestoImporter
     {
         $out = [];
         foreach ($items as $it) {
-            $nombreOriginal = (string) ($it['nombre'] ?? '');
+            $nombre = (string) ($it['nombre'] ?? '');
+            if ($this->normalizer->esSkillBasura($nombre)) {
+                continue;
+            }
+            $key = $this->normalizer->dedupKey($nombre);
+            $tipo = $this->normalizer->clasificarSkill($nombre, $tipoSeccion);
             $nivel = $it['nivel'] ?? 'basico';
 
-            // Separar paréntesis en items independientes; cada uno se clasifica solo
-            foreach ($this->normalizer->splitParenContent($nombreOriginal) as $nombre) {
-                if ($this->normalizer->esSkillBasura($nombre)) {
-                    continue;
+            if (! isset($this->skillsCache[$key])) {
+                if ($dryRun) {
+                    $this->skillsCache[$key] = count($this->skillsCache) * -1 - 1;
+                } else {
+                    $skill = Skill::firstOrCreate(
+                        ['nombre' => $this->normalizer->displayName($nombre)],
+                        ['tipo' => $tipo],
+                    );
+                    $this->skillsCache[$key] = (int) $skill->id;
                 }
-                $key = $this->normalizer->dedupKey($nombre);
-                $tipo = $this->normalizer->clasificarSkill($nombre, $tipoSeccion);
-
-                if (! isset($this->skillsCache[$key])) {
-                    if ($dryRun) {
-                        $this->skillsCache[$key] = count($this->skillsCache) * -1 - 1;
-                    } else {
-                        $skill = Skill::firstOrCreate(
-                            ['nombre' => $this->normalizer->displayName($nombre)],
-                            ['tipo' => $tipo],
-                        );
-                        $this->skillsCache[$key] = (int) $skill->id;
-                    }
-                }
-                $skillId = $this->skillsCache[$key];
-                $out[$skillId] = ['nivel_requerido' => $nivel];
             }
+            $skillId = $this->skillsCache[$key];
+            $out[$skillId] = ['nivel_requerido' => $nivel];
         }
 
         return $out;
@@ -180,31 +176,25 @@ class PuestoImporter
     private function prepararRequerimientos(array $items, string $prefijoDesc, ?string $valor, bool $dryRun): array
     {
         $out = [];
-        foreach ($items as $descOriginal) {
-            $descOriginal = trim((string) $descOriginal);
-            if ($descOriginal === '' || mb_strtoupper($descOriginal) === 'N/A') {
+        foreach ($items as $desc) {
+            $desc = trim((string) $desc);
+            if ($desc === '' || mb_strtoupper($desc) === 'N/A') {
                 continue;
             }
-            // Separar paréntesis en items independientes (mismo prefijo y valor)
-            foreach ($this->normalizer->splitParenContent($descOriginal) as $desc) {
-                if (mb_strtoupper(trim($desc)) === 'N/A' || mb_strlen(trim($desc)) < 3) {
-                    continue;
+            $descripcionFinal = $prefijoDesc.': '.$desc;
+            $key = $this->normalizer->dedupKey($descripcionFinal);
+            if (! isset($this->reqsCache[$key])) {
+                if ($dryRun) {
+                    $this->reqsCache[$key] = count($this->reqsCache) * -1 - 1;
+                } else {
+                    $req = Requerimiento::firstOrCreate(
+                        ['descripcion' => $descripcionFinal],
+                        ['valor' => $valor],
+                    );
+                    $this->reqsCache[$key] = (int) $req->id;
                 }
-                $descripcionFinal = $prefijoDesc.': '.$desc;
-                $key = $this->normalizer->dedupKey($descripcionFinal);
-                if (! isset($this->reqsCache[$key])) {
-                    if ($dryRun) {
-                        $this->reqsCache[$key] = count($this->reqsCache) * -1 - 1;
-                    } else {
-                        $req = Requerimiento::firstOrCreate(
-                            ['descripcion' => $descripcionFinal],
-                            ['valor' => $valor],
-                        );
-                        $this->reqsCache[$key] = (int) $req->id;
-                    }
-                }
-                $out[] = $this->reqsCache[$key];
             }
+            $out[] = $this->reqsCache[$key];
         }
 
         return array_values(array_unique($out));
