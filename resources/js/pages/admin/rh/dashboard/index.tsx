@@ -42,16 +42,16 @@ type Props = {
 };
 
 const DEPT_BG = [
-    'bg-sky-100',
-    'bg-amber-100',
-    'bg-emerald-100',
-    'bg-violet-100',
-    'bg-rose-100',
-    'bg-cyan-100',
-    'bg-orange-100',
-    'bg-teal-100',
-    'bg-indigo-100',
-    'bg-lime-100',
+    'bg-sky-100 dark:bg-sky-900/40',
+    'bg-amber-100 dark:bg-amber-900/40',
+    'bg-emerald-100 dark:bg-emerald-900/40',
+    'bg-violet-100 dark:bg-violet-900/40',
+    'bg-rose-100 dark:bg-rose-900/40',
+    'bg-cyan-100 dark:bg-cyan-900/40',
+    'bg-orange-100 dark:bg-orange-900/40',
+    'bg-teal-100 dark:bg-teal-900/40',
+    'bg-indigo-100 dark:bg-indigo-900/40',
+    'bg-lime-100 dark:bg-lime-900/40',
 ];
 
 function buildDeptColorMap(departamentos: Departamento[]): Record<number, string> {
