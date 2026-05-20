@@ -17,8 +17,8 @@ type Props = {
 };
 
 const steps: { key: CostosOrdenCompraEstatus; label: string }[] = [
-    { key: 'pendiente_factura', label: 'Pend. Factura' },
     { key: 'pendiente_entrega', label: 'Pend. Entrega' },
+    { key: 'pendiente_factura', label: 'Pend. Factura' },
     { key: 'pendiente_aprobacion', label: 'Pend. Aprobación' },
     { key: 'pendiente_pago', label: 'Pend. Pago' },
     { key: 'pagada', label: 'Pagada' },
@@ -76,9 +76,13 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     <div>
                         <h1 className="text-2xl font-semibold">{ordenCompra.folio}</h1>
                         <div className="flex items-center gap-3 mt-1">
-                            <span className={`badge ${ORDEN_COMPRA_ESTATUS_COLORS[ordenCompra.estatus]}`}>
-                                {ORDEN_COMPRA_ESTATUS_LABELS[ordenCompra.estatus]}
-                            </span>
+                            {ordenCompra.retrasada ? (
+                                <span className="badge badge-error">ENTREGA RETRASADA</span>
+                            ) : (
+                                <span className={`badge ${ORDEN_COMPRA_ESTATUS_COLORS[ordenCompra.estatus]}`}>
+                                    {ORDEN_COMPRA_ESTATUS_LABELS[ordenCompra.estatus]}
+                                </span>
+                            )}
                             <span className="text-lg font-semibold">{formatMoney(ordenCompra.total)}</span>
                             {ordenCompra.requisicion_id && (
                                 <Link
@@ -92,7 +96,7 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     </div>
 
                     <div className="flex gap-2">
-                        {['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.entregas.crear') && (
+                        {['pendiente_entrega', 'pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.entregas.crear') && (
                             <Button onClick={() => setShowEntregaModal(true)}>Registrar entrega</Button>
                         )}
                         {puedeCrearAnticipo && (
@@ -100,7 +104,7 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                                 <Link href={anticipoCreateUrl}>Crear anticipo</Link>
                             </Button>
                         )}
-                        {['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.ordenes-compra.cancelar') && (
+                        {['pendiente_entrega', 'pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.ordenes-compra.cancelar') && (
                             <Button variant="destructive" onClick={() => setShowCancelarModal(true)}>Cancelar</Button>
                         )}
                     </div>

@@ -23,7 +23,7 @@ class OrdenCompraUpdateRequest extends FormRequest
             'departamento_id' => ['required', 'exists:departamentos,id'],
             'moneda' => ['required', 'in:mxn,usd,eur'],
             'total' => ['required', 'numeric', 'min:0.01'],
-            'fecha_entrega_esperada' => ['nullable', 'date'],
+            'fecha_entrega_esperada' => ['required', 'date'],
             'notas' => ['nullable', 'string'],
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.id' => ['nullable', 'integer'],

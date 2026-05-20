@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Costos\DocumentoTipo;
+use App\Models\Costos\Entrega;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Proveedor;
@@ -110,7 +111,8 @@ describe('Portal upload XML auto-llena datos fiscales', function () {
     });
 
     test('sube factura con XML y auto-llena campos fiscales', function () {
-        $oc = OrdenCompra::factory()->aprobada()->create(['proveedor_id' => $this->proveedor->id]);
+        $oc = OrdenCompra::factory()->pendienteFactura()->create(['proveedor_id' => $this->proveedor->id]);
+        Entrega::factory()->create(['orden_compra_id' => $oc->id]);
 
         $xml = UploadedFile::fake()->createWithContent('factura.xml', sampleCfdi([
             'Uuid' => 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB',
@@ -151,7 +153,8 @@ describe('Portal upload XML auto-llena datos fiscales', function () {
             'uuid_fiscal' => 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC',
         ]);
 
-        $oc = OrdenCompra::factory()->aprobada()->create(['proveedor_id' => $this->proveedor->id]);
+        $oc = OrdenCompra::factory()->pendienteFactura()->create(['proveedor_id' => $this->proveedor->id]);
+        Entrega::factory()->create(['orden_compra_id' => $oc->id]);
         $xml = UploadedFile::fake()->createWithContent('factura.xml', sampleCfdi([
             'Uuid' => 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC',
         ]));
@@ -166,7 +169,8 @@ describe('Portal upload XML auto-llena datos fiscales', function () {
     });
 
     test('rechaza XML malformado', function () {
-        $oc = OrdenCompra::factory()->aprobada()->create(['proveedor_id' => $this->proveedor->id]);
+        $oc = OrdenCompra::factory()->pendienteFactura()->create(['proveedor_id' => $this->proveedor->id]);
+        Entrega::factory()->create(['orden_compra_id' => $oc->id]);
         $xml = UploadedFile::fake()->createWithContent('factura.xml', '<<<no es xml>>>');
 
         $this->actingAs($this->proveedor, 'proveedor')

@@ -17,7 +17,6 @@ use App\Models\Costos\SolicitudPago;
 describe('allowedTransitions por enum', function () {
     test('OrdenCompra: estados no terminales solo permiten Cancelada', function () {
         expect(OrdenCompraEstatus::PendienteFactura->allowedTransitions())->toBe([OrdenCompraEstatus::Cancelada]);
-        expect(OrdenCompraEstatus::PendienteEntrega->allowedTransitions())->toBe([OrdenCompraEstatus::Cancelada]);
         expect(OrdenCompraEstatus::PendienteAprobacion->allowedTransitions())->toBe([OrdenCompraEstatus::Cancelada]);
         expect(OrdenCompraEstatus::PendientePago->allowedTransitions())->toBe([]);
         expect(OrdenCompraEstatus::Pagada->allowedTransitions())->toBe([]);
@@ -25,8 +24,6 @@ describe('allowedTransitions por enum', function () {
     });
 
     test('Factura: flujo lineal con escape a Cancelada salvo estados terminales', function () {
-        expect(FacturaEstatus::PendienteEntrega->allowedTransitions())
-            ->toBe([FacturaEstatus::PendienteAprobacion, FacturaEstatus::Cancelada]);
         expect(FacturaEstatus::PendienteAprobacion->allowedTransitions())
             ->toBe([FacturaEstatus::PendientePago, FacturaEstatus::Cancelada]);
         expect(FacturaEstatus::PendientePago->allowedTransitions())
@@ -102,16 +99,16 @@ describe('transitionTo en modelos', function () {
             ->toThrow(InvalidStateTransitionException::class);
     });
 
-    test('Factura transiciona pendiente_entrega -> pendiente_aprobacion', function () {
-        $factura = Factura::factory()->create(['estatus' => 'pendiente_entrega']);
+    test('Factura transiciona pendiente_aprobacion -> pendiente_pago', function () {
+        $factura = Factura::factory()->create(['estatus' => 'pendiente_aprobacion']);
 
-        $factura->transitionTo(FacturaEstatus::PendienteAprobacion);
+        $factura->transitionTo(FacturaEstatus::PendientePago);
 
-        expect($factura->fresh()->estatus)->toBe(FacturaEstatus::PendienteAprobacion);
+        expect($factura->fresh()->estatus)->toBe(FacturaEstatus::PendientePago);
     });
 
-    test('Factura no puede saltar de pendiente_entrega a pagada', function () {
-        $factura = Factura::factory()->create(['estatus' => 'pendiente_entrega']);
+    test('Factura no puede saltar de pendiente_aprobacion a pagada', function () {
+        $factura = Factura::factory()->create(['estatus' => 'pendiente_aprobacion']);
 
         expect(fn () => $factura->transitionTo(FacturaEstatus::Pagada))
             ->toThrow(InvalidStateTransitionException::class);

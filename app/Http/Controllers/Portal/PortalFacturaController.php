@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Enums\Costos\DocumentoTipo;
+use App\Enums\Costos\FacturaEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Portal\PortalFacturaStoreRequest;
 use App\Models\Costos\Factura;
@@ -87,6 +88,7 @@ class PortalFacturaController extends Controller
             'total' => $total,
             'moneda' => $oc->moneda,
             'fecha_factura' => $fiscal['fecha_factura'] ?? ($validated['fecha_factura'] ?? null),
+            'estatus' => FacturaEstatus::PendienteAprobacion,
             'notas' => $validated['notas'] ?? null,
         ]);
 

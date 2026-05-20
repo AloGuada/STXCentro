@@ -299,22 +299,6 @@ class Factura extends Model
         return $out;
     }
 
-    /**
-     * Si la factura está en pendiente_entrega y todas sus partidas ya tienen
-     * recepción suficiente, la promueve a pendiente_aprobacion.
-     */
-    public function recalcularEstatus(): void
-    {
-        if ($this->estatus !== FacturaEstatus::PendienteEntrega) {
-            return;
-        }
-
-        if ($this->cobertura_completa) {
-            $this->transitionTo(FacturaEstatus::PendienteAprobacion);
-            $this->ordenCompra?->recalcularEstatus();
-        }
-    }
-
     public function activities(): MorphMany
     {
         return $this->activitiesAsSubject();

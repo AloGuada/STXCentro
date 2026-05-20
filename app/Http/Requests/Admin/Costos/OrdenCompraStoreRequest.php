@@ -23,7 +23,7 @@ class OrdenCompraStoreRequest extends FormRequest
             'departamento_id' => ['required', 'exists:departamentos,id'],
             'moneda' => ['required', 'in:mxn,usd,eur'],
             'total' => ['required', 'numeric', 'min:0.01'],
-            'fecha_entrega_esperada' => ['nullable', 'date'],
+            'fecha_entrega_esperada' => ['required', 'date', 'after_or_equal:today'],
             'notas' => ['nullable', 'string'],
             'archivo' => ['nullable', 'file', 'max:10240'],
             'detalles' => ['required', 'array', 'min:1'],
@@ -41,6 +41,8 @@ class OrdenCompraStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'fecha_entrega_esperada.required' => 'La fecha de entrega esperada es obligatoria.',
+            'fecha_entrega_esperada.after_or_equal' => 'La fecha de entrega no puede ser anterior a hoy.',
             'detalles.required' => 'Debe agregar al menos un detalle.',
             'detalles.min' => 'Debe agregar al menos un detalle.',
             'detalles.*.obra_rubro_id.required' => 'El rubro es obligatorio.',

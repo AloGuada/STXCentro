@@ -22,6 +22,8 @@ export default function PortalOrdenCompraShow({ ordenCompra }: Props) {
 
     const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
     const [showFacturaForm, setShowFacturaForm] = useState(false);
+    const tieneEntregas = (ordenCompra.entregas?.length ?? 0) > 0;
+    const puedeFacturar = ['pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && tieneEntregas;
 
     const { data, setData, post, processing, errors } = useForm({
         orden_compra_id: ordenCompra.id,
@@ -50,14 +52,26 @@ export default function PortalOrdenCompraShow({ ordenCompra }: Props) {
                 <div className="mb-6 flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-semibold">{ordenCompra.folio}</h1>
-                        <span className={`badge ${ORDEN_COMPRA_ESTATUS_COLORS[ordenCompra.estatus]}`}>
-                            {ORDEN_COMPRA_ESTATUS_LABELS[ordenCompra.estatus]}
+                        <div className="flex items-center gap-2 mt-1">
+                            {ordenCompra.retrasada ? (
+                                <span className="badge badge-error">ENTREGA RETRASADA</span>
+                            ) : (
+                                <span className={`badge ${ORDEN_COMPRA_ESTATUS_COLORS[ordenCompra.estatus]}`}>
+                                    {ORDEN_COMPRA_ESTATUS_LABELS[ordenCompra.estatus]}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    {puedeFacturar && <Button onClick={() => setShowFacturaForm(true)}>Subir Factura</Button>}
+                </div>
+
+                {['pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && !tieneEntregas && (
+                    <div className="alert alert-warning mb-6">
+                        <span>
+                            Esta orden aún no tiene recepción registrada por almacén. Podrás subir tu factura en cuanto se confirme la entrega.
                         </span>
                     </div>
-                    {['pendiente_factura', 'pendiente_entrega'].includes(ordenCompra.estatus) && (
-                        <Button onClick={() => setShowFacturaForm(true)}>Subir Factura</Button>
-                    )}
-                </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-6 mb-6">
                     <div className="space-y-3">

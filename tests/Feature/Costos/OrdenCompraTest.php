@@ -39,7 +39,7 @@ test('muestra formulario de creacion', function () {
         );
 });
 
-test('crea orden de compra pendiente_factura y aplica impacto presupuestal', function () {
+test('crea orden de compra pendiente_entrega y aplica impacto presupuestal', function () {
     $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
     $oc = OrdenCompra::factory()->make();
 
@@ -48,6 +48,7 @@ test('crea orden de compra pendiente_factura y aplica impacto presupuestal', fun
             'proveedor_id' => $oc->proveedor_id,
             'departamento_id' => $oc->departamento_id,
             'moneda' => 'mxn',
+            'fecha_entrega_esperada' => now()->addDays(7)->format('Y-m-d'),
             'total' => 5000,
             'detalles' => [
                 [
@@ -66,7 +67,7 @@ test('crea orden de compra pendiente_factura y aplica impacto presupuestal', fun
 
     $created = OrdenCompra::first();
     expect($created->folio)->toStartWith('OC-');
-    expect($created->estatus->value)->toBe('pendiente_factura');
+    expect($created->estatus->value)->toBe('pendiente_entrega');
     expect((float) $created->total)->toBe(5000.0);
 
     $obraRubro->refresh();
@@ -161,6 +162,7 @@ test('calcula subtotal = cantidad * precio_unitario por partida', function () {
             'proveedor_id' => $oc->proveedor_id,
             'departamento_id' => $oc->departamento_id,
             'moneda' => 'mxn',
+            'fecha_entrega_esperada' => now()->addDays(7)->format('Y-m-d'),
             'total' => 3750,
             'detalles' => [
                 [
@@ -195,6 +197,7 @@ test('validation requiere descripcion, unidad, cantidad y precio_unitario por pa
             'proveedor_id' => $oc->proveedor_id,
             'departamento_id' => $oc->departamento_id,
             'moneda' => 'mxn',
+            'fecha_entrega_esperada' => now()->addDays(7)->format('Y-m-d'),
             'total' => 1000,
             'detalles' => [
                 ['obra_rubro_id' => $obraRubro->id],

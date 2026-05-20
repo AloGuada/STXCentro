@@ -12,10 +12,10 @@ beforeEach(function () {
     $this->user->givePermissionTo('costos.facturas.cancelar');
 });
 
-function crearFacturaCancelable(string $estatus = 'pendiente_entrega'): Factura
+function crearFacturaCancelable(string $estatus = 'pendiente_aprobacion'): Factura
 {
     $proveedor = Proveedor::factory()->create();
-    $oc = OrdenCompra::factory()->pendienteEntrega()->create(['proveedor_id' => $proveedor->id]);
+    $oc = OrdenCompra::factory()->pendienteFactura()->create(['proveedor_id' => $proveedor->id]);
 
     return Factura::factory()->create([
         'orden_compra_id' => $oc->id,
@@ -25,7 +25,7 @@ function crearFacturaCancelable(string $estatus = 'pendiente_entrega'): Factura
 }
 
 test('cierra factura pendiente y queda cancelada', function () {
-    $factura = crearFacturaCancelable('pendiente_entrega');
+    $factura = crearFacturaCancelable('pendiente_aprobacion');
 
     $this->actingAs($this->user)
         ->post("/admin/costos/facturas/{$factura->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
@@ -70,11 +70,11 @@ test('no cierra factura aceptada por contabilidad', function () {
 
 test('sin permiso no puede cerrar factura', function () {
     $otro = User::factory()->create();
-    $factura = crearFacturaCancelable('pendiente_entrega');
+    $factura = crearFacturaCancelable('pendiente_aprobacion');
 
     $this->actingAs($otro)
         ->post("/admin/costos/facturas/{$factura->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertForbidden();
 
-    expect($factura->fresh()->estatus->value)->toBe('pendiente_entrega');
+    expect($factura->fresh()->estatus->value)->toBe('pendiente_aprobacion');
 });

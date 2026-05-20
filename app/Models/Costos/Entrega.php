@@ -18,6 +18,16 @@ class Entrega extends Model
 {
     use HasFactory, LogsActivity;
 
+    /**
+     * Al crear/eliminar una entrega, recalcular el estatus de la OC: la primera
+     * entrega mueve la OC de pendiente_entrega → pendiente_factura.
+     */
+    protected static function booted(): void
+    {
+        static::created(fn (self $e) => $e->ordenCompra?->recalcularEstatus());
+        static::deleted(fn (self $e) => $e->ordenCompra?->recalcularEstatus());
+    }
+
     protected $table = 'costos_entregas';
 
     /**

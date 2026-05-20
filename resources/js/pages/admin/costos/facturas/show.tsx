@@ -72,13 +72,6 @@ export default function FacturasShow({ factura }: Props) {
                     </div>
 
                     <div className="flex gap-2">
-                        {factura.estatus === 'pendiente_entrega' && factura.orden_compra && (
-                            <Button variant="outline" asChild>
-                                <Link href={`/admin/costos/ordenes-compra/${factura.orden_compra.id}`}>
-                                    Registrar entrega en OC
-                                </Link>
-                            </Button>
-                        )}
                         {factura.estatus === 'pendiente_aprobacion' && !factura.aprobada_costos && can('costos.facturas.aprobar') && (
                             <Button onClick={() => setShowAprobarModal(true)}>
                                 Aprobar Costos
@@ -128,11 +121,6 @@ export default function FacturasShow({ factura }: Props) {
                     <div className="mb-6">
                         <div className="flex items-center justify-between mb-3">
                             <h2 className="text-lg font-medium">Partidas facturadas</h2>
-                            {factura.estatus === 'pendiente_entrega' && (
-                                <span className={`badge ${factura.cobertura_completa ? 'badge-success' : 'badge-warning'}`}>
-                                    {factura.cobertura_completa ? 'Recepción completa' : 'Pendiente de recepción'}
-                                </span>
-                            )}
                         </div>
                         <div className="overflow-x-auto">
                             <table className="table table-sm">

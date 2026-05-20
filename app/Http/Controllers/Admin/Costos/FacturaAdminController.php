@@ -56,9 +56,7 @@ class FacturaAdminController extends Controller
 
         $ordenes = OrdenCompra::query()
             ->whereIn('estatus', [
-                FacturaEstatus::PendienteEntrega->value,
                 'pendiente_factura',
-                'pendiente_entrega',
                 'pendiente_aprobacion',
                 'pendiente_pago',
             ])
@@ -149,7 +147,7 @@ class FacturaAdminController extends Controller
                 'moneda' => $request->input('moneda', $oc->moneda),
                 'fecha_factura' => $request->input('fecha_factura'),
                 'notas' => $request->input('notas'),
-                'estatus' => 'pendiente_entrega',
+                'estatus' => FacturaEstatus::PendienteAprobacion,
             ]);
 
             foreach ($detalles as $d) {
@@ -161,11 +159,6 @@ class FacturaAdminController extends Controller
                     'subtotal' => $d['subtotal'],
                 ]);
             }
-
-            // Si la factura nace ya cubierta (recepciones previas suficientes),
-            // recalcularEstatus la promueve automaticamente a pendiente_aprobacion.
-            $factura->load('detalles');
-            $factura->recalcularEstatus();
 
             $oc->recalcularEstatus();
         });
@@ -206,7 +199,7 @@ class FacturaAdminController extends Controller
     public function aprobarCostos(Request $request, Factura $factura): RedirectResponse
     {
         if ($factura->estatus !== FacturaEstatus::PendienteAprobacion) {
-            return back()->withErrors(['estatus' => 'La factura debe tener la entrega completa para ser aprobada.']);
+            return back()->withErrors(['estatus' => 'La factura debe estar pendiente de aprobación.']);
         }
 
         if ($factura->aprobada_costos) {

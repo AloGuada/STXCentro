@@ -53,6 +53,7 @@ describe('sweep de descripciones canonicas al subir archivos', function () {
             'proveedor_id' => $prov->id,
             'departamento_id' => \App\Models\Departamento::factory()->create()->id,
             'moneda' => 'mxn',
+            'fecha_entrega_esperada' => now()->addDays(7)->format('Y-m-d'),
             'total' => 500,
             'archivo' => UploadedFile::fake()->create('oc.pdf', 200, 'application/pdf'),
             'detalles' => [[
@@ -77,7 +78,7 @@ describe('sweep de descripciones canonicas al subir archivos', function () {
         Permission::firstOrCreate(['name' => 'costos.entregas.crear', 'guard_name' => 'web']);
         $user->givePermissionTo('costos.entregas.crear');
 
-        $oc = OrdenCompra::factory()->pendienteEntrega()->create(['total' => 1000]);
+        $oc = OrdenCompra::factory()->pendienteFactura()->create(['total' => 1000]);
         $p = OrdenCompraDetalle::factory()->create([
             'orden_compra_id' => $oc->id,
             'cantidad' => 10,

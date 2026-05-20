@@ -384,14 +384,12 @@ class RequisicionController extends Controller
 
                 // La fecha de entrega esperada se calcula a partir de los días
                 // de entrega cotizados: hoy + max(tiempo_entrega_dias) de las
-                // selecciones de esta OC. Si ninguna selección lo trae, queda
-                // null (se asume "lo antes posible").
+                // selecciones de esta OC. Si ninguna selección lo trae, se
+                // toma un default de 7 días para que el campo no quede vacío.
                 $diasMax = $selecciones->max(
                     fn (RequisicionSeleccion $s) => (int) ($s->cotizacionPrecio?->tiempo_entrega_dias ?? 0)
                 );
-                $fechaEntrega = $diasMax > 0
-                    ? now()->addDays($diasMax)->format('Y-m-d')
-                    : null;
+                $fechaEntrega = now()->addDays($diasMax > 0 ? $diasMax : 7)->format('Y-m-d');
 
                 $proveedor = Proveedor::find($proveedorId);
 
@@ -421,7 +419,7 @@ class RequisicionController extends Controller
                     'total' => round($total, 2),
                     'fecha_entrega_esperada' => $fechaEntrega,
                     'notas' => $notas,
-                    'estatus' => OrdenCompraEstatus::PendienteFactura->value,
+                    'estatus' => OrdenCompraEstatus::PendienteEntrega->value,
                 ]);
 
                 foreach ($selecciones as $sel) {

@@ -179,12 +179,13 @@ export default function OrdenesCompraCreate({ proveedores, obras, departamentos,
                                     </select>
                                 </FormField>
 
-                                <FormField label="Fecha de Entrega Esperada" htmlFor="fecha_entrega_esperada" error={errors.fecha_entrega_esperada}>
+                                <FormField label="Fecha de Entrega Esperada" htmlFor="fecha_entrega_esperada" error={errors.fecha_entrega_esperada} required>
                                     <Input
                                         id="fecha_entrega_esperada"
                                         type="date"
                                         value={data.fecha_entrega_esperada}
                                         onChange={(e) => setData('fecha_entrega_esperada', e.target.value)}
+                                        required
                                     />
                                 </FormField>
                             </div>

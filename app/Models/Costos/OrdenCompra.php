@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -36,6 +37,21 @@ class OrdenCompra extends Model
     protected static string $folioPrefix = 'OC';
 
     protected static string $stateEnum = OrdenCompraEstatus::class;
+
+    /**
+     * @var list<string>
+     */
+    protected $appends = [
+        'retrasada',
+        'etapa_proceso',
+        'monto_recibido',
+        'total_facturado',
+        'total_pagado',
+        'porcentaje_recepcion',
+        'porcentaje_facturacion',
+        'porcentaje_pago',
+        'pago_vencido',
+    ];
 
     /**
      * @var list<string>
@@ -213,14 +229,28 @@ class OrdenCompra extends Model
     }
 
     /**
-     * Recalcula el estatus de la OC basado en el estado agregado de sus facturas.
+     * Recalcula el estatus de la OC basado en el estado agregado de sus facturas
+     * y la presencia de recepciones del almacén.
+     *
+     * Reglas (en orden):
+     *  - cancelada                        → no cambia
+     *  - sin facturas activas, sin entregas → pendiente_entrega
+     *  - sin facturas activas, con entregas → pendiente_factura
+     *  - todas facturas pagadas           → pagada
+     *  - todas facturas en pago o pagadas → pendiente_pago
+     *  - default (con facturas activas)   → pendiente_aprobacion
      */
     public function recalcularEstatus(): void
     {
+        if ($this->estatus === OrdenCompraEstatus::Cancelada) {
+            return;
+        }
+
         $facturas = $this->facturas()->where('estatus', '!=', FacturaEstatus::Cancelada->value)->get();
 
         if ($facturas->isEmpty()) {
-            $this->update(['estatus' => 'pendiente_factura']);
+            $estado = $this->entregas()->exists() ? 'pendiente_factura' : 'pendiente_entrega';
+            $this->update(['estatus' => $estado]);
 
             return;
         }
@@ -237,13 +267,126 @@ class OrdenCompra extends Model
             return;
         }
 
-        if ($facturas->every(fn ($f) => in_array($f->estatus, [FacturaEstatus::PendienteAprobacion, FacturaEstatus::PendientePago, FacturaEstatus::Pagada], true))) {
-            $this->update(['estatus' => 'pendiente_aprobacion']);
+        $this->update(['estatus' => 'pendiente_aprobacion']);
+    }
 
-            return;
+    /**
+     * Indica si la fecha de entrega esperada ya pasó y aún no hay ninguna
+     * recepción de almacén registrada. Se usa como bandera UI en portal y admin.
+     */
+    public function getRetrasadaAttribute(): bool
+    {
+        if (! $this->fecha_entrega_esperada) {
+            return false;
         }
 
-        $this->update(['estatus' => 'pendiente_entrega']);
+        $fecha = $this->fecha_entrega_esperada instanceof Carbon
+            ? $this->fecha_entrega_esperada
+            : Carbon::parse($this->fecha_entrega_esperada);
+
+        if (! $fecha->isPast()) {
+            return false;
+        }
+
+        return ! $this->entregas()->exists();
+    }
+
+    /**
+     * Monto recibido por almacén = sumatoria de (cantidad_neta_recibida * precio_unitario)
+     * por cada partida. Descuenta devoluciones vigentes via EntregaDetalle::cantidad_neta_recibida.
+     */
+    public function getMontoRecibidoAttribute(): float
+    {
+        $this->loadMissing(['entregas.detalles.ordenCompraDetalle', 'entregas.detalles.devoluciones']);
+
+        $total = 0.0;
+        foreach ($this->entregas as $entrega) {
+            foreach ($entrega->detalles as $ed) {
+                $precio = (float) ($ed->ordenCompraDetalle?->precio_unitario ?? 0);
+                $total += $ed->cantidad_neta_recibida * $precio;
+            }
+        }
+
+        return round($total, 2);
+    }
+
+    public function getPorcentajeRecepcionAttribute(): float
+    {
+        return $this->ratio($this->monto_recibido);
+    }
+
+    public function getPorcentajeFacturacionAttribute(): float
+    {
+        return $this->ratio($this->total_facturado);
+    }
+
+    public function getPorcentajePagoAttribute(): float
+    {
+        return $this->ratio($this->total_pagado);
+    }
+
+    private function ratio(float $monto): float
+    {
+        $total = (float) $this->total;
+        if ($total <= 0) {
+            return 0.0;
+        }
+
+        return round(min(100, max(0, ($monto / $total) * 100)), 1);
+    }
+
+    /**
+     * Etapa derivada para la UI del portal — reagrupa el estatus real para
+     * comunicar al proveedor en qué paso está hoy la OC.
+     */
+    public function getEtapaProcesoAttribute(): string
+    {
+        if ($this->estatus === OrdenCompraEstatus::Cancelada) {
+            return 'cancelada';
+        }
+
+        if ($this->monto_recibido > $this->total_facturado + 0.01) {
+            return 'espera_factura';
+        }
+
+        if (! $this->entregas()->exists()) {
+            return 'recepcion';
+        }
+
+        $facturas = $this->facturas->where('estatus', '!=', FacturaEstatus::Cancelada);
+
+        if ($facturas->contains(fn ($f) => $f->estatus === FacturaEstatus::PendienteAprobacion)) {
+            return 'validacion_documentos';
+        }
+
+        if ($facturas->isNotEmpty() && $this->total_pagado + 0.01 < $this->total) {
+            return 'pago_programado';
+        }
+
+        if ($this->porcentaje_recepcion >= 100 && $this->total_pagado + 0.01 >= $this->total) {
+            return 'completada';
+        }
+
+        return 'recepcion';
+    }
+
+    /**
+     * True si existe al menos un Pago de cualquier factura de la OC con
+     * fecha_pago_programada vencida y estatus en {Programado, Parcial}.
+     */
+    public function getPagoVencidoAttribute(): bool
+    {
+        $facturaIds = $this->facturas()->pluck('id');
+        if ($facturaIds->isEmpty()) {
+            return false;
+        }
+
+        return Pago::query()
+            ->where('pagable_type', Factura::class)
+            ->whereIn('pagable_id', $facturaIds)
+            ->whereDate('fecha_pago_programada', '<', now()->toDateString())
+            ->whereIn('estatus', ['programado', 'parcial'])
+            ->exists();
     }
 
     /**

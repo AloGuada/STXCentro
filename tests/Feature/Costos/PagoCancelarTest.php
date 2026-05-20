@@ -88,7 +88,7 @@ test('cancelar factura registra entrada en costos_cancelaciones', function () {
     Permission::firstOrCreate(['name' => 'costos.facturas.cancelar', 'guard_name' => 'web']);
     $this->user->givePermissionTo('costos.facturas.cancelar');
 
-    $factura = Factura::factory()->create(['estatus' => 'pendiente_entrega']);
+    $factura = Factura::factory()->create(['estatus' => 'pendiente_aprobacion']);
 
     $this->actingAs($this->user)
         ->post(route('admin.costos.facturas.cancelar', $factura), [

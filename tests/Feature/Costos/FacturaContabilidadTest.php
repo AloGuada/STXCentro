@@ -22,7 +22,7 @@ function crearFacturaAprobadaCostos(?Proveedor $proveedor = null, ?string $fecha
 {
     $proveedor = $proveedor ?? Proveedor::factory()->create(['email' => 'proveedor@test.com']);
 
-    $oc = OrdenCompra::factory()->pendienteEntrega()->create([
+    $oc = OrdenCompra::factory()->pendienteFactura()->create([
         'proveedor_id' => $proveedor->id,
     ]);
 
@@ -79,7 +79,7 @@ test('pago programado con dias credito ajusta al viernes', function () {
 
 test('no acepta factura sin aprobacion costos', function () {
     $proveedor = Proveedor::factory()->create();
-    $oc = OrdenCompra::factory()->pendienteEntrega()->create(['proveedor_id' => $proveedor->id]);
+    $oc = OrdenCompra::factory()->pendienteFactura()->create(['proveedor_id' => $proveedor->id]);
     $factura = Factura::factory()->create([
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $proveedor->id,
@@ -106,7 +106,7 @@ test('no acepta factura ya aceptada', function () {
 });
 
 test('no acepta factura en estatus pendiente_entrega', function () {
-    $factura = Factura::factory()->pendienteEntrega()->create();
+    $factura = Factura::factory()->pendienteAprobacion()->create();
 
     $this->actingAs($this->user)
         ->post("/admin/costos/facturas/{$factura->id}/aceptar-contabilidad")

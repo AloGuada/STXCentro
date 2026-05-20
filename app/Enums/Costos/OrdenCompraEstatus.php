@@ -6,8 +6,8 @@ use App\Enums\Contracts\HasStateTransitions;
 
 enum OrdenCompraEstatus: string implements HasStateTransitions
 {
-    case PendienteFactura = 'pendiente_factura';
     case PendienteEntrega = 'pendiente_entrega';
+    case PendienteFactura = 'pendiente_factura';
     case PendienteAprobacion = 'pendiente_aprobacion';
     case PendientePago = 'pendiente_pago';
     case Pagada = 'pagada';
@@ -22,8 +22,8 @@ enum OrdenCompraEstatus: string implements HasStateTransitions
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::PendienteFactura,
             self::PendienteEntrega,
+            self::PendienteFactura,
             self::PendienteAprobacion => [self::Cancelada],
             self::PendientePago,
             self::Pagada,
@@ -34,8 +34,8 @@ enum OrdenCompraEstatus: string implements HasStateTransitions
     public function label(): string
     {
         return match ($this) {
-            self::PendienteFactura => 'Pendiente de factura',
             self::PendienteEntrega => 'Pendiente de entrega',
+            self::PendienteFactura => 'Pendiente de factura',
             self::PendienteAprobacion => 'Pendiente de aprobación',
             self::PendientePago => 'Pendiente de pago',
             self::Pagada => 'Pagada',

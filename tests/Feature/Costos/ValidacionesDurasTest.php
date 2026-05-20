@@ -74,7 +74,7 @@ describe('cancelacion de orden de compra', function () {
     });
 
     test('no se puede cancelar orden con factura activa', function () {
-        $oc = OrdenCompra::factory()->pendienteEntrega()->create();
+        $oc = OrdenCompra::factory()->pendienteFactura()->create();
         Factura::factory()->create([
             'orden_compra_id' => $oc->id,
             'estatus' => 'pendiente_aprobacion',
@@ -84,12 +84,12 @@ describe('cancelacion de orden de compra', function () {
             ->post(route('admin.costos.ordenes-compra.cancelar', $oc), ['motivo' => 'Cancelación motivada por test'])
             ->assertSessionHasErrors(['estatus']);
 
-        expect($oc->fresh()->estatus->value)->toBe('pendiente_entrega');
+        expect($oc->fresh()->estatus->value)->toBe('pendiente_factura');
     });
 
     test('si todas las facturas estan canceladas la orden si se puede cancelar', function () {
         $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 5000]);
-        $oc = OrdenCompra::factory()->create(['total' => 5000, 'estatus' => 'pendiente_entrega']);
+        $oc = OrdenCompra::factory()->create(['total' => 5000, 'estatus' => 'pendiente_aprobacion']);
         OrdenCompraDetalle::factory()->create([
             'orden_compra_id' => $oc->id,
             'obra_rubro_id' => $obraRubro->id,

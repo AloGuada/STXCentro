@@ -70,7 +70,7 @@ test('logOnlyDirty no registra cambios en campos fuera de logOnly', function () 
 });
 
 test('factura aprobarCostos registra activity con aprobada_costos=true', function () {
-    $factura = Factura::factory()->create(['estatus' => FacturaEstatus::PendienteEntrega->value]);
+    $factura = Factura::factory()->create(['estatus' => FacturaEstatus::PendienteAprobacion->value]);
 
     $factura->update([
         'aprobada_costos' => true,

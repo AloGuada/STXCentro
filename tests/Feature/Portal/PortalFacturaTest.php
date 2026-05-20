@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Costos\Entrega;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Proveedor;
@@ -13,9 +14,18 @@ beforeEach(function () {
     ]);
 });
 
+function ocConRecepcion(?int $proveedorId = null): OrdenCompra
+{
+    $oc = OrdenCompra::factory()->pendienteFactura()->create(
+        $proveedorId ? ['proveedor_id' => $proveedorId] : []
+    );
+    Entrega::factory()->create(['orden_compra_id' => $oc->id]);
+
+    return $oc;
+}
+
 test('lista facturas del proveedor', function () {
     Factura::factory()->count(2)->create(['proveedor_id' => $this->proveedor->id]);
-    // Factura de otro proveedor
     Factura::factory()->create();
 
     $this->actingAs($this->proveedor, 'proveedor')
@@ -27,8 +37,8 @@ test('lista facturas del proveedor', function () {
         );
 });
 
-test('sube factura a orden propia', function () {
-    $oc = OrdenCompra::factory()->aprobada()->create(['proveedor_id' => $this->proveedor->id]);
+test('sube factura a orden propia con recepcion registrada', function () {
+    $oc = ocConRecepcion($this->proveedor->id);
 
     $this->actingAs($this->proveedor, 'proveedor')
         ->post('/portal/facturas', [
@@ -43,11 +53,25 @@ test('sube factura a orden propia', function () {
     $this->assertDatabaseHas('costos_facturas', [
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $this->proveedor->id,
+        'estatus' => 'pendiente_aprobacion',
     ]);
 });
 
+test('bloquea factura cuando la OC no tiene recepción de almacén', function () {
+    $oc = OrdenCompra::factory()->pendienteFactura()->create(['proveedor_id' => $this->proveedor->id]);
+
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->post('/portal/facturas', [
+            'orden_compra_id' => $oc->id,
+            'total' => 1000,
+        ])
+        ->assertSessionHasErrors(['orden_compra_id']);
+
+    expect(Factura::where('orden_compra_id', $oc->id)->count())->toBe(0);
+});
+
 test('no puede subir factura a orden de otro proveedor', function () {
-    $oc = OrdenCompra::factory()->aprobada()->create();
+    $oc = ocConRecepcion();
 
     $this->actingAs($this->proveedor, 'proveedor')
         ->post('/portal/facturas', [
@@ -93,7 +117,7 @@ test('rechaza factura con uuid_fiscal duplicado', function () {
         'uuid_fiscal' => $uuid,
     ]);
 
-    $oc = OrdenCompra::factory()->aprobada()->create(['proveedor_id' => $this->proveedor->id]);
+    $oc = ocConRecepcion($this->proveedor->id);
 
     $this->actingAs($this->proveedor, 'proveedor')
         ->post('/portal/facturas', [
@@ -105,8 +129,8 @@ test('rechaza factura con uuid_fiscal duplicado', function () {
 });
 
 test('permite multiples facturas sin uuid_fiscal', function () {
-    $ocA = OrdenCompra::factory()->aprobada()->create(['proveedor_id' => $this->proveedor->id]);
-    $ocB = OrdenCompra::factory()->aprobada()->create(['proveedor_id' => $this->proveedor->id]);
+    $ocA = ocConRecepcion($this->proveedor->id);
+    $ocB = ocConRecepcion($this->proveedor->id);
 
     $this->actingAs($this->proveedor, 'proveedor')
         ->post('/portal/facturas', [

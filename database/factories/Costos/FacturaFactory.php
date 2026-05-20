@@ -30,13 +30,13 @@ class FacturaFactory extends Factory
             'total' => $subtotal + $iva,
             'moneda' => 'mxn',
             'fecha_factura' => fake()->optional()->date(),
-            'estatus' => 'pendiente_entrega',
+            'estatus' => 'pendiente_aprobacion',
         ];
     }
 
-    public function pendienteEntrega(): static
+    public function pendienteAprobacion(): static
     {
-        return $this->state(fn () => ['estatus' => 'pendiente_entrega']);
+        return $this->state(fn () => ['estatus' => 'pendiente_aprobacion']);
     }
 
     public function pendientePago(): static
@@ -57,17 +57,5 @@ class FacturaFactory extends Factory
             'aceptada_contabilidad' => true,
             'aceptada_contabilidad_at' => now(),
         ]);
-    }
-
-    /** @deprecated Use pendienteEntrega() instead */
-    public function entregaParcial(): static
-    {
-        return $this->pendienteEntrega();
-    }
-
-    /** @deprecated Use pendientePago() instead */
-    public function entregaCompleta(): static
-    {
-        return $this->pendientePago();
     }
 }

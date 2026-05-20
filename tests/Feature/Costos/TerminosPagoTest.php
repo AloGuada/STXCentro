@@ -58,7 +58,7 @@ describe('Factura::calcularFechaPago', function () {
 
 describe('OrdenCompra saldos', function () {
     test('total_facturado suma facturas activas e ignora canceladas', function () {
-        $oc = OrdenCompra::factory()->pendienteEntrega()->create(['total' => 10000]);
+        $oc = OrdenCompra::factory()->pendienteFactura()->create(['total' => 10000]);
 
         Factura::factory()->create(['orden_compra_id' => $oc->id, 'total' => 3000, 'estatus' => 'pendiente_aprobacion']);
         Factura::factory()->create(['orden_compra_id' => $oc->id, 'total' => 2000, 'estatus' => 'pagada']);
@@ -70,7 +70,7 @@ describe('OrdenCompra saldos', function () {
     });
 
     test('total_pagado suma solo pagos pagados sin pago_padre', function () {
-        $oc = OrdenCompra::factory()->pendienteEntrega()->create(['total' => 10000]);
+        $oc = OrdenCompra::factory()->pendienteFactura()->create(['total' => 10000]);
         $factura = Factura::factory()->create(['orden_compra_id' => $oc->id, 'total' => 5000]);
 
         Pago::factory()->create([
@@ -92,7 +92,7 @@ describe('OrdenCompra saldos', function () {
     });
 
     test('saldo_pendiente es total menos total_pagado', function () {
-        $oc = OrdenCompra::factory()->pendienteEntrega()->create(['total' => 10000]);
+        $oc = OrdenCompra::factory()->pendienteFactura()->create(['total' => 10000]);
         $factura = Factura::factory()->create(['orden_compra_id' => $oc->id, 'total' => 10000]);
 
         Pago::factory()->create([

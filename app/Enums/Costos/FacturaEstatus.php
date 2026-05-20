@@ -6,7 +6,6 @@ use App\Enums\Contracts\HasStateTransitions;
 
 enum FacturaEstatus: string implements HasStateTransitions
 {
-    case PendienteEntrega = 'pendiente_entrega';
     case PendienteAprobacion = 'pendiente_aprobacion';
     case PendientePago = 'pendiente_pago';
     case Pagada = 'pagada';
@@ -18,7 +17,6 @@ enum FacturaEstatus: string implements HasStateTransitions
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::PendienteEntrega => [self::PendienteAprobacion, self::Cancelada],
             self::PendienteAprobacion => [self::PendientePago, self::Cancelada],
             self::PendientePago => [self::Pagada, self::Cancelada],
             self::Pagada,
@@ -29,7 +27,6 @@ enum FacturaEstatus: string implements HasStateTransitions
     public function label(): string
     {
         return match ($this) {
-            self::PendienteEntrega => 'Pendiente de entrega',
             self::PendienteAprobacion => 'Pendiente de aprobación',
             self::PendientePago => 'Pendiente de pago',
             self::Pagada => 'Pagada',

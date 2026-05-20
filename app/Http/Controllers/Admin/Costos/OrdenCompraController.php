@@ -25,8 +25,14 @@ class OrdenCompraController extends Controller
     public function index(Request $request): Response
     {
         $ordenes = OrdenCompra::query()
-            ->with(['proveedor:id,razon_social,nombre_comercial', 'departamento:id,descripcion'])
-            ->withCount(['facturas', 'entregas'])
+            ->with([
+                'proveedor:id,razon_social,nombre_comercial',
+                'departamento:id,descripcion',
+                'detalles:id,orden_compra_id,precio_unitario,cantidad',
+                'entregas.detalles.devoluciones',
+                'facturas.pago',
+            ])
+            ->withCount(['facturas', 'entregas', 'detalles'])
             ->addSelect([
                 'pagos_count' => DB::table('costos_pagos')
                     ->join('costos_facturas', function ($join) {
@@ -73,7 +79,7 @@ class OrdenCompraController extends Controller
             $oc = OrdenCompra::create([
                 ...$request->safe()->except(['detalles', 'archivo']),
                 'creado_por' => $request->user()->id,
-                'estatus' => 'pendiente_factura',
+                'estatus' => 'pendiente_entrega',
             ]);
 
             if ($request->hasFile('archivo')) {
@@ -156,7 +162,7 @@ class OrdenCompraController extends Controller
         }
 
         DB::transaction(function () use ($ordenCompra) {
-            if (in_array($ordenCompra->estatus, [OrdenCompraEstatus::PendienteFactura, OrdenCompraEstatus::PendienteEntrega, OrdenCompraEstatus::PendienteAprobacion], true)) {
+            if (in_array($ordenCompra->estatus, [OrdenCompraEstatus::PendienteEntrega, OrdenCompraEstatus::PendienteFactura, OrdenCompraEstatus::PendienteAprobacion], true)) {
                 $ordenCompra->load('detalles');
                 $ordenCompra->revertirImpactoPresupuestal();
             }
@@ -172,7 +178,7 @@ class OrdenCompraController extends Controller
     {
         Gate::authorize('costos.ordenes-compra.cancelar');
 
-        if (! in_array($ordenCompra->estatus, [OrdenCompraEstatus::PendienteFactura, OrdenCompraEstatus::PendienteEntrega, OrdenCompraEstatus::PendienteAprobacion], true)) {
+        if (! in_array($ordenCompra->estatus, [OrdenCompraEstatus::PendienteEntrega, OrdenCompraEstatus::PendienteFactura, OrdenCompraEstatus::PendienteAprobacion], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar órdenes pendientes.']);
         }
 

@@ -15,7 +15,7 @@ beforeEach(function () {
 
 function ocConPartidas(array $cantidades = [10, 5]): OrdenCompra
 {
-    $oc = OrdenCompra::factory()->pendienteEntrega()->create(['total' => 0]);
+    $oc = OrdenCompra::factory()->pendienteFactura()->create(['total' => 0]);
     $total = 0;
     foreach ($cantidades as $c) {
         $precio = 100;
@@ -56,7 +56,7 @@ test('admin crea factura con partidas que respetan el saldo facturable', functio
     expect((float) $factura->subtotal)->toBe(600.0);
     expect((float) $factura->iva)->toBe(160.0);
     expect((float) $factura->total)->toBe(760.0);
-    expect($factura->estatus->value)->toBe('pendiente_entrega');
+    expect($factura->estatus->value)->toBe('pendiente_aprobacion');
 
     $detalles = FacturaDetalle::where('factura_id', $factura->id)->get();
     expect($detalles)->toHaveCount(2);
@@ -84,7 +84,7 @@ test('rechaza factura cuando el acumulado entre facturas activas excede la OC', 
     $oc = ocConPartidas([10]);
     $p1 = $oc->detalles[0];
 
-    $f1 = Factura::factory()->create(['orden_compra_id' => $oc->id, 'estatus' => 'pendiente_entrega']);
+    $f1 = Factura::factory()->create(['orden_compra_id' => $oc->id, 'estatus' => 'pendiente_aprobacion']);
     FacturaDetalle::factory()->create([
         'factura_id' => $f1->id,
         'orden_compra_detalle_id' => $p1->id,
@@ -127,7 +127,7 @@ test('factura cancelada no cuenta en el saldo facturable', function () {
         ])
         ->assertRedirect();
 
-    expect(Factura::where('estatus', 'pendiente_entrega')->count())->toBe(1);
+    expect(Factura::where('estatus', 'pendiente_aprobacion')->count())->toBe(1);
 });
 
 test('rechaza factura si una partida no pertenece a la OC', function () {

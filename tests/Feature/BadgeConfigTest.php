@@ -38,7 +38,7 @@ test('crea badge config', function () {
             'tabla' => 'costos_facturas',
             'campo_estatus' => 'estatus',
             'operador' => '=',
-            'valor_estatus' => 'pendiente_entrega',
+            'valor_estatus' => 'pendiente_aprobacion',
             'rol' => 'almacen',
             'nav_href' => '/admin/costos/facturas',
             'activo' => true,
@@ -100,7 +100,7 @@ test('middleware comparte badges para usuario con rol', function () {
         'tabla' => 'costos_facturas',
         'campo_estatus' => 'estatus',
         'operador' => '=',
-        'valor_estatus' => 'pendiente_entrega',
+        'valor_estatus' => 'pendiente_aprobacion',
         'rol' => 'almacen',
         'nav_href' => '/admin/costos/facturas',
         'filter_href' => '/admin/costos/facturas?estatus=pendiente_entrega',
@@ -111,7 +111,7 @@ test('middleware comparte badges para usuario con rol', function () {
     Factura::factory()->count(3)->create([
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $oc->proveedor_id,
-        'estatus' => 'pendiente_entrega',
+        'estatus' => 'pendiente_aprobacion',
     ]);
 
     $response = $this->actingAs($this->user)->get('/admin/badge-configs');
@@ -129,7 +129,7 @@ test('badge config inactiva no genera badge', function () {
         'tabla' => 'costos_facturas',
         'campo_estatus' => 'estatus',
         'operador' => '=',
-        'valor_estatus' => 'pendiente_entrega',
+        'valor_estatus' => 'pendiente_aprobacion',
         'rol' => 'almacen',
         'nav_href' => '/admin/costos/facturas',
         'activo' => false,
@@ -139,7 +139,7 @@ test('badge config inactiva no genera badge', function () {
     Factura::factory()->create([
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $oc->proveedor_id,
-        'estatus' => 'pendiente_entrega',
+        'estatus' => 'pendiente_aprobacion',
     ]);
 
     $response = $this->actingAs($this->user)->get('/admin/badge-configs');
@@ -156,7 +156,7 @@ test('badge no aparece si conteo es cero', function () {
         'tabla' => 'costos_facturas',
         'campo_estatus' => 'estatus',
         'operador' => '=',
-        'valor_estatus' => 'pendiente_entrega',
+        'valor_estatus' => 'pendiente_aprobacion',
         'rol' => 'almacen',
         'nav_href' => '/admin/costos/facturas',
         'activo' => true,

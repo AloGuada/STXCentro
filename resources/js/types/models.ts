@@ -1342,11 +1342,31 @@ export type CostosRubroAfectado = {
 };
 
 // Ordenes de Compra Types
-export type CostosOrdenCompraEstatus = 'pendiente_factura' | 'pendiente_entrega' | 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
+export type CostosOrdenCompraEstatus = 'pendiente_entrega' | 'pendiente_factura' | 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
+
+export type CostosOcEtapaProceso = 'recepcion' | 'espera_factura' | 'validacion_documentos' | 'pago_programado' | 'completada' | 'cancelada';
+
+export const OC_ETAPA_LABELS: Record<CostosOcEtapaProceso, string> = {
+    recepcion: 'Recepción',
+    espera_factura: 'Espera de factura',
+    validacion_documentos: 'Validación de documentos',
+    pago_programado: 'Pago programado',
+    completada: 'Completada',
+    cancelada: 'Cancelada',
+};
+
+export const OC_ETAPA_BADGE: Record<CostosOcEtapaProceso, string> = {
+    recepcion: 'badge badge-info badge-outline',
+    espera_factura: 'badge badge-warning badge-outline',
+    validacion_documentos: 'badge badge-accent badge-outline',
+    pago_programado: 'badge badge-primary badge-outline',
+    completada: 'badge badge-success badge-outline',
+    cancelada: 'badge badge-ghost',
+};
 
 export const ORDEN_COMPRA_ESTATUS_LABELS: Record<CostosOrdenCompraEstatus, string> = {
-    pendiente_factura: 'Pend. Factura',
     pendiente_entrega: 'Pend. Entrega',
+    pendiente_factura: 'Pend. Factura',
     pendiente_aprobacion: 'Pend. Aprobación',
     pendiente_pago: 'Pend. Pago',
     pagada: 'Pagada',
@@ -1354,8 +1374,8 @@ export const ORDEN_COMPRA_ESTATUS_LABELS: Record<CostosOrdenCompraEstatus, strin
 };
 
 export const ORDEN_COMPRA_ESTATUS_COLORS: Record<CostosOrdenCompraEstatus, string> = {
-    pendiente_factura: 'badge-warning',
     pendiente_entrega: 'badge-info',
+    pendiente_factura: 'badge-warning',
     pendiente_aprobacion: 'badge-accent',
     pendiente_pago: 'badge-primary',
     pagada: 'badge-success',
@@ -1376,9 +1396,17 @@ export type CostosOrdenCompra = {
     forma_pago: string;
     total: number;
     envio: number;
-    fecha_entrega_esperada: string | null;
+    fecha_entrega_esperada: string;
     notas: string | null;
     estatus: CostosOrdenCompraEstatus;
+    retrasada?: boolean;
+    etapa_proceso?: CostosOcEtapaProceso;
+    monto_recibido?: number;
+    porcentaje_recepcion?: number;
+    porcentaje_facturacion?: number;
+    porcentaje_pago?: number;
+    pago_vencido?: boolean;
+    detalles_count?: number;
     requisicion_id: number | null;
     proveedor?: Proveedor;
     obra?: Obra;
@@ -1416,7 +1444,7 @@ export type CostosOrdenCompraDetalle = {
 };
 
 // Facturas Types
-export type CostosFacturaEstatus = 'pendiente_entrega' | 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
+export type CostosFacturaEstatus = 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
 
 export type CostosBaseDiasCredito = 'factura' | 'recepcion' | 'aprobacion';
 
@@ -1452,7 +1480,6 @@ export const DOCUMENTO_TIPO_LABELS: Record<CostosDocumentoTipo, string> = {
 };
 
 export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
-    pendiente_entrega: 'Pendiente Entrega',
     pendiente_aprobacion: 'Pendiente Aprobación',
     pendiente_pago: 'Pendiente Pago',
     pagada: 'Pagada',
@@ -1460,7 +1487,6 @@ export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
 };
 
 export const FACTURA_ESTATUS_COLORS: Record<CostosFacturaEstatus, string> = {
-    pendiente_entrega: 'badge-warning',
     pendiente_aprobacion: 'badge-accent',
     pendiente_pago: 'badge-primary',
     pagada: 'badge-success',

@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Portal;
 
+use App\Models\Costos\OrdenCompra;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
 class PortalFacturaStoreRequest extends FormRequest
@@ -26,6 +28,28 @@ class PortalFacturaStoreRequest extends FormRequest
             'fecha_factura' => ['nullable', 'date'],
             'notas' => ['nullable', 'string'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $v) {
+            $ocId = $this->input('orden_compra_id');
+            if (! $ocId) {
+                return;
+            }
+
+            $tieneEntrega = OrdenCompra::query()
+                ->where('id', $ocId)
+                ->whereHas('entregas')
+                ->exists();
+
+            if (! $tieneEntrega) {
+                $v->errors()->add(
+                    'orden_compra_id',
+                    'Esta orden de compra aún no tiene recepción de almacén. No es posible facturar.'
+                );
+            }
+        });
     }
 
     /**

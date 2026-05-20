@@ -14,7 +14,7 @@ beforeEach(function () {
 
 function ocConPartida(float $cantidad = 10): array
 {
-    $oc = OrdenCompra::factory()->pendienteEntrega()->create(['total' => $cantidad * 100]);
+    $oc = OrdenCompra::factory()->pendienteFactura()->create(['total' => $cantidad * 100]);
     $partida = OrdenCompraDetalle::factory()->create([
         'orden_compra_id' => $oc->id,
         'cantidad' => $cantidad,
@@ -119,7 +119,7 @@ test('entrega no crea pago ni cambia estatus de factura', function () {
     [$oc, $partida] = ocConPartida();
     $factura = Factura::factory()->create([
         'orden_compra_id' => $oc->id,
-        'estatus' => 'pendiente_entrega',
+        'estatus' => 'pendiente_aprobacion',
     ]);
 
     $this->actingAs($this->user)
@@ -132,7 +132,7 @@ test('entrega no crea pago ni cambia estatus de factura', function () {
         ])
         ->assertRedirect();
 
-    expect($factura->fresh()->estatus->value)->toBe('pendiente_entrega');
+    expect($factura->fresh()->estatus->value)->toBe('pendiente_aprobacion');
     expect(Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->count())->toBe(0);
 });
 

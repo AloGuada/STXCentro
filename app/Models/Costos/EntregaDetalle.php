@@ -3,7 +3,6 @@
 namespace App\Models\Costos;
 
 use App\Enums\Costos\DevolucionEstatus;
-use App\Enums\Costos\FacturaEstatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,27 +14,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class EntregaDetalle extends Model
 {
     use HasFactory;
-
-    /**
-     * Al crear una recepción por partida, revisar si alguna factura en
-     * pendiente_entrega de esta OC ya quedó cubierta y promoverla.
-     */
-    protected static function booted(): void
-    {
-        static::created(function (self $ed) {
-            $ocd = $ed->ordenCompraDetalle;
-            $oc = $ocd?->ordenCompra;
-            if (! $oc) {
-                return;
-            }
-
-            $oc->facturas()
-                ->where('estatus', FacturaEstatus::PendienteEntrega->value)
-                ->with('detalles')
-                ->get()
-                ->each->recalcularEstatus();
-        });
-    }
 
     protected $table = 'costos_entrega_detalle';
 

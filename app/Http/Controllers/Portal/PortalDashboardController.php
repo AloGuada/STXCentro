@@ -17,7 +17,7 @@ class PortalDashboardController extends Controller
 
         $ordenesCompra = OrdenCompra::query()
             ->where('proveedor_id', $proveedor->id)
-            ->whereIn('estatus', ['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion', 'pendiente_pago', 'pagada'])
+            ->whereIn('estatus', ['pendiente_entrega', 'pendiente_factura', 'pendiente_aprobacion', 'pendiente_pago', 'pagada'])
             ->withCount('facturas')
             ->with('obra:id,no,descripcion')
             ->latest()
@@ -26,10 +26,10 @@ class PortalDashboardController extends Controller
 
         $stats = [
             'ordenes_activas' => OrdenCompra::where('proveedor_id', $proveedor->id)
-                ->whereIn('estatus', ['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion', 'pendiente_pago'])
+                ->whereIn('estatus', ['pendiente_entrega', 'pendiente_factura', 'pendiente_aprobacion', 'pendiente_pago'])
                 ->count(),
             'facturas_pendientes' => Factura::where('proveedor_id', $proveedor->id)
-                ->whereIn('estatus', ['pendiente_entrega', 'pendiente_pago'])
+                ->whereIn('estatus', ['pendiente_aprobacion', 'pendiente_pago'])
                 ->count(),
             'total_facturado' => Factura::where('proveedor_id', $proveedor->id)
                 ->whereNotIn('estatus', ['cancelada'])
