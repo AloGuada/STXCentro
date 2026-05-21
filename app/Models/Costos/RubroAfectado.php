@@ -29,6 +29,8 @@ class RubroAfectado extends Model
         'descripcion',
         'tipo_movimiento',
         'estatus',
+        'apartado_hasta',
+        'vencido_at',
         'usuario_aplica_id',
         'fecha_aplicacion',
     ];
@@ -42,6 +44,8 @@ class RubroAfectado extends Model
             'monto' => 'decimal:2',
             'sobre_giro' => 'boolean',
             'fecha_aplicacion' => 'datetime',
+            'apartado_hasta' => 'date',
+            'vencido_at' => 'datetime',
             'estatus' => RubroAfectadoEstatus::class,
         ];
     }

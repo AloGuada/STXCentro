@@ -131,6 +131,7 @@ class Requisicion extends Model implements Aprobable
     public function onAprobacionRechazada(string $motivo, ?string $userId = null): void
     {
         $this->update(['motivo_rechazo' => $motivo]);
+        app(\App\Services\Costos\ApartadoPresupuestal::class)->cancelarApartadosDe($this, 'rechazada en aprobación');
         $this->transitionTo(RequisicionEstatus::Rechazada);
     }
 

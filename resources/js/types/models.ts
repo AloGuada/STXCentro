@@ -1324,6 +1324,22 @@ export type CostosAfectacionHistorial = {
     updated_at: string;
 };
 
+export type CostosRubroAfectadoEstatus = 'apartado' | 'aplicado' | 'vencido' | 'cancelado';
+
+export const RUBRO_AFECTADO_ESTATUS_LABELS: Record<CostosRubroAfectadoEstatus, string> = {
+    apartado: 'Apartado',
+    aplicado: 'Aplicado',
+    vencido: 'Vencido',
+    cancelado: 'Cancelado',
+};
+
+export const RUBRO_AFECTADO_ESTATUS_BADGE: Record<CostosRubroAfectadoEstatus, string> = {
+    apartado: 'badge badge-info badge-outline',
+    aplicado: 'badge badge-success badge-outline',
+    vencido: 'badge badge-warning badge-outline',
+    cancelado: 'badge badge-ghost',
+};
+
 export type CostosRubroAfectado = {
     id: number;
     entrada_type: string;
@@ -1333,7 +1349,9 @@ export type CostosRubroAfectado = {
     sobre_giro: boolean;
     descripcion: string | null;
     tipo_movimiento: string;
-    estatus: string;
+    estatus: CostosRubroAfectadoEstatus;
+    apartado_hasta: string | null;
+    vencido_at: string | null;
     usuario_aplica_id: string | null;
     fecha_aplicacion: string | null;
     obra_rubro?: CostosObraRubro;

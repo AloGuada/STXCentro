@@ -398,9 +398,12 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
         $solicitud->refresh();
         expect($solicitud->estatus->value)->toBe('pendiente_firma');
 
-        // Presupuesto NO se afecta aún
+        // Presupuesto YA está apartado temporalmente (5 días) desde que se creó
+        // la solicitud en pendiente_firma. La conversión a permanente ocurre
+        // al completar la aprobación (último nivel).
         $obraRubro->refresh();
-        expect((float) $obraRubro->acumulado)->toBe(0.00);
+        expect((float) $obraRubro->acumulado)->toBe(15000.00);
+        expect($solicitud->rubrosAfectados()->where('estatus', 'apartado')->count())->toBe(1);
 
         // 5. Nivel 2 aprueba
         $this->actingAs($aprobador2)
@@ -413,11 +416,11 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
         expect($aprobaciones[1]->estatus->value)->toBe('aprobada');
         expect($aprobaciones[1]->ip)->not->toBeNull();
 
-        // Aún pendiente (falta nivel 3)
+        // Aún pendiente (falta nivel 3) — apartado vigente
         $solicitud->refresh();
         expect($solicitud->estatus->value)->toBe('pendiente_firma');
         $obraRubro->refresh();
-        expect((float) $obraRubro->acumulado)->toBe(0.00);
+        expect((float) $obraRubro->acumulado)->toBe(15000.00);
 
         // 6. Nivel 3 (último) aprueba → se aplica impacto presupuestal
         $this->actingAs($aprobador3)
@@ -437,10 +440,11 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
         $obraRubro->refresh();
         expect((float) $obraRubro->acumulado)->toBe(15000.00);
 
-        // Rubro afectado creado
-        expect($solicitud->rubrosAfectados)->toHaveCount(1);
-        expect($solicitud->rubrosAfectados->first()->tipo_movimiento)->toBe('cargo');
-        expect((float) $solicitud->rubrosAfectados->first()->monto)->toBe(15000.00);
+        // El apartado original ahora está convertido a Aplicado (permanente)
+        expect($solicitud->rubrosAfectados()->where('estatus', 'aplicado')->count())->toBe(1);
+        $rubroAplicado = $solicitud->rubrosAfectados()->where('estatus', 'aplicado')->first();
+        expect($rubroAplicado->tipo_movimiento)->toBe('cargo');
+        expect((float) $rubroAplicado->monto)->toBe(15000.00);
 
         // 7. Confirmar costos → crea pago automáticamente
         $adminCostos = User::factory()->create();

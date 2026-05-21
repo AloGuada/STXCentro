@@ -178,6 +178,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/cancelar', [CostosRequisicionController::class, 'cancelar'])->name('requisiciones.cancelar');
         Route::post('requisiciones/{requisicion}/enviar-aprobacion', [CostosRequisicionController::class, 'enviarAprobacion'])->name('requisiciones.enviar-aprobacion');
         Route::post('requisiciones/{requisicion}/liberar', [CostosRequisicionController::class, 'liberar'])->name('requisiciones.liberar');
+        Route::post('requisiciones/{requisicion}/re-apartar', [CostosRequisicionController::class, 'reApartar'])->name('requisiciones.re-apartar');
         Route::post('requisiciones/cotizaciones', [CostosRequisicionCotizacionController::class, 'store'])->name('requisiciones.cotizaciones.store');
         Route::delete('requisiciones/cotizaciones/{precio}', [CostosRequisicionCotizacionController::class, 'destroy'])->name('requisiciones.cotizaciones.destroy');
         Route::post('requisiciones/selecciones', [CostosRequisicionSeleccionController::class, 'store'])->name('requisiciones.selecciones.store');
@@ -192,6 +193,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('solicitudes-pago/{solicitudPago}/cancelar', [CostosSolicitudPagoController::class, 'cancelar'])->name('solicitudes-pago.cancelar');
         Route::post('solicitudes-pago/{solicitudPago}/confirmar-costos', [CostosSolicitudPagoController::class, 'confirmarCostos'])->name('solicitudes-pago.confirmar-costos');
         Route::post('solicitudes-pago/{solicitudPago}/confirmar-contabilidad', [CostosSolicitudPagoController::class, 'confirmarContabilidad'])->name('solicitudes-pago.confirmar-contabilidad');
+        Route::post('solicitudes-pago/{solicitudPago}/re-apartar', [CostosSolicitudPagoController::class, 'reApartar'])->name('solicitudes-pago.re-apartar');
 
         // Ordenes de Compra
         Route::resource('ordenes-compra', CostosOrdenCompraController::class)->only(['index', 'create', 'store', 'show', 'destroy'])->parameters(['ordenes-compra' => 'ordenCompra']);

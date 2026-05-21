@@ -18,6 +18,7 @@ use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\RequisicionSeleccion;
 use App\Models\Departamento;
 use App\Models\Proveedor;
+use App\Services\Costos\ApartadoPresupuestal;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,8 @@ use Inertia\Response;
 
 class RequisicionController extends Controller
 {
+    public function __construct(private readonly ApartadoPresupuestal $apartado) {}
+
     public function index(Request $request): Response
     {
         Gate::authorize('costos.requisiciones.ver');
@@ -239,6 +242,9 @@ class RequisicionController extends Controller
                 ->where('estatus', 'pendiente')
                 ->update(['estatus' => 'cancelada', 'fecha_respuesta' => now()]);
 
+            app(\App\Services\Costos\ApartadoPresupuestal::class)
+                ->cancelarApartadosDe($requisicion, 'requisición cancelada');
+
             $requisicion->transitionTo(RequisicionEstatus::Cancelada);
             $requisicion->registrarCancelacion($request->validated('motivo'), $request->user()->id);
         });
@@ -298,7 +304,7 @@ class RequisicionController extends Controller
             }
         }
 
-        DB::transaction(function () use ($requisicion) {
+        DB::transaction(function () use ($request, $requisicion) {
             $cadena = AprobacionDepartamento::where('departamento_id', $requisicion->departamento_id)
                 ->whereHas('permiso', fn ($q) => $q->where('tipo_aprobacion', Requisicion::TIPO_APROBACION))
                 ->with('permiso')
@@ -315,6 +321,22 @@ class RequisicionController extends Controller
             }
 
             $requisicion->transitionTo(RequisicionEstatus::PendienteAprobacion);
+
+            // Apartado temporal de presupuesto (5 días): cada partida usa
+            // el monto de sus selecciones (∑ cantidad × precio cotizado).
+            $items = $requisicion->detalles
+                ->filter(fn ($d) => $d->obra_rubro_id)
+                ->map(fn ($d) => [
+                    'obra_rubro_id' => (int) $d->obra_rubro_id,
+                    'monto' => (float) $d->selecciones->sum(
+                        fn ($s) => (float) $s->cantidad * (float) ($s->cotizacionPrecio?->precio_unitario ?? 0)
+                    ),
+                    'descripcion' => $d->descripcion,
+                ])
+                ->filter(fn ($i) => $i['monto'] > 0);
+
+            app(\App\Services\Costos\ApartadoPresupuestal::class)
+                ->apartarDocumento($requisicion, $items, $request->user()->id);
         });
 
         return back()->with('success', 'Requisición enviada a aprobación.');
@@ -373,6 +395,13 @@ class RequisicionController extends Controller
         $userId = $request->user()->id;
 
         DB::transaction(function () use ($requisicion, $grupos, $ocsPayload, $userId) {
+            // Liberar apartados temporales de la requisición. Cada OC que se
+            // cree a continuación aplicará su propio impacto permanente vía
+            // OrdenCompra::aplicarImpactoPresupuestal(); el neto sobre el
+            // acumulado es ~cero (apartado out, aplicado in por mismo monto).
+            app(\App\Services\Costos\ApartadoPresupuestal::class)
+                ->cancelarApartadosDe($requisicion, 'liberada a OC');
+
             foreach ($grupos as $key => $selecciones) {
                 $payload = $ocsPayload[$key];
                 $proveedorId = (int) $payload['proveedor_id'];
@@ -455,6 +484,37 @@ class RequisicionController extends Controller
 
         return to_route('admin.costos.requisiciones.show', $requisicion)
             ->with('success', 'Requisición liberada y órdenes de compra generadas.');
+    }
+
+    /**
+     * Re-aparta el presupuesto de una requisición cuyos apartados vencieron.
+     * Solo aplica antes de liberar la requisición (estados PendienteAprobacion
+     * o Aprobada). Si todavía tiene apartados vigentes, no hace nada.
+     */
+    public function reApartar(Request $request, Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        if (! in_array($requisicion->estatus, [RequisicionEstatus::PendienteAprobacion, RequisicionEstatus::Aprobada], true)) {
+            return back()->withErrors(['estatus' => 'Solo se puede re-apartar una requisición pendiente o aprobada, antes de liberarse.']);
+        }
+
+        $requisicion->load('detalles.selecciones.cotizacionPrecio');
+
+        $items = $requisicion->detalles
+            ->filter(fn ($d) => $d->obra_rubro_id)
+            ->map(fn ($d) => [
+                'obra_rubro_id' => (int) $d->obra_rubro_id,
+                'monto' => (float) $d->selecciones->sum(
+                    fn ($s) => (float) $s->cantidad * (float) ($s->cotizacionPrecio?->precio_unitario ?? 0)
+                ),
+                'descripcion' => $d->descripcion,
+            ])
+            ->filter(fn ($i) => $i['monto'] > 0);
+
+        $this->apartado->reApartarDocumento($requisicion, $items, $request->user()->id);
+
+        return back()->with('success', 'Presupuesto re-apartado por 5 días.');
     }
 
     /**

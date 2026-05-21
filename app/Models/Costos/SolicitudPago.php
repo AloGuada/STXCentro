@@ -135,12 +135,25 @@ class SolicitudPago extends Model implements Aprobable
     public function onAprobacionCompleta(?string $userId = null): void
     {
         $this->transitionTo(SolicitudPagoEstatus::Aprobada);
-        $this->aplicarImpactoPresupuestal($userId);
+
+        // Los apartados creados al PendienteFirma pasan a Aplicado (permanente).
+        // Si la solicitud llegó aquí sin apartado vigente (creada antes de la
+        // feature o vía factory directo), aplicar impacto desde cero.
+        $tieneApartado = $this->rubrosAfectados()
+            ->where('estatus', \App\Enums\Costos\RubroAfectadoEstatus::Apartado->value)
+            ->exists();
+
+        if ($tieneApartado) {
+            app(\App\Services\Costos\ApartadoPresupuestal::class)->convertirAPermanente($this);
+        } else {
+            $this->aplicarImpactoPresupuestal($userId);
+        }
     }
 
     public function onAprobacionRechazada(string $motivo, ?string $userId = null): void
     {
         $this->transitionTo(SolicitudPagoEstatus::Cancelada);
+        app(\App\Services\Costos\ApartadoPresupuestal::class)->cancelarApartadosDe($this, 'rechazada en aprobación');
     }
 
     public function pago(): MorphOne

@@ -19,6 +19,7 @@ use App\Models\Costos\TipoSolicitud;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
+use App\Services\Costos\ApartadoPresupuestal;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,6 +32,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class SolicitudPagoController extends Controller
 {
+    public function __construct(private readonly ApartadoPresupuestal $apartado) {}
+
     public function index(Request $request): Response
     {
         $solicitudes = SolicitudPago::query()
@@ -125,6 +128,16 @@ class SolicitudPagoController extends Controller
 
             $solicitud->update(['monto_total' => $montoTotal]);
 
+            // Apartado temporal de presupuesto (5 días) en cada rubro de la
+            // solicitud. Si no se aprueba en ese plazo, el comando programado
+            // costos:liberar-apartados-vencidos lo libera automáticamente.
+            $items = collect($solicitud->detalles)->map(fn ($d) => [
+                'obra_rubro_id' => (int) $d->obra_rubro_id,
+                'monto' => (float) $d->subtotal,
+                'descripcion' => $d->concepto,
+            ]);
+            $this->apartado->apartarDocumento($solicitud, $items, $request->user()->id);
+
             // Crear cadena de aprobaciones del departamento (multiusuario por nivel)
             $cadenaAprobacion = AprobacionDepartamento::where('departamento_id', $solicitud->departamento_id)
                 ->with('permiso')
@@ -148,6 +161,30 @@ class SolicitudPagoController extends Controller
         }
 
         return $redirect;
+    }
+
+    /**
+     * Re-aparta el presupuesto de una solicitud cuyos apartados vencieron.
+     * Crea nuevos RubroAfectado(Apartado) con apartado_hasta = hoy + 5 días.
+     * Si la solicitud todavía tiene apartados vigentes, no hace nada.
+     */
+    public function reApartar(Request $request, SolicitudPago $solicitudPago): RedirectResponse
+    {
+        abort_unless($solicitudPago->solicitante_id === $request->user()->id, 403);
+
+        if (! in_array($solicitudPago->estatus->value, ['pendiente_firma', 'borrador'], true)) {
+            return back()->withErrors(['estatus' => 'Solo se puede re-apartar una solicitud que aún no está aprobada o pagada.']);
+        }
+
+        $items = $solicitudPago->detalles->map(fn ($d) => [
+            'obra_rubro_id' => (int) $d->obra_rubro_id,
+            'monto' => (float) $d->subtotal,
+            'descripcion' => $d->concepto,
+        ]);
+
+        $this->apartado->reApartarDocumento($solicitudPago, $items, $request->user()->id);
+
+        return back()->with('success', 'Presupuesto re-apartado por 5 días.');
     }
 
     public function show(SolicitudPago $solicitudPago): Response

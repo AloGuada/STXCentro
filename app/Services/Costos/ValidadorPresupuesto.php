@@ -26,13 +26,17 @@ class ValidadorPresupuesto
     /**
      * Llamar ANTES de incrementar el acumulado. La fuente de verdad es
      * la suma actual + el monto que se va a sumar.
+     *
+     * Si `$allowSobregiro` es true, nunca lanza excepción: solo dispara
+     * el evento de sobregiro y deja pasar (usado por apartados temporales,
+     * donde el negocio permite sobrecargar pero quiere que se marque).
      */
-    public function validar(ObraRubro $obraRubro, float $montoAdicional, Model $entrada): void
+    public function validar(ObraRubro $obraRubro, float $montoAdicional, Model $entrada, bool $allowSobregiro = false): void
     {
         $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
 
         if ($montoAdicional > $disponible + 0.001) {
-            if (config('costos.bloquear_sobregiro', false)) {
+            if (! $allowSobregiro && config('costos.bloquear_sobregiro', false)) {
                 throw new SobregiroPresupuestalException($obraRubro, $montoAdicional, $disponible);
             }
 
