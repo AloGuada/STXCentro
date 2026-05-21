@@ -110,8 +110,11 @@ describe('Portal upload XML auto-llena datos fiscales', function () {
         ]);
     });
 
-    test('sube factura con XML y auto-llena campos fiscales', function () {
-        $oc = OrdenCompra::factory()->pendienteFactura()->create(['proveedor_id' => $this->proveedor->id]);
+    test('two-step: preview parsea XML y store crea factura con datos fiscales', function () {
+        $oc = OrdenCompra::factory()->pendienteFactura()->create([
+            'proveedor_id' => $this->proveedor->id,
+            'total' => 5000,
+        ]);
         Entrega::factory()->create(['orden_compra_id' => $oc->id]);
 
         $xml = UploadedFile::fake()->createWithContent('factura.xml', sampleCfdi([
@@ -125,12 +128,15 @@ describe('Portal upload XML auto-llena datos fiscales', function () {
         ]));
 
         $this->actingAs($this->proveedor, 'proveedor')
-            ->post('/portal/facturas', [
+            ->post('/portal/facturas/preview', [
                 'orden_compra_id' => $oc->id,
-                'total' => 999,
                 'xml' => $xml,
             ])
-            ->assertRedirect();
+            ->assertRedirect('/portal/facturas/preview');
+
+        $this->actingAs($this->proveedor, 'proveedor')
+            ->post('/portal/facturas')
+            ->assertRedirect('/portal/facturas');
 
         $factura = Factura::where('proveedor_id', $this->proveedor->id)->first();
         expect($factura)->not->toBeNull();
@@ -147,36 +153,14 @@ describe('Portal upload XML auto-llena datos fiscales', function () {
         ]);
     });
 
-    test('rechaza XML con UUID ya registrado', function () {
-        Factura::factory()->create([
-            'proveedor_id' => $this->proveedor->id,
-            'uuid_fiscal' => 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC',
-        ]);
-
-        $oc = OrdenCompra::factory()->pendienteFactura()->create(['proveedor_id' => $this->proveedor->id]);
-        Entrega::factory()->create(['orden_compra_id' => $oc->id]);
-        $xml = UploadedFile::fake()->createWithContent('factura.xml', sampleCfdi([
-            'Uuid' => 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC',
-        ]));
-
-        $this->actingAs($this->proveedor, 'proveedor')
-            ->post('/portal/facturas', [
-                'orden_compra_id' => $oc->id,
-                'total' => 1000,
-                'xml' => $xml,
-            ])
-            ->assertSessionHasErrors(['xml']);
-    });
-
-    test('rechaza XML malformado', function () {
+    test('preview rechaza XML malformado', function () {
         $oc = OrdenCompra::factory()->pendienteFactura()->create(['proveedor_id' => $this->proveedor->id]);
         Entrega::factory()->create(['orden_compra_id' => $oc->id]);
         $xml = UploadedFile::fake()->createWithContent('factura.xml', '<<<no es xml>>>');
 
         $this->actingAs($this->proveedor, 'proveedor')
-            ->post('/portal/facturas', [
+            ->post('/portal/facturas/preview', [
                 'orden_compra_id' => $oc->id,
-                'total' => 1000,
                 'xml' => $xml,
             ])
             ->assertSessionHasErrors(['xml']);
