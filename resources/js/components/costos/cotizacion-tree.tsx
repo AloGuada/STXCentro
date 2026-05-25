@@ -14,14 +14,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 const fmt = (n: number) =>
     `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const formatFecha = (d: Date) =>
-    d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-const addDays = (days: number): Date => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    return d;
-};
 
 const IVA_RATE = 0.16;
 
@@ -32,7 +24,7 @@ export type OcOverride = {
     numero_oc: number;
     modo_pago: ModoPago;
     moneda: CostosTipoMoneda;
-    envio: number;
+    fecha_entrega: string;
     notas: string;
 };
 
@@ -40,6 +32,7 @@ type Props = {
     requisicion: CostosRequisicion;
     proveedores: ProveedorMin[];
     editable: boolean;
+    previewEditable?: boolean;
     onPreviewChange?: (overrides: OcOverride[]) => void;
 };
 
@@ -674,8 +667,7 @@ function PreviewOcs({
                     const key = groupKey(g.proveedor_id, g.numero_oc);
                     const ov = overrides[key];
                     if (!ov) return null;
-                    const ship = Number(ov.envio) || 0;
-                    const base = g.subtotal_lineas + ship;
+                    const base = g.subtotal_lineas;
                     const iva = base * IVA_RATE;
                     const total = base + iva;
                     const proveedor = proveedoresMap.get(g.proveedor_id);
@@ -745,30 +737,19 @@ function PreviewOcs({
                                 <div className="mt-2 grid grid-cols-[1fr_90px] gap-2 border-t border-base-200 pt-1 text-xs">
                                     <div className="text-base-content/60">Subtotal</div>
                                     <div className="text-right">{fmt(g.subtotal_lineas)}</div>
-                                    <div className="flex items-center gap-2 text-base-content/60">
-                                        Envío
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min={0}
-                                            className="input input-bordered input-xs w-24 text-right"
-                                            value={ov.envio}
-                                            disabled={!editable}
-                                            onChange={(e) => onOverrideChange(g.proveedor_id, g.numero_oc, { envio: Number(e.target.value) || 0 })}
-                                        />
-                                    </div>
-                                    <div className="text-right">{fmt(ship)}</div>
                                     <div className="text-base-content/60">IVA (16%)</div>
                                     <div className="text-right">{fmt(iva)}</div>
                                 </div>
                                 <div className="mt-3 grid grid-cols-1 gap-2 border-t border-base-200 pt-2 md:grid-cols-[200px_1fr]">
                                     <div>
-                                        <div className="label-text text-[10px] uppercase tracking-wider text-base-content/60">Entrega estimada</div>
-                                        <div className="text-xs">
-                                            {g.dias_max > 0
-                                                ? `${formatFecha(addDays(g.dias_max))} (hoy + ${g.dias_max} ${g.dias_max === 1 ? 'día' : 'días'})`
-                                                : <span className="text-base-content/50">Sin tiempo capturado</span>}
-                                        </div>
+                                        <label className="label-text text-[10px] uppercase tracking-wider text-base-content/60">Fecha de entrega</label>
+                                        <input
+                                            type="date"
+                                            className="input input-bordered input-xs w-full"
+                                            value={ov.fecha_entrega}
+                                            disabled={!editable}
+                                            onChange={(e) => onOverrideChange(g.proveedor_id, g.numero_oc, { fecha_entrega: e.target.value })}
+                                        />
                                     </div>
                                     <div>
                                         <label className="label-text text-[10px] uppercase tracking-wider text-base-content/60">Notas para esta OC</label>
@@ -819,31 +800,25 @@ function ResumenTotales({
     if (groups.length === 0) return null;
 
     let subtotal = 0;
-    let envio = 0;
     let totalContado = 0;
     let totalCredito = 0;
 
     groups.forEach((g) => {
         const ov = overrides[groupKey(g.proveedor_id, g.numero_oc)];
         if (!ov) return;
-        const ship = Number(ov.envio) || 0;
-        const base = g.subtotal_lineas + ship;
-        const total = base * (1 + IVA_RATE);
+        const total = g.subtotal_lineas * (1 + IVA_RATE);
         subtotal += g.subtotal_lineas;
-        envio += ship;
         if (ov.modo_pago === 'credito') totalCredito += total;
         else totalContado += total;
     });
-    const iva = (subtotal + envio) * IVA_RATE;
-    const totalGeneral = subtotal + envio + iva;
+    const iva = subtotal * IVA_RATE;
+    const totalGeneral = subtotal + iva;
 
     return (
         <div className="rounded-lg border border-base-300 bg-base-200/30 p-3">
             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
                 <span className="text-base-content/60">Subtotal</span>
                 <span className="text-right">{fmt(subtotal)}</span>
-                <span className="text-base-content/60">Envío</span>
-                <span className="text-right">{fmt(envio)}</span>
                 <span className="text-base-content/60">IVA (16%)</span>
                 <span className="text-right">{fmt(iva)}</span>
                 <span className="text-base-content/60">Contado</span>
@@ -915,12 +890,15 @@ function seedOverrides(
         // Detectar "sin crédito" en observaciones como heurística adicional
         const obsHasNoCredito = g.lines.some((l) => /sin\s*cr[eé]dito/i.test(l.observaciones ?? ''));
         const noCreditoEffective = !manejaCredito || obsHasNoCredito;
+        const dias = g.dias_max > 0 ? g.dias_max : 7;
+        const fecha = new Date();
+        fecha.setDate(fecha.getDate() + dias);
         out[groupKey(g.proveedor_id, g.numero_oc)] = {
             proveedor_id: g.proveedor_id,
             numero_oc: g.numero_oc,
             modo_pago: noCreditoEffective ? 'contado' : 'credito',
             moneda: 'mxn',
-            envio: 0,
+            fecha_entrega: fecha.toISOString().slice(0, 10),
             notas: '',
         };
         // Mark whether proveedor doesn't take credit (so warnings can fire)

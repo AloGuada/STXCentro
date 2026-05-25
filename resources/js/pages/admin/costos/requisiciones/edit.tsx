@@ -18,7 +18,6 @@ type Detalle = {
 type FormData = {
     departamento_id: number;
     justificacion: string;
-    fecha_requerida: string;
     detalles: Detalle[];
     _version: string;
 };
@@ -41,7 +40,6 @@ export default function RequisicionesEdit({ requisicion, departamentos, obraRubr
     const { data, setData, put, processing, errors } = useForm<FormData>({
         departamento_id: requisicion.departamento_id,
         justificacion: requisicion.justificacion ?? '',
-        fecha_requerida: requisicion.fecha_requerida ?? '',
         detalles: (requisicion.detalles ?? []).map((d) => ({
             id: d.id,
             descripcion: d.descripcion,
@@ -89,16 +87,6 @@ export default function RequisicionesEdit({ requisicion, departamentos, obraRubr
                                 <option key={d.id} value={d.id}>{d.descripcion}</option>
                             ))}
                         </select>
-                    </div>
-
-                    <div>
-                        <label className="label label-text">Fecha requerida</label>
-                        <input
-                            type="date"
-                            className="input input-bordered w-full"
-                            value={data.fecha_requerida}
-                            onChange={(e) => setData('fecha_requerida', e.target.value)}
-                        />
                     </div>
 
                     <div className="md:col-span-2">

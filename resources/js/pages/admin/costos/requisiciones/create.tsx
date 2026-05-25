@@ -17,7 +17,6 @@ type Detalle = {
 type FormData = {
     departamento_id: number | '';
     justificacion: string;
-    fecha_requerida: string;
     detalles: Detalle[];
 };
 
@@ -45,7 +44,6 @@ export default function RequisicionesCreate({ departamentos, obraRubros }: Props
     const { data, setData, post, processing, errors } = useForm<FormData>({
         departamento_id: '',
         justificacion: '',
-        fecha_requerida: '',
         detalles: [blankDetalle()],
     });
 
@@ -88,16 +86,6 @@ export default function RequisicionesCreate({ departamentos, obraRubros }: Props
                             ))}
                         </select>
                         {errors.departamento_id && <p className="text-error text-sm mt-1">{errors.departamento_id}</p>}
-                    </div>
-
-                    <div>
-                        <label className="label label-text">Fecha requerida</label>
-                        <input
-                            type="date"
-                            className="input input-bordered w-full"
-                            value={data.fecha_requerida}
-                            onChange={(e) => setData('fecha_requerida', e.target.value)}
-                        />
                     </div>
 
                     <div className="md:col-span-2">

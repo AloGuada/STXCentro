@@ -416,17 +416,8 @@ class RequisicionController extends Controller
                 $numeroOc = (int) $payload['numero_oc'];
                 $modoPago = (string) $payload['modo_pago'];
                 $moneda = (string) $payload['moneda'];
-                $envio = (float) ($payload['envio'] ?? 0);
                 $notas = $payload['notas'] ?? null;
-
-                // La fecha de entrega esperada se calcula a partir de los días
-                // de entrega cotizados: hoy + max(tiempo_entrega_dias) de las
-                // selecciones de esta OC. Si ninguna selección lo trae, se
-                // toma un default de 7 días para que el campo no quede vacío.
-                $diasMax = $selecciones->max(
-                    fn (RequisicionSeleccion $s) => (int) ($s->cotizacionPrecio?->tiempo_entrega_dias ?? 0)
-                );
-                $fechaEntrega = now()->addDays($diasMax > 0 ? $diasMax : 7)->format('Y-m-d');
+                $fechaEntrega = $payload['fecha_entrega'] ?? now()->addDays(7)->format('Y-m-d');
 
                 $proveedor = Proveedor::find($proveedorId);
 
@@ -436,9 +427,8 @@ class RequisicionController extends Controller
                     return $acc + $precio * (float) $s->cantidad;
                 }, 0.0);
 
-                $base = $subtotalLineas + $envio;
-                $iva = $base * 0.16;
-                $total = $base + $iva;
+                $iva = $subtotalLineas * 0.16;
+                $total = $subtotalLineas + $iva;
 
                 $diasCredito = ($modoPago === 'credito' && $proveedor?->maneja_credito)
                     ? (int) ($proveedor->dias_credito_default ?? 0)
@@ -452,7 +442,7 @@ class RequisicionController extends Controller
                     'moneda' => $moneda,
                     'tipo_pago' => $modoPago,
                     'dias_credito' => $diasCredito,
-                    'envio' => round($envio, 2),
+                    'envio' => 0,
                     'total' => round($total, 2),
                     'fecha_entrega_esperada' => $fechaEntrega,
                     'notas' => $notas,

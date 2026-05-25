@@ -38,7 +38,7 @@ export function LiberarRequisicionModal({ requisicion, ocs, open, onClose }: Pro
                 numero_oc: oc.numero_oc,
                 modo_pago: oc.modo_pago,
                 moneda: oc.moneda,
-                envio: oc.envio || 0,
+                fecha_entrega: oc.fecha_entrega,
                 notas: oc.notas.trim() || null,
             })),
         }, {
