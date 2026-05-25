@@ -45,28 +45,27 @@ function FirmarRequisicionModal({ aprobacionId, tipo, onClose }: { aprobacionId:
 
     return (
         <dialog className="modal modal-open">
-            <div className="modal-box">
-                <h3 className="text-lg font-bold">{esAprobacion ? 'Aprobar requisición' : 'Rechazar requisición'}</h3>
-                <p className="py-2 text-sm text-base-content/60">
+            <div className="modal-box w-11/12 max-w-4xl">
+                <h2 className="text-2xl font-bold">{esAprobacion ? 'Aprobar requisición' : 'Rechazar requisición'}</h2>
+                <p className="mt-1 text-sm text-base-content/60">
                     {esAprobacion
                         ? 'Agregue sus observaciones para firmar esta requisición.'
                         : 'El rechazo cancelará la requisición y deberá rehacerse. Mínimo 10 caracteres.'}
                 </p>
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} className="mt-6">
                     <div className="form-control">
-                        <label className="label">
-                            <span className="label-text">Observaciones (obligatorias)</span>
-                        </label>
+                        <label className="mb-2 text-sm font-medium">Observaciones</label>
                         <textarea
-                            className={`textarea textarea-bordered ${errors.observaciones ? 'textarea-error' : ''}`}
-                            rows={3}
+                            className={`textarea textarea-bordered w-full ${errors.observaciones ? 'textarea-error' : ''}`}
+                            rows={6}
+                            placeholder={esAprobacion ? 'Escriba sus observaciones...' : 'Motivo del rechazo...'}
                             value={data.observaciones}
                             onChange={(e) => setData('observaciones', e.target.value)}
                             required
                             maxLength={500}
                         />
                         {errors.observaciones && (
-                            <span className="text-error text-xs mt-1">{errors.observaciones}</span>
+                            <span className="mt-1 text-xs text-error">{errors.observaciones}</span>
                         )}
                     </div>
                     <div className="modal-action">
