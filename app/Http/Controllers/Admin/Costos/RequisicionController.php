@@ -35,13 +35,21 @@ class RequisicionController extends Controller
         Gate::authorize('costos.requisiciones.ver');
 
         $requisiciones = Requisicion::query()
-            ->with(['solicitante:id,name', 'departamento:id,descripcion'])
+            ->with([
+                'solicitante:id,name',
+                'departamento:id,descripcion',
+                'detalles:id,requisicion_id,cantidad',
+                'detalles.cotizaciones:id,requisicion_detalle_id,proveedor_id,precio_unitario',
+                'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
+            ])
             ->when($request->search, fn ($q, $s) => $q->where('folio', 'like', "%{$s}%"))
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
             ->when($request->departamento_id, fn ($q, $d) => $q->where('departamento_id', $d))
             ->latest()
             ->paginate(15)
             ->withQueryString();
+
+        $requisiciones->getCollection()->each(fn ($r) => $r->append(['mejor_proveedor', 'proveedores_cotizadores_count']));
 
         return Inertia::render('admin/costos/requisiciones/index', [
             'requisiciones' => $requisiciones,

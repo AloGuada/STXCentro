@@ -105,10 +105,10 @@ type RowDisplay = {
     createdAt: string | null;
     solicitanteName: string;
     departamentoNombre: string;
-    proveedor: { razon_social: string; rfc?: string | null } | null;
+    proveedor: { razon_social: string; rfc?: string | null; subLabel?: string | null } | null;
     tipoLabel: string;
     monto: number;
-    montoSobregiro: number;
+    tieneSobregiro: boolean;
     detailHref: string;
     archivosCount: number;
     pdfUrl: string | null;
@@ -118,18 +118,26 @@ type RowDisplay = {
     estatusOrigen: string | null;
 };
 
-function buildDisplay(a: CostosAprobacionSolicitud, computeSobregiro: boolean): RowDisplay | null {
+function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
     if (a.tipo === 'requisicion' && a.requisicion) {
         const req = a.requisicion;
+        const mejor = req.mejor_proveedor;
+        const cotCount = req.proveedores_cotizadores_count ?? 0;
+        const subLabel = cotCount > 0
+            ? `${cotCount} ${cotCount === 1 ? 'proveedor cotizó' : 'proveedores cotizaron'}`
+            : 'Sin cotizaciones';
+
         return {
             folio: req.folio,
             createdAt: req.created_at,
             solicitanteName: req.solicitante?.name ?? '-',
             departamentoNombre: req.departamento?.descripcion ?? '',
-            proveedor: null,
+            proveedor: mejor
+                ? { razon_social: mejor.nombre_comercial || mejor.razon_social, rfc: null, subLabel }
+                : { razon_social: 'Cotización parcial', rfc: null, subLabel },
             tipoLabel: 'Requisición de compras',
-            monto: a.requisicion_total ?? 0,
-            montoSobregiro: 0,
+            monto: mejor ? mejor.total : (a.requisicion_total ?? 0),
+            tieneSobregiro: Boolean(req.tiene_sobregiro),
             detailHref: `/admin/costos/requisiciones/${req.id}`,
             archivosCount: 0,
             pdfUrl: null,
@@ -143,15 +151,6 @@ function buildDisplay(a: CostosAprobacionSolicitud, computeSobregiro: boolean): 
     const sol = a.solicitud;
     if (!sol) return null;
 
-    const montoSobregiro = computeSobregiro
-        ? (sol.detalles ?? []).reduce((sum, d) => {
-              if (!d.obra_rubro) return sum;
-              const disponible = Number(d.obra_rubro.presupuestado) - Number(d.obra_rubro.acumulado);
-              const exceso = Number(d.subtotal) - disponible;
-              return exceso > 0 ? sum + exceso : sum;
-          }, 0)
-        : 0;
-
     return {
         folio: sol.folio ?? '-',
         createdAt: sol.created_at ?? null,
@@ -160,7 +159,7 @@ function buildDisplay(a: CostosAprobacionSolicitud, computeSobregiro: boolean): 
         proveedor: sol.proveedor ? { razon_social: sol.proveedor.razon_social, rfc: sol.proveedor.rfc } : null,
         tipoLabel: sol.tipo_solicitud?.titulo ?? '-',
         monto: Number(sol.monto_total ?? 0),
-        montoSobregiro,
+        tieneSobregiro: Boolean(sol.tiene_sobregiro),
         detailHref: `/admin/costos/aprobaciones/${a.id}`,
         archivosCount: sol.archivos?.length ?? 0,
         pdfUrl: sol.estatus !== 'borrador' ? `/admin/costos/solicitudes-pago/${sol.id}/pdf` : null,
@@ -204,9 +203,9 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                     </thead>
                     <tbody>
                         {items.map((a) => {
-                            const d = buildDisplay(a, tipo === 'pendientes');
+                            const d = buildDisplay(a);
                             if (!d) return null;
-                            const tieneSobregiro = d.montoSobregiro > 0;
+                            const tieneSobregiro = d.tieneSobregiro;
                             const esRequisicion = a.tipo === 'requisicion';
 
                             return (
@@ -235,6 +234,9 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                                                 {d.proveedor.rfc && (
                                                     <div className="mt-0.5 text-[11px] text-base-content/50">RFC: {d.proveedor.rfc}</div>
                                                 )}
+                                                {d.proveedor.subLabel && (
+                                                    <div className="mt-0.5 text-[11px] text-base-content/50">{d.proveedor.subLabel}</div>
+                                                )}
                                             </div>
                                         ) : (
                                             <span className="text-base-content/40">-</span>
@@ -247,7 +249,7 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                                             <span className="font-medium">{fmtMoney(d.monto)}</span>
                                         </div>
                                         {tieneSobregiro && (
-                                            <div className="mt-0.5 text-[11px] font-semibold text-error">Sobregiro: {fmtMoney(d.montoSobregiro)}</div>
+                                            <div className="mt-0.5 text-[11px] font-semibold text-error">Rubro en sobregiro</div>
                                         )}
                                     </td>
                                     <td>

@@ -106,6 +106,11 @@ class Requisicion extends Model implements Aprobable
         return $this->hasMany(OrdenCompra::class, 'requisicion_id');
     }
 
+    public function rubrosAfectados(): MorphMany
+    {
+        return $this->morphMany(RubroAfectado::class, 'entrada');
+    }
+
     public function activities(): MorphMany
     {
         return $this->activitiesAsSubject();
@@ -133,6 +138,76 @@ class Requisicion extends Model implements Aprobable
         $this->update(['motivo_rechazo' => $motivo]);
         app(\App\Services\Costos\ApartadoPresupuestal::class)->cancelarApartadosDe($this, 'rechazada en aprobación');
         $this->transitionTo(RequisicionEstatus::Rechazada);
+    }
+
+    /**
+     * Mejor proveedor: aquel que cotizó TODAS las partidas y cuya suma de
+     * (cantidad × precio_unitario) por partida es la menor.
+     *
+     * @return array{id: int, razon_social: string, nombre_comercial: string|null, total: float}|null
+     */
+    public function getMejorProveedorAttribute(): ?array
+    {
+        $this->loadMissing('detalles.cotizaciones.proveedor');
+
+        $detalles = $this->detalles;
+        if ($detalles->isEmpty()) {
+            return null;
+        }
+
+        // Agrupa cotizaciones por proveedor → arreglo de { partidaId → precio_unitario }.
+        $porProveedor = [];
+        foreach ($detalles as $detalle) {
+            foreach ($detalle->cotizaciones as $cot) {
+                $provId = (int) $cot->proveedor_id;
+                $porProveedor[$provId]['proveedor'] = $cot->proveedor;
+                $porProveedor[$provId]['partidas'][$detalle->id] = [
+                    'precio' => (float) $cot->precio_unitario,
+                    'cantidad' => (float) $detalle->cantidad,
+                ];
+            }
+        }
+
+        $totalPartidas = $detalles->count();
+        $mejor = null;
+
+        foreach ($porProveedor as $provId => $info) {
+            // Solo considera proveedores que cotizaron todas las partidas.
+            if (count($info['partidas'] ?? []) !== $totalPartidas) {
+                continue;
+            }
+            $total = 0.0;
+            foreach ($info['partidas'] as $p) {
+                $total += $p['precio'] * $p['cantidad'];
+            }
+            if ($mejor === null || $total < $mejor['total']) {
+                $mejor = [
+                    'id' => $provId,
+                    'razon_social' => $info['proveedor']?->razon_social ?? '',
+                    'nombre_comercial' => $info['proveedor']?->nombre_comercial,
+                    'total' => round($total, 2),
+                ];
+            }
+        }
+
+        return $mejor;
+    }
+
+    /**
+     * Cantidad de proveedores distintos que han cotizado al menos una partida.
+     */
+    public function getProveedoresCotizadoresCountAttribute(): int
+    {
+        $this->loadMissing('detalles.cotizaciones');
+
+        $ids = [];
+        foreach ($this->detalles as $detalle) {
+            foreach ($detalle->cotizaciones as $cot) {
+                $ids[(int) $cot->proveedor_id] = true;
+            }
+        }
+
+        return count($ids);
     }
 
     public function getActivitylogOptions(): LogOptions

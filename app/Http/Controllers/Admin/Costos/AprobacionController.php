@@ -42,6 +42,7 @@ class AprobacionController extends Controller
                         'departamento',
                         'solicitante',
                         'detalles.selecciones.cotizacionPrecio',
+                        'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
                     ],
                 ]);
             }]);
@@ -250,10 +251,28 @@ class AprobacionController extends Controller
     {
         $aprobable = $a->aprobable;
 
+        // Flag unificado: ¿algún rubro tocado por los apartados/aplicados
+        // activos de la entrada está EN SOBREGIRO ahora? Se calcula en vivo
+        // contra el acumulado actual del rubro — así libera/cancela de otros
+        // documentos del mismo rubro se reflejan sin necesidad de mantener
+        // el flag estático sincronizado.
+        $tieneSobregiro = $aprobable
+            ? $aprobable->rubrosAfectados()
+                ->whereIn('estatus', [
+                    \App\Enums\Costos\RubroAfectadoEstatus::Apartado->value,
+                    \App\Enums\Costos\RubroAfectadoEstatus::Aplicado->value,
+                ])
+                ->whereHas('obraRubro', fn ($q) => $q->whereColumn('acumulado', '>', 'presupuestado'))
+                ->exists()
+            : false;
+
         if ($aprobable instanceof SolicitudPago) {
+            $aprobable->setAttribute('tiene_sobregiro', $tieneSobregiro);
             $a->setAttribute('tipo', 'solicitud_pago');
             $a->setRelation('solicitud', $aprobable);
         } elseif ($aprobable instanceof Requisicion) {
+            $aprobable->append(['mejor_proveedor', 'proveedores_cotizadores_count']);
+            $aprobable->setAttribute('tiene_sobregiro', $tieneSobregiro);
             $a->setAttribute('tipo', 'requisicion');
             $a->setRelation('requisicion', $aprobable);
             $a->setAttribute('requisicion_total', $this->totalEstimadoRequisicion($aprobable));

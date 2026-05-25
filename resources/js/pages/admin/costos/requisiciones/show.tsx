@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import type { SharedData } from '@/types';
 import type { CostosRequisicion, Proveedor } from '@/types/models';
 import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 type Props = {
@@ -269,6 +270,8 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                                 </tbody>
                             </table>
                         </div>
+
+                        <ComparativoCotizaciones requisicion={requisicion} />
                     </div>
                 )}
 
@@ -366,5 +369,147 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                 )}
             </div>
         </AppLayout>
+    );
+}
+
+/**
+ * Cuadro comparativo simplificado por partida:
+ * Cantidad | Descripción | Precio × proveedor (N columnas) | Importe (mejor)
+ *
+ * "Importe" usa el precio del mejor proveedor global cuando éste existe; si
+ * no hay cotización completa, usa el menor precio cotizado por cada partida
+ * (best-case mix). Al final calcula subtotal, IVA 16% y total.
+ */
+function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisicion }) {
+    const detalles = requisicion.detalles ?? [];
+    const proveedores = new Map<number, { id: number; nombre: string }>();
+    for (const d of detalles) {
+        for (const c of d.cotizaciones ?? []) {
+            if (!c.proveedor) continue;
+            proveedores.set(c.proveedor.id, {
+                id: c.proveedor.id,
+                nombre: c.proveedor.nombre_comercial || c.proveedor.razon_social,
+            });
+        }
+    }
+    if (proveedores.size === 0) return null;
+
+    const provList = Array.from(proveedores.values());
+    const mejorProveedorId = requisicion.mejor_proveedor?.id ?? null;
+    const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const precioPartidaProv = (detalleId: number, proveedorId: number): number | null => {
+        const d = detalles.find((x) => x.id === detalleId);
+        const cot = d?.cotizaciones?.find((c) => c.proveedor_id === proveedorId);
+        return cot ? Number(cot.precio_unitario) : null;
+    };
+
+    const precioImporte = (d: CostosRequisicion['detalles'] extends (infer U)[] | undefined ? U : never): number | null => {
+        // Si hay mejor proveedor global y cotizó esta partida → usar ese precio
+        if (mejorProveedorId) {
+            const p = precioPartidaProv(d.id, mejorProveedorId);
+            if (p !== null) return p;
+        }
+        // Fallback: menor precio cotizado para esta partida
+        const precios = (d.cotizaciones ?? []).map((c) => Number(c.precio_unitario)).filter((n) => n > 0);
+        return precios.length > 0 ? Math.min(...precios) : null;
+    };
+
+    // Mejor (menor) precio por partida — para resaltar la celda ganadora.
+    const mejorPrecioPartida = new Map<number, number>();
+    for (const d of detalles) {
+        const precios = (d.cotizaciones ?? []).map((c) => Number(c.precio_unitario)).filter((n) => n > 0);
+        if (precios.length > 0) {
+            mejorPrecioPartida.set(d.id, Math.min(...precios));
+        }
+    }
+
+    let subtotal = 0;
+    const filas = detalles.map((d) => {
+        const precio = precioImporte(d);
+        const importe = precio !== null ? precio * Number(d.cantidad) : 0;
+        subtotal += importe;
+        return { d, precio, importe };
+    });
+    const iva = subtotal * 0.16;
+    const total = subtotal + iva;
+
+    return (
+        <div className="mt-6">
+            <h3 className="mb-2 font-medium">Comparativo de cotizaciones</h3>
+            <div className="overflow-x-auto rounded-lg border border-base-300">
+                <table className="table table-sm">
+                    <thead className="bg-base-200">
+                        <tr>
+                            <th className="text-right">Cantidad</th>
+                            <th>Descripción</th>
+                            {provList.map((p) => (
+                                <th
+                                    key={p.id}
+                                    className={`text-right ${p.id === mejorProveedorId ? 'text-success' : ''}`}
+                                    title={p.nombre}
+                                >
+                                    {p.nombre}
+                                    {p.id === mejorProveedorId && <span className="ml-1 text-[10px]">★</span>}
+                                </th>
+                            ))}
+                            <th className="text-right">Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filas.map(({ d, precio, importe }) => (
+                            <tr key={d.id}>
+                                <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')} {d.unidad}</td>
+                                <td>{d.descripcion}</td>
+                                {provList.map((p) => {
+                                    const cot = d.cotizaciones?.find((c) => c.proveedor_id === p.id);
+                                    const px = cot ? Number(cot.precio_unitario) : null;
+                                    const dias = cot?.tiempo_entrega_dias ?? null;
+                                    const esMejorPartida = px !== null && px === mejorPrecioPartida.get(d.id);
+                                    const classes = [
+                                        'text-right align-top',
+                                        esMejorPartida ? 'bg-success/15 font-semibold text-success' : '',
+                                        p.id === mejorProveedorId && !esMejorPartida ? 'text-success' : '',
+                                    ].filter(Boolean).join(' ');
+                                    return (
+                                        <td key={p.id} className={classes}>
+                                            {px !== null ? (
+                                                <>
+                                                    <div>{fmt(px)}</div>
+                                                    {dias !== null && dias > 0 && (
+                                                        <div className="text-[10px] font-normal text-base-content/60">
+                                                            {dias} {dias === 1 ? 'día' : 'días'} entrega
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <span className="text-base-content/30">—</span>
+                                            )}
+                                        </td>
+                                    );
+                                })}
+                                <td className="text-right font-semibold">
+                                    {precio !== null ? fmt(importe) : <span className="text-base-content/30">—</span>}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colSpan={2 + provList.length} className="text-right text-sm text-base-content/60">Subtotal</td>
+                            <td className="text-right font-semibold">{fmt(subtotal)}</td>
+                        </tr>
+                        <tr>
+                            <td colSpan={2 + provList.length} className="text-right text-sm text-base-content/60">IVA (16%)</td>
+                            <td className="text-right">{fmt(iva)}</td>
+                        </tr>
+                        <tr className="bg-base-200">
+                            <td colSpan={2 + provList.length} className="text-right text-sm font-semibold">Total</td>
+                            <td className="text-right text-lg font-bold text-primary">{fmt(total)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
     );
 }

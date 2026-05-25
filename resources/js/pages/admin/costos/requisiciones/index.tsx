@@ -14,6 +14,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 const fmtDate = (date: string | null) =>
     date ? new Date(date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
 
+const fmtMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 const columns: Column<CostosRequisicion>[] = [
     {
         key: 'folio',
@@ -39,6 +41,33 @@ const columns: Column<CostosRequisicion>[] = [
         key: 'fecha_requerida',
         label: 'Fecha requerida',
         render: (row) => <span className="text-xs text-base-content/60">{fmtDate(row.fecha_requerida)}</span>,
+    },
+    {
+        key: 'mejor_proveedor',
+        label: 'Mejor cotización',
+        render: (row) => {
+            const cotCount = row.proveedores_cotizadores_count ?? 0;
+            if (!row.mejor_proveedor) {
+                return (
+                    <div>
+                        <div className="text-xs text-base-content/40">—</div>
+                        <div className="mt-0.5 text-[11px] text-base-content/50">
+                            {cotCount > 0 ? `${cotCount} ${cotCount === 1 ? 'proveedor' : 'proveedores'} (parcial)` : 'Sin cotizaciones'}
+                        </div>
+                    </div>
+                );
+            }
+            const m = row.mejor_proveedor;
+            return (
+                <div>
+                    <div className="text-sm font-medium">{m.nombre_comercial || m.razon_social}</div>
+                    <div className="mt-0.5 text-xs font-semibold text-success">{fmtMoney(m.total)} MXN</div>
+                    <div className="mt-0.5 text-[11px] text-base-content/50">
+                        {cotCount} {cotCount === 1 ? 'proveedor cotizó' : 'proveedores cotizaron'}
+                    </div>
+                </div>
+            );
+        },
     },
     {
         key: 'estatus',

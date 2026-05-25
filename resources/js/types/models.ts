@@ -1112,6 +1112,14 @@ export type CostosRequisicion = {
     detalles?: CostosRequisicionDetalle[];
     aprobaciones?: CostosAprobacionSolicitud[];
     ordenes_generadas?: Array<Pick<CostosOrdenCompra, 'id' | 'folio' | 'proveedor_id' | 'total' | 'estatus'> & { proveedor?: Pick<Proveedor, 'id' | 'razon_social'> }>;
+    mejor_proveedor?: {
+        id: number;
+        razon_social: string;
+        nombre_comercial: string | null;
+        total: number;
+    } | null;
+    proveedores_cotizadores_count?: number;
+    tiene_sobregiro?: boolean;
     activities?: CostosActivity[];
     created_at: string;
     updated_at: string;
@@ -1198,6 +1206,7 @@ export type CostosSolicitudPago = {
     media?: Media;
     confirmador_costos?: Usuario;
     confirmador_contabilidad?: Usuario;
+    tiene_sobregiro?: boolean;
     activities?: CostosActivity[];
     locked_by: string | null;
     locked_at: string | null;
