@@ -327,12 +327,22 @@ class OrdenCompra extends Model
 
     private function ratio(float $monto): float
     {
-        $total = (float) $this->total;
-        if ($total <= 0) {
+        $subtotalLineas = $this->subtotalLineas();
+        if ($subtotalLineas <= 0) {
             return 0.0;
         }
 
-        return round(min(100, max(0, ($monto / $total) * 100)), 1);
+        return round(min(100, max(0, ($monto / $subtotalLineas) * 100)), 1);
+    }
+
+    /**
+     * Subtotal de líneas (sin envío ni IVA) para cálculos de porcentaje.
+     */
+    private function subtotalLineas(): float
+    {
+        $this->loadMissing('detalles');
+
+        return (float) $this->detalles->sum(fn ($d) => (float) $d->cantidad * (float) $d->precio_unitario);
     }
 
     /**

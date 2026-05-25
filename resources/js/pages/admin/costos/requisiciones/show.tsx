@@ -104,7 +104,7 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
     const [firmando, setFirmando] = useState<'aprobar' | 'rechazar' | null>(null);
 
     const editable = ['borrador', 'rechazada'].includes(requisicion.estatus);
-    const cotizable = ['borrador', 'cotizada', 'rechazada'].includes(requisicion.estatus);
+    const cotizable = ['borrador', 'cotizada', 'rechazada', 'aprobada'].includes(requisicion.estatus);
 
     const handleEnviarAprobacion = () => {
         if (!confirm('¿Enviar la requisición a aprobación? Esta acción crea las firmas pendientes y bloquea ediciones.')) {
@@ -145,12 +145,6 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                         {requisicion.estatus === 'cotizada' && can('costos.requisiciones.cotizar') && (
                             <Button onClick={handleEnviarAprobacion} disabled={enviando}>
                                 {enviando ? 'Enviando...' : 'Enviar a aprobación'}
-                            </Button>
-                        )}
-
-                        {requisicion.estatus === 'aprobada' && can('costos.requisiciones.liberar') && (
-                            <Button onClick={() => setLiberando(true)}>
-                                Liberar
                             </Button>
                         )}
 
@@ -275,12 +269,21 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                 )}
 
                 {tab === 'cotizacion' && can('costos.requisiciones.cotizar') && (
-                    <CotizacionTree
-                        requisicion={requisicion}
-                        proveedores={proveedores}
-                        editable={cotizable}
-                        onPreviewChange={setOcOverrides}
-                    />
+                    <>
+                        <CotizacionTree
+                            requisicion={requisicion}
+                            proveedores={proveedores}
+                            editable={cotizable}
+                            onPreviewChange={setOcOverrides}
+                        />
+                        {requisicion.estatus === 'aprobada' && can('costos.requisiciones.liberar') && (
+                            <div className="mt-4 flex justify-end">
+                                <Button onClick={() => setLiberando(true)}>
+                                    Liberar y generar OCs
+                                </Button>
+                            </div>
+                        )}
+                    </>
                 )}
 
                 {tab === 'aprobacion' && (
