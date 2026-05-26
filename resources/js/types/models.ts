@@ -1433,6 +1433,7 @@ export type CostosOrdenCompra = {
     porcentaje_facturacion?: number;
     porcentaje_pago?: number;
     pago_vencido?: boolean;
+    tiene_devolucion?: boolean;
     detalles_count?: number;
     requisicion_id: number | null;
     proveedor?: Proveedor;

@@ -51,6 +51,7 @@ class OrdenCompra extends Model
         'porcentaje_facturacion',
         'porcentaje_pago',
         'pago_vencido',
+        'tiene_devolucion',
     ];
 
     /**
@@ -397,6 +398,24 @@ class OrdenCompra extends Model
             ->whereDate('fecha_pago_programada', '<', now()->toDateString())
             ->whereIn('estatus', ['programado', 'parcial'])
             ->exists();
+    }
+
+    /**
+     * True si la OC tiene al menos una devolucion vigente.
+     */
+    public function getTieneDevolucionAttribute(): bool
+    {
+        $this->loadMissing('entregas.detalles.devoluciones');
+
+        foreach ($this->entregas as $entrega) {
+            foreach ($entrega->detalles as $ed) {
+                if ($ed->devoluciones->where('estatus', 'vigente')->isNotEmpty()) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

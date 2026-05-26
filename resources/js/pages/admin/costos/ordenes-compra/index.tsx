@@ -109,6 +109,7 @@ function AlertasCell({ oc }: { oc: CostosOrdenCompra }) {
     const alerts: string[] = [];
     if (oc.retrasada) alerts.push('ENTREGA RETRASADA');
     if (oc.pago_vencido) alerts.push('PAGO VENCIDO');
+    if (oc.tiene_devolucion) alerts.push('DEVOLUCION DE INSUMOS');
     if (alerts.length === 0) return <span className="text-base-content/40 text-sm">—</span>;
     return (
         <div className="flex flex-wrap gap-1">
@@ -226,7 +227,7 @@ export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
                                         />
                                     </div>
                                 </div>
-                                {(oc.retrasada || oc.pago_vencido) && (
+                                {(oc.retrasada || oc.pago_vencido || oc.tiene_devolucion) && (
                                     <div className="mt-3 border-t border-base-300 pt-3">
                                         <AlertasCell oc={oc} />
                                     </div>
