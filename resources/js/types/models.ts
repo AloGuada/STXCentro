@@ -811,6 +811,7 @@ export type Proveedor = {
     maneja_credito: boolean;
     limite_credito: number;
     dias_credito_default: number;
+    respetar_fecha_factura: boolean;
     departamento_id: number | null;
     tipo_proveedor: string | null;
     activo: boolean;

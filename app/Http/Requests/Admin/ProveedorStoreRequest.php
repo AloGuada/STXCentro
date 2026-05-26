@@ -30,6 +30,7 @@ class ProveedorStoreRequest extends FormRequest
             'maneja_credito' => ['boolean'],
             'limite_credito' => ['nullable', 'numeric', 'min:0'],
             'dias_credito_default' => ['nullable', 'integer', 'min:0'],
+            'respetar_fecha_factura' => ['boolean'],
             'departamento_id' => ['nullable', 'exists:departamentos,id'],
             'tipo_proveedor' => ['nullable', 'string', 'max:100'],
             'activo' => ['boolean'],

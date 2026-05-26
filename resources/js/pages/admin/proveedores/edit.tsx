@@ -36,6 +36,7 @@ export default function ProveedoresEdit({ proveedor, tienePassword, departamento
         password: '',
         password_confirmation: '',
         maneja_credito: proveedor.maneja_credito,
+        respetar_fecha_factura: proveedor.respetar_fecha_factura ?? false,
         limite_credito: String(proveedor.limite_credito),
         dias_credito_default: String(proveedor.dias_credito_default),
         departamento_id: proveedor.departamento_id ? String(proveedor.departamento_id) : '',
@@ -175,14 +176,21 @@ export default function ProveedoresEdit({ proveedor, tienePassword, departamento
                         </div>
 
                         {data.maneja_credito && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField label="Límite de Crédito" htmlFor="limite_credito" error={errors.limite_credito}>
-                                    <Input id="limite_credito" type="number" step="0.01" min="0" value={data.limite_credito} onChange={(e) => setData('limite_credito', e.target.value)} />
-                                </FormField>
-                                <FormField label="Días de Crédito" htmlFor="dias_credito_default" error={errors.dias_credito_default}>
-                                    <Input id="dias_credito_default" type="number" min="0" value={data.dias_credito_default} onChange={(e) => setData('dias_credito_default', e.target.value)} />
-                                </FormField>
-                            </div>
+                            <>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField label="Límite de Crédito" htmlFor="limite_credito" error={errors.limite_credito}>
+                                        <Input id="limite_credito" type="number" step="0.01" min="0" value={data.limite_credito} onChange={(e) => setData('limite_credito', e.target.value)} />
+                                    </FormField>
+                                    <FormField label="Días de Crédito" htmlFor="dias_credito_default" error={errors.dias_credito_default}>
+                                        <Input id="dias_credito_default" type="number" min="0" value={data.dias_credito_default} onChange={(e) => setData('dias_credito_default', e.target.value)} />
+                                    </FormField>
+                                </div>
+                                <label className="label cursor-pointer gap-2 w-fit">
+                                    <input type="checkbox" className="checkbox" checked={data.respetar_fecha_factura} onChange={(e) => setData('respetar_fecha_factura', e.target.checked)} />
+                                    <span className="label-text">Respetar fecha factura</span>
+                                    <span className="label-text text-base-content/50 text-xs">(calcular fecha de pago desde la fecha del CFDI en vez de hoy)</span>
+                                </label>
+                            </>
                         )}
 
                         <div className="flex justify-end gap-2">

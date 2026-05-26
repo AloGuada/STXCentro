@@ -105,14 +105,21 @@ class Factura extends Model
      */
     public function calcularFechaPago(): ?Carbon
     {
-        $base = $this->base_dias_credito ?? BaseDiasCredito::Factura;
+        $this->loadMissing('proveedor');
         $dias = (int) ($this->dias_credito ?? $this->proveedor?->dias_credito_default ?? 0);
 
-        $fechaBase = match ($base) {
-            BaseDiasCredito::Factura => $this->fecha_factura,
-            BaseDiasCredito::Recepcion => $this->entregas()->latest('fecha_entrega')->value('fecha_entrega'),
-            BaseDiasCredito::Aprobacion => $this->aprobada_costos_at,
-        };
+        // Si el proveedor exige respetar fecha factura, la base siempre es
+        // la fecha del CFDI; de lo contrario se usa la base configurada.
+        if ($this->proveedor?->respetar_fecha_factura) {
+            $fechaBase = $this->fecha_factura;
+        } else {
+            $base = $this->base_dias_credito ?? BaseDiasCredito::Factura;
+            $fechaBase = match ($base) {
+                BaseDiasCredito::Factura => $this->fecha_factura,
+                BaseDiasCredito::Recepcion => $this->entregas()->latest('fecha_entrega')->value('fecha_entrega'),
+                BaseDiasCredito::Aprobacion => $this->aprobada_costos_at,
+            };
+        }
 
         if (! $fechaBase) {
             return null;
