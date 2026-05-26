@@ -9,7 +9,6 @@ use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\AbonoComprobanteRequest;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
-use App\Http\Requests\Admin\Costos\ParcializarRequest;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
 use App\Models\Costos\Pago;
@@ -95,47 +94,64 @@ class PagoController extends Controller
 
     public function showParcializar(Pago $pago): Response|RedirectResponse
     {
-        if ($pago->estatus !== PagoEstatus::Programado) {
-            return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado.']);
+        if (! in_array($pago->estatus, [PagoEstatus::Programado, PagoEstatus::Parcial], true)) {
+            return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado o parcial.']);
         }
 
-        if ($pago->tieneParcialidades()) {
-            return back()->withErrors(['parcialidades' => 'Este pago ya tiene parcialidades.']);
-        }
+        $pago->load(['pagable.proveedor', 'pagosParciales']);
 
-        $pago->load('pagable.proveedor');
+        $pagado = round((float) $pago->pagosParciales->sum('monto_pago'), 2);
+        $saldo = round((float) $pago->monto_pago - $pagado, 2);
 
         return Inertia::render('admin/costos/pagos/parcializar', [
             'pago' => $pago,
+            'saldoPendiente' => $saldo,
+            'montoPagado' => $pagado,
         ]);
     }
 
-    public function parcializar(ParcializarRequest $request, Pago $pago): RedirectResponse
+    public function parcializar(Request $request, Pago $pago): RedirectResponse
     {
-        if ($pago->estatus !== PagoEstatus::Programado) {
-            return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado.']);
+        if (! in_array($pago->estatus, [PagoEstatus::Programado, PagoEstatus::Parcial], true)) {
+            return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado o parcial.']);
         }
 
-        DB::transaction(function () use ($request, $pago) {
-            foreach ($request->input('parcialidades') as $index => $parcialidad) {
-                Pago::create([
-                    'pagable_type' => $pago->pagable_type,
-                    'pagable_id' => $pago->pagable_id,
-                    'pago_padre_id' => $pago->id,
-                    'numero_parcialidad' => $index + 1,
-                    'monto_pago' => $parcialidad['monto'],
-                    'moneda' => $pago->moneda,
-                    'tipo_cambio' => $pago->tipo_cambio,
-                    'tipo_pago' => $pago->tipo_pago,
-                    'fecha_pago_programada' => $parcialidad['fecha_programada'],
-                    'estatus' => 'programado',
-                ]);
-            }
+        $request->validate([
+            'monto' => ['required', 'numeric', 'min:0.01'],
+            'fecha_programada' => ['required', 'date'],
+        ]);
 
-            $pago->transitionTo(PagoEstatus::Parcial);
+        $pagado = round((float) $pago->pagosParciales()->sum('monto_pago'), 2);
+        $saldo = round((float) $pago->monto_pago - $pagado, 2);
+        $monto = round((float) $request->input('monto'), 2);
+
+        if ($monto > $saldo + 0.01) {
+            return back()->withErrors(['monto' => "El monto excede el saldo pendiente (\${$saldo})."]);
+        }
+
+        DB::transaction(function () use ($request, $pago, $monto) {
+            $numeroParcialidad = $pago->pagosParciales()->count() + 1;
+
+            Pago::create([
+                'pagable_type' => $pago->pagable_type,
+                'pagable_id' => $pago->pagable_id,
+                'pago_padre_id' => $pago->id,
+                'numero_parcialidad' => $numeroParcialidad,
+                'monto_pago' => $monto,
+                'moneda' => $pago->moneda,
+                'tipo_cambio' => $pago->tipo_cambio,
+                'tipo_pago' => $pago->tipo_pago,
+                'fecha_pago_programada' => $request->input('fecha_programada'),
+                'estatus' => 'programado',
+            ]);
+
+            if ($pago->estatus !== PagoEstatus::Parcial) {
+                $pago->transitionTo(PagoEstatus::Parcial);
+            }
         });
 
-        return back()->with('success', 'Pago parcializado correctamente.');
+        return to_route('admin.costos.pagos.show', $pago)
+            ->with('success', 'Parcialidad registrada correctamente.');
     }
 
     public function uploadComprobante(AbonoComprobanteRequest $request, Pago $pago): RedirectResponse
