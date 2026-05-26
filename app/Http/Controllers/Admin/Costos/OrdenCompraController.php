@@ -50,7 +50,9 @@ class OrdenCompraController extends Controller
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('folio', 'like', "%{$search}%")
-                        ->orWhereHas('proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$search}%"));
+                        ->orWhereHas('proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$search}%"))
+                        ->orWhereHas('obra', fn ($o) => $o->where('descripcion', 'like', "%{$search}%")->orWhere('no', 'like', "%{$search}%"))
+                        ->orWhereHas('detalles', fn ($d) => $d->where('descripcion', 'like', "%{$search}%"));
                 });
             })
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
