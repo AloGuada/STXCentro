@@ -210,7 +210,7 @@ class OrdenCompraController extends Controller
             'oc' => $ordenCompra,
         ])->setPaper('letter', 'portrait');
 
-        return $pdf->download("OC-{$ordenCompra->folio}.pdf");
+        return $pdf->stream("OC-{$ordenCompra->folio}.pdf");
     }
 
     public function pdfRequisicion(OrdenCompra $ordenCompra): HttpResponse
@@ -251,7 +251,7 @@ class OrdenCompraController extends Controller
             'firmas' => $firmas,
         ])->setPaper('letter', 'landscape');
 
-        return $pdf->download("Comparativo-{$requisicion->folio}.pdf");
+        return $pdf->stream("Comparativo-{$requisicion->folio}.pdf");
     }
 
     public function pdfContrarecibo(OrdenCompra $ordenCompra, Factura $factura): HttpResponse
@@ -269,6 +269,6 @@ class OrdenCompraController extends Controller
             'fechaPago' => $fechaPago,
         ])->setPaper('letter', 'portrait');
 
-        return $pdf->download("Contrarecibo-{$factura->folio}.pdf");
+        return $pdf->stream("Contrarecibo-{$factura->folio}.pdf");
     }
 }
