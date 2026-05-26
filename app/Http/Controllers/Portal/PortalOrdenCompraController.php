@@ -56,6 +56,7 @@ class PortalOrdenCompraController extends Controller
 
         return Inertia::render('portal/ordenes-compra/show', [
             'ordenCompra' => $ordenCompra,
+            'periodoFacturacionAbierto' => now()->isDayOfWeek(\Carbon\Carbon::THURSDAY),
         ]);
     }
 }

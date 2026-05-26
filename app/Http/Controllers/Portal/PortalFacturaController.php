@@ -51,6 +51,11 @@ class PortalFacturaController extends Controller
      */
     public function previewXml(PortalFacturaPreviewRequest $request): RedirectResponse
     {
+        if (! now()->isDayOfWeek(\Carbon\Carbon::THURSDAY)) {
+            return back()
+                ->withErrors(['xml' => 'La carga de facturas solo está permitida los días jueves.']);
+        }
+
         $proveedor = Auth::guard('proveedor')->user();
         $validated = $request->validated();
 

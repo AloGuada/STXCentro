@@ -11,9 +11,10 @@ import { type FormEvent, useState } from 'react';
 
 type Props = {
     ordenCompra: CostosOrdenCompra;
+    periodoFacturacionAbierto: boolean;
 };
 
-export default function PortalOrdenCompraShow({ ordenCompra }: Props) {
+export default function PortalOrdenCompraShow({ ordenCompra, periodoFacturacionAbierto }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/portal' },
         { title: 'Ordenes de Compra', href: '/portal/ordenes-compra' },
@@ -58,7 +59,19 @@ export default function PortalOrdenCompraShow({ ordenCompra }: Props) {
                             )}
                         </div>
                     </div>
-                    {puedeFacturar && <Button onClick={() => setShowFacturaForm(true)}>Subir Factura</Button>}
+                    {puedeFacturar && (
+                        <Button onClick={() => setShowFacturaForm(true)} disabled={!periodoFacturacionAbierto}>
+                            Subir Factura
+                        </Button>
+                    )}
+                </div>
+
+                <div className={`alert ${periodoFacturacionAbierto ? 'alert-success' : 'alert-info'} mb-6`}>
+                    <span>
+                        {periodoFacturacionAbierto
+                            ? 'Periodo de facturacion abierto. Puede subir sus facturas el dia de hoy (jueves).'
+                            : 'La carga de facturas solo esta habilitada los dias jueves de cada semana.'}
+                    </span>
                 </div>
 
                 {['pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && !tieneEntregas && (
