@@ -512,7 +512,7 @@ function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
                     <TreeFile label="Evidencia de recepcion" pending="Pendiente de entrega" />
                 ) : (
                     ordenCompra.entregas!.map((entrega) => {
-                        const evidencia = entrega.media?.find((m: any) => m.descripcion === 'evidencia_recepcion');
+                        const evidencia = entrega.media && entrega.media.descripcion === 'evidencia_recepcion' ? entrega.media : null;
                         return (
                             <TreeFolder key={entrega.id} label={`Entrega #${entrega.id} — ${fmtDate(entrega.fecha_entrega)}`}>
                                 {evidencia ? (
