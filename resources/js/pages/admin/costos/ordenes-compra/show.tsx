@@ -96,11 +96,12 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     </div>
 
                     <div className="flex gap-2">
-                        <Button variant="outline" asChild>
-                            <a href={`/admin/costos/ordenes-compra/${ordenCompra.id}/pdf-oc?download=1`}>
-                                <DownloadIcon className="size-4" /> Descargar OC
-                            </a>
-                        </Button>
+                        <a
+                            href={`/admin/costos/ordenes-compra/${ordenCompra.id}/pdf-oc?download=1`}
+                            className="btn bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+                        >
+                            <DownloadIcon className="size-4" /> Descargar OC
+                        </a>
                         {['pendiente_entrega', 'pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.entregas.crear') && (
                             <Button onClick={() => setShowEntregaModal(true)}>Registrar entrega</Button>
                         )}
