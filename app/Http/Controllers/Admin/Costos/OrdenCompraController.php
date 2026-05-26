@@ -205,7 +205,7 @@ class OrdenCompraController extends Controller
         return back()->with('success', 'Orden de compra cancelada.');
     }
 
-    public function pdfOc(OrdenCompra $ordenCompra): HttpResponse
+    public function pdfOc(Request $request, OrdenCompra $ordenCompra): HttpResponse
     {
         $ordenCompra->load(['proveedor', 'departamento', 'detalles']);
 
@@ -213,7 +213,11 @@ class OrdenCompraController extends Controller
             'oc' => $ordenCompra,
         ])->setPaper('letter', 'portrait');
 
-        return $pdf->stream("OC-{$ordenCompra->folio}.pdf");
+        $filename = "OC-{$ordenCompra->folio}.pdf";
+
+        return $request->boolean('download')
+            ? $pdf->download($filename)
+            : $pdf->stream($filename);
     }
 
     public function pdfRequisicion(OrdenCompra $ordenCompra): HttpResponse

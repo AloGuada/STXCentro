@@ -9,7 +9,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { CostosOrdenCompra, CostosOrdenCompraEstatus } from '@/types/models';
 import { DEVOLUCION_ESTATUS_COLORS, DEVOLUCION_ESTATUS_LABELS, FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-import { ChevronDownIcon, ChevronRightIcon, FileIcon, FileTextIcon, FolderIcon, FolderOpenIcon, PaperclipIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronRightIcon, DownloadIcon, FileIcon, FileTextIcon, FolderIcon, FolderOpenIcon, PaperclipIcon } from 'lucide-react';
 import { useState } from 'react';
 
 type Props = {
@@ -96,6 +96,11 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     </div>
 
                     <div className="flex gap-2">
+                        <Button variant="outline" asChild>
+                            <a href={`/admin/costos/ordenes-compra/${ordenCompra.id}/pdf-oc?download=1`}>
+                                <DownloadIcon className="size-4" /> Descargar OC
+                            </a>
+                        </Button>
                         {['pendiente_entrega', 'pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.entregas.crear') && (
                             <Button onClick={() => setShowEntregaModal(true)}>Registrar entrega</Button>
                         )}
