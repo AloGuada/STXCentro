@@ -9,7 +9,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { CostosOrdenCompra, CostosOrdenCompraEstatus } from '@/types/models';
 import { DEVOLUCION_ESTATUS_COLORS, DEVOLUCION_ESTATUS_LABELS, FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-import { FileIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronRightIcon, FileIcon, FileTextIcon, FolderIcon, FolderOpenIcon, PaperclipIcon } from 'lucide-react';
 import { useState } from 'react';
 
 type Props = {
@@ -46,7 +46,7 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
 
     const { can } = useCan();
     const currentStep = getStepIndex(ordenCompra.estatus);
-    const [activeTab, setActiveTab] = useState<'datos' | 'facturas' | 'recepciones' | 'historial'>('datos');
+    const [activeTab, setActiveTab] = useState<'datos' | 'facturas' | 'recepciones' | 'documentos' | 'historial'>('datos');
     const [showCancelarModal, setShowCancelarModal] = useState(false);
     const [showEntregaModal, setShowEntregaModal] = useState(false);
     const [devolverTarget, setDevolverTarget] = useState<DevolverTarget | null>(null);
@@ -148,6 +148,7 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     <button className={`tab ${activeTab === 'datos' ? 'tab-active' : ''}`} onClick={() => setActiveTab('datos')}>Datos</button>
                     <button className={`tab ${activeTab === 'facturas' ? 'tab-active' : ''}`} onClick={() => setActiveTab('facturas')}>Facturas ({ordenCompra.facturas?.length ?? 0})</button>
                     <button className={`tab ${activeTab === 'recepciones' ? 'tab-active' : ''}`} onClick={() => setActiveTab('recepciones')}>Recepciones ({totalRecepciones})</button>
+                    <button className={`tab ${activeTab === 'documentos' ? 'tab-active' : ''}`} onClick={() => setActiveTab('documentos')}>Documentos</button>
                     <button className={`tab ${activeTab === 'historial' ? 'tab-active' : ''}`} onClick={() => setActiveTab('historial')}>Historial ({ordenCompra.activities?.length ?? 0})</button>
                 </div>
 
@@ -404,6 +405,10 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                     </div>
                 )}
 
+                {activeTab === 'documentos' && (
+                    <DocumentosTree ordenCompra={ordenCompra} />
+                )}
+
                 {activeTab === 'historial' && (
                     <ActivityTimeline activities={ordenCompra.activities ?? []} />
                 )}
@@ -435,5 +440,138 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                 )}
             </div>
         </AppLayout>
+    );
+}
+
+// ---------- Filetree de Documentos ----------
+
+function TreeFolder({ label, defaultOpen = true, children }: { label: string; defaultOpen?: boolean; children: React.ReactNode }) {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+        <div>
+            <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 py-1 text-sm font-medium hover:text-primary">
+                {open ? <ChevronDownIcon className="size-4" /> : <ChevronRightIcon className="size-4" />}
+                {open ? <FolderOpenIcon className="size-4 text-warning" /> : <FolderIcon className="size-4 text-warning" />}
+                {label}
+            </button>
+            {open && <div className="ml-6 border-l border-base-300 pl-3">{children}</div>}
+        </div>
+    );
+}
+
+function TreeFile({ label, href, pending }: { label: string; href?: string; pending?: string }) {
+    if (!href) {
+        return (
+            <div className="flex items-center gap-1.5 py-0.5 text-sm text-base-content/40">
+                <FileIcon className="size-3.5" />
+                <span>{label}</span>
+                {pending && <span className="ml-1 text-xs italic">({pending})</span>}
+            </div>
+        );
+    }
+    return (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 py-0.5 text-sm text-primary hover:underline">
+            <FileTextIcon className="size-3.5" />
+            <span>{label}</span>
+        </a>
+    );
+}
+
+function TreeAttachment({ label, href }: { label: string; href?: string }) {
+    if (!href) return null;
+    return (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 py-0.5 text-sm text-primary hover:underline">
+            <PaperclipIcon className="size-3.5" />
+            <span>{label}</span>
+        </a>
+    );
+}
+
+function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
+    const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+    const fmtMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const baseUrl = `/admin/costos/ordenes-compra/${ordenCompra.id}`;
+
+    return (
+        <div className="space-y-1 rounded-lg border border-base-300 p-4">
+            {/* Requisicion */}
+            {ordenCompra.requisicion_id && (
+                <TreeFolder label="Requisicion">
+                    <TreeFile label="Comparativo de proveedores (PDF)" href={`${baseUrl}/pdf-requisicion`} />
+                </TreeFolder>
+            )}
+
+            {/* Orden de Compra */}
+            <TreeFolder label="Orden de Compra">
+                <TreeFile label="Formato OC (PDF)" href={`${baseUrl}/pdf-oc`} />
+            </TreeFolder>
+
+            {/* Recepciones */}
+            <TreeFolder label="Recepciones">
+                {(ordenCompra.entregas?.length ?? 0) === 0 ? (
+                    <TreeFile label="Evidencia de recepcion" pending="Pendiente de entrega" />
+                ) : (
+                    ordenCompra.entregas!.map((entrega) => {
+                        const evidencia = entrega.media?.find((m: any) => m.descripcion === 'evidencia_recepcion');
+                        return (
+                            <TreeFolder key={entrega.id} label={`Entrega #${entrega.id} — ${fmtDate(entrega.fecha_entrega)}`}>
+                                {evidencia ? (
+                                    <TreeAttachment label="Evidencia de recepcion" href={`/storage/${evidencia.path}`} />
+                                ) : (
+                                    <TreeFile label="Evidencia de recepcion" pending="Sin archivo" />
+                                )}
+                            </TreeFolder>
+                        );
+                    })
+                )}
+            </TreeFolder>
+
+            {/* Facturas */}
+            <TreeFolder label="Facturas">
+                {(ordenCompra.facturas?.length ?? 0) === 0 ? (
+                    <TreeFile label="Factura" pending="Pendiente de facturacion" />
+                ) : (
+                    ordenCompra.facturas!.map((factura) => {
+                        const pdfMedia = factura.media?.find((m: any) => m.descripcion === 'pdf_factura');
+                        const xmlMedia = factura.media?.find((m: any) => m.descripcion === 'xml_factura');
+                        return (
+                            <TreeFolder key={factura.id} label={`${factura.folio} — ${fmtMoney(factura.total)}`}>
+                                {pdfMedia ? (
+                                    <TreeAttachment label="Factura PDF" href={`/storage/${pdfMedia.path}`} />
+                                ) : (
+                                    <TreeFile label="Factura PDF" pending="Sin archivo" />
+                                )}
+                                {xmlMedia && (
+                                    <TreeAttachment label="XML CFDI" href={`/storage/${xmlMedia.path}`} />
+                                )}
+                                <TreeFile label="Contrarecibo (PDF)" href={`${baseUrl}/pdf-contrarecibo/${factura.id}`} />
+                            </TreeFolder>
+                        );
+                    })
+                )}
+            </TreeFolder>
+
+            {/* Pagos */}
+            <TreeFolder label="Pagos">
+                {(() => {
+                    const pagos = ordenCompra.facturas?.flatMap((f) => f.pago ? [{ ...f.pago, facturaFolio: f.folio }] : []) ?? [];
+                    if (pagos.length === 0) {
+                        return <TreeFile label="Comprobante de pago" pending="Pendiente de pago" />;
+                    }
+                    return pagos.map((pago: any) => {
+                        const comprobante = pago.media?.find((m: any) => m.descripcion === 'comprobante_pago');
+                        return (
+                            <TreeFolder key={pago.id} label={`${pago.folio} — ${fmtMoney(pago.monto)}`}>
+                                {comprobante ? (
+                                    <TreeAttachment label="Comprobante de pago" href={`/storage/${comprobante.path}`} />
+                                ) : (
+                                    <TreeFile label="Comprobante de pago" pending={pago.estatus === 'pagado' ? 'Sin archivo' : 'Pendiente'} />
+                                )}
+                            </TreeFolder>
+                        );
+                    });
+                })()}
+            </TreeFolder>
+        </div>
     );
 }

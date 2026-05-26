@@ -8,13 +8,17 @@ use App\Enums\Costos\OrdenCompraEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Http\Requests\Admin\Costos\OrdenCompraStoreRequest;
+use App\Models\Costos\Factura;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
+use App\Models\Costos\Permiso;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -142,6 +146,8 @@ class OrdenCompraController extends Controller
             'entregas.detalles.devoluciones',
             'entregas.recibidoPor:id,name',
             'entregas.media',
+            'facturas.media',
+            'facturas.pago',
             'facturas.entregas.media',
             'media',
             'rubrosAfectados.obraRubro.rubro',
@@ -194,5 +200,75 @@ class OrdenCompraController extends Controller
         });
 
         return back()->with('success', 'Orden de compra cancelada.');
+    }
+
+    public function pdfOc(OrdenCompra $ordenCompra): HttpResponse
+    {
+        $ordenCompra->load(['proveedor', 'departamento', 'detalles']);
+
+        $pdf = Pdf::loadView('pdf.costos.formato-orden-compra', [
+            'oc' => $ordenCompra,
+        ])->setPaper('letter', 'portrait');
+
+        return $pdf->download("OC-{$ordenCompra->folio}.pdf");
+    }
+
+    public function pdfRequisicion(OrdenCompra $ordenCompra): HttpResponse
+    {
+        $requisicion = $ordenCompra->requisicion;
+        abort_if(! $requisicion, 404, 'Esta OC no tiene requisición de origen.');
+
+        $requisicion->load([
+            'solicitante',
+            'departamento',
+            'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
+        ]);
+
+        // Build firmas from aprobaciones
+        $aprobaciones = $requisicion->aprobaciones()
+            ->with('aprobador')
+            ->get();
+
+        $niveles = Permiso::orderBy('nivel')->get();
+        $aprobacionesPorNivel = $aprobaciones->groupBy('nivel');
+
+        $firmas = $niveles->filter(fn ($p) => $aprobacionesPorNivel->has($p->nivel))
+            ->map(function ($permiso) use ($aprobacionesPorNivel) {
+                $aprobs = $aprobacionesPorNivel->get($permiso->nivel);
+                $aprobada = $aprobs->firstWhere('estatus', 'aprobada');
+
+                return (object) [
+                    'permiso' => $permiso,
+                    'aprobador' => $aprobada?->aprobador,
+                    'aprobada' => $aprobada !== null,
+                    'fecha' => $aprobada?->fecha_respuesta?->format('d/m/Y H:i'),
+                ];
+            })
+            ->values();
+
+        $pdf = Pdf::loadView('pdf.costos.formato-requisicion-comparativo', [
+            'requisicion' => $requisicion,
+            'firmas' => $firmas,
+        ])->setPaper('letter', 'landscape');
+
+        return $pdf->download("Comparativo-{$requisicion->folio}.pdf");
+    }
+
+    public function pdfContrarecibo(OrdenCompra $ordenCompra, Factura $factura): HttpResponse
+    {
+        abort_if($factura->orden_compra_id !== $ordenCompra->id, 404);
+
+        $ordenCompra->load('proveedor');
+
+        $pago = $factura->pago;
+        $fechaPago = $pago?->fecha_pago_programada;
+
+        $pdf = Pdf::loadView('pdf.costos.formato-contrarecibo', [
+            'oc' => $ordenCompra,
+            'factura' => $factura,
+            'fechaPago' => $fechaPago,
+        ])->setPaper('letter', 'portrait');
+
+        return $pdf->download("Contrarecibo-{$factura->folio}.pdf");
     }
 }

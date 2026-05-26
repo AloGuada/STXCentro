@@ -1629,7 +1629,7 @@ export type CostosEntrega = {
     fecha_entrega: string;
     tipo: CostosEntregaTipo;
     observaciones: string | null;
-    media?: Media | null;
+    media?: Media[];
     recibidor?: Usuario;
     detalles?: CostosEntregaDetalle[];
     created_at: string;

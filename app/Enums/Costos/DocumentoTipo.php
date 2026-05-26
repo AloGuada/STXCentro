@@ -34,6 +34,9 @@ enum DocumentoTipo: string
     // Pago
     case ComprobantePago = 'comprobante_pago';
 
+    // Contrarecibo
+    case Contrarecibo = 'contrarecibo';
+
     // Solicitud de pago
     case SolicitudArchivo = 'solicitud_archivo';
     case SolicitudFirmada = 'solicitud_firmada';
@@ -51,6 +54,7 @@ enum DocumentoTipo: string
             self::EvidenciaRecepcion => 'Evidencia de recepción',
             self::EvidenciaDevolucion => 'Evidencia de devolución',
             self::ComprobantePago => 'Comprobante de pago',
+            self::Contrarecibo => 'Contrarecibo',
             self::SolicitudArchivo => 'Anexo de solicitud',
             self::SolicitudFirmada => 'Solicitud firmada',
         };
@@ -69,6 +73,7 @@ enum DocumentoTipo: string
             self::OcPdfFormato,
             self::OcPdfFirmado,
             self::ComprobantePago,
+            self::Contrarecibo,
             self::SolicitudFirmada => 'pdf',
             self::EvidenciaRecepcion,
             self::EvidenciaDevolucion => 'pdf,jpg,jpeg,png,webp',

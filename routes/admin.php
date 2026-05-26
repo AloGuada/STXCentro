@@ -198,6 +198,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // Ordenes de Compra
         Route::resource('ordenes-compra', CostosOrdenCompraController::class)->only(['index', 'create', 'store', 'show', 'destroy'])->parameters(['ordenes-compra' => 'ordenCompra']);
         Route::post('ordenes-compra/{ordenCompra}/cancelar', [CostosOrdenCompraController::class, 'cancelar'])->name('ordenes-compra.cancelar');
+        Route::get('ordenes-compra/{ordenCompra}/pdf-requisicion', [CostosOrdenCompraController::class, 'pdfRequisicion'])->name('ordenes-compra.pdf-requisicion');
+        Route::get('ordenes-compra/{ordenCompra}/pdf-oc', [CostosOrdenCompraController::class, 'pdfOc'])->name('ordenes-compra.pdf-oc');
+        Route::get('ordenes-compra/{ordenCompra}/pdf-contrarecibo/{factura}', [CostosOrdenCompraController::class, 'pdfContrarecibo'])->name('ordenes-compra.pdf-contrarecibo');
 
         // Facturas
         Route::get('facturas/reporte-semanal', [CostosFacturaAdminController::class, 'reporteSemanal'])->name('facturas.reporte-semanal');
