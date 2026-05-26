@@ -42,6 +42,20 @@ const pagosTotal = (oc: CostosOrdenCompra) =>
 const pagosPagadosCount = (oc: CostosOrdenCompra) =>
     facturasActivas(oc).filter((f) => f.pago?.estatus === 'pagado').length;
 
+function unidadesRecepcionadas(oc: CostosOrdenCompra): string {
+    const totalUnidades = (oc.detalles ?? []).reduce((s, d) => s + Number(d.cantidad), 0);
+    let recibidas = 0;
+    for (const entrega of oc.entregas ?? []) {
+        for (const ed of entrega.detalles ?? []) {
+            const devueltas = (ed.devoluciones ?? [])
+                .filter((d: any) => d.estatus === 'vigente')
+                .reduce((s: number, d: any) => s + Number(d.cantidad), 0);
+            recibidas += Math.max(0, Number(ed.cantidad_recibida) - devueltas);
+        }
+    }
+    return `${recibidas.toLocaleString('es-MX')} / ${totalUnidades.toLocaleString('es-MX')} unidades recibidas`;
+}
+
 function recepcionSubtitle(oc: CostosOrdenCompra): string {
     const ent = oc.entregas_count ?? 0;
     if (ent === 0) {
@@ -204,6 +218,9 @@ export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
                                         <div className="text-base-content text-sm font-semibold mt-1">
                                             ${money(oc.total)} MXN
                                         </div>
+                                        <div className="text-base-content/50 text-xs mt-0.5">
+                                            {unidadesRecepcionadas(oc)}
+                                        </div>
                                     </div>
                                     <EtapaCell oc={oc} />
                                 </div>
@@ -283,6 +300,9 @@ export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
                                             </div>
                                             <div className="text-base-content text-sm font-semibold mt-1">
                                                 ${money(oc.total)} MXN
+                                            </div>
+                                            <div className="text-base-content/50 text-xs mt-0.5">
+                                                {unidadesRecepcionadas(oc)}
                                             </div>
                                         </td>
                                         <td className="p-3 xl:p-5">
