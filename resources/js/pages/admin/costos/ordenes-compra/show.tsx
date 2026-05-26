@@ -459,7 +459,9 @@ function TreeFolder({ label, defaultOpen = true, children }: { label: string; de
     );
 }
 
-function TreeFile({ label, href, pending }: { label: string; href?: string; pending?: string }) {
+type PreviewFn = (url: string, title: string) => void;
+
+function TreeFile({ label, href, pending, onPreview }: { label: string; href?: string; pending?: string; onPreview?: PreviewFn }) {
     if (!href) {
         return (
             <div className="flex items-center gap-1.5 py-0.5 text-sm text-base-content/40">
@@ -470,20 +472,60 @@ function TreeFile({ label, href, pending }: { label: string; href?: string; pend
         );
     }
     return (
-        <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 py-0.5 text-sm text-primary hover:underline">
+        <button
+            onClick={() => onPreview?.(href, label)}
+            className="flex items-center gap-1.5 py-0.5 text-sm text-primary hover:underline"
+        >
             <FileTextIcon className="size-3.5" />
             <span>{label}</span>
-        </a>
+        </button>
     );
 }
 
-function TreeAttachment({ label, href }: { label: string; href?: string }) {
+function TreeAttachment({ label, href, onPreview }: { label: string; href?: string; onPreview?: PreviewFn }) {
     if (!href) return null;
+    const isXml = href.endsWith('.xml') || href.endsWith('.txt');
+    if (isXml) {
+        return (
+            <a href={href} download className="flex items-center gap-1.5 py-0.5 text-sm text-primary hover:underline">
+                <PaperclipIcon className="size-3.5" />
+                <span>{label}</span>
+            </a>
+        );
+    }
     return (
-        <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 py-0.5 text-sm text-primary hover:underline">
+        <button
+            onClick={() => onPreview?.(href, label)}
+            className="flex items-center gap-1.5 py-0.5 text-sm text-primary hover:underline"
+        >
             <PaperclipIcon className="size-3.5" />
             <span>{label}</span>
-        </a>
+        </button>
+    );
+}
+
+function DocPreviewModal({ url, title, onClose }: { url: string; title: string; onClose: () => void }) {
+    const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
+    return (
+        <dialog className="modal modal-open">
+            <div className="modal-box w-11/12 max-w-5xl h-[85vh] flex flex-col p-0">
+                <div className="flex items-center justify-between border-b border-base-300 px-4 py-2">
+                    <h3 className="text-sm font-semibold">{title}</h3>
+                    <div className="flex items-center gap-2">
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-xs">Abrir en nueva pestaña</a>
+                        <button onClick={onClose} className="btn btn-ghost btn-xs">Cerrar</button>
+                    </div>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                    {isImage ? (
+                        <img src={url} alt={title} className="h-full w-full object-contain p-4" />
+                    ) : (
+                        <iframe src={url} className="h-full w-full" title={title} />
+                    )}
+                </div>
+            </div>
+            <div className="modal-backdrop" onClick={onClose} />
+        </dialog>
     );
 }
 
@@ -491,19 +533,21 @@ function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
     const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
     const fmtMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
     const baseUrl = `/admin/costos/ordenes-compra/${ordenCompra.id}`;
+    const [preview, setPreview] = useState<{ url: string; title: string } | null>(null);
+    const openPreview: PreviewFn = (url, title) => setPreview({ url, title });
 
     return (
         <div className="space-y-1 rounded-lg border border-base-300 p-4">
             {/* Requisicion */}
             {ordenCompra.requisicion_id && (
                 <TreeFolder label="Requisicion">
-                    <TreeFile label="Comparativo de proveedores (PDF)" href={`${baseUrl}/pdf-requisicion`} />
+                    <TreeFile label="Comparativo de proveedores (PDF)" href={`${baseUrl}/pdf-requisicion`} onPreview={openPreview} />
                 </TreeFolder>
             )}
 
             {/* Orden de Compra */}
             <TreeFolder label="Orden de Compra">
-                <TreeFile label="Formato OC (PDF)" href={`${baseUrl}/pdf-oc`} />
+                <TreeFile label="Formato OC (PDF)" href={`${baseUrl}/pdf-oc`} onPreview={openPreview} />
             </TreeFolder>
 
             {/* Recepciones */}
@@ -516,7 +560,7 @@ function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
                         return (
                             <TreeFolder key={entrega.id} label={`Entrega #${entrega.id} — ${fmtDate(entrega.fecha_entrega)}`}>
                                 {evidencia ? (
-                                    <TreeAttachment label="Evidencia de recepcion" href={`/storage/${evidencia.path}`} />
+                                    <TreeAttachment label="Evidencia de recepcion" href={`/storage/${evidencia.path}`} onPreview={openPreview} />
                                 ) : (
                                     <TreeFile label="Evidencia de recepcion" pending="Sin archivo" />
                                 )}
@@ -537,14 +581,14 @@ function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
                         return (
                             <TreeFolder key={factura.id} label={`${factura.folio} — ${fmtMoney(factura.total)}`}>
                                 {pdfMedia ? (
-                                    <TreeAttachment label="Factura PDF" href={`/storage/${pdfMedia.path}`} />
+                                    <TreeAttachment label="Factura PDF" href={`/storage/${pdfMedia.path}`} onPreview={openPreview} />
                                 ) : (
                                     <TreeFile label="Factura PDF" pending="Sin archivo" />
                                 )}
                                 {xmlMedia && (
                                     <TreeAttachment label="XML CFDI" href={`/storage/${xmlMedia.path}`} />
                                 )}
-                                <TreeFile label="Contrarecibo (PDF)" href={`${baseUrl}/pdf-contrarecibo/${factura.id}`} />
+                                <TreeFile label="Contrarecibo (PDF)" href={`${baseUrl}/pdf-contrarecibo/${factura.id}`} onPreview={openPreview} />
                             </TreeFolder>
                         );
                     })
@@ -563,7 +607,7 @@ function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
                         return (
                             <TreeFolder key={pago.id} label={`${pago.folio} — ${fmtMoney(pago.monto)}`}>
                                 {comprobante ? (
-                                    <TreeAttachment label="Comprobante de pago" href={`/storage/${comprobante.path}`} />
+                                    <TreeAttachment label="Comprobante de pago" href={`/storage/${comprobante.path}`} onPreview={openPreview} />
                                 ) : (
                                     <TreeFile label="Comprobante de pago" pending={pago.estatus === 'pagado' ? 'Sin archivo' : 'Pendiente'} />
                                 )}
@@ -572,6 +616,10 @@ function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
                     });
                 })()}
             </TreeFolder>
+
+            {preview && (
+                <DocPreviewModal url={preview.url} title={preview.title} onClose={() => setPreview(null)} />
+            )}
         </div>
     );
 }
