@@ -150,6 +150,7 @@ class OrdenCompraController extends Controller
             'entregas.media',
             'facturas.media',
             'facturas.pago',
+            'facturas.notasCredito.media',
             'facturas.entregas.media',
             'media',
             'rubrosAfectados.obraRubro.rubro',

@@ -257,6 +257,15 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                                                     <Link href={`/admin/costos/facturas/${f.id}`} className="link link-primary">
                                                         {f.folio}
                                                     </Link>
+                                                    {(f.notas_credito?.length ?? 0) > 0 && (
+                                                        <div className="mt-1">
+                                                            {f.notas_credito!.map((nc) => (
+                                                                <Link key={nc.id} href={`/admin/costos/notas-credito/${nc.id}`} className="badge badge-sm badge-outline badge-warning mr-1">
+                                                                    NC: {nc.folio} ({formatMoney(nc.monto)})
+                                                                </Link>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td>{f.fecha_factura ? new Date(f.fecha_factura).toLocaleDateString() : '-'}</td>
                                                 <td className="text-right">{formatMoney(f.total)}</td>
@@ -589,6 +598,17 @@ function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
                                     <TreeAttachment label="XML CFDI" href={`/storage/${xmlMedia.path}`} />
                                 )}
                                 <TreeFile label="Contrarecibo (PDF)" href={`${baseUrl}/pdf-contrarecibo/${factura.id}`} onPreview={openPreview} />
+                                {(factura.notas_credito ?? []).map((nc) => {
+                                    const ncPdf = nc.media?.find((m: any) => m.descripcion === 'pdf_nota_credito');
+                                    const ncXml = nc.media?.find((m: any) => m.descripcion === 'xml_nota_credito');
+                                    return (
+                                        <TreeFolder key={nc.id} label={`NC: ${nc.folio} — ${fmtMoney(nc.monto)}`}>
+                                            {ncPdf && <TreeAttachment label="Nota de credito PDF" href={`/storage/${ncPdf.path}`} onPreview={openPreview} />}
+                                            {ncXml && <TreeAttachment label="XML Nota de credito" href={`/storage/${ncXml.path}`} />}
+                                            {!ncPdf && !ncXml && <TreeFile label="Nota de credito" pending="Sin archivos" />}
+                                        </TreeFolder>
+                                    );
+                                })}
                             </TreeFolder>
                         );
                     })
