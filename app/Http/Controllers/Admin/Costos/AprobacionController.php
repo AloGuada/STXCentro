@@ -131,12 +131,12 @@ class AprobacionController extends Controller
         ]);
 
         $aprobacionSolicitud->update([
-            'estatus' => 'aprobada',
             'fecha_respuesta' => now(),
             'observaciones' => $request->input('observaciones'),
             'ip' => $request->ip(),
             'hostname' => gethostbyaddr($request->ip()) ?: null,
         ]);
+        $aprobacionSolicitud->transitionTo(AprobacionEstatus::Aprobada);
 
         // Cancelar las demas aprobaciones pendientes del mismo nivel (logica OR)
         $aprobable = $aprobacionSolicitud->aprobable;
@@ -180,13 +180,13 @@ class AprobacionController extends Controller
         $motivo = $request->input('observaciones');
 
         $aprobacionSolicitud->update([
-            'estatus' => 'rechazada',
             'fecha_respuesta' => now(),
             'observaciones' => $motivo,
             'motivo_rechazo' => $motivo,
             'ip' => $request->ip(),
             'hostname' => gethostbyaddr($request->ip()) ?: null,
         ]);
+        $aprobacionSolicitud->transitionTo(AprobacionEstatus::Rechazada);
 
         $aprobable = $aprobacionSolicitud->aprobable;
         $aprobable->cadenaAprobacion()

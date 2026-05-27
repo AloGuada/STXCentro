@@ -211,8 +211,8 @@ class FacturaAdminController extends Controller
                 'aprobada_costos' => true,
                 'aprobada_costos_por' => $request->user()->id,
                 'aprobada_costos_at' => now(),
-                'estatus' => 'pendiente_pago',
             ]);
+            $factura->transitionTo(FacturaEstatus::PendientePago);
 
             $factura->ordenCompra->recalcularEstatus();
         });
