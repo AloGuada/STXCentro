@@ -9,6 +9,7 @@ use App\Models\User;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
+    darPermisosSolicitudesPago($this->user);
 });
 
 describe('admin costos solicitudes pago', function () {

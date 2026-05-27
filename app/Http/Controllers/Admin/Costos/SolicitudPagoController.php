@@ -36,6 +36,8 @@ class SolicitudPagoController extends Controller
 
     public function index(Request $request): Response
     {
+        Gate::authorize('costos.solicitudes-pago.ver');
+
         $solicitudes = SolicitudPago::query()
             ->where('solicitante_id', auth()->id())
             ->with(['departamento', 'proveedor', 'solicitante', 'media'])
@@ -58,6 +60,8 @@ class SolicitudPagoController extends Controller
 
     public function create(): Response
     {
+        Gate::authorize('costos.solicitudes-pago.crear');
+
         return Inertia::render('admin/costos/solicitudes-pago/create', [
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
             'proveedores' => Proveedor::where('activo', true)->orderBy('razon_social')->get(['id', 'razon_social', 'nombre_comercial']),
@@ -69,6 +73,8 @@ class SolicitudPagoController extends Controller
 
     public function store(SolicitudPagoStoreRequest $request): RedirectResponse
     {
+        Gate::authorize('costos.solicitudes-pago.crear');
+
         $warnings = [];
         $solicitud = null;
 
@@ -170,6 +176,8 @@ class SolicitudPagoController extends Controller
      */
     public function reApartar(Request $request, SolicitudPago $solicitudPago): RedirectResponse
     {
+        Gate::authorize('costos.solicitudes-pago.editar');
+
         abort_unless($solicitudPago->solicitante_id === $request->user()->id, 403);
 
         if (! in_array($solicitudPago->estatus->value, ['pendiente_firma', 'borrador'], true)) {
@@ -189,6 +197,8 @@ class SolicitudPagoController extends Controller
 
     public function show(SolicitudPago $solicitudPago): Response
     {
+        Gate::authorize('costos.solicitudes-pago.ver');
+
         $solicitudPago->load([
             'solicitante',
             'departamento',
@@ -211,6 +221,8 @@ class SolicitudPagoController extends Controller
 
     public function edit(SolicitudPago $solicitudPago): Response|RedirectResponse
     {
+        Gate::authorize('costos.solicitudes-pago.editar');
+
         if ($solicitudPago->estatus !== SolicitudPagoEstatus::Borrador) {
             return to_route('admin.costos.solicitudes-pago.show', $solicitudPago);
         }
@@ -229,6 +241,8 @@ class SolicitudPagoController extends Controller
 
     public function update(SolicitudPagoUpdateRequest $request, SolicitudPago $solicitudPago): RedirectResponse
     {
+        Gate::authorize('costos.solicitudes-pago.editar');
+
         if ($solicitudPago->estatus !== SolicitudPagoEstatus::Borrador) {
             return back()->withErrors(['estatus' => 'Solo se pueden editar solicitudes en borrador.']);
         }
@@ -300,6 +314,8 @@ class SolicitudPagoController extends Controller
 
     public function destroy(SolicitudPago $solicitudPago): RedirectResponse
     {
+        Gate::authorize('costos.solicitudes-pago.eliminar');
+
         if ($solicitudPago->estatus !== SolicitudPagoEstatus::Borrador) {
             return back()->withErrors(['estatus' => 'Solo se pueden eliminar solicitudes en borrador.']);
         }
@@ -311,6 +327,8 @@ class SolicitudPagoController extends Controller
 
     public function storeArchivo(Request $request, SolicitudPago $solicitudPago): RedirectResponse
     {
+        Gate::authorize('costos.solicitudes-pago.editar');
+
         $request->validate([
             'archivo' => ['required', 'file', 'max:10240'],
             'archivo_id' => ['required', 'exists:costos_documentos,id'],
@@ -339,6 +357,8 @@ class SolicitudPagoController extends Controller
 
     public function updateArchivo(Request $request, SolicitudPago $solicitudPago, SolicitudArchivo $solicitudArchivo): RedirectResponse
     {
+        Gate::authorize('costos.solicitudes-pago.editar');
+
         if ($solicitudArchivo->solicitud_id !== $solicitudPago->id) {
             abort(404);
         }
@@ -356,6 +376,8 @@ class SolicitudPagoController extends Controller
 
     public function destroyArchivo(SolicitudPago $solicitudPago, SolicitudArchivo $solicitudArchivo): RedirectResponse
     {
+        Gate::authorize('costos.solicitudes-pago.editar');
+
         if ($solicitudArchivo->solicitud_id !== $solicitudPago->id) {
             abort(404);
         }
@@ -373,6 +395,8 @@ class SolicitudPagoController extends Controller
 
     public function generarPdf(SolicitudPago $solicitudPago): HttpResponse
     {
+        Gate::authorize('costos.solicitudes-pago.ver');
+
         $solicitudPago->load([
             'solicitante',
             'departamento',
@@ -435,6 +459,8 @@ class SolicitudPagoController extends Controller
 
     public function uploadFirmado(Request $request, SolicitudPago $solicitudPago): RedirectResponse
     {
+        Gate::authorize('costos.solicitudes-pago.editar');
+
         $request->validate([
             'archivo' => ['required', 'file', 'mimes:pdf', 'max:10240'],
         ]);
@@ -451,9 +477,7 @@ class SolicitudPagoController extends Controller
             'mime' => $file->getMimeType(),
             'size' => $file->getSize(),
         ]);
-        $solicitudPago->update([
-            'estatus' => 'aprobada',
-        ]);
+        $solicitudPago->transitionTo(SolicitudPagoEstatus::Aprobada);
 
         // Marcar aprobaciones
         $solicitudPago->aprobaciones()->update([
@@ -469,6 +493,8 @@ class SolicitudPagoController extends Controller
 
     public function cancelar(CancelarRequest $request, SolicitudPago $solicitudPago): RedirectResponse
     {
+        Gate::authorize('costos.solicitudes-pago.editar');
+
         if (! in_array($solicitudPago->estatus, [SolicitudPagoEstatus::PendienteFirma, SolicitudPagoEstatus::Aprobada], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar solicitudes pendientes o aprobadas.']);
         }

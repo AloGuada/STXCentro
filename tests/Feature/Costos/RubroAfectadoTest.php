@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
+    darPermisosSolicitudesPago($this->user);
 });
 
 describe('rubros afectados polymorphic', function () {

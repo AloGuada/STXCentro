@@ -346,7 +346,7 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
         ]);
 
         // 3. Crear solicitud de pago como usuario solicitante
-        $solicitante = User::factory()->create();
+        $solicitante = darPermisosSolicitudesPago(User::factory()->create());
 
         $response = $this->actingAs($solicitante)
             ->post(route('admin.costos.solicitudes-pago.store'), [

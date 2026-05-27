@@ -7,6 +7,8 @@ use Illuminate\Support\Carbon;
 beforeEach(function () {
     $this->userA = User::factory()->create();
     $this->userB = User::factory()->create();
+    darPermisosSolicitudesPago($this->userA);
+    darPermisosSolicitudesPago($this->userB);
 });
 
 describe('edit lock via endpoint /lock', function () {
