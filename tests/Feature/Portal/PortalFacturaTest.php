@@ -5,9 +5,11 @@ use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Proveedor;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
+    Carbon::setTestNow('2026-05-28 10:00:00'); // jueves: carga de facturas permitida
     Storage::fake('public');
     $this->proveedor = Proveedor::factory()->create([
         'email' => 'proveedor@test.com',
@@ -16,6 +18,8 @@ beforeEach(function () {
         'activo' => true,
     ]);
 });
+
+afterEach(fn () => Carbon::setTestNow());
 
 function ocConRecepcion(?int $proveedorId = null, float $total = 11600): OrdenCompra
 {

@@ -7,6 +7,7 @@ use App\Models\Costos\OrdenCompra;
 use App\Models\Proveedor;
 use App\Services\Costos\CfdiXmlParser;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
 function sampleCfdi(array $overrides = []): string
@@ -101,6 +102,7 @@ describe('CfdiXmlParser', function () {
 
 describe('Portal upload XML auto-llena datos fiscales', function () {
     beforeEach(function () {
+        Carbon::setTestNow('2026-05-28 10:00:00'); // jueves: carga de facturas permitida
         Storage::fake('public');
         $this->proveedor = Proveedor::factory()->create([
             'email' => 'xml-proveedor@test.com',
@@ -109,6 +111,8 @@ describe('Portal upload XML auto-llena datos fiscales', function () {
             'activo' => true,
         ]);
     });
+
+    afterEach(fn () => Carbon::setTestNow());
 
     test('two-step: preview parsea XML y store crea factura con datos fiscales', function () {
         $oc = OrdenCompra::factory()->pendienteFactura()->create([
