@@ -41,7 +41,7 @@ function setupRequisicionAprobadaConRubro(Departamento $depto, ObraRubro $rubro)
     return [$req, $detalle];
 }
 
-test('liberar genera 1 OC con rubro heredado, modo_pago por OC y envio capturado', function () {
+test('liberar genera 1 OC con rubro heredado y modo_pago por OC', function () {
     $rubro = ObraRubro::factory()->create();
     [$req, $detalle] = setupRequisicionAprobadaConRubro($this->depto, $rubro);
 
@@ -67,7 +67,6 @@ test('liberar genera 1 OC con rubro heredado, modo_pago por OC y envio capturado
                     'numero_oc' => 1,
                     'modo_pago' => 'credito',
                     'moneda' => 'mxn',
-                    'envio' => 50.0,
                     'notas' => 'Notas OC 1',
                 ],
             ],
@@ -79,9 +78,8 @@ test('liberar genera 1 OC con rubro heredado, modo_pago por OC y envio capturado
     expect($oc->requisicion_id)->toBe($req->id);
     expect($oc->proveedor_id)->toBe($proveedor->id);
     expect($oc->tipo_pago->value)->toBe('credito');
-    expect((float) $oc->envio)->toBe(50.0);
-    // subtotal = 25 * 10 = 250; base = 300; iva = 48; total = 348
-    expect((float) $oc->total)->toBe(348.0);
+    // subtotal = 25 * 10 = 250; iva = 40; total = 290
+    expect((float) $oc->total)->toBe(290.0);
     expect($oc->dias_credito)->toBe(30);
 
     $ocDet = $oc->detalles()->first();
@@ -235,7 +233,7 @@ test('idempotencia: no libera dos veces la misma requisicion', function () {
         ->assertSessionHasErrors(['estatus']);
 });
 
-test('liberar aplica impacto presupuestal con base subtotal+envio+IVA', function () {
+test('liberar aplica impacto presupuestal con base subtotal', function () {
     $rubro = ObraRubro::factory()->create(['acumulado' => 0]);
     [$req, $detalle] = setupRequisicionAprobadaConRubro($this->depto, $rubro);
 

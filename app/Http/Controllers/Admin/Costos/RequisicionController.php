@@ -353,8 +353,8 @@ class RequisicionController extends Controller
     /**
      * Compras libera la requisicion aprobada: agrupa selecciones por
      * (proveedor, numero_oc), crea N OCs con su rubro heredado del detalle.
-     * El payload `ocs[]` define modo_pago, envio, notas y fecha por OC.
-     * `total` = subtotal_lineas + envio + IVA(16%). Aplica impacto
+     * El payload `ocs[]` define modo_pago, notas y fecha por OC.
+     * `total` = subtotal_lineas + IVA(16%). Aplica impacto
      * presupuestal en la misma transaccion. Idempotente: si ya hay OCs,
      * bloquea.
      */
@@ -384,7 +384,7 @@ class RequisicionController extends Controller
         $todasSelecciones = $requisicion->detalles->flatMap->selecciones;
 
         // Indexa el payload `ocs[]` por (proveedor_id, numero_oc) para
-        // resolver overrides (modo_pago, envio, notas, fecha_entrega) por OC.
+        // resolver overrides (modo_pago, notas, fecha_entrega) por OC.
         $ocsPayload = collect($request->input('ocs', []))
             ->keyBy(fn ($oc) => $oc['proveedor_id'].'|'.$oc['numero_oc']);
 
@@ -442,7 +442,6 @@ class RequisicionController extends Controller
                     'moneda' => $moneda,
                     'tipo_pago' => $modoPago,
                     'dias_credito' => $diasCredito,
-                    'envio' => 0,
                     'total' => round($total, 2),
                     'fecha_entrega_esperada' => $fechaEntrega,
                     'notas' => $notas,

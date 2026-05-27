@@ -70,7 +70,6 @@ class OrdenCompra extends Model
         'dias_credito',
         'forma_pago',
         'total',
-        'envio',
         'fecha_entrega_esperada',
         'notas',
         'estatus',
@@ -85,7 +84,6 @@ class OrdenCompra extends Model
     {
         return [
             'total' => 'decimal:2',
-            'envio' => 'decimal:2',
             'dias_credito' => 'integer',
             'fecha_entrega_esperada' => 'date',
             'tipo_pago' => ModoPago::class,

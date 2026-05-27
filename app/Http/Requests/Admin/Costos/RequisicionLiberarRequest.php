@@ -22,7 +22,6 @@ class RequisicionLiberarRequest extends FormRequest
             'ocs.*.numero_oc' => ['required', 'integer', 'min:1', 'max:50'],
             'ocs.*.modo_pago' => ['required', 'in:contado,credito'],
             'ocs.*.moneda' => ['required', 'in:mxn,usd,eur'],
-            'ocs.*.envio' => ['nullable', 'numeric', 'min:0'],
             'ocs.*.notas' => ['nullable', 'string', 'max:1000'],
         ];
     }

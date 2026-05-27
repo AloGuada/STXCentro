@@ -1423,7 +1423,6 @@ export type CostosOrdenCompra = {
     dias_credito: number;
     forma_pago: string;
     total: number;
-    envio: number;
     fecha_entrega_esperada: string;
     notas: string | null;
     estatus: CostosOrdenCompraEstatus;
