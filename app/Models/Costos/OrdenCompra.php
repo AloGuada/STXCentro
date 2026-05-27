@@ -10,6 +10,7 @@ use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
+use App\Models\Costos\Concerns\AfectaPresupuesto;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
@@ -30,7 +31,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class OrdenCompra extends Model
 {
-    use HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
+    use AfectaPresupuesto, HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_ordenes_compra';
 
@@ -194,37 +195,9 @@ class OrdenCompra extends Model
         return (float) $this->total - $this->total_pagado;
     }
 
-    /**
-     * Aplica el impacto presupuestal: incrementa acumulado en obra_rubros y crea rubros afectados.
-     * Pasa por ValidadorPresupuesto antes de incrementar — si bloquear_sobregiro=true
-     * y el monto excede disponible, lanza SobregiroPresupuestalException y aborta.
-     */
-    public function aplicarImpactoPresupuestal(?string $userId = null): void
+    protected function descripcionAfectacion(object $detalle, ObraRubro $obraRubro): ?string
     {
-        $userId = $userId ?? Auth::id();
-        $validador = app(\App\Services\Costos\ValidadorPresupuesto::class);
-
-        foreach ($this->detalles as $detalle) {
-            $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
-            $validador->validar($obraRubro, (float) $detalle->subtotal, $this);
-
-            ObraRubro::where('id', $detalle->obra_rubro_id)
-                ->increment('acumulado', (float) $detalle->subtotal);
-
-            $obraRubro->refresh();
-            $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
-
-            $this->rubrosAfectados()->create([
-                'obra_rubro_id' => $detalle->obra_rubro_id,
-                'monto' => $detalle->subtotal,
-                'sobre_giro' => $disponible < 0,
-                'descripcion' => $obraRubro->rubro?->descripcion,
-                'tipo_movimiento' => 'cargo',
-                'estatus' => 'aplicado',
-                'usuario_aplica_id' => $userId,
-                'fecha_aplicacion' => now(),
-            ]);
-        }
+        return $obraRubro->rubro?->descripcion;
     }
 
     /**

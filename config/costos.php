@@ -38,4 +38,16 @@ return [
     |
     */
     'umbral_alerta_porcentaje' => (int) env('COSTOS_UMBRAL_ALERTA_PORCENTAJE', 90),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tasa de IVA
+    |--------------------------------------------------------------------------
+    |
+    | Tasa aplicada al calcular el total de una orden de compra a partir del
+    | subtotal de sus líneas. Las facturas NO usan este valor: su IVA proviene
+    | del CFDI (XML) del proveedor.
+    |
+    */
+    'iva_rate' => (float) env('COSTOS_IVA_RATE', 0.16),
 ];

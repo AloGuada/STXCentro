@@ -427,7 +427,7 @@ class RequisicionController extends Controller
                     return $acc + $precio * (float) $s->cantidad;
                 }, 0.0);
 
-                $iva = $subtotalLineas * 0.16;
+                $iva = $subtotalLineas * (float) config('costos.iva_rate');
                 $total = $subtotalLineas + $iva;
 
                 $diasCredito = ($modoPago === 'credito' && $proveedor?->maneja_credito)
