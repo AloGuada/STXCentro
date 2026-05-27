@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Rh\PeriodoLaboralStoreRequest;
 use App\Http\Requests\Admin\Rh\PeriodoLaboralTerminarRequest;
 use App\Http\Requests\Admin\Rh\PeriodoLaboralUpdateRequest;
-use App\Models\Rh\Onboarding;
 use App\Models\Rh\PeriodoLaboral;
 use App\Models\Rh\Persona;
 use App\Models\Rh\Puesto;
@@ -104,7 +103,13 @@ class PeriodoLaboralController extends Controller
     {
         $this->authorize('rh.periodos-laborales.crear');
 
-        PeriodoLaboral::create($request->validated());
+        DB::transaction(function () use ($request) {
+            $periodo = PeriodoLaboral::create($request->validated());
+
+            if ($periodo->puesto_id) {
+                $periodo->generarOnboardingDesdePlantilla();
+            }
+        });
 
         return to_route('admin.rh.periodos-laborales.index');
     }
@@ -313,35 +318,9 @@ class PeriodoLaboralController extends Controller
     {
         $this->authorize('rh.onboarding.crear');
 
-        if ($periodoLaboral->onboarding) {
+        if ($periodoLaboral->generarOnboardingDesdePlantilla() === null) {
             return back()->withErrors(['onboarding' => 'Este periodo ya tiene un onboarding asociado.']);
         }
-
-        DB::transaction(function () use ($periodoLaboral) {
-            $onboarding = Onboarding::create([
-                'periodo_id' => $periodoLaboral->id,
-                'fecha_inicio' => now(),
-                'progreso' => 0,
-            ]);
-
-            $puesto = $periodoLaboral->puesto;
-            if ($puesto === null) {
-                return;
-            }
-
-            $plantillas = $puesto->plantillasOnboarding()->orderBy('orden')->orderBy('id')->get();
-            $fechaInicio = Carbon::parse($onboarding->fecha_inicio);
-
-            foreach ($plantillas as $tpl) {
-                $onboarding->tareas()->create([
-                    'titulo' => $tpl->titulo,
-                    'descripcion' => $tpl->descripcion,
-                    'fecha_vencimiento' => $tpl->dias_desde_inicio !== null
-                        ? $fechaInicio->copy()->addDays($tpl->dias_desde_inicio)
-                        : null,
-                ]);
-            }
-        });
 
         return back();
     }

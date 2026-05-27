@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class PeriodoLaboral extends Model
 {
@@ -64,6 +66,43 @@ class PeriodoLaboral extends Model
     public function onboarding(): HasOne
     {
         return $this->hasOne(Onboarding::class, 'periodo_id');
+    }
+
+    /**
+     * Crea el onboarding de este periodo copiando las tareas de la plantilla
+     * de su puesto (si tiene plantillas). Devuelve el onboarding creado, o
+     * null si el periodo ya tenía uno.
+     */
+    public function generarOnboardingDesdePlantilla(): ?Onboarding
+    {
+        if ($this->onboarding) {
+            return null;
+        }
+
+        return DB::transaction(function (): Onboarding {
+            $onboarding = $this->onboarding()->create([
+                'fecha_inicio' => now(),
+                'progreso' => 0,
+            ]);
+
+            $puesto = $this->puesto;
+
+            if ($puesto !== null) {
+                $fechaInicio = Carbon::parse($onboarding->fecha_inicio);
+
+                foreach ($puesto->plantillasOnboarding()->orderBy('orden')->orderBy('id')->get() as $tpl) {
+                    $onboarding->tareas()->create([
+                        'titulo' => $tpl->titulo,
+                        'descripcion' => $tpl->descripcion,
+                        'fecha_vencimiento' => $tpl->dias_desde_inicio !== null
+                            ? $fechaInicio->copy()->addDays($tpl->dias_desde_inicio)
+                            : null,
+                    ]);
+                }
+            }
+
+            return $onboarding;
+        });
     }
 
     /** @param Builder<self> $query */

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Rh\OnboardingTareaPlantilla;
 use App\Models\Rh\PeriodoLaboral;
 use App\Models\Rh\Persona;
 use App\Models\Rh\Puesto;
@@ -48,6 +49,57 @@ describe('admin rh periodos laborales', function () {
             'persona_id' => $persona->id,
             'puesto_id' => $puesto->id,
         ]);
+    });
+
+    test('store con puesto y plantillas auto-genera onboarding con tareas copiadas', function () {
+        $persona = Persona::factory()->create();
+        $puesto = Puesto::factory()->create();
+        OnboardingTareaPlantilla::factory()->create([
+            'puesto_id' => $puesto->id, 'titulo' => 'Entregar laptop', 'dias_desde_inicio' => 2, 'orden' => 1,
+        ]);
+        OnboardingTareaPlantilla::factory()->create([
+            'puesto_id' => $puesto->id, 'titulo' => 'Tour de seguridad', 'dias_desde_inicio' => null, 'orden' => 2,
+        ]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.rh.periodos-laborales.store'), [
+                'persona_id' => $persona->id,
+                'puesto_id' => $puesto->id,
+                'fecha_inicio' => '2026-01-15',
+                'estado' => 'activo',
+                'salario_diario' => 800,
+                'sueldo_mensual' => '24000',
+                'tipo_contrato' => 'indefinido',
+            ])
+            ->assertRedirect(route('admin.rh.periodos-laborales.index'));
+
+        $periodo = PeriodoLaboral::where('persona_id', $persona->id)->firstOrFail();
+        $onboarding = $periodo->onboarding;
+
+        expect($onboarding)->not->toBeNull();
+        expect($onboarding->tareas)->toHaveCount(2);
+        expect($onboarding->tareas->pluck('titulo')->all())->toBe(['Entregar laptop', 'Tour de seguridad']);
+        expect($onboarding->tareas->firstWhere('titulo', 'Entregar laptop')->fecha_vencimiento)->not->toBeNull();
+        expect($onboarding->tareas->firstWhere('titulo', 'Tour de seguridad')->fecha_vencimiento)->toBeNull();
+    });
+
+    test('store sin puesto no genera onboarding', function () {
+        $persona = Persona::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.rh.periodos-laborales.store'), [
+                'persona_id' => $persona->id,
+                'fecha_inicio' => '2026-01-15',
+                'estado' => 'activo',
+                'salario_diario' => 800,
+                'sueldo_mensual' => '24000',
+                'tipo_contrato' => 'indefinido',
+            ])
+            ->assertRedirect(route('admin.rh.periodos-laborales.index'));
+
+        $periodo = PeriodoLaboral::where('persona_id', $persona->id)->firstOrFail();
+
+        expect($periodo->onboarding)->toBeNull();
     });
 
     test('periodo laboral can be terminated', function () {
