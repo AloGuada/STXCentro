@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
-use App\Enums\Costos\OrdenCompraEstatus;
 use App\Enums\Costos\RequisicionEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
@@ -11,14 +10,13 @@ use App\Http\Requests\Admin\Costos\RequisicionStoreRequest;
 use App\Http\Requests\Admin\Costos\RequisicionUpdateRequest;
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
-use App\Models\Costos\OrdenCompra;
-use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\RequisicionSeleccion;
 use App\Models\Departamento;
 use App\Models\Proveedor;
 use App\Services\Costos\ApartadoPresupuestal;
+use App\Services\Costos\OrdenCompraGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -358,7 +356,7 @@ class RequisicionController extends Controller
      * presupuestal en la misma transaccion. Idempotente: si ya hay OCs,
      * bloquea.
      */
-    public function liberar(RequisicionLiberarRequest $request, Requisicion $requisicion): RedirectResponse
+    public function liberar(RequisicionLiberarRequest $request, Requisicion $requisicion, OrdenCompraGenerator $generator): RedirectResponse
     {
         if ($requisicion->estatus !== RequisicionEstatus::Aprobada) {
             return back()->withErrors(['estatus' => 'Solo requisiciones aprobadas se pueden liberar.']);
@@ -400,84 +398,7 @@ class RequisicionController extends Controller
             }
         }
 
-        $userId = $request->user()->id;
-
-        DB::transaction(function () use ($requisicion, $grupos, $ocsPayload, $userId) {
-            // Liberar apartados temporales de la requisición. Cada OC que se
-            // cree a continuación aplicará su propio impacto permanente vía
-            // OrdenCompra::aplicarImpactoPresupuestal(); el neto sobre el
-            // acumulado es ~cero (apartado out, aplicado in por mismo monto).
-            app(\App\Services\Costos\ApartadoPresupuestal::class)
-                ->cancelarApartadosDe($requisicion, 'liberada a OC');
-
-            foreach ($grupos as $key => $selecciones) {
-                $payload = $ocsPayload[$key];
-                $proveedorId = (int) $payload['proveedor_id'];
-                $numeroOc = (int) $payload['numero_oc'];
-                $modoPago = (string) $payload['modo_pago'];
-                $moneda = (string) $payload['moneda'];
-                $notas = $payload['notas'] ?? null;
-                $fechaEntrega = $payload['fecha_entrega'] ?? now()->addDays(7)->format('Y-m-d');
-
-                $proveedor = Proveedor::find($proveedorId);
-
-                $subtotalLineas = $selecciones->reduce(function ($acc, RequisicionSeleccion $s) {
-                    $precio = (float) ($s->cotizacionPrecio?->precio_unitario ?? 0);
-
-                    return $acc + $precio * (float) $s->cantidad;
-                }, 0.0);
-
-                $iva = $subtotalLineas * (float) config('costos.iva_rate');
-                $total = $subtotalLineas + $iva;
-
-                $diasCredito = ($modoPago === 'credito' && $proveedor?->maneja_credito)
-                    ? (int) ($proveedor->dias_credito_default ?? 0)
-                    : 0;
-
-                $oc = OrdenCompra::create([
-                    'requisicion_id' => $requisicion->id,
-                    'proveedor_id' => $proveedorId,
-                    'departamento_id' => $requisicion->departamento_id,
-                    'creado_por' => $userId,
-                    'moneda' => $moneda,
-                    'tipo_pago' => $modoPago,
-                    'dias_credito' => $diasCredito,
-                    'total' => round($total, 2),
-                    'fecha_entrega_esperada' => $fechaEntrega,
-                    'notas' => $notas,
-                    'estatus' => OrdenCompraEstatus::PendienteEntrega->value,
-                ]);
-
-                foreach ($selecciones as $sel) {
-                    /** @var RequisicionSeleccion $sel */
-                    $detalle = $sel->detalle ?? RequisicionDetalle::find($sel->requisicion_detalle_id);
-                    $precioUnit = (float) ($sel->cotizacionPrecio?->precio_unitario ?? 0);
-                    $cantidad = (float) $sel->cantidad;
-                    $subtotal = round($precioUnit * $cantidad, 2);
-
-                    $ocDetalle = OrdenCompraDetalle::create([
-                        'orden_compra_id' => $oc->id,
-                        'requisicion_detalle_id' => $sel->requisicion_detalle_id,
-                        'obra_rubro_id' => $detalle->obra_rubro_id,
-                        'descripcion' => $detalle->descripcion,
-                        'unidad' => $detalle->unidad,
-                        'cantidad' => $cantidad,
-                        'precio_unitario' => $precioUnit,
-                        'subtotal' => $subtotal,
-                    ]);
-
-                    $sel->update([
-                        'obra_rubro_id' => $detalle->obra_rubro_id,
-                        'orden_compra_detalle_id' => $ocDetalle->id,
-                    ]);
-                }
-
-                $oc->load('detalles');
-                $oc->aplicarImpactoPresupuestal($userId);
-            }
-
-            $requisicion->transitionTo(RequisicionEstatus::Liberada);
-        });
+        $generator->generar($requisicion, $grupos, $ocsPayload, $request->user()->id);
 
         return to_route('admin.costos.requisiciones.show', $requisicion)
             ->with('success', 'Requisición liberada y órdenes de compra generadas.');
