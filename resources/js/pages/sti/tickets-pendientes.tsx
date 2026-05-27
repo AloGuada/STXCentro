@@ -1,13 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
 import type { Departamento, PaginatedData, StiStatus, StiTicket, StiTicketComentario, StiTicketHistorial } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
 import { ClockIcon, PlusIcon, TicketIcon } from 'lucide-react';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Tickets de Soporte', href: '/sti/tickets' },
-];
 
 type TicketWithRelations = StiTicket & {
     departamento: Departamento;
@@ -21,7 +15,7 @@ type Props = {
 
 export default function TicketsPendientes({ tickets }: Props) {
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <div className="min-h-screen bg-base-200">
             <Head title="Tickets Pendientes - Soporte TI" />
 
             <div className="mx-auto w-full max-w-5xl p-6 md:p-10">
@@ -35,7 +29,7 @@ export default function TicketsPendientes({ tickets }: Props) {
                                 </CardTitle>
                                 <CardDescription>Lista de tickets en proceso de atencion. Haz clic en un ticket para ver su historial.</CardDescription>
                             </div>
-                            <Link href="/sti/ticket/nuevo" className="btn btn-primary btn-sm">
+                            <Link href="/sti/reportes/tickets/nuevo" className="btn btn-primary btn-sm">
                                 <PlusIcon className="size-4" />
                                 Nuevo Ticket
                             </Link>
@@ -80,7 +74,7 @@ export default function TicketsPendientes({ tickets }: Props) {
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        <Link href={`/sti/ticket/${ticket.id}`} className="btn btn-ghost btn-xs">
+                                                        <Link href={`/sti/reportes/tickets/${ticket.id}`} className="btn btn-ghost btn-xs">
                                                             Ver
                                                         </Link>
                                                     </td>
@@ -113,6 +107,6 @@ export default function TicketsPendientes({ tickets }: Props) {
                     </CardContent>
                 </Card>
             </div>
-        </AppLayout>
+        </div>
     );
 }

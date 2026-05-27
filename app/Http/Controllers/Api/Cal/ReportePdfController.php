@@ -117,10 +117,7 @@ class ReportePdfController extends Controller
                 }
             }
 
-            $folio = $reporte->folio;
-            if (empty($folio) || $folio === 'N/A') {
-                $folio = $this->calcularFolio($reporte);
-            }
+            $folio = $this->resolverFolio($reporte);
             $filename = $folio.'.pdf';
             $outputPath = storage_path('app/temp/'.$filename);
 
@@ -384,10 +381,7 @@ class ReportePdfController extends Controller
         $lugar = utf8_decode('Mérida, Yucatán');
         $norma = 'AWS D1.1';
         $consecutivo = $reporte->consecutivo ?? 'N/A';
-        $folio = $reporte->folio;
-        if (empty($folio) || $folio === 'N/A') {
-            $folio = $this->calcularFolio($reporte);
-        }
+        $folio = $this->resolverFolio($reporte);
         $fecha = $reporte->created_at ? $reporte->created_at->format('d/m/Y') : 'N/A';
 
         $colWidth = $anchoUtil / 2;
@@ -552,23 +546,29 @@ class ReportePdfController extends Controller
         }
     }
 
-    private function calcularFolio($reporte)
+    /**
+     * Devuelve el folio del reporte. Si esta vacio (legacy), lo genera con
+     * Reporte::siguienteFolio y lo PERSISTE — para que la proxima impresion
+     * siga obteniendo el mismo valor sin recalcular.
+     *
+     * Antes existia calcularFolio() que recomputaba al vuelo basado en
+     * ROW_NUMBER cronologico, lo cual era inestable: si se borraba un
+     * reporte intermedio, la siguiente impresion daba un folio distinto.
+     */
+    private function resolverFolio(Reporte $reporte): string
     {
-        $fecha = $reporte->created_at;
-        $year = $fecha->format('Y');
-        $month = $fecha->format('m');
+        if (! empty($reporte->folio) && $reporte->folio !== 'N/A') {
+            return $reporte->folio;
+        }
 
-        $reportesDelMes = Reporte::where('es_plantilla', false)
-            ->whereYear('created_at', $year)
-            ->whereMonth('created_at', $month)
-            ->orderBy('created_at')
-            ->pluck('id')
-            ->values();
+        if ($reporte->es_plantilla) {
+            return 'PLANTILLA';
+        }
 
-        $posicion = $reportesDelMes->search($reporte->id);
-        $consecutivo = $posicion !== false ? $posicion + 1 : $reportesDelMes->count() + 1;
+        $folio = Reporte::siguienteFolio($reporte->created_at ?? now());
+        $reporte->forceFill(['folio' => $folio])->saveQuietly();
 
-        return sprintf('IV%s%s%02d', $year, $month, $consecutivo);
+        return $folio;
     }
 
     private function dibujarFooter($pdf, $reporte, $anchoUtil, $margenIzq, $paginaActual, $totalPaginas)
@@ -611,7 +611,7 @@ class ReportePdfController extends Controller
 
         $pdf->SetFont('Arial', 'B', 6);
         $pdf->SetXY($margenIzq + ($seccionWidth * 2), $y + 4);
-        $pdf->Cell($seccionWidth, 3, 'ING.PEDRO DUARTE ORTIZ', 0, 1, 'C');
+        $pdf->Cell($seccionWidth, 3, 'ING.NUÑEZ LARA ROSENDO', 0, 1, 'C');
         $pdf->SetXY($margenIzq + ($seccionWidth * 2), $y + 7);
         $pdf->Cell($seccionWidth, 3, 'INSPECTOR VISUAL DE', 0, 1, 'C');
         $pdf->SetXY($margenIzq + ($seccionWidth * 2), $y + 10);

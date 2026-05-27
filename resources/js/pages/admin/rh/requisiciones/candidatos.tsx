@@ -11,7 +11,7 @@ import { useState } from 'react';
 
 type Props = {
     requisicion: RhRequisicion;
-    personasDisponibles: { id: number; nombre: string; apellido: string }[];
+    personasDisponibles: { id: number; nombre: string; apellido: string; plaza_actual: string | null }[];
     contratados: number[];
 };
 
@@ -56,7 +56,14 @@ export default function RequisicionCandidatos({ requisicion, personasDisponibles
                         <Select value={selectedPersonaId} onValueChange={setSelectedPersonaId} placeholder="Seleccionar persona" className="w-80">
                             {personasDisponibles.map((p) => (
                                 <SelectItem key={p.id} value={String(p.id)}>
-                                    {p.nombre} {p.apellido}
+                                    <span className="flex items-center gap-2">
+                                        {p.nombre} {p.apellido}
+                                        {p.plaza_actual && (
+                                            <Badge variant="secondary" className="text-xs">
+                                                Plaza actual: {p.plaza_actual}
+                                            </Badge>
+                                        )}
+                                    </span>
                                 </SelectItem>
                             ))}
                         </Select>

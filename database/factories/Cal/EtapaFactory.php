@@ -3,7 +3,7 @@
 namespace Database\Factories\Cal;
 
 use App\Models\Cal\Etapa;
-use App\Models\Obra;
+use App\Models\Cal\Obra;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**

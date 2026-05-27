@@ -2,6 +2,7 @@
 
 namespace App\Models\Rh;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -63,5 +64,11 @@ class PeriodoLaboral extends Model
     public function onboarding(): HasOne
     {
         return $this->hasOne(Onboarding::class, 'periodo_id');
+    }
+
+    /** @param Builder<self> $query */
+    public function scopeActivosConPersona(Builder $query): Builder
+    {
+        return $query->where('estado', 'activo')->with('persona');
     }
 }

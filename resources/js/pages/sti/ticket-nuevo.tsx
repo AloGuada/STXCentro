@@ -3,17 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
 import type { Departamento } from '@/types/models';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { CheckCircle2Icon, Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Tickets de Soporte', href: '/sti/tickets' },
-    { title: 'Nuevo', href: '/sti/ticket/nuevo' },
-];
 
 type Props = {
     departamentos: Pick<Departamento, 'id' | 'descripcion'>[];
@@ -30,22 +23,16 @@ export default function TicketNuevo({ departamentos }: Props) {
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        post('/sti/ticket', {
+        post('/sti/reportes/tickets', {
             onSuccess: () => reset(),
         });
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <div className="min-h-screen bg-base-200">
             <Head title="Nuevo Ticket - Soporte TI" />
 
             <div className="mx-auto w-full max-w-md p-6 md:p-10">
-                <div className="mb-4 text-center">
-                    <Link href="/sti/tickets" className="text-sm text-primary hover:underline">
-                        ← Ver tickets pendientes
-                    </Link>
-                </div>
-
                 {flash?.success ? (
                     <Card className="border-success">
                         <CardContent className="pt-6">
@@ -112,6 +99,6 @@ export default function TicketNuevo({ departamentos }: Props) {
                     </Card>
                 )}
             </div>
-        </AppLayout>
+        </div>
     );
 }

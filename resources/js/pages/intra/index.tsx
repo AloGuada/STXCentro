@@ -1,3 +1,4 @@
+import AppLogoIcon from '@/components/app-logo-icon';
 import IntraLayout from '@/layouts/intra-layout';
 import type { Area, SeccionEstatica } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
@@ -14,10 +15,8 @@ export default function IntraIndex({ secciones, areas }: Props) {
 
             <div className="flex min-h-screen flex-col items-center px-6 py-12">
                 {/* Logo */}
-                <div className="mb-12 text-center">
-                    <h1 className="text-6xl font-bold italic text-white tracking-tight">
-                        Steelex
-                    </h1>
+                <div className="mb-12 flex justify-center">
+                    <AppLogoIcon className="h-20 md:h-28 text-primary" />
                 </div>
 
                 {/* Secciones estáticas */}
@@ -29,7 +28,7 @@ export default function IntraIndex({ secciones, areas }: Props) {
                                 href={seccion.url_externa}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="rounded-lg bg-slate-800/50 px-6 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-700/50 hover:text-white"
+                                className="rounded-lg bg-base-100 px-6 py-3 text-sm font-medium text-base-content shadow-sm transition hover:bg-base-300"
                             >
                                 {seccion.boton}
                             </a>
@@ -37,7 +36,7 @@ export default function IntraIndex({ secciones, areas }: Props) {
                             <Link
                                 key={seccion.id}
                                 href={`/intra/est/${seccion.slug}`}
-                                className="rounded-lg bg-slate-800/50 px-6 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-700/50 hover:text-white"
+                                className="rounded-lg bg-base-100 px-6 py-3 text-sm font-medium text-base-content shadow-sm transition hover:bg-base-300"
                             >
                                 {seccion.boton}
                             </Link>
@@ -51,9 +50,9 @@ export default function IntraIndex({ secciones, areas }: Props) {
                         <Link
                             key={area.id}
                             href={`/intra/area/${area.id}`}
-                            className="group flex flex-col items-center justify-center rounded-xl border border-slate-600 bg-slate-800/30 p-6 text-center transition hover:border-slate-500 hover:bg-slate-700/30"
+                            className="group flex flex-col items-center justify-center rounded-xl border border-base-300 bg-base-100 p-6 text-center shadow-sm transition hover:border-primary/60 hover:bg-base-100/80"
                         >
-                            <span className="text-lg font-semibold text-white group-hover:text-blue-300">
+                            <span className="text-lg font-semibold text-base-content group-hover:text-primary">
                                 {area.descripcion}
                             </span>
                         </Link>

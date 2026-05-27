@@ -2030,6 +2030,18 @@ export type RhPuesto = {
     requerimientos?: RhRequerimiento[];
     actividades?: RhActividad[];
     documentos_puesto?: RhDocumentoPuesto[];
+    plantillas_onboarding?: RhOnboardingTareaPlantilla[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type RhOnboardingTareaPlantilla = {
+    id: number;
+    puesto_id: number;
+    titulo: string;
+    descripcion: string | null;
+    dias_desde_inicio: number | null;
+    orden: number;
     created_at: string;
     updated_at: string;
 };
@@ -2063,44 +2075,30 @@ export type RhPersona = {
     nombre_completo?: string;
     media?: Media | null;
     foto?: Media | null;
-    datos_extra?: RhDatosExtra;
-    documentos?: RhPersonaDocumento[];
-    periodos_laborales?: RhPeriodoLaboral[];
-    candidaturas?: RhCandidatura[];
-    contactos_emergencia?: RhContactoEmergencia[];
-    created_at: string;
-    updated_at: string;
-};
-
-export type RhContactoEmergencia = {
-    id: number;
-    persona_id: number;
-    nombre: string;
-    telefono: string;
-    created_at: string;
-    updated_at: string;
-};
-
-export type RhDatosExtra = {
-    id: number;
-    persona_id: number;
-    estado_civil: string | null;
-    hijos: number | null;
-    localidad: string | null;
-    domicilio: string | null;
-    cp: string | null;
-    nombre_padre: string | null;
-    nombre_madre: string | null;
-    cuenta_banco: string | null;
-    c_infonavit: string | null;
-    c_fonacot: string | null;
     imss: string | null;
     curp: string | null;
     rfc: string | null;
     numero_ine: string | null;
+    estado_civil: string | null;
+    hijos: number | null;
+    domicilio: string | null;
+    cp: string | null;
+    localidad: string | null;
+    nombre_padre: string | null;
+    nombre_madre: string | null;
+    cuenta_banco: string | null;
     banco_op: string | null;
+    c_infonavit: string | null;
+    c_fonacot: string | null;
     tramite_banco: boolean;
     texto_cv: string | null;
+    contacto_emergencia_1_nombre: string | null;
+    contacto_emergencia_1_telefono: string | null;
+    contacto_emergencia_2_nombre: string | null;
+    contacto_emergencia_2_telefono: string | null;
+    documentos?: RhPersonaDocumento[];
+    periodos_laborales?: RhPeriodoLaboral[];
+    candidaturas?: RhCandidatura[];
     created_at: string;
     updated_at: string;
 };

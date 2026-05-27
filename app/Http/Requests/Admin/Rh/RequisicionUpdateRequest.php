@@ -27,6 +27,16 @@ class RequisicionUpdateRequest extends FormRequest
             'responsable_entrevista' => ['nullable', 'string', 'max:255'],
             'salario' => ['nullable', 'numeric', 'min:0'],
             'fecha_cierre' => ['nullable', 'date'],
+            'extra' => ['sometimes', 'array'],
+            'extra.salario_mensual' => ['nullable', 'numeric', 'min:0'],
+            'extra.salario_diario' => ['nullable', 'numeric', 'min:0'],
+            'extra.periodicidad_pago' => ['nullable', 'string', 'max:255'],
+            'extra.prestaciones' => ['nullable', 'string'],
+            'extra.bonos' => ['nullable', 'string'],
+            'extra.horario' => ['nullable', 'string'],
+            'extra.tipo_jornada' => ['nullable', 'string', 'max:255'],
+            'extra.beneficios_adicionales' => ['nullable', 'string'],
+            'extra.observaciones' => ['nullable', 'string'],
         ];
     }
 

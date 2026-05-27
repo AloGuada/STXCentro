@@ -12,6 +12,7 @@ use App\Models\Rh\Puesto;
 use App\Models\Rh\Requisicion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -50,13 +51,16 @@ class RequisicionController extends Controller
     {
         $this->authorize('rh.requisiciones.crear');
 
-        $folio = 'REQ-'.date('Y').'-'.str_pad((string) (Requisicion::whereYear('created_at', date('Y'))->count() + 1), 4, '0', STR_PAD_LEFT);
+        DB::transaction(function () use ($request) {
+            $count = Requisicion::whereYear('created_at', date('Y'))->lockForUpdate()->count();
+            $folio = 'REQ-'.date('Y').'-'.str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
 
-        Requisicion::create(array_merge($request->validated(), [
-            'folio' => $folio,
-            'estado' => 'borrador',
-            'fecha_creacion' => now(),
-        ]));
+            Requisicion::create(array_merge($request->validated(), [
+                'folio' => $folio,
+                'estado' => 'borrador',
+                'fecha_creacion' => now(),
+            ]));
+        });
 
         return to_route('admin.rh.requisiciones.index');
     }
@@ -88,12 +92,16 @@ class RequisicionController extends Controller
     {
         $this->authorize('rh.requisiciones.editar');
 
-        $requisicion->update($request->validated());
+        $validated = $request->validated();
+        $extra = $validated['extra'] ?? null;
+        unset($validated['extra']);
 
-        if ($request->has('extra')) {
+        $requisicion->update($validated);
+
+        if ($extra !== null) {
             $requisicion->extra()->updateOrCreate(
                 ['requisicion_id' => $requisicion->id],
-                $request->extra,
+                $extra,
             );
         }
 
@@ -118,10 +126,17 @@ class RequisicionController extends Controller
         $this->authorize('rh.candidaturas.ver');
 
         $requisicion->load(['puesto', 'candidaturas.persona']);
+
         $personasDisponibles = Persona::whereDoesntHave('candidaturas', fn ($q) => $q->where('requisicion_id', $requisicion->id))
-            ->whereDoesntHave('periodosLaborales', fn ($q) => $q->where('estado', 'activo'))
+            ->with(['periodosLaborales' => fn ($q) => $q->where('estado', 'activo')->with('puesto:id,nombre')])
             ->orderBy('apellido')
-            ->get(['id', 'nombre', 'apellido']);
+            ->get(['id', 'nombre', 'apellido'])
+            ->map(fn (Persona $p) => [
+                'id' => $p->id,
+                'nombre' => $p->nombre,
+                'apellido' => $p->apellido,
+                'plaza_actual' => $p->periodosLaborales->first()?->puesto?->nombre,
+            ]);
 
         $contratados = PeriodoLaboral::where('requisicion_id', $requisicion->id)
             ->pluck('persona_id')

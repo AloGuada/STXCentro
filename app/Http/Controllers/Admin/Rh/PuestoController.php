@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\Rh\PuestoUpdateRequest;
 use App\Models\Departamento;
 use App\Models\Rh\Actividad;
 use App\Models\Rh\DocumentoPuesto;
+use App\Models\Rh\OnboardingTareaPlantilla;
 use App\Models\Rh\Puesto;
 use App\Models\Rh\Requerimiento;
 use App\Models\Rh\Skill;
@@ -25,13 +26,15 @@ class PuestoController extends Controller
         $puestos = Puesto::query()
             ->with('departamento')
             ->when($request->search, fn ($q, $s) => $q->where('nombre', 'like', "%{$s}%"))
+            ->when($request->departamento_id, fn ($q, $d) => $q->where('departamento_id', $d))
             ->orderBy('nombre')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('admin/rh/puestos/index', [
             'puestos' => $puestos,
-            'filters' => $request->only('search'),
+            'filters' => $request->only('search', 'departamento_id'),
+            'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
         ]);
     }
 
@@ -58,7 +61,7 @@ class PuestoController extends Controller
     {
         $this->authorize('rh.puestos.editar');
 
-        $puesto->load(['departamento', 'skills', 'requerimientos', 'actividades', 'documentosPuesto']);
+        $puesto->load(['departamento', 'skills', 'requerimientos', 'actividades', 'documentosPuesto', 'plantillasOnboarding' => fn ($q) => $q->orderBy('orden')->orderBy('id')]);
 
         return Inertia::render('admin/rh/puestos/edit', [
             'puesto' => $puesto,
@@ -205,6 +208,55 @@ class PuestoController extends Controller
         $this->authorize('rh.puestos.editar');
 
         $documentoPuesto->delete();
+
+        return back();
+    }
+
+    public function storePlantillaOnboarding(Request $request, Puesto $puesto): RedirectResponse
+    {
+        $this->authorize('rh.puestos.editar');
+
+        $data = $request->validate([
+            'titulo' => ['required', 'string', 'max:255'],
+            'descripcion' => ['nullable', 'string'],
+            'dias_desde_inicio' => ['nullable', 'integer', 'min:0'],
+            'orden' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $puesto->plantillasOnboarding()->create($data);
+
+        return back();
+    }
+
+    public function updatePlantillaOnboarding(Request $request, Puesto $puesto, OnboardingTareaPlantilla $plantilla): RedirectResponse
+    {
+        $this->authorize('rh.puestos.editar');
+
+        if ($plantilla->puesto_id !== $puesto->id) {
+            abort(404);
+        }
+
+        $data = $request->validate([
+            'titulo' => ['required', 'string', 'max:255'],
+            'descripcion' => ['nullable', 'string'],
+            'dias_desde_inicio' => ['nullable', 'integer', 'min:0'],
+            'orden' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $plantilla->update($data);
+
+        return back();
+    }
+
+    public function destroyPlantillaOnboarding(Puesto $puesto, OnboardingTareaPlantilla $plantilla): RedirectResponse
+    {
+        $this->authorize('rh.puestos.editar');
+
+        if ($plantilla->puesto_id !== $puesto->id) {
+            abort(404);
+        }
+
+        $plantilla->delete();
 
         return back();
     }

@@ -54,12 +54,24 @@ describe('admin rh periodos laborales', function () {
         $periodo = PeriodoLaboral::factory()->create(['estado' => 'activo']);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.rh.periodos-laborales.terminar', $periodo));
+            ->post(route('admin.rh.periodos-laborales.terminar', $periodo), [
+                'motivo_baja' => 'Renuncia voluntaria',
+            ]);
 
         $response->assertRedirect();
         $periodo->refresh();
         expect($periodo->estado)->toBe('baja');
         expect($periodo->fecha_fin)->not->toBeNull();
+        expect($periodo->motivo_baja)->toBe('Renuncia voluntaria');
+    });
+
+    test('terminar requires motivo_baja', function () {
+        $periodo = PeriodoLaboral::factory()->create(['estado' => 'activo']);
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.rh.periodos-laborales.terminar', $periodo), []);
+
+        $response->assertSessionHasErrors(['motivo_baja']);
     });
 
     test('onboarding can be created for periodo', function () {

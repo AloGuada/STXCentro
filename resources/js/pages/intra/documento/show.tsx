@@ -19,9 +19,9 @@ export default function DocumentoShow({ documento, breadcrumbs }: Props) {
             <div className="flex flex-col px-6 py-8">
                 {/* Header */}
                 <div className="mb-4 text-center">
-                    <h1 className="text-2xl font-bold text-white">{documento.descripcion}</h1>
+                    <h1 className="text-2xl font-bold text-base-content">{documento.descripcion}</h1>
                     {documento.codigo && (
-                        <p className="mt-1 text-sm text-slate-400">{documento.codigo}</p>
+                        <p className="mt-1 text-sm text-base-content/60">{documento.codigo}</p>
                     )}
                 </div>
 
@@ -32,7 +32,7 @@ export default function DocumentoShow({ documento, breadcrumbs }: Props) {
                     </div>
                 ) : (
                     <div className="flex items-center justify-center py-20">
-                        <p className="text-slate-400">No hay documento disponible</p>
+                        <p className="text-base-content/60">No hay documento disponible</p>
                     </div>
                 )}
             </div>

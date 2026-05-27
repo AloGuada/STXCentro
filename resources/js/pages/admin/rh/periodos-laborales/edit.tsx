@@ -53,7 +53,7 @@ export default function PeriodoLaboralEdit({ periodo, personas, puestos, requisi
     const handleDescargarContrato = (tipo: 'planta' | 'obra') => {
         const faltantes: string[] = [];
         const persona = periodo.persona;
-        const extras = persona?.datos_extra;
+        const extras = persona;
 
         if (!persona?.nombre) faltantes.push('Nombre de la persona');
         if (!persona?.apellido) faltantes.push('Apellido de la persona');

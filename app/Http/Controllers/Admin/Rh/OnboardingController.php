@@ -8,6 +8,7 @@ use App\Models\Rh\OnboardingTarea;
 use App\Models\Rh\PeriodoLaboral;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,14 +21,9 @@ class OnboardingController extends Controller
 
         $onboarding->load(['periodo.persona', 'periodo.puesto', 'tareas.responsable.persona', 'tareas.media']);
 
-        $periodosActivos = PeriodoLaboral::query()
-            ->where('estado', 'activo')
-            ->with('persona')
-            ->get()
-            ->map(fn (PeriodoLaboral $p) => [
-                'id' => $p->id,
-                'nombre' => $p->persona->nombre.' '.$p->persona->apellido,
-            ]);
+        $periodosActivos = PeriodoLaboral::activosConPersona()->get()->map(
+            fn (PeriodoLaboral $p) => ['id' => $p->id, 'nombre' => $p->persona->nombre.' '.$p->persona->apellido]
+        );
 
         return Inertia::render('admin/rh/onboarding/show', [
             'onboarding' => $onboarding,
@@ -74,19 +70,32 @@ class OnboardingController extends Controller
             'evidencia' => ['required', 'file', 'max:10240'],
         ]);
 
-        if ($tarea->media) {
-            Storage::disk('public')->delete($tarea->media->path);
-            $tarea->media->delete();
+        $file = $request->file('evidencia');
+        $newPath = $file->store('rh/onboarding/'.$onboarding->id, 'public');
+        $oldPath = $tarea->media?->path;
+
+        try {
+            DB::transaction(function () use ($tarea, $file, $newPath) {
+                if ($tarea->media) {
+                    $tarea->media->delete();
+                }
+
+                $tarea->media()->create([
+                    'descripcion' => 'evidencia',
+                    'nombre_original' => $file->getClientOriginalName(),
+                    'path' => $newPath,
+                    'mime' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                ]);
+            });
+        } catch (\Throwable $e) {
+            Storage::disk('public')->delete($newPath);
+            throw $e;
         }
 
-        $file = $request->file('evidencia');
-        $tarea->media()->create([
-            'descripcion' => 'evidencia',
-            'nombre_original' => $file->getClientOriginalName(),
-            'path' => $file->store('rh/onboarding/'.$onboarding->id, 'public'),
-            'mime' => $file->getMimeType(),
-            'size' => $file->getSize(),
-        ]);
+        if ($oldPath) {
+            Storage::disk('public')->delete($oldPath);
+        }
 
         return back();
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Rh\PeriodoLaboralStoreRequest;
+use App\Http\Requests\Admin\Rh\PeriodoLaboralTerminarRequest;
 use App\Http\Requests\Admin\Rh\PeriodoLaboralUpdateRequest;
 use App\Models\Rh\Onboarding;
 use App\Models\Rh\PeriodoLaboral;
@@ -19,6 +20,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,23 +31,24 @@ class PeriodoLaboralController extends Controller
         $this->authorize('rh.periodos-laborales.ver');
 
         $periodos = PeriodoLaboral::query()
-            ->with(['persona.datosExtra', 'persona.foto', 'persona.periodosLaborales.puesto', 'persona.documentos.media', 'puesto.departamento', 'requisicion'])
+            ->with(['persona.foto', 'persona.periodosLaborales.puesto', 'persona.documentos.media', 'puesto.departamento', 'requisicion'])
             ->when($request->search, function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('numero_empleado', 'ilike', "%{$search}%")
-                        ->orWhere('estado', 'ilike', "%{$search}%")
+                $needle = '%'.mb_strtolower($search).'%';
+                $query->where(function ($q) use ($needle) {
+                    $q->whereRaw('LOWER(numero_empleado) like ?', [$needle])
+                        ->orWhereRaw('LOWER(estado) like ?', [$needle])
                         ->orWhereHas('persona', fn ($pq) => $pq
-                            ->where('nombre', 'ilike', "%{$search}%")
-                            ->orWhere('apellido', 'ilike', "%{$search}%")
+                            ->whereRaw('LOWER(nombre) like ?', [$needle])
+                            ->orWhereRaw('LOWER(apellido) like ?', [$needle])
                         )
                         ->orWhereHas('puesto', fn ($pq) => $pq
-                            ->where('nombre', 'ilike', "%{$search}%")
+                            ->whereRaw('LOWER(nombre) like ?', [$needle])
                             ->orWhereHas('departamento', fn ($dq) => $dq
-                                ->where('descripcion', 'ilike', "%{$search}%")
+                                ->whereRaw('LOWER(descripcion) like ?', [$needle])
                             )
                         )
                         ->orWhereHas('requisicion', fn ($rq) => $rq
-                            ->where('folio', 'ilike', "%{$search}%")
+                            ->whereRaw('LOWER(folio) like ?', [$needle])
                         );
                 });
             })
@@ -110,16 +113,11 @@ class PeriodoLaboralController extends Controller
     {
         $this->authorize('rh.periodos-laborales.editar');
 
-        $periodoLaboral->load(['persona.datosExtra', 'puesto', 'onboarding.tareas.responsable.persona', 'onboarding.tareas.media', 'requisicion']);
+        $periodoLaboral->load(['persona', 'puesto', 'onboarding.tareas.responsable.persona', 'onboarding.tareas.media', 'requisicion']);
 
-        $periodosActivos = PeriodoLaboral::query()
-            ->where('estado', 'activo')
-            ->with('persona')
-            ->get()
-            ->map(fn (PeriodoLaboral $p) => [
-                'id' => $p->id,
-                'nombre' => $p->persona->nombre.' '.$p->persona->apellido,
-            ]);
+        $periodosActivos = PeriodoLaboral::activosConPersona()->get()->map(
+            fn (PeriodoLaboral $p) => ['id' => $p->id, 'nombre' => $p->persona->nombre.' '.$p->persona->apellido]
+        );
 
         return Inertia::render('admin/rh/periodos-laborales/edit', [
             'periodo' => $periodoLaboral,
@@ -148,18 +146,14 @@ class PeriodoLaboralController extends Controller
         return to_route('admin.rh.periodos-laborales.index');
     }
 
-    public function terminar(Request $request, PeriodoLaboral $periodoLaboral): RedirectResponse
+    public function terminar(PeriodoLaboralTerminarRequest $request, PeriodoLaboral $periodoLaboral): RedirectResponse
     {
         $this->authorize('rh.periodos-laborales.editar');
-
-        $request->validate([
-            'motivo_baja' => ['required', 'string', 'max:1000'],
-        ]);
 
         $periodoLaboral->update([
             'estado' => 'baja',
             'fecha_fin' => now(),
-            'motivo_baja' => $request->motivo_baja,
+            'motivo_baja' => $request->validated('motivo_baja'),
         ]);
 
         return back();
@@ -169,10 +163,10 @@ class PeriodoLaboralController extends Controller
     {
         $this->authorize('rh.periodos-laborales.ver');
 
-        $periodoLaboral->load(['persona.datosExtra', 'persona.foto', 'persona.contactosEmergencia', 'puesto.departamento', 'requisicion']);
+        $periodoLaboral->load(['persona.foto', 'puesto.departamento', 'requisicion']);
 
         $persona = $periodoLaboral->persona;
-        $extras = $persona->datosExtra;
+        $extras = $persona;
         $curp = $extras->curp ?? '';
 
         $fotoPath = null;
@@ -232,7 +226,10 @@ class PeriodoLaboralController extends Controller
             'numeroLocker' => $periodoLaboral->numero_locker ?? '',
             'tipoContrato' => $request->query('tipo', $periodoLaboral->tipo_contrato ?? 'planta'),
             'fotoPath' => $fotoPath,
-            'contactosEmergencia' => $persona->contactosEmergencia ?? collect(),
+            'contactosEmergencia' => collect([
+                (object) ['nombre' => $persona->contacto_emergencia_1_nombre, 'telefono' => $persona->contacto_emergencia_1_telefono],
+                (object) ['nombre' => $persona->contacto_emergencia_2_nombre, 'telefono' => $persona->contacto_emergencia_2_telefono],
+            ])->filter(fn ($c) => ! empty($c->nombre))->values(),
         ])->setPaper('letter', 'portrait');
 
         $filename = 'contrato-'.$persona->nombre.'-'.$persona->apellido.'.pdf';
@@ -320,11 +317,31 @@ class PeriodoLaboralController extends Controller
             return back()->withErrors(['onboarding' => 'Este periodo ya tiene un onboarding asociado.']);
         }
 
-        Onboarding::create([
-            'periodo_id' => $periodoLaboral->id,
-            'fecha_inicio' => now(),
-            'progreso' => 0,
-        ]);
+        DB::transaction(function () use ($periodoLaboral) {
+            $onboarding = Onboarding::create([
+                'periodo_id' => $periodoLaboral->id,
+                'fecha_inicio' => now(),
+                'progreso' => 0,
+            ]);
+
+            $puesto = $periodoLaboral->puesto;
+            if ($puesto === null) {
+                return;
+            }
+
+            $plantillas = $puesto->plantillasOnboarding()->orderBy('orden')->orderBy('id')->get();
+            $fechaInicio = Carbon::parse($onboarding->fecha_inicio);
+
+            foreach ($plantillas as $tpl) {
+                $onboarding->tareas()->create([
+                    'titulo' => $tpl->titulo,
+                    'descripcion' => $tpl->descripcion,
+                    'fecha_vencimiento' => $tpl->dias_desde_inicio !== null
+                        ? $fechaInicio->copy()->addDays($tpl->dias_desde_inicio)
+                        : null,
+                ]);
+            }
+        });
 
         return back();
     }

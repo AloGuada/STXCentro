@@ -71,9 +71,7 @@ use App\Http\Controllers\Admin\Rh\PeriodoLaboralController as RhPeriodoLaboralCo
 use App\Http\Controllers\Admin\Rh\PermisoAusenciaController as RhPermisoAusenciaController;
 use App\Http\Controllers\Admin\Rh\PersonaController as RhPersonaController;
 use App\Http\Controllers\Admin\Rh\PuestoController as RhPuestoController;
-use App\Http\Controllers\Admin\Rh\RequerimientoController as RhRequerimientoController;
 use App\Http\Controllers\Admin\Rh\RequisicionController as RhRequisicionController;
-use App\Http\Controllers\Admin\Rh\SkillController as RhSkillController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\Sti\AsignacionActivoController as StiAsignacionActivoController;
 use App\Http\Controllers\Admin\Sti\DashboardController as StiDashboardController;
@@ -392,10 +390,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::prefix('rh')->name('rh.')->group(function () {
         Route::get('dashboard', [RhDashboardController::class, 'index'])->name('dashboard.index');
 
-        // Catalogos
-        Route::resource('skills', RhSkillController::class);
-        Route::resource('requerimientos', RhRequerimientoController::class)->parameters(['requerimientos' => 'requerimiento']);
-
         // Puestos
         Route::resource('puestos', RhPuestoController::class)->parameters(['puestos' => 'puesto']);
         Route::post('puestos/{puesto}/skills', [RhPuestoController::class, 'addSkill'])->name('puestos.skills.add');
@@ -406,14 +400,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('puestos/{puesto}/actividades/{actividad}', [RhPuestoController::class, 'destroyActividad'])->name('puestos.actividades.destroy');
         Route::post('puestos/{puesto}/documentos-puesto', [RhPuestoController::class, 'storeDocumentoPuesto'])->name('puestos.documentos-puesto.store');
         Route::delete('puestos/{puesto}/documentos-puesto/{documentoPuesto}', [RhPuestoController::class, 'destroyDocumentoPuesto'])->name('puestos.documentos-puesto.destroy');
+        Route::post('puestos/{puesto}/plantilla-onboarding', [RhPuestoController::class, 'storePlantillaOnboarding'])->name('puestos.plantilla-onboarding.store');
+        Route::put('puestos/{puesto}/plantilla-onboarding/{plantilla}', [RhPuestoController::class, 'updatePlantillaOnboarding'])->name('puestos.plantilla-onboarding.update');
+        Route::delete('puestos/{puesto}/plantilla-onboarding/{plantilla}', [RhPuestoController::class, 'destroyPlantillaOnboarding'])->name('puestos.plantilla-onboarding.destroy');
 
         // Personas
         Route::resource('personas', RhPersonaController::class)->parameters(['personas' => 'persona']);
-        Route::put('personas/{persona}/datos-extra', [RhPersonaController::class, 'updateDatosExtra'])->name('personas.datos-extra.update');
         Route::post('personas/{persona}/documentos', [RhPersonaController::class, 'storeDocumento'])->name('personas.documentos.store');
         Route::delete('personas/{persona}/documentos/{documento}', [RhPersonaController::class, 'destroyDocumento'])->name('personas.documentos.destroy');
-        Route::post('personas/{persona}/contactos-emergencia', [RhPersonaController::class, 'storeContactoEmergencia'])->name('personas.contactos-emergencia.store');
-        Route::delete('personas/{persona}/contactos-emergencia/{contacto}', [RhPersonaController::class, 'destroyContactoEmergencia'])->name('personas.contactos-emergencia.destroy');
 
         // Periodos Laborales
         Route::resource('periodos-laborales', RhPeriodoLaboralController::class)->parameters(['periodos-laborales' => 'periodoLaboral']);

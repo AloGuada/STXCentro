@@ -2,7 +2,9 @@
 
 use App\Models\Rh\Onboarding;
 use App\Models\Rh\OnboardingTarea;
+use App\Models\Rh\OnboardingTareaPlantilla;
 use App\Models\Rh\PeriodoLaboral;
+use App\Models\Rh\Puesto;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -10,10 +12,10 @@ use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
-    foreach (['rh.onboarding.ver', 'rh.onboarding.editar'] as $perm) {
+    foreach (['rh.onboarding.ver', 'rh.onboarding.editar', 'rh.onboarding.crear'] as $perm) {
         Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
     }
-    $this->user->givePermissionTo(['rh.onboarding.ver', 'rh.onboarding.editar']);
+    $this->user->givePermissionTo(['rh.onboarding.ver', 'rh.onboarding.editar', 'rh.onboarding.crear']);
 });
 
 describe('admin rh onboarding', function () {
@@ -123,5 +125,63 @@ describe('admin rh onboarding', function () {
         $tarea->refresh();
         expect($tarea->media)->not->toBeNull();
         Storage::disk('public')->assertExists($tarea->media->path);
+    });
+
+    test('crear onboarding copia las tareas de la plantilla del puesto', function () {
+        $puesto = Puesto::factory()->create();
+        OnboardingTareaPlantilla::factory()->create([
+            'puesto_id' => $puesto->id,
+            'titulo' => 'Inducción de seguridad',
+            'dias_desde_inicio' => 1,
+            'orden' => 0,
+        ]);
+        OnboardingTareaPlantilla::factory()->create([
+            'puesto_id' => $puesto->id,
+            'titulo' => 'Entregar uniforme',
+            'dias_desde_inicio' => 3,
+            'orden' => 1,
+        ]);
+        OnboardingTareaPlantilla::factory()->create([
+            'puesto_id' => $puesto->id,
+            'titulo' => 'Capacitación inicial',
+            'dias_desde_inicio' => null,
+            'orden' => 2,
+        ]);
+
+        $periodo = PeriodoLaboral::factory()->create(['puesto_id' => $puesto->id]);
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.rh.periodos-laborales.onboarding', $periodo));
+
+        $response->assertRedirect();
+        $onboarding = $periodo->fresh()->onboarding;
+        expect($onboarding)->not->toBeNull();
+        expect($onboarding->tareas()->count())->toBe(3);
+
+        $titulos = $onboarding->tareas()->pluck('titulo')->all();
+        expect($titulos)->toContain('Inducción de seguridad');
+        expect($titulos)->toContain('Entregar uniforme');
+        expect($titulos)->toContain('Capacitación inicial');
+
+        // Tarea con dias_desde_inicio=null queda sin fecha_vencimiento
+        $sinFecha = $onboarding->tareas()->where('titulo', 'Capacitación inicial')->first();
+        expect($sinFecha->fecha_vencimiento)->toBeNull();
+
+        // Tarea con dias_desde_inicio=1 queda con fecha_vencimiento +1 dia
+        $conFecha = $onboarding->tareas()->where('titulo', 'Inducción de seguridad')->first();
+        expect($conFecha->fecha_vencimiento)->not->toBeNull();
+    });
+
+    test('crear onboarding sin plantilla deja onboarding vacio', function () {
+        $puesto = Puesto::factory()->create(); // sin plantillas
+        $periodo = PeriodoLaboral::factory()->create(['puesto_id' => $puesto->id]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.rh.periodos-laborales.onboarding', $periodo))
+            ->assertRedirect();
+
+        $onboarding = $periodo->fresh()->onboarding;
+        expect($onboarding)->not->toBeNull();
+        expect($onboarding->tareas()->count())->toBe(0);
     });
 });

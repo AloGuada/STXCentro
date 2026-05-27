@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Departamento;
-use App\Models\Rh\DatosExtra;
 use App\Models\Rh\PeriodoLaboral;
 use App\Models\Rh\Persona;
 use App\Models\Rh\Puesto;
@@ -188,25 +187,22 @@ class RhMigracionExcelSeeder extends Seeder
 
         $estadoCivil = $this->cleanString($sheet->getCell('G'.$row)->getValue());
 
-        DatosExtra::updateOrCreate(
-            ['persona_id' => $personaId],
-            [
-                'estado_civil' => $estadoCivil ? strtolower($estadoCivil) : null,
-                'hijos' => $hijosInt,
-                'localidad' => $this->cleanString($sheet->getCell('I'.$row)->getValue()) ?: null,
-                'domicilio' => $this->cleanString($sheet->getCell('J'.$row)->getValue()) ?: null,
-                'cp' => $this->cleanString($sheet->getCell('K'.$row)->getValue()) ?: null,
-                'nombre_padre' => $this->cleanString($sheet->getCell('L'.$row)->getValue()) ?: null,
-                'nombre_madre' => $this->cleanString($sheet->getCell('M'.$row)->getValue()) ?: null,
-                'cuenta_banco' => $this->cleanString($sheet->getCell('N'.$row)->getValue()) ?: null,
-                'banco_op' => $this->cleanString($sheet->getCell('O'.$row)->getValue()) ?: null,
-                'c_infonavit' => $infonavitVal,
-                'c_fonacot' => $fonacotVal,
-                'imss' => $this->cleanString($sheet->getCell('T'.$row)->getValue()) ?: null,
-                'curp' => $curp ?: null,
-                'rfc' => $this->cleanString($sheet->getCell('V'.$row)->getValue()) ?: null,
-            ]
-        );
+        Persona::where('id', $personaId)->update([
+            'estado_civil' => $estadoCivil ? strtolower($estadoCivil) : null,
+            'hijos' => $hijosInt,
+            'localidad' => $this->cleanString($sheet->getCell('I'.$row)->getValue()) ?: null,
+            'domicilio' => $this->cleanString($sheet->getCell('J'.$row)->getValue()) ?: null,
+            'cp' => $this->cleanString($sheet->getCell('K'.$row)->getValue()) ?: null,
+            'nombre_padre' => $this->cleanString($sheet->getCell('L'.$row)->getValue()) ?: null,
+            'nombre_madre' => $this->cleanString($sheet->getCell('M'.$row)->getValue()) ?: null,
+            'cuenta_banco' => $this->cleanString($sheet->getCell('N'.$row)->getValue()) ?: null,
+            'banco_op' => $this->cleanString($sheet->getCell('O'.$row)->getValue()) ?: null,
+            'c_infonavit' => $infonavitVal,
+            'c_fonacot' => $fonacotVal,
+            'imss' => $this->cleanString($sheet->getCell('T'.$row)->getValue()) ?: null,
+            'curp' => $curp ?: null,
+            'rfc' => $this->cleanString($sheet->getCell('V'.$row)->getValue()) ?: null,
+        ]);
     }
 
     private function upsertPeriodoActual(Worksheet $sheet, int $row, int $personaId, string $noEmpleado, string $estado): void

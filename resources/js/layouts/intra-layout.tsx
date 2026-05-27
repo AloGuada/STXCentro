@@ -17,21 +17,21 @@ export default function IntraLayout({ children, breadcrumbs = [] }: Props) {
     ];
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+        <div className="min-h-screen bg-base-200 text-base-content">
             {/* Header with breadcrumbs */}
             {breadcrumbs.length > 0 && (
-                <header className="border-b border-slate-700 bg-slate-900/50 px-6 py-4">
-                    <nav className="flex items-center gap-2 text-sm text-slate-300">
-                        <Link href="/intra" className="hover:text-white">
+                <header className="border-b border-base-300 bg-base-100/60 px-6 py-4">
+                    <nav className="flex items-center gap-2 text-sm text-base-content/70">
+                        <Link href="/intra" className="hover:text-base-content">
                             <Home className="size-4" />
                         </Link>
                         {breadcrumbs.map((item, index) => (
                             <span key={index} className="flex items-center gap-2">
-                                <span className="text-slate-500">&gt;</span>
+                                <span className="text-base-content/40">&gt;</span>
                                 {index === breadcrumbs.length - 1 ? (
-                                    <span className="text-white">{item.title}</span>
+                                    <span className="text-base-content font-medium">{item.title}</span>
                                 ) : (
-                                    <Link href={item.href} className="hover:text-white">
+                                    <Link href={item.href} className="hover:text-base-content">
                                         {item.title}
                                     </Link>
                                 )}
