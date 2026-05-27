@@ -137,10 +137,8 @@ test('solo permite parcializar cuando programado', function () {
 
     $this->actingAs($this->user)
         ->post("/admin/costos/pagos/{$pago->id}/parcializar", [
-            'parcialidades' => [
-                ['monto' => $pago->monto_pago / 2, 'fecha_programada' => '2026-03-20'],
-                ['monto' => $pago->monto_pago / 2, 'fecha_programada' => '2026-03-27'],
-            ],
+            'monto' => $pago->monto_pago / 2,
+            'fecha_programada' => '2026-03-20',
         ])
         ->assertSessionHasErrors('estatus');
 });

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin\Costos;
 use App\Enums\Costos\FacturaEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
+use App\Http\Requests\Admin\Costos\FacturaReporteProveedorRequest;
+use App\Http\Requests\Admin\Costos\FacturaReporteRequest;
 use App\Http\Requests\Admin\Costos\FacturaStoreRequest;
 use App\Mail\FacturaAceptadaMail;
 use App\Mail\PagoProgramadoMail;
@@ -297,13 +299,8 @@ class FacturaAdminController extends Controller
         return back()->with('success', 'Factura cerrada.');
     }
 
-    public function reporteSemanal(Request $request): \Symfony\Component\HttpFoundation\Response
+    public function reporteSemanal(FacturaReporteRequest $request): \Symfony\Component\HttpFoundation\Response
     {
-        $request->validate([
-            'anio' => 'required|integer|min:2020|max:2100',
-            'semana' => 'required|integer|min:1|max:53',
-        ]);
-
         $anio = (int) $request->anio;
         $semana = (int) $request->semana;
 
@@ -398,14 +395,8 @@ class FacturaAdminController extends Controller
         return response()->download($outputPath, $filename)->deleteFileAfterSend(true);
     }
 
-    public function reporteSemanalProveedor(Request $request): \Symfony\Component\HttpFoundation\Response
+    public function reporteSemanalProveedor(FacturaReporteProveedorRequest $request): \Symfony\Component\HttpFoundation\Response
     {
-        $request->validate([
-            'anio' => 'required|integer|min:2020|max:2100',
-            'semana' => 'required|integer|min:1|max:53',
-            'proveedor_id' => 'required|exists:proveedores,id',
-        ]);
-
         $anio = (int) $request->anio;
         $semana = (int) $request->semana;
         $proveedor = Proveedor::findOrFail($request->proveedor_id);

@@ -9,6 +9,7 @@ use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\AbonoComprobanteRequest;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
+use App\Http\Requests\Admin\Costos\PagoParcializarRequest;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
 use App\Models\Costos\Pago;
@@ -110,16 +111,11 @@ class PagoController extends Controller
         ]);
     }
 
-    public function parcializar(Request $request, Pago $pago): RedirectResponse
+    public function parcializar(PagoParcializarRequest $request, Pago $pago): RedirectResponse
     {
         if (! in_array($pago->estatus, [PagoEstatus::Programado, PagoEstatus::Parcial], true)) {
             return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado o parcial.']);
         }
-
-        $request->validate([
-            'monto' => ['required', 'numeric', 'min:0.01'],
-            'fecha_programada' => ['required', 'date'],
-        ]);
 
         $pagado = round((float) $pago->pagosParciales()->sum('monto_pago'), 2);
         $saldo = round((float) $pago->monto_pago - $pagado, 2);

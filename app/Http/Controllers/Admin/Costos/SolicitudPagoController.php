@@ -6,6 +6,8 @@ use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
+use App\Http\Requests\Admin\Costos\SolicitudArchivoStoreRequest;
+use App\Http\Requests\Admin\Costos\SolicitudFirmadoRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoUpdateRequest;
 use App\Models\Costos\AprobacionDepartamento;
@@ -325,15 +327,9 @@ class SolicitudPagoController extends Controller
         return to_route('admin.costos.solicitudes-pago.index');
     }
 
-    public function storeArchivo(Request $request, SolicitudPago $solicitudPago): RedirectResponse
+    public function storeArchivo(SolicitudArchivoStoreRequest $request, SolicitudPago $solicitudPago): RedirectResponse
     {
         Gate::authorize('costos.solicitudes-pago.editar');
-
-        $request->validate([
-            'archivo' => ['required', 'file', 'max:10240'],
-            'archivo_id' => ['required', 'exists:costos_documentos,id'],
-            'texto_adicional' => ['nullable', 'string', 'max:255'],
-        ]);
 
         $file = $request->file('archivo');
         $path = $file->store("costos/solicitudes/{$solicitudPago->id}", 'public');
@@ -457,13 +453,9 @@ class SolicitudPagoController extends Controller
         return $pdf->download($filename);
     }
 
-    public function uploadFirmado(Request $request, SolicitudPago $solicitudPago): RedirectResponse
+    public function uploadFirmado(SolicitudFirmadoRequest $request, SolicitudPago $solicitudPago): RedirectResponse
     {
         Gate::authorize('costos.solicitudes-pago.editar');
-
-        $request->validate([
-            'archivo' => ['required', 'file', 'mimes:pdf', 'max:10240'],
-        ]);
 
         if ($solicitudPago->estatus !== SolicitudPagoEstatus::PendienteFirma) {
             return back()->withErrors(['estatus' => 'La solicitud debe estar en pendiente de firma.']);
