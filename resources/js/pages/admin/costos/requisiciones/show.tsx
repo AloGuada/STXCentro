@@ -1,3 +1,5 @@
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import type { OcOverride } from '@/components/costos/cotizacion-tree';
@@ -9,15 +11,44 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { SharedData } from '@/types';
 import type { CostosRequisicion, Proveedor } from '@/types/models';
-import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS } from '@/types/models';
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
+
+type Alternativa = {
+    cotizacion_precio_id: number;
+    proveedor_id: number;
+    proveedor: string | null;
+    precio_unitario: number;
+};
+
+type PartidaValidar = {
+    requisicion_detalle_id: number;
+    descripcion: string;
+    alternativas: Alternativa[];
+};
+
+type ProveedorPorValidar = {
+    id: number;
+    razon_social: string;
+    rfc: string | null;
+    tipo_persona: string | null;
+    regimen: string | null;
+    banco: string | null;
+    titular_cuenta: string | null;
+    numero_cuenta: string | null;
+    clabe: string | null;
+    moneda_cuenta: string | null;
+    constancia_url: string | null;
+    caratula_url: string | null;
+    partidas: PartidaValidar[];
+};
 
 type Props = {
     requisicion: CostosRequisicion;
     proveedores: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial' | 'maneja_credito'>[];
     obraRubros: Array<{ id: number; label: string }>;
     aprobacionPendienteId: number | null;
+    esUltimoNivel: boolean;
+    proveedoresPorValidar: ProveedorPorValidar[];
 };
 
 type Tab = 'datos' | 'cotizacion' | 'aprobacion' | 'ocs';
@@ -87,7 +118,230 @@ function FirmarRequisicionModal({ aprobacionId, tipo, onClose }: { aprobacionId:
     );
 }
 
-export default function RequisicionesShow({ requisicion, proveedores, aprobacionPendienteId }: Props) {
+type Decision = {
+    accion: 'activar' | 'rechazar';
+    // requisicion_detalle_id -> cotizacion_precio_id seleccionada como reemplazo
+    reemplazos: Record<number, number | ''>;
+};
+
+function ValidacionProveedoresModal({
+    requisicionId,
+    proveedores,
+    onClose,
+}: {
+    requisicionId: number;
+    proveedores: ProveedorPorValidar[];
+    onClose: () => void;
+}) {
+    const [step, setStep] = useState<1 | 2>(1);
+    const [observaciones, setObservaciones] = useState('');
+    const [processing, setProcessing] = useState(false);
+    const [decisiones, setDecisiones] = useState<Record<number, Decision>>(() =>
+        Object.fromEntries(proveedores.map((p) => [p.id, { accion: 'activar', reemplazos: {} }])),
+    );
+
+    const setAccion = (provId: number, accion: 'activar' | 'rechazar') =>
+        setDecisiones((prev) => ({ ...prev, [provId]: { ...prev[provId], accion } }));
+
+    const setReemplazo = (provId: number, detalleId: number, cotId: number | '') =>
+        setDecisiones((prev) => ({
+            ...prev,
+            [provId]: { ...prev[provId], reemplazos: { ...prev[provId].reemplazos, [detalleId]: cotId } },
+        }));
+
+    const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+    // Un rechazo sin reemplazo en TODAS sus partidas implica rechazar la requisición.
+    const rechazaRequisicion = proveedores.some((p) => {
+        const d = decisiones[p.id];
+        if (d.accion !== 'rechazar') return false;
+        return p.partidas.some((part) => !d.reemplazos[part.requisicion_detalle_id]);
+    });
+
+    const submit = () => {
+        const validaciones = proveedores.map((p) => {
+            const d = decisiones[p.id];
+            const reemplazos = d.accion === 'rechazar'
+                ? p.partidas
+                      .filter((part) => d.reemplazos[part.requisicion_detalle_id])
+                      .map((part) => {
+                          const cotId = d.reemplazos[part.requisicion_detalle_id] as number;
+                          const alt = part.alternativas.find((a) => a.cotizacion_precio_id === cotId)!;
+                          return {
+                              requisicion_detalle_id: part.requisicion_detalle_id,
+                              nuevo_proveedor_id: alt.proveedor_id,
+                              cotizacion_precio_id: cotId,
+                          };
+                      })
+                : [];
+
+            return { proveedor_id: p.id, accion: d.accion, reemplazos };
+        });
+
+        setProcessing(true);
+        router.post(
+            `/admin/costos/requisiciones/${requisicionId}/firmar-final`,
+            { observaciones, validaciones },
+            {
+                preserveScroll: true,
+                onSuccess: () => onClose(),
+                onFinish: () => setProcessing(false),
+            },
+        );
+    };
+
+    return (
+        <dialog className="modal modal-open">
+            <div className="modal-box w-11/12 max-w-5xl">
+                <h2 className="text-2xl font-bold">
+                    {step === 1 ? 'Validar documentación del proveedor' : 'Confirmar firma'}
+                </h2>
+                <ul className="steps steps-horizontal w-full my-4">
+                    <li className={`step ${step >= 1 ? 'step-primary' : ''}`}>Documentación</li>
+                    <li className={`step ${step >= 2 ? 'step-primary' : ''}`}>Aprobar OC</li>
+                </ul>
+
+                {step === 1 && (
+                    <div className="space-y-6">
+                        {proveedores.map((p) => {
+                            const d = decisiones[p.id];
+                            return (
+                                <div key={p.id} className="rounded-lg border border-base-300 p-4">
+                                    <div className="mb-3 flex items-center justify-between">
+                                        <div>
+                                            <div className="font-semibold">{p.razon_social}</div>
+                                            <div className="text-xs text-base-content/60">
+                                                {p.rfc} · {p.tipo_persona === 'moral' ? 'Persona Moral' : 'Persona Física'} · {p.regimen ?? 'Sin régimen'}
+                                            </div>
+                                        </div>
+                                        <div className="join">
+                                            <button
+                                                type="button"
+                                                className={`btn btn-sm join-item ${d.accion === 'activar' ? 'btn-success' : 'btn-ghost'}`}
+                                                onClick={() => setAccion(p.id, 'activar')}
+                                            >
+                                                Activar
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={`btn btn-sm join-item ${d.accion === 'rechazar' ? 'btn-error' : 'btn-ghost'}`}
+                                                onClick={() => setAccion(p.id, 'rechazar')}
+                                            >
+                                                Rechazar
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <span className="text-base-content/60">Banco: </span>
+                                            {p.banco ?? '-'} · {p.moneda_cuenta}
+                                        </div>
+                                        <div>
+                                            <span className="text-base-content/60">Titular: </span>
+                                            {p.titular_cuenta ?? '-'}
+                                        </div>
+                                        <div>
+                                            <span className="text-base-content/60">CLABE/Cuenta: </span>
+                                            {p.clabe || p.numero_cuenta || '-'}
+                                        </div>
+                                        <div className="flex gap-3">
+                                            {p.constancia_url && (
+                                                <a className="link link-primary" href={p.constancia_url} target="_blank" rel="noreferrer">Constancia</a>
+                                            )}
+                                            {p.caratula_url && (
+                                                <a className="link link-primary" href={p.caratula_url} target="_blank" rel="noreferrer">Carátula</a>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {d.accion === 'rechazar' && (
+                                        <div className="mt-4 space-y-2 rounded bg-base-200 p-3">
+                                            <p className="text-sm font-medium">Reasignar partidas a otro proveedor que cotizó:</p>
+                                            {p.partidas.map((part) => (
+                                                <div key={part.requisicion_detalle_id} className="flex items-center justify-between gap-2">
+                                                    <span className="text-sm">{part.descripcion}</span>
+                                                    <select
+                                                        className="select select-bordered select-sm w-72"
+                                                        value={d.reemplazos[part.requisicion_detalle_id] ?? ''}
+                                                        onChange={(e) =>
+                                                            setReemplazo(p.id, part.requisicion_detalle_id, e.target.value ? Number(e.target.value) : '')
+                                                        }
+                                                    >
+                                                        <option value="">— Rechazar (sin reemplazo) —</option>
+                                                        {part.alternativas.map((a) => (
+                                                            <option key={a.cotizacion_precio_id} value={a.cotizacion_precio_id}>
+                                                                {a.proveedor} · {fmt(a.precio_unitario)}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {step === 2 && (
+                    <div className="space-y-4">
+                        {rechazaRequisicion ? (
+                            <div className="alert alert-error">
+                                <AlertTriangleIcon className="size-5" />
+                                <span>Hay un proveedor rechazado sin reemplazo: al confirmar se <strong>rechazará la requisición completa</strong>.</span>
+                            </div>
+                        ) : (
+                            <div className="alert alert-success">
+                                <span>Al confirmar se activarán los proveedores aprobados y la requisición quedará <strong>aprobada</strong>.</span>
+                            </div>
+                        )}
+                        <div className="form-control">
+                            <label className="mb-2 text-sm font-medium">Observaciones</label>
+                            <textarea
+                                className="textarea textarea-bordered w-full"
+                                rows={4}
+                                value={observaciones}
+                                onChange={(e) => setObservaciones(e.target.value)}
+                                maxLength={500}
+                                placeholder="Observaciones de la firma..."
+                            />
+                        </div>
+                    </div>
+                )}
+
+                <div className="modal-action">
+                    <button type="button" className="btn" onClick={onClose} disabled={processing}>
+                        Cancelar
+                    </button>
+                    {step === 1 ? (
+                        <button type="button" className="btn btn-primary" onClick={() => setStep(2)}>
+                            Continuar
+                        </button>
+                    ) : (
+                        <>
+                            <button type="button" className="btn" onClick={() => setStep(1)} disabled={processing}>
+                                Atrás
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn ${rechazaRequisicion ? 'btn-error' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                                onClick={submit}
+                                disabled={processing || observaciones.trim().length < 1}
+                            >
+                                {rechazaRequisicion ? 'Rechazar requisición' : 'Firmar y aprobar'}
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+            <div className="modal-backdrop" onClick={onClose} />
+        </dialog>
+    );
+}
+
+export default function RequisicionesShow({ requisicion, proveedores, aprobacionPendienteId, esUltimoNivel, proveedoresPorValidar }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/requisiciones' },
@@ -102,6 +356,9 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
     const [liberando, setLiberando] = useState(false);
     const [ocOverrides, setOcOverrides] = useState<OcOverride[]>([]);
     const [firmando, setFirmando] = useState<'aprobar' | 'rechazar' | null>(null);
+    const [validando, setValidando] = useState(false);
+
+    const requiereValidacion = esUltimoNivel && proveedoresPorValidar.length > 0;
 
     const editable = ['borrador', 'rechazada'].includes(requisicion.estatus);
     const cotizable = ['borrador', 'cotizada', 'rechazada', 'aprobada'].includes(requisicion.estatus);
@@ -130,7 +387,9 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                                 {REQUISICION_ESTATUS_LABELS[requisicion.estatus]}
                             </span>
                             <span className="text-sm text-base-content/60">
-                                {requisicion.solicitante?.name} · {requisicion.departamento?.descripcion} · {fmtDate(requisicion.created_at)}
+                                {requisicion.solicitante?.name} · {requisicion.departamento?.descripcion}
+                                {requisicion.obra && ` · ${requisicion.obra.no ? `OP-${requisicion.obra.no} ` : ''}${requisicion.obra.descripcion}`}
+                                {' · '}{fmtDate(requisicion.created_at)}
                             </span>
                         </div>
                     </div>
@@ -211,7 +470,9 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                                 <thead>
                                     <tr>
                                         <th>Descripción</th>
+                                        <th>Código producto</th>
                                         <th>Rubro</th>
+                                        <th>Uso CFDI</th>
                                         <th className="text-right">Disponible</th>
                                         <th>Unidad</th>
                                         <th className="text-right">Cantidad</th>
@@ -229,6 +490,7 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                                         return (
                                             <tr key={d.id} className={sobregiro ? 'bg-error/5' : ''}>
                                                 <td>{d.descripcion}</td>
+                                                <td className="text-xs">{d.codigo_producto ?? '-'}</td>
                                                 <td className="text-xs">
                                                     {d.obra_rubro ? (
                                                         <div className="space-y-0.5">
@@ -246,6 +508,7 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                                                         <span className="text-warning">Sin rubro</span>
                                                     )}
                                                 </td>
+                                                <td className="text-xs">{d.uso_cfdi ? `${d.uso_cfdi.clave}` : '-'}</td>
                                                 <td className={`text-right text-xs font-medium ${sobregiro ? 'text-error' : ''}`}>
                                                     {d.obra_rubro ? (
                                                         <>
@@ -292,8 +555,11 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                             <h3 className="font-medium">Cadena de firmas</h3>
                             {aprobacionPendienteId && (
                                 <div className="flex gap-2">
-                                    <Button className="bg-green-600 hover:bg-green-700" onClick={() => setFirmando('aprobar')}>
-                                        Firmar
+                                    <Button
+                                        className="bg-green-600 hover:bg-green-700"
+                                        onClick={() => (requiereValidacion ? setValidando(true) : setFirmando('aprobar'))}
+                                    >
+                                        {requiereValidacion ? 'Firmar (validar proveedores)' : 'Firmar'}
                                     </Button>
                                     <Button variant="destructive" onClick={() => setFirmando('rechazar')}>
                                         Rechazar
@@ -343,6 +609,14 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                         aprobacionId={aprobacionPendienteId}
                         tipo={firmando}
                         onClose={() => setFirmando(null)}
+                    />
+                )}
+
+                {validando && (
+                    <ValidacionProveedoresModal
+                        requisicionId={requisicion.id}
+                        proveedores={proveedoresPorValidar}
+                        onClose={() => setValidando(false)}
                     />
                 )}
 
@@ -467,6 +741,7 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                                     const cot = d.cotizaciones?.find((c) => c.proveedor_id === p.id);
                                     const px = cot ? Number(cot.precio_unitario) : null;
                                     const dias = cot?.tiempo_entrega_dias ?? null;
+                                    const moneda = cot?.moneda ?? 'mxn';
                                     const esMejorPartida = px !== null && px === mejorPrecioPartida.get(d.id);
                                     const classes = [
                                         'text-right align-top',
@@ -477,7 +752,7 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                                         <td key={p.id} className={classes}>
                                             {px !== null ? (
                                                 <>
-                                                    <div>{fmt(px)}</div>
+                                                    <div>{fmt(px)} <span className="text-[10px] font-normal text-base-content/50">{TIPO_MONEDA_LABELS[moneda]}</span></div>
                                                     {dias !== null && dias > 0 && (
                                                         <div className="text-[10px] font-normal text-base-content/60">
                                                             {dias} {dias === 1 ? 'día' : 'días'} entrega

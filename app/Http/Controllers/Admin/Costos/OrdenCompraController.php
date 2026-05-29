@@ -15,6 +15,7 @@ use App\Models\Costos\Permiso;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
+use App\Services\Costos\RetencionCalculator;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -135,10 +136,10 @@ class OrdenCompraController extends Controller
         return $redirect;
     }
 
-    public function show(OrdenCompra $ordenCompra): Response
+    public function show(OrdenCompra $ordenCompra, RetencionCalculator $retenciones): Response
     {
         $ordenCompra->load([
-            'proveedor',
+            'proveedor.regimenFiscal:id,clave,descripcion',
             'obra',
             'departamento',
             'creador',
@@ -159,8 +160,16 @@ class OrdenCompraController extends Controller
 
         $ordenCompra->append(['total_facturado', 'total_pagado', 'saldo_pendiente']);
 
+        $lineas = $ordenCompra->detalles->map(fn ($d) => [
+            'tipo_fiscal' => $d->tipo_fiscal?->value ?? 'mercancia',
+            'subtotal' => (float) $d->subtotal,
+        ]);
+
         return Inertia::render('admin/costos/ordenes-compra/show', [
             'ordenCompra' => $ordenCompra,
+            'retenciones' => $ordenCompra->proveedor
+                ? $retenciones->calcular($ordenCompra->proveedor, $lineas)
+                : null,
         ]);
     }
 

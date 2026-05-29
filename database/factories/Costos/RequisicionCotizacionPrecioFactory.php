@@ -23,6 +23,7 @@ class RequisicionCotizacionPrecioFactory extends Factory
             'requisicion_detalle_id' => RequisicionDetalle::factory(),
             'proveedor_id' => Proveedor::factory(),
             'precio_unitario' => fake()->randomFloat(2, 10, 5000),
+            'moneda' => 'mxn',
             'tiempo_entrega_dias' => fake()->optional()->numberBetween(1, 30),
             'observaciones' => fake()->optional()->sentence(),
         ];

@@ -48,6 +48,19 @@ class OrdenCompraGenerator
         $proveedor = Proveedor::find((int) $payload['proveedor_id']);
         $modoPago = (string) $payload['modo_pago'];
 
+        // La moneda de la OC proviene de las cotizaciones seleccionadas; deben
+        // ser todas la misma (validado en RequisicionController::liberar).
+        $monedas = $selecciones
+            ->map(fn (RequisicionSeleccion $s) => $s->cotizacionPrecio?->moneda ?? 'mxn')
+            ->unique()
+            ->values();
+
+        if ($monedas->count() > 1) {
+            throw new \RuntimeException('Una orden de compra no puede mezclar monedas.');
+        }
+
+        $moneda = (string) ($monedas->first() ?? 'mxn');
+
         $subtotalLineas = $selecciones->reduce(function ($acc, RequisicionSeleccion $s) {
             $precio = (float) ($s->cotizacionPrecio?->precio_unitario ?? 0);
 
@@ -65,7 +78,7 @@ class OrdenCompraGenerator
             'proveedor_id' => (int) $payload['proveedor_id'],
             'departamento_id' => $requisicion->departamento_id,
             'creado_por' => $userId,
-            'moneda' => (string) $payload['moneda'],
+            'moneda' => $moneda,
             'tipo_pago' => $modoPago,
             'dias_credito' => $diasCredito,
             'total' => round($total, 2),
@@ -84,7 +97,10 @@ class OrdenCompraGenerator
                 'orden_compra_id' => $oc->id,
                 'requisicion_detalle_id' => $sel->requisicion_detalle_id,
                 'obra_rubro_id' => $detalle->obra_rubro_id,
+                'uso_cfdi_id' => $detalle->uso_cfdi_id,
+                'tipo_fiscal' => $detalle->tipo_fiscal,
                 'descripcion' => $detalle->descripcion,
+                'codigo_producto' => $detalle->codigo_producto,
                 'unidad' => $detalle->unidad,
                 'cantidad' => $cantidad,
                 'precio_unitario' => $precioUnit,

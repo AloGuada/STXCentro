@@ -3,6 +3,7 @@
 namespace App\Models\Costos;
 
 use App\Models\Obra;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -45,6 +46,33 @@ class ObraRubro extends Model
     public function rubro(): BelongsTo
     {
         return $this->belongsTo(Rubro::class);
+    }
+
+    /**
+     * Agrega un error a cada partida cuyo `obra_rubro_id` no pertenezca a la
+     * obra elegida. La requisición es para una sola obra/centro de costo.
+     *
+     * @param  array<int, array<string, mixed>>  $detalles
+     */
+    public static function validarPertenenciaObra(Validator $validator, int $obraId, array $detalles): void
+    {
+        if (! $obraId) {
+            return;
+        }
+
+        $rubroIds = collect($detalles)->pluck('obra_rubro_id')->filter()->unique();
+        if ($rubroIds->isEmpty()) {
+            return;
+        }
+
+        $obrasPorRubro = self::whereIn('id', $rubroIds)->pluck('obra_id', 'id');
+
+        foreach ($detalles as $i => $detalle) {
+            $rubroId = $detalle['obra_rubro_id'] ?? null;
+            if ($rubroId && (int) ($obrasPorRubro[$rubroId] ?? 0) !== $obraId) {
+                $validator->errors()->add("detalles.{$i}.obra_rubro_id", 'El rubro debe pertenecer a la obra seleccionada en la requisición.');
+            }
+        }
     }
 
     /**

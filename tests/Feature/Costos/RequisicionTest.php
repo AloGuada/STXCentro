@@ -39,15 +39,18 @@ beforeEach(function () {
 });
 
 test('cualquier usuario con permiso crear puede crear una requisicion en borrador', function () {
-    $rubroA = ObraRubro::factory()->create();
-    $rubroB = ObraRubro::factory()->create();
+    $obra = \App\Models\Obra::factory()->create();
+    $rubroA = ObraRubro::factory()->create(['obra_id' => $obra->id]);
+    $rubroB = ObraRubro::factory()->create(['obra_id' => $obra->id]);
+    $uso = \App\Models\Costos\UsoCfdi::factory()->create();
 
     $this->actingAs($this->user)
         ->post('/admin/costos/requisiciones', [
             'departamento_id' => $this->depto->id,
+            'obra_id' => $obra->id,
             'detalles' => [
-                ['descripcion' => 'Tornillos 1/4"', 'unidad' => 'pza', 'cantidad' => 100, 'obra_rubro_id' => $rubroA->id],
-                ['descripcion' => 'Cable AWG 12', 'unidad' => 'm', 'cantidad' => 50, 'obra_rubro_id' => $rubroB->id],
+                ['descripcion' => 'Tornillos 1/4"', 'unidad' => 'pza', 'cantidad' => 100, 'obra_rubro_id' => $rubroA->id, 'uso_cfdi_id' => $uso->id],
+                ['descripcion' => 'Cable AWG 12', 'unidad' => 'm', 'cantidad' => 50, 'obra_rubro_id' => $rubroB->id, 'uso_cfdi_id' => $uso->id],
             ],
         ])
         ->assertRedirect();
@@ -56,6 +59,7 @@ test('cualquier usuario con permiso crear puede crear una requisicion en borrado
     expect($req)->not->toBeNull();
     expect($req->estatus->value)->toBe('borrador');
     expect($req->folio)->toStartWith('REQ-');
+    expect($req->obra_id)->toBe($obra->id);
     expect($req->detalles()->count())->toBe(2);
     expect($req->detalles()->first()->obra_rubro_id)->toBe($rubroA->id);
 });
@@ -87,6 +91,7 @@ test('compras captura precio cotizado y la requisicion pasa a cotizada', functio
             'requisicion_detalle_id' => $detalle->id,
             'proveedor_id' => $proveedor->id,
             'precio_unitario' => 250.50,
+            'moneda' => 'mxn',
         ])
         ->assertRedirect();
 

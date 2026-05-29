@@ -22,7 +22,10 @@ class OrdenCompraDetalle extends Model
         'orden_compra_id',
         'requisicion_detalle_id',
         'obra_rubro_id',
+        'uso_cfdi_id',
+        'tipo_fiscal',
         'descripcion',
+        'codigo_producto',
         'unidad',
         'cantidad',
         'precio_unitario',
@@ -38,6 +41,7 @@ class OrdenCompraDetalle extends Model
             'cantidad' => 'decimal:2',
             'precio_unitario' => 'decimal:2',
             'subtotal' => 'decimal:2',
+            'tipo_fiscal' => \App\Enums\Costos\TipoFiscalPartida::class,
         ];
     }
 
@@ -49,6 +53,11 @@ class OrdenCompraDetalle extends Model
     public function obraRubro(): BelongsTo
     {
         return $this->belongsTo(ObraRubro::class, 'obra_rubro_id');
+    }
+
+    public function usoCfdi(): BelongsTo
+    {
+        return $this->belongsTo(UsoCfdi::class, 'uso_cfdi_id');
     }
 
     public function requisicionDetalle(): BelongsTo

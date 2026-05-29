@@ -2,25 +2,34 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\AprobacionEstatus;
 use App\Enums\Costos\RequisicionEstatus;
+use App\Enums\ProveedorEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
+use App\Http\Requests\Admin\Costos\FirmarRequisicionFinalRequest;
 use App\Http\Requests\Admin\Costos\RequisicionLiberarRequest;
 use App\Http\Requests\Admin\Costos\RequisicionStoreRequest;
 use App\Http\Requests\Admin\Costos\RequisicionUpdateRequest;
+use App\Models\Costos\Aprobacion;
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Requisicion;
+use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\RequisicionSeleccion;
+use App\Models\Costos\UsoCfdi;
 use App\Models\Departamento;
+use App\Models\Obra;
 use App\Models\Proveedor;
 use App\Services\Costos\ApartadoPresupuestal;
+use App\Services\Costos\AprobacionService;
 use App\Services\Costos\OrdenCompraGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -62,7 +71,9 @@ class RequisicionController extends Controller
 
         return Inertia::render('admin/costos/requisiciones/create', [
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
+            'obras' => Obra::orderBy('descripcion')->get(['id', 'no', 'descripcion']),
             'obraRubros' => $this->obraRubrosOptions(),
+            'usosCfdi' => $this->usosCfdiOptions(),
         ]);
     }
 
@@ -72,6 +83,7 @@ class RequisicionController extends Controller
             $requisicion = Requisicion::create([
                 'solicitante_id' => $request->user()->id,
                 'departamento_id' => $request->integer('departamento_id'),
+                'obra_id' => $request->integer('obra_id'),
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
                 'estatus' => RequisicionEstatus::Borrador->value,
@@ -80,9 +92,12 @@ class RequisicionController extends Controller
             foreach ($request->input('detalles', []) as $d) {
                 $requisicion->detalles()->create([
                     'descripcion' => $d['descripcion'],
+                    'codigo_producto' => $d['codigo_producto'] ?? null,
                     'unidad' => $d['unidad'] ?? 'pza',
                     'cantidad' => $d['cantidad'],
                     'obra_rubro_id' => $d['obra_rubro_id'],
+                    'uso_cfdi_id' => $d['uso_cfdi_id'],
+                    'tipo_fiscal' => $d['tipo_fiscal'] ?? 'mercancia',
                     'notas' => $d['notas'] ?? null,
                 ]);
             }
@@ -101,25 +116,224 @@ class RequisicionController extends Controller
         $requisicion->load([
             'solicitante:id,name',
             'departamento:id,descripcion',
+            'obra:id,no,descripcion',
             'detalles.obraRubro.obra:id,no,descripcion',
             'detalles.obraRubro.rubro:id,codigo,descripcion',
-            'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
+            'detalles.usoCfdi:id,clave,descripcion',
+            'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial,estatus,activo',
             'detalles.selecciones.cotizacionPrecio',
-            'detalles.selecciones.proveedor:id,razon_social',
+            'detalles.selecciones.proveedor:id,razon_social,estatus',
             'aprobaciones.aprobador:id,name',
             'ordenesGeneradas:id,folio,proveedor_id,total,estatus,requisicion_id',
             'ordenesGeneradas.proveedor:id,razon_social',
             'activities.causer',
         ]);
 
+        $aprobacionPendienteId = $this->aprobacionPendienteParaUsuario($requisicion);
+        $esUltimoNivel = $this->esUltimoNivel($requisicion, $aprobacionPendienteId);
+
         return Inertia::render('admin/costos/requisiciones/show', [
             'requisicion' => $requisicion,
-            'proveedores' => Proveedor::where('activo', true)
+            'proveedores' => Proveedor::whereIn('estatus', [ProveedorEstatus::PendienteValidacion->value, ProveedorEstatus::Activo->value])
+                ->with('regimenFiscal:id,clave')
                 ->orderBy('razon_social')
-                ->get(['id', 'razon_social', 'nombre_comercial']),
+                ->get(['id', 'razon_social', 'nombre_comercial', 'maneja_credito', 'estatus', 'tipo_persona', 'regimen_fiscal_id']),
             'obraRubros' => $this->obraRubrosOptions(),
-            'aprobacionPendienteId' => $this->aprobacionPendienteParaUsuario($requisicion),
+            'aprobacionPendienteId' => $aprobacionPendienteId,
+            'esUltimoNivel' => $esUltimoNivel,
+            'proveedoresPorValidar' => $esUltimoNivel ? $this->proveedoresPorValidar($requisicion) : [],
         ]);
+    }
+
+    /**
+     * ¿La aprobación pendiente del usuario es el último nivel? Lo es cuando no
+     * existe ninguna aprobación pendiente en un nivel superior.
+     */
+    private function esUltimoNivel(Requisicion $requisicion, ?int $aprobacionPendienteId): bool
+    {
+        if (! $aprobacionPendienteId) {
+            return false;
+        }
+
+        $mia = $requisicion->aprobaciones->firstWhere('id', $aprobacionPendienteId);
+        if (! $mia) {
+            return false;
+        }
+
+        return $requisicion->aprobaciones
+            ->where('nivel', '>', $mia->nivel)
+            ->where('estatus', 'pendiente')
+            ->isEmpty();
+    }
+
+    /**
+     * Proveedores referenciados por las selecciones que aún no están activos y
+     * por tanto requieren validación documental antes de aprobar. Incluye sus
+     * documentos, las partidas que ganaron y las cotizaciones alternativas
+     * (otros proveedores que cotizaron esas mismas partidas) para reasignar.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function proveedoresPorValidar(Requisicion $requisicion): array
+    {
+        $selecciones = $requisicion->detalles->flatMap->selecciones;
+        $provIds = $selecciones->pluck('proveedor_id')->unique()->filter()->all();
+
+        if (empty($provIds)) {
+            return [];
+        }
+
+        $proveedores = Proveedor::with(['regimenFiscal:id,clave,descripcion', 'media'])
+            ->whereIn('id', $provIds)
+            ->where('estatus', '!=', ProveedorEstatus::Activo->value)
+            ->get();
+
+        return $proveedores->map(function (Proveedor $prov) use ($requisicion, $selecciones) {
+            $detalleIds = $selecciones->where('proveedor_id', $prov->id)
+                ->pluck('requisicion_detalle_id')->unique();
+
+            $partidas = $requisicion->detalles
+                ->whereIn('id', $detalleIds)
+                ->map(function (RequisicionDetalle $d) use ($prov) {
+                    $alternativas = $d->cotizaciones
+                        ->where('proveedor_id', '!=', $prov->id)
+                        ->filter(fn ($c) => $c->proveedor && $c->proveedor->estatus === ProveedorEstatus::Activo)
+                        ->map(fn ($c) => [
+                            'cotizacion_precio_id' => $c->id,
+                            'proveedor_id' => $c->proveedor_id,
+                            'proveedor' => $c->proveedor?->razon_social,
+                            'precio_unitario' => (float) $c->precio_unitario,
+                        ])->values();
+
+                    return [
+                        'requisicion_detalle_id' => $d->id,
+                        'descripcion' => $d->descripcion,
+                        'alternativas' => $alternativas,
+                    ];
+                })->values();
+
+            $url = fn (?string $desc) => ($m = $prov->media->firstWhere('descripcion', $desc))
+                ? Storage::disk('public')->url($m->path)
+                : null;
+
+            return [
+                'id' => $prov->id,
+                'razon_social' => $prov->razon_social,
+                'rfc' => $prov->rfc,
+                'tipo_persona' => $prov->tipo_persona,
+                'regimen' => $prov->regimenFiscal?->descripcion,
+                'banco' => $prov->banco,
+                'titular_cuenta' => $prov->titular_cuenta,
+                'numero_cuenta' => $prov->numero_cuenta,
+                'clabe' => $prov->clabe,
+                'moneda_cuenta' => $prov->moneda_cuenta,
+                'constancia_url' => $url('constancia_fiscal'),
+                'caratula_url' => $url('caratula_bancaria'),
+                'partidas' => $partidas,
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * Firma del último nivel con validación documental de proveedores. Por cada
+     * proveedor pendiente: se activa, o se rechaza reasignando sus partidas a un
+     * proveedor que ya cotizó. Si algún proveedor queda rechazado sin reemplazo
+     * (o queda alguna selección apuntando a proveedor no activo), se rechaza la
+     * requisición. En caso contrario se firma y la requisición pasa a aprobada.
+     */
+    public function firmarFinal(FirmarRequisicionFinalRequest $request, Requisicion $requisicion, AprobacionService $aprobaciones): RedirectResponse
+    {
+        $requisicion->load([
+            'aprobaciones',
+            'detalles.selecciones.proveedor:id,estatus',
+            'detalles.cotizaciones',
+        ]);
+
+        $aprobacionPendienteId = $this->aprobacionPendienteParaUsuario($requisicion);
+        if (! $aprobacionPendienteId) {
+            return back()->withErrors(['nivel' => 'No tiene una firma pendiente en turno para esta requisición.']);
+        }
+
+        if (! $this->esUltimoNivel($requisicion, $aprobacionPendienteId)) {
+            return back()->withErrors(['nivel' => 'La validación de proveedores solo se realiza en el último nivel.']);
+        }
+
+        /** @var Aprobacion $aprobacion */
+        $aprobacion = $requisicion->aprobaciones->firstWhere('id', $aprobacionPendienteId);
+
+        DB::transaction(function () use ($request, $requisicion, $aprobacion, $aprobaciones) {
+            $rechazoSinReemplazo = false;
+
+            foreach ($request->input('validaciones', []) as $val) {
+                /** @var Proveedor $proveedor */
+                $proveedor = Proveedor::findOrFail($val['proveedor_id']);
+
+                $proveedor->update([
+                    'estatus' => $val['accion'] === 'activar' ? ProveedorEstatus::Activo : ProveedorEstatus::Rechazado,
+                    'activo' => $val['accion'] === 'activar',
+                    'validado_por' => auth()->id(),
+                    'validado_at' => now(),
+                    'observacion_validacion' => $val['observacion'] ?? null,
+                ]);
+
+                if ($val['accion'] === 'activar') {
+                    continue;
+                }
+
+                $reemplazos = $val['reemplazos'] ?? [];
+                if (empty($reemplazos)) {
+                    $rechazoSinReemplazo = true;
+
+                    continue;
+                }
+
+                foreach ($reemplazos as $r) {
+                    $cotizacion = RequisicionCotizacionPrecio::where('id', $r['cotizacion_precio_id'])
+                        ->where('requisicion_detalle_id', $r['requisicion_detalle_id'])
+                        ->where('proveedor_id', $r['nuevo_proveedor_id'])
+                        ->firstOrFail();
+
+                    RequisicionSeleccion::where('requisicion_detalle_id', $r['requisicion_detalle_id'])
+                        ->where('proveedor_id', $proveedor->id)
+                        ->update([
+                            'proveedor_id' => $cotizacion->proveedor_id,
+                            'cotizacion_precio_id' => $cotizacion->id,
+                        ]);
+                }
+            }
+
+            // Tras reasignar, ninguna selección puede apuntar a un proveedor no activo.
+            $requisicion->load('detalles.selecciones.proveedor:id,estatus');
+            $hayInvalidas = $requisicion->detalles->flatMap->selecciones
+                ->contains(fn (RequisicionSeleccion $s) => $s->proveedor?->estatus !== ProveedorEstatus::Activo);
+
+            if ($rechazoSinReemplazo || $hayInvalidas) {
+                $motivo = $request->input('observaciones');
+                $aprobacion->update([
+                    'fecha_respuesta' => now(),
+                    'observaciones' => $motivo,
+                    'motivo_rechazo' => $motivo,
+                    'ip' => $request->ip(),
+                    'hostname' => gethostbyaddr($request->ip()) ?: null,
+                ]);
+                $aprobacion->transitionTo(AprobacionEstatus::Rechazada);
+                $requisicion->cadenaAprobacion()
+                    ->where('estatus', 'pendiente')
+                    ->update(['estatus' => 'cancelada', 'fecha_respuesta' => now()]);
+                $requisicion->onAprobacionRechazada($motivo, auth()->id());
+
+                return;
+            }
+
+            $aprobaciones->aprobar(
+                $aprobacion,
+                $request->input('observaciones'),
+                $request->ip(),
+                gethostbyaddr($request->ip()) ?: null,
+            );
+        });
+
+        return back()->with('success', 'Requisición firmada.');
     }
 
     /**
@@ -173,7 +387,9 @@ class RequisicionController extends Controller
         return Inertia::render('admin/costos/requisiciones/edit', [
             'requisicion' => $requisicion,
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
+            'obras' => Obra::orderBy('descripcion')->get(['id', 'no', 'descripcion']),
             'obraRubros' => $this->obraRubrosOptions(),
+            'usosCfdi' => $this->usosCfdiOptions(),
         ]);
     }
 
@@ -188,6 +404,7 @@ class RequisicionController extends Controller
         DB::transaction(function () use ($request, $requisicion) {
             $requisicion->update([
                 'departamento_id' => $request->integer('departamento_id'),
+                'obra_id' => $request->integer('obra_id'),
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
             ]);
@@ -207,17 +424,23 @@ class RequisicionController extends Controller
                         ->where('requisicion_id', $requisicion->id)
                         ->update([
                             'descripcion' => $d['descripcion'],
+                            'codigo_producto' => $d['codigo_producto'] ?? null,
                             'unidad' => $d['unidad'] ?? 'pza',
                             'cantidad' => $d['cantidad'],
                             'obra_rubro_id' => $d['obra_rubro_id'],
+                            'uso_cfdi_id' => $d['uso_cfdi_id'],
+                            'tipo_fiscal' => $d['tipo_fiscal'] ?? 'mercancia',
                             'notas' => $d['notas'] ?? null,
                         ]);
                 } else {
                     $requisicion->detalles()->create([
                         'descripcion' => $d['descripcion'],
+                        'codigo_producto' => $d['codigo_producto'] ?? null,
                         'unidad' => $d['unidad'] ?? 'pza',
                         'cantidad' => $d['cantidad'],
                         'obra_rubro_id' => $d['obra_rubro_id'],
+                        'uso_cfdi_id' => $d['uso_cfdi_id'],
+                        'tipo_fiscal' => $d['tipo_fiscal'] ?? 'mercancia',
                         'notas' => $d['notas'] ?? null,
                     ]);
                 }
@@ -274,6 +497,12 @@ class RequisicionController extends Controller
         $requisicion->load('detalles.selecciones.cotizacionPrecio');
 
         foreach ($requisicion->detalles as $detalle) {
+            if (empty($detalle->uso_cfdi_id)) {
+                return back()->withErrors([
+                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene uso de CFDI asignado.",
+                ]);
+            }
+
             if (empty($detalle->obra_rubro_id)) {
                 return back()->withErrors([
                     'detalles' => "La partida \"{$detalle->descripcion}\" no tiene rubro asignado.",
@@ -372,6 +601,12 @@ class RequisicionController extends Controller
         ]);
 
         foreach ($requisicion->detalles as $detalle) {
+            if (empty($detalle->uso_cfdi_id)) {
+                return back()->withErrors([
+                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene uso de CFDI asignado.",
+                ]);
+            }
+
             if (empty($detalle->obra_rubro_id)) {
                 return back()->withErrors([
                     'detalles' => "La partida \"{$detalle->descripcion}\" no tiene rubro asignado.",
@@ -390,10 +625,21 @@ class RequisicionController extends Controller
             fn (RequisicionSeleccion $s) => $s->proveedor_id.'|'.((int) ($s->numero_oc ?: 1))
         );
 
-        foreach ($grupos as $key => $_) {
+        foreach ($grupos as $key => $selecciones) {
             if (! $ocsPayload->has($key)) {
                 return back()->withErrors([
                     'ocs' => "Falta capturar la OC para la combinación proveedor-OC# {$key}.",
+                ]);
+            }
+
+            // Una OC no puede mezclar monedas: todas sus cotizaciones deben coincidir.
+            $monedas = $selecciones
+                ->map(fn (RequisicionSeleccion $s) => $s->cotizacionPrecio?->moneda ?? 'mxn')
+                ->unique();
+
+            if ($monedas->count() > 1) {
+                return back()->withErrors([
+                    'ocs' => "La OC del grupo {$key} mezcla monedas (".$monedas->implode(', ').'). Separa las partidas por moneda en OCs distintas.',
                 ]);
             }
         }
@@ -452,6 +698,9 @@ class RequisicionController extends Controller
 
                 return [
                     'id' => $or->id,
+                    'obra_id' => $or->obra_id,
+                    'obra_label' => trim($opPrefix.($or->obra?->descripcion ?? '-')),
+                    'rubro_label' => trim(sprintf('%s %s', $or->rubro?->codigo ?? '', $or->rubro?->descripcion ?? '-')),
                     'label' => sprintf(
                         '%s%s · %s %s',
                         $opPrefix,
@@ -466,5 +715,17 @@ class RequisicionController extends Controller
                 ];
             })
             ->values();
+    }
+
+    /**
+     * Catálogo de usos de CFDI activos para los selectores de partida.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\Costos\UsoCfdi>
+     */
+    private function usosCfdiOptions(): \Illuminate\Support\Collection
+    {
+        return UsoCfdi::where('activo', true)
+            ->orderBy('clave')
+            ->get(['id', 'clave', 'descripcion']);
     }
 }

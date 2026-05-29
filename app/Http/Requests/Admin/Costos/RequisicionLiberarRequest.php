@@ -21,7 +21,6 @@ class RequisicionLiberarRequest extends FormRequest
             'ocs.*.proveedor_id' => ['required', 'integer', 'exists:proveedores,id'],
             'ocs.*.numero_oc' => ['required', 'integer', 'min:1', 'max:50'],
             'ocs.*.modo_pago' => ['required', 'in:contado,credito'],
-            'ocs.*.moneda' => ['required', 'in:mxn,usd,eur'],
             'ocs.*.notas' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -34,7 +33,6 @@ class RequisicionLiberarRequest extends FormRequest
         return [
             'ocs.required' => 'No hay órdenes de compra para liberar.',
             'ocs.*.modo_pago.required' => 'Captura el modo de pago de cada OC.',
-            'ocs.*.moneda.required' => 'Captura la moneda de cada OC.',
         ];
     }
 }

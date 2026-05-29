@@ -1,8 +1,8 @@
+import { router } from '@inertiajs/react';
+import { useState } from 'react';
 import type { OcOverride } from '@/components/costos/cotizacion-tree';
 import { Button } from '@/components/ui/button';
 import type { CostosRequisicion } from '@/types/models';
-import { router } from '@inertiajs/react';
-import { useState } from 'react';
 
 type Props = {
     requisicion: CostosRequisicion;
@@ -23,9 +23,28 @@ export function LiberarRequisicionModal({ requisicion, ocs, open, onClose }: Pro
 
     if (!open) return null;
 
+    // Una OC (grupo proveedor+numero_oc) no puede mezclar monedas de cotización.
+    const grupoConMonedasMezcladas = (() => {
+        const porGrupo = new Map<string, Set<string>>();
+        requisicion.detalles?.forEach((d) => {
+            d.selecciones?.forEach((s) => {
+                const key = `${s.proveedor_id}|${s.numero_oc ?? 1}`;
+                const moneda = s.cotizacion_precio?.moneda ?? 'mxn';
+                if (!porGrupo.has(key)) porGrupo.set(key, new Set());
+                porGrupo.get(key)!.add(moneda);
+            });
+        });
+        return Array.from(porGrupo.values()).some((set) => set.size > 1);
+    })();
+
     const submit = () => {
         if (ocs.length === 0) {
             setErrorMsg('Aún no hay OCs en el preview. Asigna cantidades en el tab Cotización.');
+            return;
+        }
+
+        if (grupoConMonedasMezcladas) {
+            setErrorMsg('Hay una OC con partidas en monedas distintas. Sepáralas por moneda (cambia el OC#) antes de liberar.');
             return;
         }
 
@@ -37,7 +56,6 @@ export function LiberarRequisicionModal({ requisicion, ocs, open, onClose }: Pro
                 proveedor_id: oc.proveedor_id,
                 numero_oc: oc.numero_oc,
                 modo_pago: oc.modo_pago,
-                moneda: oc.moneda,
                 fecha_entrega: oc.fecha_entrega,
                 notas: oc.notas.trim() || null,
             })),

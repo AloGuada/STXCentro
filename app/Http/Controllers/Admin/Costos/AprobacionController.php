@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Costos\Aprobacion;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\SolicitudPago;
+use App\Services\Costos\AprobacionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -112,7 +113,7 @@ class AprobacionController extends Controller
         ]);
     }
 
-    public function aprobar(Request $request, Aprobacion $aprobacionSolicitud): RedirectResponse
+    public function aprobar(Request $request, Aprobacion $aprobacionSolicitud, AprobacionService $aprobaciones): RedirectResponse
     {
         if ($aprobacionSolicitud->aprobador_id !== auth()->id()) {
             abort(403);
@@ -130,32 +131,12 @@ class AprobacionController extends Controller
             'observaciones' => ['required', 'string', 'max:500'],
         ]);
 
-        $aprobacionSolicitud->update([
-            'fecha_respuesta' => now(),
-            'observaciones' => $request->input('observaciones'),
-            'ip' => $request->ip(),
-            'hostname' => gethostbyaddr($request->ip()) ?: null,
-        ]);
-        $aprobacionSolicitud->transitionTo(AprobacionEstatus::Aprobada);
-
-        // Cancelar las demas aprobaciones pendientes del mismo nivel (logica OR)
-        $aprobable = $aprobacionSolicitud->aprobable;
-        $aprobable->cadenaAprobacion()
-            ->where('nivel', $aprobacionSolicitud->nivel)
-            ->where('id', '!=', $aprobacionSolicitud->id)
-            ->where('estatus', 'pendiente')
-            ->update([
-                'estatus' => 'cancelada',
-                'fecha_respuesta' => now(),
-            ]);
-
-        $quedanPendientes = $aprobable->cadenaAprobacion()
-            ->where('estatus', 'pendiente')
-            ->exists();
-
-        if (! $quedanPendientes && $aprobable instanceof Aprobable) {
-            $aprobable->onAprobacionCompleta(auth()->id());
-        }
+        $aprobaciones->aprobar(
+            $aprobacionSolicitud,
+            $request->input('observaciones'),
+            $request->ip(),
+            gethostbyaddr($request->ip()) ?: null,
+        );
 
         return back()->with('success', 'Aprobación registrada correctamente.');
     }

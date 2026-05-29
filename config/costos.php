@@ -50,4 +50,22 @@ return [
     |
     */
     'iva_rate' => (float) env('COSTOS_IVA_RATE', 0.16),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tasas de retención (ISR / IVA)
+    |--------------------------------------------------------------------------
+    |
+    | Tasas aplicadas automáticamente en el desglose de retenciones de la OC,
+    | según el régimen/tipo de persona del proveedor y el tipo fiscal de cada
+    | partida. El cálculo es informativo y se corrobora al recibir la factura.
+    |
+    */
+    'retenciones' => [
+        'isr_resico' => (float) env('COSTOS_RET_ISR_RESICO', 0.0125),
+        'isr_fletes' => (float) env('COSTOS_RET_ISR_FLETES', 0.04),
+        'isr_honorarios' => (float) env('COSTOS_RET_ISR_HONORARIOS', 0.10),
+        'iva_honorarios' => (float) env('COSTOS_RET_IVA_HONORARIOS', 0.1067),
+        'iva_renta' => (float) env('COSTOS_RET_IVA_RENTA', 0.1067),
+    ],
 ];

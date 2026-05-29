@@ -22,7 +22,10 @@ class RequisicionDetalle extends Model
     protected $fillable = [
         'requisicion_id',
         'obra_rubro_id',
+        'uso_cfdi_id',
+        'tipo_fiscal',
         'descripcion',
+        'codigo_producto',
         'unidad',
         'cantidad',
         'notas',
@@ -35,6 +38,7 @@ class RequisicionDetalle extends Model
     {
         return [
             'cantidad' => 'decimal:2',
+            'tipo_fiscal' => \App\Enums\Costos\TipoFiscalPartida::class,
         ];
     }
 
@@ -46,6 +50,11 @@ class RequisicionDetalle extends Model
     public function obraRubro(): BelongsTo
     {
         return $this->belongsTo(ObraRubro::class, 'obra_rubro_id');
+    }
+
+    public function usoCfdi(): BelongsTo
+    {
+        return $this->belongsTo(UsoCfdi::class, 'uso_cfdi_id');
     }
 
     public function cotizaciones(): HasMany

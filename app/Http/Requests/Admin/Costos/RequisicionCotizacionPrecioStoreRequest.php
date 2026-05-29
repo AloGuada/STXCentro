@@ -20,6 +20,7 @@ class RequisicionCotizacionPrecioStoreRequest extends FormRequest
             'requisicion_detalle_id' => ['required', 'exists:costos_requisicion_detalle,id'],
             'proveedor_id' => ['required', 'exists:proveedores,id'],
             'precio_unitario' => ['required', 'numeric', 'min:0.01'],
+            'moneda' => ['required', 'in:mxn,usd,eur'],
             'tiempo_entrega_dias' => ['nullable', 'integer', 'min:0'],
             'observaciones' => ['nullable', 'string'],
         ];

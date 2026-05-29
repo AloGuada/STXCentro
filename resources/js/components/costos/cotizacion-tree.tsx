@@ -1,15 +1,18 @@
+import { router } from '@inertiajs/react';
+import { PlusIcon, Trash2Icon } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type {
     CostosRequisicion,
     CostosRequisicionCotizacionPrecio,
     CostosRequisicionDetalle,
+    CostosRequisicionSeleccion,
+    CostosTipoFiscalPartida,
     CostosTipoMoneda,
     ModoPago,
     Proveedor,
 } from '@/types/models';
-import { router } from '@inertiajs/react';
-import { PlusIcon, Trash2Icon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { TIPO_MONEDA_LABELS } from '@/types/models';
 
 const fmt = (n: number) =>
     `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -17,13 +20,51 @@ const fmt = (n: number) =>
 
 const IVA_RATE = 0.16;
 
-type ProveedorMin = Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial' | 'maneja_credito'>;
+// Tasas de retención — reflejan config/costos.php (cálculo informativo en cotización).
+const RET_TASAS = {
+    isr_resico: 0.0125,
+    isr_fletes: 0.04,
+    isr_honorarios: 0.1,
+    iva_honorarios: 0.1067,
+    iva_renta: 0.1067,
+};
+
+type ProveedorMin = Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial' | 'maneja_credito' | 'tipo_persona' | 'regimen_fiscal'>;
+
+type RetencionLinea = { clave: string; concepto: string; tasa: number; monto: number };
+
+/**
+ * Espeja App\Services\Costos\RetencionCalculator para el preview de cotización.
+ */
+function calcularRetenciones(
+    proveedor: ProveedorMin | undefined,
+    lines: Array<{ tipo_fiscal: CostosTipoFiscalPartida; subtotal: number }>,
+): RetencionLinea[] {
+    const esPF = proveedor?.tipo_persona === 'fisica';
+    const esResico = esPF && proveedor?.regimen_fiscal?.clave === '626';
+    const acc = new Map<string, RetencionLinea>();
+    const add = (clave: string, concepto: string, tasa: number, base: number) => {
+        if (base <= 0 || tasa <= 0) return;
+        const prev = acc.get(clave) ?? { clave, concepto, tasa, monto: 0 };
+        prev.monto += base * tasa;
+        acc.set(clave, prev);
+    };
+    lines.forEach(({ tipo_fiscal, subtotal }) => {
+        if (esResico) add('isr_resico', 'ISR RESICO', RET_TASAS.isr_resico, subtotal);
+        if (tipo_fiscal === 'flete') add('isr_fletes', 'ISR Fletes', RET_TASAS.isr_fletes, subtotal);
+        if (tipo_fiscal === 'servicio_profesional' && esPF) {
+            if (!esResico) add('isr_honorarios', 'ISR Honorarios', RET_TASAS.isr_honorarios, subtotal);
+            add('iva_honorarios', 'IVA Honorarios', RET_TASAS.iva_honorarios, subtotal);
+        }
+        if (tipo_fiscal === 'renta' && esPF) add('iva_renta', 'IVA Renta', RET_TASAS.iva_renta, subtotal);
+    });
+    return Array.from(acc.values()).map((r) => ({ ...r, monto: Math.round(r.monto * 100) / 100 }));
+}
 
 export type OcOverride = {
     proveedor_id: number;
     numero_oc: number;
     modo_pago: ModoPago;
-    moneda: CostosTipoMoneda;
     fecha_entrega: string;
     notas: string;
 };
@@ -164,9 +205,13 @@ function MatrizComparativa({
                     <tbody>
                         {detalles.map((d) => {
                             const precios: Record<number, number> = {};
+                            const monedas: Record<number, CostosTipoMoneda> = {};
                             proveedoresActivos.forEach((pid) => {
                                 const p = d.cotizaciones?.find((c) => c.proveedor_id === pid);
-                                if (p) precios[pid] = Number(p.precio_unitario);
+                                if (p) {
+                                    precios[pid] = Number(p.precio_unitario);
+                                    monedas[pid] = p.moneda ?? 'mxn';
+                                }
                             });
                             const min = Object.values(precios).length > 0 ? Math.min(...Object.values(precios)) : 0;
                             return (
@@ -184,7 +229,14 @@ function MatrizComparativa({
                                                 key={pid}
                                                 className={`text-right ${isMin ? 'bg-success/10 text-success font-semibold' : ''}`}
                                             >
-                                                {has ? fmt(precios[pid]) : <span className="text-base-content/30">—</span>}
+                                                {has ? (
+                                                    <span>
+                                                        {fmt(precios[pid])}
+                                                        <span className="ml-1 text-[10px] text-base-content/50">{TIPO_MONEDA_LABELS[monedas[pid]]}</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-base-content/30">—</span>
+                                                )}
                                             </td>
                                         );
                                     })}
@@ -300,11 +352,12 @@ function PartidaNode({
 
             {open && (
                 <div className="border-t border-base-200 px-3 py-2">
-                    <div className="grid grid-cols-[1fr_60px_60px_100px_70px_1fr_30px] gap-2 border-b border-base-200 pb-1 text-[10px] uppercase tracking-wider text-base-content/60">
+                    <div className="grid grid-cols-[1fr_60px_60px_100px_72px_70px_1fr_30px] gap-2 border-b border-base-200 pb-1 text-[10px] uppercase tracking-wider text-base-content/60">
                         <div>Proveedor</div>
                         <div className="text-right">Cant.</div>
                         <div className="text-center">OC#</div>
                         <div className="text-right">P. unit</div>
+                        <div className="text-center">Moneda</div>
                         <div className="text-right">Días</div>
                         <div>Observaciones</div>
                         <div></div>
@@ -361,7 +414,7 @@ function CotizacionRow({
     cotizacion: CostosRequisicionCotizacionPrecio;
     detalle: CostosRequisicionDetalle;
     proveedor?: ProveedorMin;
-    selecciones: import('@/types/models').CostosRequisicionSeleccion[];
+    selecciones: CostosRequisicionSeleccion[];
     editable: boolean;
     cubierta: boolean;
 }) {
@@ -430,16 +483,19 @@ function CotizacionFila({
     };
 
     const [precio, setPrecio] = useState(String(cotizacion.precio_unitario));
+    const [moneda, setMoneda] = useState<CostosTipoMoneda>(cotizacion.moneda ?? 'mxn');
     const [tiempo, setTiempo] = useState(cotizacion.tiempo_entrega_dias != null ? String(cotizacion.tiempo_entrega_dias) : '');
     const [observ, setObserv] = useState(cotizacion.observaciones ?? '');
     const [cantidad, setCantidad] = useState(seleccion ? String(seleccion.cantidad) : '');
     const [numeroOc, setNumeroOc] = useState(seleccion ? String(seleccion.numero_oc) : extraOc ? String(sugerirNumeroOc()) : '1');
 
-    const guardarPrecio = () => {
+    const guardarPrecio = (monedaOverride?: CostosTipoMoneda) => {
         const p = Number(precio);
         if (!Number.isFinite(p) || p <= 0) return;
+        const monedaActual = monedaOverride ?? moneda;
         if (
             p === Number(cotizacion.precio_unitario)
+            && monedaActual === (cotizacion.moneda ?? 'mxn')
             && (tiempo === '' ? null : Number(tiempo)) === cotizacion.tiempo_entrega_dias
             && observ === (cotizacion.observaciones ?? '')
         ) return;
@@ -448,6 +504,7 @@ function CotizacionFila({
             requisicion_detalle_id: detalle.id,
             proveedor_id: cotizacion.proveedor_id,
             precio_unitario: p,
+            moneda: monedaActual,
             tiempo_entrega_dias: tiempo ? Number(tiempo) : null,
             observaciones: observ || null,
         }, { preserveScroll: true });
@@ -502,7 +559,7 @@ function CotizacionFila({
 
     return (
         <div
-            className={`grid grid-cols-[1fr_60px_60px_100px_70px_1fr_30px] gap-2 items-center py-1 ${selected ? 'bg-success/5' : ''}`}
+            className={`grid grid-cols-[1fr_60px_60px_100px_72px_70px_1fr_30px] gap-2 items-center py-1 ${selected ? 'bg-success/5' : ''}`}
         >
             <div className="text-xs">{proveedor?.razon_social ?? `#${cotizacion.proveedor_id}`}</div>
             <input
@@ -533,8 +590,22 @@ function CotizacionFila({
                 value={precio}
                 disabled={!editable}
                 onChange={(e) => setPrecio(e.target.value)}
-                onBlur={guardarPrecio}
+                onBlur={() => guardarPrecio()}
             />
+            <select
+                className="select select-bordered select-xs w-full"
+                value={moneda}
+                disabled={!editable}
+                onChange={(e) => {
+                    const m = e.target.value as CostosTipoMoneda;
+                    setMoneda(m);
+                    guardarPrecio(m);
+                }}
+            >
+                <option value="mxn">MXN</option>
+                <option value="usd">USD</option>
+                <option value="eur">EUR</option>
+            </select>
             <input
                 type="number"
                 min={0}
@@ -542,7 +613,7 @@ function CotizacionFila({
                 value={tiempo}
                 disabled={!editable}
                 onChange={(e) => setTiempo(e.target.value)}
-                onBlur={guardarPrecio}
+                onBlur={() => guardarPrecio()}
             />
             <input
                 type="text"
@@ -550,7 +621,7 @@ function CotizacionFila({
                 value={observ}
                 disabled={!editable}
                 onChange={(e) => setObserv(e.target.value)}
-                onBlur={guardarPrecio}
+                onBlur={() => guardarPrecio()}
             />
             <div className="flex justify-end">
                 {showRemoveCotizacion && editable && (
@@ -579,12 +650,14 @@ function AgregarProveedorRow({
 }) {
     const [proveedorId, setProveedorId] = useState<number | ''>('');
     const [precio, setPrecio] = useState('');
+    const [moneda, setMoneda] = useState<CostosTipoMoneda>('mxn');
     const submit = () => {
         if (proveedorId === '' || !precio) return;
         router.post('/admin/costos/requisiciones/cotizaciones', {
             requisicion_detalle_id: detalle.id,
             proveedor_id: proveedorId,
             precio_unitario: Number(precio),
+            moneda,
         }, {
             preserveScroll: true,
             onSuccess: () => onClose(),
@@ -613,6 +686,15 @@ function AgregarProveedorRow({
                 value={precio}
                 onChange={(e) => setPrecio(e.target.value)}
             />
+            <select
+                className="select select-bordered select-xs w-20"
+                value={moneda}
+                onChange={(e) => setMoneda(e.target.value as CostosTipoMoneda)}
+            >
+                <option value="mxn">MXN</option>
+                <option value="usd">USD</option>
+                <option value="eur">EUR</option>
+            </select>
             <Button onClick={submit} disabled={proveedorId === '' || !precio}>Agregar</Button>
             <Button variant="outline" onClick={onClose}>Cancelar</Button>
         </div>
@@ -631,10 +713,13 @@ type PreviewGroup = {
         precio_unitario: number;
         subtotal: number;
         observaciones: string | null;
+        tipo_fiscal: CostosTipoFiscalPartida;
     }>;
     subtotal_lineas: number;
     has_no_credito: boolean; // proveedor.maneja_credito === false
     dias_max: number; // máx. tiempo_entrega_dias de las selecciones del grupo
+    moneda: CostosTipoMoneda; // moneda de las cotizaciones del grupo (la primera)
+    moneda_conflicto: boolean; // true si las líneas mezclan monedas
 };
 
 function PreviewOcs({
@@ -671,14 +756,25 @@ function PreviewOcs({
                     const iva = base * IVA_RATE;
                     const total = base + iva;
                     const proveedor = proveedoresMap.get(g.proveedor_id);
+                    const retenciones = calcularRetenciones(
+                        proveedor,
+                        g.lines.map((l) => ({ tipo_fiscal: l.tipo_fiscal, subtotal: l.subtotal })),
+                    );
+                    const totalRetenciones = retenciones.reduce((s, r) => s + r.monto, 0);
+                    const totalNeto = total - totalRetenciones;
 
                     const manejaCredito = !g.has_no_credito;
 
                     return (
                         <div key={key} className="overflow-hidden rounded border border-base-300">
                             <div className="flex items-center justify-between border-b border-base-300 bg-base-200/40 px-3 py-2">
-                                <div className="text-sm font-semibold">
+                                <div className="flex items-center gap-2 text-sm font-semibold">
                                     {proveedor?.razon_social ?? `#${g.proveedor_id}`} · OC-{g.numero_oc}
+                                    {g.moneda_conflicto ? (
+                                        <span className="badge badge-error badge-sm">Monedas mezcladas</span>
+                                    ) : (
+                                        <span className="badge badge-ghost badge-sm">{TIPO_MONEDA_LABELS[g.moneda]}</span>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-3 text-xs">
                                     <label className="cursor-pointer">
@@ -707,18 +803,13 @@ function PreviewOcs({
                                             Crédito
                                         </label>
                                     )}
-                                    <select
-                                        className="select select-bordered select-xs ml-1"
-                                        value={ov.moneda}
-                                        disabled={!editable}
-                                        onChange={(e) => onOverrideChange(g.proveedor_id, g.numero_oc, { moneda: e.target.value as CostosTipoMoneda })}
-                                    >
-                                        <option value="mxn">MXN</option>
-                                        <option value="usd">USD</option>
-                                        <option value="eur">EUR</option>
-                                    </select>
                                 </div>
                             </div>
+                            {g.moneda_conflicto && (
+                                <div className="alert alert-error rounded-none text-xs">
+                                    <span>Esta OC mezcla monedas distintas. Separa las partidas por moneda en OCs diferentes (cambia el OC#) para poder liberar.</span>
+                                </div>
+                            )}
                             <div className="px-3 py-2">
                                 <div className="grid grid-cols-[1fr_60px_90px_90px] gap-2 border-b border-base-200 pb-1 text-[10px] uppercase tracking-wider text-base-content/60">
                                     <div>Concepto</div>
@@ -739,6 +830,18 @@ function PreviewOcs({
                                     <div className="text-right">{fmt(g.subtotal_lineas)}</div>
                                     <div className="text-base-content/60">IVA (16%)</div>
                                     <div className="text-right">{fmt(iva)}</div>
+                                    {retenciones.map((r) => (
+                                        <Fragment key={r.clave}>
+                                            <div className="text-error/80">Ret. {r.concepto} ({(r.tasa * 100).toFixed(2)}%)</div>
+                                            <div className="text-right text-error/80">−{fmt(r.monto)}</div>
+                                        </Fragment>
+                                    ))}
+                                    {retenciones.length > 0 && (
+                                        <>
+                                            <div className="font-semibold">Total neto a pagar</div>
+                                            <div className="text-right font-semibold">{fmt(totalNeto)}</div>
+                                        </>
+                                    )}
                                 </div>
                                 <div className="mt-3 grid grid-cols-1 gap-2 border-t border-base-200 pt-2 md:grid-cols-[200px_1fr]">
                                     <div>
@@ -857,9 +960,13 @@ function buildPreviewGroups(requisicion: CostosRequisicion): PreviewGroup[] {
                     subtotal_lineas: 0,
                     has_no_credito: false,
                     dias_max: 0,
+                    moneda: (s.cotizacion_precio?.moneda ?? 'mxn') as CostosTipoMoneda,
+                    moneda_conflicto: false,
                 });
             }
             const g = groups.get(key)!;
+            const lineaMoneda = (s.cotizacion_precio?.moneda ?? 'mxn') as CostosTipoMoneda;
+            if (lineaMoneda !== g.moneda) g.moneda_conflicto = true;
             g.lines.push({
                 descripcion: d.descripcion,
                 unidad: d.unidad,
@@ -867,6 +974,7 @@ function buildPreviewGroups(requisicion: CostosRequisicion): PreviewGroup[] {
                 precio_unitario: precio,
                 subtotal,
                 observaciones: s.cotizacion_precio?.observaciones ?? null,
+                tipo_fiscal: d.tipo_fiscal ?? 'mercancia',
             });
             g.subtotal_lineas += subtotal;
             const dias = Number(s.cotizacion_precio?.tiempo_entrega_dias ?? 0);
@@ -897,7 +1005,6 @@ function seedOverrides(
             proveedor_id: g.proveedor_id,
             numero_oc: g.numero_oc,
             modo_pago: noCreditoEffective ? 'contado' : 'credito',
-            moneda: 'mxn',
             fecha_entrega: fecha.toISOString().slice(0, 10),
             notas: '',
         };

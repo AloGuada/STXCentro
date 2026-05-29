@@ -9,6 +9,7 @@ use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
+use App\Models\Obra;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -41,6 +42,7 @@ class Requisicion extends Model implements Aprobable
         'folio',
         'solicitante_id',
         'departamento_id',
+        'obra_id',
         'justificacion',
         'fecha_requerida',
         'estatus',
@@ -69,6 +71,11 @@ class Requisicion extends Model implements Aprobable
     public function departamento(): BelongsTo
     {
         return $this->belongsTo(Departamento::class);
+    }
+
+    public function obra(): BelongsTo
+    {
+        return $this->belongsTo(Obra::class);
     }
 
     public function detalles(): HasMany

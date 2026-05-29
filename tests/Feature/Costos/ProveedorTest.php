@@ -1,11 +1,56 @@
 <?php
 
 use App\Models\Proveedor;
+use App\Models\RegimenFiscal;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
+    foreach ([
+        'costos.proveedores.ver',
+        'costos.proveedores.crear',
+        'costos.proveedores.editar',
+        'costos.proveedores.eliminar',
+    ] as $perm) {
+        Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
+    }
+
+    Storage::fake('public');
+
     $this->user = User::factory()->create();
+    $this->user->givePermissionTo([
+        'costos.proveedores.ver',
+        'costos.proveedores.crear',
+        'costos.proveedores.editar',
+        'costos.proveedores.eliminar',
+    ]);
+
+    $this->regimen = RegimenFiscal::factory()->create();
 });
+
+function datosProveedorValidos(array $overrides = []): array
+{
+    return array_merge([
+        'codigo' => 'PROV001',
+        'razon_social' => 'Test SA de CV',
+        'rfc' => 'TST123456AB0',
+        'tipo_persona' => 'moral',
+        'regimen_fiscal_id' => test()->regimen->id,
+        'codigo_postal' => '64000',
+        'domicilio_fiscal' => 'Calle 1',
+        'email' => 'test@test.mx',
+        'banco' => 'Banorte',
+        'titular_cuenta' => 'Test',
+        'numero_cuenta' => '1234567890',
+        'moneda_cuenta' => 'MXN',
+        'constancia' => UploadedFile::fake()->image('constancia.jpg'),
+        'caratula' => UploadedFile::fake()->image('caratula.jpg'),
+        'tiene_acceso_portal' => false,
+        'maneja_credito' => false,
+    ], $overrides);
+}
 
 describe('admin proveedores', function () {
     test('index page can be rendered', function () {
@@ -42,24 +87,20 @@ describe('admin proveedores', function () {
         $response->assertInertia(fn ($page) => $page
             ->component('admin/proveedores/create')
             ->has('departamentos')
+            ->has('regimenes')
         );
     });
 
     test('proveedor can be stored', function () {
         $response = $this->actingAs($this->user)
-            ->post(route('admin.proveedores.store'), [
-                'codigo' => 'PROV001',
-                'razon_social' => 'Test SA de CV',
-                'rfc' => 'TST123456AB0',
-                'tiene_acceso_portal' => false,
-                'maneja_credito' => false,
-                'activo' => true,
-            ]);
+            ->post(route('admin.proveedores.store'), datosProveedorValidos());
 
         $response->assertRedirect(route('admin.proveedores.index'));
         $this->assertDatabaseHas('proveedores', [
             'codigo' => 'PROV001',
             'razon_social' => 'Test SA de CV',
+            'estatus' => 'pendiente_validacion',
+            'activo' => false,
         ]);
     });
 
@@ -74,21 +115,22 @@ describe('admin proveedores', function () {
             ->component('admin/proveedores/edit')
             ->has('proveedor')
             ->has('departamentos')
+            ->has('regimenes')
         );
     });
 
     test('proveedor can be updated', function () {
-        $proveedor = Proveedor::factory()->create();
+        $proveedor = Proveedor::factory()->create(['razon_social' => 'Vieja SA']);
 
         $response = $this->actingAs($this->user)
-            ->put(route('admin.proveedores.update', $proveedor), [
+            ->put(route('admin.proveedores.update', $proveedor), datosProveedorValidos([
                 'codigo' => $proveedor->codigo,
-                'razon_social' => 'Updated SA',
                 'rfc' => $proveedor->rfc,
-                'tiene_acceso_portal' => false,
-                'maneja_credito' => false,
-                'activo' => true,
-            ]);
+                'razon_social' => 'Updated SA',
+                'titular_cuenta' => 'Updated',
+                'constancia' => null,
+                'caratula' => null,
+            ]));
 
         $response->assertRedirect(route('admin.proveedores.index'));
         $this->assertDatabaseHas('proveedores', [
@@ -118,14 +160,12 @@ describe('admin proveedores', function () {
         Proveedor::factory()->create(['codigo' => 'DUP001']);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.proveedores.store'), [
+            ->post(route('admin.proveedores.store'), datosProveedorValidos([
                 'codigo' => 'DUP001',
                 'razon_social' => 'Test',
+                'titular_cuenta' => 'Test',
                 'rfc' => 'UNIQUE12345AB',
-                'tiene_acceso_portal' => false,
-                'maneja_credito' => false,
-                'activo' => true,
-            ]);
+            ]));
 
         $response->assertSessionHasErrors(['codigo']);
     });

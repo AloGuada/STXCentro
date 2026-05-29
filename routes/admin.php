@@ -39,6 +39,7 @@ use App\Http\Controllers\Admin\Costos\RubroController as CostosRubroController;
 use App\Http\Controllers\Admin\Costos\SolicitudPagoController as CostosSolicitudPagoController;
 use App\Http\Controllers\Admin\Costos\TipoRubroController as CostosTipoRubroController;
 use App\Http\Controllers\Admin\Costos\TipoSolicitudController as CostosTipoSolicitudController;
+use App\Http\Controllers\Admin\Costos\UsoCfdiController as CostosUsoCfdiController;
 use App\Http\Controllers\Admin\DepartamentoController;
 use App\Http\Controllers\Admin\Dg\CarpetaAccesoController as DgCarpetaAccesoController;
 use App\Http\Controllers\Admin\Dg\CarpetaController as DgCarpetaController;
@@ -65,6 +66,7 @@ use App\Http\Controllers\Admin\Prod\PagoExtraController as ProdPagoExtraControll
 use App\Http\Controllers\Admin\Prod\RegistroController as ProdRegistroController;
 use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtraController;
 use App\Http\Controllers\Admin\ProveedorController;
+use App\Http\Controllers\Admin\RegimenFiscalController;
 use App\Http\Controllers\Admin\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Admin\Rh\OnboardingController as RhOnboardingController;
 use App\Http\Controllers\Admin\Rh\PeriodoLaboralController as RhPeriodoLaboralController;
@@ -94,6 +96,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::resource('obras', ObraController::class);
     Route::post('obras/{obra}/import-conceptos', [ObraController::class, 'importConceptos'])->name('obras.import-conceptos');
     Route::resource('proveedores', ProveedorController::class)->parameters(['proveedores' => 'proveedor']);
+    Route::resource('regimenes-fiscales', RegimenFiscalController::class)
+        ->parameters(['regimenes-fiscales' => 'regimenFiscal'])
+        ->except(['show']);
     Route::middleware('role:super-admin')->group(function () {
         Route::resource('media', MediaController::class);
         Route::resource('tags', TagController::class);
@@ -153,6 +158,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('unlock/{type}/{id}', [CostosEditLockController::class, 'unlock'])->name('unlock');
 
         Route::resource('tipo-rubros', CostosTipoRubroController::class)->parameters(['tipo-rubros' => 'tipoRubro']);
+        Route::resource('usos-cfdi', CostosUsoCfdiController::class)->parameters(['usos-cfdi' => 'usoCfdi'])->except(['show']);
         Route::resource('rubros', CostosRubroController::class)->parameters(['rubros' => 'rubro']);
         Route::resource('tipo-solicitudes', CostosTipoSolicitudController::class)->parameters(['tipo-solicitudes' => 'tipoSolicitud']);
         Route::resource('permisos', CostosPermisoController::class)->parameters(['permisos' => 'permiso']);
@@ -175,6 +181,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('requisiciones', CostosRequisicionController::class)->parameters(['requisiciones' => 'requisicion']);
         Route::post('requisiciones/{requisicion}/cancelar', [CostosRequisicionController::class, 'cancelar'])->name('requisiciones.cancelar');
         Route::post('requisiciones/{requisicion}/enviar-aprobacion', [CostosRequisicionController::class, 'enviarAprobacion'])->name('requisiciones.enviar-aprobacion');
+        Route::post('requisiciones/{requisicion}/firmar-final', [CostosRequisicionController::class, 'firmarFinal'])->name('requisiciones.firmar-final');
         Route::post('requisiciones/{requisicion}/liberar', [CostosRequisicionController::class, 'liberar'])->name('requisiciones.liberar');
         Route::post('requisiciones/{requisicion}/re-apartar', [CostosRequisicionController::class, 'reApartar'])->name('requisiciones.re-apartar');
         Route::post('requisiciones/cotizaciones', [CostosRequisicionCotizacionController::class, 'store'])->name('requisiciones.cotizaciones.store');

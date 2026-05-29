@@ -35,6 +35,7 @@ class RequisicionCotizacionController extends Controller
             ],
             [
                 'precio_unitario' => $request->float('precio_unitario'),
+                'moneda' => $request->input('moneda'),
                 'tiempo_entrega_dias' => $request->input('tiempo_entrega_dias'),
                 'observaciones' => $request->input('observaciones'),
             ],

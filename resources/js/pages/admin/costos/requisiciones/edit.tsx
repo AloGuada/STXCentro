@@ -1,22 +1,26 @@
+import { Head, useForm } from '@inertiajs/react';
+import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosRequisicion, Departamento, ObraRubroOption } from '@/types/models';
-import { Head, useForm } from '@inertiajs/react';
-import { PlusIcon, Trash2Icon } from 'lucide-react';
+import type { CostosRequisicion, CostosUsoCfdi, Departamento, Obra, ObraRubroOption } from '@/types/models';
 
 type Detalle = {
     id?: number;
     descripcion: string;
+    codigo_producto: string;
     unidad: string;
     cantidad: number;
     obra_rubro_id: number | '';
+    uso_cfdi_id: number | '';
+    tipo_fiscal: string;
     notas: string;
 };
 
 type FormData = {
     departamento_id: number;
+    obra_id: number | '';
     justificacion: string;
     detalles: Detalle[];
     _version: string;
@@ -25,10 +29,12 @@ type FormData = {
 type Props = {
     requisicion: CostosRequisicion;
     departamentos: Pick<Departamento, 'id' | 'descripcion'>[];
+    obras: Pick<Obra, 'id' | 'no' | 'descripcion'>[];
     obraRubros: ObraRubroOption[];
+    usosCfdi: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>[];
 };
 
-export default function RequisicionesEdit({ requisicion, departamentos, obraRubros }: Props) {
+export default function RequisicionesEdit({ requisicion, departamentos, obras, obraRubros, usosCfdi }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/requisiciones' },
@@ -37,28 +43,41 @@ export default function RequisicionesEdit({ requisicion, departamentos, obraRubr
         { title: 'Editar', href: `/admin/costos/requisiciones/${requisicion.id}/edit` },
     ];
 
+    const defaultUsoId = usosCfdi.find((u) => u.clave === 'G01')?.id ?? '';
+
     const { data, setData, put, processing, errors } = useForm<FormData>({
         departamento_id: requisicion.departamento_id,
+        obra_id: requisicion.obra_id ?? '',
         justificacion: requisicion.justificacion ?? '',
         detalles: (requisicion.detalles ?? []).map((d) => ({
             id: d.id,
             descripcion: d.descripcion,
+            codigo_producto: d.codigo_producto ?? '',
             unidad: d.unidad,
             cantidad: Number(d.cantidad),
             obra_rubro_id: d.obra_rubro_id ?? '',
+            uso_cfdi_id: d.uso_cfdi_id ?? '',
+            tipo_fiscal: d.tipo_fiscal ?? 'mercancia',
             notas: d.notas ?? '',
         })),
         _version: requisicion.updated_at,
     });
 
+    const rubrosDeObra = data.obra_id ? obraRubros.filter((r) => r.obra_id === data.obra_id) : [];
+
+    const setObra = (value: number | '') => {
+        setData((prev) => ({
+            ...prev,
+            obra_id: value,
+            detalles: prev.detalles.map((d) => ({ ...d, obra_rubro_id: '' })),
+        }));
+    };
+
     const addDetalle = () => {
-        setData('detalles', [...data.detalles, { descripcion: '', unidad: 'pza', cantidad: 1, obra_rubro_id: '', notas: '' }]);
+        setData('detalles', [...data.detalles, { descripcion: '', codigo_producto: '', unidad: 'pza', cantidad: 1, obra_rubro_id: '', uso_cfdi_id: defaultUsoId, tipo_fiscal: 'mercancia', notas: '' }]);
     };
 
-    const removeDetalle = (idx: number) => {
-        setData('detalles', data.detalles.filter((_, i) => i !== idx));
-    };
-
+    const removeDetalle = (idx: number) => setData('detalles', data.detalles.filter((_, i) => i !== idx));
     const updateDetalle = (idx: number, field: keyof Detalle, value: string | number) => {
         setData('detalles', data.detalles.map((d, i) => (i === idx ? { ...d, [field]: value } : d)));
     };
@@ -89,6 +108,21 @@ export default function RequisicionesEdit({ requisicion, departamentos, obraRubr
                         </select>
                     </div>
 
+                    <div>
+                        <label className="label label-text">Obra / Proyecto *</label>
+                        <select
+                            className="select select-bordered w-full"
+                            value={data.obra_id}
+                            onChange={(e) => setObra(e.target.value ? Number(e.target.value) : '')}
+                        >
+                            <option value="">Selecciona una obra</option>
+                            {obras.map((o) => (
+                                <option key={o.id} value={o.id}>{o.no ? `OP-${o.no} · ` : ''}{o.descripcion}</option>
+                            ))}
+                        </select>
+                        {errors.obra_id && <p className="text-error text-sm mt-1">{errors.obra_id}</p>}
+                    </div>
+
                     <div className="md:col-span-2">
                         <label className="label label-text">Justificación</label>
                         <textarea
@@ -107,12 +141,21 @@ export default function RequisicionesEdit({ requisicion, departamentos, obraRubr
                     </Button>
                 </div>
 
+                {!data.obra_id && (
+                    <div className="alert alert-info mb-3">
+                        <span>Selecciona primero la obra para asignar el rubro (centro de costo) de cada partida.</span>
+                    </div>
+                )}
+
                 <div className="overflow-x-auto rounded-lg border border-base-300">
                     <table className="table table-sm">
                         <thead>
                             <tr>
                                 <th>Descripción *</th>
-                                <th className="min-w-[220px]">Rubro *</th>
+                                <th className="w-36">Código producto</th>
+                                <th className="min-w-[200px]">Rubro (C. Costo) *</th>
+                                <th className="min-w-[180px]">Uso CFDI *</th>
+                                <th className="min-w-[150px]">Tipo fiscal</th>
                                 <th className="w-24">Unidad</th>
                                 <th className="w-28 text-right">Cantidad *</th>
                                 <th>Notas</th>
@@ -131,11 +174,51 @@ export default function RequisicionesEdit({ requisicion, departamentos, obraRubr
                                         />
                                     </td>
                                     <td>
+                                        <input
+                                            type="text"
+                                            className="input input-bordered input-sm w-full"
+                                            value={d.codigo_producto}
+                                            onChange={(e) => updateDetalle(i, 'codigo_producto', e.target.value)}
+                                        />
+                                    </td>
+                                    <td>
                                         <RubroSelector
                                             value={d.obra_rubro_id}
-                                            options={obraRubros}
+                                            options={rubrosDeObra}
+                                            rubroOnly
+                                            disabled={!data.obra_id}
                                             onChange={(value) => updateDetalle(i, 'obra_rubro_id', value)}
                                         />
+                                        {errors[`detalles.${i}.obra_rubro_id` as keyof typeof errors] && (
+                                            <p className="text-error text-xs mt-1">{errors[`detalles.${i}.obra_rubro_id` as keyof typeof errors]}</p>
+                                        )}
+                                    </td>
+                                    <td>
+                                        <select
+                                            className="select select-bordered select-sm w-full"
+                                            value={d.uso_cfdi_id}
+                                            onChange={(e) => updateDetalle(i, 'uso_cfdi_id', e.target.value ? Number(e.target.value) : '')}
+                                        >
+                                            <option value="">Selecciona...</option>
+                                            {usosCfdi.map((u) => (
+                                                <option key={u.id} value={u.id}>{u.clave} - {u.descripcion}</option>
+                                            ))}
+                                        </select>
+                                        {errors[`detalles.${i}.uso_cfdi_id` as keyof typeof errors] && (
+                                            <p className="text-error text-xs mt-1">{errors[`detalles.${i}.uso_cfdi_id` as keyof typeof errors]}</p>
+                                        )}
+                                    </td>
+                                    <td>
+                                        <select
+                                            className="select select-bordered select-sm w-full"
+                                            value={d.tipo_fiscal}
+                                            onChange={(e) => updateDetalle(i, 'tipo_fiscal', e.target.value)}
+                                        >
+                                            <option value="mercancia">Mercancía</option>
+                                            <option value="flete">Flete</option>
+                                            <option value="servicio_profesional">Servicio profesional</option>
+                                            <option value="renta">Renta</option>
+                                        </select>
                                     </td>
                                     <td>
                                         <input

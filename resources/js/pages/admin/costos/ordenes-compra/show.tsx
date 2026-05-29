@@ -1,3 +1,6 @@
+import { Head, Link } from '@inertiajs/react';
+import { ChevronDownIcon, ChevronRightIcon, DownloadIcon, FileIcon, FileTextIcon, FolderIcon, FolderOpenIcon, PaperclipIcon } from 'lucide-react';
+import { Fragment, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { DevolverItemModal } from '@/components/costos/devolver-item-modal';
@@ -6,14 +9,12 @@ import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosOrdenCompra, CostosOrdenCompraEstatus } from '@/types/models';
+import type { CostosOrdenCompra, CostosOrdenCompraEstatus, CostosRetencionDesglose } from '@/types/models';
 import { DEVOLUCION_ESTATUS_COLORS, DEVOLUCION_ESTATUS_LABELS, FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
-import { Head, Link } from '@inertiajs/react';
-import { ChevronDownIcon, ChevronRightIcon, DownloadIcon, FileIcon, FileTextIcon, FolderIcon, FolderOpenIcon, PaperclipIcon } from 'lucide-react';
-import { useState } from 'react';
 
 type Props = {
     ordenCompra: CostosOrdenCompra;
+    retenciones: CostosRetencionDesglose | null;
 };
 
 const steps: { key: CostosOrdenCompraEstatus; label: string }[] = [
@@ -36,7 +37,7 @@ type DevolverTarget = {
     cantidadDisponible: number;
 };
 
-export default function OrdenesCompraShow({ ordenCompra }: Props) {
+export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/ordenes-compra' },
@@ -237,6 +238,30 @@ export default function OrdenesCompraShow({ ordenCompra }: Props) {
                                 </table>
                             </div>
                         </div>
+
+                        {retenciones && (
+                            <div className="flex justify-end">
+                                <div className="w-full max-w-sm rounded-lg border border-base-300 p-3 text-sm">
+                                    <div className="grid grid-cols-[1fr_auto] gap-y-1">
+                                        <span className="text-base-content/60">Subtotal</span>
+                                        <span className="text-right">{formatMoney(retenciones.subtotal)}</span>
+                                        <span className="text-base-content/60">IVA trasladado</span>
+                                        <span className="text-right">{formatMoney(retenciones.iva)}</span>
+                                        {retenciones.retenciones.map((r) => (
+                                            <Fragment key={r.clave}>
+                                                <span className="text-error/80">Ret. {r.concepto} ({(r.tasa * 100).toFixed(2)}%)</span>
+                                                <span className="text-right text-error/80">−{formatMoney(r.monto)}</span>
+                                            </Fragment>
+                                        ))}
+                                        <span className="mt-1 border-t border-base-300 pt-1 font-semibold">Total neto a pagar</span>
+                                        <span className="mt-1 border-t border-base-300 pt-1 text-right font-semibold">{formatMoney(retenciones.total_neto)}</span>
+                                    </div>
+                                    {retenciones.retenciones.length > 0 && (
+                                        <p className="mt-2 text-[11px] text-base-content/50">Retenciones informativas; se corroboran al recibir la factura.</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
