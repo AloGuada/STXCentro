@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\Costos\ComplementoPagoEstatus;
 use App\Enums\ProveedorEstatus;
+use App\Models\Costos\ComplementoPago;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -120,6 +122,44 @@ class Proveedor extends Authenticatable
     public function facturas(): HasMany
     {
         return $this->hasMany(Factura::class, 'proveedor_id');
+    }
+
+    public function complementosPago(): HasMany
+    {
+        return $this->hasMany(ComplementoPago::class, 'proveedor_id');
+    }
+
+    /**
+     * Obligaciones de complemento de pago aún no cumplidas (pendientes o
+     * vencidas) que bloquean al proveedor.
+     *
+     * @return array<int, string>
+     */
+    private static function estatusBloqueantes(): array
+    {
+        return [ComplementoPagoEstatus::Pendiente->value, ComplementoPagoEstatus::Vencido->value];
+    }
+
+    /**
+     * True si el proveedor tiene complementos de pago pendientes/vencidos. Un
+     * proveedor bloqueado no puede usarse en nuevas requisiciones ni solicitudes
+     * de pago hasta regularizar.
+     */
+    public function bloqueadoPorComplemento(): bool
+    {
+        if ($this->relationLoaded('complementosPago')) {
+            return $this->complementosPago
+                ->contains(fn (ComplementoPago $c) => in_array($c->estatus->value, self::estatusBloqueantes(), true));
+        }
+
+        return $this->complementosPago()
+            ->whereIn('estatus', self::estatusBloqueantes())
+            ->exists();
+    }
+
+    public function getBloqueadoComplementoAttribute(): bool
+    {
+        return $this->bloqueadoPorComplemento();
     }
 
     public function esPersonaFisica(): bool

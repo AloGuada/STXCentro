@@ -68,4 +68,21 @@ return [
         'iva_honorarios' => (float) env('COSTOS_RET_IVA_HONORARIOS', 0.1067),
         'iva_renta' => (float) env('COSTOS_RET_IVA_RENTA', 0.1067),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Complemento de pago (CFDI PPD)
+    |--------------------------------------------------------------------------
+    |
+    | Por cada pago a una factura PPD, el proveedor debe emitir un complemento
+    | de pago. `dia_limite_mes_siguiente` define la fecha límite fiscal (día N
+    | del mes siguiente al pago) usada para marcar la obligación como vencida.
+    | `recordatorio_cada_dias` controla cada cuántos días se reenvía el aviso
+    | al proveedor mientras la obligación siga pendiente.
+    |
+    */
+    'complemento_pago' => [
+        'dia_limite_mes_siguiente' => (int) env('COSTOS_COMPLEMENTO_DIA_LIMITE', 5),
+        'recordatorio_cada_dias' => (int) env('COSTOS_COMPLEMENTO_RECORDATORIO_DIAS', 3),
+    ],
 ];

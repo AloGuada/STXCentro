@@ -115,6 +115,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.pagos.programar',
             'costos.pagos.cancelar',
             'costos.facturas.aceptar-contabilidad',
+            'costos.complementos.ver',
+            'costos.complementos.desbloquear',
             'costos.cuentas-internas.ver',
             'costos.cuentas-internas.editar',
             'costos.solicitudes.confirmar-costos',

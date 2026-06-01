@@ -36,6 +36,9 @@ class CfdiXmlParser
      *   isr_retenido: float,
      *   rfc_emisor: ?string,
      *   rfc_receptor: ?string,
+     *   metodo_pago: ?string,
+     *   forma_pago: ?string,
+     *   tipo_comprobante: ?string,
      *   impuestos_detalle: array<string, mixed>,
      * }
      */
@@ -66,7 +69,68 @@ class CfdiXmlParser
             'isr_retenido' => $isrRetenido,
             'rfc_emisor' => $rfcEmisor,
             'rfc_receptor' => $rfcReceptor,
+            'metodo_pago' => $this->attr($xml, 'MetodoPago'),
+            'forma_pago' => $this->attr($xml, 'FormaPago'),
+            'tipo_comprobante' => $this->attr($xml, 'TipoDeComprobante'),
             'impuestos_detalle' => $impuestosDetalle,
+        ];
+    }
+
+    /**
+     * Parsea un CFDI de tipo "P" (Pago) y extrae el complemento de pagos:
+     * la fecha y monto del pago, y los documentos relacionados (facturas
+     * liquidadas) por su UUID e importe pagado.
+     *
+     * @return array{
+     *   tipo_comprobante: ?string,
+     *   uuid_fiscal: ?string,
+     *   fecha_pago: ?string,
+     *   monto_total: float,
+     *   docs_relacionados: array<int, array{uuid: string, imp_pagado: float}>,
+     * }
+     */
+    public function parseComplementoPago(string $xmlString): array
+    {
+        $xml = $this->loadXml($xmlString);
+        $ns = $xml->getNamespaces(true);
+        $cfdi = $ns['cfdi'] ?? 'http://www.sat.gob.mx/cfd/4';
+        $pagoNs = $ns['pago20'] ?? $ns['pago10'] ?? 'http://www.sat.gob.mx/Pagos20';
+
+        $docs = [];
+        $fechaPago = null;
+        $montoTotal = 0.0;
+
+        $complemento = $xml->children($cfdi)->Complemento ?? null;
+        if ($complemento !== null) {
+            $pagos = $complemento->children($pagoNs)->Pagos ?? null;
+            if ($pagos !== null) {
+                foreach ($pagos->children($pagoNs)->Pago as $pago) {
+                    $fechaRaw = $this->attr($pago, 'FechaPago');
+                    if ($fechaPago === null && $fechaRaw !== null) {
+                        $fechaPago = substr($fechaRaw, 0, 10);
+                    }
+                    $montoTotal += (float) ($this->attr($pago, 'Monto') ?? 0);
+
+                    foreach ($pago->children($pagoNs)->DoctoRelacionado as $doc) {
+                        $idDoc = $this->attr($doc, 'IdDocumento');
+                        if ($idDoc === null) {
+                            continue;
+                        }
+                        $docs[] = [
+                            'uuid' => strtoupper($idDoc),
+                            'imp_pagado' => (float) ($this->attr($doc, 'ImpPagado') ?? 0),
+                        ];
+                    }
+                }
+            }
+        }
+
+        return [
+            'tipo_comprobante' => $this->attr($xml, 'TipoDeComprobante'),
+            'uuid_fiscal' => $this->extractUuid($xml, $ns),
+            'fecha_pago' => $fechaPago,
+            'monto_total' => round($montoTotal, 2),
+            'docs_relacionados' => $docs,
         ];
     }
 

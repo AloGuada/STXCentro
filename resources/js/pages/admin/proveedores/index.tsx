@@ -23,9 +23,14 @@ const columns: Column<Proveedor>[] = [
         key: 'estatus',
         label: 'Estatus',
         render: (p) => (
-            <span className={`badge badge-sm ${PROVEEDOR_ESTATUS_COLORS[p.estatus] ?? 'badge-ghost'}`}>
-                {PROVEEDOR_ESTATUS_LABELS[p.estatus] ?? p.estatus}
-            </span>
+            <div className="flex flex-wrap items-center gap-1">
+                <span className={`badge badge-sm ${PROVEEDOR_ESTATUS_COLORS[p.estatus] ?? 'badge-ghost'}`}>
+                    {PROVEEDOR_ESTATUS_LABELS[p.estatus] ?? p.estatus}
+                </span>
+                {p.bloqueado_complemento && (
+                    <span className="badge badge-sm badge-error">Bloqueado: complemento pendiente</span>
+                )}
+            </div>
         ),
     },
 ];

@@ -52,6 +52,8 @@ class Factura extends Model
         'impuestos_detalle',
         'total',
         'moneda',
+        'metodo_pago',
+        'forma_pago',
         'fecha_factura',
         'estatus',
         'notas',
@@ -150,6 +152,20 @@ class Factura extends Model
     public function ordenCompra(): BelongsTo
     {
         return $this->belongsTo(OrdenCompra::class, 'orden_compra_id');
+    }
+
+    public function complementosPago(): HasMany
+    {
+        return $this->hasMany(ComplementoPago::class, 'factura_id');
+    }
+
+    /**
+     * CFDI con método de pago PPD (Pago en Parcialidades o Diferido): obliga al
+     * proveedor a emitir un complemento de pago por cada pago recibido.
+     */
+    public function esPpd(): bool
+    {
+        return $this->metodo_pago === 'PPD';
     }
 
     public function proveedor(): BelongsTo

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Portal\PortalAuthController;
+use App\Http\Controllers\Portal\PortalComplementoPagoController;
 use App\Http\Controllers\Portal\PortalDashboardController;
 use App\Http\Controllers\Portal\PortalFacturaController;
 use App\Http\Controllers\Portal\PortalNotaCreditoController;
@@ -35,6 +36,9 @@ Route::prefix('portal')->name('portal.')->group(function () {
 
         Route::post('notas-credito', [PortalNotaCreditoController::class, 'store'])
             ->name('notas-credito.store');
+
+        Route::get('complementos', [PortalComplementoPagoController::class, 'index'])->name('complementos.index');
+        Route::post('complementos', [PortalComplementoPagoController::class, 'store'])->name('complementos.store');
 
         Route::resource('pagos', PortalPagoController::class)
             ->only(['index', 'show'])

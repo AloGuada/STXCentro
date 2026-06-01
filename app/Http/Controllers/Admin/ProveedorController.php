@@ -24,7 +24,7 @@ class ProveedorController extends Controller
         Gate::authorize('costos.proveedores.ver');
 
         $proveedores = Proveedor::query()
-            ->with('departamento')
+            ->with(['departamento', 'complementosPago' => fn ($q) => $q->whereIn('estatus', ['pendiente', 'vencido'])])
             ->when($request->search, fn ($q, $s) => $q->where('razon_social', 'like', "%{$s}%")
                 ->orWhere('codigo', 'like', "%{$s}%")
                 ->orWhere('rfc', 'like', "%{$s}%")
@@ -32,6 +32,8 @@ class ProveedorController extends Controller
             ->latest()
             ->paginate(15)
             ->withQueryString();
+
+        $proveedores->getCollection()->each->append('bloqueado_complemento');
 
         return Inertia::render('admin/proveedores/index', [
             'proveedores' => $proveedores,

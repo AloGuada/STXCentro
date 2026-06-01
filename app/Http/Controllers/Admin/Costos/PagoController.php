@@ -10,10 +10,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\AbonoComprobanteRequest;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Http\Requests\Admin\Costos\PagoParcializarRequest;
+use App\Mail\ComplementoPendienteMail;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
 use App\Models\Costos\Pago;
 use App\Models\Costos\SolicitudPago;
+use App\Models\User;
+use App\Notifications\Costos\ProveedorBloqueadoNotification;
+use App\Services\Costos\ComplementoPagoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,12 +25,15 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class PagoController extends Controller
 {
+    public function __construct(private readonly ComplementoPagoService $complementos) {}
+
     public function index(Request $request): Response
     {
         $pagos = Pago::query()
@@ -237,9 +244,47 @@ class PagoController extends Controller
         if ($pagable instanceof Factura) {
             $pagable->transitionTo(FacturaEstatus::Pagada);
             $pagable->ordenCompra->recalcularEstatus();
+            $this->generarObligacionComplemento($pago, $pagable);
         } elseif ($pagable instanceof SolicitudPago) {
             $pagable->update(['fecha_pago_realizada' => now()]);
             $pagable->transitionTo(SolicitudPagoEstatus::Pagada);
+        }
+    }
+
+    /**
+     * Para facturas PPD, genera la obligación de complemento de pago, avisa al
+     * proveedor y, si con ella el proveedor queda bloqueado por primera vez,
+     * notifica al área de pagos.
+     */
+    private function generarObligacionComplemento(Pago $pago, Factura $factura): void
+    {
+        if (! $factura->esPpd()) {
+            return;
+        }
+
+        $proveedor = $factura->proveedor;
+        $estabaBloqueado = $proveedor?->bloqueadoPorComplemento() ?? false;
+
+        $obligacion = $this->complementos->generarObligacion($pago);
+
+        if (! $obligacion || ! $proveedor) {
+            return;
+        }
+
+        if ($proveedor->email) {
+            Mail::to($proveedor->email)->send(new ComplementoPendienteMail($obligacion, $proveedor));
+        }
+
+        if (! $estabaBloqueado) {
+            try {
+                $destinatarios = User::permission('costos.pagos.programar')->get();
+            } catch (\Throwable) {
+                $destinatarios = collect();
+            }
+
+            if ($destinatarios->isNotEmpty()) {
+                Notification::send($destinatarios, new ProveedorBloqueadoNotification($proveedor, $obligacion));
+            }
         }
     }
 

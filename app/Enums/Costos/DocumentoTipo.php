@@ -20,6 +20,10 @@ enum DocumentoTipo: string
     case XmlNotaCredito = 'xml_nota_credito';
     case PdfNotaCredito = 'pdf_nota_credito';
 
+    // Complemento de pago (CFDI tipo Pago, facturas PPD)
+    case XmlComplementoPago = 'xml_complemento_pago';
+    case PdfComplementoPago = 'pdf_complemento_pago';
+
     // Orden de compra
     case OcArchivo = 'oc_archivo';
     case OcPdfFormato = 'oc_pdf_formato';
@@ -48,6 +52,8 @@ enum DocumentoTipo: string
             self::PdfFactura => 'PDF de factura',
             self::XmlNotaCredito => 'XML de nota de crédito',
             self::PdfNotaCredito => 'PDF de nota de crédito',
+            self::XmlComplementoPago => 'XML de complemento de pago',
+            self::PdfComplementoPago => 'PDF de complemento de pago',
             self::OcArchivo => 'Archivo de OC',
             self::OcPdfFormato => 'Formato de OC (PDF)',
             self::OcPdfFirmado => 'OC firmada (PDF)',
@@ -67,9 +73,11 @@ enum DocumentoTipo: string
     {
         return match ($this) {
             self::XmlFactura,
-            self::XmlNotaCredito => 'xml,txt',
+            self::XmlNotaCredito,
+            self::XmlComplementoPago => 'xml,txt',
             self::PdfFactura,
             self::PdfNotaCredito,
+            self::PdfComplementoPago,
             self::OcPdfFormato,
             self::OcPdfFirmado,
             self::ComprobantePago,

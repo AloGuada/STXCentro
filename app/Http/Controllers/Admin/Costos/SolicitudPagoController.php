@@ -66,7 +66,11 @@ class SolicitudPagoController extends Controller
 
         return Inertia::render('admin/costos/solicitudes-pago/create', [
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
-            'proveedores' => Proveedor::where('activo', true)->orderBy('razon_social')->get(['id', 'razon_social', 'nombre_comercial']),
+            'proveedores' => Proveedor::where('activo', true)
+                ->with(['complementosPago' => fn ($q) => $q->whereIn('estatus', ['pendiente', 'vencido'])])
+                ->orderBy('razon_social')
+                ->get(['id', 'razon_social', 'nombre_comercial'])
+                ->each->append('bloqueado_complemento'),
             'tipoSolicitudes' => TipoSolicitud::with('documentos')->orderBy('titulo')->get(),
             'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
             'obraRubros' => ObraRubro::with('rubro')->get(),
@@ -76,6 +80,15 @@ class SolicitudPagoController extends Controller
     public function store(SolicitudPagoStoreRequest $request): RedirectResponse
     {
         Gate::authorize('costos.solicitudes-pago.crear');
+
+        if ($proveedorId = $request->integer('proveedor_id')) {
+            $proveedor = Proveedor::find($proveedorId);
+            if ($proveedor?->bloqueadoPorComplemento()) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['proveedor_id' => 'Proveedor bloqueado por complemento de pago pendiente. No puede generar solicitudes de pago hasta regularizar.']);
+            }
+        }
 
         $warnings = [];
         $solicitud = null;
@@ -234,7 +247,11 @@ class SolicitudPagoController extends Controller
         return Inertia::render('admin/costos/solicitudes-pago/edit', [
             'solicitud' => $solicitudPago,
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
-            'proveedores' => Proveedor::where('activo', true)->orderBy('razon_social')->get(['id', 'razon_social', 'nombre_comercial']),
+            'proveedores' => Proveedor::where('activo', true)
+                ->with(['complementosPago' => fn ($q) => $q->whereIn('estatus', ['pendiente', 'vencido'])])
+                ->orderBy('razon_social')
+                ->get(['id', 'razon_social', 'nombre_comercial'])
+                ->each->append('bloqueado_complemento'),
             'tipoSolicitudes' => TipoSolicitud::with('documentos')->orderBy('titulo')->get(),
             'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
             'obraRubros' => ObraRubro::with('rubro')->get(),
