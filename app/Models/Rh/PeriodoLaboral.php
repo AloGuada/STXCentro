@@ -94,6 +94,9 @@ class PeriodoLaboral extends Model
                     $onboarding->tareas()->create([
                         'titulo' => $tpl->titulo,
                         'descripcion' => $tpl->descripcion,
+                        'etapa' => $tpl->etapa,
+                        'responsable_sugerido' => $tpl->responsable,
+                        'duracion_estimada' => $tpl->duracion_estimada,
                         'fecha_vencimiento' => $tpl->dias_desde_inicio !== null
                             ? $fechaInicio->copy()->addDays($tpl->dias_desde_inicio)
                             : null,

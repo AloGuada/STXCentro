@@ -1,0 +1,3964 @@
+{
+    "version": 1,
+    "generado_en": "2026-05-29T18:07:31+00:00",
+    "total_puestos": 46,
+    "total_tareas": 414,
+    "onboarding": [
+        {
+            "puesto": "Almacenista De Obra",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "INFORMACION FORMATOS Y REQUISICIONES",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "AUX. CONTROL DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL ALMACEN",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "SUPERINTENDENTE DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 2
+                },
+                {
+                    "titulo": "COORDINACION SOBRE HERRAMIENTAS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "CONTRATISTA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INDUCCION DE LA OBRA*",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "SUPERVISOR DE SEGURIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                }
+            ]
+        },
+        {
+            "puesto": "Auxiliar Administrativo",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRESUPUESTOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE 1T",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "ELABORAR GENERACION DE ANIDADO DE PERFILES",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE 1T",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 5
+                },
+                {
+                    "titulo": "ELABORAR PROGRAMA DE CORTE",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ELABORAR PLAN DE ASIGNACION DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "COORDINAR CON EL EQUIPO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                },
+                {
+                    "titulo": "ADMINISTRAR  EL MATERIAL QUE SE HA HABILITADO",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 9
+                },
+                {
+                    "titulo": "ELABORAR REPORTES NECESARIOS",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "JEFE DE 1T",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 10
+                }
+            ]
+        },
+        {
+            "puesto": "Auxiliar De Almacen",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "INFORMACION FORMATOS Y REQUISICIONES",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "AUX. CONTROL DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL ALMACEN",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "ALMACENISTA DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LA OBRA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "SUPERINTENDENTE DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INDUCCION A LA OBRA",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "SUPERVISOR DE SEGURIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 4
+                }
+            ]
+        },
+        {
+            "puesto": "Auxiliar De Carga",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIALY EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION LA IDENTIFICACION DE PIEZAS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "EXPLICACION DEL TRASLADO, CARGADO Y DESCARGA DE LOS MATERIALES",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "CONTEO DEL MATERIAL CON RESPECTO AL INVENTARIO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 5
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 6
+                },
+                {
+                    "titulo": "MANTENER EL LUGAR ORDENADO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                }
+            ]
+        },
+        {
+            "puesto": "Auxiliar De Control De Obra",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "INFORMACION DE ACTIVIDADES",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "GERENTE DE CONSTRUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INFORMACION FORMATOS Y REQUISICIONES",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "GERENTE DE CONSTRUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                }
+            ]
+        },
+        {
+            "puesto": "Auxiliar Pt",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIALY EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION LA IDENTIFICACION DE PIEZAS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "VERIFICAR EL TRASLADO Y\/O CARGA DE PIEZAS CON EL PROCESO ADECUADO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "CHECAR Y COMUNICAR CUALQUIER INCIDENCIA",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 5
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 6
+                },
+                {
+                    "titulo": "MANTENER EL LUGAR ORDENADO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                }
+            ]
+        },
+        {
+            "puesto": "Ayudante",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SUPERVISOR DE ENLACE",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "CAPACITACION",
+                    "descripcion": null,
+                    "etapa": "DIA 1-6",
+                    "responsable": "SUPERVISOR DE ENLACE",
+                    "duracion_estimada": "6 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "EVALUACION",
+                    "descripcion": null,
+                    "etapa": "DIA 7-12",
+                    "responsable": "SUPERVISOR DE ENLACE",
+                    "duracion_estimada": "9 HRS",
+                    "dias_desde_inicio": 6,
+                    "orden": 4
+                }
+            ]
+        },
+        {
+            "puesto": "Coordinador 1T",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "ELABORACION DE CALENDARIO DE ACTIVIDADES PARA ENTREGA",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 5
+                },
+                {
+                    "titulo": "GESTIONAR EL INSUMO, CONSUMIBLES Y PERSONAL DE ACURDO  A PMP",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "REALIZAR LA ESTIMACION DEL COSTO DE LA OBRA Y MATERIAL REQUERIDO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "REPROGRAMAR ACTIVIDADES CONFORME EL CALENDARIO DE ENTREGAS",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                },
+                {
+                    "titulo": "ELABORAR PLAN PARA CONTROL DE INDICE DE RECHAZOS",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 9
+                },
+                {
+                    "titulo": "EVALUAR AL PERSONAL, SUPERVISORES Y JEFES",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 10
+                },
+                {
+                    "titulo": "ELABORAR REPORTES NECESARIOS",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 11
+                }
+            ]
+        },
+        {
+            "puesto": "Coordinador 2T",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "PLANEAR PROGRAMA DE PRODUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 5
+                },
+                {
+                    "titulo": "COORDINAR CON EL EQUIPO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ADECUAR EL PROGRAMA DE PRODUCCION DE SER NECESARIO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "ELABORAR PLAN PARA CONTROL DE INDICE DE RECHAZOS",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                },
+                {
+                    "titulo": "EVALUAR AL PERSONAL, SUPERVISORES Y JEFES",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 9
+                },
+                {
+                    "titulo": "ELABORAR REPORTES NECESARIOS",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 10
+                }
+            ]
+        },
+        {
+            "puesto": "Coordinador De Almacén",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIALY EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE EL MANEJO DE MATERIALES Y HERRAMIENTAS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE FORMATOS Y REPORTES",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "IR CONTROLANDO SALIDAS Y ENTRADAS DE ALMACEN",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 2,
+                    "orden": 5
+                },
+                {
+                    "titulo": "ELABORAR AJUSTE DE NIVEL DE INVENTARIO Y MANTENERLO OPTIMO",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ELABORAR UN RESUMEN DE OPERACIONES",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 7
+                }
+            ]
+        },
+        {
+            "puesto": "Coordinador De Construcción",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "INFORMACION FORMATOS Y REQUISICIONES",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "GERENTE DE CONSTRUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE LAS ALTAS Y BAJAS DE PERSONAL",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "AUX. DE ADMIN DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "CONOCIMIENTOS SOBRE EL CONTROL DE LAS OBRAS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "GERENTE DE CONSTRUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 3
+                },
+                {
+                    "titulo": "COORDINACION PARA EL MATERIAL\/HERRAMIENTA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "AUX. CONTROL DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "INDUCCION DE OBRA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "SUPERVISOR DE SEGURIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                }
+            ]
+        },
+        {
+            "puesto": "Coordinador De Enlace",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE 1T",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "REVISAR LOS DIVERSOS PLANOS PARA ESTABLECER PRIORIDADES",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "ELABORACION DE PLANEAMIENTO DE DISTRIBUCION DEL MATERIAL A CADA OBRA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "ELABORACION DE ORGANIZACION DE ESPACIOS PARA ARMADO DE CADA OBA",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ELABORACION SOBRE EL PROCESO DE ACTIVIDADES A REALIZAR",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "ELABORAR PROGRAMACION DE ENTREGAS BASANDOSE EN EL PROGRESO DE ASIGNACIONES",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                },
+                {
+                    "titulo": "RECEPCIONAR LAS DIVERSAS SOLICITUDES",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 3,
+                    "orden": 9
+                },
+                {
+                    "titulo": "ELABORAR LOS DIVERSOS REPORTES Y ENTREGAR",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 10
+                }
+            ]
+        },
+        {
+            "puesto": "Coordinador De Ti",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIALY EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INTRODUCCION DE LOS EQUIPOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "ELABORACION DE PROPUESTAS DE HERRAMIENTA PARA MEJORAR LABOR",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "PLANIFICACION Y ORGANIZACION DE LAS ACTIVIDADES ASIGNADAS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                }
+            ]
+        },
+        {
+            "puesto": "Coordinador General",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "PRESENTACION FORMAL",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "GERENCIAS Y JEFATURAS",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 5
+                },
+                {
+                    "titulo": "ELABORAR PLAN MAESTRO DE PRODUCCION DE LAS OBRAS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ELABORAR ESTADISTICAS Y COSTOS DE PRODUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 7
+                },
+                {
+                    "titulo": "ELABORACION DE PLAN DE MEJORA PARA PRODUCTIVDAD Y RENDIMIENTO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 8
+                },
+                {
+                    "titulo": "ANALIZAR EL PNC PARA DETERMINAR CAPACIDAD DE SOLDADURA Y ACCIONES A TOMAR",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 9
+                },
+                {
+                    "titulo": "COORDINAR Y EVALUAR ACCIONES DEL PLAN",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "PRODUCCION 1T, 2T Y PINTURA",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 3,
+                    "orden": 10
+                },
+                {
+                    "titulo": "ELABORAR REPORTES NECESARIOS",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 11
+                }
+            ]
+        },
+        {
+            "puesto": "Coordinador Planta",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIALY EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INTRODUCCION DE LOS EQUIPOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "COORDINACION CON EL EQUIPO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "ELABORA PROGRAMAS DE MANTENIMIENTO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ORGANIZA Y ASIGNA LAS ORDENES DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "ELABORAR PLAN DE EVALUACION AL PERSONAL",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 8
+                },
+                {
+                    "titulo": "ELABORAR PROPUESTAS DE CURSOS O TALLERES PARA MEJORA DEL EQUIPO",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 9
+                },
+                {
+                    "titulo": "REALIZAR LOS REPORTES  CORRESPONDIENTES",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 10
+                },
+                {
+                    "titulo": "REPROGRAMACION  DE ACTIVIDADES NO LOGRADAS",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 11
+                }
+            ]
+        },
+        {
+            "puesto": "Editor",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS Y CREDENCIAL",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "JEFE DE INGENIERIA",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INDUCCION AL TEKLA",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "EDITOR",
+                    "duracion_estimada": "6 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "EXPLICACION DE HERRAMIENTAS EN TEKLA (DIBUJO)",
+                    "descripcion": null,
+                    "etapa": "DIA 2, 3, 4",
+                    "responsable": "EDITOR",
+                    "duracion_estimada": "27 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "CAPACITACION CON TEKLA",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "EDITOR",
+                    "duracion_estimada": "9 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 5
+                },
+                {
+                    "titulo": "CAPACITACION CON TEKLA",
+                    "descripcion": null,
+                    "etapa": "DIA 6 AL 10",
+                    "responsable": "EDITOR",
+                    "duracion_estimada": "45 HR",
+                    "dias_desde_inicio": 5,
+                    "orden": 6
+                },
+                {
+                    "titulo": "EVALUACION DE PLANOS REALIZADOS",
+                    "descripcion": null,
+                    "etapa": "DIA 11",
+                    "responsable": "EDITOR",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 10,
+                    "orden": 7
+                },
+                {
+                    "titulo": "INDUCCION A LOS FORMATOS PARA REPORTES",
+                    "descripcion": null,
+                    "etapa": "DIA 11",
+                    "responsable": "EDITOR",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 10,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REALIZACION DE REPORTES (PRACTICAS)",
+                    "descripcion": null,
+                    "etapa": "DIA 12 AL  15",
+                    "responsable": "EDITOR",
+                    "duracion_estimada": "3 HR",
+                    "dias_desde_inicio": 11,
+                    "orden": 9
+                },
+                {
+                    "titulo": "TERMINA CAPACITACION Y EMPIEZA A USAR EL PROGRAMA SIN GUIA",
+                    "descripcion": null,
+                    "etapa": "DIA 16",
+                    "responsable": "JEFE DE INGENIERIA",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 15,
+                    "orden": 10
+                }
+            ]
+        },
+        {
+            "puesto": "Electromecanico",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INTRODUCCION DE LOS EQUIPOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "PROCESO PARA REALIZAR EL MANTENIMIENTO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "PLANIFICACION DE PROYECTO PARA REALIZAR UNA MEJORA CONTINUA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "PROPUESTAS PARA AUTOMATIZAR LECTURA DE DATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "REDACCION DE MANUALES PARA DISMINUIR LOS RIESGOS",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REALIZAR EL MANTENIMIENTO PREDICTIVO",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 4,
+                    "orden": 9
+                }
+            ]
+        },
+        {
+            "puesto": "Encargado De Compras Acero",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE COMPRAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE COMPRAS",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "ELABORAR SECCION DE COMPRAS DE MATERIALES DEL PMO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 5
+                },
+                {
+                    "titulo": "ELABORACION DE PLAN DE COMPRAR CONFORME A PMO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "COMPRAS",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "COORDINACION CON ALMACEN",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 7
+                },
+                {
+                    "titulo": "REALIZAR EVALUACION DE PROVEEDORES",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "JEFE DE COMPRAS",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 2,
+                    "orden": 8
+                },
+                {
+                    "titulo": "ELABORACION DE LAS SOLICITUDES DE PAGO Y TRAMITE DE CREDITOS",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "DIRECCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 9
+                },
+                {
+                    "titulo": "COORDINAR Y GESTIONAR CON PROBEEDORES",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "DIRECCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 4,
+                    "orden": 10
+                },
+                {
+                    "titulo": "ELABORAR REPORTES NECESARIOS",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "DIRECCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 4,
+                    "orden": 11
+                }
+            ]
+        },
+        {
+            "puesto": "Encargado De Compras Planta",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE COMPRAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE COMPRAS",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "EXPLICACION DE ARCHIVADO Y CONTROL DE DOCUMENTOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE COMPRAS",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 5
+                },
+                {
+                    "titulo": "ELABORAR CUADROS COMPARATIVOS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "JEFE DE COMPRAS",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ELABORACION DE ORDENES PARA COMPRAS",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "JEFE DE COMPRAS",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "ELABORAR SOLICITUDES DE PAGO",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "JEFE DE COMPRAS",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REALIZAR LOS DISTINTOS REPORTES",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "JEFE DE COMPRAS",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 9
+                }
+            ]
+        },
+        {
+            "puesto": "Encargado De Presupuestos",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS Y CREDENCIAL",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRESUPUESTOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INDUCCION AL TEKLA (MODELADO)",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRESUPUESTOS",
+                    "duracion_estimada": "8 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "EXPLICACION DE HERRAMIENTAS EN TEKLA (MODELO)",
+                    "descripcion": null,
+                    "etapa": "DIA 2, 3, 4",
+                    "responsable": "JEFE DE PRESUPUESTOS",
+                    "duracion_estimada": "27 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "CAPACITACION CON TEKLA",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "JEFE DE PRESUPUESTOS",
+                    "duracion_estimada": "9 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 5
+                },
+                {
+                    "titulo": "CAPACITACION CON TEKLA",
+                    "descripcion": null,
+                    "etapa": "DIA 6 AL 10",
+                    "responsable": "JEFE DE PRESUPUESTOS",
+                    "duracion_estimada": "45 HR",
+                    "dias_desde_inicio": 5,
+                    "orden": 6
+                },
+                {
+                    "titulo": "EVALUACION DE MODELO REALIZADO",
+                    "descripcion": null,
+                    "etapa": "DIA 11",
+                    "responsable": "JEFE DE PRESUPUESTOS",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 10,
+                    "orden": 7
+                },
+                {
+                    "titulo": "INDUCCION A LOS FORMATOS PARA REPORTES",
+                    "descripcion": null,
+                    "etapa": "DIA 11",
+                    "responsable": "JEFE DE PRESUPUESTOS",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 10,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REALIZACION DE REPORTES (PRACTICAS)",
+                    "descripcion": null,
+                    "etapa": "DIA 12 AL  15",
+                    "responsable": "JEFE DE PRESUPUESTOS",
+                    "duracion_estimada": "3 HR",
+                    "dias_desde_inicio": 11,
+                    "orden": 9
+                },
+                {
+                    "titulo": "TERMINA CAPACITACION Y EMPIEZA A USAR EL PROGRAMA SIN GUIA",
+                    "descripcion": null,
+                    "etapa": "DIA 16",
+                    "responsable": "JEFE DE PRESUPUESTOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 15,
+                    "orden": 10
+                }
+            ]
+        },
+        {
+            "puesto": "Gerente De Construcción",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE LAS ALTAS Y BAJAS DE PERSONAL",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "AUX. DE ADMIN DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "COORDINACION PARA EL MATERIAL\/HERRAMIENTA",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "AUX. CONTROL DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LA EMPRESA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "JEFE DE EMPRESA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INFORMACION DE PLANOS Y MANEJO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "JEFE DE PROYECTOS",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                }
+            ]
+        },
+        {
+            "puesto": "Ing. Mecánico",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIALY EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INTRODUCCION DE LOS EQUIPOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "PROCESO PARA REALIZAR EL MANTENIMIENTO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "PLANIFICACION DE PROYECTO PARA REALIZAR UNA MEJORA CONTINUA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "PROPUESTAS PARA AUTOMATIZAR LECTURA DE DATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "REDACCION DE MANUALES PARA DISMINUIR LOS RIESGOS",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REALIZAR EL MANTENIMIENTO PREDICTIVO",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 4,
+                    "orden": 9
+                }
+            ]
+        },
+        {
+            "puesto": "Inspector Calidad De Pintura",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE LOS DIFERENTES MATERIALES USADOS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "EXPLICACION DE LOS GRADO DE LIMPIEZA QUE SE EMPLEAN",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE EL USO DEL EQUIPO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 6
+                },
+                {
+                    "titulo": "EXPLICACION Y VERIFICACION EN MEDICIONES",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 7
+                },
+                {
+                    "titulo": "INFORMACION DE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REALIZAR REPORTES CORRESPONDIENTES",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 9
+                }
+            ]
+        },
+        {
+            "puesto": "Jefe De Almacen Y Logistica",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIALY EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "EXPLICACION DEL PROCESO DEL TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "PRESENTACION FORMAL",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "GERENCIAS Y JEFATURAS",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "COORDINACION CON EL EQUIPO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ELABORAR PROGRAMA DE CARGA Y DESCARGA",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "RECEPCIONAR LAS PIEZAS LIBERADAS",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 8
+                },
+                {
+                    "titulo": "COORDINAR LA ORGANIZACIÓN Y OPTIMIZACION  DEL ALMACEN",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 9
+                },
+                {
+                    "titulo": "MANTENER CONTROL DE INVENTARIO CON ENTRADAS Y SALIDAS",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 10
+                },
+                {
+                    "titulo": "GENERAR LOS REPORTES CORRESPONDIENTES",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 11
+                }
+            ]
+        },
+        {
+            "puesto": "Jefe De Calidad",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "PROCESOS Y CRITERIOS CONSIDERADOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "ELABORACION DEL PLAN DE INSPECCION Y PRUEBAS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE LOS DISTINTOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "OBSERVAR LAS ACTIVIDADES DE INSPECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "REALIZAR REPORTES CORRESPONDIENTES",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "CALIDAD Y PLANTA",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                }
+            ]
+        },
+        {
+            "puesto": "Jefe De Compras",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "COMPRAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "PRESENTACION FORMAL",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "GERENCIAS Y JEFATURAS",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "DIRECCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 5
+                },
+                {
+                    "titulo": "REALIZAR COTIZACION DE MATERIAS PRIMAS, SECUNDARIA Y SERVICIOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "COMPRAS",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ELABORAR GENERACION DE TABLA COMPARATIVA Y ORDEN DE COMPRA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "COMPRAS",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 7
+                },
+                {
+                    "titulo": "REALIZAR EVALUACION DE PROVEEDORES",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "COMPRAS",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 8
+                },
+                {
+                    "titulo": "ELABORAR REPORTES NECESARIOS",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "DIRECCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 9
+                }
+            ]
+        },
+        {
+            "puesto": "Jefe De Ingenieria",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS Y CREDENCIAL",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "GERENTE DE PROYECTOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INTRODUCCION A TEKLA Y FORMATOS QUE SE EMPLEAN EN EL PROGRAMA",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "GERENTE DE PROYECTOS",
+                    "duracion_estimada": "8 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "CAPACITACION DE TEKLA",
+                    "descripcion": null,
+                    "etapa": "DIA 2, 3, 4 Y 5",
+                    "responsable": "GERENTE DE PROYECTOS",
+                    "duracion_estimada": "27 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "INTRO A REVIT",
+                    "descripcion": null,
+                    "etapa": "DIA 6 AL 7",
+                    "responsable": "GERENTE DE PROYECTOS",
+                    "duracion_estimada": "18 HR",
+                    "dias_desde_inicio": 5,
+                    "orden": 5
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS FORMATOS DE REPORTES",
+                    "descripcion": null,
+                    "etapa": "DIA 8",
+                    "responsable": "GERENTE DE PROYECTOS",
+                    "duracion_estimada": "9 HR",
+                    "dias_desde_inicio": 7,
+                    "orden": 6
+                },
+                {
+                    "titulo": "INFORMACION DE LA ORGANIZACIÓN DEL EQUIPO",
+                    "descripcion": null,
+                    "etapa": "DIA 9 Y 10",
+                    "responsable": "GERENTE DE PROYECTOS",
+                    "duracion_estimada": "18 HR",
+                    "dias_desde_inicio": 8,
+                    "orden": 7
+                }
+            ]
+        },
+        {
+            "puesto": "Modelador",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS Y CREDENCIAL",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "JEFE DE INGENIERIA",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INDUCCION AL TEKLA (MODELADO)",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "MODELADOR",
+                    "duracion_estimada": "8 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "EXPLICACION DE HERRAMIENTAS EN TEKLA (MODELO)",
+                    "descripcion": null,
+                    "etapa": "DIA 2, 3, 4",
+                    "responsable": "MODELADOR",
+                    "duracion_estimada": "27 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "CAPACITACION CON TEKLA",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "MODELADOR",
+                    "duracion_estimada": "9 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 5
+                },
+                {
+                    "titulo": "CAPACITACION CON TEKLA",
+                    "descripcion": null,
+                    "etapa": "DIA 6 AL 10",
+                    "responsable": "MODELADOR",
+                    "duracion_estimada": "45 HR",
+                    "dias_desde_inicio": 5,
+                    "orden": 6
+                },
+                {
+                    "titulo": "EVALUACION DE MODELO REALIZADO",
+                    "descripcion": null,
+                    "etapa": "DIA 11",
+                    "responsable": "MODELADOR",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 10,
+                    "orden": 7
+                },
+                {
+                    "titulo": "INDUCCION A LOS FORMATOS PARA REPORTES",
+                    "descripcion": null,
+                    "etapa": "DIA 11",
+                    "responsable": "MODELADOR",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 10,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REALIZACION DE REPORTES (PRACTICAS)",
+                    "descripcion": null,
+                    "etapa": "DIA 12 AL  15",
+                    "responsable": "MODELADOR",
+                    "duracion_estimada": "3 HR",
+                    "dias_desde_inicio": 11,
+                    "orden": 9
+                },
+                {
+                    "titulo": "TERMINA CAPACITACION Y EMPIEZA A USAR EL PROGRAMA SIN GUIA",
+                    "descripcion": null,
+                    "etapa": "DIA 16",
+                    "responsable": "JEFE DE INGENIERIA",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 15,
+                    "orden": 10
+                }
+            ]
+        },
+        {
+            "puesto": "Operador De Maquina",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "COORDINADOR 1T",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "COORDINADOR 1T",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE HERRAMIENTAS Y MAQUINAS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "COORDINADOR 1T",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "MANEJAR MAQUINARIA Y DAR MANTENIMIENTO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "COORDINADOR 1T",
+                    "duracion_estimada": "7 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "GESTIONAR CONSUMIBLES Y MATERIAL",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "COORDINADOR 1T",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "COORDINAR ACTIVIDADES",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "COORDINADOR 1T",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 7
+                },
+                {
+                    "titulo": "ASIGNAR LAS DIVERSAS ACTIVIDADES",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "AYUDANTES 1T",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REALIZAR REPORTES CORRESPONDIENTS Y ENTEGARLOS",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "SUPERVISOR",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 9
+                }
+            ]
+        },
+        {
+            "puesto": "Pintor",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "CAPACITACION PARA EL PROCESO DE LIMPEZA DE LAS PIEZAS",
+                    "descripcion": null,
+                    "etapa": "DIA 2-6",
+                    "responsable": "SUPERVISOR DE PINTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "CAPACITACION PARA PREPARA LA PINTURA",
+                    "descripcion": null,
+                    "etapa": "DIA 2-6",
+                    "responsable": "SUPERVISOR DE PINTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "CAPACITACION PARA EL PROCESO DE APLICACIÓN DE PINTURA",
+                    "descripcion": null,
+                    "etapa": "DIA 2-6",
+                    "responsable": "SUPERVISOR DE PINTURA",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "CAPACITACION DEL AREA DE LIMPIEZA Y SU ORDEN",
+                    "descripcion": null,
+                    "etapa": "DIA 2-6",
+                    "responsable": "SUPERVISOR DE PINTURA",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 7
+                },
+                {
+                    "titulo": "EVALUACION DE PROCESO DE APLICACIÓN DE PINTURA",
+                    "descripcion": null,
+                    "etapa": "DIA 7-12",
+                    "responsable": "SUPERVISOR DE PINTURA",
+                    "duracion_estimada": "8 HRS",
+                    "dias_desde_inicio": 6,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REALIZAR REPORTE DE CONTROL DE PINTURA",
+                    "descripcion": null,
+                    "etapa": "DIA 7-12",
+                    "responsable": "SUPERVISOR DE PINTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 6,
+                    "orden": 9
+                }
+            ]
+        },
+        {
+            "puesto": "Residente De Obra",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "INFORMACION SOBRE PROVEEDORES Y PAGOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "AUX. ADMIN DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INFORMACIONES DE LOS FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "AUX. CONTROL DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE EL MANEJO DE OBRAS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "GERENTE DE CONSTRUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "CONOCIMIENTOS SOBRE LA OBRA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "COORDINADORES DE OBRA",
+                    "duracion_estimada": "10 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "INFORMACION GENERAL DE YA EN OBRA",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "SUPERINTENDENTE DE OBRA",
+                    "duracion_estimada": "3 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 5
+                },
+                {
+                    "titulo": "INDUCCION DE LA OBRA *",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "SUPERVISOR DE SEGURIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 6
+                }
+            ]
+        },
+        {
+            "puesto": "Soldador",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "CAPACITACION DE SOLDADURAS Y EL PROCESO",
+                    "descripcion": null,
+                    "etapa": "DIA 2-6",
+                    "responsable": "INSTRUCTOR SOLDADOR",
+                    "duracion_estimada": "8 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "EVALUACION EN SOLDADURA",
+                    "descripcion": null,
+                    "etapa": "DIA 7-12",
+                    "responsable": "INSTRUCTOR SOLDADOR",
+                    "duracion_estimada": "8 HRS",
+                    "dias_desde_inicio": 6,
+                    "orden": 5
+                },
+                {
+                    "titulo": "REALIZAR SOLDADURAS DE ACUERDO  A NORMAS",
+                    "descripcion": null,
+                    "etapa": "DIA 13",
+                    "responsable": "ENCARGADO DE MODULO",
+                    "duracion_estimada": "8 HRS",
+                    "dias_desde_inicio": 12,
+                    "orden": 6
+                }
+            ]
+        },
+        {
+            "puesto": "Soporte Ti",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIALY EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INTRODUCCION DE LOS EQUIPOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "COORDINAR ACTIVIDADES DE MANTENIMIENTO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "COORDINACION EN APOYO DE ACTIVIDADES DE MANTENIMIENTO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "GENERAR REPORTES SOBRE FALLAS DE EQUIPOS Y MAQUINARIA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 7
+                },
+                {
+                    "titulo": "REALIZAR RESOLUCIONES TECNICAS QUE AYUDEN AL MANTENIMIENTO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 8
+                }
+            ]
+        },
+        {
+            "puesto": "Superintendente De Obra",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "INFORMACION SOBRE PROVEEDORES Y PAGOS",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "AUX. ADMIN DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INFORMACIONES DE LOS FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "AUX. CONTROL DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE EL MANEJO DE OBRAS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "GERENTE DE CONSTRUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "CONOCIMIENTOS SOBRE LA OBRA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "COORDINADORES DE OBRA",
+                    "duracion_estimada": "10 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "INDUCCION A LA OBRA",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "SUPERVISOR DE SEGURIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 5
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor 1T",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "COORDINADOR 1T",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "COORDINADOR 1T",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE HERRAMIENTAS Y MAQUINAS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "COORDINADOR 1T",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 5
+                },
+                {
+                    "titulo": "COORDINAR ACTIVIDADES",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ELABORAR PLAN DE CAPACITACION Y DESARROLLO DE PERSONAL",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 7
+                },
+                {
+                    "titulo": "PLANEAMIENTO DE LA ADMINISTRACION DE LAS PIEZAS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "COORDINADOR 1T",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REGISTRAR TODO EL MATERIAL QUE SE HA ENTREGADO, EN REPORTE Y SISTEMA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "COORDINADOR 1T",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 9
+                },
+                {
+                    "titulo": "REALIZAR REPORTES CORRESPONDIENTS Y ENTEGARLOS",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "SUPERVISOR",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 10
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor 2T",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "PLANEAR PROGRAMA PARA SOLDADO, ARMADO Y VESTIDO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 5
+                },
+                {
+                    "titulo": "ELABORAR QUE CRITERIOS DE INSPECCION SE USARÁN PARA LOS AVANCES DE SOLDADO, ARMADO Y VESTIDO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ELABORAR PROGRAMA SEMANAL",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 7
+                },
+                {
+                    "titulo": "COORDINAR CON EQUIPO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 8
+                },
+                {
+                    "titulo": "COORDINAR CON INGENIERIA SOBRE LOS PLANOS Y DETALLES",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "INGENIERIA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 9
+                },
+                {
+                    "titulo": "ELABORAR ORDEN DE PRODUCCIONPARA FABRICAR PIEZAS Y SOLICITUDES PARA LO MISMO",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "PRODUCCION, ALMACEN",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 10
+                },
+                {
+                    "titulo": "COORDINAR CON AREA DE PINTURA PARA PIEZAS LIBERADAS",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 11
+                },
+                {
+                    "titulo": "ELABORAR REGISTRO DE LOS AVANCES DE CADA OBRA  Y REPORTARLO PARA PAGO",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 12
+                },
+                {
+                    "titulo": "REGISTRAR TODA ACCION EN LAS BITCORAS Y MANTENERLAS ACTUALIZADAS",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 13
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor De 2Da Transformación",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "PRESENTAR A GERENCIA Y AREA DE INGENIERIA",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "PROCESOS Y CRITERIOS CONSIDERADOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 5
+                },
+                {
+                    "titulo": "REALIZAR PRUEBAS DE ACUERDO AL PIP",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE LOS DISTINTOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 7
+                },
+                {
+                    "titulo": "COORDINAR ACTIVIDADES CON PERSONAL 2DA TRANSFORMACION",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REALIZAR REPORTES CORRESPONDIENTES",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 9
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor De Almacen Montaje",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIALY EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE EL MANEJO DE MATERIALES",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE FORMATOS Y REPORTES",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "CHEQUEO DE LOS DIFERENTES INVENTARIOS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "ELABORACION DE LOS REPORTES",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "ACTUALIZAR INVENTARIO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "ARMAR LOS EQUIPOS Y DESARROLLO",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "ALMACEN",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor De Embarques",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIALY EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "VERIFICAR EL TRASLADO Y\/O CARGA DE PIEZAS CON EL PROCESO ADECUADO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "3 HRS",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "DAR SEGUIMIENTO A TODAS LAS PIEZAS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "LOGISTICA Y PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 5
+                },
+                {
+                    "titulo": "CHECAR Y COMUNICAR CUALQUIER INCIDENCIA O RETRASO",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 6
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor De Linea",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "REVISAR EL PLAN DE PRODUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 5
+                },
+                {
+                    "titulo": "INFORMACION SOBRE EL PROCESO DE REVISAR PLANOS Y SOLICITA PIEZAS A 1T",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRIMERA TRANFORMACION, JEFE DE PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "INFORMACION SOBRE PROCESO A EVALUACION DE PIEZA Y REVISION CON CALIDAD",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "ELABORAR REGISTRO DE LOS AVANCES DE CADA OBRA  Y REPORTARLO PARA PAGO",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "JEFE DE PRODUCCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor De Mantenimiento",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INTRODUCCION DE LOS EQUIPOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 4
+                },
+                {
+                    "titulo": "ELABORACION DEL PROGRAMA DE MANTENIMIENTO DE PLANTA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "COORDINACION CON EL EQUIPO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "VERIFICAR QUE HERRAMIENTAS, CONSUMIBLES Y REFACCIONES ESTEN DISPONIBLES",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                },
+                {
+                    "titulo": "RECOPILAR FIRMAS NECESARIAS PARA LAS ACTIVIDADES",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                },
+                {
+                    "titulo": "ELABORACION DE  PLAN DE EVALUACION DE  DESEMPEÑO DEL PERSONAL",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 9
+                },
+                {
+                    "titulo": "IMPLEMENTAR PLAN DE MANTENIMIENTO",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 10
+                },
+                {
+                    "titulo": "SUPERVISAR LOS AVANCES Y REALIZAR EVALUACION",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "INFRAESTRUCTURA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 11
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor De Pnd's Y Control Estadistico",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INFORMACION DE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LAS EVALUACIONES DE LOS SOLDADORES",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "VERIFICAR Y COMPLETAR LAS PND'S DEL PIP",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 6
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE LAS COORDINACIONES DE VISITAS PARA LAS PND'S",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 7
+                },
+                {
+                    "titulo": "REALIZAR REPORTES Y REGISTROS CORRESPONDIENTES",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 8
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor De Seguridad",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LAS ALTAS Y BAJAS DE PERSONAL",
+                    "descripcion": null,
+                    "etapa": "Día 1",
+                    "responsable": "AUX. ADMIN DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INFORMACION SOBRE LA OBRA",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "COORDINADORES DE OBRA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE EL MANEJO DE OBRAS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "GERENTE DE CONSTRUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor Documentos Y Pintura",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE LOS DIFERENTES MATERIALES USADOS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "EXPLICACION DE LOS GRADO DE LIMPIEZA QUE SE EMPLEAN",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "EXPLICACION SOBRE EL USO DEL EQUIPO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 6
+                },
+                {
+                    "titulo": "EXPLICACION Y VERIFICACION DE ESPESORES",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 7
+                },
+                {
+                    "titulo": "INFORMACION DE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 4",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 3,
+                    "orden": 8
+                },
+                {
+                    "titulo": "REALIZAR REPORTES CORRESPONDIENTES",
+                    "descripcion": null,
+                    "etapa": "DIA 5",
+                    "responsable": "CALIDAD",
+                    "duracion_estimada": "2 HR",
+                    "dias_desde_inicio": 4,
+                    "orden": 9
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor Enlace",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIAL Y EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "INTRODUCCION AL EQUIPO DE TRABAJO Y TU PUESTO DE TRABAJO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "JEFE DE 1T",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "INFORMACION SOBRE REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "REALIZAR ADMINISTRACION PARA EL ACOMODO DE MATERIAL",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 4
+                },
+                {
+                    "titulo": "REALIZAR FORMATOS DE ENTREGA PARA CADA LINEA DE PRODUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "COORDINAR EL ORDEN Y LIMPIEZA DEL AREA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 6
+                },
+                {
+                    "titulo": "COORDINAR ENTREGA DE LOS MATERIALES A SUPERVISORES DE LINEA Y AREA DE PINTURA",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 1,
+                    "orden": 7
+                },
+                {
+                    "titulo": "REALIZAR ENTREGA DE DIVERSOS REPORTES",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "PRODUCCION",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 8
+                }
+            ]
+        },
+        {
+            "puesto": "Supervisor Pt",
+            "tareas": [
+                {
+                    "titulo": "CURSO DE INDUCCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 0
+                },
+                {
+                    "titulo": "BIOMETRICOS, CREDENCIALY EQUIPO DE PROTECCION",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "RECURSOS HUMANOS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 1
+                },
+                {
+                    "titulo": "ENTREGA DE EQUIPO Y ACCESOS",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "SISTEMAS",
+                    "duracion_estimada": "30 MIN",
+                    "dias_desde_inicio": 0,
+                    "orden": 2
+                },
+                {
+                    "titulo": "EXPLICACION DEL ACOMODO DEL PRODUCTO TERMINADO",
+                    "descripcion": null,
+                    "etapa": "DIA 1",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 0,
+                    "orden": 3
+                },
+                {
+                    "titulo": "INFORMACION DE LOS REPORTES Y FORMATOS",
+                    "descripcion": null,
+                    "etapa": null,
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": null,
+                    "orden": 4
+                },
+                {
+                    "titulo": "REALIZAR EL SEGUIMIENTO Y CUMPLIMIENTO DE LA RECEPCCION DE PIEZAS",
+                    "descripcion": null,
+                    "etapa": "DIA 2",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 1,
+                    "orden": 5
+                },
+                {
+                    "titulo": "REALIZAR SEGUIMIENTO Y CUMPLIMIENTO DEL EQUIPO BPA, BPE, ASI COMO SEGURIDAD",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "2 HRS",
+                    "dias_desde_inicio": 2,
+                    "orden": 6
+                },
+                {
+                    "titulo": "CONTROLAR Y ADMINISTRAR EL INVENTARIO",
+                    "descripcion": null,
+                    "etapa": "DIA 3",
+                    "responsable": "LOGISTICA",
+                    "duracion_estimada": "1 HR",
+                    "dias_desde_inicio": 2,
+                    "orden": 7
+                }
+            ]
+        }
+    ]
+}

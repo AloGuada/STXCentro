@@ -18,6 +18,9 @@ class OnboardingTareaPlantilla extends Model
         'puesto_id',
         'titulo',
         'descripcion',
+        'etapa',
+        'responsable',
+        'duracion_estimada',
         'dias_desde_inicio',
         'orden',
     ];
