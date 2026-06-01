@@ -6,6 +6,7 @@ use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\ModoPago;
 use App\Enums\Costos\OrdenCompraEstatus;
+use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
@@ -123,6 +124,11 @@ class OrdenCompra extends Model
         return $this->hasMany(Factura::class, 'orden_compra_id');
     }
 
+    public function solicitudesPago(): HasMany
+    {
+        return $this->hasMany(SolicitudPago::class, 'orden_compra_id');
+    }
+
     public function entregas(): HasMany
     {
         return $this->hasMany(Entrega::class, 'orden_compra_id');
@@ -193,6 +199,32 @@ class OrdenCompra extends Model
     public function getSaldoPendienteAttribute(): float
     {
         return (float) $this->total - $this->total_pagado;
+    }
+
+    /**
+     * True si la OC es de contado y su solicitud de pago de anticipo ya fue
+     * pagada. Se refleja como badge "Pagada (anticipo contado)" sin alterar el
+     * estatus formal de la OC (que sigue su curso entrega → factura → ...).
+     */
+    public function pagadaAnticipoContado(): bool
+    {
+        if ($this->tipo_pago !== ModoPago::Contado) {
+            return false;
+        }
+
+        if ($this->relationLoaded('solicitudesPago')) {
+            return $this->solicitudesPago
+                ->contains(fn (SolicitudPago $s) => $s->estatus === SolicitudPagoEstatus::Pagada);
+        }
+
+        return $this->solicitudesPago()
+            ->where('estatus', SolicitudPagoEstatus::Pagada->value)
+            ->exists();
+    }
+
+    public function getPagadaAnticipoContadoAttribute(): bool
+    {
+        return $this->pagadaAnticipoContado();
     }
 
     protected function descripcionAfectacion(object $detalle, ObraRubro $obraRubro): ?string

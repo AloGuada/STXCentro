@@ -44,6 +44,7 @@ class SolicitudPago extends Model implements Aprobable
         'solicitante_id',
         'departamento_id',
         'proveedor_id',
+        'orden_compra_id',
         'tipo_solicitud_id',
         'concepto',
         'monto_total',
@@ -102,6 +103,11 @@ class SolicitudPago extends Model implements Aprobable
         return $this->belongsTo(Proveedor::class);
     }
 
+    public function ordenCompra(): BelongsTo
+    {
+        return $this->belongsTo(OrdenCompra::class, 'orden_compra_id');
+    }
+
     public function tipoSolicitud(): BelongsTo
     {
         return $this->belongsTo(TipoSolicitud::class, 'tipo_solicitud_id');
@@ -135,6 +141,13 @@ class SolicitudPago extends Model implements Aprobable
     public function onAprobacionCompleta(?string $userId = null): void
     {
         $this->transitionTo(SolicitudPagoEstatus::Aprobada);
+
+        // Las solicitudes generadas desde una OC de contado NO afectan el
+        // presupuesto: la OC ya aplicó su impacto permanente al crearse. Volver
+        // a afectarlo aquí duplicaría el acumulado del rubro.
+        if ($this->orden_compra_id !== null) {
+            return;
+        }
 
         // Los apartados creados al PendienteFirma pasan a Aplicado (permanente).
         // Si la solicitud llegó aquí sin apartado vigente (creada antes de la

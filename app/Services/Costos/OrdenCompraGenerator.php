@@ -2,6 +2,7 @@
 
 namespace App\Services\Costos;
 
+use App\Enums\Costos\ModoPago;
 use App\Enums\Costos\OrdenCompraEstatus;
 use App\Enums\Costos\RequisicionEstatus;
 use App\Models\Costos\OrdenCompra;
@@ -15,7 +16,10 @@ use Illuminate\Support\Facades\DB;
 
 class OrdenCompraGenerator
 {
-    public function __construct(private readonly ApartadoPresupuestal $apartado) {}
+    public function __construct(
+        private readonly ApartadoPresupuestal $apartado,
+        private readonly SolicitudPagoDesdeOrdenCompra $solicitudDesdeOc,
+    ) {}
 
     /**
      * Genera las OCs de una requisición liberada: una por cada grupo
@@ -100,7 +104,7 @@ class OrdenCompraGenerator
                 'uso_cfdi_id' => $detalle->uso_cfdi_id,
                 'tipo_fiscal' => $detalle->tipo_fiscal,
                 'descripcion' => $detalle->descripcion,
-                'codigo_producto' => $detalle->codigo_producto,
+                'codigo_producto' => $sel->cotizacionPrecio?->codigo_producto,
                 'unidad' => $detalle->unidad,
                 'cantidad' => $cantidad,
                 'precio_unitario' => $precioUnit,
@@ -115,5 +119,12 @@ class OrdenCompraGenerator
 
         $oc->load('detalles');
         $oc->aplicarImpactoPresupuestal($userId);
+
+        // Las OCs de contado se pagan por adelantado vía una solicitud de pago
+        // (el proveedor no usa el portal). El crédito sigue el flujo normal de
+        // factura → pago.
+        if ($oc->tipo_pago === ModoPago::Contado) {
+            $this->solicitudDesdeOc->crear($oc, $userId);
+        }
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Costos;
 
 use App\Enums\Costos\FacturaEstatus;
+use App\Enums\Costos\ModoPago;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Http\Requests\Admin\Costos\FacturaReporteProveedorRequest;
@@ -236,6 +237,23 @@ class FacturaAdminController extends Controller
 
         if ($factura->aceptada_contabilidad) {
             return back()->withErrors(['aceptada_contabilidad' => 'La factura ya fue aceptada por contabilidad.']);
+        }
+
+        // OC de contado: el pago ya se realizó por adelantado vía la solicitud de
+        // anticipo. La factura solo se registra para CFDI; no se genera un segundo pago.
+        $oc = $factura->ordenCompra;
+        if ($oc && $oc->tipo_pago === ModoPago::Contado && $oc->solicitudesPago()->exists()) {
+            DB::transaction(function () use ($request, $factura, $oc) {
+                $factura->fill([
+                    'aceptada_contabilidad' => true,
+                    'aceptada_contabilidad_por' => $request->user()->id,
+                    'aceptada_contabilidad_at' => now(),
+                ])->save();
+
+                $oc->recalcularEstatus();
+            });
+
+            return back()->with('success', 'Factura registrada para CFDI; el pago se realizó vía solicitud de anticipo.');
         }
 
         $pago = DB::transaction(function () use ($request, $factura) {

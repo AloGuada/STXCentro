@@ -85,6 +85,17 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                 </span>
                             )}
                             <span className="text-lg font-semibold">{formatMoney(ordenCompra.total)}</span>
+                            {ordenCompra.pagada_anticipo_contado && (
+                                <span className="badge badge-success">Pagada (anticipo contado)</span>
+                            )}
+                            {ordenCompra.solicitudes_pago?.[0] && (
+                                <Link
+                                    href={`/admin/costos/solicitudes-pago/${ordenCompra.solicitudes_pago[0].id}`}
+                                    className="link link-primary text-sm"
+                                >
+                                    Ver solicitud {ordenCompra.solicitudes_pago[0].folio}
+                                </Link>
+                            )}
                             {ordenCompra.requisicion_id && (
                                 <Link
                                     href={`/admin/costos/requisiciones/${ordenCompra.requisicion_id}`}

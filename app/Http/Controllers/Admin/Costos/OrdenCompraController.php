@@ -36,6 +36,7 @@ class OrdenCompraController extends Controller
                 'detalles:id,orden_compra_id,precio_unitario,cantidad',
                 'entregas.detalles.devoluciones',
                 'facturas.pago',
+                'solicitudesPago:id,orden_compra_id,folio,estatus',
             ])
             ->withCount(['facturas', 'entregas', 'detalles'])
             ->addSelect([
@@ -60,6 +61,8 @@ class OrdenCompraController extends Controller
             ->latest()
             ->paginate(15)
             ->withQueryString();
+
+        $ordenes->getCollection()->each->append('pagada_anticipo_contado');
 
         return Inertia::render('admin/costos/ordenes-compra/index', [
             'ordenes' => $ordenes,
@@ -155,10 +158,11 @@ class OrdenCompraController extends Controller
             'facturas.entregas.media',
             'media',
             'rubrosAfectados.obraRubro.rubro',
+            'solicitudesPago:id,orden_compra_id,folio,estatus',
             'activities.causer',
         ]);
 
-        $ordenCompra->append(['total_facturado', 'total_pagado', 'saldo_pendiente']);
+        $ordenCompra->append(['total_facturado', 'total_pagado', 'saldo_pendiente', 'pagada_anticipo_contado']);
 
         $lineas = $ordenCompra->detalles->map(fn ($d) => [
             'tipo_fiscal' => $d->tipo_fiscal?->value ?? 'mercancia',

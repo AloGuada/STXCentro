@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             DgCarpetasSeeder::class,
             RegimenFiscalSeeder::class,
             UsoCfdiSeeder::class,
+            CostosTipoSolicitudSeeder::class,
         ]);
 
         // Crear usuario de prueba con rol super-admin

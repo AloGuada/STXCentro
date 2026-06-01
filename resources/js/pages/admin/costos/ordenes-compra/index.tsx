@@ -105,6 +105,11 @@ function EtapaCell({ oc }: { oc: CostosOrdenCompra }) {
     return (
         <div>
             <span className={OC_ETAPA_BADGE[etapa]}>{OC_ETAPA_LABELS[etapa]}</span>
+            {oc.pagada_anticipo_contado && (
+                <div className="mt-1">
+                    <span className="badge badge-success badge-sm">Pagada (anticipo contado)</span>
+                </div>
+            )}
             <div className="text-xs text-base-content/60 mt-1.5">{etapaSubtitle(oc)}</div>
         </div>
     );
