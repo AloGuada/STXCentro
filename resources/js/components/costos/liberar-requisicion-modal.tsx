@@ -23,6 +23,8 @@ export function LiberarRequisicionModal({ requisicion, ocs, open, onClose }: Pro
 
     if (!open) return null;
 
+    const contadoCount = ocs.filter((oc) => oc.modo_pago === 'contado').length;
+
     // Una OC (grupo proveedor+numero_oc) no puede mezclar monedas de cotización.
     const grupoConMonedasMezcladas = (() => {
         const porGrupo = new Map<string, Set<string>>();
@@ -78,6 +80,16 @@ export function LiberarRequisicionModal({ requisicion, ocs, open, onClose }: Pro
                     Se generarán <strong>{ocs.length}</strong> orden(es) de compra con los datos capturados en el preview de cotización.
                     Se aplicará el impacto presupuestal y las OCs serán visibles en el portal de los proveedores.
                 </p>
+
+                {contadoCount > 0 && (
+                    <div className="alert alert-info mb-3 text-sm">
+                        <span>
+                            {contadoCount === 1
+                                ? '1 OC es de contado: se generará una solicitud de pago de anticipo (pendiente de firma) para gestionar el pago por adelantado.'
+                                : `${contadoCount} OC son de contado: se generará una solicitud de pago de anticipo (pendiente de firma) por cada una para gestionar el pago por adelantado.`}
+                        </span>
+                    </div>
+                )}
 
                 {errorMsg && <p className="alert alert-error mb-3 text-sm">{errorMsg}</p>}
 

@@ -117,7 +117,8 @@ class RequisicionController extends Controller
      */
     public function duplicar(Requisicion $requisicion): RedirectResponse
     {
-        Gate::authorize('costos.requisiciones.crear');
+        // Duplicar es una acción de Compras (cotización), no del solicitante.
+        Gate::authorize('costos.requisiciones.cotizar');
 
         $nueva = DB::transaction(function () use ($requisicion) {
             $nueva = Requisicion::create([

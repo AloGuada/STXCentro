@@ -395,7 +395,7 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                     </div>
 
                     <div className="flex gap-2">
-                        {can('costos.requisiciones.crear') && (
+                        {can('costos.requisiciones.cotizar') && (
                             <Button
                                 variant="outline"
                                 onClick={() => {

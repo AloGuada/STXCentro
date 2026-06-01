@@ -102,6 +102,19 @@ test('duplicar copia partidas y cotizaciones en una nueva requisicion borrador',
     expect($req->fresh()->estatus->value)->toBe('aprobada');
 });
 
+test('duplicar requiere permiso de cotizar (compras), no solo crear', function () {
+    $solicitante = User::factory()->create();
+    $solicitante->givePermissionTo('costos.requisiciones.crear');
+
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'aprobada']);
+
+    $this->actingAs($solicitante)
+        ->post("/admin/costos/requisiciones/{$req->id}/duplicar")
+        ->assertForbidden();
+
+    expect(Requisicion::count())->toBe(1);
+});
+
 test('clasificar valida tipo_fiscal', function () {
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id]);
