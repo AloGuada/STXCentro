@@ -15,11 +15,6 @@ const columns: Column<Proveedor>[] = [
     { key: 'razon_social', label: 'Razón Social' },
     { key: 'rfc', label: 'RFC' },
     {
-        key: 'departamento',
-        label: 'Departamento',
-        render: (p) => p.departamento?.descripcion ?? '-',
-    },
-    {
         key: 'estatus',
         label: 'Estatus',
         render: (p) => (

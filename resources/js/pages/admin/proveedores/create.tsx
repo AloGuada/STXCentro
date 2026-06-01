@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Departamento, RegimenFiscal } from '@/types/models';
+import type { RegimenFiscal } from '@/types/models';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -16,13 +16,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 type Props = {
-    departamentos: Departamento[];
     regimenes: Pick<RegimenFiscal, 'id' | 'clave' | 'descripcion'>[];
 };
 
 const esBanorte = (banco: string) => banco.toLowerCase().includes('banorte');
 
-export default function ProveedoresCreate({ departamentos, regimenes }: Props) {
+export default function ProveedoresCreate({ regimenes }: Props) {
     const { data, setData, post, processing, errors } = useForm<{
         codigo: string;
         razon_social: string;
@@ -52,7 +51,6 @@ export default function ProveedoresCreate({ departamentos, regimenes }: Props) {
         respetar_fecha_factura: boolean;
         limite_credito: string;
         dias_credito_default: string;
-        departamento_id: string;
         tipo_proveedor: string;
     }>({
         codigo: '',
@@ -83,7 +81,6 @@ export default function ProveedoresCreate({ departamentos, regimenes }: Props) {
         respetar_fecha_factura: false,
         limite_credito: '0',
         dias_credito_default: '0',
-        departamento_id: '',
         tipo_proveedor: '',
     });
 
@@ -212,14 +209,6 @@ export default function ProveedoresCreate({ departamentos, regimenes }: Props) {
                         <div className="divider" />
                         <h2 className="text-lg font-medium">Configuración</h2>
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Departamento" htmlFor="departamento_id" error={errors.departamento_id}>
-                                <Select id="departamento_id" value={data.departamento_id} onValueChange={(value) => setData('departamento_id', value)}>
-                                    <option value="">Sin departamento</option>
-                                    {departamentos.map((d) => (
-                                        <option key={d.id} value={d.id}>{d.descripcion}</option>
-                                    ))}
-                                </Select>
-                            </FormField>
                             <FormField label="Tipo de Proveedor" htmlFor="tipo_proveedor" error={errors.tipo_proveedor}>
                                 <Select id="tipo_proveedor" value={data.tipo_proveedor} onValueChange={(value) => setData('tipo_proveedor', value)}>
                                     <option value="">Seleccionar</option>

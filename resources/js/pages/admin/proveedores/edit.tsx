@@ -8,19 +8,18 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Departamento, Proveedor, RegimenFiscal } from '@/types/models';
+import type { Proveedor, RegimenFiscal } from '@/types/models';
 import { PROVEEDOR_ESTATUS_COLORS, PROVEEDOR_ESTATUS_LABELS } from '@/types/models';
 
 type Props = {
     proveedor: Proveedor;
     tienePassword: boolean;
-    departamentos: Departamento[];
     regimenes: Pick<RegimenFiscal, 'id' | 'clave' | 'descripcion'>[];
 };
 
 const esBanorte = (banco: string) => banco.toLowerCase().includes('banorte');
 
-export default function ProveedoresEdit({ proveedor, tienePassword, departamentos, regimenes }: Props) {
+export default function ProveedoresEdit({ proveedor, tienePassword, regimenes }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Proveedores', href: '/admin/proveedores' },
@@ -57,7 +56,6 @@ export default function ProveedoresEdit({ proveedor, tienePassword, departamento
         respetar_fecha_factura: boolean;
         limite_credito: string;
         dias_credito_default: string;
-        departamento_id: string;
         tipo_proveedor: string;
     }>({
         _method: 'put',
@@ -89,7 +87,6 @@ export default function ProveedoresEdit({ proveedor, tienePassword, departamento
         respetar_fecha_factura: proveedor.respetar_fecha_factura ?? false,
         limite_credito: String(proveedor.limite_credito),
         dias_credito_default: String(proveedor.dias_credito_default),
-        departamento_id: proveedor.departamento_id ? String(proveedor.departamento_id) : '',
         tipo_proveedor: proveedor.tipo_proveedor ?? '',
     });
 
@@ -239,14 +236,6 @@ export default function ProveedoresEdit({ proveedor, tienePassword, departamento
                         <div className="divider" />
                         <h2 className="text-lg font-medium">Configuración</h2>
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Departamento" htmlFor="departamento_id" error={errors.departamento_id}>
-                                <Select id="departamento_id" value={data.departamento_id} onValueChange={(value) => setData('departamento_id', value)}>
-                                    <option value="">Sin departamento</option>
-                                    {departamentos.map((d) => (
-                                        <option key={d.id} value={d.id}>{d.descripcion}</option>
-                                    ))}
-                                </Select>
-                            </FormField>
                             <FormField label="Tipo de Proveedor" htmlFor="tipo_proveedor" error={errors.tipo_proveedor}>
                                 <Select id="tipo_proveedor" value={data.tipo_proveedor} onValueChange={(value) => setData('tipo_proveedor', value)}>
                                     <option value="">Seleccionar</option>

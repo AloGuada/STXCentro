@@ -6,7 +6,6 @@ use App\Enums\ProveedorEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ProveedorStoreRequest;
 use App\Http\Requests\Admin\ProveedorUpdateRequest;
-use App\Models\Departamento;
 use App\Models\Proveedor;
 use App\Models\RegimenFiscal;
 use Illuminate\Http\RedirectResponse;
@@ -24,7 +23,7 @@ class ProveedorController extends Controller
         Gate::authorize('costos.proveedores.ver');
 
         $proveedores = Proveedor::query()
-            ->with(['departamento', 'complementosPago' => fn ($q) => $q->whereIn('estatus', ['pendiente', 'vencido'])])
+            ->with(['complementosPago' => fn ($q) => $q->whereIn('estatus', ['pendiente', 'vencido'])])
             ->when($request->search, fn ($q, $s) => $q->where('razon_social', 'like', "%{$s}%")
                 ->orWhere('codigo', 'like', "%{$s}%")
                 ->orWhere('rfc', 'like', "%{$s}%")
@@ -46,7 +45,6 @@ class ProveedorController extends Controller
         Gate::authorize('costos.proveedores.crear');
 
         return Inertia::render('admin/proveedores/create', [
-            'departamentos' => Departamento::query()->orderBy('descripcion')->get(),
             'regimenes' => RegimenFiscal::where('activo', true)->orderBy('clave')->get(['id', 'clave', 'descripcion']),
         ]);
     }
@@ -78,9 +76,8 @@ class ProveedorController extends Controller
         Gate::authorize('costos.proveedores.editar');
 
         return Inertia::render('admin/proveedores/edit', [
-            'proveedor' => $proveedor->load(['departamento', 'regimenFiscal', 'media', 'validador:id,name']),
+            'proveedor' => $proveedor->load(['regimenFiscal', 'media', 'validador:id,name']),
             'tienePassword' => (bool) $proveedor->password,
-            'departamentos' => Departamento::query()->orderBy('descripcion')->get(),
             'regimenes' => RegimenFiscal::where('activo', true)->orderBy('clave')->get(['id', 'clave', 'descripcion']),
         ]);
     }

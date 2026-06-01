@@ -40,7 +40,6 @@ class Proveedor extends Authenticatable
         'limite_credito',
         'dias_credito_default',
         'respetar_fecha_factura',
-        'departamento_id',
         'tipo_proveedor',
         'activo',
         'portal_ultimo_acceso',
@@ -87,11 +86,6 @@ class Proveedor extends Authenticatable
             'estatus' => ProveedorEstatus::class,
             'validado_at' => 'datetime',
         ];
-    }
-
-    public function departamento(): BelongsTo
-    {
-        return $this->belongsTo(Departamento::class);
     }
 
     public function regimenFiscal(): BelongsTo

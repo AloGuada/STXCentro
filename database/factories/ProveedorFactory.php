@@ -3,7 +3,6 @@
 namespace Database\Factories;
 
 use App\Enums\ProveedorEstatus;
-use App\Models\Departamento;
 use App\Models\Proveedor;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -32,7 +31,6 @@ class ProveedorFactory extends Factory
             'maneja_credito' => fake()->boolean(30),
             'limite_credito' => fake()->randomFloat(2, 0, 500000),
             'dias_credito_default' => fake()->randomElement([0, 15, 30, 45, 60, 90]),
-            'departamento_id' => Departamento::factory(),
             'tipo_proveedor' => fake()->randomElement(['materiales', 'servicios', 'equipos', 'mixto']),
             'tipo_persona' => fake()->randomElement(['fisica', 'moral']),
             'codigo_postal' => fake()->numerify('#####'),

@@ -848,7 +848,6 @@ export type Proveedor = {
     limite_credito: number;
     dias_credito_default: number;
     respetar_fecha_factura: boolean;
-    departamento_id: number | null;
     tipo_proveedor: string | null;
     activo: boolean;
     estatus: ProveedorEstatus;
@@ -857,7 +856,6 @@ export type Proveedor = {
     observacion_validacion: string | null;
     creado_por: string | null;
     bloqueado_complemento?: boolean;
-    departamento?: Departamento;
     regimen_fiscal?: RegimenFiscal;
     validador?: Usuario;
     media?: Media[];
