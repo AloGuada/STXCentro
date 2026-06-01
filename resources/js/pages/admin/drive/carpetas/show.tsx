@@ -29,7 +29,7 @@ type Carpeta = {
     id: number;
     nombre: string;
     descripcion: string | null;
-    usuario: { id: string; nombre: string } | null;
+    usuario: { id: string; name: string } | null;
 };
 
 type Props = {
@@ -127,7 +127,7 @@ export default function DriveCarpetaShow({ carpeta, archivos, externos, externos
                     <div>
                         <h1 className="text-2xl font-semibold">{carpeta.nombre}</h1>
                         {carpeta.descripcion && <p className="text-base-content/60 mt-1">{carpeta.descripcion}</p>}
-                        {carpeta.usuario && <p className="text-xs text-base-content/40 mt-1">Creada por: {carpeta.usuario.nombre}</p>}
+                        {carpeta.usuario && <p className="text-xs text-base-content/40 mt-1">Creada por: {carpeta.usuario.name}</p>}
                     </div>
                     <div className="flex gap-2">
                         <button className="btn btn-primary" onClick={() => setShowUpload(!showUpload)}>

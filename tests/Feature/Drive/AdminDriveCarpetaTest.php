@@ -19,6 +19,8 @@ beforeEach(function () {
 
 test('admin puede ver lista de carpetas', function () {
     Carpeta::factory()->count(3)->create();
+    // Carpeta con creador: fuerza el eager-load de usuario (usuarios.name).
+    Carpeta::factory()->create(['usuario_id' => $this->admin->id]);
 
     $this->actingAs($this->admin)
         ->get('/admin/drive/carpetas')

@@ -16,7 +16,7 @@ type Carpeta = {
     archivos_count: number;
     externos_count: number;
     archivos_sum_size: number | null;
-    usuario: { id: string; nombre: string } | null;
+    usuario: { id: string; name: string } | null;
     created_at: string;
 };
 
@@ -85,7 +85,7 @@ export default function DriveCarpetasIndex({ carpetas }: Props) {
                                             )}
                                         </div>
                                     </td>
-                                    <td>{carpeta.usuario?.nombre ?? '-'}</td>
+                                    <td>{carpeta.usuario?.name ?? '-'}</td>
                                     <td className="text-center">{carpeta.archivos_count}</td>
                                     <td className="text-center">{carpeta.externos_count}</td>
                                     <td className="text-right">{formatSize(carpeta.archivos_sum_size)}</td>

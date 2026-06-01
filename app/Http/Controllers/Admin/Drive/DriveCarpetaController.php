@@ -25,7 +25,7 @@ class DriveCarpetaController extends Controller
         $carpetas = Carpeta::query()
             ->withCount(['archivos', 'externos'])
             ->withSum('archivos', 'size')
-            ->with('usuario:id,nombre')
+            ->with('usuario:id,name')
             ->latest()
             ->paginate(15);
 
@@ -57,7 +57,7 @@ class DriveCarpetaController extends Controller
     {
         $this->authorize('drive.gestionar');
 
-        $carpeta->load('usuario:id,nombre');
+        $carpeta->load('usuario:id,name');
 
         $archivos = $carpeta->archivos()
             ->latest()
