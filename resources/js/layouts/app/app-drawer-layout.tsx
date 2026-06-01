@@ -107,22 +107,29 @@ const navGroups: NavGroup[] = [
         title: 'Costos',
         icon: BadgeDollarSign,
         items: [
-            { title: 'Proveedores', href: '/admin/proveedores', icon: Building, permission: 'costos.proveedores.ver' },
-            { title: 'Regímenes Fiscales', href: '/admin/regimenes-fiscales', icon: Layers, permission: 'costos.regimenes-fiscales.ver' },
-            { title: 'Usos CFDI', href: '/admin/costos/usos-cfdi', icon: File, permission: 'costos.usos-cfdi.ver' },
-            { title: 'Tipo Rubros', href: '/admin/costos/tipo-rubros', icon: Layers, permission: 'costos.tipo-rubros.ver' },
-            { title: 'Rubros', href: '/admin/costos/rubros', icon: BookOpen, permission: 'costos.rubros.ver' },
-            { title: 'Tipo Solicitudes', href: '/admin/costos/tipo-solicitudes', icon: File, permission: 'costos.tipo-solicitudes.ver' },
             { title: 'Presupuestos', href: '/admin/costos/presupuestos', icon: Calculator, permission: 'costos.obra-rubros.ver' },
             { title: 'Requisiciones', href: '/admin/costos/requisiciones', icon: FileText, permission: 'costos.requisiciones.ver' },
             { title: 'Solicitudes Pago', href: '/admin/costos/solicitudes-pago', icon: FileText, permission: 'costos.solicitudes-pago.ver' },
-            { title: 'Niveles Aprobacion', href: '/admin/costos/permisos', icon: CheckSquare, permission: 'costos.aprobaciones.ver' },
             { title: 'Mis Aprobaciones', href: '/admin/costos/aprobaciones', icon: ClipboardCheck, permission: 'costos.aprobaciones.ver' },
             { title: 'Afectaciones', href: '/admin/costos/afectaciones', icon: TrendingDown, permission: 'costos.afectaciones.ver' },
             { title: 'Ordenes Compra', href: '/admin/costos/ordenes-compra', icon: ShoppingCart, permission: 'costos.ordenes-compra.ver' },
             { title: 'Facturas', href: '/admin/costos/facturas', icon: Receipt, permission: 'costos.facturas.ver' },
             { title: 'Pagos', href: '/admin/costos/pagos', icon: DollarSign, permission: 'costos.pagos.ver' },
             { title: 'Cuentas Internas', href: '/admin/costos/cuentas-internas', icon: Users, permission: 'costos.cuentas-internas.ver' },
+            {
+                title: 'Catálogos',
+                href: '/admin/proveedores',
+                icon: FolderTree,
+                children: [
+                    { title: 'Proveedores', href: '/admin/proveedores', icon: Building, permission: 'costos.proveedores.ver' },
+                    { title: 'Regímenes Fiscales', href: '/admin/regimenes-fiscales', icon: Layers, permission: 'costos.regimenes-fiscales.ver' },
+                    { title: 'Usos CFDI', href: '/admin/costos/usos-cfdi', icon: File, permission: 'costos.usos-cfdi.ver' },
+                    { title: 'Tipo Rubros', href: '/admin/costos/tipo-rubros', icon: Layers, permission: 'costos.tipo-rubros.ver' },
+                    { title: 'Rubros', href: '/admin/costos/rubros', icon: BookOpen, permission: 'costos.rubros.ver' },
+                    { title: 'Tipo Solicitudes', href: '/admin/costos/tipo-solicitudes', icon: File, permission: 'costos.tipo-solicitudes.ver' },
+                    { title: 'Niveles Aprobacion', href: '/admin/costos/permisos', icon: CheckSquare, permission: 'costos.aprobaciones.ver' },
+                ],
+            },
         ],
     },
     {
@@ -331,6 +338,10 @@ function SidebarContent() {
                     // "Mis reportes": depende de tener al menos una carpeta con puede_escribir
                     if (i.href === '/admin/dg/mis-reportes') {
                         return dgPuedeSubir;
+                    }
+                    // Ítem contenedor (submenú): se oculta si no quedó ningún hijo visible.
+                    if (Array.isArray(i.children)) {
+                        return i.children.length > 0;
                     }
                     return (!i.permission || can(i.permission)) && (!i.role || hasRole(i.role));
                 }),
