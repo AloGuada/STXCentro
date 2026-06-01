@@ -856,10 +856,12 @@ export type Proveedor = {
     validado_at: string | null;
     observacion_validacion: string | null;
     creado_por: string | null;
+    bloqueado_complemento?: boolean;
     departamento?: Departamento;
     regimen_fiscal?: RegimenFiscal;
     validador?: Usuario;
     media?: Media[];
+    complementos_pago?: CostosComplementoPago[];
     created_at: string;
     updated_at: string;
 };
@@ -1215,6 +1217,7 @@ export type CostosRequisicionCotizacionPrecio = {
     requisicion_detalle_id: number;
     proveedor_id: number;
     precio_unitario: number;
+    codigo_producto: string | null;
     moneda: CostosTipoMoneda;
     tiempo_entrega_dias: number | null;
     observaciones: string | null;
@@ -1245,6 +1248,7 @@ export type CostosSolicitudPago = {
     solicitante_id: string;
     departamento_id: number;
     proveedor_id: number | null;
+    orden_compra_id: number | null;
     tipo_solicitud_id: number;
     concepto: string;
     monto_total: number;
@@ -1264,6 +1268,7 @@ export type CostosSolicitudPago = {
     departamento?: Departamento;
     proveedor?: Proveedor;
     tipo_solicitud?: CostosTipoSolicitud;
+    orden_compra?: Pick<CostosOrdenCompra, 'id' | 'folio'>;
     detalles?: CostosSolicitudPagoDetalle[];
     archivos?: CostosSolicitudArchivo[];
     aprobaciones?: CostosAprobacionSolicitud[];
@@ -1498,6 +1503,7 @@ export type CostosOrdenCompra = {
     porcentaje_pago?: number;
     pago_vencido?: boolean;
     tiene_devolucion?: boolean;
+    pagada_anticipo_contado?: boolean;
     detalles_count?: number;
     requisicion_id: number | null;
     proveedor?: Proveedor;
@@ -1507,6 +1513,7 @@ export type CostosOrdenCompra = {
     detalles?: CostosOrdenCompraDetalle[];
     facturas?: CostosFactura[];
     entregas?: CostosEntrega[];
+    solicitudes_pago?: Array<Pick<CostosSolicitudPago, 'id' | 'folio' | 'estatus'>>;
     media?: Media[];
     rubros_afectados?: CostosRubroAfectado[];
     facturas_count?: number;
@@ -1639,6 +1646,8 @@ export type CostosFactura = {
     impuestos_detalle: CostosImpuestosDetalle | null;
     total: number;
     moneda: string;
+    metodo_pago?: 'PUE' | 'PPD' | null;
+    forma_pago?: string | null;
     fecha_factura: string | null;
     estatus: CostosFacturaEstatus;
     notas: string | null;
@@ -1672,6 +1681,40 @@ export type CostosFactura = {
     notas_credito?: CostosNotaCredito[];
     monto_notas_credito?: number;
     saldo_facturado?: number;
+    complementos_pago?: CostosComplementoPago[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosComplementoPagoEstatus = 'pendiente' | 'cumplido' | 'vencido';
+
+export const COMPLEMENTO_PAGO_ESTATUS_LABELS: Record<CostosComplementoPagoEstatus, string> = {
+    pendiente: 'Pendiente',
+    cumplido: 'Cumplido',
+    vencido: 'Vencido',
+};
+
+export const COMPLEMENTO_PAGO_ESTATUS_COLORS: Record<CostosComplementoPagoEstatus, string> = {
+    pendiente: 'badge-warning',
+    cumplido: 'badge-success',
+    vencido: 'badge-error',
+};
+
+export type CostosComplementoPago = {
+    id: number;
+    folio: string;
+    factura_id: number;
+    pago_id: number;
+    proveedor_id: number;
+    monto_pago: number;
+    fecha_pago: string;
+    fecha_generacion: string;
+    fecha_limite: string;
+    estatus: CostosComplementoPagoEstatus;
+    complemento_uuid: string | null;
+    recibido_at: string | null;
+    factura?: Pick<CostosFactura, 'id' | 'folio' | 'uuid_fiscal' | 'total'>;
+    proveedor?: Pick<Proveedor, 'id' | 'razon_social'>;
     created_at: string;
     updated_at: string;
 };

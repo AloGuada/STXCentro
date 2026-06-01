@@ -186,9 +186,19 @@ function MatrizComparativa({
 
     return (
         <div className="rounded-lg border border-base-300 p-3">
-            <h3 className="mb-2 text-xs uppercase tracking-wider text-base-content/60">
-                Comparativo: items × proveedores
-            </h3>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-xs uppercase tracking-wider text-base-content/60">
+                    Comparativo: items × proveedores
+                </h3>
+                <div className="flex items-center gap-3 text-[10px] text-base-content/60">
+                    <span className="inline-flex items-center gap-1">
+                        <span className="inline-block size-2 rounded-full bg-primary"></span> Seleccionado
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                        <span className="inline-block size-2 rounded-full bg-success"></span> Mejor precio
+                    </span>
+                </div>
+            </div>
             <div className="overflow-x-auto">
                 <table className="table table-xs">
                     <thead>
@@ -214,6 +224,7 @@ function MatrizComparativa({
                                 }
                             });
                             const min = Object.values(precios).length > 0 ? Math.min(...Object.values(precios)) : 0;
+                            const seleccionados = new Set((d.selecciones ?? []).map((s) => s.proveedor_id));
                             return (
                                 <tr key={d.id}>
                                     <td>
@@ -224,13 +235,17 @@ function MatrizComparativa({
                                     {proveedoresActivos.map((pid) => {
                                         const has = pid in precios;
                                         const isMin = has && precios[pid] === min;
+                                        const isSelected = seleccionados.has(pid);
+                                        const cellClass = isSelected
+                                            ? 'bg-primary/15 text-primary font-semibold ring-1 ring-inset ring-primary/50'
+                                            : isMin
+                                                ? 'bg-success/10 text-success font-semibold'
+                                                : '';
                                         return (
-                                            <td
-                                                key={pid}
-                                                className={`text-right ${isMin ? 'bg-success/10 text-success font-semibold' : ''}`}
-                                            >
+                                            <td key={pid} className={`text-right ${cellClass}`}>
                                                 {has ? (
                                                     <span>
+                                                        {isSelected && <span className="mr-1">✓</span>}
                                                         {fmt(precios[pid])}
                                                         <span className="ml-1 text-[10px] text-base-content/50">{TIPO_MONEDA_LABELS[monedas[pid]]}</span>
                                                     </span>
@@ -352,11 +367,13 @@ function PartidaNode({
 
             {open && (
                 <div className="border-t border-base-200 px-3 py-2">
-                    <div className="grid grid-cols-[1fr_60px_60px_100px_72px_70px_1fr_30px] gap-2 border-b border-base-200 pb-1 text-[10px] uppercase tracking-wider text-base-content/60">
+                    <ClasificacionPartida detalle={detalle} editable={editable} />
+                    <div className="grid grid-cols-[1fr_60px_60px_100px_90px_72px_70px_1fr_30px] gap-2 border-b border-base-200 pb-1 text-[10px] uppercase tracking-wider text-base-content/60">
                         <div>Proveedor</div>
                         <div className="text-right">Cant.</div>
                         <div className="text-center">OC#</div>
                         <div className="text-right">P. unit</div>
+                        <div>Código</div>
                         <div className="text-center">Moneda</div>
                         <div className="text-right">Días</div>
                         <div>Observaciones</div>
@@ -395,6 +412,48 @@ function PartidaNode({
                     )}
                 </div>
             )}
+        </div>
+    );
+}
+
+// Clasificación fiscal de la partida (tipo_fiscal), que Compras captura aquí en
+// cotización. El código de producto NO va aquí: es por línea y por proveedor,
+// se captura en cada fila de cotización.
+function ClasificacionPartida({
+    detalle,
+    editable,
+}: {
+    detalle: CostosRequisicionDetalle;
+    editable: boolean;
+}) {
+    const [tipoFiscal, setTipoFiscal] = useState<CostosTipoFiscalPartida>(detalle.tipo_fiscal ?? 'mercancia');
+
+    const guardar = (tf: CostosTipoFiscalPartida) => {
+        router.post(`/admin/costos/requisiciones/detalles/${detalle.id}/clasificacion`, {
+            tipo_fiscal: tf,
+        }, { preserveScroll: true });
+    };
+
+    return (
+        <div className="mb-2 flex flex-wrap items-end gap-3 rounded bg-base-100 px-2 py-2">
+            <label className="flex flex-col text-[10px] uppercase tracking-wider text-base-content/60">
+                Tipo fiscal
+                <select
+                    className="select select-bordered select-xs mt-0.5 w-44"
+                    value={tipoFiscal}
+                    disabled={!editable}
+                    onChange={(e) => {
+                        const v = e.target.value as CostosTipoFiscalPartida;
+                        setTipoFiscal(v);
+                        guardar(v);
+                    }}
+                >
+                    <option value="mercancia">Mercancía</option>
+                    <option value="flete">Flete</option>
+                    <option value="servicio_profesional">Servicio profesional</option>
+                    <option value="renta">Renta</option>
+                </select>
+            </label>
         </div>
     );
 }
@@ -483,6 +542,7 @@ function CotizacionFila({
     };
 
     const [precio, setPrecio] = useState(String(cotizacion.precio_unitario));
+    const [codigo, setCodigo] = useState(cotizacion.codigo_producto ?? '');
     const [moneda, setMoneda] = useState<CostosTipoMoneda>(cotizacion.moneda ?? 'mxn');
     const [tiempo, setTiempo] = useState(cotizacion.tiempo_entrega_dias != null ? String(cotizacion.tiempo_entrega_dias) : '');
     const [observ, setObserv] = useState(cotizacion.observaciones ?? '');
@@ -498,12 +558,14 @@ function CotizacionFila({
             && monedaActual === (cotizacion.moneda ?? 'mxn')
             && (tiempo === '' ? null : Number(tiempo)) === cotizacion.tiempo_entrega_dias
             && observ === (cotizacion.observaciones ?? '')
+            && codigo === (cotizacion.codigo_producto ?? '')
         ) return;
 
         router.post('/admin/costos/requisiciones/cotizaciones', {
             requisicion_detalle_id: detalle.id,
             proveedor_id: cotizacion.proveedor_id,
             precio_unitario: p,
+            codigo_producto: codigo || null,
             moneda: monedaActual,
             tiempo_entrega_dias: tiempo ? Number(tiempo) : null,
             observaciones: observ || null,
@@ -559,7 +621,7 @@ function CotizacionFila({
 
     return (
         <div
-            className={`grid grid-cols-[1fr_60px_60px_100px_72px_70px_1fr_30px] gap-2 items-center py-1 ${selected ? 'bg-success/5' : ''}`}
+            className={`grid grid-cols-[1fr_60px_60px_100px_90px_72px_70px_1fr_30px] gap-2 items-center py-1 ${selected ? 'bg-success/5' : ''}`}
         >
             <div className="text-xs">{proveedor?.razon_social ?? `#${cotizacion.proveedor_id}`}</div>
             <input
@@ -590,6 +652,15 @@ function CotizacionFila({
                 value={precio}
                 disabled={!editable}
                 onChange={(e) => setPrecio(e.target.value)}
+                onBlur={() => guardarPrecio()}
+            />
+            <input
+                type="text"
+                className="input input-bordered input-xs w-full"
+                value={codigo}
+                disabled={!editable}
+                placeholder="Código"
+                onChange={(e) => setCodigo(e.target.value)}
                 onBlur={() => guardarPrecio()}
             />
             <select
@@ -763,7 +834,9 @@ function PreviewOcs({
                     const totalRetenciones = retenciones.reduce((s, r) => s + r.monto, 0);
                     const totalNeto = total - totalRetenciones;
 
-                    const manejaCredito = !g.has_no_credito;
+                    // Deriva del proveedor directamente (no del flag mutado del grupo):
+                    // un proveedor sin crédito nunca debe ofrecer la opción de crédito.
+                    const manejaCredito = proveedor?.maneja_credito === true;
 
                     return (
                         <div key={key} className="overflow-hidden rounded border border-base-300">

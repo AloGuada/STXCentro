@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\Costos\RequisicionCotizacionPrecioStoreRequest;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -35,6 +36,7 @@ class RequisicionCotizacionController extends Controller
             ],
             [
                 'precio_unitario' => $request->float('precio_unitario'),
+                'codigo_producto' => $request->input('codigo_producto'),
                 'moneda' => $request->input('moneda'),
                 'tiempo_entrega_dias' => $request->input('tiempo_entrega_dias'),
                 'observaciones' => $request->input('observaciones'),
@@ -44,6 +46,27 @@ class RequisicionCotizacionController extends Controller
         $this->promoverACotizada($detalle->requisicion);
 
         return back()->with('success', 'Precio cotizado guardado.');
+    }
+
+    /**
+     * Clasificación fiscal de la partida (tipo_fiscal), que Compras captura en
+     * el tab de cotización. El código de producto NO va aquí: es por línea y
+     * por proveedor, se guarda en cada cotización.
+     */
+    public function clasificar(Request $request, RequisicionDetalle $detalle): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $detalle->load('requisicion');
+        $this->ensureEditable($detalle->requisicion->estatus);
+
+        $validated = $request->validate([
+            'tipo_fiscal' => ['required', 'in:mercancia,flete,servicio_profesional,renta'],
+        ]);
+
+        $detalle->update(['tipo_fiscal' => $validated['tipo_fiscal']]);
+
+        return back()->with('success', 'Clasificación de la partida actualizada.');
     }
 
     public function destroy(RequisicionCotizacionPrecio $precio): RedirectResponse

@@ -395,6 +395,19 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                     </div>
 
                     <div className="flex gap-2">
+                        {can('costos.requisiciones.crear') && (
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    if (confirm('¿Duplicar esta requisición en una nueva (borrador) con folio nuevo? Se copian partidas y cotizaciones.')) {
+                                        router.post(`/admin/costos/requisiciones/${requisicion.id}/duplicar`);
+                                    }
+                                }}
+                            >
+                                Duplicar
+                            </Button>
+                        )}
+
                         {editable && can('costos.requisiciones.crear') && (
                             <Button variant="outline" asChild>
                                 <Link href={`/admin/costos/requisiciones/${requisicion.id}/edit`}>Editar</Link>
@@ -712,7 +725,17 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
 
     return (
         <div className="mt-6">
-            <h3 className="mb-2 font-medium">Comparativo de cotizaciones</h3>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-medium">Comparativo de cotizaciones</h3>
+                <div className="flex items-center gap-3 text-[10px] text-base-content/60">
+                    <span className="inline-flex items-center gap-1">
+                        <span className="inline-block size-2 rounded-full bg-primary"></span> Seleccionado
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                        <span className="inline-block size-2 rounded-full bg-success"></span> Mejor precio
+                    </span>
+                </div>
+            </div>
             <div className="overflow-x-auto rounded-lg border border-base-300">
                 <table className="table table-sm">
                     <thead className="bg-base-200">
@@ -743,16 +766,19 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                                     const dias = cot?.tiempo_entrega_dias ?? null;
                                     const moneda = cot?.moneda ?? 'mxn';
                                     const esMejorPartida = px !== null && px === mejorPrecioPartida.get(d.id);
+                                    const seleccionado = (d.selecciones ?? []).some((s) => s.proveedor_id === p.id);
                                     const classes = [
                                         'text-right align-top',
-                                        esMejorPartida ? 'bg-success/15 font-semibold text-success' : '',
-                                        p.id === mejorProveedorId && !esMejorPartida ? 'text-success' : '',
+                                        seleccionado
+                                            ? 'bg-primary/15 font-semibold text-primary ring-1 ring-inset ring-primary/50'
+                                            : esMejorPartida ? 'bg-success/15 font-semibold text-success' : '',
+                                        p.id === mejorProveedorId && !esMejorPartida && !seleccionado ? 'text-success' : '',
                                     ].filter(Boolean).join(' ');
                                     return (
                                         <td key={p.id} className={classes}>
                                             {px !== null ? (
                                                 <>
-                                                    <div>{fmt(px)} <span className="text-[10px] font-normal text-base-content/50">{TIPO_MONEDA_LABELS[moneda]}</span></div>
+                                                    <div>{seleccionado && <span className="mr-1">✓</span>}{fmt(px)} <span className="text-[10px] font-normal text-base-content/50">{TIPO_MONEDA_LABELS[moneda]}</span></div>
                                                     {dias !== null && dias > 0 && (
                                                         <div className="text-[10px] font-normal text-base-content/60">
                                                             {dias} {dias === 1 ? 'día' : 'días'} entrega

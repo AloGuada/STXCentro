@@ -109,6 +109,60 @@ class RequisicionController extends Controller
             ->with('success', 'Requisición creada correctamente.');
     }
 
+    /**
+     * Duplica una requisición (en cualquier estado) en una nueva en borrador con
+     * folio nuevo: copia partidas y cotizaciones (precios, proveedores, código,
+     * días). NO copia selecciones, OCs ni aprobaciones. Útil para Compras para
+     * re-cotizar o editar sin tocar la original.
+     */
+    public function duplicar(Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.crear');
+
+        $nueva = DB::transaction(function () use ($requisicion) {
+            $nueva = Requisicion::create([
+                'solicitante_id' => request()->user()->id,
+                'departamento_id' => $requisicion->departamento_id,
+                'obra_id' => $requisicion->obra_id,
+                'justificacion' => $requisicion->justificacion,
+                'fecha_requerida' => $requisicion->fecha_requerida,
+                'estatus' => RequisicionEstatus::Borrador->value,
+            ]);
+
+            $requisicion->load('detalles.cotizaciones');
+
+            foreach ($requisicion->detalles as $detalle) {
+                $nuevoDetalle = $nueva->detalles()->create([
+                    'descripcion' => $detalle->descripcion,
+                    'codigo_producto' => $detalle->codigo_producto,
+                    'unidad' => $detalle->unidad,
+                    'cantidad' => $detalle->cantidad,
+                    'obra_rubro_id' => $detalle->obra_rubro_id,
+                    'uso_cfdi_id' => $detalle->uso_cfdi_id,
+                    'tipo_fiscal' => $detalle->tipo_fiscal,
+                    'notas' => $detalle->notas,
+                ]);
+
+                foreach ($detalle->cotizaciones as $cotizacion) {
+                    $nuevoDetalle->cotizaciones()->create([
+                        'proveedor_id' => $cotizacion->proveedor_id,
+                        'precio_unitario' => $cotizacion->precio_unitario,
+                        'codigo_producto' => $cotizacion->codigo_producto,
+                        'moneda' => $cotizacion->moneda,
+                        'tiempo_entrega_dias' => $cotizacion->tiempo_entrega_dias,
+                        'observaciones' => $cotizacion->observaciones,
+                        'media_id' => $cotizacion->media_id,
+                    ]);
+                }
+            }
+
+            return $nueva;
+        });
+
+        return to_route('admin.costos.requisiciones.show', $nueva)
+            ->with('success', "Requisición duplicada en {$nueva->folio} (borrador).");
+    }
+
     public function show(Requisicion $requisicion): Response
     {
         Gate::authorize('costos.requisiciones.ver');
@@ -420,16 +474,17 @@ class RequisicionController extends Controller
 
             foreach ($request->input('detalles', []) as $d) {
                 if (! empty($d['id'])) {
+                    // codigo_producto y tipo_fiscal se gestionan en el tab de
+                    // cotización (Compras), no en la edición de la requisición:
+                    // no se tocan aquí para no pisar lo capturado.
                     RequisicionDetalle::where('id', $d['id'])
                         ->where('requisicion_id', $requisicion->id)
                         ->update([
                             'descripcion' => $d['descripcion'],
-                            'codigo_producto' => $d['codigo_producto'] ?? null,
                             'unidad' => $d['unidad'] ?? 'pza',
                             'cantidad' => $d['cantidad'],
                             'obra_rubro_id' => $d['obra_rubro_id'],
                             'uso_cfdi_id' => $d['uso_cfdi_id'],
-                            'tipo_fiscal' => $d['tipo_fiscal'] ?? 'mercancia',
                             'notas' => $d['notas'] ?? null,
                         ]);
                 } else {
@@ -640,6 +695,13 @@ class RequisicionController extends Controller
             if ($monedas->count() > 1) {
                 return back()->withErrors([
                     'ocs' => "La OC del grupo {$key} mezcla monedas (".$monedas->implode(', ').'). Separa las partidas por moneda en OCs distintas.',
+                ]);
+            }
+
+            $proveedor = $selecciones->first()?->proveedor;
+            if ($proveedor?->bloqueadoPorComplemento()) {
+                return back()->withErrors([
+                    'ocs' => "El proveedor \"{$proveedor->razon_social}\" está bloqueado por un complemento de pago pendiente. No se puede liberar la OC hasta regularizar.",
                 ]);
             }
         }

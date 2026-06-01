@@ -8,12 +8,10 @@ import type { CostosUsoCfdi, Departamento, Obra, ObraRubroOption } from '@/types
 
 type Detalle = {
     descripcion: string;
-    codigo_producto: string;
     unidad: string;
     cantidad: number;
     obra_rubro_id: number | '';
     uso_cfdi_id: number | '';
-    tipo_fiscal: string;
     notas: string;
 };
 
@@ -43,12 +41,10 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
 
     const blankDetalle = (): Detalle => ({
         descripcion: '',
-        codigo_producto: '',
         unidad: 'pza',
         cantidad: 1,
         obra_rubro_id: '',
         uso_cfdi_id: defaultUsoId,
-        tipo_fiscal: 'mercancia',
         notas: '',
     });
 
@@ -151,12 +147,10 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                         <thead>
                             <tr>
                                 <th>Descripción *</th>
-                                <th className="w-36">Código producto</th>
-                                <th className="min-w-[200px]">Rubro (C. Costo) *</th>
-                                <th className="min-w-[180px]">Uso CFDI *</th>
-                                <th className="min-w-[150px]">Tipo fiscal</th>
                                 <th className="w-24">Unidad</th>
                                 <th className="w-28 text-right">Cantidad *</th>
+                                <th className="min-w-[200px]">Centro de Costo *</th>
+                                <th className="min-w-[180px]">Uso CFDI *</th>
                                 <th>Notas</th>
                                 <th className="w-12"></th>
                             </tr>
@@ -179,8 +173,17 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                                         <input
                                             type="text"
                                             className="input input-bordered input-sm w-full"
-                                            value={d.codigo_producto}
-                                            onChange={(e) => updateDetalle(i, 'codigo_producto', e.target.value)}
+                                            value={d.unidad}
+                                            onChange={(e) => updateDetalle(i, 'unidad', e.target.value)}
+                                        />
+                                    </td>
+                                    <td>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            className="input input-bordered input-sm w-full text-right"
+                                            value={d.cantidad}
+                                            onChange={(e) => updateDetalle(i, 'cantidad', Number(e.target.value))}
                                         />
                                     </td>
                                     <td>
@@ -209,35 +212,6 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                                         {errors[`detalles.${i}.uso_cfdi_id` as keyof typeof errors] && (
                                             <p className="text-error text-xs mt-1">{errors[`detalles.${i}.uso_cfdi_id` as keyof typeof errors]}</p>
                                         )}
-                                    </td>
-                                    <td>
-                                        <select
-                                            className="select select-bordered select-sm w-full"
-                                            value={d.tipo_fiscal}
-                                            onChange={(e) => updateDetalle(i, 'tipo_fiscal', e.target.value)}
-                                        >
-                                            <option value="mercancia">Mercancía</option>
-                                            <option value="flete">Flete</option>
-                                            <option value="servicio_profesional">Servicio profesional</option>
-                                            <option value="renta">Renta</option>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <input
-                                            type="text"
-                                            className="input input-bordered input-sm w-full"
-                                            value={d.unidad}
-                                            onChange={(e) => updateDetalle(i, 'unidad', e.target.value)}
-                                        />
-                                    </td>
-                                    <td>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            className="input input-bordered input-sm w-full text-right"
-                                            value={d.cantidad}
-                                            onChange={(e) => updateDetalle(i, 'cantidad', Number(e.target.value))}
-                                        />
                                     </td>
                                     <td>
                                         <input

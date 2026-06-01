@@ -24,6 +24,7 @@ class RequisicionCotizacionPrecio extends Model
         'requisicion_detalle_id',
         'proveedor_id',
         'precio_unitario',
+        'codigo_producto',
         'moneda',
         'tiempo_entrega_dias',
         'observaciones',

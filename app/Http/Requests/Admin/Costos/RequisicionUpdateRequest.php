@@ -27,12 +27,10 @@ class RequisicionUpdateRequest extends FormRequest
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.id' => ['nullable', 'integer'],
             'detalles.*.descripcion' => ['required', 'string', 'max:255'],
-            'detalles.*.codigo_producto' => ['nullable', 'string', 'max:255'],
             'detalles.*.unidad' => ['required', 'string', 'max:20'],
             'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],
             'detalles.*.obra_rubro_id' => ['required', 'exists:costos_obra_rubros,id'],
             'detalles.*.uso_cfdi_id' => ['required', Rule::exists('costos_usos_cfdi', 'id')->where('activo', true)],
-            'detalles.*.tipo_fiscal' => ['nullable', 'in:mercancia,flete,servicio_profesional,renta'],
             'detalles.*.notas' => ['nullable', 'string'],
             '_version' => ['nullable', 'string'],
         ];
