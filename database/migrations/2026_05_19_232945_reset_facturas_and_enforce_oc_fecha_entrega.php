@@ -37,10 +37,17 @@ return new class extends Migration
             ->where('estatus', 'pendiente_entrega')
             ->update(['estatus' => 'pendiente_factura']);
 
+        // Expresión de fecha portable entre motores (prod = pgsql, local = sqlite).
+        $sieteDias = match (DB::connection()->getDriverName()) {
+            'pgsql' => "(created_at + interval '7 days')::date",
+            'mysql', 'mariadb' => 'DATE(created_at + INTERVAL 7 DAY)',
+            default => "date(created_at, '+7 days')", // sqlite
+        };
+
         DB::table('costos_ordenes_compra')
             ->whereNull('fecha_entrega_esperada')
             ->update([
-                'fecha_entrega_esperada' => DB::raw("date(created_at, '+7 days')"),
+                'fecha_entrega_esperada' => DB::raw($sieteDias),
             ]);
 
         Schema::table('costos_ordenes_compra', function (Blueprint $table) {
