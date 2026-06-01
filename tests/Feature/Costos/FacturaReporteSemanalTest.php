@@ -15,7 +15,7 @@ beforeEach(function () {
 test('descarga reporte semanal de facturas como pdf', function () {
     $fecha = Carbon::now()->setISODate(2026, 11)->startOfWeek()->addDay();
     $facturas = Factura::factory()->count(2)->create();
-    $facturas->each(fn ($f) => Entrega::factory()->create(['factura_id' => $f->id, 'fecha_entrega' => $fecha]));
+    $facturas->each(fn ($f) => Entrega::factory()->create(['orden_compra_id' => $f->orden_compra_id, 'fecha_entrega' => $fecha]));
 
     $this->actingAs($this->user)
         ->get('/admin/costos/facturas/reporte-semanal?anio=2026&semana=11')
@@ -40,10 +40,10 @@ test('reporte semanal filtra correctamente por semana', function () {
     $semana12 = Carbon::now()->setISODate(2026, 12)->startOfWeek()->addDay();
 
     $facturasSemana11 = Factura::factory()->count(2)->create();
-    $facturasSemana11->each(fn ($f) => Entrega::factory()->create(['factura_id' => $f->id, 'fecha_entrega' => $semana11]));
+    $facturasSemana11->each(fn ($f) => Entrega::factory()->create(['orden_compra_id' => $f->orden_compra_id, 'fecha_entrega' => $semana11]));
 
     $facturaSemana12 = Factura::factory()->create();
-    Entrega::factory()->create(['factura_id' => $facturaSemana12->id, 'fecha_entrega' => $semana12]);
+    Entrega::factory()->create(['orden_compra_id' => $facturaSemana12->orden_compra_id, 'fecha_entrega' => $semana12]);
 
     $response = $this->actingAs($this->user)
         ->get('/admin/costos/facturas/reporte-semanal?anio=2026&semana=11')
@@ -59,7 +59,7 @@ test('descarga reporte semanal por proveedor como pdf', function () {
     $fecha = Carbon::now()->setISODate(2026, 11)->startOfWeek()->addDay();
     $proveedor = Proveedor::factory()->create();
     $facturas = Factura::factory()->count(2)->create(['proveedor_id' => $proveedor->id]);
-    $facturas->each(fn ($f) => Entrega::factory()->create(['factura_id' => $f->id, 'fecha_entrega' => $fecha]));
+    $facturas->each(fn ($f) => Entrega::factory()->create(['orden_compra_id' => $f->orden_compra_id, 'fecha_entrega' => $fecha]));
 
     $this->actingAs($this->user)
         ->get("/admin/costos/facturas/reporte-semanal-proveedor?anio=2026&semana=11&proveedor_id={$proveedor->id}")
@@ -87,10 +87,10 @@ test('reporte por proveedor solo incluye facturas del proveedor seleccionado', f
     $proveedor2 = Proveedor::factory()->create();
 
     $factura1 = Factura::factory()->create(['proveedor_id' => $proveedor1->id]);
-    Entrega::factory()->create(['factura_id' => $factura1->id, 'fecha_entrega' => $fecha]);
+    Entrega::factory()->create(['orden_compra_id' => $factura1->orden_compra_id, 'fecha_entrega' => $fecha]);
 
     $factura2 = Factura::factory()->create(['proveedor_id' => $proveedor2->id]);
-    Entrega::factory()->create(['factura_id' => $factura2->id, 'fecha_entrega' => $fecha]);
+    Entrega::factory()->create(['orden_compra_id' => $factura2->orden_compra_id, 'fecha_entrega' => $fecha]);
 
     $this->actingAs($this->user)
         ->get("/admin/costos/facturas/reporte-semanal-proveedor?anio=2026&semana=11&proveedor_id={$proveedor1->id}")

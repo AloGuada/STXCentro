@@ -105,7 +105,8 @@
       "Bash(find c:/Users/desarrollo.ti/Documents/dev/mono -type f -name *drive*)",
       "Bash(find c:/Users/desarrollo.ti/Documents/dev/mono/app/Models -type f \\\\\\(-name *Externo* -o -name *Carpeta* -o -name *Archivo* \\\\\\))",
       "Bash(wc -l /c/Users/desarrollo.ti/Documents/dev/mono/app/Models/Rh/*.php)",
-      "WebFetch(domain:api.github.com)"
+      "WebFetch(domain:api.github.com)",
+      "Bash(git commit:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

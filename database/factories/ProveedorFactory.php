@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ProveedorEstatus;
 use App\Models\Departamento;
 use App\Models\Proveedor;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -33,7 +34,30 @@ class ProveedorFactory extends Factory
             'dias_credito_default' => fake()->randomElement([0, 15, 30, 45, 60, 90]),
             'departamento_id' => Departamento::factory(),
             'tipo_proveedor' => fake()->randomElement(['materiales', 'servicios', 'equipos', 'mixto']),
+            'tipo_persona' => fake()->randomElement(['fisica', 'moral']),
+            'codigo_postal' => fake()->numerify('#####'),
+            'banco' => fake()->randomElement(['Banorte', 'BBVA', 'Santander', 'Banamex']),
+            'titular_cuenta' => fn (array $attrs) => $attrs['razon_social'],
+            'clabe' => fake()->numerify('##################'),
+            'moneda_cuenta' => 'MXN',
             'activo' => true,
+            'estatus' => ProveedorEstatus::Activo->value,
         ];
+    }
+
+    public function pendienteValidacion(): static
+    {
+        return $this->state(fn () => [
+            'activo' => false,
+            'estatus' => ProveedorEstatus::PendienteValidacion->value,
+        ]);
+    }
+
+    public function rechazado(): static
+    {
+        return $this->state(fn () => [
+            'activo' => false,
+            'estatus' => ProveedorEstatus::Rechazado->value,
+        ]);
     }
 }

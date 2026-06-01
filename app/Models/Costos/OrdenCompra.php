@@ -2,6 +2,16 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\DocumentoTipo;
+use App\Enums\Costos\FacturaEstatus;
+use App\Enums\Costos\ModoPago;
+use App\Enums\Costos\OrdenCompraEstatus;
+use App\Enums\Costos\SolicitudPagoEstatus;
+use App\Models\Concerns\HasCancelacion;
+use App\Models\Concerns\HasEditLock;
+use App\Models\Concerns\HasMonthlyFolio;
+use App\Models\Concerns\HasStateMachine;
+use App\Models\Costos\Concerns\AfectaPresupuesto;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
@@ -12,17 +22,39 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\OrdenCompraFactory>
  */
 class OrdenCompra extends Model
 {
-    use HasFactory;
+    use AfectaPresupuesto, HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_ordenes_compra';
+
+    protected static string $folioPrefix = 'OC';
+
+    protected static string $stateEnum = OrdenCompraEstatus::class;
+
+    /**
+     * @var list<string>
+     */
+    protected $appends = [
+        'retrasada',
+        'etapa_proceso',
+        'monto_recibido',
+        'total_facturado',
+        'total_pagado',
+        'porcentaje_recepcion',
+        'porcentaje_facturacion',
+        'porcentaje_pago',
+        'pago_vencido',
+        'tiene_devolucion',
+    ];
 
     /**
      * @var list<string>
@@ -30,15 +62,21 @@ class OrdenCompra extends Model
     protected $fillable = [
         'folio',
         'referencia',
+        'requisicion_id',
         'proveedor_id',
         'obra_id',
         'departamento_id',
         'creado_por',
         'moneda',
+        'tipo_pago',
+        'dias_credito',
+        'forma_pago',
         'total',
         'fecha_entrega_esperada',
         'notas',
         'estatus',
+        'locked_by',
+        'locked_at',
     ];
 
     /**
@@ -48,26 +86,12 @@ class OrdenCompra extends Model
     {
         return [
             'total' => 'decimal:2',
+            'dias_credito' => 'integer',
             'fecha_entrega_esperada' => 'date',
+            'tipo_pago' => ModoPago::class,
+            'estatus' => OrdenCompraEstatus::class,
+            'locked_at' => 'datetime',
         ];
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $oc) {
-            if (empty($oc->folio)) {
-                $prefix = sprintf('OC-%s%s', now()->format('Y'), now()->format('m'));
-                $last = DB::table('costos_ordenes_compra')
-                    ->where('folio', 'like', "{$prefix}%")
-                    ->max('folio');
-
-                $next = $last
-                    ? ((int) substr($last, -2)) + 1
-                    : 1;
-
-                $oc->folio = sprintf('%s%02d', $prefix, $next);
-            }
-        });
     }
 
     public function proveedor(): BelongsTo
@@ -100,6 +124,16 @@ class OrdenCompra extends Model
         return $this->hasMany(Factura::class, 'orden_compra_id');
     }
 
+    public function solicitudesPago(): HasMany
+    {
+        return $this->hasMany(SolicitudPago::class, 'orden_compra_id');
+    }
+
+    public function entregas(): HasMany
+    {
+        return $this->hasMany(Entrega::class, 'orden_compra_id');
+    }
+
     public function media(): MorphMany
     {
         return $this->morphMany(\App\Models\Media::class, 'mediable');
@@ -107,17 +141,17 @@ class OrdenCompra extends Model
 
     public function archivo(): MorphOne
     {
-        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'archivo');
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', DocumentoTipo::OcArchivo->value);
     }
 
     public function pdfFormato(): MorphOne
     {
-        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'pdf_formato');
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', DocumentoTipo::OcPdfFormato->value);
     }
 
     public function pdfFirmado(): MorphOne
     {
-        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', 'pdf_firmado');
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', DocumentoTipo::OcPdfFirmado->value);
     }
 
     public function rubrosAfectados(): MorphMany
@@ -125,65 +159,266 @@ class OrdenCompra extends Model
         return $this->morphMany(RubroAfectado::class, 'entrada');
     }
 
-    /**
-     * Aplica el impacto presupuestal: incrementa acumulado en obra_rubros y crea rubros afectados.
-     */
-    public function aplicarImpactoPresupuestal(?string $userId = null): void
+    public function requisicion(): BelongsTo
     {
-        $userId = $userId ?? Auth::id();
+        return $this->belongsTo(Requisicion::class, 'requisicion_id');
+    }
 
-        foreach ($this->detalles as $detalle) {
-            ObraRubro::where('id', $detalle->obra_rubro_id)
-                ->increment('acumulado', (float) $detalle->monto);
-
-            $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
-            $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
-
-            $this->rubrosAfectados()->create([
-                'obra_rubro_id' => $detalle->obra_rubro_id,
-                'monto' => $detalle->monto,
-                'sobre_giro' => $disponible < 0,
-                'descripcion' => $obraRubro->rubro?->descripcion,
-                'tipo_movimiento' => 'cargo',
-                'estatus' => 'aplicado',
-                'usuario_aplica_id' => $userId,
-                'fecha_aplicacion' => now(),
-            ]);
-        }
+    public function activities(): MorphMany
+    {
+        return $this->activitiesAsSubject();
     }
 
     /**
-     * Recalcula el estatus de la OC basado en el estado agregado de sus facturas.
+     * Suma de facturas activas (no canceladas) ligadas a esta orden.
+     */
+    public function getTotalFacturadoAttribute(): float
+    {
+        return (float) $this->facturas()
+            ->where('estatus', '!=', FacturaEstatus::Cancelada->value)
+            ->sum('total');
+    }
+
+    /**
+     * Suma de pagos realizados (estatus = pagado) sobre facturas de esta orden.
+     * Solo cuenta pagos raíz (sin pago_padre_id) para no duplicar con parcialidades.
+     */
+    public function getTotalPagadoAttribute(): float
+    {
+        return (float) Pago::query()
+            ->where('pagable_type', Factura::class)
+            ->whereIn('pagable_id', $this->facturas()->pluck('id'))
+            ->where('estatus', 'pagado')
+            ->whereNull('pago_padre_id')
+            ->sum('monto_pago');
+    }
+
+    /**
+     * Saldo pendiente contra el total de la orden (total − total_pagado).
+     */
+    public function getSaldoPendienteAttribute(): float
+    {
+        return (float) $this->total - $this->total_pagado;
+    }
+
+    /**
+     * True si la OC es de contado y su solicitud de pago de anticipo ya fue
+     * pagada. Se refleja como badge "Pagada (anticipo contado)" sin alterar el
+     * estatus formal de la OC (que sigue su curso entrega → factura → ...).
+     */
+    public function pagadaAnticipoContado(): bool
+    {
+        if ($this->tipo_pago !== ModoPago::Contado) {
+            return false;
+        }
+
+        if ($this->relationLoaded('solicitudesPago')) {
+            return $this->solicitudesPago
+                ->contains(fn (SolicitudPago $s) => $s->estatus === SolicitudPagoEstatus::Pagada);
+        }
+
+        return $this->solicitudesPago()
+            ->where('estatus', SolicitudPagoEstatus::Pagada->value)
+            ->exists();
+    }
+
+    public function getPagadaAnticipoContadoAttribute(): bool
+    {
+        return $this->pagadaAnticipoContado();
+    }
+
+    protected function descripcionAfectacion(object $detalle, ObraRubro $obraRubro): ?string
+    {
+        return $obraRubro->rubro?->descripcion;
+    }
+
+    /**
+     * Recalcula el estatus de la OC basado en el estado agregado de sus facturas
+     * y la presencia de recepciones del almacén.
+     *
+     * Reglas (en orden):
+     *  - cancelada                        → no cambia
+     *  - sin facturas activas, sin entregas → pendiente_entrega
+     *  - sin facturas activas, con entregas → pendiente_factura
+     *  - todas facturas pagadas           → pagada
+     *  - todas facturas en pago o pagadas → pendiente_pago
+     *  - default (con facturas activas)   → pendiente_aprobacion
      */
     public function recalcularEstatus(): void
     {
-        $facturas = $this->facturas()->where('estatus', '!=', 'cancelada')->get();
+        if ($this->estatus === OrdenCompraEstatus::Cancelada) {
+            return;
+        }
+
+        $facturas = $this->facturas()->where('estatus', '!=', FacturaEstatus::Cancelada->value)->get();
 
         if ($facturas->isEmpty()) {
-            $this->update(['estatus' => 'pendiente_factura']);
+            $estado = $this->entregas()->exists() ? 'pendiente_factura' : 'pendiente_entrega';
+            $this->update(['estatus' => $estado]);
 
             return;
         }
 
-        if ($facturas->every(fn ($f) => $f->estatus === 'pagada')) {
+        if ($facturas->every(fn ($f) => $f->estatus === FacturaEstatus::Pagada)) {
             $this->update(['estatus' => 'pagada']);
 
             return;
         }
 
-        if ($facturas->every(fn ($f) => in_array($f->estatus, ['pendiente_pago', 'pagada']))) {
+        if ($facturas->every(fn ($f) => in_array($f->estatus, [FacturaEstatus::PendientePago, FacturaEstatus::Pagada], true))) {
             $this->update(['estatus' => 'pendiente_pago']);
 
             return;
         }
 
-        if ($facturas->every(fn ($f) => in_array($f->estatus, ['pendiente_aprobacion', 'pendiente_pago', 'pagada']))) {
-            $this->update(['estatus' => 'pendiente_aprobacion']);
+        $this->update(['estatus' => 'pendiente_aprobacion']);
+    }
 
-            return;
+    /**
+     * Indica si la fecha de entrega esperada ya pasó y aún no hay ninguna
+     * recepción de almacén registrada. Se usa como bandera UI en portal y admin.
+     */
+    public function getRetrasadaAttribute(): bool
+    {
+        if (! $this->fecha_entrega_esperada) {
+            return false;
         }
 
-        $this->update(['estatus' => 'pendiente_entrega']);
+        $fecha = $this->fecha_entrega_esperada instanceof Carbon
+            ? $this->fecha_entrega_esperada
+            : Carbon::parse($this->fecha_entrega_esperada);
+
+        if (! $fecha->isPast()) {
+            return false;
+        }
+
+        return ! $this->entregas()->exists();
+    }
+
+    /**
+     * Monto recibido por almacén = sumatoria de (cantidad_neta_recibida * precio_unitario)
+     * por cada partida. Descuenta devoluciones vigentes via EntregaDetalle::cantidad_neta_recibida.
+     */
+    public function getMontoRecibidoAttribute(): float
+    {
+        $this->loadMissing(['entregas.detalles.ordenCompraDetalle', 'entregas.detalles.devoluciones']);
+
+        $total = 0.0;
+        foreach ($this->entregas as $entrega) {
+            foreach ($entrega->detalles as $ed) {
+                $precio = (float) ($ed->ordenCompraDetalle?->precio_unitario ?? 0);
+                $total += $ed->cantidad_neta_recibida * $precio;
+            }
+        }
+
+        return round($total, 2);
+    }
+
+    public function getPorcentajeRecepcionAttribute(): float
+    {
+        return $this->ratio($this->monto_recibido);
+    }
+
+    public function getPorcentajeFacturacionAttribute(): float
+    {
+        return $this->ratio($this->total_facturado);
+    }
+
+    public function getPorcentajePagoAttribute(): float
+    {
+        return $this->ratio($this->total_pagado);
+    }
+
+    private function ratio(float $monto): float
+    {
+        $subtotalLineas = $this->subtotalLineas();
+        if ($subtotalLineas <= 0) {
+            return 0.0;
+        }
+
+        return round(min(100, max(0, ($monto / $subtotalLineas) * 100)), 1);
+    }
+
+    /**
+     * Subtotal de líneas (sin envío ni IVA) para cálculos de porcentaje.
+     */
+    private function subtotalLineas(): float
+    {
+        $this->loadMissing('detalles');
+
+        return (float) $this->detalles->sum(fn ($d) => (float) $d->cantidad * (float) $d->precio_unitario);
+    }
+
+    /**
+     * Etapa derivada para la UI del portal — reagrupa el estatus real para
+     * comunicar al proveedor en qué paso está hoy la OC.
+     */
+    public function getEtapaProcesoAttribute(): string
+    {
+        if ($this->estatus === OrdenCompraEstatus::Cancelada) {
+            return 'cancelada';
+        }
+
+        if ($this->monto_recibido > $this->total_facturado + 0.01) {
+            return 'espera_factura';
+        }
+
+        if (! $this->entregas()->exists()) {
+            return 'recepcion';
+        }
+
+        $facturas = $this->facturas->where('estatus', '!=', FacturaEstatus::Cancelada);
+
+        if ($facturas->contains(fn ($f) => $f->estatus === FacturaEstatus::PendienteAprobacion)) {
+            return 'validacion_documentos';
+        }
+
+        if ($facturas->isNotEmpty() && $this->total_pagado + 0.01 < $this->total) {
+            return 'pago_programado';
+        }
+
+        if ($this->porcentaje_recepcion >= 100 && $this->total_pagado + 0.01 >= $this->total) {
+            return 'completada';
+        }
+
+        return 'recepcion';
+    }
+
+    /**
+     * True si existe al menos un Pago de cualquier factura de la OC con
+     * fecha_pago_programada vencida y estatus en {Programado, Parcial}.
+     */
+    public function getPagoVencidoAttribute(): bool
+    {
+        $facturaIds = $this->facturas()->pluck('id');
+        if ($facturaIds->isEmpty()) {
+            return false;
+        }
+
+        return Pago::query()
+            ->where('pagable_type', Factura::class)
+            ->whereIn('pagable_id', $facturaIds)
+            ->whereDate('fecha_pago_programada', '<', now()->toDateString())
+            ->whereIn('estatus', ['programado', 'parcial'])
+            ->exists();
+    }
+
+    /**
+     * True si la OC tiene al menos una devolucion vigente.
+     */
+    public function getTieneDevolucionAttribute(): bool
+    {
+        $this->loadMissing('entregas.detalles.devoluciones');
+
+        foreach ($this->entregas as $entrega) {
+            foreach ($entrega->detalles as $ed) {
+                if ($ed->devoluciones->where('estatus', 'vigente')->isNotEmpty()) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -195,7 +430,7 @@ class OrdenCompra extends Model
 
         foreach ($this->detalles as $detalle) {
             ObraRubro::where('id', $detalle->obra_rubro_id)
-                ->decrement('acumulado', (float) $detalle->monto);
+                ->decrement('acumulado', (float) $detalle->subtotal);
         }
 
         $this->rubrosAfectados()->create([
@@ -207,5 +442,15 @@ class OrdenCompra extends Model
             'usuario_aplica_id' => $userId,
             'fecha_aplicacion' => now(),
         ]);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('costos')
+            ->logOnly(['folio', 'estatus', 'total', 'proveedor_id', 'obra_id', 'departamento_id'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $event) => "Orden de compra {$this->folio}: {$event}");
     }
 }

@@ -1,8 +1,10 @@
 import { DocumentoUpload } from '@/components/costos/documento-upload';
+import { EditLockBanner } from '@/components/costos/edit-lock-banner';
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useEditLock } from '@/hooks/use-edit-lock';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosObraRubro, CostosSolicitudPago, CostosTipoSolicitud, Departamento, Obra, Proveedor } from '@/types/models';
@@ -58,6 +60,9 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
         { title: solicitud.folio, href: `/admin/costos/solicitudes-pago/${solicitud.id}/edit` },
     ];
 
+    const lockState = useEditLock('solicitud-pago', solicitud.id);
+    const readonly = lockState.status !== 'owned';
+
     const { data, setData, put, processing, errors } = useForm<{
         departamento_id: string;
         proveedor_id: string;
@@ -67,6 +72,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
         tipo_moneda: string;
         fecha_pago_solicitada: string;
         detalles: DetalleForm[];
+        _version: string;
     }>({
         departamento_id: String(solicitud.departamento_id),
         proveedor_id: solicitud.proveedor_id ? String(solicitud.proveedor_id) : '',
@@ -75,6 +81,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
         tipo_pago: solicitud.tipo_pago,
         tipo_moneda: solicitud.tipo_moneda ?? 'mxn',
         fecha_pago_solicitada: solicitud.fecha_pago_solicitada ?? '',
+        _version: solicitud.updated_at,
         detalles: (solicitud.detalles ?? []).map((d) => {
             const matchedObraRubro = obraRubros.find((or) => or.id === d.obra_rubro_id);
             return {
@@ -164,6 +171,8 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                             deleteUrl={`/admin/costos/solicitudes-pago/${solicitud.id}`}
                         />
                     </div>
+
+                    <EditLockBanner state={lockState} />
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Sección 1: Info Básica */}
@@ -421,7 +430,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                             <Button variant="outline" asChild>
                                 <Link href="/admin/costos/solicitudes-pago">Cancelar</Link>
                             </Button>
-                            <Button type="submit" disabled={processing}>
+                            <Button type="submit" disabled={processing || readonly}>
                                 {processing && <Loader2Icon className="size-4 animate-spin" />}
                                 Guardar
                             </Button>

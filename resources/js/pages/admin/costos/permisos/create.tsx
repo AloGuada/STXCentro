@@ -18,6 +18,7 @@ export default function PermisosCreate() {
     const { data, setData, post, processing, errors } = useForm({
         descripcion: '',
         nivel: 1,
+        tipo_aprobacion: 'solicitud_pago',
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -51,6 +52,18 @@ export default function PermisosCreate() {
                                 value={data.nivel}
                                 onChange={(e) => setData('nivel', parseInt(e.target.value) || 1)}
                             />
+                        </FormField>
+
+                        <FormField label="Tipo de aprobación" htmlFor="tipo_aprobacion" error={errors.tipo_aprobacion} required>
+                            <select
+                                id="tipo_aprobacion"
+                                className="select select-bordered w-full"
+                                value={data.tipo_aprobacion}
+                                onChange={(e) => setData('tipo_aprobacion', e.target.value)}
+                            >
+                                <option value="solicitud_pago">Solicitud de pago</option>
+                                <option value="requisicion">Requisición</option>
+                            </select>
                         </FormField>
 
                         <div className="flex justify-end gap-2">

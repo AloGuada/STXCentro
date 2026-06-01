@@ -60,10 +60,18 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.proveedores.crear',
             'costos.proveedores.editar',
             'costos.proveedores.eliminar',
+            'costos.regimenes-fiscales.ver',
+            'costos.regimenes-fiscales.crear',
+            'costos.regimenes-fiscales.editar',
+            'costos.regimenes-fiscales.eliminar',
             'costos.tipo-rubros.ver',
             'costos.tipo-rubros.crear',
             'costos.tipo-rubros.editar',
             'costos.tipo-rubros.eliminar',
+            'costos.usos-cfdi.ver',
+            'costos.usos-cfdi.crear',
+            'costos.usos-cfdi.editar',
+            'costos.usos-cfdi.eliminar',
             'costos.rubros.ver',
             'costos.rubros.crear',
             'costos.rubros.editar',
@@ -101,12 +109,38 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.facturas.ver',
             'costos.facturas.recibir',
             'costos.facturas.aprobar',
+            'costos.facturas.cancelar',
+            'costos.facturas.crear',
             'costos.entregas.crear',
             'costos.pagos.programar',
+            'costos.pagos.cancelar',
             'costos.facturas.aceptar-contabilidad',
+            'costos.complementos.ver',
+            'costos.complementos.desbloquear',
             'costos.cuentas-internas.ver',
             'costos.cuentas-internas.editar',
             'costos.solicitudes.confirmar-costos',
+            'costos.solicitudes-pago.aprobar',
+            // Requisiciones (Fase 10.2)
+            'costos.requisiciones.ver',
+            'costos.requisiciones.crear',
+            'costos.requisiciones.cotizar',
+            'costos.requisiciones.aprobar',
+            'costos.requisiciones.liberar',
+            'costos.requisiciones.cancelar',
+            // Anticipos a proveedor (Fase 11)
+            'costos.anticipos.ver',
+            'costos.anticipos.crear',
+            'costos.anticipos.aplicar',
+            'costos.anticipos.cancelar',
+            // Notas de crédito (Fase 12)
+            'costos.notas-credito.ver',
+            'costos.notas-credito.crear',
+            'costos.notas-credito.cancelar',
+            // Devoluciones a proveedor (Fase 13)
+            'costos.devoluciones.ver',
+            'costos.devoluciones.crear',
+            'costos.devoluciones.cancelar',
         ];
 
         // Crear permisos del módulo Produccion
@@ -307,6 +341,13 @@ class RolesAndPermissionsSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
+        // Renombrar roles de costos al namespace costos-* (idempotente)
+        foreach (['compras' => 'costos-compras', 'almacen' => 'costos-almacen'] as $viejo => $nuevo) {
+            if (($role = Role::where('name', $viejo)->first()) && ! Role::where('name', $nuevo)->exists()) {
+                $role->update(['name' => $nuevo]);
+            }
+        }
+
         // Crear roles
         $superAdmin = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
         $adminSti = Role::firstOrCreate(['name' => 'admin-sti', 'guard_name' => 'web']);
@@ -315,8 +356,8 @@ class RolesAndPermissionsSeeder extends Seeder
         $adminCostos = Role::firstOrCreate(['name' => 'admin-costos', 'guard_name' => 'web']);
         $adminProduccion = Role::firstOrCreate(['name' => 'admin-produccion', 'guard_name' => 'web']);
         $adminInfra = Role::firstOrCreate(['name' => 'admin-infra', 'guard_name' => 'web']);
-        $compras = Role::firstOrCreate(['name' => 'compras', 'guard_name' => 'web']);
-        $almacen = Role::firstOrCreate(['name' => 'almacen', 'guard_name' => 'web']);
+        $compras = Role::firstOrCreate(['name' => 'costos-compras', 'guard_name' => 'web']);
+        $almacen = Role::firstOrCreate(['name' => 'costos-almacen', 'guard_name' => 'web']);
         $contabilidad = Role::firstOrCreate(['name' => 'contabilidad', 'guard_name' => 'web']);
         $adminCobranza = Role::firstOrCreate(['name' => 'admin-cobranza', 'guard_name' => 'web']);
         $adminRh = Role::firstOrCreate(['name' => 'admin-rh', 'guard_name' => 'web']);
@@ -357,8 +398,9 @@ class RolesAndPermissionsSeeder extends Seeder
         // Admin Infra tiene todos los permisos de infraestructura
         $adminInfra->givePermissionTo($infraPermissions);
 
-        // Compras tiene permisos de ordenes de compra y facturas
-        $compras->givePermissionTo([
+        // costos-compras gestiona OC y proveedores; ve facturas solo en lectura.
+        // La creación/cancelación de factura es responsabilidad de admin-costos.
+        $compras->syncPermissions([
             'costos.ordenes-compra.ver',
             'costos.ordenes-compra.crear',
             'costos.ordenes-compra.editar',
@@ -367,15 +409,22 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.ordenes-compra.cancelar',
             'costos.facturas.ver',
             'costos.proveedores.ver',
+            'costos.proveedores.crear',
             'costos.proveedores.editar',
+            'costos.requisiciones.ver',
+            'costos.requisiciones.cotizar',
+            'costos.requisiciones.liberar',
+            'costos.requisiciones.cancelar',
         ]);
 
-        // Almacen tiene permisos de recepcion
-        $almacen->givePermissionTo([
+        // costos-almacen registra recepciones contra OC y ve facturas/OC relacionadas.
+        $almacen->syncPermissions([
             'costos.ordenes-compra.ver',
             'costos.facturas.ver',
-            'costos.facturas.recibir',
             'costos.entregas.crear',
+            'costos.devoluciones.ver',
+            'costos.devoluciones.crear',
+            'costos.devoluciones.cancelar',
         ]);
 
         // Contabilidad acepta facturas, crea pagos y los programa
@@ -385,6 +434,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.pagos.editar',
             'costos.facturas.ver',
             'costos.facturas.aceptar-contabilidad',
+            'costos.anticipos.ver',
+            'costos.anticipos.crear',
+            'costos.anticipos.aplicar',
+            'costos.anticipos.cancelar',
+            'costos.notas-credito.ver',
+            'costos.notas-credito.crear',
+            'costos.notas-credito.cancelar',
         ]);
 
         // Admin Cobranza tiene todos los permisos de cobranza

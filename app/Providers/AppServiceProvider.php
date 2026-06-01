@@ -2,12 +2,15 @@
 
 namespace App\Providers;
 
+use App\Events\Costos\PresupuestoExcedido;
+use App\Listeners\Costos\NotificarAprobadoresPresupuesto;
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Usuario;
 use App\Services\Rh\Cv\OllamaClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -29,6 +32,12 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->registerGates();
+        $this->registerEvents();
+    }
+
+    protected function registerEvents(): void
+    {
+        Event::listen(PresupuestoExcedido::class, NotificarAprobadoresPresupuesto::class);
     }
 
     protected function configureDefaults(): void

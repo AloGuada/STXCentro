@@ -13,7 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
 
 class PermisoController extends Controller
 {
@@ -49,12 +49,17 @@ class PermisoController extends Controller
     {
         $departamentos = Departamento::orderBy('descripcion')->get(['id', 'descripcion']);
 
-        $roleId = Role::where('name', 'admin_costos_alt')->value('id');
+        // Candidatos: usuarios con el permiso de aprobar correspondiente al
+        // tipo del permiso (vía rol o asignación directa). Si el permiso no
+        // existe aún en la BD, devuelve lista vacía sin reventar.
+        $permissionName = match ($permiso->tipo_aprobacion) {
+            'requisicion' => 'costos.requisiciones.aprobar',
+            'solicitud_pago' => 'costos.solicitudes-pago.aprobar',
+            default => null,
+        };
 
-        $usuarios = $roleId
-            ? Usuario::whereHas('roles', fn ($q) => $q->where('role_id', $roleId))
-                ->orderBy('name')
-                ->get(['id', 'name'])
+        $usuarios = $permissionName && Permission::where('name', $permissionName)->exists()
+            ? Usuario::permission($permissionName)->orderBy('name')->get(['id', 'name'])
             : collect();
 
         $asignaciones = AprobacionDepartamento::where('permiso_id', $permiso->id)

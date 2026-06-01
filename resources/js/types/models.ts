@@ -797,24 +797,71 @@ export type StiItemHistorial = {
 };
 
 // Costos Types
+export type ProveedorEstatus = 'pendiente_validacion' | 'activo' | 'rechazado';
+
+export const PROVEEDOR_ESTATUS_LABELS: Record<ProveedorEstatus, string> = {
+    pendiente_validacion: 'Pendiente de validación',
+    activo: 'Activo',
+    rechazado: 'Rechazado',
+};
+
+export const PROVEEDOR_ESTATUS_COLORS: Record<ProveedorEstatus, string> = {
+    pendiente_validacion: 'badge-warning',
+    activo: 'badge-success',
+    rechazado: 'badge-error',
+};
+
+export type RegimenFiscal = {
+    id: number;
+    clave: string;
+    descripcion: string;
+    aplica_persona_fisica: boolean;
+    aplica_persona_moral: boolean;
+    activo: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
 export type Proveedor = {
     id: number;
     codigo: string;
     razon_social: string;
     nombre_comercial: string | null;
     rfc: string;
+    tipo_persona: string | null;
+    regimen_fiscal_id: number | null;
+    codigo_postal: string | null;
+    domicilio_fiscal: string | null;
+    domicilio_compra: string | null;
+    giro: string | null;
     direccion: string | null;
     telefono: string | null;
     email: string | null;
     contacto_nombre: string | null;
+    banco: string | null;
+    titular_cuenta: string | null;
+    numero_cuenta: string | null;
+    clabe: string | null;
+    moneda_cuenta: string | null;
     tiene_acceso_portal: boolean;
     maneja_credito: boolean;
     limite_credito: number;
     dias_credito_default: number;
+    respetar_fecha_factura: boolean;
     departamento_id: number | null;
     tipo_proveedor: string | null;
     activo: boolean;
+    estatus: ProveedorEstatus;
+    validado_por: string | null;
+    validado_at: string | null;
+    observacion_validacion: string | null;
+    creado_por: string | null;
+    bloqueado_complemento?: boolean;
     departamento?: Departamento;
+    regimen_fiscal?: RegimenFiscal;
+    validador?: Usuario;
+    media?: Media[];
+    complementos_pago?: CostosComplementoPago[];
     created_at: string;
     updated_at: string;
 };
@@ -877,6 +924,7 @@ export type CostosPermiso = {
     id: number;
     descripcion: string;
     nivel: number;
+    tipo_aprobacion: 'solicitud_pago' | 'requisicion';
     created_at: string;
     updated_at: string;
 };
@@ -919,12 +967,288 @@ export const TIPO_MONEDA_LABELS: Record<CostosTipoMoneda, string> = {
     eur: 'EUR',
 };
 
+// Devoluciones a proveedor (Fase 13)
+export type CostosDevolucionEstatus = 'vigente' | 'cancelada';
+
+export const DEVOLUCION_ESTATUS_LABELS: Record<CostosDevolucionEstatus, string> = {
+    vigente: 'Vigente',
+    cancelada: 'Cancelada',
+};
+
+export const DEVOLUCION_ESTATUS_COLORS: Record<CostosDevolucionEstatus, string> = {
+    vigente: 'badge-success',
+    cancelada: 'badge-error',
+};
+
+export type CostosDevolucion = {
+    id: number;
+    folio: string;
+    entrega_detalle_id: number;
+    cantidad: number;
+    motivo: string;
+    fecha: string;
+    estatus: CostosDevolucionEstatus;
+    motivo_cancelacion: string | null;
+    creado_por: string | null;
+    entrega_detalle?: {
+        id: number;
+        cantidad_recibida: number;
+        entrega?: { id: number; orden_compra_id: number; fecha_entrega: string; orden_compra?: Pick<CostosOrdenCompra, 'id' | 'folio'> & { proveedor?: Pick<Proveedor, 'id' | 'razon_social'> } };
+        orden_compra_detalle?: Pick<CostosOrdenCompraDetalle, 'id' | 'descripcion' | 'unidad'>;
+    };
+    creador?: Pick<Usuario, 'id' | 'name'>;
+    media?: Media[];
+    evidencia?: Media | null;
+    activities?: CostosActivity[];
+    created_at: string;
+    updated_at: string;
+};
+
+// Notas de crédito (Fase 12)
+export type CostosNotaCreditoEstatus = 'vigente' | 'cancelada';
+
+export const NOTA_CREDITO_ESTATUS_LABELS: Record<CostosNotaCreditoEstatus, string> = {
+    vigente: 'Vigente',
+    cancelada: 'Cancelada',
+};
+
+export const NOTA_CREDITO_ESTATUS_COLORS: Record<CostosNotaCreditoEstatus, string> = {
+    vigente: 'badge-success',
+    cancelada: 'badge-error',
+};
+
+export type CostosNotaCredito = {
+    id: number;
+    folio: string;
+    factura_id: number;
+    uuid_fiscal: string | null;
+    folio_fiscal: string | null;
+    subtotal: number;
+    iva_trasladado: number;
+    monto: number;
+    impuestos_detalle: CostosImpuestosDetalle | null;
+    concepto: string;
+    fecha_emision: string;
+    estatus: CostosNotaCreditoEstatus;
+    motivo_cancelacion: string | null;
+    creado_por: string | null;
+    factura?: Pick<CostosFactura, 'id' | 'folio' | 'total' | 'proveedor_id'> & { proveedor?: Pick<Proveedor, 'id' | 'razon_social'> };
+    creador?: Pick<Usuario, 'id' | 'name'>;
+    media?: Media[];
+    media_xml?: Media | null;
+    media_pdf?: Media | null;
+    activities?: CostosActivity[];
+    created_at: string;
+    updated_at: string;
+};
+
+// Anticipos (Fase 11)
+export type CostosAnticipoEstatus = 'vigente' | 'agotado' | 'cancelado';
+
+export const ANTICIPO_ESTATUS_LABELS: Record<CostosAnticipoEstatus, string> = {
+    vigente: 'Vigente',
+    agotado: 'Agotado',
+    cancelado: 'Cancelado',
+};
+
+export const ANTICIPO_ESTATUS_COLORS: Record<CostosAnticipoEstatus, string> = {
+    vigente: 'badge-success',
+    agotado: 'badge-neutral',
+    cancelado: 'badge-error',
+};
+
+export type CostosAnticipo = {
+    id: number;
+    folio: string;
+    proveedor_id: number;
+    obra_id: number | null;
+    monto: number;
+    saldo_disponible: number;
+    moneda: string;
+    estatus: CostosAnticipoEstatus;
+    referencia: string | null;
+    fecha: string;
+    notas: string | null;
+    creado_por: string | null;
+    locked_by: string | null;
+    locked_at: string | null;
+    proveedor?: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>;
+    obra?: { id: number; descripcion: string };
+    creador?: Pick<Usuario, 'id' | 'name'>;
+    aplicaciones?: CostosAnticipoAplicacion[];
+    pago?: CostosPago;
+    activities?: CostosActivity[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosAnticipoAplicacion = {
+    id: number;
+    anticipo_id: number;
+    factura_id: number;
+    monto: number;
+    fecha: string;
+    usuario_id: string | null;
+    notas: string | null;
+    factura?: Pick<CostosFactura, 'id' | 'folio' | 'total'>;
+    anticipo?: Pick<CostosAnticipo, 'id' | 'folio' | 'monto'>;
+    usuario?: Pick<Usuario, 'id' | 'name'>;
+    created_at: string;
+    updated_at: string;
+};
+
+// Requisiciones (Fase 10.2)
+export type CostosRequisicionEstatus =
+    | 'borrador'
+    | 'cotizada'
+    | 'pendiente_aprobacion'
+    | 'aprobada'
+    | 'rechazada'
+    | 'liberada'
+    | 'cancelada';
+
+export const REQUISICION_ESTATUS_LABELS: Record<CostosRequisicionEstatus, string> = {
+    borrador: 'Borrador',
+    cotizada: 'Cotizada',
+    pendiente_aprobacion: 'Pendiente de aprobación',
+    aprobada: 'Aprobada',
+    rechazada: 'Rechazada',
+    liberada: 'Liberada',
+    cancelada: 'Cancelada',
+};
+
+export const REQUISICION_ESTATUS_COLORS: Record<CostosRequisicionEstatus, string> = {
+    borrador: 'badge-ghost',
+    cotizada: 'badge-info',
+    pendiente_aprobacion: 'badge-warning',
+    aprobada: 'badge-success',
+    rechazada: 'badge-error',
+    liberada: 'badge-primary',
+    cancelada: 'badge-neutral',
+};
+
+export type ModoPago = 'contado' | 'credito';
+
+export const MODO_PAGO_LABELS: Record<ModoPago, string> = {
+    contado: 'Contado',
+    credito: 'Crédito',
+};
+
+export type ObraRubroOption = {
+    id: number;
+    obra_id: number;
+    obra_label: string;
+    rubro_label: string;
+    label: string;
+    presupuestado: number;
+    acumulado: number;
+    disponible: number;
+    sobregiro: boolean;
+};
+
+export type CostosUsoCfdi = {
+    id: number;
+    clave: string;
+    descripcion: string;
+    activo: boolean;
+    requisicion_detalles_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosRequisicion = {
+    id: number;
+    folio: string;
+    solicitante_id: string;
+    departamento_id: number;
+    obra_id: number | null;
+    justificacion: string | null;
+    fecha_requerida: string | null;
+    estatus: CostosRequisicionEstatus;
+    motivo_rechazo: string | null;
+    locked_by: string | null;
+    locked_at: string | null;
+    solicitante?: Pick<Usuario, 'id' | 'name'>;
+    departamento?: Pick<Departamento, 'id' | 'descripcion'>;
+    obra?: { id: number; no: number | null; descripcion: string };
+    detalles?: CostosRequisicionDetalle[];
+    aprobaciones?: CostosAprobacionSolicitud[];
+    ordenes_generadas?: Array<Pick<CostosOrdenCompra, 'id' | 'folio' | 'proveedor_id' | 'total' | 'estatus'> & { proveedor?: Pick<Proveedor, 'id' | 'razon_social'> }>;
+    mejor_proveedor?: {
+        id: number;
+        razon_social: string;
+        nombre_comercial: string | null;
+        total: number;
+    } | null;
+    proveedores_cotizadores_count?: number;
+    tiene_sobregiro?: boolean;
+    activities?: CostosActivity[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosRequisicionDetalle = {
+    id: number;
+    requisicion_id: number;
+    obra_rubro_id: number | null;
+    uso_cfdi_id: number | null;
+    tipo_fiscal: CostosTipoFiscalPartida;
+    descripcion: string;
+    codigo_producto: string | null;
+    unidad: string;
+    cantidad: number;
+    notas: string | null;
+    uso_cfdi?: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>;
+    obra_rubro?: {
+        id: number;
+        presupuestado: number | string;
+        acumulado: number | string;
+        obra?: { id: number; descripcion: string };
+        rubro?: { id: number; codigo: string; descripcion: string };
+    };
+    cotizaciones?: CostosRequisicionCotizacionPrecio[];
+    selecciones?: CostosRequisicionSeleccion[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosRequisicionCotizacionPrecio = {
+    id: number;
+    requisicion_detalle_id: number;
+    proveedor_id: number;
+    precio_unitario: number;
+    codigo_producto: string | null;
+    moneda: CostosTipoMoneda;
+    tiempo_entrega_dias: number | null;
+    observaciones: string | null;
+    media_id: number | null;
+    proveedor?: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosRequisicionSeleccion = {
+    id: number;
+    requisicion_detalle_id: number;
+    cotizacion_precio_id: number;
+    numero_oc: number;
+    proveedor_id: number;
+    cantidad: number;
+    obra_rubro_id: number | null;
+    orden_compra_detalle_id: number | null;
+    cotizacion_precio?: CostosRequisicionCotizacionPrecio;
+    proveedor?: Pick<Proveedor, 'id' | 'razon_social'>;
+    created_at: string;
+    updated_at: string;
+};
+
 export type CostosSolicitudPago = {
     id: number;
     folio: string;
     solicitante_id: string;
     departamento_id: number;
     proveedor_id: number | null;
+    orden_compra_id: number | null;
     tipo_solicitud_id: number;
     concepto: string;
     monto_total: number;
@@ -944,6 +1268,7 @@ export type CostosSolicitudPago = {
     departamento?: Departamento;
     proveedor?: Proveedor;
     tipo_solicitud?: CostosTipoSolicitud;
+    orden_compra?: Pick<CostosOrdenCompra, 'id' | 'folio'>;
     detalles?: CostosSolicitudPagoDetalle[];
     archivos?: CostosSolicitudArchivo[];
     aprobaciones?: CostosAprobacionSolicitud[];
@@ -951,6 +1276,11 @@ export type CostosSolicitudPago = {
     media?: Media;
     confirmador_costos?: Usuario;
     confirmador_contabilidad?: Usuario;
+    tiene_sobregiro?: boolean;
+    activities?: CostosActivity[];
+    locked_by: string | null;
+    locked_at: string | null;
+    locked_by_user?: Pick<Usuario, 'id' | 'name'> | null;
     created_at: string;
     updated_at: string;
 };
@@ -992,7 +1322,13 @@ export type CostosAprobacionSolicitud = {
     ip: string | null;
     hostname: string | null;
     aprobador?: Usuario;
+    // Discriminador para la bandeja polimórfica
+    tipo?: 'solicitud_pago' | 'requisicion';
+    aprobable_type?: string;
+    aprobable_id?: number;
     solicitud?: CostosSolicitudPago;
+    requisicion?: CostosRequisicion;
+    requisicion_total?: number;
     created_at: string;
     updated_at: string;
 };
@@ -1034,6 +1370,9 @@ export type CostosAfectacionPresupuestal = {
     detalles?: CostosAfectacionDetalle[];
     historial?: CostosAfectacionHistorial[];
     rubros_afectados?: CostosRubroAfectado[];
+    locked_by: string | null;
+    locked_at: string | null;
+    locked_by_user?: Pick<Usuario, 'id' | 'name'> | null;
     created_at: string;
     updated_at: string;
 };
@@ -1064,6 +1403,22 @@ export type CostosAfectacionHistorial = {
     updated_at: string;
 };
 
+export type CostosRubroAfectadoEstatus = 'apartado' | 'aplicado' | 'vencido' | 'cancelado';
+
+export const RUBRO_AFECTADO_ESTATUS_LABELS: Record<CostosRubroAfectadoEstatus, string> = {
+    apartado: 'Apartado',
+    aplicado: 'Aplicado',
+    vencido: 'Vencido',
+    cancelado: 'Cancelado',
+};
+
+export const RUBRO_AFECTADO_ESTATUS_BADGE: Record<CostosRubroAfectadoEstatus, string> = {
+    apartado: 'badge badge-info badge-outline',
+    aplicado: 'badge badge-success badge-outline',
+    vencido: 'badge badge-warning badge-outline',
+    cancelado: 'badge badge-ghost',
+};
+
 export type CostosRubroAfectado = {
     id: number;
     entrada_type: string;
@@ -1073,7 +1428,9 @@ export type CostosRubroAfectado = {
     sobre_giro: boolean;
     descripcion: string | null;
     tipo_movimiento: string;
-    estatus: string;
+    estatus: CostosRubroAfectadoEstatus;
+    apartado_hasta: string | null;
+    vencido_at: string | null;
     usuario_aplica_id: string | null;
     fecha_aplicacion: string | null;
     obra_rubro?: CostosObraRubro;
@@ -1082,11 +1439,31 @@ export type CostosRubroAfectado = {
 };
 
 // Ordenes de Compra Types
-export type CostosOrdenCompraEstatus = 'pendiente_factura' | 'pendiente_entrega' | 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
+export type CostosOrdenCompraEstatus = 'pendiente_entrega' | 'pendiente_factura' | 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
+
+export type CostosOcEtapaProceso = 'recepcion' | 'espera_factura' | 'validacion_documentos' | 'pago_programado' | 'completada' | 'cancelada';
+
+export const OC_ETAPA_LABELS: Record<CostosOcEtapaProceso, string> = {
+    recepcion: 'Recepción',
+    espera_factura: 'Espera de factura',
+    validacion_documentos: 'Validación de documentos',
+    pago_programado: 'Pago programado',
+    completada: 'Completada',
+    cancelada: 'Cancelada',
+};
+
+export const OC_ETAPA_BADGE: Record<CostosOcEtapaProceso, string> = {
+    recepcion: 'badge badge-info badge-outline',
+    espera_factura: 'badge badge-warning badge-outline',
+    validacion_documentos: 'badge badge-accent badge-outline',
+    pago_programado: 'badge badge-primary badge-outline',
+    completada: 'badge badge-success badge-outline',
+    cancelada: 'badge badge-ghost',
+};
 
 export const ORDEN_COMPRA_ESTATUS_LABELS: Record<CostosOrdenCompraEstatus, string> = {
-    pendiente_factura: 'Pend. Factura',
     pendiente_entrega: 'Pend. Entrega',
+    pendiente_factura: 'Pend. Factura',
     pendiente_aprobacion: 'Pend. Aprobación',
     pendiente_pago: 'Pend. Pago',
     pagada: 'Pagada',
@@ -1094,8 +1471,8 @@ export const ORDEN_COMPRA_ESTATUS_LABELS: Record<CostosOrdenCompraEstatus, strin
 };
 
 export const ORDEN_COMPRA_ESTATUS_COLORS: Record<CostosOrdenCompraEstatus, string> = {
-    pendiente_factura: 'badge-warning',
     pendiente_entrega: 'badge-info',
+    pendiente_factura: 'badge-warning',
     pendiente_aprobacion: 'badge-accent',
     pendiente_pago: 'badge-primary',
     pagada: 'badge-success',
@@ -1111,21 +1488,41 @@ export type CostosOrdenCompra = {
     departamento_id: number;
     creado_por: string;
     moneda: CostosTipoMoneda;
+    tipo_pago: ModoPago | null;
+    dias_credito: number;
+    forma_pago: string;
     total: number;
-    fecha_entrega_esperada: string | null;
+    fecha_entrega_esperada: string;
     notas: string | null;
     estatus: CostosOrdenCompraEstatus;
+    retrasada?: boolean;
+    etapa_proceso?: CostosOcEtapaProceso;
+    monto_recibido?: number;
+    porcentaje_recepcion?: number;
+    porcentaje_facturacion?: number;
+    porcentaje_pago?: number;
+    pago_vencido?: boolean;
+    tiene_devolucion?: boolean;
+    pagada_anticipo_contado?: boolean;
+    detalles_count?: number;
+    requisicion_id: number | null;
     proveedor?: Proveedor;
     obra?: Obra;
     departamento?: Departamento;
     creador?: Usuario;
     detalles?: CostosOrdenCompraDetalle[];
     facturas?: CostosFactura[];
+    entregas?: CostosEntrega[];
+    solicitudes_pago?: Array<Pick<CostosSolicitudPago, 'id' | 'folio' | 'estatus'>>;
     media?: Media[];
     rubros_afectados?: CostosRubroAfectado[];
     facturas_count?: number;
     entregas_count?: number;
     pagos_count?: number;
+    total_facturado?: number;
+    total_pagado?: number;
+    saldo_pendiente?: number;
+    activities?: CostosActivity[];
     created_at: string;
     updated_at: string;
 };
@@ -1133,18 +1530,80 @@ export type CostosOrdenCompra = {
 export type CostosOrdenCompraDetalle = {
     id: number;
     orden_compra_id: number;
+    requisicion_detalle_id: number | null;
     obra_rubro_id: number;
-    monto: number;
+    tipo_fiscal: CostosTipoFiscalPartida;
+    descripcion: string;
+    unidad: string;
+    cantidad: number;
+    precio_unitario: number;
+    subtotal: number;
     obra_rubro?: CostosObraRubro;
     created_at: string;
     updated_at: string;
 };
 
+export type CostosTipoFiscalPartida = 'mercancia' | 'flete' | 'servicio_profesional' | 'renta';
+
+export const TIPO_FISCAL_LABELS: Record<CostosTipoFiscalPartida, string> = {
+    mercancia: 'Mercancía',
+    flete: 'Flete',
+    servicio_profesional: 'Servicio profesional',
+    renta: 'Renta',
+};
+
+export type CostosRetencion = {
+    clave: string;
+    concepto: string;
+    tasa: number;
+    base: number;
+    monto: number;
+};
+
+export type CostosRetencionDesglose = {
+    subtotal: number;
+    iva: number;
+    total_neto: number;
+    retenciones: CostosRetencion[];
+};
+
 // Facturas Types
-export type CostosFacturaEstatus = 'pendiente_entrega' | 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
+export type CostosFacturaEstatus = 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
+
+export type CostosBaseDiasCredito = 'factura' | 'recepcion' | 'aprobacion';
+
+export const BASE_DIAS_CREDITO_LABELS: Record<CostosBaseDiasCredito, string> = {
+    factura: 'Fecha de factura',
+    recepcion: 'Fecha de recepción',
+    aprobacion: 'Fecha de aprobación',
+};
+
+// Clasificación canónica de archivos adjuntos del módulo Costos.
+// Espejo de App\Enums\Costos\DocumentoTipo.
+export type CostosDocumentoTipo =
+    | 'xml_factura'
+    | 'pdf_factura'
+    | 'oc_archivo'
+    | 'oc_pdf_formato'
+    | 'oc_pdf_firmado'
+    | 'evidencia_recepcion'
+    | 'comprobante_pago'
+    | 'solicitud_archivo'
+    | 'solicitud_firmada';
+
+export const DOCUMENTO_TIPO_LABELS: Record<CostosDocumentoTipo, string> = {
+    xml_factura: 'XML de factura',
+    pdf_factura: 'PDF de factura',
+    oc_archivo: 'Archivo de OC',
+    oc_pdf_formato: 'Formato de OC (PDF)',
+    oc_pdf_firmado: 'OC firmada (PDF)',
+    evidencia_recepcion: 'Evidencia de recepción',
+    comprobante_pago: 'Comprobante de pago',
+    solicitud_archivo: 'Anexo de solicitud',
+    solicitud_firmada: 'Solicitud firmada',
+};
 
 export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
-    pendiente_entrega: 'Pendiente Entrega',
     pendiente_aprobacion: 'Pendiente Aprobación',
     pendiente_pago: 'Pendiente Pago',
     pagada: 'Pagada',
@@ -1152,11 +1611,24 @@ export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
 };
 
 export const FACTURA_ESTATUS_COLORS: Record<CostosFacturaEstatus, string> = {
-    pendiente_entrega: 'badge-warning',
     pendiente_aprobacion: 'badge-accent',
     pendiente_pago: 'badge-primary',
     pagada: 'badge-success',
     cancelada: 'badge-error',
+};
+
+// Auditoria (spatie/laravel-activitylog)
+export type CostosActivity = {
+    id: number;
+    log_name: string | null;
+    event: string | null;
+    description: string;
+    attribute_changes: {
+        attributes?: Record<string, unknown>;
+        old?: Record<string, unknown>;
+    } | null;
+    created_at: string;
+    causer?: Usuario | null;
 };
 
 export type CostosFactura = {
@@ -1168,11 +1640,21 @@ export type CostosFactura = {
     folio_fiscal: string | null;
     subtotal: number;
     iva: number;
+    iva_trasladado: number;
+    iva_retenido: number;
+    isr_retenido: number;
+    impuestos_detalle: CostosImpuestosDetalle | null;
     total: number;
     moneda: string;
+    metodo_pago?: 'PUE' | 'PPD' | null;
+    forma_pago?: string | null;
     fecha_factura: string | null;
     estatus: CostosFacturaEstatus;
     notas: string | null;
+    motivo_rechazo: string | null;
+    dias_credito: number | null;
+    base_dias_credito: CostosBaseDiasCredito;
+    fecha_pago_calculada: string | null;
     aprobada_costos: boolean;
     aprobada_costos_por: string | null;
     aprobada_costos_at: string | null;
@@ -1182,11 +1664,85 @@ export type CostosFactura = {
     orden_compra?: CostosOrdenCompra;
     proveedor?: Proveedor;
     entregas?: CostosEntrega[];
+    detalles?: CostosFacturaDetalle[];
     media?: Media[];
     media_pdf?: Media | null;
     pago?: CostosPago;
     aprobada_costos_por_usuario?: Usuario;
     aceptada_contabilidad_por_usuario?: Usuario;
+    activities?: CostosActivity[];
+    locked_by: string | null;
+    locked_at: string | null;
+    locked_by_user?: Pick<Usuario, 'id' | 'name'> | null;
+    cobertura_completa?: boolean;
+    cobertura_por_partida?: Record<number, { disponible: number; cubierta: boolean }>;
+    anticipos_aplicados?: CostosAnticipoAplicacion[];
+    monto_anticipos?: number;
+    notas_credito?: CostosNotaCredito[];
+    monto_notas_credito?: number;
+    saldo_facturado?: number;
+    complementos_pago?: CostosComplementoPago[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosComplementoPagoEstatus = 'pendiente' | 'cumplido' | 'vencido';
+
+export const COMPLEMENTO_PAGO_ESTATUS_LABELS: Record<CostosComplementoPagoEstatus, string> = {
+    pendiente: 'Pendiente',
+    cumplido: 'Cumplido',
+    vencido: 'Vencido',
+};
+
+export const COMPLEMENTO_PAGO_ESTATUS_COLORS: Record<CostosComplementoPagoEstatus, string> = {
+    pendiente: 'badge-warning',
+    cumplido: 'badge-success',
+    vencido: 'badge-error',
+};
+
+export type CostosComplementoPago = {
+    id: number;
+    folio: string;
+    factura_id: number;
+    pago_id: number;
+    proveedor_id: number;
+    monto_pago: number;
+    fecha_pago: string;
+    fecha_generacion: string;
+    fecha_limite: string;
+    estatus: CostosComplementoPagoEstatus;
+    complemento_uuid: string | null;
+    recibido_at: string | null;
+    factura?: Pick<CostosFactura, 'id' | 'folio' | 'uuid_fiscal' | 'total'>;
+    proveedor?: Pick<Proveedor, 'id' | 'razon_social'>;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosImpuestosDetalle = {
+    traslados: Array<{
+        impuesto: string;
+        tipo_factor: string;
+        tasa: string;
+        base: number;
+        importe: number;
+    }>;
+    retenciones: Array<{
+        impuesto: string;
+        importe: number;
+    }>;
+    total_trasladados: number;
+    total_retenidos: number;
+};
+
+export type CostosFacturaDetalle = {
+    id: number;
+    factura_id: number;
+    orden_compra_detalle_id: number;
+    cantidad: number;
+    precio_unitario: number;
+    subtotal: number;
+    orden_compra_detalle?: CostosOrdenCompraDetalle;
     created_at: string;
     updated_at: string;
 };
@@ -1201,13 +1757,26 @@ export const ENTREGA_TIPO_LABELS: Record<CostosEntregaTipo, string> = {
 
 export type CostosEntrega = {
     id: number;
-    factura_id: number;
+    orden_compra_id: number;
     recibido_por: string;
     fecha_entrega: string;
     tipo: CostosEntregaTipo;
     observaciones: string | null;
     media?: Media | null;
     recibidor?: Usuario;
+    detalles?: CostosEntregaDetalle[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosEntregaDetalle = {
+    id: number;
+    entrega_id: number;
+    orden_compra_detalle_id: number;
+    cantidad_recibida: number;
+    observaciones: string | null;
+    orden_compra_detalle?: CostosOrdenCompraDetalle;
+    devoluciones?: CostosDevolucion[];
     created_at: string;
     updated_at: string;
 };

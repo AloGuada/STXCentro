@@ -2,12 +2,22 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\DocumentoTipo;
+use App\Enums\Costos\FacturaEstatus;
+use App\Enums\Costos\PagoEstatus;
+use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\AbonoComprobanteRequest;
-use App\Http\Requests\Admin\Costos\ParcializarRequest;
+use App\Http\Requests\Admin\Costos\CancelarRequest;
+use App\Http\Requests\Admin\Costos\PagoParcializarRequest;
+use App\Mail\ComplementoPendienteMail;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
 use App\Models\Costos\Pago;
+use App\Models\Costos\SolicitudPago;
+use App\Models\User;
+use App\Notifications\Costos\ProveedorBloqueadoNotification;
+use App\Services\Costos\ComplementoPagoService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,12 +25,15 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class PagoController extends Controller
 {
+    public function __construct(private readonly ComplementoPagoService $complementos) {}
+
     public function index(Request $request): Response
     {
         $pagos = Pago::query()
@@ -58,7 +71,7 @@ class PagoController extends Controller
     {
         Gate::authorize('costos.pagos.programar');
 
-        if ($pago->estatus !== 'pendiente') {
+        if ($pago->estatus !== PagoEstatus::Pendiente) {
             return back()->withErrors(['estatus' => 'Solo se puede programar un pago pendiente.']);
         }
 
@@ -89,56 +102,64 @@ class PagoController extends Controller
 
     public function showParcializar(Pago $pago): Response|RedirectResponse
     {
-        if ($pago->tipo_pago !== 'credito') {
-            return back()->withErrors(['tipo_pago' => 'Solo pagos a crédito pueden parcializarse.']);
+        if (! in_array($pago->estatus, [PagoEstatus::Programado, PagoEstatus::Parcial], true)) {
+            return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado o parcial.']);
         }
 
-        if ($pago->estatus !== 'programado') {
-            return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado.']);
-        }
+        $pago->load(['pagable.proveedor', 'pagosParciales']);
 
-        if ($pago->tieneParcialidades()) {
-            return back()->withErrors(['parcialidades' => 'Este pago ya tiene parcialidades.']);
-        }
-
-        $pago->load('pagable.proveedor');
+        $pagado = round((float) $pago->pagosParciales->sum('monto_pago'), 2);
+        $saldo = round((float) $pago->monto_pago - $pagado, 2);
 
         return Inertia::render('admin/costos/pagos/parcializar', [
             'pago' => $pago,
+            'saldoPendiente' => $saldo,
+            'montoPagado' => $pagado,
         ]);
     }
 
-    public function parcializar(ParcializarRequest $request, Pago $pago): RedirectResponse
+    public function parcializar(PagoParcializarRequest $request, Pago $pago): RedirectResponse
     {
-        if ($pago->estatus !== 'programado') {
-            return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado.']);
+        if (! in_array($pago->estatus, [PagoEstatus::Programado, PagoEstatus::Parcial], true)) {
+            return back()->withErrors(['estatus' => 'Solo se puede parcializar un pago programado o parcial.']);
         }
 
-        DB::transaction(function () use ($request, $pago) {
-            foreach ($request->input('parcialidades') as $index => $parcialidad) {
-                Pago::create([
-                    'pagable_type' => $pago->pagable_type,
-                    'pagable_id' => $pago->pagable_id,
-                    'pago_padre_id' => $pago->id,
-                    'numero_parcialidad' => $index + 1,
-                    'monto_pago' => $parcialidad['monto'],
-                    'moneda' => $pago->moneda,
-                    'tipo_cambio' => $pago->tipo_cambio,
-                    'tipo_pago' => $pago->tipo_pago,
-                    'fecha_pago_programada' => $parcialidad['fecha_programada'],
-                    'estatus' => 'programado',
-                ]);
-            }
+        $pagado = round((float) $pago->pagosParciales()->sum('monto_pago'), 2);
+        $saldo = round((float) $pago->monto_pago - $pagado, 2);
+        $monto = round((float) $request->input('monto'), 2);
 
-            $pago->update(['estatus' => 'parcial']);
+        if ($monto > $saldo + 0.01) {
+            return back()->withErrors(['monto' => "El monto excede el saldo pendiente (\${$saldo})."]);
+        }
+
+        DB::transaction(function () use ($request, $pago, $monto) {
+            $numeroParcialidad = $pago->pagosParciales()->count() + 1;
+
+            Pago::create([
+                'pagable_type' => $pago->pagable_type,
+                'pagable_id' => $pago->pagable_id,
+                'pago_padre_id' => $pago->id,
+                'numero_parcialidad' => $numeroParcialidad,
+                'monto_pago' => $monto,
+                'moneda' => $pago->moneda,
+                'tipo_cambio' => $pago->tipo_cambio,
+                'tipo_pago' => $pago->tipo_pago,
+                'fecha_pago_programada' => $request->input('fecha_programada'),
+                'estatus' => 'programado',
+            ]);
+
+            if ($pago->estatus !== PagoEstatus::Parcial) {
+                $pago->transitionTo(PagoEstatus::Parcial);
+            }
         });
 
-        return back()->with('success', 'Pago parcializado correctamente.');
+        return to_route('admin.costos.pagos.show', $pago)
+            ->with('success', 'Parcialidad registrada correctamente.');
     }
 
     public function uploadComprobante(AbonoComprobanteRequest $request, Pago $pago): RedirectResponse
     {
-        if ($pago->estatus !== 'programado') {
+        if ($pago->estatus !== PagoEstatus::Programado) {
             return back()->withErrors(['estatus' => 'Solo se puede subir comprobante a un pago programado.']);
         }
 
@@ -151,7 +172,7 @@ class PagoController extends Controller
 
         DB::transaction(function () use ($pago, $file, $path, $request) {
             $pago->media()->create([
-                'descripcion' => 'comprobante',
+                'descripcion' => DocumentoTipo::ComprobantePago->value,
                 'nombre_original' => $file->getClientOriginalName(),
                 'path' => $path,
                 'mime' => $file->getMimeType(),
@@ -174,6 +195,26 @@ class PagoController extends Controller
         return back()->with('success', 'Comprobante subido y pago marcado como pagado.');
     }
 
+    public function cancelar(CancelarRequest $request, Pago $pago): RedirectResponse
+    {
+        Gate::authorize('costos.pagos.cancelar');
+
+        if (in_array($pago->estatus, [PagoEstatus::Pagado, PagoEstatus::Cancelado], true)) {
+            return back()->withErrors(['estatus' => 'Este pago ya está '.$pago->estatus->value.'.']);
+        }
+
+        if ($pago->media()->exists()) {
+            return back()->withErrors(['estatus' => 'No se puede cancelar un pago con comprobante. Elimine el comprobante primero.']);
+        }
+
+        DB::transaction(function () use ($pago, $request) {
+            $pago->transitionTo(PagoEstatus::Cancelado);
+            $pago->registrarCancelacion($request->validated('motivo'), $request->user()->id);
+        });
+
+        return back()->with('success', 'Pago cancelado.');
+    }
+
     private function checkAndMarkParentAsPaid(Pago $parent): void
     {
         $pendientes = $parent->pagosParciales()->where('estatus', '!=', 'pagado')->count();
@@ -182,10 +223,8 @@ class PagoController extends Controller
             return;
         }
 
-        $parent->update([
-            'fecha_pago_realizada' => now(),
-            'estatus' => 'pagado',
-        ]);
+        $parent->update(['fecha_pago_realizada' => now()]);
+        $parent->transitionTo(PagoEstatus::Pagado);
 
         if ($parent->esHijo()) {
             $this->checkAndMarkParentAsPaid($parent->pagoPadre);
@@ -203,13 +242,49 @@ class PagoController extends Controller
         }
 
         if ($pagable instanceof Factura) {
-            $pagable->update(['estatus' => 'pagada']);
+            $pagable->transitionTo(FacturaEstatus::Pagada);
             $pagable->ordenCompra->recalcularEstatus();
-        } elseif (method_exists($pagable, 'update')) {
-            $pagable->update([
-                'estatus' => 'pagada',
-                'fecha_pago_realizada' => now(),
-            ]);
+            $this->generarObligacionComplemento($pago, $pagable);
+        } elseif ($pagable instanceof SolicitudPago) {
+            $pagable->update(['fecha_pago_realizada' => now()]);
+            $pagable->transitionTo(SolicitudPagoEstatus::Pagada);
+        }
+    }
+
+    /**
+     * Para facturas PPD, genera la obligación de complemento de pago, avisa al
+     * proveedor y, si con ella el proveedor queda bloqueado por primera vez,
+     * notifica al área de pagos.
+     */
+    private function generarObligacionComplemento(Pago $pago, Factura $factura): void
+    {
+        if (! $factura->esPpd()) {
+            return;
+        }
+
+        $proveedor = $factura->proveedor;
+        $estabaBloqueado = $proveedor?->bloqueadoPorComplemento() ?? false;
+
+        $obligacion = $this->complementos->generarObligacion($pago);
+
+        if (! $obligacion || ! $proveedor) {
+            return;
+        }
+
+        if ($proveedor->email) {
+            Mail::to($proveedor->email)->send(new ComplementoPendienteMail($obligacion, $proveedor));
+        }
+
+        if (! $estabaBloqueado) {
+            try {
+                $destinatarios = User::permission('costos.pagos.programar')->get();
+            } catch (\Throwable) {
+                $destinatarios = collect();
+            }
+
+            if ($destinatarios->isNotEmpty()) {
+                Notification::send($destinatarios, new ProveedorBloqueadoNotification($proveedor, $obligacion));
+            }
         }
     }
 

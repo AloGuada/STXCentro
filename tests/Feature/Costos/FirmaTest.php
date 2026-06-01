@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\AprobacionSolicitud;
 use App\Models\Costos\SolicitudPago;
 use App\Models\User;
@@ -8,6 +9,10 @@ use Illuminate\Support\Facades\Storage;
 beforeEach(function () {
     $this->user = User::factory()->create();
     Storage::fake('public');
+
+    // Las rutas de firma exigen el gate 'aprobador-costos', que requiere
+    // estar asignado al menos una vez como aprobador en algun departamento.
+    AprobacionDepartamento::factory()->create(['aprobador_id' => $this->user->id]);
 
     // 1x1 pixel PNG válido en base64
     $this->validDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';

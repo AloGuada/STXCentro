@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
+    darPermisosSolicitudesPago($this->user);
 });
 
 describe('rubros afectados polymorphic', function () {
@@ -97,7 +98,7 @@ describe('rubros afectados polymorphic', function () {
         ]);
 
         $this->actingAs($this->user)
-            ->post(route('admin.costos.afectaciones.cancelar', $afectacion));
+            ->post(route('admin.costos.afectaciones.cancelar', $afectacion), ['motivo' => 'Cancelación motivada por test']);
 
         $rubros = RubroAfectado::where('entrada_type', AfectacionPresupuestal::class)
             ->where('entrada_id', $afectacion->id)
@@ -105,6 +106,6 @@ describe('rubros afectados polymorphic', function () {
 
         $abono = $rubros->firstWhere('tipo_movimiento', 'abono');
         expect($abono)->not->toBeNull();
-        expect($abono->estatus)->toBe('cancelado');
+        expect($abono->estatus->value)->toBe('cancelado');
     });
 });

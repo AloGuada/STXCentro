@@ -1,14 +1,15 @@
-import { FormField } from '@/components/form';
+import { ActivityTimeline } from '@/components/costos/activity-timeline';
+import { AplicarAnticipoModal } from '@/components/costos/aplicar-anticipo-modal';
+import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosFactura } from '@/types/models';
 import { ENTREGA_TIPO_LABELS, FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, PAGO_ESTATUS_COLORS, PAGO_ESTATUS_LABELS } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { FileIcon, Loader2Icon } from 'lucide-react';
-import { type FormEvent, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 type Props = {
     factura: CostosFactura;
@@ -23,9 +24,9 @@ export default function FacturasShow({ factura }: Props) {
     ];
 
     const { can } = useCan();
-    const [showEntregaModal, setShowEntregaModal] = useState(false);
     const [showAprobarModal, setShowAprobarModal] = useState(false);
     const [showAceptarModal, setShowAceptarModal] = useState(false);
+    const [showCerrarModal, setShowCerrarModal] = useState(false);
     const [aprobarProcessing, setAprobarProcessing] = useState(false);
     const [aceptarProcessing, setAceptarProcessing] = useState(false);
     const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
@@ -41,22 +42,6 @@ export default function FacturasShow({ factura }: Props) {
         else if (day < 5) base.setDate(base.getDate() + (5 - day));
         return base;
     }, [factura.proveedor?.dias_credito_default]);
-
-    const { data, setData, post, processing, errors } = useForm({
-        fecha_entrega: new Date().toISOString().split('T')[0],
-        tipo: 'completa' as 'parcial' | 'completa',
-        observaciones: '',
-        archivo: null as File | null,
-    });
-
-    const handleEntregaSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        post(`/admin/costos/facturas/${factura.id}/entregas`, {
-            forceFormData: true,
-            preserveScroll: true,
-            onSuccess: () => setShowEntregaModal(false),
-        });
-    };
 
     const hasEntregas = (factura.entregas?.length ?? 0) > 0;
 
@@ -87,9 +72,6 @@ export default function FacturasShow({ factura }: Props) {
                     </div>
 
                     <div className="flex gap-2">
-                        {factura.estatus === 'pendiente_entrega' && can('costos.entregas.crear') && (
-                            <Button onClick={() => setShowEntregaModal(true)}>Registrar Entrega</Button>
-                        )}
                         {factura.estatus === 'pendiente_aprobacion' && !factura.aprobada_costos && can('costos.facturas.aprobar') && (
                             <Button onClick={() => setShowAprobarModal(true)}>
                                 Aprobar Costos
@@ -98,6 +80,11 @@ export default function FacturasShow({ factura }: Props) {
                         {factura.estatus === 'pendiente_pago' && factura.aprobada_costos && !factura.aceptada_contabilidad && can('costos.facturas.aceptar-contabilidad') && (
                             <Button onClick={() => setShowAceptarModal(true)}>
                                 Aceptar y Programar Pago
+                            </Button>
+                        )}
+                        {factura.estatus !== 'pagada' && factura.estatus !== 'cancelada' && !factura.aceptada_contabilidad && can('costos.facturas.cancelar') && (
+                            <Button variant="destructive" onClick={() => setShowCerrarModal(true)}>
+                                Cerrar factura
                             </Button>
                         )}
                     </div>
@@ -125,6 +112,152 @@ export default function FacturasShow({ factura }: Props) {
                                 <span className="text-sm text-base-content/60">UUID Fiscal</span>
                                 <p className="font-mono text-sm">{factura.uuid_fiscal}</p>
                             </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Partidas */}
+                {factura.detalles && factura.detalles.length > 0 && (
+                    <div className="mb-6">
+                        <div className="flex items-center justify-between mb-3">
+                            <h2 className="text-lg font-medium">Partidas facturadas</h2>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Partida de OC</th>
+                                        <th className="text-right">Cantidad</th>
+                                        <th>Unidad</th>
+                                        <th className="text-right">P. unitario</th>
+                                        <th className="text-right">Subtotal</th>
+                                        <th className="text-right">Disponible</th>
+                                        <th>Cobertura</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {factura.detalles.map((d) => {
+                                        const cobertura = factura.cobertura_por_partida?.[d.id];
+                                        return (
+                                            <tr key={d.id}>
+                                                <td>{d.orden_compra_detalle?.descripcion ?? '-'}</td>
+                                                <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
+                                                <td>{d.orden_compra_detalle?.unidad ?? '-'}</td>
+                                                <td className="text-right">{formatMoney(d.precio_unitario)}</td>
+                                                <td className="text-right">{formatMoney(d.subtotal)}</td>
+                                                <td className="text-right">
+                                                    {cobertura ? Number(cobertura.disponible).toLocaleString('es-MX') : '—'}
+                                                </td>
+                                                <td>
+                                                    {cobertura && (
+                                                        <span className={`badge badge-sm ${cobertura.cubierta ? 'badge-success' : 'badge-warning'}`}>
+                                                            {cobertura.cubierta ? 'Cubierta' : 'Sin cubrir'}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Desglose fiscal */}
+                <div className="mb-6">
+                    <h2 className="text-lg font-medium mb-3">Desglose fiscal</h2>
+                    <div className="rounded-lg border border-base-300 p-4">
+                        <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                                <dt className="text-base-content/60">Subtotal</dt>
+                                <dd className="font-medium">{formatMoney(factura.subtotal)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">IVA trasladado</dt>
+                                <dd className="font-medium">{formatMoney(factura.iva_trasladado)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">IVA retenido</dt>
+                                <dd className="font-medium">{formatMoney(factura.iva_retenido)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">ISR retenido</dt>
+                                <dd className="font-medium">{formatMoney(factura.isr_retenido)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">Total</dt>
+                                <dd className="font-medium">{formatMoney(factura.total)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">UUID fiscal</dt>
+                                <dd className="font-mono text-xs break-all">{factura.uuid_fiscal ?? '—'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">Folio fiscal</dt>
+                                <dd>{factura.folio_fiscal ?? '—'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60">Fecha factura</dt>
+                                <dd>{factura.fecha_factura ?? '—'}</dd>
+                            </div>
+                        </dl>
+                        {factura.impuestos_detalle && (
+                            <details className="mt-3">
+                                <summary className="cursor-pointer text-sm text-base-content/70">
+                                    Ver detalle por concepto (CFDI)
+                                </summary>
+                                <div className="mt-2 space-y-3">
+                                    {factura.impuestos_detalle.traslados.length > 0 && (
+                                        <div>
+                                            <div className="text-xs font-medium mb-1">Traslados</div>
+                                            <table className="table table-xs">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Impuesto</th>
+                                                        <th>Factor</th>
+                                                        <th>Tasa</th>
+                                                        <th className="text-right">Base</th>
+                                                        <th className="text-right">Importe</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {factura.impuestos_detalle.traslados.map((t, i) => (
+                                                        <tr key={i}>
+                                                            <td>{t.impuesto}</td>
+                                                            <td>{t.tipo_factor}</td>
+                                                            <td>{t.tasa}</td>
+                                                            <td className="text-right">{formatMoney(t.base)}</td>
+                                                            <td className="text-right">{formatMoney(t.importe)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                    {factura.impuestos_detalle.retenciones.length > 0 && (
+                                        <div>
+                                            <div className="text-xs font-medium mb-1">Retenciones</div>
+                                            <table className="table table-xs">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Impuesto</th>
+                                                        <th className="text-right">Importe</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {factura.impuestos_detalle.retenciones.map((r, i) => (
+                                                        <tr key={i}>
+                                                            <td>{r.impuesto}</td>
+                                                            <td className="text-right">{formatMoney(r.importe)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </details>
                         )}
                     </div>
                 </div>
@@ -163,6 +296,12 @@ export default function FacturasShow({ factura }: Props) {
                     )}
                 </div>
 
+                {/* Anticipos aplicados */}
+                <AnticiposAplicadosPanel factura={factura} canAplicar={can('costos.anticipos.aplicar')} />
+
+                {/* Notas de credito */}
+                <NotasCreditoPanel factura={factura} />
+
                 {/* Pago */}
                 {factura.pago && (
                     <div>
@@ -180,6 +319,11 @@ export default function FacturasShow({ factura }: Props) {
                         </div>
                     </div>
                 )}
+
+                <div className="mt-8">
+                    <h2 className="text-lg font-medium mb-3">Historial</h2>
+                    <ActivityTimeline activities={factura.activities ?? []} />
+                </div>
 
                 {/* Aprobar Costos Modal */}
                 {showAprobarModal && (
@@ -301,62 +445,173 @@ export default function FacturasShow({ factura }: Props) {
                     </dialog>
                 )}
 
-                {/* Entrega Modal */}
-                {showEntregaModal && (
-                    <dialog className="modal modal-open">
-                        <div className="modal-box">
-                            <h3 className="font-bold text-lg mb-4">Registrar Entrega</h3>
-                            <form onSubmit={handleEntregaSubmit} className="space-y-4">
-                                <FormField label="Fecha de Entrega" htmlFor="fecha_entrega" error={errors.fecha_entrega} required>
-                                    <Input
-                                        id="fecha_entrega"
-                                        type="date"
-                                        value={data.fecha_entrega}
-                                        onChange={(e) => setData('fecha_entrega', e.target.value)}
-                                    />
-                                </FormField>
-                                <FormField label="Tipo de Entrega" htmlFor="tipo" error={errors.tipo} required>
-                                    <select
-                                        id="tipo"
-                                        className="select select-bordered w-full"
-                                        value={data.tipo}
-                                        onChange={(e) => setData('tipo', e.target.value as 'parcial' | 'completa')}
-                                    >
-                                        <option value="completa">Completa</option>
-                                        <option value="parcial">Parcial</option>
-                                    </select>
-                                </FormField>
-                                <FormField label="Observaciones" htmlFor="observaciones" error={errors.observaciones}>
-                                    <textarea
-                                        id="observaciones"
-                                        className="textarea textarea-bordered w-full"
-                                        value={data.observaciones}
-                                        onChange={(e) => setData('observaciones', e.target.value)}
-                                        rows={2}
-                                    />
-                                </FormField>
-                                <FormField label="Documento" htmlFor="archivo" error={errors.archivo}>
-                                    <input
-                                        id="archivo"
-                                        type="file"
-                                        className="file-input file-input-bordered file-input-sm w-full"
-                                        onChange={(e) => setData('archivo', e.target.files?.[0] ?? null)}
-                                    />
-                                </FormField>
+                <CancelarModal
+                    open={showCerrarModal}
+                    onClose={() => setShowCerrarModal(false)}
+                    url={`/admin/costos/facturas/${factura.id}/cancelar`}
+                    title={`Cerrar factura ${factura.folio}`}
+                    description="La factura quedará marcada como cancelada y no podrá continuar su flujo de aprobación o pago."
+                    submitLabel="Cerrar factura"
+                />
 
-                                <div className="modal-action">
-                                    <Button type="button" variant="outline" onClick={() => setShowEntregaModal(false)}>Cancelar</Button>
-                                    <Button type="submit" disabled={processing}>
-                                        {processing && <Loader2Icon className="size-4 animate-spin" />}
-                                        Confirmar Entrega
-                                    </Button>
-                                </div>
-                            </form>
-                        </div>
-                        <div className="modal-backdrop" onClick={() => setShowEntregaModal(false)}></div>
-                    </dialog>
-                )}
             </div>
         </AppLayout>
+    );
+}
+
+function NotasCreditoPanel({ factura }: { factura: CostosFactura }) {
+    const fmt = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+    const notas = factura.notas_credito ?? [];
+    const totalNotas = Number(factura.monto_notas_credito ?? 0);
+    const saldoFacturado = Number(factura.saldo_facturado ?? factura.total);
+
+    return (
+        <div className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-medium">Notas de crédito</h2>
+                <span className="text-xs text-base-content/50">El alta la realiza el proveedor desde su portal</span>
+            </div>
+
+            <div className="rounded-lg border border-base-300 p-4">
+                <div className="mb-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                        <div className="text-xs text-base-content/60">Total facturado</div>
+                        <div className="font-semibold">{fmt(factura.total)}</div>
+                    </div>
+                    <div>
+                        <div className="text-xs text-base-content/60">Notas de crédito vigentes</div>
+                        <div className="font-semibold">{fmt(totalNotas)}</div>
+                    </div>
+                    <div>
+                        <div className="text-xs text-base-content/60">Saldo facturado</div>
+                        <div className="font-semibold text-success">{fmt(saldoFacturado)}</div>
+                    </div>
+                </div>
+
+                {notas.length === 0 ? (
+                    <p className="text-sm text-base-content/60">No hay notas de crédito sobre esta factura.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Folio</th>
+                                    <th>Fecha</th>
+                                    <th>Concepto</th>
+                                    <th className="text-right">Monto</th>
+                                    <th>Estatus</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {notas.map((n) => (
+                                    <tr key={n.id}>
+                                        <td>
+                                            <Link
+                                                href={`/admin/costos/notas-credito/${n.id}`}
+                                                className="link link-primary font-mono text-xs"
+                                            >
+                                                {n.folio}
+                                            </Link>
+                                        </td>
+                                        <td className="text-xs text-base-content/60">{n.fecha_emision}</td>
+                                        <td className="text-xs">{n.concepto}</td>
+                                        <td className="text-right font-medium">{fmt(n.monto)}</td>
+                                        <td>
+                                            <span className={`badge badge-sm ${n.estatus === 'vigente' ? 'badge-success' : 'badge-error'}`}>
+                                                {n.estatus}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+        </div>
+    );
+}
+
+function AnticiposAplicadosPanel({ factura, canAplicar }: { factura: CostosFactura; canAplicar: boolean }) {
+    const [open, setOpen] = useState(false);
+    const fmt = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+    const aplicaciones = factura.anticipos_aplicados ?? [];
+    const totalAnticipos = Number(factura.monto_anticipos ?? 0);
+    const saldoFactura = Math.max(0, Number(factura.total) - totalAnticipos);
+
+    const puedeAplicar = canAplicar
+        && saldoFactura > 0.001
+        && !['pagada', 'cancelada'].includes(factura.estatus);
+
+    return (
+        <div className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-medium">Anticipos aplicados</h2>
+                {puedeAplicar && (
+                    <Button onClick={() => setOpen(true)}>Aplicar anticipo</Button>
+                )}
+            </div>
+
+            <div className="rounded-lg border border-base-300 p-4">
+                <div className="mb-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                        <div className="text-xs text-base-content/60">Total factura</div>
+                        <div className="font-semibold">{fmt(factura.total)}</div>
+                    </div>
+                    <div>
+                        <div className="text-xs text-base-content/60">Aplicado en anticipos</div>
+                        <div className="font-semibold">{fmt(totalAnticipos)}</div>
+                    </div>
+                    <div>
+                        <div className="text-xs text-base-content/60">Saldo pendiente</div>
+                        <div className="font-semibold text-success">{fmt(saldoFactura)}</div>
+                    </div>
+                </div>
+
+                {aplicaciones.length === 0 ? (
+                    <p className="text-sm text-base-content/60">No se han aplicado anticipos a esta factura.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Anticipo</th>
+                                    <th>Fecha</th>
+                                    <th className="text-right">Monto</th>
+                                    <th>Aplicó</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {aplicaciones.map((a) => (
+                                    <tr key={a.id}>
+                                        <td>
+                                            <Link
+                                                href={`/admin/costos/anticipos/${a.anticipo_id}`}
+                                                className="link link-primary font-mono text-xs"
+                                            >
+                                                {a.anticipo?.folio ?? `#${a.anticipo_id}`}
+                                            </Link>
+                                        </td>
+                                        <td className="text-xs text-base-content/60">{a.fecha}</td>
+                                        <td className="text-right font-medium">{fmt(a.monto)}</td>
+                                        <td className="text-xs text-base-content/60">{a.usuario?.name ?? '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            <AplicarAnticipoModal
+                facturaId={factura.id}
+                saldoFactura={saldoFactura}
+                open={open}
+                onClose={() => setOpen(false)}
+            />
+        </div>
     );
 }

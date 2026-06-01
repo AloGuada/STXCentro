@@ -49,7 +49,7 @@ test('programa pago pendiente con fecha en viernes', function () {
         ->assertRedirect();
 
     $pago->refresh();
-    expect($pago->estatus)->toBe('programado');
+    expect($pago->estatus->value)->toBe('programado');
     expect($pago->fecha_pago_programada->dayOfWeek)->toBe(Carbon::FRIDAY);
 
     Carbon::setTestNow();
@@ -66,7 +66,7 @@ test('programa pago con dias credito ajusta al viernes', function () {
         ->assertRedirect();
 
     $pago->refresh();
-    expect($pago->estatus)->toBe('programado');
+    expect($pago->estatus->value)->toBe('programado');
     expect($pago->fecha_pago_programada->dayOfWeek)->toBe(Carbon::FRIDAY);
     // 2026-02-17 + 30 days = 2026-03-19 (jueves), next friday = 2026-03-20
     expect($pago->fecha_pago_programada->format('Y-m-d'))->toBe('2026-03-20');
@@ -137,10 +137,8 @@ test('solo permite parcializar cuando programado', function () {
 
     $this->actingAs($this->user)
         ->post("/admin/costos/pagos/{$pago->id}/parcializar", [
-            'parcialidades' => [
-                ['monto' => $pago->monto_pago / 2, 'fecha_programada' => '2026-03-20'],
-                ['monto' => $pago->monto_pago / 2, 'fecha_programada' => '2026-03-27'],
-            ],
+            'monto' => $pago->monto_pago / 2,
+            'fecha_programada' => '2026-03-20',
         ])
         ->assertSessionHasErrors('estatus');
 });

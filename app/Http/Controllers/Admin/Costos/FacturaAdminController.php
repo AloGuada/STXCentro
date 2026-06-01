@@ -2,10 +2,18 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\FacturaEstatus;
+use App\Enums\Costos\ModoPago;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Costos\CancelarRequest;
+use App\Http\Requests\Admin\Costos\FacturaReporteProveedorRequest;
+use App\Http\Requests\Admin\Costos\FacturaReporteRequest;
+use App\Http\Requests\Admin\Costos\FacturaStoreRequest;
 use App\Mail\FacturaAceptadaMail;
 use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
+use App\Models\Costos\FacturaDetalle;
+use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\Pago;
 use App\Models\Proveedor;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -45,15 +53,145 @@ class FacturaAdminController extends Controller
         ]);
     }
 
+    public function create(Request $request): Response
+    {
+        Gate::authorize('costos.facturas.crear');
+
+        $ordenes = OrdenCompra::query()
+            ->whereIn('estatus', [
+                'pendiente_factura',
+                'pendiente_aprobacion',
+                'pendiente_pago',
+            ])
+            ->with('proveedor:id,razon_social')
+            ->orderByDesc('id')
+            ->get(['id', 'folio', 'proveedor_id', 'moneda', 'total']);
+
+        $ordenCompra = null;
+        if ($request->filled('orden_compra_id')) {
+            $ordenCompra = OrdenCompra::with([
+                'proveedor:id,razon_social,nombre_comercial',
+                'detalles.obraRubro.rubro',
+                'detalles.obraRubro.obra',
+                'entregas.detalles',
+                'facturas' => fn ($q) => $q->where('estatus', '!=', FacturaEstatus::Cancelada->value),
+                'facturas.detalles',
+            ])->find($request->integer('orden_compra_id'));
+        }
+
+        return Inertia::render('admin/costos/facturas/create', [
+            'ordenes' => $ordenes,
+            'ordenCompra' => $ordenCompra,
+        ]);
+    }
+
+    public function store(FacturaStoreRequest $request): RedirectResponse
+    {
+        Gate::authorize('costos.facturas.crear');
+
+        $oc = OrdenCompra::with(['detalles', 'facturas' => fn ($q) => $q->where('estatus', '!=', FacturaEstatus::Cancelada->value), 'facturas.detalles'])
+            ->findOrFail($request->integer('orden_compra_id'));
+
+        // Valida que cada partida pertenezca a esta OC y que no se sobre-facture.
+        $ocdIds = $oc->detalles->pluck('id')->all();
+        $yaFacturadoPorPartida = [];
+        foreach ($oc->facturas as $f) {
+            foreach ($f->detalles as $fd) {
+                $yaFacturadoPorPartida[$fd->orden_compra_detalle_id]
+                    = ($yaFacturadoPorPartida[$fd->orden_compra_detalle_id] ?? 0) + (float) $fd->cantidad;
+            }
+        }
+
+        $enviandoPorPartida = [];
+        foreach ($request->input('detalles') as $i => $d) {
+            $ocdId = (int) $d['orden_compra_detalle_id'];
+
+            if (! in_array($ocdId, $ocdIds, true)) {
+                return back()->withErrors([
+                    "detalles.{$i}.orden_compra_detalle_id" => 'La partida no pertenece a esta OC.',
+                ])->withInput();
+            }
+
+            $enviandoPorPartida[$ocdId] = ($enviandoPorPartida[$ocdId] ?? 0) + (float) $d['cantidad'];
+
+            $ocd = $oc->detalles->firstWhere('id', $ocdId);
+            $saldoFacturable = (float) $ocd->cantidad - ($yaFacturadoPorPartida[$ocdId] ?? 0);
+
+            if ($enviandoPorPartida[$ocdId] > $saldoFacturable + 0.001) {
+                return back()->withErrors([
+                    "detalles.{$i}.cantidad" => sprintf(
+                        'Excede el saldo facturable (%.2f %s) de la partida "%s".',
+                        $saldoFacturable, $ocd->unidad, $ocd->descripcion,
+                    ),
+                ])->withInput();
+            }
+        }
+
+        DB::transaction(function () use ($request, $oc) {
+            $subtotal = 0;
+            $detalles = [];
+            foreach ($request->input('detalles') as $d) {
+                $sub = round((float) $d['cantidad'] * (float) $d['precio_unitario'], 2);
+                $subtotal += $sub;
+                $detalles[] = $d + ['subtotal' => $sub];
+            }
+
+            $iva = (float) $request->input('iva', 0);
+            $total = round($subtotal + $iva, 2);
+
+            $factura = Factura::create([
+                'orden_compra_id' => $oc->id,
+                'proveedor_id' => $oc->proveedor_id,
+                'uuid_fiscal' => $request->input('uuid_fiscal'),
+                'folio_fiscal' => $request->input('folio_fiscal'),
+                'subtotal' => $subtotal,
+                'iva' => $iva,
+                'total' => $total,
+                'moneda' => $request->input('moneda', $oc->moneda),
+                'fecha_factura' => $request->input('fecha_factura'),
+                'notas' => $request->input('notas'),
+                'estatus' => FacturaEstatus::PendienteAprobacion,
+            ]);
+
+            foreach ($detalles as $d) {
+                FacturaDetalle::create([
+                    'factura_id' => $factura->id,
+                    'orden_compra_detalle_id' => $d['orden_compra_detalle_id'],
+                    'cantidad' => $d['cantidad'],
+                    'precio_unitario' => $d['precio_unitario'],
+                    'subtotal' => $d['subtotal'],
+                ]);
+            }
+
+            $oc->recalcularEstatus();
+        });
+
+        return to_route('admin.costos.facturas.index')
+            ->with('success', 'Factura creada correctamente.');
+    }
+
     public function show(Factura $factura): Response
     {
         $factura->load([
             'proveedor',
             'ordenCompra.detalles.obraRubro.rubro',
+            'detalles.ordenCompraDetalle',
             'entregas.recibidoPor',
             'pago.pagosParciales',
             'aprobadaCostosPor',
             'aceptadaContabilidadPor',
+            'activities.causer',
+            'anticiposAplicados.anticipo:id,folio',
+            'anticiposAplicados.usuario:id,name',
+            'notasCredito.creador:id,name',
+        ]);
+
+        $factura->append([
+            'cobertura_completa',
+            'cobertura_por_partida',
+            'monto_anticipos',
+            'monto_notas_credito',
+            'saldo_facturado',
         ]);
 
         return Inertia::render('admin/costos/facturas/show', [
@@ -63,8 +201,8 @@ class FacturaAdminController extends Controller
 
     public function aprobarCostos(Request $request, Factura $factura): RedirectResponse
     {
-        if ($factura->estatus !== 'pendiente_aprobacion') {
-            return back()->withErrors(['estatus' => 'La factura debe tener la entrega completa para ser aprobada.']);
+        if ($factura->estatus !== FacturaEstatus::PendienteAprobacion) {
+            return back()->withErrors(['estatus' => 'La factura debe estar pendiente de aprobación.']);
         }
 
         if ($factura->aprobada_costos) {
@@ -76,8 +214,8 @@ class FacturaAdminController extends Controller
                 'aprobada_costos' => true,
                 'aprobada_costos_por' => $request->user()->id,
                 'aprobada_costos_at' => now(),
-                'estatus' => 'pendiente_pago',
             ]);
+            $factura->transitionTo(FacturaEstatus::PendientePago);
 
             $factura->ordenCompra->recalcularEstatus();
         });
@@ -89,7 +227,7 @@ class FacturaAdminController extends Controller
     {
         Gate::authorize('costos.facturas.aceptar-contabilidad');
 
-        if ($factura->estatus !== 'pendiente_pago') {
+        if ($factura->estatus !== FacturaEstatus::PendientePago) {
             return back()->withErrors(['estatus' => 'La factura debe estar pendiente de pago.']);
         }
 
@@ -101,21 +239,39 @@ class FacturaAdminController extends Controller
             return back()->withErrors(['aceptada_contabilidad' => 'La factura ya fue aceptada por contabilidad.']);
         }
 
+        // OC de contado: el pago ya se realizó por adelantado vía la solicitud de
+        // anticipo. La factura solo se registra para CFDI; no se genera un segundo pago.
+        $oc = $factura->ordenCompra;
+        if ($oc && $oc->tipo_pago === ModoPago::Contado && $oc->solicitudesPago()->exists()) {
+            DB::transaction(function () use ($request, $factura, $oc) {
+                $factura->fill([
+                    'aceptada_contabilidad' => true,
+                    'aceptada_contabilidad_por' => $request->user()->id,
+                    'aceptada_contabilidad_at' => now(),
+                ])->save();
+
+                $oc->recalcularEstatus();
+            });
+
+            return back()->with('success', 'Factura registrada para CFDI; el pago se realizó vía solicitud de anticipo.');
+        }
+
         $pago = DB::transaction(function () use ($request, $factura) {
-            $factura->update([
+            $proveedor = $factura->proveedor;
+
+            // Copia dias_credito del proveedor si la factura no tiene override.
+            if ($factura->dias_credito === null) {
+                $factura->dias_credito = $proveedor?->dias_credito_default ?? 0;
+            }
+
+            $factura->fill([
                 'aceptada_contabilidad' => true,
                 'aceptada_contabilidad_por' => $request->user()->id,
                 'aceptada_contabilidad_at' => now(),
-            ]);
+                'fecha_pago_calculada' => $factura->calcularFechaPago() ?? Carbon::today(),
+            ])->save();
 
-            $proveedor = $factura->proveedor;
             $tipoPago = $proveedor && $proveedor->maneja_credito ? 'credito' : 'contado';
-            $diasCredito = $proveedor?->dias_credito_default ?? 0;
-
-            $fechaBase = Carbon::today()->addDays($diasCredito);
-            $fechaPago = $fechaBase->dayOfWeek === Carbon::FRIDAY
-                ? $fechaBase
-                : $fechaBase->next(Carbon::FRIDAY);
 
             $pago = Pago::create([
                 'pagable_type' => Factura::class,
@@ -123,7 +279,7 @@ class FacturaAdminController extends Controller
                 'monto_pago' => $factura->total,
                 'moneda' => $factura->moneda,
                 'tipo_pago' => $tipoPago,
-                'fecha_pago_programada' => $fechaPago,
+                'fecha_pago_programada' => $factura->fecha_pago_calculada,
                 'estatus' => 'programado',
             ]);
 
@@ -140,13 +296,29 @@ class FacturaAdminController extends Controller
         return back()->with('success', 'Factura aceptada y pago programado para '.$pago->fecha_pago_programada->format('d/m/Y').'.');
     }
 
-    public function reporteSemanal(Request $request): \Symfony\Component\HttpFoundation\Response
+    public function cancelar(CancelarRequest $request, Factura $factura): RedirectResponse
     {
-        $request->validate([
-            'anio' => 'required|integer|min:2020|max:2100',
-            'semana' => 'required|integer|min:1|max:53',
-        ]);
+        Gate::authorize('costos.facturas.cancelar');
 
+        if (in_array($factura->estatus, [FacturaEstatus::Pagada, FacturaEstatus::Cancelada], true)) {
+            return back()->withErrors(['estatus' => 'La factura ya está '.$factura->estatus->value.'.']);
+        }
+
+        if ($factura->aceptada_contabilidad) {
+            return back()->withErrors(['estatus' => 'No se puede cerrar una factura con pago programado. Cancele primero el pago.']);
+        }
+
+        DB::transaction(function () use ($factura, $request) {
+            $factura->transitionTo(FacturaEstatus::Cancelada);
+            $factura->registrarCancelacion($request->validated('motivo'), $request->user()->id);
+            $factura->ordenCompra?->recalcularEstatus();
+        });
+
+        return back()->with('success', 'Factura cerrada.');
+    }
+
+    public function reporteSemanal(FacturaReporteRequest $request): \Symfony\Component\HttpFoundation\Response
+    {
         $anio = (int) $request->anio;
         $semana = (int) $request->semana;
 
@@ -241,14 +413,8 @@ class FacturaAdminController extends Controller
         return response()->download($outputPath, $filename)->deleteFileAfterSend(true);
     }
 
-    public function reporteSemanalProveedor(Request $request): \Symfony\Component\HttpFoundation\Response
+    public function reporteSemanalProveedor(FacturaReporteProveedorRequest $request): \Symfony\Component\HttpFoundation\Response
     {
-        $request->validate([
-            'anio' => 'required|integer|min:2020|max:2100',
-            'semana' => 'required|integer|min:1|max:53',
-            'proveedor_id' => 'required|exists:proveedores,id',
-        ]);
-
         $anio = (int) $request->anio;
         $semana = (int) $request->semana;
         $proveedor = Proveedor::findOrFail($request->proveedor_id);

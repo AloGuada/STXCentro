@@ -17,9 +17,15 @@ class PortalOrdenCompraController extends Controller
 
         $ordenes = OrdenCompra::query()
             ->where('proveedor_id', $proveedor->id)
-            ->whereIn('estatus', ['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion', 'pendiente_pago', 'pagada'])
-            ->with('obra:id,no,descripcion')
-            ->withCount('facturas')
+            ->whereIn('estatus', ['pendiente_entrega', 'pendiente_factura', 'pendiente_aprobacion', 'pendiente_pago', 'pagada'])
+            ->with([
+                'obra:id,no,descripcion',
+                'proveedor:id,razon_social,nombre_comercial',
+                'detalles:id,orden_compra_id,precio_unitario,cantidad',
+                'entregas.detalles.devoluciones',
+                'facturas.pago',
+            ])
+            ->withCount(['facturas', 'entregas', 'detalles'])
             ->when($request->search, function ($query, $search) {
                 $query->where('folio', 'like', "%{$search}%");
             })
@@ -45,10 +51,12 @@ class PortalOrdenCompraController extends Controller
             'departamento:id,descripcion',
             'detalles',
             'facturas',
+            'entregas',
         ]);
 
         return Inertia::render('portal/ordenes-compra/show', [
             'ordenCompra' => $ordenCompra,
+            'periodoFacturacionAbierto' => now()->isDayOfWeek(\Carbon\Carbon::THURSDAY),
         ]);
     }
 }

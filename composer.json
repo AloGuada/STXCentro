@@ -21,6 +21,7 @@
         "setasign/fpdf": "^1.8",
         "setasign/fpdi": "^2.6",
         "smalot/pdfparser": "^2.12",
+        "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-permission": "^6.24",
         "thiagoalessio/tesseract_ocr": "^2.13"
     },

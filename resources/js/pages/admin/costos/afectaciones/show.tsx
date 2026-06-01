@@ -1,3 +1,4 @@
+import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -35,6 +36,7 @@ export default function AfectacionesShow({ afectacion }: Props) {
     const currentStep = getStepIndex(afectacion.estatus);
     const firmadoInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
+    const [showCancelarModal, setShowCancelarModal] = useState(false);
 
     const handleUploadFirmado = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -47,12 +49,6 @@ export default function AfectacionesShow({ afectacion }: Props) {
             preserveScroll: true,
             onFinish: () => setUploading(false),
         });
-    };
-
-    const handleCancelar = () => {
-        if (confirm('¿Estás seguro de cancelar esta afectación?')) {
-            router.post(`/admin/costos/afectaciones/${afectacion.id}/cancelar`);
-        }
     };
 
     return (
@@ -94,7 +90,7 @@ export default function AfectacionesShow({ afectacion }: Props) {
                             </>
                         )}
                         {(afectacion.estatus === 'pendiente_firma' || afectacion.estatus === 'aprobada') && (
-                            <Button variant="destructive" onClick={handleCancelar}>Cancelar</Button>
+                            <Button variant="destructive" onClick={() => setShowCancelarModal(true)}>Cancelar</Button>
                         )}
                         <Button variant="outline" asChild>
                             <Link href="/admin/costos/afectaciones">Volver</Link>
@@ -263,6 +259,15 @@ export default function AfectacionesShow({ afectacion }: Props) {
                         )}
                     </div>
                 </div>
+
+                <CancelarModal
+                    open={showCancelarModal}
+                    onClose={() => setShowCancelarModal(false)}
+                    url={`/admin/costos/afectaciones/${afectacion.id}/cancelar`}
+                    title={`Cancelar afectación ${afectacion.folio}`}
+                    description="La afectación quedará cancelada y se revertirá su impacto presupuestal si estaba aprobada."
+                    submitLabel="Cancelar afectación"
+                />
             </div>
         </AppLayout>
     );

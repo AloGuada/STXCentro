@@ -2,15 +2,24 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\DocumentoTipo;
+use App\Enums\Costos\FacturaEstatus;
+use App\Enums\Costos\OrdenCompraEstatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Http\Requests\Admin\Costos\OrdenCompraStoreRequest;
+use App\Models\Costos\Factura;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
+use App\Models\Costos\Permiso;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
+use App\Services\Costos\RetencionCalculator;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -21,13 +30,16 @@ class OrdenCompraController extends Controller
     public function index(Request $request): Response
     {
         $ordenes = OrdenCompra::query()
-            ->with(['proveedor:id,razon_social,nombre_comercial', 'departamento:id,descripcion'])
-            ->withCount('facturas')
+            ->with([
+                'proveedor:id,razon_social,nombre_comercial',
+                'departamento:id,descripcion',
+                'detalles:id,orden_compra_id,precio_unitario,cantidad',
+                'entregas.detalles.devoluciones',
+                'facturas.pago',
+                'solicitudesPago:id,orden_compra_id,folio,estatus',
+            ])
+            ->withCount(['facturas', 'entregas', 'detalles'])
             ->addSelect([
-                'entregas_count' => DB::table('costos_entregas')
-                    ->join('costos_facturas', 'costos_facturas.id', '=', 'costos_entregas.factura_id')
-                    ->whereColumn('costos_facturas.orden_compra_id', 'costos_ordenes_compra.id')
-                    ->selectRaw('count(*)'),
                 'pagos_count' => DB::table('costos_pagos')
                     ->join('costos_facturas', function ($join) {
                         $join->on('costos_facturas.id', '=', 'costos_pagos.pagable_id')
@@ -40,13 +52,17 @@ class OrdenCompraController extends Controller
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('folio', 'like', "%{$search}%")
-                        ->orWhereHas('proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$search}%"));
+                        ->orWhereHas('proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$search}%"))
+                        ->orWhereHas('obra', fn ($o) => $o->where('descripcion', 'like', "%{$search}%")->orWhere('no', 'like', "%{$search}%"))
+                        ->orWhereHas('detalles', fn ($d) => $d->where('descripcion', 'like', "%{$search}%"));
                 });
             })
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
             ->latest()
             ->paginate(15)
             ->withQueryString();
+
+        $ordenes->getCollection()->each->append('pagada_anticipo_contado');
 
         return Inertia::render('admin/costos/ordenes-compra/index', [
             'ordenes' => $ordenes,
@@ -73,13 +89,13 @@ class OrdenCompraController extends Controller
             $oc = OrdenCompra::create([
                 ...$request->safe()->except(['detalles', 'archivo']),
                 'creado_por' => $request->user()->id,
-                'estatus' => 'pendiente_factura',
+                'estatus' => 'pendiente_entrega',
             ]);
 
             if ($request->hasFile('archivo')) {
                 $file = $request->file('archivo');
                 $oc->media()->create([
-                    'descripcion' => 'archivo',
+                    'descripcion' => DocumentoTipo::OcArchivo->value,
                     'nombre_original' => $file->getClientOriginalName(),
                     'path' => $file->store('costos/ordenes-compra', 'public'),
                     'mime' => $file->getMimeType(),
@@ -88,16 +104,23 @@ class OrdenCompraController extends Controller
             }
 
             foreach ($request->input('detalles', []) as $detalle) {
-                $monto = (float) $detalle['monto'];
+                $cantidad = (float) $detalle['cantidad'];
+                $precioUnitario = (float) $detalle['precio_unitario'];
+                $subtotal = round($cantidad * $precioUnitario, 2);
+
                 $oc->detalles()->create([
                     'obra_rubro_id' => $detalle['obra_rubro_id'],
-                    'monto' => $monto,
+                    'descripcion' => $detalle['descripcion'],
+                    'unidad' => $detalle['unidad'],
+                    'cantidad' => $cantidad,
+                    'precio_unitario' => $precioUnitario,
+                    'subtotal' => $subtotal,
                 ]);
 
                 $obraRubro = ObraRubro::find($detalle['obra_rubro_id']);
                 if ($obraRubro) {
                     $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
-                    if ($monto > $disponible) {
+                    if ($subtotal > $disponible) {
                         $warnings[] = "El rubro {$obraRubro->rubro?->codigo} excede el presupuesto disponible.";
                     }
                 }
@@ -116,22 +139,41 @@ class OrdenCompraController extends Controller
         return $redirect;
     }
 
-    public function show(OrdenCompra $ordenCompra): Response
+    public function show(OrdenCompra $ordenCompra, RetencionCalculator $retenciones): Response
     {
         $ordenCompra->load([
-            'proveedor',
+            'proveedor.regimenFiscal:id,clave,descripcion',
             'obra',
             'departamento',
             'creador',
             'detalles.obraRubro.rubro',
             'detalles.obraRubro.obra',
+            'entregas.detalles.ordenCompraDetalle:id,descripcion,unidad,cantidad',
+            'entregas.detalles.devoluciones',
+            'entregas.recibidoPor:id,name',
+            'entregas.media',
+            'facturas.media',
+            'facturas.pago',
+            'facturas.notasCredito.media',
             'facturas.entregas.media',
             'media',
             'rubrosAfectados.obraRubro.rubro',
+            'solicitudesPago:id,orden_compra_id,folio,estatus',
+            'activities.causer',
+        ]);
+
+        $ordenCompra->append(['total_facturado', 'total_pagado', 'saldo_pendiente', 'pagada_anticipo_contado']);
+
+        $lineas = $ordenCompra->detalles->map(fn ($d) => [
+            'tipo_fiscal' => $d->tipo_fiscal?->value ?? 'mercancia',
+            'subtotal' => (float) $d->subtotal,
         ]);
 
         return Inertia::render('admin/costos/ordenes-compra/show', [
             'ordenCompra' => $ordenCompra,
+            'retenciones' => $ordenCompra->proveedor
+                ? $retenciones->calcular($ordenCompra->proveedor, $lineas)
+                : null,
         ]);
     }
 
@@ -142,7 +184,7 @@ class OrdenCompraController extends Controller
         }
 
         DB::transaction(function () use ($ordenCompra) {
-            if (in_array($ordenCompra->estatus, ['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion'])) {
+            if (in_array($ordenCompra->estatus, [OrdenCompraEstatus::PendienteEntrega, OrdenCompraEstatus::PendienteFactura, OrdenCompraEstatus::PendienteAprobacion], true)) {
                 $ordenCompra->load('detalles');
                 $ordenCompra->revertirImpactoPresupuestal();
             }
@@ -154,20 +196,99 @@ class OrdenCompraController extends Controller
         return to_route('admin.costos.ordenes-compra.index');
     }
 
-    public function cancelar(OrdenCompra $ordenCompra): RedirectResponse
+    public function cancelar(CancelarRequest $request, OrdenCompra $ordenCompra): RedirectResponse
     {
         Gate::authorize('costos.ordenes-compra.cancelar');
 
-        if (! in_array($ordenCompra->estatus, ['pendiente_factura', 'pendiente_entrega', 'pendiente_aprobacion'])) {
+        if (! in_array($ordenCompra->estatus, [OrdenCompraEstatus::PendienteEntrega, OrdenCompraEstatus::PendienteFactura, OrdenCompraEstatus::PendienteAprobacion], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar órdenes pendientes.']);
         }
 
-        DB::transaction(function () use ($ordenCompra) {
+        if ($ordenCompra->facturas()->where('estatus', '!=', FacturaEstatus::Cancelada->value)->exists()) {
+            return back()->withErrors(['estatus' => 'No se puede cancelar una orden con facturas activas. Cancele primero las facturas.']);
+        }
+
+        DB::transaction(function () use ($ordenCompra, $request) {
             $ordenCompra->load('detalles');
             $ordenCompra->revertirImpactoPresupuestal();
-            $ordenCompra->update(['estatus' => 'cancelada']);
+            $ordenCompra->transitionTo(OrdenCompraEstatus::Cancelada);
+            $ordenCompra->registrarCancelacion($request->validated('motivo'), $request->user()->id);
         });
 
         return back()->with('success', 'Orden de compra cancelada.');
+    }
+
+    public function pdfOc(Request $request, OrdenCompra $ordenCompra): HttpResponse
+    {
+        $ordenCompra->load(['proveedor', 'departamento', 'detalles']);
+
+        $pdf = Pdf::loadView('pdf.costos.formato-orden-compra', [
+            'oc' => $ordenCompra,
+        ])->setPaper('letter', 'portrait');
+
+        $filename = "OC-{$ordenCompra->folio}.pdf";
+
+        return $request->boolean('download')
+            ? $pdf->download($filename)
+            : $pdf->stream($filename);
+    }
+
+    public function pdfRequisicion(OrdenCompra $ordenCompra): HttpResponse
+    {
+        $requisicion = $ordenCompra->requisicion;
+        abort_if(! $requisicion, 404, 'Esta OC no tiene requisición de origen.');
+
+        $requisicion->load([
+            'solicitante',
+            'departamento',
+            'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
+        ]);
+
+        // Build firmas from aprobaciones
+        $aprobaciones = $requisicion->aprobaciones()
+            ->with('aprobador')
+            ->get();
+
+        $niveles = Permiso::orderBy('nivel')->get();
+        $aprobacionesPorNivel = $aprobaciones->groupBy('nivel');
+
+        $firmas = $niveles->filter(fn ($p) => $aprobacionesPorNivel->has($p->nivel))
+            ->map(function ($permiso) use ($aprobacionesPorNivel) {
+                $aprobs = $aprobacionesPorNivel->get($permiso->nivel);
+                $aprobada = $aprobs->firstWhere('estatus', 'aprobada');
+
+                return (object) [
+                    'permiso' => $permiso,
+                    'aprobador' => $aprobada?->aprobador,
+                    'aprobada' => $aprobada !== null,
+                    'fecha' => $aprobada?->fecha_respuesta?->format('d/m/Y H:i'),
+                ];
+            })
+            ->values();
+
+        $pdf = Pdf::loadView('pdf.costos.formato-requisicion-comparativo', [
+            'requisicion' => $requisicion,
+            'firmas' => $firmas,
+        ])->setPaper('letter', 'landscape');
+
+        return $pdf->stream("Comparativo-{$requisicion->folio}.pdf");
+    }
+
+    public function pdfContrarecibo(OrdenCompra $ordenCompra, Factura $factura): HttpResponse
+    {
+        abort_if($factura->orden_compra_id !== $ordenCompra->id, 404);
+
+        $ordenCompra->load('proveedor');
+
+        $pago = $factura->pago;
+        $fechaPago = $pago?->fecha_pago_programada;
+
+        $pdf = Pdf::loadView('pdf.costos.formato-contrarecibo', [
+            'oc' => $ordenCompra,
+            'factura' => $factura,
+            'fechaPago' => $fechaPago,
+        ])->setPaper('letter', 'portrait');
+
+        return $pdf->stream("Contrarecibo-{$factura->folio}.pdf");
     }
 }

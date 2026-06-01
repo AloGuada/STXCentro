@@ -75,66 +75,72 @@ describe('admin costos pagos', function () {
         $response->assertRedirect();
 
         $pago->refresh();
-        expect($pago->estatus)->toBe('pagado');
+        expect($pago->estatus->value)->toBe('pagado');
         expect($pago->media)->not->toBeNull();
         expect($pago->fecha_pago_realizada)->not->toBeNull();
 
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('pagada');
+        expect($solicitud->estatus->value)->toBe('pagada');
     });
 
-    test('credito parcializar validates suma equals monto', function () {
+    test('parcializar rechaza monto que excede el saldo pendiente', function () {
         $pago = Pago::factory()->credito()->programado()->create(['monto_pago' => 10000]);
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.pagos.parcializar', $pago), [
-                'parcialidades' => [
-                    ['monto' => 3000, 'fecha_programada' => now()->addDays(10)->toDateString()],
-                    ['monto' => 3000, 'fecha_programada' => now()->addDays(20)->toDateString()],
-                ],
+                'monto' => 12000,
+                'fecha_programada' => now()->addDays(10)->toDateString(),
             ]);
 
-        $response->assertSessionHasErrors(['parcialidades']);
+        $response->assertSessionHasErrors(['monto']);
+        expect($pago->pagosParciales()->count())->toBe(0);
     });
 
-    test('credito parcializar creates child pagos', function () {
+    test('parcializar crea una parcialidad y deja saldo pendiente', function () {
         $pago = Pago::factory()->credito()->programado()->create(['monto_pago' => 10000]);
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.pagos.parcializar', $pago), [
-                'parcialidades' => [
-                    ['monto' => 5000, 'fecha_programada' => now()->addDays(10)->toDateString()],
-                    ['monto' => 5000, 'fecha_programada' => now()->addDays(20)->toDateString()],
-                ],
+                'monto' => 6000,
+                'fecha_programada' => now()->addDays(10)->toDateString(),
             ]);
 
         $response->assertRedirect();
 
         $pago->refresh();
-        expect($pago->estatus)->toBe('parcial');
-        expect($pago->pagosParciales)->toHaveCount(2);
+        expect($pago->estatus->value)->toBe('parcial');
+        expect($pago->pagosParciales)->toHaveCount(1);
 
         $hijo1 = $pago->pagosParciales->first();
         expect($hijo1->pago_padre_id)->toBe($pago->id);
-        expect($hijo1->estatus)->toBe('programado');
+        expect($hijo1->estatus->value)->toBe('programado');
         expect($hijo1->numero_parcialidad)->toBe(1);
+        expect((float) $hijo1->monto_pago)->toBe(6000.0);
         expect($hijo1->folio)->toStartWith('PG-');
     });
 
-    test('child pagos start as programado', function () {
+    test('permite registrar una segunda parcialidad sobre el saldo restante', function () {
         $pago = Pago::factory()->credito()->programado()->create(['monto_pago' => 10000]);
 
         $this->actingAs($this->user)
             ->post(route('admin.costos.pagos.parcializar', $pago), [
-                'parcialidades' => [
-                    ['monto' => 5000, 'fecha_programada' => now()->addDays(10)->toDateString()],
-                    ['monto' => 5000, 'fecha_programada' => now()->addDays(20)->toDateString()],
-                ],
-            ]);
+                'monto' => 6000,
+                'fecha_programada' => now()->addDays(10)->toDateString(),
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.pagos.parcializar', $pago), [
+                'monto' => 4000,
+                'fecha_programada' => now()->addDays(20)->toDateString(),
+            ])
+            ->assertRedirect();
 
         $pago->refresh();
+        expect($pago->pagosParciales)->toHaveCount(2);
+        expect($pago->pagosParciales->pluck('numero_parcialidad')->sort()->values()->all())->toBe([1, 2]);
         $pago->pagosParciales->each(function ($hijo) {
-            expect($hijo->estatus)->toBe('programado');
+            expect($hijo->estatus->value)->toBe('programado');
         });
     });
 
@@ -161,42 +167,44 @@ describe('admin costos pagos', function () {
         $response->assertRedirect();
 
         $pago->refresh();
-        expect($pago->estatus)->toBe('pagado');
+        expect($pago->estatus->value)->toBe('pagado');
 
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('pagada');
+        expect($solicitud->estatus->value)->toBe('pagada');
     });
 
-    test('cannot parcializar pago contado', function () {
-        $pago = Pago::factory()->contado()->create();
+    test('puede parcializar pago contado', function () {
+        $pago = Pago::factory()->contado()->create([
+            'monto_pago' => 10000,
+            'estatus' => 'programado',
+        ]);
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.pagos.parcializar', $pago), [
-                'parcialidades' => [
-                    ['monto' => 5000, 'fecha_programada' => now()->addDays(10)->toDateString()],
-                    ['monto' => 5000, 'fecha_programada' => now()->addDays(20)->toDateString()],
-                ],
+                'monto' => 5000,
+                'fecha_programada' => now()->addDays(10)->toDateString(),
             ]);
 
-        $response->assertSessionHasErrors(['tipo_pago']);
+        $response->assertRedirect();
+        $pago->refresh();
+        expect($pago->pagosParciales()->count())->toBe(1);
+        expect($pago->estatus->value)->toBe('parcial');
     });
 
-    test('cannot parcializar already parcializado pago', function () {
-        $pago = Pago::factory()->credito()->create(['monto_pago' => 10000, 'estatus' => 'parcial']);
-        Pago::factory()->hijo($pago, 1)->create(['monto_pago' => 5000]);
+    test('no puede parcializar un pago pagado', function () {
+        $pago = Pago::factory()->credito()->create(['monto_pago' => 10000, 'estatus' => 'pagado']);
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.pagos.parcializar', $pago), [
-                'parcialidades' => [
-                    ['monto' => 5000, 'fecha_programada' => now()->addDays(10)->toDateString()],
-                    ['monto' => 5000, 'fecha_programada' => now()->addDays(20)->toDateString()],
-                ],
+                'monto' => 5000,
+                'fecha_programada' => now()->addDays(10)->toDateString(),
             ]);
 
-        $response->assertSessionHasErrors(['parcialidades']);
+        $response->assertSessionHasErrors(['estatus']);
+        expect($pago->pagosParciales()->count())->toBe(0);
     });
 
-    test('recursive parcializacion is allowed', function () {
+    test('parcializacion recursiva propaga el pago en cascada', function () {
         Storage::fake('public');
 
         $solicitud = SolicitudPago::factory()->aprobada()->create();
@@ -214,19 +222,18 @@ describe('admin costos pagos', function () {
             'tipo_pago' => 'credito',
         ]);
 
-        // Parcializar hijo2 en 2 nietos
-        $response = $this->actingAs($this->user)
-            ->post(route('admin.costos.pagos.parcializar', $hijo2), [
-                'parcialidades' => [
-                    ['monto' => 2500, 'fecha_programada' => now()->addDays(10)->toDateString()],
-                    ['monto' => 2500, 'fecha_programada' => now()->addDays(20)->toDateString()],
-                ],
-            ]);
-
-        $response->assertRedirect();
+        // Parcializar hijo2 en 2 nietos, un corte a la vez
+        foreach ([2500, 2500] as $i => $monto) {
+            $this->actingAs($this->user)
+                ->post(route('admin.costos.pagos.parcializar', $hijo2), [
+                    'monto' => $monto,
+                    'fecha_programada' => now()->addDays(10 * ($i + 1))->toDateString(),
+                ])
+                ->assertRedirect();
+        }
 
         $hijo2->refresh();
-        expect($hijo2->estatus)->toBe('parcial');
+        expect($hijo2->estatus->value)->toBe('parcial');
         expect($hijo2->pagosParciales)->toHaveCount(2);
 
         // Pagar ambos nietos - la cascada debe marcar hijo2, raíz y solicitud como pagados
@@ -243,12 +250,12 @@ describe('admin costos pagos', function () {
             ]);
 
         $hijo2->refresh();
-        expect($hijo2->estatus)->toBe('pagado');
+        expect($hijo2->estatus->value)->toBe('pagado');
 
         $raiz->refresh();
-        expect($raiz->estatus)->toBe('pagado');
+        expect($raiz->estatus->value)->toBe('pagado');
 
         $solicitud->refresh();
-        expect($solicitud->estatus)->toBe('pagada');
+        expect($solicitud->estatus->value)->toBe('pagada');
     });
 });

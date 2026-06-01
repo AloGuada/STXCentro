@@ -145,6 +145,7 @@ describe('admin costos afectaciones presupuestales', function () {
                         'precio_unitario' => 200,
                     ],
                 ],
+                '_version' => $afectacion->updated_at->toIso8601String(),
             ]);
 
         $response->assertRedirect(route('admin.costos.afectaciones.index'));

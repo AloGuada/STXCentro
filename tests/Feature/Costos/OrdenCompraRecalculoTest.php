@@ -5,18 +5,28 @@ use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Proveedor;
 
-test('OC pendiente_factura cuando no tiene facturas', function () {
-    $oc = OrdenCompra::factory()->create(['estatus' => 'pendiente_entrega']);
+test('OC pendiente_entrega cuando no tiene facturas ni entregas', function () {
+    $oc = OrdenCompra::factory()->create(['estatus' => 'pendiente_aprobacion']);
 
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_factura');
+    expect($oc->estatus->value)->toBe('pendiente_entrega');
+});
+
+test('OC pendiente_factura cuando no tiene facturas pero ya hay entrega', function () {
+    $oc = OrdenCompra::factory()->create(['estatus' => 'pendiente_aprobacion']);
+    Entrega::factory()->create(['orden_compra_id' => $oc->id]);
+
+    $oc->recalcularEstatus();
+    $oc->refresh();
+
+    expect($oc->estatus->value)->toBe('pendiente_factura');
 });
 
 test('OC pendiente_entrega cuando tiene factura sin entrega', function () {
     $oc = OrdenCompra::factory()->create();
-    Factura::factory()->pendienteEntrega()->create([
+    Factura::factory()->pendienteAprobacion()->create([
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $oc->proveedor_id,
     ]);
@@ -24,7 +34,7 @@ test('OC pendiente_entrega cuando tiene factura sin entrega', function () {
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_entrega');
+    expect($oc->estatus->value)->toBe('pendiente_aprobacion');
 });
 
 test('OC pendiente_aprobacion cuando todas las facturas tienen entrega completa', function () {
@@ -38,20 +48,20 @@ test('OC pendiente_aprobacion cuando todas las facturas tienen entrega completa'
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_aprobacion');
+    expect($oc->estatus->value)->toBe('pendiente_aprobacion');
 });
 
 test('OC pendiente_entrega cuando alguna factura no tiene entrega', function () {
     $proveedor = Proveedor::factory()->create();
     $oc = OrdenCompra::factory()->create(['proveedor_id' => $proveedor->id]);
 
-    $factura1 = Factura::factory()->pendienteEntrega()->create([
+    $factura1 = Factura::factory()->pendienteAprobacion()->create([
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $proveedor->id,
     ]);
-    Entrega::factory()->create(['factura_id' => $factura1->id]);
+    Entrega::factory()->create(['orden_compra_id' => $factura1->orden_compra_id]);
 
-    Factura::factory()->pendienteEntrega()->create([
+    Factura::factory()->pendienteAprobacion()->create([
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $proveedor->id,
     ]);
@@ -59,7 +69,7 @@ test('OC pendiente_entrega cuando alguna factura no tiene entrega', function () 
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_entrega');
+    expect($oc->estatus->value)->toBe('pendiente_aprobacion');
 });
 
 test('OC pendiente_pago cuando todas las facturas estan aprobadas', function () {
@@ -74,7 +84,7 @@ test('OC pendiente_pago cuando todas las facturas estan aprobadas', function () 
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_pago');
+    expect($oc->estatus->value)->toBe('pendiente_pago');
 });
 
 test('OC pendiente_pago con mix de pendiente_pago y pagada', function () {
@@ -94,7 +104,7 @@ test('OC pendiente_pago con mix de pendiente_pago y pagada', function () {
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_pago');
+    expect($oc->estatus->value)->toBe('pendiente_pago');
 });
 
 test('OC pagada cuando todas las facturas estan pagadas', function () {
@@ -114,7 +124,7 @@ test('OC pagada cuando todas las facturas estan pagadas', function () {
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pagada');
+    expect($oc->estatus->value)->toBe('pagada');
 });
 
 test('factura cancelada no bloquea progreso de OC', function () {
@@ -135,10 +145,10 @@ test('factura cancelada no bloquea progreso de OC', function () {
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pagada');
+    expect($oc->estatus->value)->toBe('pagada');
 });
 
-test('OC pendiente_factura cuando todas facturas canceladas', function () {
+test('OC pendiente_entrega cuando todas facturas canceladas y sin entregas', function () {
     $oc = OrdenCompra::factory()->create();
     Factura::factory()->create([
         'orden_compra_id' => $oc->id,
@@ -149,5 +159,5 @@ test('OC pendiente_factura cuando todas facturas canceladas', function () {
     $oc->recalcularEstatus();
     $oc->refresh();
 
-    expect($oc->estatus)->toBe('pendiente_factura');
+    expect($oc->estatus->value)->toBe('pendiente_entrega');
 });

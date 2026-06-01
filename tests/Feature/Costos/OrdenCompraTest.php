@@ -39,7 +39,7 @@ test('muestra formulario de creacion', function () {
         );
 });
 
-test('crea orden de compra pendiente_factura y aplica impacto presupuestal', function () {
+test('crea orden de compra pendiente_entrega y aplica impacto presupuestal', function () {
     $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
     $oc = OrdenCompra::factory()->make();
 
@@ -48,11 +48,15 @@ test('crea orden de compra pendiente_factura y aplica impacto presupuestal', fun
             'proveedor_id' => $oc->proveedor_id,
             'departamento_id' => $oc->departamento_id,
             'moneda' => 'mxn',
+            'fecha_entrega_esperada' => now()->addDays(7)->format('Y-m-d'),
             'total' => 5000,
             'detalles' => [
                 [
                     'obra_rubro_id' => $obraRubro->id,
-                    'monto' => 5000,
+                    'descripcion' => 'Cemento gris',
+                    'unidad' => 'bulto',
+                    'cantidad' => 10,
+                    'precio_unitario' => 500,
                 ],
             ],
         ])
@@ -63,7 +67,7 @@ test('crea orden de compra pendiente_factura y aplica impacto presupuestal', fun
 
     $created = OrdenCompra::first();
     expect($created->folio)->toStartWith('OC-');
-    expect($created->estatus)->toBe('pendiente_factura');
+    expect($created->estatus->value)->toBe('pendiente_entrega');
     expect((float) $created->total)->toBe(5000.0);
 
     $obraRubro->refresh();
@@ -85,15 +89,17 @@ test('cancela una orden pendiente y revierte impacto', function () {
     OrdenCompraDetalle::factory()->create([
         'orden_compra_id' => $oc->id,
         'obra_rubro_id' => $obraRubro->id,
-        'monto' => 5000,
+        'cantidad' => 1,
+        'precio_unitario' => 5000,
+        'subtotal' => 5000,
     ]);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar")
+        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertRedirect();
 
     $oc->refresh();
-    expect($oc->estatus)->toBe('cancelada');
+    expect($oc->estatus->value)->toBe('cancelada');
 
     $obraRubro->refresh();
     expect((float) $obraRubro->acumulado)->toBe(0.0);
@@ -105,7 +111,7 @@ test('no permite cancelar orden en pendiente_pago', function () {
     $oc = OrdenCompra::factory()->create(['creado_por' => $this->user->id, 'estatus' => 'pendiente_pago']);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar")
+        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertSessionHasErrors('estatus');
 });
 
@@ -113,7 +119,7 @@ test('no permite cancelar sin permiso', function () {
     $oc = OrdenCompra::factory()->create(['creado_por' => $this->user->id]);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar")
+        ->post("/admin/costos/ordenes-compra/{$oc->id}/cancelar", ['motivo' => 'Cancelación motivada por test'])
         ->assertForbidden();
 });
 
@@ -123,7 +129,9 @@ test('elimina una orden sin facturas y revierte impacto', function () {
     OrdenCompraDetalle::factory()->create([
         'orden_compra_id' => $oc->id,
         'obra_rubro_id' => $obraRubro->id,
-        'monto' => 5000,
+        'cantidad' => 1,
+        'precio_unitario' => 5000,
+        'subtotal' => 5000,
     ]);
 
     $this->actingAs($this->user)
@@ -143,4 +151,62 @@ test('no permite eliminar orden con facturas', function () {
     $this->actingAs($this->user)
         ->delete("/admin/costos/ordenes-compra/{$oc->id}")
         ->assertSessionHasErrors('estatus');
+});
+
+test('calcula subtotal = cantidad * precio_unitario por partida', function () {
+    $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+    $oc = OrdenCompra::factory()->make();
+
+    $this->actingAs($this->user)
+        ->post('/admin/costos/ordenes-compra', [
+            'proveedor_id' => $oc->proveedor_id,
+            'departamento_id' => $oc->departamento_id,
+            'moneda' => 'mxn',
+            'fecha_entrega_esperada' => now()->addDays(7)->format('Y-m-d'),
+            'total' => 3750,
+            'detalles' => [
+                [
+                    'obra_rubro_id' => $obraRubro->id,
+                    'descripcion' => 'Varilla corrugada 3/8"',
+                    'unidad' => 'pza',
+                    'cantidad' => 15,
+                    'precio_unitario' => 250,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $detalle = OrdenCompraDetalle::first();
+    expect((float) $detalle->cantidad)->toBe(15.0);
+    expect((float) $detalle->precio_unitario)->toBe(250.0);
+    expect((float) $detalle->subtotal)->toBe(3750.0);
+    expect($detalle->descripcion)->toBe('Varilla corrugada 3/8"');
+    expect($detalle->unidad)->toBe('pza');
+
+    // Impacto presupuestal usa subtotal, no cantidad ni precio_unitario sueltos
+    $obraRubro->refresh();
+    expect((float) $obraRubro->acumulado)->toBe(3750.0);
+});
+
+test('validation requiere descripcion, unidad, cantidad y precio_unitario por partida', function () {
+    $obraRubro = ObraRubro::factory()->create();
+    $oc = OrdenCompra::factory()->make();
+
+    $this->actingAs($this->user)
+        ->post('/admin/costos/ordenes-compra', [
+            'proveedor_id' => $oc->proveedor_id,
+            'departamento_id' => $oc->departamento_id,
+            'moneda' => 'mxn',
+            'fecha_entrega_esperada' => now()->addDays(7)->format('Y-m-d'),
+            'total' => 1000,
+            'detalles' => [
+                ['obra_rubro_id' => $obraRubro->id],
+            ],
+        ])
+        ->assertSessionHasErrors([
+            'detalles.0.descripcion',
+            'detalles.0.unidad',
+            'detalles.0.cantidad',
+            'detalles.0.precio_unitario',
+        ]);
 });

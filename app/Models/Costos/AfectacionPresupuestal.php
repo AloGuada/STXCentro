@@ -2,6 +2,11 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\AfectacionEstatus;
+use App\Models\Concerns\HasCancelacion;
+use App\Models\Concerns\HasEditLock;
+use App\Models\Concerns\HasMonthlyFolio;
+use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
 use App\Models\Proveedor;
 use App\Models\Usuario;
@@ -10,16 +15,21 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
-use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\AfectacionPresupuestalFactory>
  */
 class AfectacionPresupuestal extends Model
 {
-    use HasFactory;
+    use HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
 
     protected $table = 'costos_afectaciones_presupuestales';
+
+    protected static string $folioPrefix = 'AF';
+
+    protected static string $stateEnum = AfectacionEstatus::class;
 
     /**
      * @var list<string>
@@ -38,6 +48,8 @@ class AfectacionPresupuestal extends Model
         'fecha_aprobacion',
         'pdf_formato_path',
         'pdf_firmado_path',
+        'locked_by',
+        'locked_at',
     ];
 
     /**
@@ -49,25 +61,9 @@ class AfectacionPresupuestal extends Model
             'fecha' => 'date',
             'monto_total' => 'decimal:2',
             'fecha_aprobacion' => 'datetime',
+            'estatus' => AfectacionEstatus::class,
+            'locked_at' => 'datetime',
         ];
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $afectacion) {
-            if (empty($afectacion->folio)) {
-                $prefix = sprintf('AF-%s%s', now()->format('Y'), now()->format('m'));
-                $last = DB::table('costos_afectaciones_presupuestales')
-                    ->where('folio', 'like', "{$prefix}%")
-                    ->max('folio');
-
-                $next = $last
-                    ? ((int) substr($last, -2)) + 1
-                    : 1;
-
-                $afectacion->folio = sprintf('%s%02d', $prefix, $next);
-            }
-        });
     }
 
     public function departamento(): BelongsTo
@@ -103,5 +99,20 @@ class AfectacionPresupuestal extends Model
     public function rubrosAfectados(): MorphMany
     {
         return $this->morphMany(RubroAfectado::class, 'entrada');
+    }
+
+    public function activities(): MorphMany
+    {
+        return $this->activitiesAsSubject();
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('costos')
+            ->logOnly(['folio', 'estatus', 'monto_total', 'descripcion'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $event) => "Afectación {$this->folio}: {$event}");
     }
 }

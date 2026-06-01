@@ -205,7 +205,7 @@
                 <td>{{ $factura->ordenCompra?->folio ?? '-' }}</td>
                 <td class="text-center">{{ $factura->fecha_factura?->format('d/m/Y') ?? '-' }}</td>
                 <td class="text-right">${{ number_format($factura->total, 2) }}</td>
-                <td class="text-center">{{ ucfirst(str_replace('_', ' ', $factura->estatus)) }}</td>
+                <td class="text-center">{{ $factura->estatus->label() }}</td>
                 <td class="text-center">{{ ($factura->mediaPdf ? 1 : 0) + $factura->entregas->filter(fn($e) => $e->media)->count() }}</td>
             </tr>
             @endforeach

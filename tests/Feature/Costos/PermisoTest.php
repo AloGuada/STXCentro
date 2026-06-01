@@ -38,6 +38,7 @@ describe('admin costos permisos', function () {
             ->post(route('admin.costos.permisos.store'), [
                 'descripcion' => 'Jefe Depto',
                 'nivel' => 1,
+                'tipo_aprobacion' => 'solicitud_pago',
             ]);
 
         $response->assertRedirect(route('admin.costos.permisos.index'));
@@ -84,6 +85,7 @@ describe('admin costos permisos', function () {
             ->put(route('admin.costos.permisos.update', $permiso), [
                 'descripcion' => 'Gerente',
                 'nivel' => 2,
+                'tipo_aprobacion' => 'solicitud_pago',
             ]);
 
         $response->assertRedirect(route('admin.costos.permisos.index'));
@@ -112,7 +114,7 @@ describe('admin costos permisos', function () {
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.permisos.sync-departamentos', $permiso), [
                 'asignaciones' => [
-                    ['departamento_id' => $departamento->id, 'aprobador_id' => $aprobador->id],
+                    ['departamento_id' => $departamento->id, 'aprobador_ids' => [$aprobador->id]],
                 ],
             ]);
 
@@ -139,7 +141,7 @@ describe('admin costos permisos', function () {
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.permisos.sync-departamentos', $permiso), [
                 'asignaciones' => [
-                    ['departamento_id' => $departamento->id, 'aprobador_id' => $newAprobador->id],
+                    ['departamento_id' => $departamento->id, 'aprobador_ids' => [$newAprobador->id]],
                 ],
             ]);
 
@@ -154,14 +156,14 @@ describe('admin costos permisos', function () {
         ]);
     });
 
-    test('syncDepartamentos ignores null aprobador_id', function () {
+    test('syncDepartamentos ignores empty aprobador_ids', function () {
         $permiso = Permiso::factory()->create();
         $departamento = Departamento::factory()->create();
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.permisos.sync-departamentos', $permiso), [
                 'asignaciones' => [
-                    ['departamento_id' => $departamento->id, 'aprobador_id' => null],
+                    ['departamento_id' => $departamento->id, 'aprobador_ids' => []],
                 ],
             ]);
 
@@ -169,6 +171,32 @@ describe('admin costos permisos', function () {
         $this->assertDatabaseMissing('costos_aprobacion_departamento', [
             'permiso_id' => $permiso->id,
             'departamento_id' => $departamento->id,
+        ]);
+    });
+
+    test('syncDepartamentos persists multiple aprobadores for same departamento', function () {
+        $permiso = Permiso::factory()->create();
+        $departamento = Departamento::factory()->create();
+        $aprobadorA = User::factory()->create();
+        $aprobadorB = User::factory()->create();
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.permisos.sync-departamentos', $permiso), [
+                'asignaciones' => [
+                    ['departamento_id' => $departamento->id, 'aprobador_ids' => [$aprobadorA->id, $aprobadorB->id]],
+                ],
+            ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('costos_aprobacion_departamento', [
+            'permiso_id' => $permiso->id,
+            'departamento_id' => $departamento->id,
+            'aprobador_id' => $aprobadorA->id,
+        ]);
+        $this->assertDatabaseHas('costos_aprobacion_departamento', [
+            'permiso_id' => $permiso->id,
+            'departamento_id' => $departamento->id,
+            'aprobador_id' => $aprobadorB->id,
         ]);
     });
 

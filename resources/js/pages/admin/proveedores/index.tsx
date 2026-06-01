@@ -1,8 +1,9 @@
+import { Head } from '@inertiajs/react';
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedData, Proveedor } from '@/types/models';
-import { Head } from '@inertiajs/react';
+import { PROVEEDOR_ESTATUS_COLORS, PROVEEDOR_ESTATUS_LABELS } from '@/types/models';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -19,12 +20,17 @@ const columns: Column<Proveedor>[] = [
         render: (p) => p.departamento?.descripcion ?? '-',
     },
     {
-        key: 'activo',
-        label: 'Activo',
+        key: 'estatus',
+        label: 'Estatus',
         render: (p) => (
-            <span className={`badge badge-sm ${p.activo ? 'badge-success' : 'badge-ghost'}`}>
-                {p.activo ? 'Sí' : 'No'}
-            </span>
+            <div className="flex flex-wrap items-center gap-1">
+                <span className={`badge badge-sm ${PROVEEDOR_ESTATUS_COLORS[p.estatus] ?? 'badge-ghost'}`}>
+                    {PROVEEDOR_ESTATUS_LABELS[p.estatus] ?? p.estatus}
+                </span>
+                {p.bloqueado_complemento && (
+                    <span className="badge badge-sm badge-error">Bloqueado: complemento pendiente</span>
+                )}
+            </div>
         ),
     },
 ];

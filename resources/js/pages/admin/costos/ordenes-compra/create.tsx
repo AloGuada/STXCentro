@@ -6,7 +6,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { CostosObraRubro, Departamento, Obra, Proveedor } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { type FormEvent, useMemo } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -18,7 +18,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 type DetalleForm = {
     obra_id: string;
     obra_rubro_id: string;
-    monto: string;
+    descripcion: string;
+    unidad: string;
+    cantidad: string;
+    precio_unitario: string;
 };
 
 type Props = {
@@ -27,6 +30,23 @@ type Props = {
     departamentos: Departamento[];
     obraRubros: CostosObraRubro[];
 };
+
+const unidadesSugeridas = ['pza', 'kg', 'm', 'm2', 'm3', 'lt', 'ton', 'hr', 'lote', 'servicio'];
+
+function emptyDetalle(): DetalleForm {
+    return {
+        obra_id: '',
+        obra_rubro_id: '',
+        descripcion: '',
+        unidad: 'pza',
+        cantidad: '1',
+        precio_unitario: '',
+    };
+}
+
+function subtotalDe(d: DetalleForm): number {
+    return (parseFloat(d.cantidad) || 0) * (parseFloat(d.precio_unitario) || 0);
+}
 
 export default function OrdenesCompraCreate({ proveedores, obras, departamentos, obraRubros }: Props) {
     const { data, setData, post, processing, errors } = useForm<{
@@ -44,15 +64,20 @@ export default function OrdenesCompraCreate({ proveedores, obras, departamentos,
         proveedor_id: '',
         departamento_id: '',
         moneda: 'mxn',
-        total: '',
+        total: '0',
         fecha_entrega_esperada: '',
         notas: '',
         archivo: null,
-        detalles: [{ obra_id: '', obra_rubro_id: '', monto: '' }],
+        detalles: [emptyDetalle()],
     });
 
+    const totalCalculado = useMemo(
+        () => data.detalles.reduce((acc, d) => acc + subtotalDe(d), 0),
+        [data.detalles],
+    );
+
     const addDetalle = () => {
-        setData('detalles', [...data.detalles, { obra_id: '', obra_rubro_id: '', monto: '' }]);
+        setData('detalles', [...data.detalles, emptyDetalle()]);
     };
 
     const removeDetalle = (index: number) => {
@@ -85,6 +110,7 @@ export default function OrdenesCompraCreate({ proveedores, obras, departamentos,
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
+        setData('total', totalCalculado.toFixed(2));
         post('/admin/costos/ordenes-compra', { forceFormData: true });
     };
 
@@ -153,24 +179,13 @@ export default function OrdenesCompraCreate({ proveedores, obras, departamentos,
                                     </select>
                                 </FormField>
 
-                                <FormField label="Total de la OC" htmlFor="total" error={errors.total} required>
-                                    <Input
-                                        id="total"
-                                        type="number"
-                                        step="0.01"
-                                        min="0.01"
-                                        value={data.total}
-                                        onChange={(e) => setData('total', e.target.value)}
-                                        placeholder="Monto total de la orden"
-                                    />
-                                </FormField>
-
-                                <FormField label="Fecha de Entrega Esperada" htmlFor="fecha_entrega_esperada" error={errors.fecha_entrega_esperada}>
+                                <FormField label="Fecha de Entrega Esperada" htmlFor="fecha_entrega_esperada" error={errors.fecha_entrega_esperada} required>
                                     <Input
                                         id="fecha_entrega_esperada"
                                         type="date"
                                         value={data.fecha_entrega_esperada}
                                         onChange={(e) => setData('fecha_entrega_esperada', e.target.value)}
+                                        required
                                     />
                                 </FormField>
                             </div>
@@ -195,25 +210,25 @@ export default function OrdenesCompraCreate({ proveedores, obras, departamentos,
                             </FormField>
                         </div>
 
-                        {/* Rubros */}
+                        {/* Partidas */}
                         <div className="space-y-4">
                             <div className="flex items-center justify-between border-b border-base-300 pb-2">
-                                <h2 className="text-lg font-medium">Rubros</h2>
+                                <h2 className="text-lg font-medium">Partidas</h2>
                                 <Button type="button" variant="outline" onClick={addDetalle}>
                                     <PlusIcon className="size-4" />
-                                    Agregar
+                                    Agregar partida
                                 </Button>
                             </div>
 
                             {data.detalles.map((det, index) => {
-                                const monto = parseFloat(det.monto) || 0;
+                                const subtotal = subtotalDe(det);
                                 const disponible = getDisponible(det.obra_rubro_id);
-                                const excede = disponible !== null && monto > disponible;
+                                const excede = disponible !== null && subtotal > disponible;
 
                                 return (
                                     <div key={index} className="rounded-lg border border-base-300 p-4 space-y-3">
                                         <div className="flex items-start justify-between">
-                                            <h3 className="font-medium">Rubro {index + 1}</h3>
+                                            <h3 className="font-medium">Partida {index + 1}</h3>
                                             {data.detalles.length > 1 && (
                                                 <button type="button" className="btn btn-ghost btn-sm text-error" onClick={() => removeDetalle(index)}>
                                                     <Trash2Icon className="size-4" />
@@ -221,7 +236,7 @@ export default function OrdenesCompraCreate({ proveedores, obras, departamentos,
                                             )}
                                         </div>
 
-                                        <div className="grid grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-2 gap-4">
                                             <FormField label="Obra" htmlFor={`det_obra_${index}`} required>
                                                 <select
                                                     id={`det_obra_${index}`}
@@ -252,34 +267,88 @@ export default function OrdenesCompraCreate({ proveedores, obras, departamentos,
                                                         ))}
                                                 </select>
                                             </FormField>
+                                        </div>
 
-                                            <FormField label="Monto" htmlFor={`det_monto_${index}`} error={errors[`detalles.${index}.monto` as keyof typeof errors]} required>
+                                        <FormField label="Descripción" htmlFor={`det_desc_${index}`} error={errors[`detalles.${index}.descripcion` as keyof typeof errors]} required>
+                                            <Input
+                                                id={`det_desc_${index}`}
+                                                value={det.descripcion}
+                                                onChange={(e) => updateDetalle(index, 'descripcion', e.target.value)}
+                                                placeholder="p.ej. Cemento gris CPC 30R 50kg"
+                                            />
+                                        </FormField>
+
+                                        <div className="grid grid-cols-4 gap-3">
+                                            <FormField label="Unidad" htmlFor={`det_unidad_${index}`} error={errors[`detalles.${index}.unidad` as keyof typeof errors]} required>
+                                                <input
+                                                    id={`det_unidad_${index}`}
+                                                    className="input input-bordered w-full"
+                                                    list={`unidades-${index}`}
+                                                    value={det.unidad}
+                                                    onChange={(e) => updateDetalle(index, 'unidad', e.target.value)}
+                                                    maxLength={20}
+                                                />
+                                                <datalist id={`unidades-${index}`}>
+                                                    {unidadesSugeridas.map((u) => (
+                                                        <option key={u} value={u} />
+                                                    ))}
+                                                </datalist>
+                                            </FormField>
+
+                                            <FormField label="Cantidad" htmlFor={`det_cantidad_${index}`} error={errors[`detalles.${index}.cantidad` as keyof typeof errors]} required>
                                                 <Input
-                                                    id={`det_monto_${index}`}
+                                                    id={`det_cantidad_${index}`}
                                                     type="number"
                                                     step="0.01"
                                                     min="0.01"
-                                                    value={det.monto}
-                                                    onChange={(e) => updateDetalle(index, 'monto', e.target.value)}
+                                                    value={det.cantidad}
+                                                    onChange={(e) => updateDetalle(index, 'cantidad', e.target.value)}
+                                                />
+                                            </FormField>
+
+                                            <FormField label="Precio unitario" htmlFor={`det_precio_${index}`} error={errors[`detalles.${index}.precio_unitario` as keyof typeof errors]} required>
+                                                <Input
+                                                    id={`det_precio_${index}`}
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={det.precio_unitario}
+                                                    onChange={(e) => updateDetalle(index, 'precio_unitario', e.target.value)}
+                                                />
+                                            </FormField>
+
+                                            <FormField label="Subtotal" htmlFor={`det_subtotal_${index}`}>
+                                                <Input
+                                                    id={`det_subtotal_${index}`}
+                                                    value={`$${formatMoney(subtotal)}`}
+                                                    readOnly
+                                                    className="bg-base-200"
                                                 />
                                             </FormField>
                                         </div>
 
                                         {excede && (
                                             <div className="rounded-lg bg-warning/10 border border-warning/30 px-3 py-2 text-xs text-warning inline-flex items-center gap-1">
-                                                <AlertTriangleIcon className="size-3" /> El monto (${formatMoney(monto)}) excede el disponible (${formatMoney(disponible!)})
+                                                <AlertTriangleIcon className="size-3" /> El subtotal (${formatMoney(subtotal)}) excede el disponible (${formatMoney(disponible!)})
                                             </div>
                                         )}
                                     </div>
                                 );
                             })}
+
+                            <div className="flex justify-end border-t border-base-300 pt-3">
+                                <div className="text-right">
+                                    <div className="text-sm text-base-content/60">Total de la OC</div>
+                                    <div className="text-2xl font-semibold">${formatMoney(totalCalculado)}</div>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>
                                 <Link href="/admin/costos/ordenes-compra">Cancelar</Link>
                             </Button>
-                            <Button type="submit" disabled={processing}>
+                            <Button type="submit" disabled={processing || totalCalculado <= 0}>
                                 {processing && <Loader2Icon className="size-4 animate-spin" />}
                                 Guardar
                             </Button>

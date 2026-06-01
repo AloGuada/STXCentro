@@ -27,19 +27,19 @@ class OrdenCompraFactory extends Factory
             'creado_por' => User::factory(),
             'moneda' => 'mxn',
             'total' => fake()->randomFloat(2, 1000, 100000),
-            'fecha_entrega_esperada' => fake()->optional()->dateTimeBetween('+7 days', '+60 days'),
+            'fecha_entrega_esperada' => fake()->dateTimeBetween('+7 days', '+60 days'),
             'estatus' => 'pendiente_factura',
         ];
-    }
-
-    public function pendienteFactura(): static
-    {
-        return $this->state(fn () => ['estatus' => 'pendiente_factura']);
     }
 
     public function pendienteEntrega(): static
     {
         return $this->state(fn () => ['estatus' => 'pendiente_entrega']);
+    }
+
+    public function pendienteFactura(): static
+    {
+        return $this->state(fn () => ['estatus' => 'pendiente_factura']);
     }
 
     public function pendienteAprobacion(): static
@@ -60,11 +60,5 @@ class OrdenCompraFactory extends Factory
     public function cancelada(): static
     {
         return $this->state(fn () => ['estatus' => 'cancelada']);
-    }
-
-    /** @deprecated Use pendienteFactura() instead */
-    public function aprobada(): static
-    {
-        return $this->pendienteFactura();
     }
 }

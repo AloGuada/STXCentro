@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosAprobacionSolicitud, CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon } from 'lucide-react';
 import { useState } from 'react';
 
@@ -29,45 +29,47 @@ function getStepIndex(estatus: CostosSolicitudPagoEstatus): number {
 }
 
 function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: number; tipo: 'aprobar' | 'rechazar'; onClose: () => void }) {
-    const [observaciones, setObservaciones] = useState('');
-    const [processing, setProcessing] = useState(false);
-
     const esAprobacion = tipo === 'aprobar';
+    const minLen = esAprobacion ? 1 : 10;
+    const { data, setData, post, processing, errors, reset } = useForm({ observaciones: '' });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setProcessing(true);
-        router.post(`/admin/costos/aprobaciones/${aprobacionId}/${tipo}`, { observaciones }, {
+        post(`/admin/costos/aprobaciones/${aprobacionId}/${tipo}`, {
             preserveScroll: true,
-            onFinish: () => {
-                setProcessing(false);
+            onSuccess: () => {
+                reset();
                 onClose();
             },
         });
     };
 
+    const tooShort = data.observaciones.trim().length < minLen;
+
     return (
         <dialog className="modal modal-open">
-            <div className="modal-box">
-                <h3 className="text-lg font-bold">{esAprobacion ? 'Aprobar solicitud' : 'Rechazar solicitud'}</h3>
-                <p className="py-2 text-sm text-base-content/60">
+            <div className="modal-box w-11/12 max-w-4xl">
+                <h2 className="text-2xl font-bold">{esAprobacion ? 'Aprobar solicitud' : 'Rechazar solicitud'}</h2>
+                <p className="mt-1 text-sm text-base-content/60">
                     {esAprobacion
                         ? 'Agregue sus observaciones para aprobar esta solicitud.'
-                        : 'El rechazo cancelará definitivamente la solicitud.'}
+                        : 'El rechazo cancelará definitivamente la solicitud. Mínimo 10 caracteres.'}
                 </p>
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} className="mt-6">
                     <div className="form-control">
-                        <label className="label">
-                            <span className="label-text">Observaciones (obligatorias)</span>
-                        </label>
+                        <label className="mb-2 text-sm font-medium">Observaciones</label>
                         <textarea
-                            className="textarea textarea-bordered"
-                            rows={3}
-                            value={observaciones}
-                            onChange={(e) => setObservaciones(e.target.value)}
+                            className={`textarea textarea-bordered w-full ${errors.observaciones ? 'textarea-error' : ''}`}
+                            rows={6}
+                            placeholder={esAprobacion ? 'Escriba sus observaciones...' : 'Motivo del rechazo...'}
+                            value={data.observaciones}
+                            onChange={(e) => setData('observaciones', e.target.value)}
                             required
                             maxLength={500}
                         />
+                        {errors.observaciones && (
+                            <span className="mt-1 text-xs text-error">{errors.observaciones}</span>
+                        )}
                     </div>
                     <div className="modal-action">
                         <button type="button" className="btn" onClick={onClose} disabled={processing}>
@@ -76,7 +78,7 @@ function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: num
                         <button
                             type="submit"
                             className={`btn ${esAprobacion ? 'bg-green-600 hover:bg-green-700 text-white' : 'btn-error'}`}
-                            disabled={processing || !observaciones.trim()}
+                            disabled={processing || tooShort}
                         >
                             {esAprobacion ? 'Aprobar' : 'Rechazar'}
                         </button>

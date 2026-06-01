@@ -24,11 +24,11 @@ test('lista facturas', function () {
 });
 
 test('filtra facturas por estatus', function () {
-    Factura::factory()->create(['estatus' => 'pendiente_entrega']);
-    Factura::factory()->create(['estatus' => 'entrega_completa']);
+    Factura::factory()->create(['estatus' => 'pendiente_aprobacion']);
+    Factura::factory()->create(['estatus' => 'pendiente_pago']);
 
     $this->actingAs($this->user)
-        ->get('/admin/costos/facturas?estatus=pendiente_entrega')
+        ->get('/admin/costos/facturas?estatus=pendiente_aprobacion')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('facturas.data', 1)
@@ -47,7 +47,7 @@ test('busca facturas por folio', function () {
 });
 
 test('muestra detalle de factura', function () {
-    $oc = OrdenCompra::factory()->aprobada()->create();
+    $oc = OrdenCompra::factory()->pendienteFactura()->create();
     $detalle = OrdenCompraDetalle::factory()->create(['orden_compra_id' => $oc->id]);
     $factura = Factura::factory()->create([
         'orden_compra_id' => $oc->id,

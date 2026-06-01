@@ -2,46 +2,9 @@
 
 namespace App\Models\Costos;
 
-use App\Models\Usuario;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
-class AprobacionSolicitud extends Model
-{
-    protected $table = 'costos_aprobaciones_solicitud';
-
-    /**
-     * @var list<string>
-     */
-    protected $fillable = [
-        'solicitud_id',
-        'nivel',
-        'aprobador_id',
-        'estatus',
-        'fecha_respuesta',
-        'observaciones',
-        'ip',
-        'hostname',
-    ];
-
-    /**
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'nivel' => 'integer',
-            'fecha_respuesta' => 'datetime',
-        ];
-    }
-
-    public function solicitud(): BelongsTo
-    {
-        return $this->belongsTo(SolicitudPago::class, 'solicitud_id');
-    }
-
-    public function aprobador(): BelongsTo
-    {
-        return $this->belongsTo(Usuario::class, 'aprobador_id');
-    }
-}
+/**
+ * @deprecated Usar App\Models\Costos\Aprobacion. Esta clase queda como
+ * alias delgado para no romper imports existentes en tests legacy. Todas
+ * las nuevas referencias deben usar Aprobacion (polimorfico).
+ */
+class AprobacionSolicitud extends Aprobacion {}

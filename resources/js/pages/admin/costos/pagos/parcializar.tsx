@@ -2,15 +2,17 @@ import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosPago } from '@/types/models';
-import { PAGO_ESTATUS_COLORS, PAGO_ESTATUS_LABELS, PAGO_TIPO_PAGO_LABELS } from '@/types/models';
+import { PAGO_ESTATUS_COLORS, PAGO_ESTATUS_LABELS } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon, PlusIcon, TrashIcon } from 'lucide-react';
+import { Loader2Icon } from 'lucide-react';
 
 type Props = {
     pago: CostosPago;
+    saldoPendiente: number;
+    montoPagado: number;
 };
 
-export default function PagosParcializar({ pago }: Props) {
+export default function PagosParcializar({ pago, saldoPendiente, montoPagado }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/pagos' },
@@ -19,45 +21,32 @@ export default function PagosParcializar({ pago }: Props) {
         { title: 'Parcializar', href: `/admin/costos/pagos/${pago.id}/parcializar` },
     ];
 
-    const { data, setData, post, processing, errors } = useForm<{
-        parcialidades: { monto: string; fecha_programada: string }[];
-    }>({
-        parcialidades: [
-            { monto: '', fecha_programada: '' },
-            { monto: '', fecha_programada: '' },
-        ],
+    const montoPago = Number(pago.monto_pago);
+    const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const pctPagado = montoPago > 0 ? Math.min(100, (montoPagado / montoPago) * 100) : 0;
+
+    const { data, setData, post, processing, errors } = useForm({
+        monto: '',
+        fecha_programada: '',
     });
 
-    const addRow = () => {
-        setData('parcialidades', [...data.parcialidades, { monto: '', fecha_programada: '' }]);
-    };
-
-    const removeRow = (index: number) => {
-        if (data.parcialidades.length <= 2) return;
-        setData('parcialidades', data.parcialidades.filter((_, i) => i !== index));
-    };
-
-    const updateRow = (index: number, field: 'monto' | 'fecha_programada', value: string) => {
-        const updated = [...data.parcialidades];
-        updated[index] = { ...updated[index], [field]: value };
-        setData('parcialidades', updated);
-    };
-
-    const suma = data.parcialidades.reduce((acc, p) => acc + (parseFloat(p.monto) || 0), 0);
-    const montoPago = Number(pago.monto_pago);
-    const sumaValida = Math.abs(suma - montoPago) < 0.01;
-    const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const montoNum = parseFloat(data.monto) || 0;
+    const restante = Math.max(0, saldoPendiente - montoNum);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         post(`/admin/costos/pagos/${pago.id}/parcializar`);
     };
 
+    const llenarSaldo = () => {
+        setData('monto', String(saldoPendiente));
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Parcializar - ${pago.folio}`} />
 
-            <div className="p-6">
+            <div className="mx-auto max-w-2xl p-6">
                 <div className="mb-6 flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-semibold">Parcializar Pago</h1>
@@ -66,9 +55,6 @@ export default function PagosParcializar({ pago }: Props) {
                             <span className={`badge ${PAGO_ESTATUS_COLORS[pago.estatus]}`}>
                                 {PAGO_ESTATUS_LABELS[pago.estatus]}
                             </span>
-                            <span className="text-sm text-base-content/60">
-                                {PAGO_TIPO_PAGO_LABELS[pago.tipo_pago]}
-                            </span>
                         </div>
                     </div>
                     <Button variant="outline" asChild>
@@ -76,89 +62,89 @@ export default function PagosParcializar({ pago }: Props) {
                     </Button>
                 </div>
 
-                {/* Resumen del pago */}
-                <div className="mb-6 grid grid-cols-2 gap-4 rounded-lg border border-base-300 p-4">
-                    <div>
-                        <span className="text-sm text-base-content/60">Monto Total</span>
-                        <p className="text-xl font-bold">{formatMoney(montoPago)}</p>
+                {/* Resumen visual */}
+                <div className="mb-6 rounded-lg border border-base-300 p-4 space-y-3">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div className="text-xs text-base-content/60 uppercase">Total</div>
+                            <div className="text-lg font-bold">{formatMoney(montoPago)}</div>
+                        </div>
+                        <div>
+                            <div className="text-xs text-base-content/60 uppercase">Distribuido</div>
+                            <div className="text-lg font-bold text-success">{formatMoney(montoPagado)}</div>
+                        </div>
+                        <div>
+                            <div className="text-xs text-base-content/60 uppercase">Saldo</div>
+                            <div className="text-lg font-bold text-warning">{formatMoney(saldoPendiente)}</div>
+                        </div>
                     </div>
-                    <div>
-                        <span className="text-sm text-base-content/60">Fecha Programada</span>
-                        <p className="font-medium">
-                            {pago.fecha_pago_programada ? new Date(pago.fecha_pago_programada).toLocaleDateString() : '-'}
-                        </p>
+                    <div className="w-full bg-base-300 rounded-full h-2.5">
+                        <div
+                            className="bg-success h-2.5 rounded-full transition-all"
+                            style={{ width: `${pctPagado}%` }}
+                        />
                     </div>
+                    {(pago.pagos_parciales?.length ?? 0) > 0 && (
+                        <div className="text-xs text-base-content/60">
+                            {pago.pagos_parciales!.length} parcialidad(es) registrada(s)
+                        </div>
+                    )}
                 </div>
 
-                {/* Formulario de parcialidades */}
+                {/* Form */}
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="overflow-x-auto">
-                        <table className="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Monto</th>
-                                    <th>Fecha Programada</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.parcialidades.map((p, i) => (
-                                    <tr key={i}>
-                                        <td>{i + 1}</td>
-                                        <td>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min="0.01"
-                                                className="input input-bordered input-sm w-40"
-                                                value={p.monto}
-                                                onChange={(e) => updateRow(i, 'monto', e.target.value)}
-                                                required
-                                            />
-                                        </td>
-                                        <td>
-                                            <input
-                                                type="date"
-                                                className="input input-bordered input-sm"
-                                                value={p.fecha_programada}
-                                                onChange={(e) => updateRow(i, 'fecha_programada', e.target.value)}
-                                                required
-                                            />
-                                        </td>
-                                        <td>
-                                            {data.parcialidades.length > 2 && (
-                                                <button type="button" className="btn btn-ghost btn-xs" onClick={() => removeRow(i)}>
-                                                    <TrashIcon className="size-4" />
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td></td>
-                                    <td className={`font-bold ${sumaValida ? 'text-success' : 'text-error'}`}>
-                                        Suma: ${suma.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                        {' / '}
-                                        ${montoPago.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                    </td>
-                                    <td colSpan={2}></td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                    <div className="form-control">
+                        <label className="mb-1 text-sm font-medium">Monto de esta parcialidad</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                max={saldoPendiente}
+                                className={`input input-bordered flex-1 ${errors.monto ? 'input-error' : ''}`}
+                                value={data.monto}
+                                onChange={(e) => setData('monto', e.target.value)}
+                                placeholder={`Max: ${formatMoney(saldoPendiente)}`}
+                                required
+                            />
+                            <button type="button" className="btn btn-outline btn-sm self-center" onClick={llenarSaldo}>
+                                Pagar todo
+                            </button>
+                        </div>
+                        {errors.monto && <span className="mt-1 text-xs text-error">{errors.monto}</span>}
                     </div>
 
-                    {errors.parcialidades && <p className="text-sm text-error">{errors.parcialidades}</p>}
+                    <div className="form-control">
+                        <label className="mb-1 text-sm font-medium">Fecha programada de pago</label>
+                        <input
+                            type="date"
+                            className={`input input-bordered ${errors.fecha_programada ? 'input-error' : ''}`}
+                            value={data.fecha_programada}
+                            onChange={(e) => setData('fecha_programada', e.target.value)}
+                            required
+                        />
+                        {errors.fecha_programada && <span className="mt-1 text-xs text-error">{errors.fecha_programada}</span>}
+                    </div>
 
-                    <div className="flex gap-2">
-                        <button type="button" className="btn btn-outline btn-sm" onClick={addRow}>
-                            <PlusIcon className="size-4" /> Agregar Parcialidad
-                        </button>
-                        <Button type="submit" disabled={processing || !sumaValida}>
+                    {montoNum > 0 && restante > 0.01 && (
+                        <div className="rounded-lg bg-info/10 border border-info/30 p-3 text-sm text-info">
+                            Despues de esta parcialidad quedara un saldo pendiente de <strong>{formatMoney(restante)}</strong> que podra parcializarse posteriormente.
+                        </div>
+                    )}
+
+                    {montoNum > 0 && restante < 0.01 && (
+                        <div className="rounded-lg bg-success/10 border border-success/30 p-3 text-sm text-success">
+                            Esta parcialidad cubre el saldo completo.
+                        </div>
+                    )}
+
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" asChild>
+                            <Link href={`/admin/costos/pagos/${pago.id}`}>Cancelar</Link>
+                        </Button>
+                        <Button type="submit" disabled={processing || montoNum <= 0}>
                             {processing && <Loader2Icon className="size-4 animate-spin" />}
-                            Parcializar
+                            Registrar parcialidad
                         </Button>
                     </div>
                 </form>

@@ -19,10 +19,17 @@ class OrdenCompraDetalleFactory extends Factory
      */
     public function definition(): array
     {
+        $cantidad = fake()->randomFloat(2, 1, 100);
+        $precioUnitario = fake()->randomFloat(2, 50, 1000);
+
         return [
             'orden_compra_id' => OrdenCompra::factory(),
             'obra_rubro_id' => ObraRubro::factory(),
-            'monto' => fake()->randomFloat(2, 500, 50000),
+            'descripcion' => fake()->words(3, true),
+            'unidad' => fake()->randomElement(['pza', 'kg', 'm3', 'hr', 'lt']),
+            'cantidad' => $cantidad,
+            'precio_unitario' => $precioUnitario,
+            'subtotal' => round($cantidad * $precioUnitario, 2),
         ];
     }
 }

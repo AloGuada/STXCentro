@@ -2,6 +2,8 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\RubroAfectadoEstatus;
+use App\Models\Concerns\HasStateMachine;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +11,11 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class RubroAfectado extends Model
 {
+    use HasStateMachine;
+
     protected $table = 'costos_rubros_afectados';
+
+    protected static string $stateEnum = RubroAfectadoEstatus::class;
 
     /**
      * @var list<string>
@@ -23,6 +29,8 @@ class RubroAfectado extends Model
         'descripcion',
         'tipo_movimiento',
         'estatus',
+        'apartado_hasta',
+        'vencido_at',
         'usuario_aplica_id',
         'fecha_aplicacion',
     ];
@@ -36,6 +44,9 @@ class RubroAfectado extends Model
             'monto' => 'decimal:2',
             'sobre_giro' => 'boolean',
             'fecha_aplicacion' => 'datetime',
+            'apartado_hasta' => 'date',
+            'vencido_at' => 'datetime',
+            'estatus' => RubroAfectadoEstatus::class,
         ];
     }
 

@@ -3,7 +3,7 @@
 namespace Database\Factories\Costos;
 
 use App\Models\Costos\Entrega;
-use App\Models\Costos\Factura;
+use App\Models\Costos\OrdenCompra;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -20,7 +20,7 @@ class EntregaFactory extends Factory
     public function definition(): array
     {
         return [
-            'factura_id' => Factura::factory(),
+            'orden_compra_id' => OrdenCompra::factory(),
             'recibido_por' => User::factory(),
             'fecha_entrega' => fake()->date(),
             'observaciones' => fake()->optional()->sentence(),

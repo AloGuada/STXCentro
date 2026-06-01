@@ -9,4 +9,8 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('drive:limpiar-archivos')->hourly();
+
+Schedule::command('costos:liberar-apartados-vencidos')->dailyAt('02:00');
+Schedule::command('costos:cancelar-requisiciones-vencidas')->dailyAt('03:00');
+Schedule::command('costos:complementos-vencidos')->dailyAt('04:00');
 Schedule::command('rh:resolve-cv')->everyFiveMinutes()->withoutOverlapping();

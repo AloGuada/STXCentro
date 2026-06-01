@@ -35,7 +35,7 @@ describe('confirmación costos - contado', function () {
 
         $pago = $solicitud->pago;
         expect($pago)->not->toBeNull();
-        expect($pago->estatus)->toBe('programado');
+        expect($pago->estatus->value)->toBe('programado');
         expect($pago->tipo_pago)->toBe('contado');
         expect($pago->fecha_pago_programada->format('Y-m-d'))->toBe('2026-05-02');
         expect((float) $pago->monto_pago)->toBe((float) $solicitud->monto_total);
@@ -94,7 +94,7 @@ describe('confirmación contabilidad', function () {
 
         $pago = $solicitud->pago;
         expect($pago)->not->toBeNull();
-        expect($pago->estatus)->toBe('programado');
+        expect($pago->estatus->value)->toBe('programado');
         expect($pago->tipo_pago)->toBe('credito');
         expect($pago->fecha_pago_programada->format('Y-m-d'))->toBe('2026-05-02');
     });

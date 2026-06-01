@@ -25,7 +25,11 @@ const columns: Column<CostosPago>[] = [
     {
         key: 'fecha_pago_realizada',
         label: 'Fecha Pago',
-        render: (row) => (row.fecha_pago_realizada ? new Date(row.fecha_pago_realizada).toLocaleDateString() : '-'),
+        render: (row) => {
+            if (row.fecha_pago_realizada) return new Date(row.fecha_pago_realizada).toLocaleDateString();
+            if (row.fecha_pago_programada) return <span className="text-base-content/60">{new Date(row.fecha_pago_programada).toLocaleDateString()} (programado)</span>;
+            return '-';
+        },
     },
     {
         key: 'estatus',

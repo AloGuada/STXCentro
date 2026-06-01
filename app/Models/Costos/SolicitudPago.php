@@ -2,6 +2,13 @@
 
 namespace App\Models\Costos;
 
+use App\Contracts\Costos\Aprobable;
+use App\Enums\Costos\SolicitudPagoEstatus;
+use App\Models\Concerns\HasCancelacion;
+use App\Models\Concerns\HasEditLock;
+use App\Models\Concerns\HasMonthlyFolio;
+use App\Models\Concerns\HasStateMachine;
+use App\Models\Costos\Concerns\AfectaPresupuesto;
 use App\Models\Departamento;
 use App\Models\Proveedor;
 use App\Models\Usuario;
@@ -11,17 +18,23 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\SolicitudPagoFactory>
  */
-class SolicitudPago extends Model
+class SolicitudPago extends Model implements Aprobable
 {
-    use HasFactory;
+    use AfectaPresupuesto, HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
+
+    public const TIPO_APROBACION = 'solicitud_pago';
 
     protected $table = 'costos_solicitudes_pago';
+
+    protected static string $folioPrefix = 'SP';
+
+    protected static string $stateEnum = SolicitudPagoEstatus::class;
 
     /**
      * @var list<string>
@@ -31,6 +44,7 @@ class SolicitudPago extends Model
         'solicitante_id',
         'departamento_id',
         'proveedor_id',
+        'orden_compra_id',
         'tipo_solicitud_id',
         'concepto',
         'monto_total',
@@ -47,6 +61,8 @@ class SolicitudPago extends Model
         'confirmada_contabilidad_por',
         'confirmada_contabilidad_at',
         'afectacion_id',
+        'locked_by',
+        'locked_at',
     ];
 
     /**
@@ -62,25 +78,9 @@ class SolicitudPago extends Model
             'confirmada_costos_at' => 'datetime',
             'confirmada_contabilidad' => 'boolean',
             'confirmada_contabilidad_at' => 'datetime',
+            'estatus' => SolicitudPagoEstatus::class,
+            'locked_at' => 'datetime',
         ];
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $solicitud) {
-            if (empty($solicitud->folio)) {
-                $prefix = sprintf('SP-%s%s', now()->format('Y'), now()->format('m'));
-                $last = DB::table('costos_solicitudes_pago')
-                    ->where('folio', 'like', "{$prefix}%")
-                    ->max('folio');
-
-                $next = $last
-                    ? ((int) substr($last, -2)) + 1
-                    : 1;
-
-                $solicitud->folio = sprintf('%s%02d', $prefix, $next);
-            }
-        });
     }
 
     public function media(): MorphOne
@@ -103,6 +103,11 @@ class SolicitudPago extends Model
         return $this->belongsTo(Proveedor::class);
     }
 
+    public function ordenCompra(): BelongsTo
+    {
+        return $this->belongsTo(OrdenCompra::class, 'orden_compra_id');
+    }
+
     public function tipoSolicitud(): BelongsTo
     {
         return $this->belongsTo(TipoSolicitud::class, 'tipo_solicitud_id');
@@ -118,9 +123,50 @@ class SolicitudPago extends Model
         return $this->hasMany(SolicitudArchivo::class, 'solicitud_id');
     }
 
-    public function aprobaciones(): HasMany
+    public function aprobaciones(): MorphMany
     {
-        return $this->hasMany(AprobacionSolicitud::class, 'solicitud_id');
+        return $this->morphMany(Aprobacion::class, 'aprobable');
+    }
+
+    public function cadenaAprobacion(): MorphMany
+    {
+        return $this->aprobaciones();
+    }
+
+    public function tipoAprobacion(): string
+    {
+        return self::TIPO_APROBACION;
+    }
+
+    public function onAprobacionCompleta(?string $userId = null): void
+    {
+        $this->transitionTo(SolicitudPagoEstatus::Aprobada);
+
+        // Las solicitudes generadas desde una OC de contado NO afectan el
+        // presupuesto: la OC ya aplicó su impacto permanente al crearse. Volver
+        // a afectarlo aquí duplicaría el acumulado del rubro.
+        if ($this->orden_compra_id !== null) {
+            return;
+        }
+
+        // Los apartados creados al PendienteFirma pasan a Aplicado (permanente).
+        // Si la solicitud llegó aquí sin apartado vigente (creada antes de la
+        // feature o vía factory directo), aplicar impacto desde cero.
+        $tieneApartado = $this->rubrosAfectados()
+            ->where('estatus', \App\Enums\Costos\RubroAfectadoEstatus::Apartado->value)
+            ->exists();
+
+        if ($tieneApartado) {
+            app(\App\Services\Costos\ApartadoPresupuestal::class)->convertirAPermanente($this);
+        } else {
+            $this->aplicarImpactoPresupuestal($userId);
+        }
+    }
+
+    public function onAprobacionRechazada(string $motivo, ?string $userId = null): void
+    {
+        $this->transitionTo(SolicitudPagoEstatus::Cancelada);
+        app(\App\Services\Costos\ApartadoPresupuestal::class)->cancelarApartadosDe($this, 'rechazada en aprobación');
     }
 
     public function pago(): MorphOne
@@ -143,30 +189,26 @@ class SolicitudPago extends Model
         return $this->morphMany(RubroAfectado::class, 'entrada');
     }
 
-    /**
-     * Aplica el impacto presupuestal: incrementa acumulado en obra_rubros y crea rubros afectados.
-     */
-    public function aplicarImpactoPresupuestal(?string $userId = null): void
+    public function activities(): MorphMany
     {
-        $userId = $userId ?? Auth::id();
+        return $this->activitiesAsSubject();
+    }
 
-        foreach ($this->detalles as $detalle) {
-            ObraRubro::where('id', $detalle->obra_rubro_id)
-                ->increment('acumulado', (float) $detalle->subtotal);
+    protected function descripcionAfectacion(object $detalle, ObraRubro $obraRubro): ?string
+    {
+        return $detalle->concepto;
+    }
 
-            $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
-            $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
-
-            $this->rubrosAfectados()->create([
-                'obra_rubro_id' => $detalle->obra_rubro_id,
-                'monto' => $detalle->subtotal,
-                'sobre_giro' => $disponible < 0,
-                'descripcion' => $detalle->concepto,
-                'tipo_movimiento' => 'cargo',
-                'estatus' => 'aplicado',
-                'usuario_aplica_id' => $userId,
-                'fecha_aplicacion' => now(),
-            ]);
-        }
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('costos')
+            ->logOnly([
+                'folio', 'estatus', 'monto_total',
+                'confirmada_costos', 'confirmada_contabilidad',
+            ])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $event) => "Solicitud {$this->folio}: {$event}");
     }
 }

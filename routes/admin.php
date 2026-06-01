@@ -18,20 +18,28 @@ use App\Http\Controllers\Admin\Cob\PartidaController as CobPartidaController;
 use App\Http\Controllers\Admin\Cob\PenalizacionController as CobPenalizacionController;
 use App\Http\Controllers\Admin\Cob\TipoRetencionController as CobTipoRetencionController;
 use App\Http\Controllers\Admin\Costos\AfectacionPresupuestalController as CostosAfectacionPresupuestalController;
+use App\Http\Controllers\Admin\Costos\AnticipoController as CostosAnticipoController;
 use App\Http\Controllers\Admin\Costos\AprobacionController as CostosAprobacionController;
 use App\Http\Controllers\Admin\Costos\CuentaInternaController as CostosCuentaInternaController;
+use App\Http\Controllers\Admin\Costos\DevolucionController as CostosDevolucionController;
+use App\Http\Controllers\Admin\Costos\EditLockController as CostosEditLockController;
 use App\Http\Controllers\Admin\Costos\EntregaController as CostosEntregaController;
 use App\Http\Controllers\Admin\Costos\FacturaAdminController as CostosFacturaAdminController;
 use App\Http\Controllers\Admin\Costos\FirmaController as CostosFirmaController;
+use App\Http\Controllers\Admin\Costos\NotaCreditoController as CostosNotaCreditoController;
 use App\Http\Controllers\Admin\Costos\ObraRubroController as CostosObraRubroController;
 use App\Http\Controllers\Admin\Costos\OrdenCompraController as CostosOrdenCompraController;
 use App\Http\Controllers\Admin\Costos\PagoController as CostosPagoController;
 use App\Http\Controllers\Admin\Costos\PermisoController as CostosPermisoController;
 use App\Http\Controllers\Admin\Costos\PresupuestoController as CostosPresupuestoController;
+use App\Http\Controllers\Admin\Costos\RequisicionController as CostosRequisicionController;
+use App\Http\Controllers\Admin\Costos\RequisicionCotizacionController as CostosRequisicionCotizacionController;
+use App\Http\Controllers\Admin\Costos\RequisicionSeleccionController as CostosRequisicionSeleccionController;
 use App\Http\Controllers\Admin\Costos\RubroController as CostosRubroController;
 use App\Http\Controllers\Admin\Costos\SolicitudPagoController as CostosSolicitudPagoController;
 use App\Http\Controllers\Admin\Costos\TipoRubroController as CostosTipoRubroController;
 use App\Http\Controllers\Admin\Costos\TipoSolicitudController as CostosTipoSolicitudController;
+use App\Http\Controllers\Admin\Costos\UsoCfdiController as CostosUsoCfdiController;
 use App\Http\Controllers\Admin\DepartamentoController;
 use App\Http\Controllers\Admin\Dg\CarpetaAccesoController as DgCarpetaAccesoController;
 use App\Http\Controllers\Admin\Dg\CarpetaController as DgCarpetaController;
@@ -58,6 +66,7 @@ use App\Http\Controllers\Admin\Prod\PagoExtraController as ProdPagoExtraControll
 use App\Http\Controllers\Admin\Prod\RegistroController as ProdRegistroController;
 use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtraController;
 use App\Http\Controllers\Admin\ProveedorController;
+use App\Http\Controllers\Admin\RegimenFiscalController;
 use App\Http\Controllers\Admin\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Admin\Rh\OnboardingController as RhOnboardingController;
 use App\Http\Controllers\Admin\Rh\PeriodoLaboralController as RhPeriodoLaboralController;
@@ -87,6 +96,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::resource('obras', ObraController::class);
     Route::post('obras/{obra}/import-conceptos', [ObraController::class, 'importConceptos'])->name('obras.import-conceptos');
     Route::resource('proveedores', ProveedorController::class)->parameters(['proveedores' => 'proveedor']);
+    Route::resource('regimenes-fiscales', RegimenFiscalController::class)
+        ->parameters(['regimenes-fiscales' => 'regimenFiscal'])
+        ->except(['show']);
     Route::middleware('role:super-admin')->group(function () {
         Route::resource('media', MediaController::class);
         Route::resource('tags', TagController::class);
@@ -141,11 +153,44 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     // Costos admin routes
     Route::prefix('costos')->name('costos.')->group(function () {
+        // Edit lock transversal (aplica a cualquier entidad bloqueable de costos)
+        Route::post('lock/{type}/{id}', [CostosEditLockController::class, 'lock'])->name('lock');
+        Route::post('unlock/{type}/{id}', [CostosEditLockController::class, 'unlock'])->name('unlock');
+
         Route::resource('tipo-rubros', CostosTipoRubroController::class)->parameters(['tipo-rubros' => 'tipoRubro']);
+        Route::resource('usos-cfdi', CostosUsoCfdiController::class)->parameters(['usos-cfdi' => 'usoCfdi'])->except(['show']);
         Route::resource('rubros', CostosRubroController::class)->parameters(['rubros' => 'rubro']);
         Route::resource('tipo-solicitudes', CostosTipoSolicitudController::class)->parameters(['tipo-solicitudes' => 'tipoSolicitud']);
         Route::resource('permisos', CostosPermisoController::class)->parameters(['permisos' => 'permiso']);
         Route::post('permisos/{permiso}/sync-departamentos', [CostosPermisoController::class, 'syncDepartamentos'])->name('permisos.sync-departamentos');
+        // Devoluciones a proveedor (Fase 13)
+        Route::resource('devoluciones', CostosDevolucionController::class)->only(['index', 'store', 'show'])->parameters(['devoluciones' => 'devolucion']);
+        Route::post('devoluciones/{devolucion}/cancelar', [CostosDevolucionController::class, 'cancelar'])->name('devoluciones.cancelar');
+
+        // Notas de crédito (Fase 12)
+        Route::resource('notas-credito', CostosNotaCreditoController::class)->only(['index', 'show'])->parameters(['notas-credito' => 'notaCredito']);
+        Route::post('notas-credito/{notaCredito}/cancelar', [CostosNotaCreditoController::class, 'cancelar'])->name('notas-credito.cancelar');
+
+        // Anticipos a proveedor (Fase 11)
+        Route::resource('anticipos', CostosAnticipoController::class)->only(['index', 'create', 'store', 'show'])->parameters(['anticipos' => 'anticipo']);
+        Route::post('anticipos/aplicar', [CostosAnticipoController::class, 'aplicar'])->name('anticipos.aplicar');
+        Route::post('anticipos/{anticipo}/cancelar', [CostosAnticipoController::class, 'cancelar'])->name('anticipos.cancelar');
+        Route::get('facturas/{factura}/anticipos-disponibles', [CostosAnticipoController::class, 'disponiblesParaFactura'])->name('facturas.anticipos-disponibles');
+
+        // Requisiciones (Fase 10.2)
+        Route::resource('requisiciones', CostosRequisicionController::class)->parameters(['requisiciones' => 'requisicion']);
+        Route::post('requisiciones/{requisicion}/duplicar', [CostosRequisicionController::class, 'duplicar'])->name('requisiciones.duplicar');
+        Route::post('requisiciones/{requisicion}/cancelar', [CostosRequisicionController::class, 'cancelar'])->name('requisiciones.cancelar');
+        Route::post('requisiciones/{requisicion}/enviar-aprobacion', [CostosRequisicionController::class, 'enviarAprobacion'])->name('requisiciones.enviar-aprobacion');
+        Route::post('requisiciones/{requisicion}/firmar-final', [CostosRequisicionController::class, 'firmarFinal'])->name('requisiciones.firmar-final');
+        Route::post('requisiciones/{requisicion}/liberar', [CostosRequisicionController::class, 'liberar'])->name('requisiciones.liberar');
+        Route::post('requisiciones/{requisicion}/re-apartar', [CostosRequisicionController::class, 'reApartar'])->name('requisiciones.re-apartar');
+        Route::post('requisiciones/detalles/{detalle}/clasificacion', [CostosRequisicionCotizacionController::class, 'clasificar'])->name('requisiciones.detalles.clasificar');
+        Route::post('requisiciones/cotizaciones', [CostosRequisicionCotizacionController::class, 'store'])->name('requisiciones.cotizaciones.store');
+        Route::delete('requisiciones/cotizaciones/{precio}', [CostosRequisicionCotizacionController::class, 'destroy'])->name('requisiciones.cotizaciones.destroy');
+        Route::post('requisiciones/selecciones', [CostosRequisicionSeleccionController::class, 'store'])->name('requisiciones.selecciones.store');
+        Route::delete('requisiciones/selecciones/{seleccion}', [CostosRequisicionSeleccionController::class, 'destroy'])->name('requisiciones.selecciones.destroy');
+
         Route::resource('solicitudes-pago', CostosSolicitudPagoController::class)->parameters(['solicitudes-pago' => 'solicitudPago']);
         Route::post('solicitudes-pago/{solicitudPago}/archivos', [CostosSolicitudPagoController::class, 'storeArchivo'])->name('solicitudes-pago.archivos.store');
         Route::patch('solicitudes-pago/{solicitudPago}/archivos/{solicitudArchivo}', [CostosSolicitudPagoController::class, 'updateArchivo'])->name('solicitudes-pago.archivos.update');
@@ -155,18 +200,25 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('solicitudes-pago/{solicitudPago}/cancelar', [CostosSolicitudPagoController::class, 'cancelar'])->name('solicitudes-pago.cancelar');
         Route::post('solicitudes-pago/{solicitudPago}/confirmar-costos', [CostosSolicitudPagoController::class, 'confirmarCostos'])->name('solicitudes-pago.confirmar-costos');
         Route::post('solicitudes-pago/{solicitudPago}/confirmar-contabilidad', [CostosSolicitudPagoController::class, 'confirmarContabilidad'])->name('solicitudes-pago.confirmar-contabilidad');
+        Route::post('solicitudes-pago/{solicitudPago}/re-apartar', [CostosSolicitudPagoController::class, 'reApartar'])->name('solicitudes-pago.re-apartar');
 
         // Ordenes de Compra
         Route::resource('ordenes-compra', CostosOrdenCompraController::class)->only(['index', 'create', 'store', 'show', 'destroy'])->parameters(['ordenes-compra' => 'ordenCompra']);
         Route::post('ordenes-compra/{ordenCompra}/cancelar', [CostosOrdenCompraController::class, 'cancelar'])->name('ordenes-compra.cancelar');
+        Route::get('ordenes-compra/{ordenCompra}/pdf-requisicion', [CostosOrdenCompraController::class, 'pdfRequisicion'])->name('ordenes-compra.pdf-requisicion');
+        Route::get('ordenes-compra/{ordenCompra}/pdf-oc', [CostosOrdenCompraController::class, 'pdfOc'])->name('ordenes-compra.pdf-oc');
+        Route::get('ordenes-compra/{ordenCompra}/pdf-contrarecibo/{factura}', [CostosOrdenCompraController::class, 'pdfContrarecibo'])->name('ordenes-compra.pdf-contrarecibo');
 
         // Facturas
         Route::get('facturas/reporte-semanal', [CostosFacturaAdminController::class, 'reporteSemanal'])->name('facturas.reporte-semanal');
         Route::get('facturas/reporte-semanal-proveedor', [CostosFacturaAdminController::class, 'reporteSemanalProveedor'])->name('facturas.reporte-semanal-proveedor');
-        Route::resource('facturas', CostosFacturaAdminController::class)->only(['index', 'show'])->parameters(['facturas' => 'factura']);
-        Route::post('facturas/{factura}/entregas', [CostosEntregaController::class, 'store'])->name('facturas.entregas.store');
+        Route::resource('facturas', CostosFacturaAdminController::class)
+            ->only(['index', 'show', 'create', 'store'])
+            ->parameters(['facturas' => 'factura']);
+        Route::post('ordenes-compra/{ordenCompra}/entregas', [CostosEntregaController::class, 'store'])->name('ordenes-compra.entregas.store');
         Route::post('facturas/{factura}/aprobar-costos', [CostosFacturaAdminController::class, 'aprobarCostos'])->name('facturas.aprobar-costos');
         Route::post('facturas/{factura}/aceptar-contabilidad', [CostosFacturaAdminController::class, 'aceptarContabilidad'])->name('facturas.aceptar-contabilidad');
+        Route::post('facturas/{factura}/cancelar', [CostosFacturaAdminController::class, 'cancelar'])->name('facturas.cancelar');
 
         // Pagos
         Route::get('pagos/reporte', [CostosPagoController::class, 'reporte'])->name('pagos.reporte');
@@ -175,6 +227,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('pagos/{pago}/parcializar', [CostosPagoController::class, 'showParcializar'])->name('pagos.parcializar.show');
         Route::post('pagos/{pago}/parcializar', [CostosPagoController::class, 'parcializar'])->name('pagos.parcializar');
         Route::post('pagos/{pago}/upload-comprobante', [CostosPagoController::class, 'uploadComprobante'])->name('pagos.upload-comprobante');
+        Route::post('pagos/{pago}/cancelar', [CostosPagoController::class, 'cancelar'])->name('pagos.cancelar');
 
         // Firma del aprobador
         Route::middleware('can:aprobador-costos')->group(function () {

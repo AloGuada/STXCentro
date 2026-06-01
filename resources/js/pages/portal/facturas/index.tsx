@@ -38,7 +38,7 @@ const columns: Column<CostosFactura>[] = [
 
 const estatusOptions = [
     { value: '', label: 'Todos' },
-    { value: 'pendiente_entrega', label: 'Pendiente Entrega' },
+    { value: 'pendiente_aprobacion', label: 'Pendiente Aprobación' },
     { value: 'pendiente_pago', label: 'Pendiente Pago' },
     { value: 'pagada', label: 'Pagada' },
     { value: 'cancelada', label: 'Cancelada' },

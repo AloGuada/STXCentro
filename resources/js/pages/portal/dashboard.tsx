@@ -49,7 +49,6 @@ export default function PortalDashboard({ ordenesCompra, stats }: Props) {
                             <thead>
                                 <tr>
                                     <th>Folio</th>
-                                    <th>Obra</th>
                                     <th className="text-right">Total</th>
                                     <th className="text-center">Facturas</th>
                                     <th>Estatus</th>
@@ -63,7 +62,6 @@ export default function PortalDashboard({ ordenesCompra, stats }: Props) {
                                                 {oc.folio}
                                             </Link>
                                         </td>
-                                        <td>{oc.obra?.descripcion ?? '-'}</td>
                                         <td className="text-right">{formatMoney(oc.total)}</td>
                                         <td className="text-center">{oc.facturas_count ?? 0}</td>
                                         <td>

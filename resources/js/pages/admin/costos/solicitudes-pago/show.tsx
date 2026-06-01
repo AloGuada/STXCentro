@@ -1,3 +1,5 @@
+import { ActivityTimeline } from '@/components/costos/activity-timeline';
+import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { DocumentoUpload } from '@/components/costos/documento-upload';
 import { Button } from '@/components/ui/button';
 import { FormattedDate } from '@/components/ui/formatted-date';
@@ -8,6 +10,7 @@ import type { CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/mo
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
 import { CheckCircleIcon } from 'lucide-react';
+import { useState } from 'react';
 
 type Props = {
     solicitud: CostosSolicitudPago;
@@ -38,12 +41,7 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
     ];
 
     const currentStep = getStepIndex(solicitud.estatus);
-
-    const handleCancelar = () => {
-        if (confirm('¿Estás seguro de cancelar esta solicitud?')) {
-            router.post(`/admin/costos/solicitudes-pago/${solicitud.id}/cancelar`);
-        }
-    };
+    const [showCancelarModal, setShowCancelarModal] = useState(false);
 
     const handleConfirmarCostos = () => {
         if (confirm('¿Confirmar esta solicitud por costos?')) {
@@ -94,7 +92,7 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                             </Button>
                         )}
                         {solicitud.estatus === 'aprobada' && !solicitud.pago && can('costos.solicitudes.confirmar-costos') && (
-                            <Button variant="destructive" onClick={handleCancelar}>Cancelar</Button>
+                            <Button variant="destructive" onClick={() => setShowCancelarModal(true)}>Cancelar</Button>
                         )}
                         {solicitud.pago && (
                             <Button asChild>
@@ -315,6 +313,20 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                         )}
                     </div>
                 </div>
+
+                <div className="mt-8">
+                    <h2 className="text-lg font-medium mb-3">Historial</h2>
+                    <ActivityTimeline activities={solicitud.activities ?? []} />
+                </div>
+
+                <CancelarModal
+                    open={showCancelarModal}
+                    onClose={() => setShowCancelarModal(false)}
+                    url={`/admin/costos/solicitudes-pago/${solicitud.id}/cancelar`}
+                    title={`Cancelar solicitud ${solicitud.folio}`}
+                    description="La solicitud quedará cancelada y se revertirá su impacto presupuestal si estaba aprobada."
+                    submitLabel="Cancelar solicitud"
+                />
             </div>
         </AppLayout>
     );

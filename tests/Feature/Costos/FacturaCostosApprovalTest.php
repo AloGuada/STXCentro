@@ -17,7 +17,7 @@ function crearFacturaPendienteAprobacion(): Factura
 {
     $proveedor = Proveedor::factory()->create();
 
-    $oc = OrdenCompra::factory()->pendienteEntrega()->create([
+    $oc = OrdenCompra::factory()->pendienteFactura()->create([
         'proveedor_id' => $proveedor->id,
     ]);
 
@@ -28,7 +28,7 @@ function crearFacturaPendienteAprobacion(): Factura
     ]);
 
     Entrega::factory()->create([
-        'factura_id' => $factura->id,
+        'orden_compra_id' => $factura->orden_compra_id,
         'tipo' => 'completa',
     ]);
 
@@ -46,18 +46,18 @@ test('aprueba factura con entrega completa y cambia a pendiente_pago', function 
     expect($factura->aprobada_costos)->toBeTrue();
     expect($factura->aprobada_costos_por)->toBe($this->user->id);
     expect($factura->aprobada_costos_at)->not->toBeNull();
-    expect($factura->estatus)->toBe('pendiente_pago');
+    expect($factura->estatus->value)->toBe('pendiente_pago');
 
     expect(Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->count())->toBe(0);
 });
 
-test('no aprueba factura en pendiente_entrega', function () {
+test('no aprueba factura ya cancelada', function () {
     $proveedor = Proveedor::factory()->create();
-    $oc = OrdenCompra::factory()->pendienteEntrega()->create(['proveedor_id' => $proveedor->id]);
+    $oc = OrdenCompra::factory()->pendienteFactura()->create(['proveedor_id' => $proveedor->id]);
     $factura = Factura::factory()->create([
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $proveedor->id,
-        'estatus' => 'pendiente_entrega',
+        'estatus' => 'cancelada',
     ]);
 
     $this->actingAs($this->user)
@@ -98,5 +98,5 @@ test('aprobacion recalcula OC a pendiente_pago', function () {
 
     $factura->refresh();
     $factura->ordenCompra->refresh();
-    expect($factura->ordenCompra->estatus)->toBe('pendiente_pago');
+    expect($factura->ordenCompra->estatus->value)->toBe('pendiente_pago');
 });

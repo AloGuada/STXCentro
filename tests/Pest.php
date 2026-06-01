@@ -45,3 +45,25 @@ function something()
 {
     // ..
 }
+
+/**
+ * Otorga al usuario los permisos CRUD de solicitudes de pago (costos).
+ * Útil en tests que actúan sobre rutas admin.costos.solicitudes-pago.*
+ */
+function darPermisosSolicitudesPago(\App\Models\User $user): \App\Models\User
+{
+    $permisos = [
+        'costos.solicitudes-pago.ver',
+        'costos.solicitudes-pago.crear',
+        'costos.solicitudes-pago.editar',
+        'costos.solicitudes-pago.eliminar',
+    ];
+
+    foreach ($permisos as $name) {
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
+    }
+
+    $user->givePermissionTo($permisos);
+
+    return $user;
+}

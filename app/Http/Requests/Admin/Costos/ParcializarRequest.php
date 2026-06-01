@@ -41,12 +41,6 @@ class ParcializarRequest extends FormRequest
         $validator->after(function ($validator) {
             $pago = $this->route('pago');
 
-            if ($pago->tipo_pago !== 'credito') {
-                $validator->errors()->add('tipo_pago', 'Solo se pueden parcializar pagos a crédito.');
-
-                return;
-            }
-
             if ($pago->tieneParcialidades()) {
                 $validator->errors()->add('parcialidades', 'Este pago ya fue parcializado.');
 

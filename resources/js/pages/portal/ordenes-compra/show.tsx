@@ -11,9 +11,10 @@ import { type FormEvent, useState } from 'react';
 
 type Props = {
     ordenCompra: CostosOrdenCompra;
+    periodoFacturacionAbierto: boolean;
 };
 
-export default function PortalOrdenCompraShow({ ordenCompra }: Props) {
+export default function PortalOrdenCompraShow({ ordenCompra, periodoFacturacionAbierto }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/portal' },
         { title: 'Ordenes de Compra', href: '/portal/ordenes-compra' },
@@ -22,21 +23,19 @@ export default function PortalOrdenCompraShow({ ordenCompra }: Props) {
 
     const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
     const [showFacturaForm, setShowFacturaForm] = useState(false);
+    const tieneEntregas = (ordenCompra.entregas?.length ?? 0) > 0;
+    const puedeFacturar = ['pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && tieneEntregas;
 
     const { data, setData, post, processing, errors } = useForm({
         orden_compra_id: ordenCompra.id,
-        uuid_fiscal: '',
-        folio_fiscal: '',
         xml: null as File | null,
         pdf: null as File | null,
-        total: '',
-        fecha_factura: '',
         notas: '',
     });
 
     const handleFacturaSubmit = (e: FormEvent) => {
         e.preventDefault();
-        post('/portal/facturas', {
+        post('/portal/facturas/preview', {
             forceFormData: true,
             onSuccess: () => setShowFacturaForm(false),
         });
@@ -50,14 +49,38 @@ export default function PortalOrdenCompraShow({ ordenCompra }: Props) {
                 <div className="mb-6 flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-semibold">{ordenCompra.folio}</h1>
-                        <span className={`badge ${ORDEN_COMPRA_ESTATUS_COLORS[ordenCompra.estatus]}`}>
-                            {ORDEN_COMPRA_ESTATUS_LABELS[ordenCompra.estatus]}
-                        </span>
+                        <div className="flex items-center gap-2 mt-1">
+                            {ordenCompra.retrasada ? (
+                                <span className="badge badge-error">ENTREGA RETRASADA</span>
+                            ) : (
+                                <span className={`badge ${ORDEN_COMPRA_ESTATUS_COLORS[ordenCompra.estatus]}`}>
+                                    {ORDEN_COMPRA_ESTATUS_LABELS[ordenCompra.estatus]}
+                                </span>
+                            )}
+                        </div>
                     </div>
-                    {['pendiente_factura', 'pendiente_entrega'].includes(ordenCompra.estatus) && (
-                        <Button onClick={() => setShowFacturaForm(true)}>Subir Factura</Button>
+                    {puedeFacturar && (
+                        <Button onClick={() => setShowFacturaForm(true)} disabled={!periodoFacturacionAbierto}>
+                            Subir Factura
+                        </Button>
                     )}
                 </div>
+
+                <div className={`alert ${periodoFacturacionAbierto ? 'alert-success' : 'alert-info'} mb-6`}>
+                    <span>
+                        {periodoFacturacionAbierto
+                            ? 'Periodo de facturacion abierto. Puede subir sus facturas el dia de hoy (jueves).'
+                            : 'La carga de facturas solo esta habilitada los dias jueves de cada semana.'}
+                    </span>
+                </div>
+
+                {['pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && !tieneEntregas && (
+                    <div className="alert alert-warning mb-6">
+                        <span>
+                            Esta orden aún no tiene recepción registrada por almacén. Podrás subir tu factura en cuanto se confirme la entrega.
+                        </span>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-6 mb-6">
                     <div className="space-y-3">
@@ -81,31 +104,6 @@ export default function PortalOrdenCompraShow({ ordenCompra }: Props) {
                         </div>
                     </div>
                 </div>
-
-                {/* Rubros */}
-                {ordenCompra.detalles && ordenCompra.detalles.length > 0 && (
-                    <div className="mb-6">
-                        <h2 className="text-lg font-medium mb-3">Rubros</h2>
-                        <div className="overflow-x-auto">
-                            <table className="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Rubro</th>
-                                        <th className="text-right">Monto</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {ordenCompra.detalles.map((d) => (
-                                        <tr key={d.id}>
-                                            <td>{d.obra_rubro?.rubro?.codigo} - {d.obra_rubro?.rubro?.descripcion}</td>
-                                            <td className="text-right">{formatMoney(d.monto)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
 
                 {/* Facturas */}
                 <div className="mb-6">
@@ -144,83 +142,46 @@ export default function PortalOrdenCompraShow({ ordenCompra }: Props) {
                     )}
                 </div>
 
-                {/* Subir Factura Modal */}
+                {/* Subir Factura Modal — Paso 1: sube CFDI */}
                 {showFacturaForm && (
                     <dialog className="modal modal-open">
-                        <div className="modal-box w-11/12 max-w-2xl">
-                            <h3 className="font-bold text-lg mb-4">Subir Factura</h3>
+                        <div className="modal-box w-11/12 max-w-xl">
+                            <h3 className="font-bold text-lg mb-1">Subir factura</h3>
+                            <p className="text-sm text-base-content/60 mb-4">
+                                Carga el XML del CFDI. En el siguiente paso revisarás los datos extraídos antes de confirmar.
+                            </p>
                             <form onSubmit={handleFacturaSubmit} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField label="UUID Fiscal" htmlFor="uuid_fiscal" error={errors.uuid_fiscal}>
-                                        <Input
-                                            id="uuid_fiscal"
-                                            value={data.uuid_fiscal}
-                                            onChange={(e) => setData('uuid_fiscal', e.target.value)}
-                                            placeholder="Opcional"
-                                        />
-                                    </FormField>
-                                    <FormField label="Folio Fiscal" htmlFor="folio_fiscal" error={errors.folio_fiscal}>
-                                        <Input
-                                            id="folio_fiscal"
-                                            value={data.folio_fiscal}
-                                            onChange={(e) => setData('folio_fiscal', e.target.value)}
-                                            placeholder="Opcional"
-                                        />
-                                    </FormField>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField label="Archivo XML" htmlFor="xml" error={errors.xml}>
-                                        <input
-                                            id="xml"
-                                            type="file"
-                                            accept=".xml"
-                                            className="file-input file-input-bordered file-input-sm w-full"
-                                            onChange={(e) => setData('xml', e.target.files?.[0] ?? null)}
-                                        />
-                                    </FormField>
-                                    <FormField label="Archivo PDF" htmlFor="pdf" error={errors.pdf}>
-                                        <input
-                                            id="pdf"
-                                            type="file"
-                                            accept=".pdf"
-                                            className="file-input file-input-bordered file-input-sm w-full"
-                                            onChange={(e) => setData('pdf', e.target.files?.[0] ?? null)}
-                                        />
-                                    </FormField>
-                                </div>
-
-                                <FormField label="Total" htmlFor="total" error={errors.total} required>
-                                    <Input
-                                        id="total"
-                                        type="number"
-                                        step="0.01"
-                                        value={data.total}
-                                        onChange={(e) => setData('total', e.target.value)}
+                                <FormField label="Archivo XML del CFDI" htmlFor="xml" error={errors.xml} required>
+                                    <input
+                                        id="xml"
+                                        type="file"
+                                        accept=".xml,application/xml,text/xml"
+                                        className="file-input file-input-bordered w-full"
+                                        onChange={(e) => setData('xml', e.target.files?.[0] ?? null)}
                                     />
                                 </FormField>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField label="Fecha Factura" htmlFor="fecha_factura" error={errors.fecha_factura}>
-                                        <Input
-                                            id="fecha_factura"
-                                            type="date"
-                                            value={data.fecha_factura}
-                                            onChange={(e) => setData('fecha_factura', e.target.value)}
-                                        />
-                                    </FormField>
-                                    <FormField label="Notas" htmlFor="notas" error={errors.notas}>
-                                        <Input id="notas" value={data.notas} onChange={(e) => setData('notas', e.target.value)} />
-                                    </FormField>
-                                </div>
+                                <FormField label="Archivo PDF (opcional)" htmlFor="pdf" error={errors.pdf}>
+                                    <input
+                                        id="pdf"
+                                        type="file"
+                                        accept=".pdf,application/pdf"
+                                        className="file-input file-input-bordered w-full"
+                                        onChange={(e) => setData('pdf', e.target.files?.[0] ?? null)}
+                                    />
+                                </FormField>
+
+                                <FormField label="Notas (opcional)" htmlFor="notas" error={errors.notas}>
+                                    <Input id="notas" value={data.notas} onChange={(e) => setData('notas', e.target.value)} />
+                                </FormField>
 
                                 <div className="modal-action">
                                     <Button type="button" variant="outline" onClick={() => setShowFacturaForm(false)}>
                                         Cancelar
                                     </Button>
-                                    <Button type="submit" disabled={processing}>
+                                    <Button type="submit" disabled={processing || !data.xml}>
                                         {processing && <Loader2Icon className="size-4 animate-spin" />}
-                                        Subir Factura
+                                        Continuar
                                     </Button>
                                 </div>
                             </form>
