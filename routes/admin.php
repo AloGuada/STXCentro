@@ -10,10 +10,12 @@ use App\Http\Controllers\Admin\Cob\ContactoController as CobContactoController;
 use App\Http\Controllers\Admin\Cob\DashboardController as CobDashboardController;
 use App\Http\Controllers\Admin\Cob\DeduccionController as CobDeduccionController;
 use App\Http\Controllers\Admin\Cob\DisputaController as CobDisputaController;
+use App\Http\Controllers\Admin\Cob\DocumentoSeccionController as CobDocumentoSeccionController;
 use App\Http\Controllers\Admin\Cob\EstimacionController as CobEstimacionController;
 use App\Http\Controllers\Admin\Cob\EstimacionPagoController as CobEstimacionPagoController;
 use App\Http\Controllers\Admin\Cob\EventoController as CobEventoController;
 use App\Http\Controllers\Admin\Cob\ObraCobranzaController as CobObraCobranzaController;
+use App\Http\Controllers\Admin\Cob\ObraDocumentoController as CobObraDocumentoController;
 use App\Http\Controllers\Admin\Cob\PartidaController as CobPartidaController;
 use App\Http\Controllers\Admin\Cob\PenalizacionController as CobPenalizacionController;
 use App\Http\Controllers\Admin\Cob\TipoRetencionController as CobTipoRetencionController;
@@ -337,6 +339,21 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('obras/{obra}/penalizaciones/{penalizacion}/edit', [CobPenalizacionController::class, 'edit'])->name('obras.penalizaciones.edit');
         Route::put('obras/{obra}/penalizaciones/{penalizacion}', [CobPenalizacionController::class, 'update'])->name('obras.penalizaciones.update');
         Route::delete('obras/{obra}/penalizaciones/{penalizacion}', [CobPenalizacionController::class, 'destroy'])->name('obras.penalizaciones.destroy');
+
+        // Catálogo de secciones de documentación
+        Route::get('documento-secciones', [CobDocumentoSeccionController::class, 'index'])->name('documento-secciones.index');
+        Route::post('documento-secciones', [CobDocumentoSeccionController::class, 'store'])->name('documento-secciones.store');
+        Route::put('documento-secciones/{documentoSeccion}', [CobDocumentoSeccionController::class, 'update'])->name('documento-secciones.update');
+        Route::delete('documento-secciones/{documentoSeccion}', [CobDocumentoSeccionController::class, 'destroy'])->name('documento-secciones.destroy');
+
+        // Documentación por obra (secciones → subcarpetas → archivos)
+        Route::post('obras/{obra}/documentos/carpetas', [CobObraDocumentoController::class, 'carpetaStore'])->name('obras.documentos.carpetas.store');
+        Route::put('obras/{obra}/documentos/carpetas/{carpeta}', [CobObraDocumentoController::class, 'carpetaUpdate'])->name('obras.documentos.carpetas.update');
+        Route::delete('obras/{obra}/documentos/carpetas/{carpeta}', [CobObraDocumentoController::class, 'carpetaDestroy'])->name('obras.documentos.carpetas.destroy');
+        Route::post('obras/{obra}/documentos/archivos', [CobObraDocumentoController::class, 'archivoStore'])->name('obras.documentos.archivos.store');
+        Route::delete('obras/{obra}/documentos/archivos/{archivo}', [CobObraDocumentoController::class, 'archivoDestroy'])->name('obras.documentos.archivos.destroy');
+        Route::get('documentos/archivos/{archivo}/descargar', [CobObraDocumentoController::class, 'archivoDownload'])->name('documentos.archivos.descargar');
+        Route::get('documentos/archivos/{archivo}/stream', [CobObraDocumentoController::class, 'archivoStream'])->name('documentos.archivos.stream');
 
         Route::get('obras/{obra}/configuracion-documentos/create', [CobConfiguracionDocumentoController::class, 'create'])->name('obras.configuracion-documentos.create');
         Route::post('obras/{obra}/configuracion-documentos', [CobConfiguracionDocumentoController::class, 'store'])->name('obras.configuracion-documentos.store');

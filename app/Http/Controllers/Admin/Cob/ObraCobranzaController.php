@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Cob;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Cob\ObraCobUpdateRequest;
 use App\Models\Cliente;
+use App\Models\Cob\DocumentoSeccion;
 use App\Models\Obra;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -17,6 +18,10 @@ class ObraCobranzaController extends Controller
 {
     public function index(Request $request): Response
     {
+        $estatus = in_array($request->estatus, ['abierta', 'cerrada', 'todas'], true)
+            ? $request->estatus
+            : 'abierta';
+
         $obras = Obra::query()
             ->with([
                 'cliente',
@@ -27,14 +32,18 @@ class ObraCobranzaController extends Controller
                 'comparativos',
                 'deducciones',
             ])
-            ->when($request->search, fn ($q, $s) => $q->where('no', 'like', "%{$s}%")
-                ->orWhere('descripcion', 'like', "%{$s}%"))
+            ->when($estatus !== 'todas', fn ($q) => $q->where('estatus', $estatus))
+            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
+                ->orWhere('descripcion', 'like', "%{$s}%")))
             ->orderBy('no')
             ->get();
 
         return Inertia::render('admin/cob/obras/index', [
             'obras' => $obras,
-            'filters' => $request->only('search'),
+            'filters' => [
+                'search' => $request->search,
+                'estatus' => $estatus,
+            ],
         ]);
     }
 
@@ -55,6 +64,8 @@ class ObraCobranzaController extends Controller
             'disputas',
             'penalizaciones',
             'configuracionDocumentos',
+            'documentoCarpetas',
+            'documentoArchivos',
         ]);
 
         $clientes = Cliente::query()
@@ -62,9 +73,16 @@ class ObraCobranzaController extends Controller
             ->orderBy('nombre')
             ->get(['id', 'nombre']);
 
+        $documentoSecciones = DocumentoSeccion::query()
+            ->activas()
+            ->orderBy('orden')
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'orden']);
+
         return Inertia::render('admin/cob/obras/show', [
             'obra' => $obra,
             'clientes' => $clientes,
+            'documentoSecciones' => $documentoSecciones,
         ]);
     }
 

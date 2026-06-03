@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             RegimenFiscalSeeder::class,
             UsoCfdiSeeder::class,
             CostosTipoSolicitudSeeder::class,
+            CobDocumentoSeccionSeeder::class,
         ]);
 
         // Crear usuario de prueba con rol super-admin

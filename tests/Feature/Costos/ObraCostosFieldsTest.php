@@ -16,18 +16,18 @@ describe('obra costos fields', function () {
                 'fecha_inicio' => '2026-03-01',
                 'fecha_fin' => '2026-12-31',
                 'presupuesto_total' => 1500000.50,
-                'estatus' => 'planificacion',
+                'estatus' => 'abierta',
             ]);
 
         $response->assertRedirect(route('admin.obras.index'));
         $this->assertDatabaseHas('obras', [
             'no' => 'OBR-100',
-            'estatus' => 'planificacion',
+            'estatus' => 'abierta',
         ]);
     });
 
     test('obra can be updated with new costos fields', function () {
-        $obra = Obra::factory()->create(['estatus' => 'planificacion']);
+        $obra = Obra::factory()->create(['estatus' => 'abierta']);
 
         $response = $this->actingAs($this->user)
             ->put(route('admin.obras.update', $obra), [
@@ -36,13 +36,13 @@ describe('obra costos fields', function () {
                 'fecha_inicio' => '2026-01-01',
                 'fecha_fin' => '2026-06-30',
                 'presupuesto_total' => 2000000,
-                'estatus' => 'en_proceso',
+                'estatus' => 'cerrada',
             ]);
 
         $response->assertRedirect(route('admin.obras.index'));
         $this->assertDatabaseHas('obras', [
             'id' => $obra->id,
-            'estatus' => 'en_proceso',
+            'estatus' => 'cerrada',
         ]);
     });
 

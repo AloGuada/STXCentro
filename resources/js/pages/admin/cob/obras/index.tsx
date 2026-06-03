@@ -5,10 +5,50 @@ import { SearchInput } from '@/components/data-table/search-input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Obra } from '@/types/models';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 type TabKey = 'tabla' | 'gantt';
+type EstatusFiltro = 'abierta' | 'cerrada' | 'todas';
+
+type Fila = { obra: Obra; datos: ReturnType<typeof calcularDatosProyecto> };
+type SortState = { key: string; dir: 'asc' | 'desc' };
+
+const ratio = (valor: number, total: number): number => (total > 0 ? valor / total : 0);
+
+const ACCESSORS: Record<string, (f: Fila) => number | string> = {
+    cliente: ({ obra }) => obra.cliente?.nombre ?? '',
+    no: ({ obra }) => obra.no,
+    obra: ({ obra }) => obra.descripcion,
+    presupuesto: ({ datos }) => datos.presupuestoPartidas,
+    ejecutar: ({ datos }) => datos.presupuestoEjecutar,
+    comparativo: ({ obra, datos }) =>
+        datos.tieneComparativos
+            ? obra.tipo_contrato === 'precio_unitario'
+                ? datos.ajustePresupuesto
+                : datos.montoComparativo
+            : 0,
+    deductivas: ({ datos }) => datos.totalDeducciones,
+    presFinal: ({ datos }) => datos.presupuestoFinal,
+    cobrado: ({ datos }) => datos.totalCobrado,
+    porCobrar: ({ datos }) => datos.porCobrar,
+    pctCobrado: ({ datos }) => ratio(datos.totalCobrado, datos.presupuestoFinal),
+    pctObra: ({ obra }) => (obra.porcentaje_obra != null ? Number(obra.porcentaje_obra) : -1),
+    gen: ({ datos }) => datos.estimacionesGeneradas,
+    pctGen: ({ datos }) => ratio(datos.estimacionesGeneradas, datos.presupuestoEjecutar),
+    ing: ({ datos }) => datos.estimacionesIngresadas,
+    pctIng: ({ datos }) => ratio(datos.estimacionesIngresadas, datos.presupuestoEjecutar),
+    fact: ({ datos }) => datos.facturadasPorCobrar,
+    pctFact: ({ datos }) => ratio(datos.facturadasPorCobrar, datos.presupuestoEjecutar),
+    facturado: ({ datos }) => datos.totalFacturado,
+};
+
+const ESTATUS_FILTROS: { key: EstatusFiltro; label: string }[] = [
+    { key: 'abierta', label: 'Abiertas' },
+    { key: 'cerrada', label: 'Cerradas' },
+    { key: 'todas', label: 'Todas' },
+];
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -23,12 +63,28 @@ function pct(valor: number, total: number): string {
 
 type Props = {
     obras: Obra[];
-    filters: { search?: string };
+    filters: { search?: string; estatus: EstatusFiltro };
 };
 
 export default function ObrasIndex({ obras, filters }: Props) {
     const [activeTab, setActiveTab] = useState<TabKey>('tabla');
     const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
+    const [sort, setSort] = useState<SortState | null>(null);
+
+    const toggleSort = (key: string) => {
+        setSort((prev) =>
+            prev?.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' },
+        );
+    };
+
+    const cambiarEstatus = (estatus: EstatusFiltro) => {
+        const currentParams = Object.fromEntries(new URLSearchParams(window.location.search));
+        router.get(
+            window.location.pathname,
+            { ...currentParams, estatus },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    };
 
     const availableYears = useMemo(() => {
         const years = new Set<number>();
@@ -46,6 +102,37 @@ export default function ObrasIndex({ obras, filters }: Props) {
         () => obras.map((obra) => ({ obra, datos: calcularDatosProyecto(obra) })),
         [obras],
     );
+
+    const sortedDatos = useMemo(() => {
+        if (!sort) return datosObras;
+        const accessor = ACCESSORS[sort.key];
+        if (!accessor) return datosObras;
+        return [...datosObras].sort((a, b) => {
+            const va = accessor(a);
+            const vb = accessor(b);
+            const cmp =
+                typeof va === 'number' && typeof vb === 'number'
+                    ? va - vb
+                    : String(va).localeCompare(String(vb), 'es', { numeric: true });
+            return sort.dir === 'asc' ? cmp : -cmp;
+        });
+    }, [datosObras, sort]);
+
+    const sortTh = (id: string, label: string, align: 'left' | 'right' = 'right') => {
+        const dir = sort?.key === id ? sort.dir : undefined;
+        const Icon = dir === 'asc' ? ArrowUpIcon : dir === 'desc' ? ArrowDownIcon : ArrowUpDownIcon;
+        return (
+            <th
+                className={`cursor-pointer select-none ${align === 'right' ? 'text-right' : ''}`}
+                onClick={() => toggleSort(id)}
+            >
+                <span className="inline-flex items-center gap-1">
+                    {label}
+                    <Icon className={dir ? 'size-3' : 'size-3 opacity-30'} />
+                </span>
+            </th>
+        );
+    };
 
     const totales = useMemo(
         () =>
@@ -104,35 +191,50 @@ export default function ObrasIndex({ obras, filters }: Props) {
                         </button>
                     </div>
 
-                    {activeTab === 'tabla' && (
-                        <div className="flex items-center gap-2">
-                            <SearchInput
-                                placeholder="Buscar obras..."
-                                defaultValue={filters.search}
-                                className="max-w-xs"
-                            />
-                            <a
-                                href="/admin/cob/obras/reporte-pdf"
-                                target="_blank"
-                                className="btn btn-outline btn-sm"
-                            >
-                                PDF
-                            </a>
-                        </div>
-                    )}
-
-                    {activeTab === 'gantt' && availableYears.length > 0 && (
-                        <select
-                            className="select select-bordered select-sm"
-                            value={selectedYear ?? ''}
-                            onChange={(e) => setSelectedYear(e.target.value ? Number(e.target.value) : undefined)}
-                        >
-                            <option value="">Todos los años</option>
-                            {availableYears.map((y) => (
-                                <option key={y} value={y}>{y}</option>
+                    <div className="flex items-center gap-2">
+                        <div role="tablist" className="tabs tabs-boxed tabs-sm">
+                            {ESTATUS_FILTROS.map(({ key, label }) => (
+                                <button
+                                    key={key}
+                                    role="tab"
+                                    className={`tab ${filters.estatus === key ? 'tab-active' : ''}`}
+                                    onClick={() => cambiarEstatus(key)}
+                                >
+                                    {label}
+                                </button>
                             ))}
-                        </select>
-                    )}
+                        </div>
+
+                        {activeTab === 'tabla' && (
+                            <>
+                                <SearchInput
+                                    placeholder="Buscar obras..."
+                                    defaultValue={filters.search}
+                                    className="max-w-xs"
+                                />
+                                <a
+                                    href="/admin/cob/obras/reporte-pdf"
+                                    target="_blank"
+                                    className="btn btn-outline btn-sm"
+                                >
+                                    PDF
+                                </a>
+                            </>
+                        )}
+
+                        {activeTab === 'gantt' && availableYears.length > 0 && (
+                            <select
+                                className="select select-bordered select-sm"
+                                value={selectedYear ?? ''}
+                                onChange={(e) => setSelectedYear(e.target.value ? Number(e.target.value) : undefined)}
+                            >
+                                <option value="">Todos los años</option>
+                                {availableYears.map((y) => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
                 </div>
 
                 {activeTab === 'tabla' ? (
@@ -140,36 +242,37 @@ export default function ObrasIndex({ obras, filters }: Props) {
                         <table className="table table-zebra whitespace-nowrap text-sm">
                             <thead className="sticky top-0 z-10 bg-base-100">
                                 <tr>
-                                    <th>Cliente</th>
-                                    <th>No</th>
-                                    <th>Obra</th>
-                                    <th className="text-right">Presupuesto</th>
-                                    <th className="text-right">Pres. a ejecutar</th>
-                                    <th className="text-right">Comp. / Ajuste</th>
-                                    <th className="text-right">Deductivas</th>
-                                    <th className="text-right">Pres. final</th>
-                                    <th className="text-right">Cobrado</th>
-                                    <th className="text-right">Por cobrar</th>
-                                    <th className="text-right">% Cobrado</th>
-                                    <th className="text-right">Gen. por cobrar</th>
-                                    <th className="text-right">%</th>
-                                    <th className="text-right">Ing. por cobrar</th>
-                                    <th className="text-right">%</th>
-                                    <th className="text-right">Fact. por cobrar</th>
-                                    <th className="text-right">%</th>
-                                    <th className="text-right">Facturado</th>
+                                    {sortTh('cliente', 'Cliente', 'left')}
+                                    {sortTh('no', 'No', 'left')}
+                                    {sortTh('obra', 'Obra', 'left')}
+                                    {sortTh('presupuesto', 'Presupuesto')}
+                                    {sortTh('ejecutar', 'Pres. a ejecutar')}
+                                    {sortTh('comparativo', 'Comp. / Ajuste')}
+                                    {sortTh('deductivas', 'Deductivas')}
+                                    {sortTh('presFinal', 'Pres. final')}
+                                    {sortTh('cobrado', 'Cobrado')}
+                                    {sortTh('porCobrar', 'Por cobrar')}
+                                    {sortTh('pctCobrado', '% Cobrado')}
+                                    {sortTh('pctObra', '% Obra')}
+                                    {sortTh('gen', 'Gen. por cobrar')}
+                                    {sortTh('pctGen', '%')}
+                                    {sortTh('ing', 'Ing. por cobrar')}
+                                    {sortTh('pctIng', '%')}
+                                    {sortTh('fact', 'Fact. por cobrar')}
+                                    {sortTh('pctFact', '%')}
+                                    {sortTh('facturado', 'Facturado')}
                                 </tr>
                             </thead>
 
                             <tbody>
                                 {datosObras.length === 0 ? (
                                     <tr>
-                                        <td colSpan={18} className="text-base-content/60 py-8 text-center">
+                                        <td colSpan={19} className="text-base-content/60 py-8 text-center">
                                             No hay obras registradas
                                         </td>
                                     </tr>
                                 ) : (
-                                    datosObras.map(({ obra, datos: d }) => (
+                                    sortedDatos.map(({ obra, datos: d }) => (
                                         <tr key={obra.id} className="hover">
                                             <td>{obra.cliente?.nombre ?? '-'}</td>
                                             <td>{obra.no}</td>
@@ -200,6 +303,7 @@ export default function ObrasIndex({ obras, filters }: Props) {
                                             <td className="text-right">{formatearMXN(d.totalCobrado)}</td>
                                             <td className="text-right">{formatearMXN(d.porCobrar)}</td>
                                             <td className="text-right">{pct(d.totalCobrado, d.presupuestoFinal)}</td>
+                                            <td className="text-right">{obra.porcentaje_obra != null ? `${obra.porcentaje_obra}%` : '-'}</td>
                                             <td className="text-right">{formatearMXN(d.estimacionesGeneradas)}</td>
                                             <td className="text-right">
                                                 {pct(d.estimacionesGeneradas, d.presupuestoEjecutar)}
@@ -232,6 +336,7 @@ export default function ObrasIndex({ obras, filters }: Props) {
                                         <td className="text-right">{formatearMXN(totales.totalCobrado)}</td>
                                         <td className="text-right">{formatearMXN(totales.porCobrar)}</td>
                                         <td className="text-right">{pctCobradoGlobal}</td>
+                                        <td className="text-right">-</td>
                                         <td className="text-right">{formatearMXN(totales.estimacionesGeneradas)}</td>
                                         <td className="text-right">-</td>
                                         <td className="text-right">{formatearMXN(totales.estimacionesIngresadas)}</td>

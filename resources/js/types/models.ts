@@ -37,15 +37,11 @@ export type Departamento = {
     updated_at: string;
 };
 
-export type ObraEstatus = 'planificacion' | 'en_proceso' | 'activa' | 'suspendida' | 'completada' | 'cancelada';
+export type ObraEstatus = 'abierta' | 'cerrada';
 
 export const OBRA_ESTATUS_LABELS: Record<ObraEstatus, string> = {
-    planificacion: 'Planificación',
-    en_proceso: 'En Proceso',
-    activa: 'Activa',
-    suspendida: 'Suspendida',
-    completada: 'Completada',
-    cancelada: 'Cancelada',
+    abierta: 'Abierta',
+    cerrada: 'Cerrada',
 };
 
 export type Obra = {
@@ -83,6 +79,44 @@ export type Obra = {
     disputas?: CobDisputa[];
     penalizaciones?: CobPenalizacion[];
     configuracion_documentos?: CobConfiguracionDocumento[];
+    documento_carpetas?: CobDocumentoCarpeta[];
+    documento_archivos?: CobDocumentoArchivo[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobDocumentoSeccion = {
+    id: number;
+    nombre: string;
+    orden: number;
+    activo: boolean;
+    carpetas_count?: number;
+    archivos_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobDocumentoCarpeta = {
+    id: number;
+    obra_id: number;
+    seccion_id: number;
+    parent_id: number | null;
+    nombre: string;
+    orden: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobDocumentoArchivo = {
+    id: number;
+    obra_id: number;
+    seccion_id: number;
+    carpeta_id: number | null;
+    nombre_original: string;
+    path: string;
+    mime: string | null;
+    size: number | null;
+    subido_por_id: string | null;
     created_at: string;
     updated_at: string;
 };

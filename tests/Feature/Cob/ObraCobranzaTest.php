@@ -13,7 +13,7 @@ beforeEach(function () {
 
 describe('admin cob obras', function () {
     test('index page can be rendered', function () {
-        Obra::factory()->count(3)->create();
+        Obra::factory()->count(3)->create(['estatus' => 'abierta']);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.cob.obras.index'));
@@ -23,6 +23,36 @@ describe('admin cob obras', function () {
             ->component('admin/cob/obras/index')
             ->has('obras', 3)
         );
+    });
+
+    test('index oculta obras cerradas por defecto', function () {
+        Obra::factory()->count(2)->create(['estatus' => 'abierta']);
+        Obra::factory()->count(3)->create(['estatus' => 'cerrada']);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.cob.obras.index'))
+            ->assertInertia(fn ($page) => $page
+                ->has('obras', 2)
+                ->where('filters.estatus', 'abierta')
+            );
+    });
+
+    test('index muestra solo cerradas con filtro estatus=cerrada', function () {
+        Obra::factory()->count(2)->create(['estatus' => 'abierta']);
+        Obra::factory()->count(3)->create(['estatus' => 'cerrada']);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.cob.obras.index', ['estatus' => 'cerrada']))
+            ->assertInertia(fn ($page) => $page->has('obras', 3));
+    });
+
+    test('index muestra todas con filtro estatus=todas', function () {
+        Obra::factory()->count(2)->create(['estatus' => 'abierta']);
+        Obra::factory()->count(3)->create(['estatus' => 'cerrada']);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.cob.obras.index', ['estatus' => 'todas']))
+            ->assertInertia(fn ($page) => $page->has('obras', 5));
     });
 
     test('show page renders with all related data', function () {
@@ -60,6 +90,7 @@ describe('admin cob obras', function () {
                 'porcentaje_montaje' => 30,
                 'porcentaje_otros' => 10,
                 'descripcion_otros' => 'Ingenieria',
+                'porcentaje_obra' => 45.5,
                 'activa' => true,
             ]);
 
@@ -68,6 +99,7 @@ describe('admin cob obras', function () {
             'id' => $obra->id,
             'cliente_id' => $cliente->id,
             'tipo_contrato' => 'Llave en mano',
+            'porcentaje_obra' => 45.5,
         ]);
     });
 });

@@ -1,4 +1,6 @@
+import ArchivoViewerModal from '@/components/cob/archivo-viewer-modal';
 import { calcularResumen } from '@/components/cob/calculos';
+import { DocumentoTree } from '@/components/cob/documento-tree';
 import { EstadoBadge } from '@/components/cob/estado-badge';
 import { EstimacionesGantt } from '@/components/cob/estimaciones-gantt';
 import { formatearMXN } from '@/components/cob/money-display';
@@ -17,6 +19,8 @@ import {
     COB_DISPUTA_ESTADO_LABELS,
     COB_TIPO_CONTRATO_LABELS,
     type Cliente,
+    type CobDocumentoArchivo,
+    type CobDocumentoSeccion,
     type Obra,
 } from '@/types/models';
 import { Head, router, useForm } from '@inertiajs/react';
@@ -26,9 +30,10 @@ import { type FormEvent, useMemo, useState } from 'react';
 type Props = {
     obra: Obra;
     clientes: Pick<Cliente, 'id' | 'nombre'>[];
+    documentoSecciones: CobDocumentoSeccion[];
 };
 
-type TabKey = 'resumen' | 'partidas' | 'estimaciones' | 'anticipos' | 'adendas' | 'comparativos' | 'deducciones' | 'gantt' | 'disputas' | 'penalizaciones' | 'configuracion';
+type TabKey = 'resumen' | 'partidas' | 'estimaciones' | 'anticipos' | 'adendas' | 'comparativos' | 'deducciones' | 'documentacion' | 'gantt' | 'disputas' | 'penalizaciones' | 'configuracion' | 'financieros';
 
 const TABS: { key: TabKey; label: string }[] = [
     { key: 'resumen', label: 'Resumen' },
@@ -38,14 +43,17 @@ const TABS: { key: TabKey; label: string }[] = [
     { key: 'adendas', label: 'Adendas' },
     { key: 'comparativos', label: 'Comparativos' },
     { key: 'deducciones', label: 'Deducciones' },
+    { key: 'documentacion', label: 'Documentación' },
     { key: 'gantt', label: 'Gantt' },
     { key: 'disputas', label: 'Disputas' },
     { key: 'penalizaciones', label: 'Penalizaciones' },
     { key: 'configuracion', label: 'Configuracion' },
+    { key: 'financieros', label: 'Datos Financieros' },
 ];
 
-export default function ObraShow({ obra, clientes }: Props) {
+export default function ObraShow({ obra, clientes, documentoSecciones }: Props) {
     const [activeTab, setActiveTab] = useState<TabKey>('resumen');
+    const [viewerArchivo, setViewerArchivo] = useState<CobDocumentoArchivo | null>(null);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -95,24 +103,103 @@ export default function ObraShow({ obra, clientes }: Props) {
                 </div>
 
                 {/* Tab content */}
-                {activeTab === 'resumen' && <ResumenTab obra={obra} clientes={clientes} resumen={resumen} />}
+                {activeTab === 'resumen' && (
+                    <ResumenTab obra={obra} resumen={resumen} documentoSecciones={documentoSecciones} onOpenArchivo={setViewerArchivo} />
+                )}
                 {activeTab === 'partidas' && <PartidasTab obra={obra} />}
                 {activeTab === 'estimaciones' && <EstimacionesTab obra={obra} />}
                 {activeTab === 'anticipos' && <AnticiposTab obra={obra} />}
                 {activeTab === 'adendas' && <AdendasTab obra={obra} />}
                 {activeTab === 'comparativos' && <ComparativosTab obra={obra} />}
                 {activeTab === 'deducciones' && <DeduccionesTab obra={obra} />}
+                {activeTab === 'documentacion' && (
+                    <DocumentacionTab obra={obra} documentoSecciones={documentoSecciones} onOpenArchivo={setViewerArchivo} />
+                )}
                 {activeTab === 'gantt' && <GanttTab obra={obra} />}
                 {activeTab === 'disputas' && <DisputasTab obra={obra} />}
                 {activeTab === 'penalizaciones' && <PenalizacionesTab obra={obra} />}
                 {activeTab === 'configuracion' && <ConfiguracionTab obra={obra} />}
+                {activeTab === 'financieros' && <DatosFinancierosTab obra={obra} clientes={clientes} />}
             </div>
+
+            {viewerArchivo && (
+                <ArchivoViewerModal
+                    nombre={viewerArchivo.nombre_original}
+                    mime={viewerArchivo.mime}
+                    streamUrl={`/admin/cob/documentos/archivos/${viewerArchivo.id}/stream`}
+                    downloadUrl={`/admin/cob/documentos/archivos/${viewerArchivo.id}/descargar`}
+                    onClose={() => setViewerArchivo(null)}
+                />
+            )}
         </AppLayout>
     );
 }
 
 // -- Resumen Tab --
-function ResumenTab({ obra, clientes, resumen }: { obra: Obra; clientes: Pick<Cliente, 'id' | 'nombre'>[]; resumen: ReturnType<typeof calcularResumen> }) {
+function ResumenTab({
+    obra,
+    resumen,
+    documentoSecciones,
+    onOpenArchivo,
+}: {
+    obra: Obra;
+    resumen: ReturnType<typeof calcularResumen>;
+    documentoSecciones: CobDocumentoSeccion[];
+    onOpenArchivo: (archivo: CobDocumentoArchivo) => void;
+}) {
+    return (
+        <div className="space-y-6">
+            <ResumenFinancieroCard obra={obra} resumen={resumen} />
+
+            <div className="card border bg-base-100 p-6">
+                <h2 className="mb-4 text-lg font-semibold">Documentación</h2>
+                <DocumentoTree
+                    obraId={obra.id}
+                    secciones={documentoSecciones}
+                    carpetas={obra.documento_carpetas ?? []}
+                    archivos={obra.documento_archivos ?? []}
+                    readOnly
+                    onOpenArchivo={onOpenArchivo}
+                />
+            </div>
+        </div>
+    );
+}
+
+// -- Documentación Tab --
+function DocumentacionTab({
+    obra,
+    documentoSecciones,
+    onOpenArchivo,
+}: {
+    obra: Obra;
+    documentoSecciones: CobDocumentoSeccion[];
+    onOpenArchivo: (archivo: CobDocumentoArchivo) => void;
+}) {
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Documentación</h2>
+                <a href="/admin/cob/documento-secciones" className="btn btn-ghost btn-sm">
+                    Administrar secciones
+                </a>
+            </div>
+            <p className="text-sm text-base-content/60">
+                Pasa el cursor sobre una sección o carpeta para crear subcarpetas, subir o eliminar archivos.
+            </p>
+            <DocumentoTree
+                obraId={obra.id}
+                secciones={documentoSecciones}
+                carpetas={obra.documento_carpetas ?? []}
+                archivos={obra.documento_archivos ?? []}
+                onOpenArchivo={onOpenArchivo}
+            />
+        </div>
+    );
+}
+
+// -- Datos Financieros Tab --
+function DatosFinancierosTab({ obra, clientes }: { obra: Obra; clientes: Pick<Cliente, 'id' | 'nombre'>[] }) {
     const form = useForm({
         cliente_id: String(obra.cliente_id ?? ''),
         tipo_contrato: obra.tipo_contrato ?? '',
@@ -124,6 +211,7 @@ function ResumenTab({ obra, clientes, resumen }: { obra: Obra; clientes: Pick<Cl
         porcentaje_fabricacion: String(obra.porcentaje_fabricacion ?? ''),
         porcentaje_montaje: String(obra.porcentaje_montaje ?? ''),
         porcentaje_otros: String(obra.porcentaje_otros ?? ''),
+        porcentaje_obra: String(obra.porcentaje_obra ?? ''),
         descripcion_otros: obra.descripcion_otros ?? '',
         activa: true,
     });
@@ -135,8 +223,6 @@ function ResumenTab({ obra, clientes, resumen }: { obra: Obra; clientes: Pick<Cl
 
     return (
         <div className="space-y-6">
-            <ResumenFinancieroCard obra={obra} resumen={resumen} />
-
             <div className="card bg-base-100 border p-6">
                 <h2 className="text-lg font-semibold mb-4">Datos Financieros</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -197,6 +283,10 @@ function ResumenTab({ obra, clientes, resumen }: { obra: Obra; clientes: Pick<Cl
 
                         <FormField label="Descripcion Otros" htmlFor="descripcion_otros" error={form.errors.descripcion_otros}>
                             <Input value={form.data.descripcion_otros} onChange={(e) => form.setData('descripcion_otros', e.target.value)} />
+                        </FormField>
+
+                        <FormField label="% Obra" htmlFor="porcentaje_obra" error={form.errors.porcentaje_obra}>
+                            <Input type="number" step="0.01" min="0" max="100" value={form.data.porcentaje_obra} onChange={(e) => form.setData('porcentaje_obra', e.target.value)} />
                         </FormField>
                     </div>
 

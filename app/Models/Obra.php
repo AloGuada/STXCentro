@@ -149,6 +149,16 @@ class Obra extends Model
         return $this->hasMany(Cob\ConfiguracionDocumento::class, 'obra_id');
     }
 
+    public function documentoCarpetas(): HasMany
+    {
+        return $this->hasMany(Cob\DocumentoCarpeta::class, 'obra_id');
+    }
+
+    public function documentoArchivos(): HasMany
+    {
+        return $this->hasMany(Cob\DocumentoArchivo::class, 'obra_id');
+    }
+
     // Calidad relations
 
     public function etapas(): HasMany

@@ -140,6 +140,7 @@ const navGroups: NavGroup[] = [
             { title: 'Obras', href: '/admin/cob/obras', icon: Briefcase, permission: 'cob.obras.ver' },
             { title: 'Clientes', href: '/admin/cob/clientes', icon: Building, permission: 'cob.clientes.ver' },
             { title: 'Tipos Retencion', href: '/admin/cob/tipos-retenciones', icon: Layers, permission: 'cob.tipos-retenciones.ver' },
+            { title: 'Secciones Doc.', href: '/admin/cob/documento-secciones', icon: FolderTree, permission: 'cob.documentos.gestionar' },
         ],
     },
     {

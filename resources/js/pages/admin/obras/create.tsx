@@ -23,7 +23,7 @@ export default function ObrasCreate() {
         fecha_fin: '',
         presupuesto_total: '0',
         ingreso_real: '',
-        estatus: 'planificacion' as ObraEstatus,
+        estatus: 'abierta' as ObraEstatus,
     });
 
     const handleSubmit = (e: FormEvent) => {

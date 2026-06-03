@@ -23,7 +23,7 @@ class ObraUpdateRequest extends FormRequest
             'fecha_fin' => ['nullable', 'date', 'after_or_equal:fecha_inicio'],
             'presupuesto_total' => ['nullable', 'numeric', 'min:0'],
             'ingreso_real' => ['nullable', 'numeric', 'min:0'],
-            'estatus' => ['nullable', 'string', 'in:planificacion,en_proceso,activa,suspendida,completada,cancelada'],
+            'estatus' => ['nullable', 'string', 'in:abierta,cerrada'],
         ];
     }
 

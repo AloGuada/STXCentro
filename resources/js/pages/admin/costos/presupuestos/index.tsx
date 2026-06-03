@@ -14,12 +14,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const ESTATUS_COLORS: Record<ObraEstatus, string> = {
-    planificacion: 'badge-info',
-    en_proceso: 'badge-warning',
-    activa: 'badge-success',
-    suspendida: 'badge-error',
-    completada: 'badge-ghost',
-    cancelada: 'badge-error badge-outline',
+    abierta: 'badge-success',
+    cerrada: 'badge-ghost',
 };
 
 const fmt = (v: number) => `$${Number(v).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
