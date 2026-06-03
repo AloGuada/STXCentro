@@ -151,16 +151,18 @@ function ResumenTab({
         <div className="space-y-6">
             <ResumenFinancieroCard obra={obra} resumen={resumen} />
 
-            <div className="card border bg-base-100 p-6">
+            <div className="card border bg-base-100 p-6 overflow-hidden">
                 <h2 className="mb-4 text-lg font-semibold">Documentación</h2>
-                <DocumentoTree
-                    obraId={obra.id}
-                    secciones={documentoSecciones}
-                    carpetas={obra.documento_carpetas ?? []}
-                    archivos={obra.documento_archivos ?? []}
-                    readOnly
-                    onOpenArchivo={onOpenArchivo}
-                />
+                <div className="max-h-[60vh] overflow-y-auto">
+                    <DocumentoTree
+                        obraId={obra.id}
+                        secciones={documentoSecciones}
+                        carpetas={obra.documento_carpetas ?? []}
+                        archivos={obra.documento_archivos ?? []}
+                        readOnly
+                        onOpenArchivo={onOpenArchivo}
+                    />
+                </div>
             </div>
         </div>
     );
