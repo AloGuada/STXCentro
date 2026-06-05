@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { DocumentoField } from '@/components/costos/documento-field';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -157,7 +158,7 @@ export default function ProveedoresCreate({ regimenes }: Props) {
                         </FormField>
 
                         <FormField label="Constancia de Situación Fiscal" htmlFor="constancia" error={errors.constancia} required>
-                            <input id="constancia" type="file" accept=".pdf,.jpg,.jpeg,.png" className="file-input file-input-bordered w-full" onChange={(e) => setData('constancia', e.target.files?.[0] ?? null)} />
+                            <DocumentoField id="constancia" archivo={data.constancia} onChange={(file) => setData('constancia', file)} />
                         </FormField>
 
                         <div className="divider" />
@@ -203,7 +204,7 @@ export default function ProveedoresCreate({ regimenes }: Props) {
                             {banorte ? 'Banorte: basta el número de cuenta interno.' : 'Banco externo a Banorte: la CLABE es obligatoria.'}
                         </p>
                         <FormField label="Carátula Bancaria" htmlFor="caratula" error={errors.caratula} required>
-                            <input id="caratula" type="file" accept=".pdf,.jpg,.jpeg,.png" className="file-input file-input-bordered w-full" onChange={(e) => setData('caratula', e.target.files?.[0] ?? null)} />
+                            <DocumentoField id="caratula" archivo={data.caratula} onChange={(file) => setData('caratula', file)} />
                         </FormField>
 
                         <div className="divider" />

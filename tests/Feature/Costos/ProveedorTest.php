@@ -86,7 +86,6 @@ describe('admin proveedores', function () {
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/proveedores/create')
-            ->has('departamentos')
             ->has('regimenes')
         );
     });
@@ -114,8 +113,33 @@ describe('admin proveedores', function () {
         $response->assertInertia(fn ($page) => $page
             ->component('admin/proveedores/edit')
             ->has('proveedor')
-            ->has('departamentos')
             ->has('regimenes')
+            ->where('documentos.constancia', null)
+            ->where('documentos.caratula', null)
+        );
+    });
+
+    test('edit page includes urls of existing documents', function () {
+        $proveedor = Proveedor::factory()->create();
+
+        $proveedor->media()->create([
+            'descripcion' => 'constancia_fiscal',
+            'nombre_original' => 'constancia.pdf',
+            'path' => UploadedFile::fake()->create('constancia.pdf')->store("proveedores/{$proveedor->id}", 'public'),
+            'mime' => 'application/pdf',
+            'size' => 100,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.proveedores.edit', $proveedor));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('admin/proveedores/edit')
+            ->where('documentos.constancia.nombre', 'constancia.pdf')
+            ->where('documentos.constancia.mime', 'application/pdf')
+            ->whereNot('documentos.constancia.url', null)
+            ->where('documentos.caratula', null)
         );
     });
 

@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { DocumentoField, type DocumentoActual } from '@/components/costos/documento-field';
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
@@ -13,13 +14,17 @@ import { PROVEEDOR_ESTATUS_COLORS, PROVEEDOR_ESTATUS_LABELS } from '@/types/mode
 
 type Props = {
     proveedor: Proveedor;
+    documentos: {
+        constancia: DocumentoActual | null;
+        caratula: DocumentoActual | null;
+    };
     tienePassword: boolean;
     regimenes: Pick<RegimenFiscal, 'id' | 'clave' | 'descripcion'>[];
 };
 
 const esBanorte = (banco: string) => banco.toLowerCase().includes('banorte');
 
-export default function ProveedoresEdit({ proveedor, tienePassword, regimenes }: Props) {
+export default function ProveedoresEdit({ proveedor, documentos, tienePassword, regimenes }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Proveedores', href: '/admin/proveedores' },
@@ -185,8 +190,7 @@ export default function ProveedoresEdit({ proveedor, tienePassword, regimenes }:
                         </FormField>
 
                         <FormField label="Constancia de Situación Fiscal" htmlFor="constancia" error={errors.constancia}>
-                            <input id="constancia" type="file" accept=".pdf,.jpg,.jpeg,.png" className="file-input file-input-bordered w-full" onChange={(e) => setData('constancia', e.target.files?.[0] ?? null)} />
-                            <span className="mt-1 text-xs text-base-content/60">Deja vacío para conservar el archivo actual.</span>
+                            <DocumentoField id="constancia" actual={documentos.constancia} archivo={data.constancia} onChange={(file) => setData('constancia', file)} />
                         </FormField>
 
                         <div className="divider" />
@@ -229,8 +233,7 @@ export default function ProveedoresEdit({ proveedor, tienePassword, regimenes }:
                             </FormField>
                         </div>
                         <FormField label="Carátula Bancaria" htmlFor="caratula" error={errors.caratula}>
-                            <input id="caratula" type="file" accept=".pdf,.jpg,.jpeg,.png" className="file-input file-input-bordered w-full" onChange={(e) => setData('caratula', e.target.files?.[0] ?? null)} />
-                            <span className="mt-1 text-xs text-base-content/60">Deja vacío para conservar el archivo actual.</span>
+                            <DocumentoField id="caratula" actual={documentos.caratula} archivo={data.caratula} onChange={(file) => setData('caratula', file)} />
                         </FormField>
 
                         <div className="divider" />

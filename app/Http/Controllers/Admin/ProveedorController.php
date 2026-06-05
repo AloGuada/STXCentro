@@ -75,8 +75,20 @@ class ProveedorController extends Controller
     {
         Gate::authorize('costos.proveedores.editar');
 
+        $proveedor->load(['regimenFiscal', 'media', 'validador:id,name']);
+
+        $documento = fn (string $descripcion) => ($m = $proveedor->media->firstWhere('descripcion', $descripcion)) ? [
+            'url' => Storage::disk('public')->url($m->path),
+            'nombre' => $m->nombre_original,
+            'mime' => $m->mime,
+        ] : null;
+
         return Inertia::render('admin/proveedores/edit', [
-            'proveedor' => $proveedor->load(['regimenFiscal', 'media', 'validador:id,name']),
+            'proveedor' => $proveedor,
+            'documentos' => [
+                'constancia' => $documento('constancia_fiscal'),
+                'caratula' => $documento('caratula_bancaria'),
+            ],
             'tienePassword' => (bool) $proveedor->password,
             'regimenes' => RegimenFiscal::where('activo', true)->orderBy('clave')->get(['id', 'clave', 'descripcion']),
         ]);
