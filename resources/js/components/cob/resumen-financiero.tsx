@@ -32,6 +32,8 @@ export function ResumenFinancieroCard({ obra, resumen }: Props) {
     const anticipoPct = Number(obra.anticipo ?? 0);
     const anticipoMonto = resumen.presupuestoEjecutar * (anticipoPct / 100);
 
+    const avanceObra = Number(obra.porcentaje_obra ?? 0);
+
     return (
         <div className="card bg-base-200 p-6">
             <div className="mb-4 border-b border-base-300 pb-4">
@@ -40,6 +42,12 @@ export function ResumenFinancieroCard({ obra, resumen }: Props) {
             </div>
 
             <div className="grid grid-cols-2 gap-x-8 gap-y-4 lg:grid-cols-3">
+                <div>
+                    <div className="text-sm opacity-70">Avance de Obra</div>
+                    <div className="text-lg font-bold text-primary">{avanceObra.toFixed(1)}%</div>
+                    <ProgressBar porcentaje={avanceObra} color="bg-primary" />
+                </div>
+
                 <div>
                     <div className="text-sm opacity-70">Presupuesto Base</div>
                     <div className="text-lg font-bold">{formatearMXN(resumen.presupuestoEjecutar)}</div>
