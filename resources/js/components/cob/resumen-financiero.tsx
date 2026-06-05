@@ -43,12 +43,6 @@ export function ResumenFinancieroCard({ obra, resumen }: Props) {
 
             <div className="grid grid-cols-2 gap-x-8 gap-y-4 lg:grid-cols-3">
                 <div>
-                    <div className="text-sm opacity-70">Avance de Obra</div>
-                    <div className="text-lg font-bold text-primary">{avanceObra.toFixed(1)}%</div>
-                    <ProgressBar porcentaje={avanceObra} color="bg-primary" />
-                </div>
-
-                <div>
                     <div className="text-sm opacity-70">Presupuesto Base</div>
                     <div className="text-lg font-bold">{formatearMXN(resumen.presupuestoEjecutar)}</div>
                     {resumen.tieneComparativoCualquiera && (() => {
@@ -94,6 +88,14 @@ export function ResumenFinancieroCard({ obra, resumen }: Props) {
                             Deducciones: {formatearMXN(resumen.totalDeducciones)}
                         </div>
                     )}
+                </div>
+
+                <div className="col-span-2 lg:col-span-3">
+                    <div className="flex items-baseline justify-between">
+                        <div className="text-sm opacity-70">Avance de Obra</div>
+                        <div className="text-lg font-bold text-primary">{avanceObra.toFixed(1)}%</div>
+                    </div>
+                    <ProgressBar porcentaje={avanceObra} color="bg-primary" />
                 </div>
             </div>
         </div>
