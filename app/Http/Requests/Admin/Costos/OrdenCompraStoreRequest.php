@@ -45,7 +45,7 @@ class OrdenCompraStoreRequest extends FormRequest
             'fecha_entrega_esperada.after_or_equal' => 'La fecha de entrega no puede ser anterior a hoy.',
             'detalles.required' => 'Debe agregar al menos un detalle.',
             'detalles.min' => 'Debe agregar al menos un detalle.',
-            'detalles.*.obra_rubro_id.required' => 'El rubro es obligatorio.',
+            'detalles.*.obra_rubro_id.required' => 'El centro de costos es obligatorio.',
             'detalles.*.descripcion.required' => 'La descripción de la partida es obligatoria.',
             'detalles.*.unidad.required' => 'La unidad es obligatoria.',
             'detalles.*.cantidad.required' => 'La cantidad es obligatoria.',

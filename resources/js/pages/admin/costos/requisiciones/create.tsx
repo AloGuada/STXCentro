@@ -114,7 +114,7 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                             ))}
                         </select>
                         {errors.obra_id && <p className="text-error text-sm mt-1">{errors.obra_id}</p>}
-                        <p className="text-xs text-base-content/60 mt-1">Una requisición es para una sola obra. Las partidas eligen su rubro (centro de costo) dentro de esta obra.</p>
+                        <p className="text-xs text-base-content/60 mt-1">Una requisición es para una sola obra. Las partidas eligen su centro de costos dentro de esta obra.</p>
                     </div>
 
                     <div className="md:col-span-2">
@@ -138,7 +138,7 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
 
                 {!data.obra_id && (
                     <div className="alert alert-info mb-3">
-                        <span>Selecciona primero la obra para poder asignar el rubro (centro de costo) de cada partida.</span>
+                        <span>Selecciona primero la obra para poder asignar el centro de costos de cada partida.</span>
                     </div>
                 )}
 

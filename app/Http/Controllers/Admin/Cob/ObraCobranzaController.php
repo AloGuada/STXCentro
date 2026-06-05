@@ -23,6 +23,7 @@ class ObraCobranzaController extends Controller
             : 'abierta';
 
         $obras = Obra::query()
+            ->sinPlanta()
             ->with([
                 'cliente',
                 'partidas',
@@ -49,6 +50,8 @@ class ObraCobranzaController extends Controller
 
     public function show(Obra $obra): Response
     {
+        abort_if($obra->es_planta, 404);
+
         $obra->load([
             'cliente',
             'partidas',
@@ -88,6 +91,8 @@ class ObraCobranzaController extends Controller
 
     public function updateFinancial(ObraCobUpdateRequest $request, Obra $obra): RedirectResponse
     {
+        abort_if($obra->es_planta, 404);
+
         $obra->update($request->validated());
 
         return back();
@@ -96,6 +101,7 @@ class ObraCobranzaController extends Controller
     public function reportePdf(): HttpResponse
     {
         $obras = Obra::query()
+            ->sinPlanta()
             ->with([
                 'cliente',
                 'partidas',
@@ -116,6 +122,8 @@ class ObraCobranzaController extends Controller
 
     public function estadoCuentaPdf(Obra $obra): HttpResponse
     {
+        abort_if($obra->es_planta, 404);
+
         $obra->load([
             'cliente',
             'partidas',

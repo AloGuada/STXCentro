@@ -111,6 +111,7 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
                             <span className={`badge badge-sm ${ESTATUS_COLORS[obra.estatus]}`}>
                                 {OBRA_ESTATUS_LABELS[obra.estatus]}
                             </span>
+                            {obra.es_planta && <span className="badge badge-info badge-sm">Planta</span>}
                         </div>
                     </div>
                 </div>
@@ -122,7 +123,7 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
                             <thead>
                                 <tr>
                                     <th>Codigo</th>
-                                    <th>Rubro</th>
+                                    <th>Centro de Costos</th>
                                     <th>Tipo</th>
                                     <th className="text-right">Presupuestado</th>
                                     <th className="text-right">Acumulado</th>
@@ -205,15 +206,15 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
                         </table>
                     </div>
                 ) : (
-                    <p className="text-sm text-base-content/60">No hay rubros asignados a esta obra.</p>
+                    <p className="text-sm text-base-content/60">No hay centros de costos asignados a esta obra.</p>
                 )}
 
-                {/* Agregar rubro */}
+                {/* Agregar centro de costos */}
                 {availableRubros.length > 0 ? (
                     <form onSubmit={handleAddObraRubro} className="flex items-end gap-4">
-                        <FormField label="Rubro" htmlFor="new_rubro_id" className="flex-1">
+                        <FormField label="Centro de Costos" htmlFor="new_rubro_id" className="flex-1">
                             <Select id="new_rubro_id" value={newRubroId} onValueChange={setNewRubroId}>
-                                <option value="">Seleccionar rubro</option>
+                                <option value="">Seleccionar centro de costos</option>
                                 {availableRubros.map((r) => (
                                     <option key={r.id} value={r.id}>
                                         {r.codigo} - {r.descripcion} ({r.tipo_rubro?.descripcion})
@@ -237,7 +238,7 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
                         </Button>
                     </form>
                 ) : (
-                    <p className="text-sm text-base-content/60">Todos los rubros ya estan asignados a esta obra.</p>
+                    <p className="text-sm text-base-content/60">Todos los centros de costos ya estan asignados a esta obra.</p>
                 )}
             </div>
         </AppLayout>

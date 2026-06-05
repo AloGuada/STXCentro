@@ -21,19 +21,19 @@ const configuracionSecciones: Seccion[] = [
             'Registro de empresas a las que se les compran materiales o servicios. Cada proveedor tiene razón social, RFC, contacto, condiciones de crédito (días y si maneja crédito) y bancos. Son requeridos para crear órdenes de compra y solicitudes de pago.',
     },
     {
-        titulo: 'Tipos de Rubros',
+        titulo: 'Tipos de Centro de Costos',
         descripcion:
-            'Categorías generales para clasificar los rubros (p. ej. "Material", "Mano de obra", "Equipo"). Facilitan el análisis presupuestal por tipo de gasto.',
+            'Categorías generales para clasificar los centros de costos (p. ej. "Material", "Mano de obra", "Equipo"). Facilitan el análisis presupuestal por tipo de gasto.',
     },
     {
-        titulo: 'Rubros',
+        titulo: 'Centros de Costos',
         descripcion:
-            'Conceptos específicos de gasto asociados a un tipo de rubro (p. ej. "Acero en láminas", "Cemento gris"). Cada rubro tiene un código único y descripción. Los rubros se asignan a una obra con su propio presupuesto.',
+            'Conceptos específicos de gasto asociados a un tipo de centro de costos (p. ej. "Acero en láminas", "Cemento gris"). Cada centro de costos tiene un código único, descripción y ámbito (obras o planta). Los centros de costos se asignan a una obra (o al proyecto de planta) con su propio presupuesto.',
     },
     {
         titulo: 'Presupuestos',
         descripcion:
-            'Asignación de rubros a una obra específica con un monto presupuestado. Aquí se controla cuánto se ha acumulado (gastado) contra lo presupuestado. Las solicitudes de pago y órdenes de compra impactan directamente el acumulado del rubro.',
+            'Asignación de centros de costos a una obra específica (o al proyecto de planta) con un monto presupuestado. Aquí se controla cuánto se ha acumulado (gastado) contra lo presupuestado. Las solicitudes de pago y órdenes de compra impactan directamente el acumulado del centro de costos.',
     },
     {
         titulo: 'Niveles de Aprobación',
@@ -58,7 +58,7 @@ const flujoSolicitudesPago: PasoFlujo[] = [
         numero: 1,
         titulo: 'Creación de la solicitud',
         descripcion:
-            'Cualquier usuario con permiso crea una solicitud de pago eligiendo departamento, proveedor, tipo de solicitud, conceptos a pagar (con rubros y montos) y archivos requeridos. La solicitud nace en estado "Pendiente Firma".',
+            'Cualquier usuario con permiso crea una solicitud de pago eligiendo departamento, proveedor, tipo de solicitud, conceptos a pagar (con centros de costos y montos) y archivos requeridos. La solicitud nace en estado "Pendiente Firma".',
     },
     {
         numero: 2,
@@ -76,7 +76,7 @@ const flujoSolicitudesPago: PasoFlujo[] = [
         numero: 4,
         titulo: 'Aplicación presupuestal',
         descripcion:
-            'Al completarse la última aprobación, la solicitud pasa a estado "Aprobada" y el monto se acumula en el rubro correspondiente de la obra. Si excede el presupuesto disponible, se marca como sobregiro pero se permite.',
+            'Al completarse la última aprobación, la solicitud pasa a estado "Aprobada" y el monto se acumula en el centro de costos correspondiente de la obra. Si excede el presupuesto disponible, se marca como sobregiro pero se permite.',
     },
     {
         numero: 5,

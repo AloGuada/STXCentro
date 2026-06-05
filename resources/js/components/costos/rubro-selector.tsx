@@ -28,7 +28,7 @@ export function RubroSelector({ value, options, onChange, rubroOnly = false, dis
             disabled={disabled}
             onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
         >
-            <option value="">{rubroOnly ? 'Selecciona rubro...' : 'Selecciona rubro...'}</option>
+            <option value="">Selecciona centro de costos...</option>
             {options.map((r) => (
                 <option
                     key={r.id}

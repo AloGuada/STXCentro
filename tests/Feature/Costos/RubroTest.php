@@ -43,6 +43,7 @@ describe('admin costos rubros', function () {
             ->post(route('admin.costos.rubros.store'), [
                 'codigo' => 'RB001',
                 'descripcion' => 'Materiales',
+                'ambito' => 'obra',
                 'tipo_rubro_id' => $tipoRubro->id,
                 'departamento_id' => $departamento->id,
             ]);
@@ -51,6 +52,7 @@ describe('admin costos rubros', function () {
         $this->assertDatabaseHas('costos_rubros', [
             'codigo' => 'RB001',
             'descripcion' => 'Materiales',
+            'ambito' => 'obra',
             'tipo_rubro_id' => $tipoRubro->id,
         ]);
     });
@@ -97,10 +99,62 @@ describe('admin costos rubros', function () {
         $this->assertDatabaseMissing('costos_rubros', ['id' => $rubro->id]);
     });
 
-    test('validation requires codigo, descripcion and tipo_rubro_id', function () {
+    test('validation requires codigo, descripcion, ambito and tipo_rubro_id', function () {
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.rubros.store'), []);
 
-        $response->assertSessionHasErrors(['codigo', 'descripcion', 'tipo_rubro_id']);
+        $response->assertSessionHasErrors(['codigo', 'descripcion', 'ambito', 'tipo_rubro_id']);
+    });
+
+    test('ambito must be obra or planta', function () {
+        $tipoRubro = TipoRubro::factory()->create();
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.rubros.store'), [
+                'codigo' => 'RB002',
+                'descripcion' => 'Inválido',
+                'ambito' => 'bodega',
+                'tipo_rubro_id' => $tipoRubro->id,
+            ]);
+
+        $response->assertSessionHasErrors(['ambito']);
+    });
+
+    test('update ignores ambito changes', function () {
+        $rubro = Rubro::factory()->create(['ambito' => 'obra']);
+
+        $this->actingAs($this->user)
+            ->put(route('admin.costos.rubros.update', $rubro), [
+                'codigo' => $rubro->codigo,
+                'descripcion' => $rubro->descripcion,
+                'ambito' => 'planta',
+                'tipo_rubro_id' => $rubro->tipo_rubro_id,
+            ])
+            ->assertRedirect(route('admin.costos.rubros.index'));
+
+        $this->assertDatabaseHas('costos_rubros', [
+            'id' => $rubro->id,
+            'ambito' => 'obra',
+        ]);
+    });
+
+    test('rubro de obra se asigna solo a obras normales al crearse', function () {
+        $obra = \App\Models\Obra::factory()->create();
+        $planta = \App\Models\Obra::factory()->planta()->create();
+
+        $rubro = Rubro::factory()->create(['ambito' => 'obra']);
+
+        $this->assertDatabaseHas('costos_obra_rubros', ['obra_id' => $obra->id, 'rubro_id' => $rubro->id]);
+        $this->assertDatabaseMissing('costos_obra_rubros', ['obra_id' => $planta->id, 'rubro_id' => $rubro->id]);
+    });
+
+    test('rubro de planta se asigna solo a la obra planta al crearse', function () {
+        $obra = \App\Models\Obra::factory()->create();
+        $planta = \App\Models\Obra::factory()->planta()->create();
+
+        $rubro = Rubro::factory()->planta()->create();
+
+        $this->assertDatabaseHas('costos_obra_rubros', ['obra_id' => $planta->id, 'rubro_id' => $rubro->id]);
+        $this->assertDatabaseMissing('costos_obra_rubros', ['obra_id' => $obra->id, 'rubro_id' => $rubro->id]);
     });
 });

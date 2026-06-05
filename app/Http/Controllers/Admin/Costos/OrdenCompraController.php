@@ -121,7 +121,7 @@ class OrdenCompraController extends Controller
                 if ($obraRubro) {
                     $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
                     if ($subtotal > $disponible) {
-                        $warnings[] = "El rubro {$obraRubro->rubro?->codigo} excede el presupuesto disponible.";
+                        $warnings[] = "El centro de costos {$obraRubro->rubro?->codigo} excede el presupuesto disponible.";
                     }
                 }
             }

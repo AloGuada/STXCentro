@@ -34,8 +34,8 @@ class RubroUpdateRequest extends FormRequest
             'codigo.required' => 'El código es obligatorio.',
             'codigo.unique' => 'Este código ya está registrado.',
             'descripcion.required' => 'La descripción es obligatoria.',
-            'tipo_rubro_id.required' => 'El tipo de rubro es obligatorio.',
-            'tipo_rubro_id.exists' => 'El tipo de rubro seleccionado no existe.',
+            'tipo_rubro_id.required' => 'El tipo de centro de costos es obligatorio.',
+            'tipo_rubro_id.exists' => 'El tipo de centro de costos seleccionado no existe.',
         ];
     }
 }

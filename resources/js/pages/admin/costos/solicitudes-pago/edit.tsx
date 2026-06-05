@@ -281,7 +281,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                         {selectedTipo?.rubros && (
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between border-b border-base-300 pb-2">
-                                    <h2 className="text-lg font-medium">Detalles / Rubros</h2>
+                                    <h2 className="text-lg font-medium">Detalles / Centros de Costos</h2>
                                     <Button type="button" variant="outline" onClick={addDetalle}>
                                         <PlusIcon className="size-4" />
                                         Agregar
@@ -317,7 +317,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                                                     </select>
                                                 </FormField>
 
-                                                <FormField label="Rubro" htmlFor={`det_rubro_${index}`} required>
+                                                <FormField label="Centro de Costos" htmlFor={`det_rubro_${index}`} required>
                                                     <select
                                                         id={`det_rubro_${index}`}
                                                         className="select select-bordered w-full"
@@ -325,7 +325,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                                                         onChange={(e) => updateDetalle(index, 'obra_rubro_id', e.target.value)}
                                                         disabled={!det.obra_id}
                                                     >
-                                                        <option value="">{det.obra_id ? 'Seleccionar rubro' : 'Seleccione obra primero'}</option>
+                                                        <option value="">{det.obra_id ? 'Seleccionar centro de costos' : 'Seleccione obra primero'}</option>
                                                         {obraRubros
                                                             .filter((or) => or.obra_id === Number(det.obra_id))
                                                             .map((or) => (

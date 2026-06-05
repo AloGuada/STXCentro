@@ -238,7 +238,7 @@
     <table class="detalles-table">
         <thead>
             <tr>
-                <th>Rubro</th>
+                <th>Centro de Costos</th>
                 <th>Concepto</th>
                 <th>Cantidad</th>
                 <th>P. Unitario</th>

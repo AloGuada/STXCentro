@@ -104,7 +104,7 @@ class OrdenCompraGenerator
                 'uso_cfdi_id' => $detalle->uso_cfdi_id,
                 'tipo_fiscal' => $detalle->tipo_fiscal,
                 'descripcion' => $detalle->descripcion,
-                'codigo_producto' => $sel->cotizacionPrecio?->codigo_producto,
+                'codigo_producto' => $sel->cotizacionPrecio?->codigo_producto ?? $detalle->codigo_producto,
                 'unidad' => $detalle->unidad,
                 'cantidad' => $cantidad,
                 'precio_unitario' => $precioUnit,

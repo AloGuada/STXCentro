@@ -57,7 +57,7 @@ class TipoRubroController extends Controller
     public function destroy(TipoRubro $tipoRubro): RedirectResponse
     {
         if ($tipoRubro->rubros()->exists()) {
-            return back()->withErrors(['delete' => 'No se puede eliminar un tipo de rubro que tiene rubros asociados.']);
+            return back()->withErrors(['delete' => 'No se puede eliminar un tipo de centro de costos que tiene centros de costos asociados.']);
         }
 
         $tipoRubro->delete();

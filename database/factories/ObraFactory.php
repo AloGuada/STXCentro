@@ -27,4 +27,13 @@ class ObraFactory extends Factory
             'estatus' => fake()->randomElement(['abierta', 'cerrada']),
         ];
     }
+
+    public function planta(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'no' => 'PLANTA',
+            'es_planta' => true,
+            'estatus' => 'abierta',
+        ]);
+    }
 }

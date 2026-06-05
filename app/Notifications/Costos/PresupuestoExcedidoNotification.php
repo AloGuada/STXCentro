@@ -54,7 +54,7 @@ class PresupuestoExcedidoNotification extends Notification
 
     private function mensaje(): string
     {
-        $rubro = $this->obraRubro->rubro?->descripcion ?? '(rubro)';
+        $rubro = $this->obraRubro->rubro?->descripcion ?? '(centro de costos)';
         $obra = $this->obraRubro->obra?->descripcion ?? '(obra)';
         $folio = $this->entrada->folio ?? '?';
 
@@ -68,7 +68,7 @@ class PresupuestoExcedidoNotification extends Notification
         }
 
         return sprintf(
-            'El rubro "%s · %s" entró en zona crítica tras %s.',
+            'El centro de costos "%s · %s" entró en zona crítica tras %s.',
             $obra,
             $rubro,
             $folio,

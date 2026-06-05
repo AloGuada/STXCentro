@@ -62,6 +62,59 @@ describe('admin costos obra rubros', function () {
         $this->assertDatabaseMissing('costos_obra_rubros', ['id' => $obraRubro->id]);
     });
 
+    test('store rechaza rubro de planta en obra normal', function () {
+        $obra = Obra::factory()->create();
+        $rubroPlanta = Rubro::factory()->planta()->create();
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.obra-rubros.store'), [
+                'obra_id' => $obra->id,
+                'rubro_id' => $rubroPlanta->id,
+                'presupuestado' => 1000,
+            ]);
+
+        $response->assertSessionHasErrors(['rubro_id']);
+        $this->assertDatabaseMissing('costos_obra_rubros', [
+            'obra_id' => $obra->id,
+            'rubro_id' => $rubroPlanta->id,
+        ]);
+    });
+
+    test('store rechaza rubro de obra en la planta', function () {
+        $planta = Obra::factory()->planta()->create();
+        $rubroObra = Rubro::factory()->create(['ambito' => 'obra']);
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.obra-rubros.store'), [
+                'obra_id' => $planta->id,
+                'rubro_id' => $rubroObra->id,
+                'presupuestado' => 1000,
+            ]);
+
+        $response->assertSessionHasErrors(['rubro_id']);
+    });
+
+    test('store acepta rubro de planta en la planta', function () {
+        $planta = Obra::factory()->planta()->create();
+        $rubroPlanta = Rubro::factory()->planta()->create();
+
+        $planta->obraRubros()->where('rubro_id', $rubroPlanta->id)->delete();
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.obra-rubros.store'), [
+                'obra_id' => $planta->id,
+                'rubro_id' => $rubroPlanta->id,
+                'presupuestado' => 25000,
+            ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('costos_obra_rubros', [
+            'obra_id' => $planta->id,
+            'rubro_id' => $rubroPlanta->id,
+            'presupuestado' => 25000.00,
+        ]);
+    });
+
     test('validation requires obra_id, rubro_id and presupuestado', function () {
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.obra-rubros.store'), []);

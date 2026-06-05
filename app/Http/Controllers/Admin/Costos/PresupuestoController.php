@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Admin\Costos;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Costos\PlantaStoreRequest;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Rubro;
 use App\Models\Costos\TipoRubro;
 use App\Models\Obra;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -20,30 +23,80 @@ class PresupuestoController extends Controller
         $umbral = (int) config('costos.umbral_alerta_porcentaje', 90);
 
         $obras = Obra::query()
+            ->sinPlanta()
             ->withSum('obraRubros', 'presupuestado')
             ->withSum('obraRubros', 'acumulado')
             ->withCount('obraRubros')
-            ->when($request->search, fn ($q, $s) => $q->where('no', 'like', "%{$s}%")
+            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
                 ->orWhere('descripcion', 'like', "%{$s}%")
-            )
+            ))
             ->latest()
             ->paginate(15)
             ->withQueryString();
 
+        $planta = Obra::query()
+            ->where('es_planta', true)
+            ->withSum('obraRubros', 'presupuestado')
+            ->withSum('obraRubros', 'acumulado')
+            ->withCount('obraRubros')
+            ->first();
+
         // Calcular en PHP en lugar de SQL para evitar quirks de SQLite con
         // division decimal. El COUNT total no es enorme (rubros por obra
-        // suelen ser <100) así que es aceptable.
-        $rubros = ObraRubro::query()
-            ->select('id', 'presupuestado', 'acumulado')
+        // suelen ser <100) así que es aceptable. Stats de obras y planta
+        // se reportan por separado.
+        $obraRubros = ObraRubro::query()
+            ->select('id', 'obra_id', 'presupuestado', 'acumulado')
             ->get();
 
+        $statsObras = $this->calcularStats(
+            $planta ? $obraRubros->where('obra_id', '!=', $planta->id) : $obraRubros,
+            $umbral,
+        );
+        $statsPlanta = $planta
+            ? $this->calcularStats($obraRubros->where('obra_id', $planta->id), $umbral)
+            : null;
+
+        return Inertia::render('admin/costos/presupuestos/index', [
+            'obras' => $obras,
+            'planta' => $planta,
+            'statsPlanta' => $statsPlanta,
+            'filters' => $request->only('search'),
+            'stats' => [
+                ...$statsObras,
+                'umbral_alerta' => $umbral,
+                'bloquear_sobregiro' => (bool) config('costos.bloquear_sobregiro', false),
+            ],
+        ]);
+    }
+
+    public function storePlanta(PlantaStoreRequest $request): RedirectResponse
+    {
+        $planta = Obra::create([
+            'no' => 'PLANTA',
+            'descripcion' => $request->validated('descripcion'),
+            'estatus' => 'abierta',
+            'activa' => true,
+            'es_planta' => true,
+        ]);
+
+        return to_route('admin.costos.presupuestos.edit', $planta)
+            ->with('success', 'Proyecto de planta creado.');
+    }
+
+    /**
+     * @param  Collection<int, ObraRubro>  $obraRubros
+     * @return array{total_rubros: int, sobregiros: int, criticos: int, total_presupuestado: float, total_acumulado: float}
+     */
+    private function calcularStats(Collection $obraRubros, int $umbral): array
+    {
         $sobregiros = 0;
         $criticos = 0;
         $totalPresupuestado = 0.0;
         $totalAcumulado = 0.0;
         $umbralPct = (float) $umbral;
 
-        foreach ($rubros as $r) {
+        foreach ($obraRubros as $r) {
             $presup = (float) $r->presupuestado;
             $acum = (float) $r->acumulado;
             $totalPresupuestado += $presup;
@@ -65,34 +118,24 @@ class PresupuestoController extends Controller
             }
         }
 
-        $rubrosStats = (object) [
-            'total' => $rubros->count(),
+        return [
+            'total_rubros' => $obraRubros->count(),
             'sobregiros' => $sobregiros,
             'criticos' => $criticos,
             'total_presupuestado' => $totalPresupuestado,
             'total_acumulado' => $totalAcumulado,
         ];
-
-        return Inertia::render('admin/costos/presupuestos/index', [
-            'obras' => $obras,
-            'filters' => $request->only('search'),
-            'stats' => [
-                'total_rubros' => (int) ($rubrosStats->total ?? 0),
-                'sobregiros' => (int) ($rubrosStats->sobregiros ?? 0),
-                'criticos' => (int) ($rubrosStats->criticos ?? 0),
-                'total_presupuestado' => (float) ($rubrosStats->total_presupuestado ?? 0),
-                'total_acumulado' => (float) ($rubrosStats->total_acumulado ?? 0),
-                'umbral_alerta' => $umbral,
-                'bloquear_sobregiro' => (bool) config('costos.bloquear_sobregiro', false),
-            ],
-        ]);
     }
 
     public function edit(Obra $obra): Response
     {
         $obra->load(['obraRubros.rubro.tipoRubro']);
 
-        $rubros = Rubro::with('tipoRubro')->orderBy('codigo')->get();
+        $rubros = Rubro::query()
+            ->where('ambito', $obra->es_planta ? 'planta' : 'obra')
+            ->with('tipoRubro')
+            ->orderBy('codigo')
+            ->get();
 
         return Inertia::render('admin/costos/presupuestos/edit', [
             'obra' => $obra,
@@ -102,11 +145,12 @@ class PresupuestoController extends Controller
 
     public function generarReportePdf(): HttpResponse
     {
-        $tipos = TipoRubro::with(['rubros' => fn ($q) => $q->orderBy('codigo')])
+        $tipos = TipoRubro::with(['rubros' => fn ($q) => $q->where('ambito', 'obra')->orderBy('codigo')])
             ->orderBy('descripcion')
             ->get();
 
-        $obras = Obra::with('obraRubros')
+        $obras = Obra::sinPlanta()
+            ->with('obraRubros')
             ->orderBy('no')
             ->get();
 

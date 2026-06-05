@@ -484,7 +484,7 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                                     <tr>
                                         <th>Descripción</th>
                                         <th>Código producto</th>
-                                        <th>Rubro</th>
+                                        <th>Centro de Costos</th>
                                         <th>Uso CFDI</th>
                                         <th className="text-right">Disponible</th>
                                         <th>Unidad</th>
@@ -518,7 +518,7 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <span className="text-warning">Sin rubro</span>
+                                                        <span className="text-warning">Sin centro de costos</span>
                                                     )}
                                                 </td>
                                                 <td className="text-xs">{d.uso_cfdi ? `${d.uso_cfdi.clave}` : '-'}</td>

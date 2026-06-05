@@ -20,7 +20,7 @@ export default function RubrosEdit({ rubro, tipoRubros, departamentos }: Props) 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/rubros' },
-        { title: 'Rubros', href: '/admin/costos/rubros' },
+        { title: 'Centros de Costos', href: '/admin/costos/rubros' },
         { title: rubro.codigo, href: `/admin/costos/rubros/${rubro.id}/edit` },
     ];
 
@@ -43,10 +43,15 @@ export default function RubrosEdit({ rubro, tipoRubros, departamentos }: Props) 
             <div className="p-6">
                 <div className="w-3/4">
                     <div className="mb-6 flex items-center justify-between">
-                        <h1 className="text-2xl font-semibold">Editar Rubro</h1>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl font-semibold">Editar Centro de Costos</h1>
+                            <span className={`badge ${rubro.ambito === 'planta' ? 'badge-info' : 'badge-ghost'}`}>
+                                {rubro.ambito === 'planta' ? 'Planta' : 'Obras'}
+                            </span>
+                        </div>
                         <DeleteDialog
-                            title="Eliminar rubro"
-                            description={`¿Estás seguro de eliminar el rubro "${rubro.codigo}"? Esta acción no se puede deshacer.`}
+                            title="Eliminar centro de costos"
+                            description={`¿Estás seguro de eliminar el centro de costos "${rubro.codigo}"? Esta acción no se puede deshacer.`}
                             deleteUrl={`/admin/costos/rubros/${rubro.id}`}
                         />
                     </div>
@@ -56,7 +61,7 @@ export default function RubrosEdit({ rubro, tipoRubros, departamentos }: Props) 
                             <FormField label="Código" htmlFor="codigo" error={errors.codigo} required>
                                 <Input id="codigo" value={data.codigo} onChange={(e) => setData('codigo', e.target.value)} />
                             </FormField>
-                            <FormField label="Tipo Rubro" htmlFor="tipo_rubro_id" error={errors.tipo_rubro_id} required>
+                            <FormField label="Tipo de Centro de Costos" htmlFor="tipo_rubro_id" error={errors.tipo_rubro_id} required>
                                 <Select id="tipo_rubro_id" value={data.tipo_rubro_id} onValueChange={(value) => setData('tipo_rubro_id', value)}>
                                     <option value="">Seleccionar tipo</option>
                                     {tipoRubros.map((tr) => (

@@ -44,7 +44,7 @@ class SolicitudPagoUpdateRequest extends FormRequest
             'tipo_solicitud_id.required' => 'El tipo de solicitud es obligatorio.',
             'concepto.required' => 'El concepto es obligatorio.',
             'tipo_pago.required' => 'El tipo de pago es obligatorio.',
-            'detalles.*.obra_rubro_id.required' => 'El rubro es obligatorio.',
+            'detalles.*.obra_rubro_id.required' => 'El centro de costos es obligatorio.',
             'detalles.*.concepto.required' => 'El concepto del detalle es obligatorio.',
             'detalles.*.cantidad.required' => 'La cantidad es obligatoria.',
             'detalles.*.precio_unitario.required' => 'El precio unitario es obligatorio.',

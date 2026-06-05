@@ -70,7 +70,7 @@ class ObraRubro extends Model
         foreach ($detalles as $i => $detalle) {
             $rubroId = $detalle['obra_rubro_id'] ?? null;
             if ($rubroId && (int) ($obrasPorRubro[$rubroId] ?? 0) !== $obraId) {
-                $validator->errors()->add("detalles.{$i}.obra_rubro_id", 'El rubro debe pertenecer a la obra seleccionada en la requisición.');
+                $validator->errors()->add("detalles.{$i}.obra_rubro_id", 'El centro de costos debe pertenecer a la obra seleccionada en la requisición.');
             }
         }
     }

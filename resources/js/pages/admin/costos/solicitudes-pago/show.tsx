@@ -212,7 +212,7 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                                     <table className="table table-sm">
                                         <thead>
                                             <tr>
-                                                <th>Rubro</th>
+                                                <th>Centro de Costos</th>
                                                 <th>Concepto</th>
                                                 <th className="text-right">Cantidad</th>
                                                 <th className="text-right">P. Unitario</th>

@@ -19,7 +19,9 @@ class Rubro extends Model
     protected static function booted(): void
     {
         static::created(function (Rubro $rubro) {
-            $obraIds = \App\Models\Obra::pluck('id');
+            $obraIds = \App\Models\Obra::query()
+                ->where('es_planta', $rubro->ambito === 'planta')
+                ->pluck('id');
 
             $records = $obraIds->map(fn ($obraId) => [
                 'obra_id' => $obraId,
@@ -42,6 +44,7 @@ class Rubro extends Model
     protected $fillable = [
         'codigo',
         'descripcion',
+        'ambito',
         'tipo_rubro_id',
         'departamento_id',
     ];

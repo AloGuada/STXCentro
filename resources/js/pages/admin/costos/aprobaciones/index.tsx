@@ -244,11 +244,11 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                                     <td><span className="text-xs text-base-content/60">{d.tipoLabel}</span></td>
                                     <td className="text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            {tieneSobregiro && <AlertTriangleIcon className="size-4 text-error" title="Sobregiro en rubro" />}
+                                            {tieneSobregiro && <AlertTriangleIcon className="size-4 text-error" title="Sobregiro en centro de costos" />}
                                             <span className="font-medium">{fmtMoney(d.monto)}</span>
                                         </div>
                                         {tieneSobregiro && (
-                                            <div className="mt-0.5 text-[11px] font-semibold text-error">Rubro en sobregiro</div>
+                                            <div className="mt-0.5 text-[11px] font-semibold text-error">Centro de costos en sobregiro</div>
                                         )}
                                     </td>
                                     <td>

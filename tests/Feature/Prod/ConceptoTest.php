@@ -62,6 +62,7 @@ describe('admin conceptos', function () {
                 'obra_id' => $obra->id,
                 'marca' => 'MK-001',
                 'descripcion' => 'Concepto de prueba',
+                'cantidad' => 12,
                 'peso_unitario' => 25.500,
                 'version' => 1,
                 'activo' => true,
@@ -73,6 +74,7 @@ describe('admin conceptos', function () {
             'obra_id' => $obra->id,
             'marca' => 'MK-001',
             'descripcion' => 'Concepto de prueba',
+            'cantidad' => 12,
         ]);
     });
 
@@ -84,6 +86,7 @@ describe('admin conceptos', function () {
                 'obra_id' => $obra->id,
                 'marca' => 'MK-002',
                 'descripcion' => 'Sin opcionales',
+                'cantidad' => 0,
                 'peso_unitario' => 10.000,
             ]);
 
@@ -104,6 +107,7 @@ describe('admin conceptos', function () {
                 'obra_id' => $concepto->obra_id,
                 'marca' => 'MK-UPD',
                 'descripcion' => 'Updated',
+                'cantidad' => 7,
                 'peso_unitario' => 15.250,
                 'version' => 2,
                 'activo' => false,
@@ -114,6 +118,7 @@ describe('admin conceptos', function () {
         $this->assertDatabaseHas('conceptos', [
             'id' => $concepto->id,
             'marca' => 'MK-UPD',
+            'cantidad' => 7,
             'version' => 2,
             'activo' => false,
         ]);

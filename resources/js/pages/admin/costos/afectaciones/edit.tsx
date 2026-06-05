@@ -190,7 +190,7 @@ export default function AfectacionesEdit({ afectacion, departamentos, proveedore
                         {/* Detalles */}
                         <div className="space-y-4">
                             <div className="flex items-center justify-between border-b border-base-300 pb-2">
-                                <h2 className="text-lg font-medium">Detalles / Rubros</h2>
+                                <h2 className="text-lg font-medium">Detalles / Centros de Costos</h2>
                                 <Button type="button" variant="outline" onClick={addDetalle}>
                                     <PlusIcon className="size-4" />
                                     Agregar
@@ -211,14 +211,14 @@ export default function AfectacionesEdit({ afectacion, departamentos, proveedore
                                             </button>
                                         </div>
 
-                                        <FormField label="Rubro" htmlFor={`det_rubro_${index}`} required>
+                                        <FormField label="Centro de Costos" htmlFor={`det_rubro_${index}`} required>
                                             <select
                                                 id={`det_rubro_${index}`}
                                                 className="select select-bordered w-full"
                                                 value={det.obra_rubro_id}
                                                 onChange={(e) => updateDetalle(index, 'obra_rubro_id', e.target.value)}
                                             >
-                                                <option value="">Seleccionar rubro</option>
+                                                <option value="">Seleccionar centro de costos</option>
                                                 {obraRubros.map((or) => (
                                                     <option key={or.id} value={or.id}>
                                                         {or.rubro?.codigo} - {or.rubro?.descripcion}

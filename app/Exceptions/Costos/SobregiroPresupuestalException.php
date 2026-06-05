@@ -17,8 +17,8 @@ class SobregiroPresupuestalException extends RuntimeException
         public readonly float $disponible,
     ) {
         parent::__construct(sprintf(
-            'Sobregiro presupuestal: el rubro "%s" en obra "%s" tiene %s disponible y se intenta cargar %s.',
-            $obraRubro->rubro?->descripcion ?? '(rubro)',
+            'Sobregiro presupuestal: el centro de costos "%s" en obra "%s" tiene %s disponible y se intenta cargar %s.',
+            $obraRubro->rubro?->descripcion ?? '(centro de costos)',
             $obraRubro->obra?->descripcion ?? '(obra)',
             number_format($disponible, 2),
             number_format($montoIntentado, 2),

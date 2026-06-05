@@ -18,12 +18,13 @@ class ConceptoController extends Controller
     public function index(Request $request): Response
     {
         $obras = Obra::query()
+            ->sinPlanta()
             ->withCount([
                 'conceptos as conceptos_count',
                 'conceptos as conceptos_activos_count' => fn ($q) => $q->where('activo', true),
             ])
-            ->when($request->search, fn ($q, $s) => $q->where('no', 'like', "%{$s}%")
-                ->orWhere('descripcion', 'like', "%{$s}%"))
+            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
+                ->orWhere('descripcion', 'like', "%{$s}%")))
             ->orderBy('no')
             ->paginate(15)
             ->withQueryString();
@@ -36,6 +37,8 @@ class ConceptoController extends Controller
 
     public function showByObra(Request $request, Obra $obra): Response
     {
+        abort_if($obra->es_planta, 404);
+
         $conceptos = Concepto::query()
             ->where('obra_id', $obra->id)
             ->when($request->search, fn ($q, $s) => $q->where('marca', 'like', "%{$s}%")
@@ -52,7 +55,7 @@ class ConceptoController extends Controller
 
     public function create(Request $request): Response
     {
-        $obra = Obra::findOrFail($request->obra_id);
+        $obra = Obra::sinPlanta()->findOrFail($request->obra_id);
 
         return Inertia::render('admin/prod/conceptos/create', [
             'obra' => $obra,
@@ -65,6 +68,7 @@ class ConceptoController extends Controller
             'obra_id' => $request->obra_id,
             'marca' => $request->marca,
             'descripcion' => $request->descripcion,
+            'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,
             'version' => $request->version ?? 1,
             'activo' => $request->boolean('activo', true),
@@ -88,6 +92,7 @@ class ConceptoController extends Controller
             'obra_id' => $request->obra_id,
             'marca' => $request->marca,
             'descripcion' => $request->descripcion,
+            'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,
             'version' => $request->version ?? $concepto->version,
             'activo' => $request->boolean('activo', $concepto->activo),

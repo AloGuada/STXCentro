@@ -139,7 +139,7 @@ export default function RequisicionesEdit({ requisicion, departamentos, obras, o
 
                 {!data.obra_id && (
                     <div className="alert alert-info mb-3">
-                        <span>Selecciona primero la obra para asignar el rubro (centro de costo) de cada partida.</span>
+                        <span>Selecciona primero la obra para asignar el centro de costos de cada partida.</span>
                     </div>
                 )}
 

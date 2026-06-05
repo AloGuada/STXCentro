@@ -269,7 +269,7 @@ export default function ObrasEdit({ obra, rubros }: Props) {
 
                 {activeTab === 'presupuesto' && (
                     <div className="space-y-6">
-                        <h2 className="text-lg font-semibold">Presupuesto por Rubros</h2>
+                        <h2 className="text-lg font-semibold">Presupuesto por Centros de Costos</h2>
 
                         {obra.obra_rubros && obra.obra_rubros.length > 0 ? (
                             <div className="overflow-x-auto">
@@ -277,7 +277,7 @@ export default function ObrasEdit({ obra, rubros }: Props) {
                                     <thead>
                                         <tr>
                                             <th>Código</th>
-                                            <th>Rubro</th>
+                                            <th>Centro de Costos</th>
                                             <th>Tipo</th>
                                             <th className="text-right">Presupuestado</th>
                                             <th className="text-right">Acumulado</th>
@@ -326,17 +326,17 @@ export default function ObrasEdit({ obra, rubros }: Props) {
                                 </table>
                             </div>
                         ) : (
-                            <p className="text-sm text-base-content/60">No hay rubros asignados a esta obra.</p>
+                            <p className="text-sm text-base-content/60">No hay centros de costos asignados a esta obra.</p>
                         )}
 
                         <div className="divider" />
 
-                        <h3 className="text-md font-medium">Agregar Rubro</h3>
+                        <h3 className="text-md font-medium">Agregar Centro de Costos</h3>
                         {availableRubros.length > 0 ? (
                             <form onSubmit={handleAddObraRubro} className="flex items-end gap-4">
-                                <FormField label="Rubro" htmlFor="new_rubro_id" className="flex-1">
+                                <FormField label="Centro de Costos" htmlFor="new_rubro_id" className="flex-1">
                                     <Select id="new_rubro_id" value={newRubroId} onValueChange={setNewRubroId}>
-                                        <option value="">Seleccionar rubro</option>
+                                        <option value="">Seleccionar centro de costos</option>
                                         {availableRubros.map((r) => (
                                             <option key={r.id} value={r.id}>
                                                 {r.codigo} - {r.descripcion} ({r.tipo_rubro?.descripcion})
@@ -360,7 +360,7 @@ export default function ObrasEdit({ obra, rubros }: Props) {
                                 </Button>
                             </form>
                         ) : (
-                            <p className="text-sm text-base-content/60">Todos los rubros ya están asignados a esta obra.</p>
+                            <p className="text-sm text-base-content/60">Todos los centros de costos ya están asignados a esta obra.</p>
                         )}
                     </div>
                 )}

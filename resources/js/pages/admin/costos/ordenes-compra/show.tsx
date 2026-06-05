@@ -227,7 +227,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                     <thead>
                                         <tr>
                                             <th>Descripción</th>
-                                            <th>Rubro</th>
+                                            <th>Centro de Costos</th>
                                             <th className="text-right">Cantidad</th>
                                             <th>Unidad</th>
                                             <th className="text-right">P. Unitario</th>

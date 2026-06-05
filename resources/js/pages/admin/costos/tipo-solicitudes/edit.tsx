@@ -97,7 +97,7 @@ export default function TipoSolicitudesEdit({ tipoSolicitud }: Props) {
 
                         <label className="label cursor-pointer justify-start gap-2">
                             <input type="checkbox" className="checkbox" checked={data.rubros} onChange={(e) => setData('rubros', e.target.checked)} />
-                            <span className="label-text">Requiere rubros</span>
+                            <span className="label-text">Requiere centros de costos</span>
                         </label>
 
                         <div className="divider" />

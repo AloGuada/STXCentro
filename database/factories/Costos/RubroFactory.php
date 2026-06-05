@@ -22,8 +22,14 @@ class RubroFactory extends Factory
         return [
             'codigo' => fake()->unique()->regexify('[A-Z]{2}[0-9]{3}'),
             'descripcion' => fake()->words(3, true),
+            'ambito' => 'obra',
             'tipo_rubro_id' => TipoRubro::factory(),
             'departamento_id' => Departamento::factory(),
         ];
+    }
+
+    public function planta(): static
+    {
+        return $this->state(fn (array $attributes) => ['ambito' => 'planta']);
     }
 }

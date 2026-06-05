@@ -157,7 +157,7 @@ export default function AfectacionesShow({ afectacion }: Props) {
                                     <table className="table table-sm">
                                         <thead>
                                             <tr>
-                                                <th>Rubro</th>
+                                                <th>Centro de Costos</th>
                                                 <th>Concepto</th>
                                                 <th className="text-right">Cantidad</th>
                                                 <th className="text-right">P. Unitario</th>
@@ -219,14 +219,14 @@ export default function AfectacionesShow({ afectacion }: Props) {
                         )}
                     </div>
 
-                    <input type="radio" name="afectacion_tabs" role="tab" className="tab" aria-label="Rubros Afectados" />
+                    <input type="radio" name="afectacion_tabs" role="tab" className="tab" aria-label="Centros de Costos Afectados" />
                     <div role="tabpanel" className="tab-content py-4">
                         {afectacion.rubros_afectados && afectacion.rubros_afectados.length > 0 ? (
                             <div className="overflow-x-auto">
                                 <table className="table table-sm">
                                     <thead>
                                         <tr>
-                                            <th>Rubro</th>
+                                            <th>Centro de Costos</th>
                                             <th>Descripción</th>
                                             <th>Tipo</th>
                                             <th className="text-right">Monto</th>
@@ -255,7 +255,7 @@ export default function AfectacionesShow({ afectacion }: Props) {
                                 </table>
                             </div>
                         ) : (
-                            <p className="text-base-content/60">No hay rubros afectados.</p>
+                            <p className="text-base-content/60">No hay centros de costos afectados.</p>
                         )}
                     </div>
                 </div>

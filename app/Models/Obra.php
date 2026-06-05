@@ -16,7 +16,9 @@ class Obra extends Model
     protected static function booted(): void
     {
         static::created(function (Obra $obra) {
-            $rubros = Costos\Rubro::pluck('id');
+            $rubros = Costos\Rubro::query()
+                ->where('ambito', $obra->es_planta ? 'planta' : 'obra')
+                ->pluck('id');
 
             $obra->obraRubros()->createMany(
                 $rubros->map(fn ($rubroId) => [
@@ -51,6 +53,7 @@ class Obra extends Model
         'porcentaje_otros',
         'descripcion_otros',
         'activa',
+        'es_planta',
         'porcentaje_obra',
     ];
 
@@ -73,8 +76,21 @@ class Obra extends Model
             'porcentaje_montaje' => 'decimal:2',
             'porcentaje_otros' => 'decimal:2',
             'activa' => 'boolean',
+            'es_planta' => 'boolean',
             'porcentaje_obra' => 'decimal:2',
         ];
+    }
+
+    /**
+     * Excluye el proyecto de planta. Usar en todos los listados y
+     * selectores de obras fuera del módulo de costos.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<self>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<self>
+     */
+    public function scopeSinPlanta($query)
+    {
+        return $query->where('es_planta', false);
     }
 
     public function conceptos(): HasMany

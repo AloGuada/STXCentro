@@ -50,7 +50,7 @@ class RequisicionUpdateRequest extends FormRequest
     {
         return [
             'obra_id.required' => 'Debe seleccionar la obra de la requisición.',
-            'detalles.*.obra_rubro_id.required' => 'Cada partida requiere un rubro (centro de costo).',
+            'detalles.*.obra_rubro_id.required' => 'Cada partida requiere un centro de costos.',
             'detalles.*.uso_cfdi_id.required' => 'Cada partida requiere un uso de CFDI.',
             'detalles.*.uso_cfdi_id.exists' => 'El uso de CFDI seleccionado no es válido o está inactivo.',
         ];

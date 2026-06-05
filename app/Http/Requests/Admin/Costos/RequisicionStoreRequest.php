@@ -51,7 +51,7 @@ class RequisicionStoreRequest extends FormRequest
             'detalles.required' => 'Debe registrar al menos una partida.',
             'detalles.min' => 'Debe registrar al menos una partida.',
             'detalles.*.cantidad.min' => 'La cantidad debe ser mayor a cero.',
-            'detalles.*.obra_rubro_id.required' => 'Cada partida requiere un rubro (centro de costo).',
+            'detalles.*.obra_rubro_id.required' => 'Cada partida requiere un centro de costos.',
             'detalles.*.uso_cfdi_id.required' => 'Cada partida requiere un uso de CFDI.',
             'detalles.*.uso_cfdi_id.exists' => 'El uso de CFDI seleccionado no es válido o está inactivo.',
         ];

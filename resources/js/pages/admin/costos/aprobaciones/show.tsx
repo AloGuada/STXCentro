@@ -154,7 +154,7 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
                 {tieneSobrepresupuesto && (
                     <div className="alert alert-warning mb-6">
                         <AlertTriangleIcon className="size-5" />
-                        <span>Esta solicitud contiene rubros que exceden el presupuesto disponible. Revise los detalles antes de aprobar.</span>
+                        <span>Esta solicitud contiene centros de costos que exceden el presupuesto disponible. Revise los detalles antes de aprobar.</span>
                     </div>
                 )}
 
@@ -217,7 +217,7 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
                                         <thead>
                                             <tr>
                                                 <th>Obra</th>
-                                                <th>Rubro</th>
+                                                <th>Centro de Costos</th>
                                                 <th>Concepto</th>
                                                 <th className="text-right">Cantidad</th>
                                                 <th className="text-right">P. Unitario</th>

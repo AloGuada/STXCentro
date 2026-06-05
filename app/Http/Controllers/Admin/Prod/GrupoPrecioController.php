@@ -19,12 +19,13 @@ class GrupoPrecioController extends Controller
     public function index(Request $request): Response
     {
         $obras = Obra::query()
+            ->sinPlanta()
             ->withCount([
                 'conceptos as conceptos_count' => fn ($q) => $q->where('activo', true),
                 'conceptos as conceptos_sin_precio_count' => fn ($q) => $q->where('activo', true)->whereDoesntHave('grupoPrecioConceptos'),
             ])
-            ->when($request->search, fn ($q, $s) => $q->where('no', 'like', "%{$s}%")
-                ->orWhere('descripcion', 'like', "%{$s}%"))
+            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
+                ->orWhere('descripcion', 'like', "%{$s}%")))
             ->orderBy('no')
             ->paginate(15)
             ->withQueryString();
@@ -38,7 +39,7 @@ class GrupoPrecioController extends Controller
     public function create(Request $request): Response
     {
         return Inertia::render('admin/prod/grupo-precios/create', [
-            'obras' => Obra::orderBy('no')->get(),
+            'obras' => Obra::sinPlanta()->orderBy('no')->get(),
             'obraId' => $request->obra_id,
         ]);
     }
@@ -56,6 +57,8 @@ class GrupoPrecioController extends Controller
 
     public function showByObra(Obra $obra): Response
     {
+        abort_if($obra->es_planta, 404);
+
         $grupoPrecios = GrupoPrecio::query()
             ->where('obra_id', $obra->id)
             ->with(['grupoPrecioConceptos.concepto'])
@@ -83,7 +86,7 @@ class GrupoPrecioController extends Controller
 
         return Inertia::render('admin/prod/grupo-precios/edit', [
             'grupoPrecio' => $grupoPrecio,
-            'obras' => Obra::with(['conceptos' => fn ($q) => $q->where('activo', true)->orderBy('marca')])->orderBy('no')->get(),
+            'obras' => Obra::sinPlanta()->with(['conceptos' => fn ($q) => $q->where('activo', true)->orderBy('marca')])->orderBy('no')->get(),
         ]);
     }
 

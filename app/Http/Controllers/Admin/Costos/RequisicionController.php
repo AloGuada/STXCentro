@@ -561,7 +561,7 @@ class RequisicionController extends Controller
 
             if (empty($detalle->obra_rubro_id)) {
                 return back()->withErrors([
-                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene rubro asignado.",
+                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene centro de costos asignado.",
                 ]);
             }
 
@@ -665,7 +665,7 @@ class RequisicionController extends Controller
 
             if (empty($detalle->obra_rubro_id)) {
                 return back()->withErrors([
-                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene rubro asignado.",
+                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene centro de costos asignado.",
                 ]);
             }
         }

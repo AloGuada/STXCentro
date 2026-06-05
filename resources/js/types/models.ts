@@ -67,6 +67,7 @@ export type Obra = {
     porcentaje_otros?: number | null;
     descripcion_otros?: string | null;
     activa?: boolean;
+    es_planta?: boolean;
     porcentaje_obra?: number | null;
     cliente?: Cliente;
     partidas?: CobPartida[];
@@ -910,6 +911,7 @@ export type CostosRubro = {
     id: number;
     codigo: string;
     descripcion: string;
+    ambito: 'obra' | 'planta';
     tipo_rubro_id: number;
     departamento_id: number | null;
     tipo_rubro?: CostosTipoRubro;

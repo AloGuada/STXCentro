@@ -16,6 +16,7 @@ class DashboardController extends Controller
     public function index(): Response
     {
         $obras = Obra::query()
+            ->sinPlanta()
             ->with([
                 'cliente',
                 'partidas',

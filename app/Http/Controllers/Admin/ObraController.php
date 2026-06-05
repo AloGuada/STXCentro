@@ -19,8 +19,9 @@ class ObraController extends Controller
     public function index(Request $request): Response
     {
         $obras = Obra::query()
-            ->when($request->search, fn ($q, $s) => $q->where('no', 'like', "%{$s}%")
-                ->orWhere('descripcion', 'like', "%{$s}%"))
+            ->sinPlanta()
+            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
+                ->orWhere('descripcion', 'like', "%{$s}%")))
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -45,6 +46,8 @@ class ObraController extends Controller
 
     public function edit(Obra $obra): Response
     {
+        abort_if($obra->es_planta, 404);
+
         $obra->load([
             'conceptos' => fn ($q) => $q->orderBy('marca'),
             'obraRubros.rubro.tipoRubro',
@@ -52,12 +55,14 @@ class ObraController extends Controller
 
         return Inertia::render('admin/obras/edit', [
             'obra' => $obra,
-            'rubros' => Rubro::query()->with('tipoRubro')->orderBy('codigo')->get(),
+            'rubros' => Rubro::query()->where('ambito', 'obra')->with('tipoRubro')->orderBy('codigo')->get(),
         ]);
     }
 
     public function importConceptos(ConceptoImportCsvRequest $request, Obra $obra): RedirectResponse
     {
+        abort_if($obra->es_planta, 404);
+
         $file = $request->file('csv_file');
         $handle = fopen($file->getRealPath(), 'r');
 
@@ -115,6 +120,8 @@ class ObraController extends Controller
 
     public function update(ObraUpdateRequest $request, Obra $obra): RedirectResponse
     {
+        abort_if($obra->es_planta, 404);
+
         $obra->update($request->validated());
 
         return to_route('admin.obras.index');
@@ -122,6 +129,8 @@ class ObraController extends Controller
 
     public function destroy(Obra $obra): RedirectResponse
     {
+        abort_if($obra->es_planta, 404);
+
         $obra->delete();
 
         return to_route('admin.obras.index');

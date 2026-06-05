@@ -14,7 +14,7 @@ const columns: Column<CostosTipoSolicitud>[] = [
     { key: 'titulo', label: 'Título' },
     {
         key: 'rubros',
-        label: 'Rubros',
+        label: 'Centros de Costos',
         render: (ts) => (
             <span className={`badge badge-sm ${ts.rubros ? 'badge-success' : 'badge-ghost'}`}>
                 {ts.rubros ? 'Sí' : 'No'}

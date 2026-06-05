@@ -17,7 +17,7 @@ export default function TipoRubrosEdit({ tipoRubro }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/tipo-rubros' },
-        { title: 'Tipo Rubros', href: '/admin/costos/tipo-rubros' },
+        { title: 'Tipos de Centro de Costos', href: '/admin/costos/tipo-rubros' },
         { title: tipoRubro.descripcion, href: `/admin/costos/tipo-rubros/${tipoRubro.id}/edit` },
     ];
 
@@ -37,9 +37,9 @@ export default function TipoRubrosEdit({ tipoRubro }: Props) {
             <div className="p-6">
                 <div className="w-3/4">
                     <div className="mb-6 flex items-center justify-between">
-                        <h1 className="text-2xl font-semibold">Editar Tipo Rubro</h1>
+                        <h1 className="text-2xl font-semibold">Editar Tipo de Centro de Costos</h1>
                         <DeleteDialog
-                            title="Eliminar tipo rubro"
+                            title="Eliminar tipo de centro de costos"
                             description={`¿Estás seguro de eliminar "${tipoRubro.descripcion}"? Esta acción no se puede deshacer.`}
                             deleteUrl={`/admin/costos/tipo-rubros/${tipoRubro.id}`}
                         />
