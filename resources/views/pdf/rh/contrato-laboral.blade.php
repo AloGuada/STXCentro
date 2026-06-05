@@ -296,7 +296,7 @@
 <table style="width: 100%; margin-bottom: 20px;">
     <tr>
         <td style="width: 100px;">
-            <img src="{{ asset('logo_small.png') }}" alt="Steelex" style="max-width: 80px;">
+            @include('pdf.partials.logo', ['width' => 80])
         </td>
         <td class="text-center">
             <span class="bold underline">Formato de ingreso para Contratistas</span>
@@ -368,13 +368,13 @@
 <table style="width: 100%; margin-bottom: 20px;">
     <tr>
         <td style="width: 100px;">
-            <img src="{{ asset('logo_small.png') }}" alt="Steelex" style="max-width: 80px;">
+            @include('pdf.partials.logo', ['width' => 80])
         </td>
         <td class="text-center">
             <span class="bold underline">Formato de ingreso para empleados de Planta</span>
         </td>
         <td style="width: 100px;">
-            <img src="{{ asset('logo_small.png') }}" alt="Steelex" style="max-width: 80px;">
+            @include('pdf.partials.logo', ['width' => 80])
         </td>
     </tr>
 </table>

@@ -144,11 +144,7 @@
 <table class="header-table">
     <tr>
         <td class="logo-cell">
-            @if(file_exists(public_path('images/logo-steelex.png')))
-                <img src="{{ public_path('images/logo-steelex.png') }}" alt="Steelex">
-            @else
-                <strong style="font-size: 14px; color: #1a5276;">STEELEX</strong>
-            @endif
+            @include('pdf.partials.logo', ['width' => 130])
         </td>
         <td class="company-cell">
             <div class="company-name">TIM DEL MAYAB, S.A. DE C.V.</div>

@@ -105,7 +105,7 @@
 <body>
     {{-- FRENTE --}}
     <div class="front">
-        <img class="logo" csrc="{{ asset('logo_small.png') }}" alt="Steelex">
+        @include('pdf.partials.logo', ['width' => 138])
 
         <table class="body-table">
             <tr>

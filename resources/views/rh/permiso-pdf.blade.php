@@ -113,7 +113,7 @@
             <table width="100%">
                 <tr>
                     <td width="30%">
-                        <img src="{{ asset('logo_small.png') }}" width="250">
+                        @include('pdf.partials.logo', ['width' => 250])
                     </td>
 
                     <td width="80%">
