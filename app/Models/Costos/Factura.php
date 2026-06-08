@@ -11,6 +11,7 @@ use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Costos\Factura\Cobertura;
+use App\Models\Costos\Factura\FechaPagoCalculada;
 use App\Models\Proveedor;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -99,40 +100,12 @@ class Factura extends Model
     }
 
     /**
-     * Calcula la fecha tentativa de pago aplicando los días de crédito sobre
-     * la base configurada (factura, recepción o aprobación) y ajustando al
-     * próximo viernes hábil si la fecha resultante no cae en viernes.
-     *
-     * Retorna null si falta información para calcular (ej. base=aprobacion
-     * pero la factura aún no ha sido aprobada por costos).
+     * Fecha tentativa de pago de la factura. La lógica vive en
+     * {@see FechaPagoCalculada}.
      */
     public function calcularFechaPago(): ?Carbon
     {
-        $this->loadMissing('proveedor');
-        $dias = (int) ($this->dias_credito ?? $this->proveedor?->dias_credito_default ?? 0);
-
-        // Si el proveedor exige respetar fecha factura, la base siempre es
-        // la fecha del CFDI; de lo contrario se usa la base configurada.
-        if ($this->proveedor?->respetar_fecha_factura) {
-            $fechaBase = $this->fecha_factura;
-        } else {
-            $base = $this->base_dias_credito ?? BaseDiasCredito::Factura;
-            $fechaBase = match ($base) {
-                BaseDiasCredito::Factura => $this->fecha_factura,
-                BaseDiasCredito::Recepcion => $this->entregas()->latest('fecha_entrega')->value('fecha_entrega'),
-                BaseDiasCredito::Aprobacion => $this->aprobada_costos_at,
-            };
-        }
-
-        if (! $fechaBase) {
-            return null;
-        }
-
-        $fecha = Carbon::parse($fechaBase)->addDays($dias);
-
-        return $fecha->dayOfWeek === Carbon::FRIDAY
-            ? $fecha
-            : $fecha->next(Carbon::FRIDAY);
+        return (new FechaPagoCalculada($this))->calcular();
     }
 
     public function media(): MorphMany
