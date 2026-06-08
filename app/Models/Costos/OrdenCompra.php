@@ -16,6 +16,7 @@ use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
 use App\Models\Usuario;
+use App\Services\Costos\OrdenCompraEstadoService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -233,45 +234,13 @@ class OrdenCompra extends Model
     }
 
     /**
-     * Recalcula el estatus de la OC basado en el estado agregado de sus facturas
-     * y la presencia de recepciones del almacén.
-     *
-     * Reglas (en orden):
-     *  - cancelada                        → no cambia
-     *  - sin facturas activas, sin entregas → pendiente_entrega
-     *  - sin facturas activas, con entregas → pendiente_factura
-     *  - todas facturas pagadas           → pagada
-     *  - todas facturas en pago o pagadas → pendiente_pago
-     *  - default (con facturas activas)   → pendiente_aprobacion
+     * Recalcula el estatus de la OC según el estado agregado de sus facturas y
+     * la presencia de recepciones del almacén. La lógica vive en
+     * {@see OrdenCompraEstadoService}.
      */
     public function recalcularEstatus(): void
     {
-        if ($this->estatus === OrdenCompraEstatus::Cancelada) {
-            return;
-        }
-
-        $facturas = $this->facturas()->where('estatus', '!=', FacturaEstatus::Cancelada->value)->get();
-
-        if ($facturas->isEmpty()) {
-            $estado = $this->entregas()->exists() ? 'pendiente_factura' : 'pendiente_entrega';
-            $this->update(['estatus' => $estado]);
-
-            return;
-        }
-
-        if ($facturas->every(fn ($f) => $f->estatus === FacturaEstatus::Pagada)) {
-            $this->update(['estatus' => 'pagada']);
-
-            return;
-        }
-
-        if ($facturas->every(fn ($f) => in_array($f->estatus, [FacturaEstatus::PendientePago, FacturaEstatus::Pagada], true))) {
-            $this->update(['estatus' => 'pendiente_pago']);
-
-            return;
-        }
-
-        $this->update(['estatus' => 'pendiente_aprobacion']);
+        app(OrdenCompraEstadoService::class)->recalcular($this);
     }
 
     /**
