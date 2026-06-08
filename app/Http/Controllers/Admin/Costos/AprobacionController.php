@@ -49,19 +49,19 @@ class AprobacionController extends Controller
             }]);
 
         $pendientes = $baseQuery()
-            ->where('estatus', 'pendiente')
+            ->where('estatus', AprobacionEstatus::Pendiente->value)
             ->latest()
             ->get()
             ->filter(fn (Aprobacion $a) => $this->esTurno($a))
             ->values();
 
         $aprobadas = $baseQuery()
-            ->where('estatus', 'aprobada')
+            ->where('estatus', AprobacionEstatus::Aprobada->value)
             ->latest('fecha_respuesta')
             ->get();
 
         $rechazadas = $baseQuery()
-            ->where('estatus', 'rechazada')
+            ->where('estatus', AprobacionEstatus::Rechazada->value)
             ->latest('fecha_respuesta')
             ->get();
 
@@ -171,9 +171,9 @@ class AprobacionController extends Controller
 
         $aprobable = $aprobacionSolicitud->aprobable;
         $aprobable->cadenaAprobacion()
-            ->where('estatus', 'pendiente')
+            ->where('estatus', AprobacionEstatus::Pendiente->value)
             ->update([
-                'estatus' => 'cancelada',
+                'estatus' => AprobacionEstatus::Cancelada->value,
                 'fecha_respuesta' => now(),
             ]);
 
@@ -200,7 +200,7 @@ class AprobacionController extends Controller
             $tieneAprobada = Aprobacion::where('aprobable_type', $aprobacion->aprobable_type)
                 ->where('aprobable_id', $aprobacion->aprobable_id)
                 ->where('nivel', $nivel)
-                ->where('estatus', 'aprobada')
+                ->where('estatus', AprobacionEstatus::Aprobada->value)
                 ->exists();
 
             if (! $tieneAprobada) {
