@@ -33,7 +33,7 @@ class ValidadorPresupuesto
      */
     public function validar(ObraRubro $obraRubro, float $montoAdicional, Model $entrada, bool $allowSobregiro = false): void
     {
-        $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
+        $disponible = $obraRubro->disponible;
 
         if ($montoAdicional > $disponible + 0.001) {
             if (! $allowSobregiro && config('costos.bloquear_sobregiro', false)) {

@@ -84,7 +84,7 @@ class PortalFacturaController extends Controller
                 ->withErrors(['xml' => 'Ya existe una factura registrada con el UUID fiscal del XML.']);
         }
 
-        $saldoFacturable = (float) $oc->total - (float) $oc->total_facturado;
+        $saldoFacturable = $oc->saldo_facturable;
         $totalCfdi = (float) ($fiscal['total'] ?? 0);
         if ($totalCfdi > $saldoFacturable + 0.01) {
             return back()
@@ -175,7 +175,7 @@ class PortalFacturaController extends Controller
         $fiscal = $preview['fiscal'];
 
         // Re-valida saldo (puede haber otra factura aprobada entre paso 1 y 2)
-        $saldoFacturable = (float) $oc->total - (float) $oc->total_facturado;
+        $saldoFacturable = $oc->saldo_facturable;
         $totalCfdi = (float) ($fiscal['total'] ?? 0);
         if ($totalCfdi > $saldoFacturable + 0.01) {
             $this->limpiarPreview();

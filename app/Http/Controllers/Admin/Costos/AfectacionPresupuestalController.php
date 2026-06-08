@@ -257,7 +257,7 @@ class AfectacionPresupuestalController extends Controller
                 ->increment('acumulado', (float) $detalle->monto);
 
             $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
-            $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
+            $disponible = $obraRubro->disponible;
 
             $afectacion->rubrosAfectados()->create([
                 'obra_rubro_id' => $detalle->obra_rubro_id,

@@ -210,3 +210,25 @@ test('validation requiere descripcion, unidad, cantidad y precio_unitario por pa
             'detalles.0.precio_unitario',
         ]);
 });
+
+test('saldo_facturable = total menos facturas activas, excluye canceladas', function () {
+    $oc = OrdenCompra::factory()->create(['total' => 10000]);
+
+    Factura::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'proveedor_id' => $oc->proveedor_id,
+        'total' => 4000,
+        'estatus' => 'pendiente_aprobacion',
+    ]);
+    Factura::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'proveedor_id' => $oc->proveedor_id,
+        'total' => 9999,
+        'estatus' => 'cancelada',
+    ]);
+
+    $oc->refresh();
+
+    expect($oc->total_facturado)->toBe(4000.0);
+    expect($oc->saldo_facturable)->toBe(6000.0);
+});

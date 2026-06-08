@@ -203,6 +203,16 @@ class OrdenCompra extends Model
     }
 
     /**
+     * Saldo facturable: total de la OC menos lo ya facturado (facturas no
+     * canceladas). Se usa para validar que un CFDI entrante no exceda lo
+     * pendiente de facturar.
+     */
+    public function getSaldoFacturableAttribute(): float
+    {
+        return (float) $this->total - $this->total_facturado;
+    }
+
+    /**
      * True si la OC es de contado y su solicitud de pago de anticipo ya fue
      * pagada. Se refleja como badge "Pagada (anticipo contado)" sin alterar el
      * estatus formal de la OC (que sigue su curso entrega → factura → ...).

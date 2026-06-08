@@ -168,7 +168,7 @@ class ApartadoPresupuestal
         ObraRubro::where('id', $obraRubroId)->increment('acumulado', $monto);
 
         $obraRubro->refresh();
-        $sobregiro = ((float) $obraRubro->presupuestado - (float) $obraRubro->acumulado) < 0;
+        $sobregiro = $obraRubro->disponible < 0;
 
         return RubroAfectado::create([
             'entrada_type' => $entrada::class,

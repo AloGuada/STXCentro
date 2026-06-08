@@ -119,7 +119,7 @@ class OrdenCompraController extends Controller
 
                 $obraRubro = ObraRubro::find($detalle['obra_rubro_id']);
                 if ($obraRubro) {
-                    $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
+                    $disponible = $obraRubro->disponible;
                     if ($subtotal > $disponible) {
                         $warnings[] = "El centro de costos {$obraRubro->rubro?->codigo} excede el presupuesto disponible.";
                     }

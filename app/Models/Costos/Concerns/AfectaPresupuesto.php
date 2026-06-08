@@ -28,7 +28,7 @@ trait AfectaPresupuesto
                 ->increment('acumulado', (float) $detalle->subtotal);
 
             $obraRubro->refresh();
-            $disponible = (float) $obraRubro->presupuestado - (float) $obraRubro->acumulado;
+            $disponible = $obraRubro->disponible;
 
             $this->rubrosAfectados()->create([
                 'obra_rubro_id' => $detalle->obra_rubro_id,
