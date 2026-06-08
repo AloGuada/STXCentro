@@ -10,7 +10,6 @@ use App\Http\Requests\Admin\Costos\SolicitudArchivoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudFirmadoRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoUpdateRequest;
-use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Pago;
 use App\Models\Costos\Permiso;
@@ -22,6 +21,7 @@ use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
 use App\Services\Costos\ApartadoPresupuestal;
+use App\Services\Costos\ApprovalChainService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -159,20 +159,7 @@ class SolicitudPagoController extends Controller
             ]);
             $this->apartado->apartarDocumento($solicitud, $items, $request->user()->id);
 
-            // Crear cadena de aprobaciones del departamento (multiusuario por nivel)
-            $cadenaAprobacion = AprobacionDepartamento::where('departamento_id', $solicitud->departamento_id)
-                ->with('permiso')
-                ->get()
-                ->sortBy('permiso.nivel')
-                ->values();
-
-            foreach ($cadenaAprobacion as $asignacion) {
-                $solicitud->aprobaciones()->create([
-                    'nivel' => $asignacion->permiso->nivel,
-                    'aprobador_id' => $asignacion->aprobador_id,
-                    'estatus' => 'pendiente',
-                ]);
-            }
+            app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitud);
         });
 
         $redirect = to_route('admin.costos.solicitudes-pago.show', $solicitud);
@@ -418,24 +405,10 @@ class SolicitudPagoController extends Controller
             'detalles.obraRubro.rubro',
         ]);
 
-        $cadenaAprobacion = AprobacionDepartamento::where('departamento_id', $solicitudPago->departamento_id)
-            ->with(['permiso', 'aprobador'])
-            ->get()
-            ->sortBy('permiso.nivel')
-            ->values();
-
         // Cambiar estatus a pendiente_firma
         if ($solicitudPago->estatus === SolicitudPagoEstatus::Borrador) {
             $solicitudPago->transitionTo(SolicitudPagoEstatus::PendienteFirma);
-
-            // Crear registros de aprobación (uno por aprobador por nivel)
-            foreach ($cadenaAprobacion as $asignacion) {
-                $solicitudPago->aprobaciones()->create([
-                    'nivel' => $asignacion->permiso->nivel,
-                    'aprobador_id' => $asignacion->aprobador_id,
-                    'estatus' => 'pendiente',
-                ]);
-            }
+            app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitudPago);
         }
 
         // Agrupar aprobaciones por nivel para el PDF (una columna por nivel)
