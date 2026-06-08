@@ -12,7 +12,6 @@ use App\Http\Requests\Admin\Costos\RequisicionLiberarRequest;
 use App\Http\Requests\Admin\Costos\RequisicionStoreRequest;
 use App\Http\Requests\Admin\Costos\RequisicionUpdateRequest;
 use App\Models\Costos\Aprobacion;
-use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
@@ -23,6 +22,7 @@ use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
 use App\Services\Costos\ApartadoPresupuestal;
+use App\Services\Costos\ApprovalChainService;
 use App\Services\Costos\AprobacionService;
 use App\Services\Costos\OrdenCompraGenerator;
 use Illuminate\Http\RedirectResponse;
@@ -596,20 +596,7 @@ class RequisicionController extends Controller
         }
 
         DB::transaction(function () use ($request, $requisicion) {
-            $cadena = AprobacionDepartamento::where('departamento_id', $requisicion->departamento_id)
-                ->whereHas('permiso', fn ($q) => $q->where('tipo_aprobacion', Requisicion::TIPO_APROBACION))
-                ->with('permiso')
-                ->get()
-                ->sortBy('permiso.nivel')
-                ->values();
-
-            foreach ($cadena as $asignacion) {
-                $requisicion->aprobaciones()->create([
-                    'nivel' => $asignacion->permiso->nivel,
-                    'aprobador_id' => $asignacion->aprobador_id,
-                    'estatus' => 'pendiente',
-                ]);
-            }
+            app(ApprovalChainService::class)->crearCadenaAprobaciones($requisicion);
 
             $requisicion->transitionTo(RequisicionEstatus::PendienteAprobacion);
 

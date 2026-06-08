@@ -4,7 +4,6 @@ namespace App\Services\Costos;
 
 use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\SolicitudPagoEstatus;
-use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\TipoSolicitud;
@@ -75,7 +74,12 @@ class SolicitudPagoDesdeOrdenCompra
                 'texto_adicional' => "Formato de OC {$oc->folio}",
             ]);
 
-            $this->crearCadenaAprobacion($solicitud);
+            if (app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitud) === 0) {
+                Log::warning('Solicitud de pago de OC contado sin cadena de aprobación configurada.', [
+                    'solicitud_id' => $solicitud->id,
+                    'departamento_id' => $solicitud->departamento_id,
+                ]);
+            }
         } catch (\Throwable $e) {
             Storage::disk('public')->delete($media->path);
 
@@ -104,36 +108,5 @@ class SolicitudPagoDesdeOrdenCompra
             'mime' => 'application/pdf',
             'size' => Storage::disk('public')->size($path),
         ]);
-    }
-
-    /**
-     * Replica la cadena de aprobación por departamento (multiusuario por nivel)
-     * filtrando por el tipo de aprobación de solicitudes de pago.
-     */
-    private function crearCadenaAprobacion(SolicitudPago $solicitud): void
-    {
-        $cadena = AprobacionDepartamento::where('departamento_id', $solicitud->departamento_id)
-            ->whereHas('permiso', fn ($q) => $q->where('tipo_aprobacion', SolicitudPago::TIPO_APROBACION))
-            ->with('permiso')
-            ->get()
-            ->sortBy('permiso.nivel')
-            ->values();
-
-        if ($cadena->isEmpty()) {
-            Log::warning('Solicitud de pago de OC contado sin cadena de aprobación configurada.', [
-                'solicitud_id' => $solicitud->id,
-                'departamento_id' => $solicitud->departamento_id,
-            ]);
-
-            return;
-        }
-
-        foreach ($cadena as $asignacion) {
-            $solicitud->aprobaciones()->create([
-                'nivel' => $asignacion->permiso->nivel,
-                'aprobador_id' => $asignacion->aprobador_id,
-                'estatus' => 'pendiente',
-            ]);
-        }
     }
 }
