@@ -27,14 +27,14 @@ class AprobacionService
         $aprobable->cadenaAprobacion()
             ->where('nivel', $aprobacion->nivel)
             ->where('id', '!=', $aprobacion->id)
-            ->where('estatus', 'pendiente')
+            ->where('estatus', AprobacionEstatus::Pendiente->value)
             ->update([
-                'estatus' => 'cancelada',
+                'estatus' => AprobacionEstatus::Cancelada->value,
                 'fecha_respuesta' => now(),
             ]);
 
         $quedanPendientes = $aprobable->cadenaAprobacion()
-            ->where('estatus', 'pendiente')
+            ->where('estatus', AprobacionEstatus::Pendiente->value)
             ->exists();
 
         if (! $quedanPendientes && $aprobable instanceof Aprobable) {
