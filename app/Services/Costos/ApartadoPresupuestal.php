@@ -41,13 +41,15 @@ class ApartadoPresupuestal
 
         DB::transaction(function () use ($entrada, $items, $userId, $apartadoHasta) {
             foreach ($items as $item) {
-                $this->crearApartado(
+                $this->aplicarCargo(
                     entrada: $entrada,
                     obraRubroId: (int) $item['obra_rubro_id'],
                     monto: (float) $item['monto'],
+                    estatus: RubroAfectadoEstatus::Apartado,
                     descripcion: $item['descripcion'] ?? null,
                     userId: $userId,
                     apartadoHasta: $apartadoHasta,
+                    allowSobregiro: true,
                 );
             }
         });
@@ -153,32 +155,39 @@ class ApartadoPresupuestal
         $this->apartarDocumento($entrada, $items, $userId);
     }
 
-    private function crearApartado(
+    /**
+     * Aplica un cargo presupuestal a un rubro: valida sobregiro, incrementa el
+     * acumulado y registra el RubroAfectado. Primitiva compartida por el
+     * apartado temporal y la afectación permanente (trait AfectaPresupuesto).
+     */
+    public function aplicarCargo(
         Model $entrada,
         int $obraRubroId,
         float $monto,
-        ?string $descripcion,
-        ?string $userId,
-        Carbon $apartadoHasta,
+        RubroAfectadoEstatus $estatus,
+        ?string $descripcion = null,
+        ?string $userId = null,
+        ?Carbon $apartadoHasta = null,
+        bool $allowSobregiro = false,
     ): RubroAfectado {
+        $userId = $userId ?? Auth::id();
         $obraRubro = ObraRubro::findOrFail($obraRubroId);
 
-        $this->validador->validar($obraRubro, $monto, $entrada, allowSobregiro: true);
+        $this->validador->validar($obraRubro, $monto, $entrada, allowSobregiro: $allowSobregiro);
 
         ObraRubro::where('id', $obraRubroId)->increment('acumulado', $monto);
 
         $obraRubro->refresh();
-        $sobregiro = $obraRubro->disponible < 0;
 
         return RubroAfectado::create([
             'entrada_type' => $entrada::class,
             'entrada_id' => $entrada->getKey(),
             'obra_rubro_id' => $obraRubroId,
             'monto' => $monto,
-            'sobre_giro' => $sobregiro,
+            'sobre_giro' => $obraRubro->disponible < 0,
             'descripcion' => $descripcion,
             'tipo_movimiento' => 'cargo',
-            'estatus' => RubroAfectadoEstatus::Apartado,
+            'estatus' => $estatus,
             'apartado_hasta' => $apartadoHasta,
             'usuario_aplica_id' => $userId,
             'fecha_aplicacion' => now(),

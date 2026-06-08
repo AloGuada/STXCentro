@@ -2,44 +2,38 @@
 
 namespace App\Models\Costos\Concerns;
 
+use App\Enums\Costos\RubroAfectadoEstatus;
 use App\Models\Costos\ObraRubro;
-use App\Services\Costos\ValidadorPresupuesto;
+use App\Services\Costos\ApartadoPresupuestal;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * Aplica impacto presupuestal permanente: por cada detalle incrementa el
- * acumulado del obra_rubro (validando sobregiro) y registra un RubroAfectado
- * con estatus 'aplicado'. El modelo que use el trait debe exponer las
- * relaciones `detalles` y `rubrosAfectados`, y definir cómo describir la
- * afectación de cada detalle.
+ * Aplica impacto presupuestal permanente: por cada detalle registra un cargo
+ * (Aplicado) sobre el obra_rubro correspondiente vía la primitiva compartida
+ * {@see ApartadoPresupuestal::aplicarCargo()} (valida sobregiro, incrementa el
+ * acumulado y crea el RubroAfectado).
+ *
+ * El modelo que use el trait debe exponer la relación `detalles` (con
+ * `obra_rubro_id` y `subtotal`) y definir cómo describir cada afectación.
  */
 trait AfectaPresupuesto
 {
     public function aplicarImpactoPresupuestal(?string $userId = null): void
     {
         $userId = $userId ?? Auth::id();
-        $validador = app(ValidadorPresupuesto::class);
+        $apartado = app(ApartadoPresupuestal::class);
 
         foreach ($this->detalles as $detalle) {
             $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
-            $validador->validar($obraRubro, (float) $detalle->subtotal, $this);
 
-            ObraRubro::where('id', $detalle->obra_rubro_id)
-                ->increment('acumulado', (float) $detalle->subtotal);
-
-            $obraRubro->refresh();
-            $disponible = $obraRubro->disponible;
-
-            $this->rubrosAfectados()->create([
-                'obra_rubro_id' => $detalle->obra_rubro_id,
-                'monto' => $detalle->subtotal,
-                'sobre_giro' => $disponible < 0,
-                'descripcion' => $this->descripcionAfectacion($detalle, $obraRubro),
-                'tipo_movimiento' => 'cargo',
-                'estatus' => 'aplicado',
-                'usuario_aplica_id' => $userId,
-                'fecha_aplicacion' => now(),
-            ]);
+            $apartado->aplicarCargo(
+                entrada: $this,
+                obraRubroId: (int) $detalle->obra_rubro_id,
+                monto: (float) $detalle->subtotal,
+                estatus: RubroAfectadoEstatus::Aplicado,
+                descripcion: $this->descripcionAfectacion($detalle, $obraRubro),
+                userId: $userId,
+            );
         }
     }
 

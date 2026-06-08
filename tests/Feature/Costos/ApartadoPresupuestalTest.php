@@ -39,6 +39,24 @@ test('apartar incrementa acumulado y crea RubroAfectado en estatus Apartado', fu
     expect($ra->apartado_hasta->isAfter(now()->addDays(4)))->toBeTrue();
 });
 
+test('aplicarCargo registra un cargo con el estatus indicado e incrementa acumulado', function () {
+    $entrada = SolicitudPago::factory()->create();
+
+    $ra = $this->service->aplicarCargo(
+        entrada: $entrada,
+        obraRubroId: $this->obraRubro->id,
+        monto: 3000,
+        estatus: RubroAfectadoEstatus::Aplicado,
+        descripcion: 'Cargo permanente',
+    );
+
+    expect($ra->estatus)->toBe(RubroAfectadoEstatus::Aplicado);
+    expect($ra->tipo_movimiento)->toBe('cargo');
+    expect($ra->apartado_hasta)->toBeNull();
+    expect((float) $ra->monto)->toBe(3000.00);
+    expect((float) $this->obraRubro->fresh()->acumulado)->toBe(3000.00);
+});
+
 test('apartar permite sobregiro y marca el flag', function () {
     $entrada = SolicitudPago::factory()->create();
 
