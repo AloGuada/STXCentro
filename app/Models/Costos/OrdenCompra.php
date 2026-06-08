@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -421,6 +422,34 @@ class OrdenCompra extends Model
             'usuario_aplica_id' => $userId,
             'fecha_aplicacion' => now(),
         ]);
+    }
+
+    /**
+     * Cancela la OC revirtiendo su impacto presupuestal, siempre que esté en un
+     * estado cancelable (aún sin entrega/factura/pago). Devuelve false (no-op) si
+     * la OC ya avanzó. Se usa al rechazar la solicitud de pago de anticipo de una
+     * OC de contado: la OC no debe quedar viva sin pago.
+     */
+    public function cancelarPorRechazoDePago(string $motivo, ?string $userId = null): bool
+    {
+        $cancelables = [
+            OrdenCompraEstatus::PendienteEntrega,
+            OrdenCompraEstatus::PendienteFactura,
+            OrdenCompraEstatus::PendienteAprobacion,
+        ];
+
+        if (! in_array($this->estatus, $cancelables, true)) {
+            return false;
+        }
+
+        DB::transaction(function () use ($motivo, $userId) {
+            $this->load('detalles');
+            $this->revertirImpactoPresupuestal($userId);
+            $this->transitionTo(OrdenCompraEstatus::Cancelada);
+            $this->registrarCancelacion($motivo, $userId ?? Auth::id());
+        });
+
+        return true;
     }
 
     public function getActivitylogOptions(): LogOptions

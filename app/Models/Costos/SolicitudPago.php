@@ -167,6 +167,11 @@ class SolicitudPago extends Model implements Aprobable
     {
         $this->transitionTo(SolicitudPagoEstatus::Cancelada);
         app(\App\Services\Costos\ApartadoPresupuestal::class)->cancelarApartadosDe($this, 'rechazada en aprobación');
+
+        // Si la SP es el anticipo de una OC de contado (única con orden_compra_id),
+        // rechazarla cancela la OC y revierte su impacto presupuestal: la OC no
+        // debe quedar viva sin pago.
+        $this->ordenCompra?->cancelarPorRechazoDePago("Solicitud de pago rechazada: {$motivo}", $userId);
     }
 
     public function pago(): MorphOne
