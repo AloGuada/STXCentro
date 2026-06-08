@@ -11,6 +11,7 @@ use App\Models\Concerns\HasStateMachine;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Usuario;
+use App\Services\Costos\BuscadorMejorProveedor;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -149,55 +150,14 @@ class Requisicion extends Model implements Aprobable
 
     /**
      * Mejor proveedor: aquel que cotizó TODAS las partidas y cuya suma de
-     * (cantidad × precio_unitario) por partida es la menor.
+     * (cantidad × precio_unitario) por partida es la menor. La lógica vive en
+     * {@see BuscadorMejorProveedor}.
      *
      * @return array{id: int, razon_social: string, nombre_comercial: string|null, total: float}|null
      */
     public function getMejorProveedorAttribute(): ?array
     {
-        $this->loadMissing('detalles.cotizaciones.proveedor');
-
-        $detalles = $this->detalles;
-        if ($detalles->isEmpty()) {
-            return null;
-        }
-
-        // Agrupa cotizaciones por proveedor → arreglo de { partidaId → precio_unitario }.
-        $porProveedor = [];
-        foreach ($detalles as $detalle) {
-            foreach ($detalle->cotizaciones as $cot) {
-                $provId = (int) $cot->proveedor_id;
-                $porProveedor[$provId]['proveedor'] = $cot->proveedor;
-                $porProveedor[$provId]['partidas'][$detalle->id] = [
-                    'precio' => (float) $cot->precio_unitario,
-                    'cantidad' => (float) $detalle->cantidad,
-                ];
-            }
-        }
-
-        $totalPartidas = $detalles->count();
-        $mejor = null;
-
-        foreach ($porProveedor as $provId => $info) {
-            // Solo considera proveedores que cotizaron todas las partidas.
-            if (count($info['partidas'] ?? []) !== $totalPartidas) {
-                continue;
-            }
-            $total = 0.0;
-            foreach ($info['partidas'] as $p) {
-                $total += $p['precio'] * $p['cantidad'];
-            }
-            if ($mejor === null || $total < $mejor['total']) {
-                $mejor = [
-                    'id' => $provId,
-                    'razon_social' => $info['proveedor']?->razon_social ?? '',
-                    'nombre_comercial' => $info['proveedor']?->nombre_comercial,
-                    'total' => round($total, 2),
-                ];
-            }
-        }
-
-        return $mejor;
+        return app(BuscadorMejorProveedor::class)->buscar($this);
     }
 
     /**
