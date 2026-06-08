@@ -182,14 +182,26 @@ class OrdenCompra extends Model
     }
 
     /**
-     * Suma de pagos realizados (estatus = pagado) sobre facturas de esta orden.
-     * Solo cuenta pagos raíz (sin pago_padre_id) para no duplicar con parcialidades.
+     * Suma de pagos realizados (estatus = pagado) de esta orden: pagos de sus
+     * facturas (flujo crédito) más pagos de sus solicitudes de pago (anticipo de
+     * contado). Solo cuenta pagos raíz (sin pago_padre_id) para no duplicar con
+     * parcialidades. Permite que pagar el anticipo de contado avance el
+     * porcentaje de pago de la OC.
      */
     public function getTotalPagadoAttribute(): float
     {
+        return $this->sumaPagados(Factura::class, $this->facturas()->pluck('id'))
+            + $this->sumaPagados(SolicitudPago::class, $this->solicitudesPago()->pluck('id'));
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, int>  $pagableIds
+     */
+    private function sumaPagados(string $pagableType, $pagableIds): float
+    {
         return (float) Pago::query()
-            ->where('pagable_type', Factura::class)
-            ->whereIn('pagable_id', $this->facturas()->pluck('id'))
+            ->where('pagable_type', $pagableType)
+            ->whereIn('pagable_id', $pagableIds)
             ->where('estatus', 'pagado')
             ->whereNull('pago_padre_id')
             ->sum('monto_pago');
