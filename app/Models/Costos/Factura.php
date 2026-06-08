@@ -10,6 +10,7 @@ use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
+use App\Models\Costos\Factura\Cobertura;
 use App\Models\Proveedor;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -242,43 +243,20 @@ class Factura extends Model
     }
 
     /**
-     * Cantidad recibida total de una partida de OC (todas las entregas).
+     * Objeto de cobertura: encapsula el cálculo de recepción por partida.
+     * {@see Cobertura}
      */
-    protected function cantidadRecibidaDePartida(int $ocdId): float
+    public function cobertura(): Cobertura
     {
-        return (float) EntregaDetalle::query()
-            ->where('orden_compra_detalle_id', $ocdId)
-            ->sum('cantidad_recibida');
-    }
-
-    /**
-     * Cantidad ya facturada de una partida de OC por OTRAS facturas activas
-     * (no canceladas) creadas antes que esta. Permite cobertura cronológica
-     * FIFO cuando varias facturas comparten la misma partida.
-     */
-    protected function cantidadFacturadaPreviaDePartida(int $ocdId): float
-    {
-        return (float) FacturaDetalle::query()
-            ->where('orden_compra_detalle_id', $ocdId)
-            ->whereHas('factura', function ($q) {
-                $q->where('estatus', '!=', FacturaEstatus::Cancelada->value)
-                    ->where('id', '!=', $this->id ?? 0)
-                    ->where('created_at', '<=', $this->created_at ?? now());
-            })
-            ->sum('cantidad');
+        return new Cobertura($this);
     }
 
     /**
      * ¿Una partida de esta factura está cubierta por recepciones?
-     * Disponible para partida = recibido_total - facturado_por_facturas_previas.
      */
     public function partidaCubierta(FacturaDetalle $fd): bool
     {
-        $recibido = $this->cantidadRecibidaDePartida($fd->orden_compra_detalle_id);
-        $previo = $this->cantidadFacturadaPreviaDePartida($fd->orden_compra_detalle_id);
-        $disponible = $recibido - $previo;
-
-        return (float) $fd->cantidad <= $disponible + 0.001;
+        return $this->cobertura()->partidaCubierta($fd);
     }
 
     /**
@@ -288,38 +266,18 @@ class Factura extends Model
      */
     public function getCoberturaCompletaAttribute(): bool
     {
-        $this->loadMissing('detalles');
-
-        if ($this->detalles->isEmpty()) {
-            return false;
-        }
-
-        return $this->detalles->every(fn (FacturaDetalle $fd) => $this->partidaCubierta($fd));
+        return $this->cobertura()->estaCompleta();
     }
 
     /**
      * Snapshot para UI: por cada FacturaDetalle.id, cuánto disponible hay para
-     * cubrirla y si está cubierta. Disponible = recibido_total − facturado_previo.
+     * cubrirla y si está cubierta.
      *
      * @return array<int, array{disponible: float, cubierta: bool}>
      */
     public function getCoberturaPorPartidaAttribute(): array
     {
-        $this->loadMissing('detalles');
-
-        $out = [];
-        foreach ($this->detalles as $fd) {
-            $recibido = $this->cantidadRecibidaDePartida($fd->orden_compra_detalle_id);
-            $previo = $this->cantidadFacturadaPreviaDePartida($fd->orden_compra_detalle_id);
-            $disponible = $recibido - $previo;
-
-            $out[$fd->id] = [
-                'disponible' => round(max(0, $disponible), 2),
-                'cubierta' => (float) $fd->cantidad <= $disponible + 0.001,
-            ];
-        }
-
-        return $out;
+        return $this->cobertura()->porPartida();
     }
 
     public function activities(): MorphMany
