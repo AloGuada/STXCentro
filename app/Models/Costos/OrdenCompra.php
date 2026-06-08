@@ -351,7 +351,7 @@ class OrdenCompra extends Model
             return 'cancelada';
         }
 
-        if ($this->monto_recibido > $this->total_facturado + 0.01) {
+        if ($this->monto_recibido > $this->total_facturado + config('costos.epsilon_monto')) {
             return 'espera_factura';
         }
 
@@ -365,11 +365,11 @@ class OrdenCompra extends Model
             return 'validacion_documentos';
         }
 
-        if ($facturas->isNotEmpty() && $this->total_pagado + 0.01 < $this->total) {
+        if ($facturas->isNotEmpty() && $this->total_pagado + config('costos.epsilon_monto') < $this->total) {
             return 'pago_programado';
         }
 
-        if ($this->porcentaje_recepcion >= 100 && $this->total_pagado + 0.01 >= $this->total) {
+        if ($this->porcentaje_recepcion >= 100 && $this->total_pagado + config('costos.epsilon_monto') >= $this->total) {
             return 'completada';
         }
 

@@ -17,11 +17,6 @@ use App\Models\Costos\FacturaDetalle;
  */
 final class Cobertura
 {
-    /**
-     * Tolerancia de comparación de cantidades para absorber redondeos decimales.
-     */
-    private const EPSILON = 0.001;
-
     public function __construct(private readonly Factura $factura) {}
 
     /**
@@ -38,7 +33,7 @@ final class Cobertura
      */
     public function partidaCubierta(FacturaDetalle $fd): bool
     {
-        return (float) $fd->cantidad <= $this->disponiblePara($fd) + self::EPSILON;
+        return (float) $fd->cantidad <= $this->disponiblePara($fd) + config('costos.epsilon_cantidad');
     }
 
     /**
@@ -71,7 +66,7 @@ final class Cobertura
             $disponible = $this->disponiblePara($fd);
             $out[$fd->id] = [
                 'disponible' => round(max(0, $disponible), 2),
-                'cubierta' => (float) $fd->cantidad <= $disponible + self::EPSILON,
+                'cubierta' => (float) $fd->cantidad <= $disponible + config('costos.epsilon_cantidad'),
             ];
         }
 

@@ -32,7 +32,7 @@ class RequisicionSeleccionController extends Controller
         $cantidadPartida = (float) $cotizacion->detalle->cantidad;
         $sumaPrevia = (float) $cotizacion->detalle->selecciones->sum('cantidad');
 
-        if ($sumaPrevia + $cantidad > $cantidadPartida + 0.001) {
+        if ($sumaPrevia + $cantidad > $cantidadPartida + config('costos.epsilon_cantidad')) {
             return back()->withErrors([
                 'cantidad' => sprintf(
                     'La suma de selecciones (%.2f) excede la cantidad solicitada de la partida (%.2f).',

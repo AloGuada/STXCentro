@@ -85,4 +85,17 @@ return [
         'dia_limite_mes_siguiente' => (int) env('COSTOS_COMPLEMENTO_DIA_LIMITE', 5),
         'recordatorio_cada_dias' => (int) env('COSTOS_COMPLEMENTO_RECORDATORIO_DIAS', 3),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tolerancias de comparación (epsilon)
+    |--------------------------------------------------------------------------
+    |
+    | Márgenes para absorber redondeos decimales al comparar. `epsilon_monto`
+    | (1 centavo) se usa para montos en pesos; `epsilon_cantidad` para unidades
+    | de partidas (cobertura, saldo facturable por cantidad).
+    |
+    */
+    'epsilon_monto' => (float) env('COSTOS_EPSILON_MONTO', 0.01),
+    'epsilon_cantidad' => (float) env('COSTOS_EPSILON_CANTIDAD', 0.001),
 ];

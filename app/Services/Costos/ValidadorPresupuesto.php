@@ -35,7 +35,7 @@ class ValidadorPresupuesto
     {
         $disponible = $obraRubro->disponible;
 
-        if ($montoAdicional > $disponible + 0.001) {
+        if ($montoAdicional > $disponible + config('costos.epsilon_monto')) {
             if (! $allowSobregiro && config('costos.bloquear_sobregiro', false)) {
                 throw new SobregiroPresupuestalException($obraRubro, $montoAdicional, $disponible);
             }

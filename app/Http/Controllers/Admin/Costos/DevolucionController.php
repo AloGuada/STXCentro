@@ -59,7 +59,7 @@ class DevolucionController extends Controller
             ->sum('cantidad');
         $disponible = (float) $entregaDetalle->cantidad_recibida - $devueltaPrevia;
 
-        if ($cantidad > $disponible + 0.001) {
+        if ($cantidad > $disponible + config('costos.epsilon_cantidad')) {
             return back()
                 ->withInput()
                 ->withErrors([

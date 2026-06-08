@@ -128,7 +128,7 @@ class AnticipoController extends Controller
         }
 
         $saldoAnticipo = (float) $anticipo->saldo_disponible;
-        if ($monto > $saldoAnticipo + 0.001) {
+        if ($monto > $saldoAnticipo + config('costos.epsilon_monto')) {
             return back()->withErrors([
                 'monto' => sprintf('El monto excede el saldo disponible del anticipo (%.2f).', $saldoAnticipo),
             ]);
@@ -137,7 +137,7 @@ class AnticipoController extends Controller
         // Saldo pendiente de la factura: total - anticipos previos
         $aplicadoPrevio = (float) $factura->anticiposAplicados()->sum('monto');
         $saldoFactura = (float) $factura->total - $aplicadoPrevio;
-        if ($monto > $saldoFactura + 0.001) {
+        if ($monto > $saldoFactura + config('costos.epsilon_monto')) {
             return back()->withErrors([
                 'monto' => sprintf('El monto excede el saldo pendiente de la factura (%.2f).', $saldoFactura),
             ]);

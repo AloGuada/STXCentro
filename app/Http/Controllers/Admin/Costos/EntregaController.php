@@ -50,7 +50,7 @@ class EntregaController extends Controller
             $saldoPendiente = (float) $ocd->cantidad - (float) ($yaRecibidoPorPartida[$ocdId] ?? 0);
             $totalEnviado = $acumuladoEnviado[$ocdId];
 
-            if ($totalEnviado > $saldoPendiente + 0.001) {
+            if ($totalEnviado > $saldoPendiente + config('costos.epsilon_cantidad')) {
                 return back()->withErrors([
                     "detalles.{$i}.cantidad_recibida" => sprintf(
                         'Excede el saldo pendiente (%.2f %s) de la partida "%s".',

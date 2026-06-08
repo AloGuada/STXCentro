@@ -574,13 +574,13 @@ class RequisicionController extends Controller
                 ]);
             }
 
-            if ($sumaSelecciones + 0.001 < $cantidadPartida) {
+            if ($sumaSelecciones + config('costos.epsilon_cantidad') < $cantidadPartida) {
                 return back()->withErrors([
                     'selecciones' => "La partida \"{$detalle->descripcion}\" no está cubierta al 100% por las selecciones.",
                 ]);
             }
 
-            if ($sumaSelecciones > $cantidadPartida + 0.001) {
+            if ($sumaSelecciones > $cantidadPartida + config('costos.epsilon_cantidad')) {
                 return back()->withErrors([
                     'selecciones' => "La partida \"{$detalle->descripcion}\" tiene selecciones por encima de la cantidad solicitada.",
                 ]);

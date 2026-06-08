@@ -121,7 +121,7 @@ class Anticipo extends Model
 
         $this->decrement('saldo_disponible', $monto);
 
-        if ((float) $this->fresh()->saldo_disponible <= 0.001) {
+        if ((float) $this->fresh()->saldo_disponible <= config('costos.epsilon_monto')) {
             $this->refresh();
             $this->transitionTo(AnticipoEstatus::Agotado);
         }

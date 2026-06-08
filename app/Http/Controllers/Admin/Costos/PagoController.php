@@ -119,7 +119,7 @@ class PagoController extends Controller
         $saldo = round((float) $pago->monto_pago - $pagado, 2);
         $monto = round((float) $request->input('monto'), 2);
 
-        if ($monto > $saldo + 0.01) {
+        if ($monto > $saldo + config('costos.epsilon_monto')) {
             return back()->withErrors(['monto' => "El monto excede el saldo pendiente (\${$saldo})."]);
         }
 

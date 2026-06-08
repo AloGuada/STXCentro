@@ -117,7 +117,7 @@ class FacturaAdminController extends Controller
             $ocd = $oc->detalles->firstWhere('id', $ocdId);
             $saldoFacturable = (float) $ocd->cantidad - ($yaFacturadoPorPartida[$ocdId] ?? 0);
 
-            if ($enviandoPorPartida[$ocdId] > $saldoFacturable + 0.001) {
+            if ($enviandoPorPartida[$ocdId] > $saldoFacturable + config('costos.epsilon_cantidad')) {
                 return back()->withErrors([
                     "detalles.{$i}.cantidad" => sprintf(
                         'Excede el saldo facturable (%.2f %s) de la partida "%s".',

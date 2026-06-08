@@ -86,7 +86,7 @@ class PortalFacturaController extends Controller
 
         $saldoFacturable = $oc->saldo_facturable;
         $totalCfdi = (float) ($fiscal['total'] ?? 0);
-        if ($totalCfdi > $saldoFacturable + 0.01) {
+        if ($totalCfdi > $saldoFacturable + config('costos.epsilon_monto')) {
             return back()
                 ->withErrors(['xml' => sprintf(
                     'El monto del CFDI ($%s) excede el saldo facturable de la OC ($%s).',
@@ -177,7 +177,7 @@ class PortalFacturaController extends Controller
         // Re-valida saldo (puede haber otra factura aprobada entre paso 1 y 2)
         $saldoFacturable = $oc->saldo_facturable;
         $totalCfdi = (float) ($fiscal['total'] ?? 0);
-        if ($totalCfdi > $saldoFacturable + 0.01) {
+        if ($totalCfdi > $saldoFacturable + config('costos.epsilon_monto')) {
             $this->limpiarPreview();
 
             return redirect()->route('portal.ordenes-compra.show', $oc)
