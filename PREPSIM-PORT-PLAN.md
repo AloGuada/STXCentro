@@ -20,7 +20,7 @@ monorepo Laravel 12 + Inertia/React 19. prepsim vive en `C:\Users\desarrollo.ti\
 | Tiempo real | **Awareness solo a nivel obra/resumen** (no dentro de la tarjeta, que es mono-usuario por el lock). Polling de Inertia v2 para MVP → Laravel Reverb después (presencia + push instantáneo) sin rehacer nada |
 | Versiones | **Snapshots nombrados de inputs** (modelo B por etapas): primero copia inmutable restaurable/comparable del árbol de inputs; luego bitácora append-only que sirve a la vez a auditoría multiusuario y al feed de tiempo real. Sin event sourcing |
 | FKs | **Normalizar a convención del mono** (`tarjeta_id`, `generadora_id`, …). prepsim usa nombres inconsistentes (`tarjeta`, `generadora`) — se renombran al portar |
-| Legacy NO portado | `insumo_categorias`, `insumos.categoria_id`, `tarjeta_registros.solo_exterior`, `generadora_registros.tipo_merma_override`, `obra_insumo_precios` (deuda técnica de prepsim) |
+| Legacy NO portado | `insumo_categorias`, `insumos.categoria_id`, `tarjeta_registros.solo_exterior`, `generadora_registros.tipo_merma_override`, `obra_insumo_precios` (deuda técnica de prepsim). **Nota:** la clasificación `categoria_tarjeta_id` de cada insumo (M035) deriva del legacy `categoria_id→insumo_categorias→CASE`; se **pre-resuelve al generar el seed** y se hornea directo en `cotiz_insumos.categoria_tarjeta_id` (nullable). Factores se clasifican por `codigo`. Categorías tarjeta (8): ESTRUCTURA(1), CONSUMIBLES PLANTA(2), CONSUMIBLES OBRA(3), PINTURA(4), TORNILLERÍA(5), LÁMINA(6), MEZZANINE(7), MISC(8) |
 
 ## Dependencias a aprobar / instalar
 
