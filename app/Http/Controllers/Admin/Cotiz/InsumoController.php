@@ -10,25 +10,21 @@ use App\Models\Cotiz\CentroCosto;
 use App\Models\Cotiz\Insumo;
 use App\Models\Cotiz\Unidad;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class InsumoController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $insumos = Insumo::query()
-            ->with(['unidad', 'centroCosto', 'categoriaTarjeta'])
-            ->when($request->search, fn ($q, $s) => $q->where('descripcion', 'like', "%{$s}%")
-                ->orWhere('codigo_stumis', 'like', "%{$s}%"))
-            ->orderBy('descripcion')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('admin/cotiz/insumos/index', [
-            'insumos' => $insumos,
-            'filters' => $request->only('search'),
+            'insumos' => Insumo::query()
+                ->with(['unidad', 'centroCosto', 'categoriaTarjeta'])
+                ->orderBy('descripcion')
+                ->get(),
+            'unidades' => Unidad::query()->orderBy('descripcion')->get(),
+            'centrosCosto' => CentroCosto::query()->orderBy('concepto')->get(),
+            'categoriasTarjeta' => CategoriaTarjeta::query()->orderBy('orden')->get(),
         ]);
     }
 

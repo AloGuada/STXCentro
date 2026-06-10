@@ -27,7 +27,10 @@ describe('cotiz catálogos - insumos', function () {
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('admin/cotiz/insumos/index')
-                ->has('insumos.data', 3)
+                ->has('insumos', 3)
+                ->has('unidades')
+                ->has('centrosCosto')
+                ->has('categoriasTarjeta')
             );
     });
 

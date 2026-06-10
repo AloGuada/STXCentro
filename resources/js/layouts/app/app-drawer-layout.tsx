@@ -133,6 +133,20 @@ const navGroups: NavGroup[] = [
         ],
     },
     {
+        title: 'Cotización',
+        icon: Calculator,
+        items: [
+            {
+                title: 'Catálogos',
+                href: '/admin/cotiz/insumos',
+                icon: FolderTree,
+                children: [
+                    { title: 'Insumos', href: '/admin/cotiz/insumos', icon: BookOpen, permission: 'cotiz.insumos.ver' },
+                ],
+            },
+        ],
+    },
+    {
         title: 'Cobranza',
         icon: Receipt,
         items: [

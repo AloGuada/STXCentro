@@ -907,6 +907,48 @@ export type CostosTipoRubro = {
     updated_at: string;
 };
 
+// ===== Cotización (cotiz_) =====
+
+export type CotizUnidad = {
+    id: number;
+    descripcion: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizCentroCosto = {
+    id: number;
+    cod_coste: string;
+    concepto: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizCategoriaTarjeta = {
+    id: number;
+    descripcion: string;
+    orden: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizInsumo = {
+    id: number;
+    descripcion: string;
+    codigo_stumis: string | null;
+    unidad_id: number;
+    precio_unitario: string;
+    peso_lineal: string | null;
+    peso_default: string | null;
+    centro_costo_id: number;
+    categoria_tarjeta_id: number | null;
+    unidad?: CotizUnidad;
+    centro_costo?: CotizCentroCosto;
+    categoria_tarjeta?: CotizCategoriaTarjeta;
+    created_at: string;
+    updated_at: string;
+};
+
 export type CostosRubro = {
     id: number;
     codigo: string;
