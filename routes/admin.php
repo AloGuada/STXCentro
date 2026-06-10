@@ -42,6 +42,18 @@ use App\Http\Controllers\Admin\Costos\SolicitudPagoController as CostosSolicitud
 use App\Http\Controllers\Admin\Costos\TipoRubroController as CostosTipoRubroController;
 use App\Http\Controllers\Admin\Costos\TipoSolicitudController as CostosTipoSolicitudController;
 use App\Http\Controllers\Admin\Costos\UsoCfdiController as CostosUsoCfdiController;
+use App\Http\Controllers\Admin\Cotiz\CategoriaTarjetaController as CotizCategoriaTarjetaController;
+use App\Http\Controllers\Admin\Cotiz\CentroCostoController as CotizCentroCostoController;
+use App\Http\Controllers\Admin\Cotiz\CuadrillaController as CotizCuadrillaController;
+use App\Http\Controllers\Admin\Cotiz\FactorController as CotizFactorController;
+use App\Http\Controllers\Admin\Cotiz\FaseMontajeController as CotizFaseMontajeController;
+use App\Http\Controllers\Admin\Cotiz\FleteViaticoCatalogoController as CotizFleteViaticoCatalogoController;
+use App\Http\Controllers\Admin\Cotiz\InsumoController as CotizInsumoController;
+use App\Http\Controllers\Admin\Cotiz\KilosRealesCategoriaController as CotizKilosRealesCategoriaController;
+use App\Http\Controllers\Admin\Cotiz\MermaController as CotizMermaController;
+use App\Http\Controllers\Admin\Cotiz\PersonalCategoriaController as CotizPersonalCategoriaController;
+use App\Http\Controllers\Admin\Cotiz\PinturaFormulaController as CotizPinturaFormulaController;
+use App\Http\Controllers\Admin\Cotiz\ResumenFilaController as CotizResumenFilaController;
 use App\Http\Controllers\Admin\DepartamentoController;
 use App\Http\Controllers\Admin\Dg\CarpetaAccesoController as DgCarpetaAccesoController;
 use App\Http\Controllers\Admin\Dg\CarpetaController as DgCarpetaController;
@@ -264,6 +276,22 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('obra-rubros', [CostosObraRubroController::class, 'store'])->name('obra-rubros.store');
         Route::put('obra-rubros/{obraRubro}', [CostosObraRubroController::class, 'update'])->name('obra-rubros.update');
         Route::delete('obra-rubros/{obraRubro}', [CostosObraRubroController::class, 'destroy'])->name('obra-rubros.destroy');
+    });
+
+    // Cotización admin routes (catálogos globales)
+    Route::prefix('cotiz')->name('cotiz.')->group(function () {
+        Route::resource('insumos', CotizInsumoController::class)->parameters(['insumos' => 'insumo']);
+        Route::resource('mermas', CotizMermaController::class)->parameters(['mermas' => 'merma']);
+        Route::resource('factores', CotizFactorController::class)->parameters(['factores' => 'factor']);
+        Route::resource('centros-costo', CotizCentroCostoController::class)->parameters(['centros-costo' => 'centroCosto']);
+        Route::resource('categorias-tarjeta', CotizCategoriaTarjetaController::class)->parameters(['categorias-tarjeta' => 'categoriaTarjeta']);
+        Route::resource('pintura-formulas', CotizPinturaFormulaController::class)->parameters(['pintura-formulas' => 'pinturaFormula']);
+        Route::resource('kilos-reales-categorias', CotizKilosRealesCategoriaController::class)->parameters(['kilos-reales-categorias' => 'kilosRealesCategoria']);
+        Route::resource('cuadrillas', CotizCuadrillaController::class)->parameters(['cuadrillas' => 'cuadrilla']);
+        Route::resource('personal', CotizPersonalCategoriaController::class)->parameters(['personal' => 'personal']);
+        Route::resource('fases-montaje', CotizFaseMontajeController::class)->parameters(['fases-montaje' => 'faseMontaje']);
+        Route::resource('fletes-viaticos', CotizFleteViaticoCatalogoController::class)->parameters(['fletes-viaticos' => 'fleteViatico']);
+        Route::resource('resumen-filas', CotizResumenFilaController::class)->parameters(['resumen-filas' => 'resumenFila']);
     });
 
     // Cobranza admin routes
