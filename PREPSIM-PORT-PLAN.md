@@ -168,19 +168,19 @@ Tres problemas separados; no acoplarlos. El cálculo autoritativo en PHP (deriva
 ## Fase 1 — Obras + Generadoras
 
 ### Backend
-- [ ] Migraciones `cotiz_obras` (op, factor_contratista, num_grupos), `cotiz_generadoras`, `cotiz_generadora_registros`.
-- [ ] Modelos con accessors `tMlM2` y `kilosReales` (derivados en PHP). `merma_id`, `validado` por registro.
-- [ ] `GeneradoraController` (+ registros): CRUD, reordenar, validar por registro.
-- [ ] `App\Services\Cotiz\MermaCalculator` (port de `evaluarMerma`).
-- [ ] **Lock estricto en generadoras**: campos `locked_by`/`locked_at`/`lock_heartbeat_at`, endpoints `lock`/`heartbeat`/`unlock`, `App\Services\Cotiz\LockManager` (tomar/refrescar/liberar/forzar, TTL).
-- [ ] Rutas + permisos `cotiz.obras.*`, `cotiz.generadoras.*`.
+- [x] Migraciones `cotiz_obras` (op, factor_contratista 1.15, num_grupos), `cotiz_generadoras` (+ lock), `cotiz_generadora_registros`.
+- [x] Modelos con accessors `tMlM2` y `kilosReales` (derivados en PHP, appended). `merma_id`, `validado` por registro.
+- [x] `ObraController` (resource) + `GeneradoraController` (index por obra, edit con registros+kg_con_merma+lock, reorder) + `GeneradoraRegistroController` (store/update/destroy/validar).
+- [x] `App\Services\Cotiz\MermaCalculator` (port de `evaluarMerma`/`kilosConMerma`; vars null→0, error→0).
+- [x] **Lock estricto**: se **reusó el trait `HasEditLock`** del mono (`locked_by`/`locked_at`, TTL 15 min vía `config('costos.lock_ttl_minutes')`, `locked_at` hace de heartbeat) + `EditLockController` cotiz (`{type}=generadora`, 423 si ajeno, override forzado para `admin-cotiz`/`super-admin`). No se creó `LockManager` nuevo.
+- [x] Rutas + permisos `cotiz.obras.*`, `cotiz.generadoras.*` (asignados a `usuario-cotiz` y `admin-cotiz`).
 
 ### Frontend
-- [ ] `ObrasIndex/Create/Edit`, `GeneradorasIndex`, `GeneradoraEdit` (grid editable AG-Grid: insumo, dims, merma, kilos).
-- [ ] Selector de obra activa (equivalente a `activeObra` de prepsim) — en estado de página/sesión.
+- [x] `ObrasIndex/Create/Edit` (DataTable + forms), `GeneradorasIndex` (cards por obra con indicador de lock), `GeneradoraEdit` (grid AG-Grid editable inline: insumo, dims, merma, validado + columnas read-only T ML/M²/kg reales/kg c-merma + totales).
+- [x] Hook `use-cotiz-edit-lock.ts` (toma/heartbeat 5min/libera; solo-lectura si lo tiene otro). Navegación obra→generadoras como equivalente al `activeObra` de prepsim.
 
 ### Verificación
-- [ ] Tests: cálculo de kg por registro, aplicación de merma, validado por registro.
+- [x] Tests (90 verdes en total `--filter=Cotiz`): accessors de kg por registro, aplicación de merma, validado por registro, lock estricto + override admin. **Fase 1 COMPLETA.**
 
 ---
 
