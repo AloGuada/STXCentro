@@ -337,7 +337,30 @@ class RolesAndPermissionsSeeder extends Seeder
             'badge-configs.eliminar',
         ];
 
-        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $rhPermissions, $drivePermissions, $dgPermissions, $calPermissions, $corePermissions);
+        // Crear permisos del módulo Cotización (catálogos globales — Fase 0).
+        // El trabajo por obra (obras, generadoras, tarjetas, resumen) agrega sus permisos en fases posteriores.
+        $cotizCatalogos = [
+            'insumos',
+            'mermas',
+            'factores',
+            'centros-costo',
+            'categorias-tarjeta',
+            'pintura-formulas',
+            'kilos-reales-categorias',
+            'cuadrillas',
+            'personal',
+            'fases-montaje',
+            'fletes-viaticos',
+            'resumen-filas',
+        ];
+        $cotizPermissions = [];
+        foreach ($cotizCatalogos as $recurso) {
+            foreach (['ver', 'crear', 'editar', 'eliminar'] as $accion) {
+                $cotizPermissions[] = "cotiz.{$recurso}.{$accion}";
+            }
+        }
+
+        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $rhPermissions, $drivePermissions, $dgPermissions, $calPermissions, $corePermissions, $cotizPermissions);
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
@@ -367,6 +390,8 @@ class RolesAndPermissionsSeeder extends Seeder
         $inspectorCal = Role::firstOrCreate(['name' => 'inspector-cal', 'guard_name' => 'web']);
         $empleado = Role::firstOrCreate(['name' => 'empleado', 'guard_name' => 'web']);
         $directorGeneral = Role::firstOrCreate(['name' => 'director-general', 'guard_name' => 'web']);
+        $adminCotiz = Role::firstOrCreate(['name' => 'admin-cotiz', 'guard_name' => 'web']);
+        $usuarioCotiz = Role::firstOrCreate(['name' => 'usuario-cotiz', 'guard_name' => 'web']);
 
         // El rol `gerente` fue reemplazado por la ACL por carpeta (dg_carpeta_usuario.puede_escribir).
         Role::where('name', 'gerente')->delete();
@@ -482,5 +507,14 @@ class RolesAndPermissionsSeeder extends Seeder
             'dg.reportes.administrar',
             'dg.reportes.notas',
         ]);
+
+        // Admin Cotización gestiona los catálogos globales (y todo el módulo).
+        $adminCotiz->givePermissionTo($cotizPermissions);
+
+        // Usuario Cotización consume los catálogos (solo lectura); el trabajo por obra
+        // se le concede en fases posteriores. Corte fino permiso-por-permiso en Fase 6.
+        $usuarioCotiz->syncPermissions(
+            array_values(array_filter($cotizPermissions, fn (string $p) => str_ends_with($p, '.ver'))),
+        );
     }
 }

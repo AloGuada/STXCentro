@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             UsoCfdiSeeder::class,
             CostosTipoSolicitudSeeder::class,
             CobDocumentoSeccionSeeder::class,
+            CotizCatalogosSeeder::class,
         ]);
 
         // Crear usuario de prueba con rol super-admin
