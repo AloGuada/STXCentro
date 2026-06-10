@@ -129,27 +129,28 @@ Tres problemas separados; no acoplarlos. El cálculo autoritativo en PHP (deriva
 - [x] `TipoPintura` (auto, no_pinta, placa, tira, hss, ipr)
 
 #### Migraciones (catálogos globales)
-- [ ] `cotiz_unidades`, `cotiz_centros_costos`, `cotiz_mermas`, `cotiz_pintura_formulas`, `cotiz_categorias_tarjeta`
-- [ ] `cotiz_insumos` (FK a unidad/centro_costo/categoria_tarjeta; `peso_lineal`, `peso_default`, `codigo_stumis`)
-- [ ] `cotiz_kilos_reales_categorias`, `cotiz_factores` (formula nullable), `cotiz_cuadrillas`
-- [ ] `cotiz_personal_categorias`, `cotiz_fases_montaje`, `cotiz_fletes_viaticos_catalogo`
-- [ ] `cotiz_resumen_filas`, `cotiz_resumen_bloque_colores`
+- [x] `cotiz_unidades`, `cotiz_centros_costos`, `cotiz_mermas`, `cotiz_pintura_formulas`, `cotiz_categorias_tarjeta`
+- [x] `cotiz_insumos` (FK a unidad/centro_costo/categoria_tarjeta; `peso_lineal`, `peso_default`, `codigo_stumis`)
+- [x] `cotiz_kilos_reales_categorias`, `cotiz_factores` (formula nullable), `cotiz_cuadrillas`
+- [x] `cotiz_personal_categorias`, `cotiz_fases_montaje`, `cotiz_fletes_viaticos_catalogo`
+- [x] `cotiz_resumen_filas`, `cotiz_resumen_bloque_colores`
 
 #### Modelos + Factories
-- [ ] Un modelo por tabla en `app/Models/Cotiz/` con `$table`, `casts()`, relaciones tipadas.
-- [ ] Factory por modelo en `database/factories/Cotiz/`.
+- [x] Un modelo por tabla en `app/Models/Cotiz/` con `$table`, `casts()`, relaciones tipadas.
+- [x] Factory por modelo en `database/factories/Cotiz/`.
 
-#### Seeders (`database/seeders/` → `CotizSeeder` u orquestador)
-- [ ] Portar `seed.sql` + `*-seed.sql` de prepsim: unidades, centros de costo, 3 mermas, 5 fórmulas de pintura,
-      8 categorías de tarjeta, **246 insumos**, **19 factores**, cuadrillas, personal, fases, fletes/viáticos, resumen_filas.
+#### Seeders (`database/seeders/` → `CotizCatalogosSeeder` orquestador)
+- [x] Portar `seed.sql` + `*-seed.sql` de prepsim vía replay en SQLite efímero: unidades, centros de costo, 3 mermas,
+      5 fórmulas de pintura, 8 categorías de tarjeta, **248 insumos** (246 CSV + 2 del seed de factores), **19 factores**,
+      cuadrillas, personal, fases, fletes/viáticos, resumen_filas. Idempotente. `categoria_tarjeta_id` pre-resuelto (0 NULL).
 
 #### Form Requests + Controladores + Rutas
-- [ ] CRUD `Admin\Cotiz\` para cada catálogo (Insumos, Mermas, Factores, CentrosCosto, CategoriasTarjeta,
-      PinturaFormulas, KilosRealesCategorias, Cuadrillas, Personal, FasesMontaje, FletesViaticosCatalogo, ResumenFilas).
-- [ ] Grupo de rutas `Route::prefix('cotiz')->name('cotiz.')` en `routes/admin.php` con `->parameters()` en español.
+- [x] CRUD `Admin\Cotiz\` para los 12 catálogos (Insumos, Mermas, Factores, CentrosCosto, CategoriasTarjeta,
+      PinturaFormulas, KilosRealesCategorias, Cuadrillas, Personal, FasesMontaje, FletesViaticosCatalogo, ResumenFilas). 24 Form Requests.
+- [x] Grupo de rutas `Route::prefix('cotiz')->name('cotiz.')` en `routes/admin.php` con `->parameters()` en español (84 rutas). Test de contrato Inertia verde.
 
 #### Permisos
-- [ ] Agregar bloque `cotiz.*` y los roles `usuario-cotiz` y `admin-cotiz` en `RolesAndPermissionsSeeder` (asignación fina de permisos por rol en Fase 6).
+- [x] Bloque `cotiz.*` (48 permisos de catálogo) y roles `usuario-cotiz` (solo `.ver`) y `admin-cotiz` (todo) en `RolesAndPermissionsSeeder` (corte fino en Fase 6).
 
 ### Frontend
 - [ ] `npm i ag-grid-community ag-grid-react`; estilos AG-Grid + tema alineado a DaisyUI.
