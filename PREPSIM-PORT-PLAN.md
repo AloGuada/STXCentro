@@ -153,15 +153,15 @@ Tres problemas separados; no acoplarlos. El cálculo autoritativo en PHP (deriva
 - [x] Bloque `cotiz.*` (48 permisos de catálogo) y roles `usuario-cotiz` (solo `.ver`) y `admin-cotiz` (todo) en `RolesAndPermissionsSeeder` (corte fino en Fase 6).
 
 ### Frontend
-- [ ] `npm i ag-grid-community ag-grid-react`; estilos AG-Grid + tema alineado a DaisyUI.
-- [ ] Componente base `components/cotiz/editable-grid.tsx` (wrapper AG-Grid, sin Enterprise).
-- [ ] Tipos en `resources/js/types/models.ts` (Cotiz*).
-- [ ] Páginas `pages/admin/cotiz/{catalogo}/index|create|edit.tsx` (DataTable para listados; AG-Grid donde aplique edición masiva tipo catálogo de insumos).
-- [ ] Sección "Cotización" en `app-drawer-layout.tsx` con items gated por permiso.
+- [x] `npm i ag-grid-community ag-grid-react` (v35.3.1, Community/MIT). Theming API (sin CSS imports).
+- [x] Componente base `components/cotiz/editable-grid.tsx` (wrapper AG-Grid, sin Enterprise; tema claro/oscuro vía `useAppearance`).
+- [x] Tipos en `resources/js/types/models.ts` (Cotiz*).
+- [x] Páginas `pages/admin/cotiz/{catalogo}/index|create|edit.tsx` para los 12 catálogos. **Decisión: AG-Grid editable inline en TODOS** (no DataTable) — listar/editar en el grid (clic en celda → PUT) + create/edit como apoyo. index sirve la colección completa + catálogos FK/enum.
+- [x] Sección "Cotización" en `app-drawer-layout.tsx` (Catálogos con 12 items gated por `cotiz.{recurso}.ver`).
 
 ### Verificación
-- [ ] `php artisan migrate` · seeders · `php artisan test --filter=Cotiz` · `vendor/bin/pint --dirty` · `npm run build`
-- [ ] Tests del `FormulaEvaluator` (incluye `roundup`, división por cero → null, vars faltantes) y `FactorResolver` (DAG).
+- [x] `php artisan migrate` · seeders · `php artisan test --filter=Cotiz` (47 verdes) · `vendor/bin/pint` · `npm run build` (OK).
+- [x] Tests del `FormulaEvaluator` (incluye `roundup`, división por cero → null, vars faltantes) y `FactorResolver` (DAG). **Fase 0 COMPLETA.**
 
 ---
 
