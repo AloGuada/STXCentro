@@ -949,6 +949,138 @@ export type CotizInsumo = {
     updated_at: string;
 };
 
+export type CotizMerma = {
+    id: number;
+    descripcion: string;
+    formula: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizFactor = {
+    id: number;
+    codigo: string;
+    nombre: string;
+    insumo_id: number;
+    formula: string | null;
+    descripcion: string | null;
+    categoria_tarjeta_id: number | null;
+    insumo?: CotizInsumo;
+    categoria_tarjeta?: CotizCategoriaTarjeta;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizPinturaFormula = {
+    id: number;
+    clave: string;
+    nombre: string;
+    formula: string;
+    orden: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizTipoCorte = 'TIRAS' | 'RAZ' | 'KG' | 'CNX';
+
+export type CotizKilosRealesCategoria = {
+    id: number;
+    descripcion: string;
+    tipo_corte: CotizTipoCorte;
+    orden: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizCuadrilla = {
+    id: number;
+    codigo: string;
+    nombre: string;
+    centro_costo_id: number;
+    insumo_id: number | null;
+    rendimiento: string | null;
+    formula_costo: string | null;
+    descripcion: string | null;
+    centro_costo?: CotizCentroCosto;
+    insumo?: CotizInsumo;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizPersonalCategoria = {
+    id: number;
+    codigo: string;
+    nombre: string;
+    sueldo_semanal: string;
+    orden: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizFaseMontaje = {
+    id: number;
+    codigo: string;
+    nombre: string;
+    unidad: string;
+    centro_costo_id: number | null;
+    orden: number;
+    centro_costo?: CotizCentroCosto;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizGrupoFlete =
+    | 'VIATICOS'
+    | 'SUPERV_MONTAJE'
+    | 'ENERGIA'
+    | 'VARIOS'
+    | 'FLETES'
+    | 'GRUAS'
+    | 'PLATAFORMAS'
+    | 'LABORATORIO'
+    | 'TOPOGRAFIA';
+
+export type CotizFleteViaticoCatalogo = {
+    id: number;
+    grupo: CotizGrupoFlete;
+    orden: number;
+    concepto: string;
+    unidad: string | null;
+    p_unit_default: string;
+    notas: string | null;
+    clave: string | null;
+    formula_cantidad: string | null;
+    formula_p_unit: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizResumenBloque = 'MO_FAB' | 'MO_MONTAJE' | 'EXTRAS' | 'TOTALES';
+
+export type CotizResumenTipoFormula =
+    | 'materiales'
+    | 'por_kg'
+    | 'por_m2_pintura'
+    | 'mo_fab_subgrupo'
+    | 'flete_kg_prorrateado'
+    | 'viatico_m2_prorrateado'
+    | 'subtotal'
+    | 'margen'
+    | 'total';
+
+export type CotizResumenFila = {
+    id: number;
+    descripcion: string;
+    bloque: CotizResumenBloque;
+    tipo_formula: CotizResumenTipoFormula;
+    coef_default: string | null;
+    referencia_extra: string | null;
+    orden: number;
+    bloqueada: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
 export type CostosRubro = {
     id: number;
     codigo: string;

@@ -9,25 +9,20 @@ use App\Models\Cotiz\CategoriaTarjeta;
 use App\Models\Cotiz\Factor;
 use App\Models\Cotiz\Insumo;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class FactorController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $factores = Factor::query()
-            ->with(['insumo', 'categoriaTarjeta'])
-            ->when($request->search, fn ($q, $s) => $q->where('codigo', 'like', "%{$s}%")
-                ->orWhere('nombre', 'like', "%{$s}%"))
-            ->orderBy('codigo')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('admin/cotiz/factores/index', [
-            'factores' => $factores,
-            'filters' => $request->only('search'),
+            'factores' => Factor::query()
+                ->with(['insumo', 'categoriaTarjeta'])
+                ->orderBy('codigo')
+                ->get(),
+            'insumos' => Insumo::query()->orderBy('descripcion')->get(),
+            'categoriasTarjeta' => CategoriaTarjeta::query()->orderBy('orden')->get(),
         ]);
     }
 

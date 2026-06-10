@@ -7,23 +7,15 @@ use App\Http\Requests\Admin\Cotiz\CategoriaTarjetaStoreRequest;
 use App\Http\Requests\Admin\Cotiz\CategoriaTarjetaUpdateRequest;
 use App\Models\Cotiz\CategoriaTarjeta;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CategoriaTarjetaController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $categoriasTarjeta = CategoriaTarjeta::query()
-            ->when($request->search, fn ($q, $s) => $q->where('descripcion', 'like', "%{$s}%"))
-            ->orderBy('orden')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('admin/cotiz/categorias-tarjeta/index', [
-            'categoriasTarjeta' => $categoriasTarjeta,
-            'filters' => $request->only('search'),
+            'categoriasTarjeta' => CategoriaTarjeta::query()->orderBy('orden')->get(),
         ]);
     }
 

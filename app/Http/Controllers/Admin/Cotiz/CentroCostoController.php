@@ -7,24 +7,15 @@ use App\Http\Requests\Admin\Cotiz\CentroCostoStoreRequest;
 use App\Http\Requests\Admin\Cotiz\CentroCostoUpdateRequest;
 use App\Models\Cotiz\CentroCosto;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CentroCostoController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $centrosCosto = CentroCosto::query()
-            ->when($request->search, fn ($q, $s) => $q->where('cod_coste', 'like', "%{$s}%")
-                ->orWhere('concepto', 'like', "%{$s}%"))
-            ->orderBy('cod_coste')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('admin/cotiz/centros-costo/index', [
-            'centrosCosto' => $centrosCosto,
-            'filters' => $request->only('search'),
+            'centrosCosto' => CentroCosto::query()->orderBy('cod_coste')->get(),
         ]);
     }
 

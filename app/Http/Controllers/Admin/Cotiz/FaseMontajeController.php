@@ -8,25 +8,19 @@ use App\Http\Requests\Admin\Cotiz\FaseMontajeUpdateRequest;
 use App\Models\Cotiz\CentroCosto;
 use App\Models\Cotiz\FaseMontaje;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class FaseMontajeController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $fasesMontaje = FaseMontaje::query()
-            ->with(['centroCosto'])
-            ->when($request->search, fn ($q, $s) => $q->where('codigo', 'like', "%{$s}%")
-                ->orWhere('nombre', 'like', "%{$s}%"))
-            ->orderBy('orden')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('admin/cotiz/fases-montaje/index', [
-            'fasesMontaje' => $fasesMontaje,
-            'filters' => $request->only('search'),
+            'fasesMontaje' => FaseMontaje::query()
+                ->with(['centroCosto'])
+                ->orderBy('orden')
+                ->get(),
+            'centrosCosto' => CentroCosto::query()->orderBy('concepto')->get(),
         ]);
     }
 

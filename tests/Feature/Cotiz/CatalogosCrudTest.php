@@ -104,7 +104,9 @@ describe('cotiz catálogos - factores', function () {
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('admin/cotiz/factores/index')
-                ->has('factores.data', 2)
+                ->has('factores', 2)
+                ->has('insumos')
+                ->has('categoriasTarjeta')
             );
     });
 

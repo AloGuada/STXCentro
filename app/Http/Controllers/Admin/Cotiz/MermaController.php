@@ -7,23 +7,15 @@ use App\Http\Requests\Admin\Cotiz\MermaStoreRequest;
 use App\Http\Requests\Admin\Cotiz\MermaUpdateRequest;
 use App\Models\Cotiz\Merma;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class MermaController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $mermas = Merma::query()
-            ->when($request->search, fn ($q, $s) => $q->where('descripcion', 'like', "%{$s}%"))
-            ->orderBy('descripcion')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('admin/cotiz/mermas/index', [
-            'mermas' => $mermas,
-            'filters' => $request->only('search'),
+            'mermas' => Merma::query()->orderBy('descripcion')->get(),
         ]);
     }
 

@@ -8,25 +8,19 @@ use App\Http\Requests\Admin\Cotiz\FleteViaticoCatalogoStoreRequest;
 use App\Http\Requests\Admin\Cotiz\FleteViaticoCatalogoUpdateRequest;
 use App\Models\Cotiz\FleteViaticoCatalogo;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class FleteViaticoCatalogoController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $fletesViaticos = FleteViaticoCatalogo::query()
-            ->when($request->search, fn ($q, $s) => $q->where('concepto', 'like', "%{$s}%")
-                ->orWhere('clave', 'like', "%{$s}%"))
-            ->orderBy('grupo')
-            ->orderBy('orden')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('admin/cotiz/fletes-viaticos/index', [
-            'fletesViaticos' => $fletesViaticos,
-            'filters' => $request->only('search'),
+            'fletesViaticos' => FleteViaticoCatalogo::query()
+                ->orderBy('grupo')
+                ->orderBy('orden')
+                ->get(),
+            'grupos' => GrupoFlete::options(),
         ]);
     }
 

@@ -8,23 +8,16 @@ use App\Http\Requests\Admin\Cotiz\KilosRealesCategoriaStoreRequest;
 use App\Http\Requests\Admin\Cotiz\KilosRealesCategoriaUpdateRequest;
 use App\Models\Cotiz\KilosRealesCategoria;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class KilosRealesCategoriaController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $kilosRealesCategorias = KilosRealesCategoria::query()
-            ->when($request->search, fn ($q, $s) => $q->where('descripcion', 'like', "%{$s}%"))
-            ->orderBy('orden')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('admin/cotiz/kilos-reales-categorias/index', [
-            'kilosRealesCategorias' => $kilosRealesCategorias,
-            'filters' => $request->only('search'),
+            'kilosRealesCategorias' => KilosRealesCategoria::query()->orderBy('orden')->get(),
+            'tiposCorte' => TipoCorte::options(),
         ]);
     }
 

@@ -9,23 +9,17 @@ use App\Http\Requests\Admin\Cotiz\ResumenFilaStoreRequest;
 use App\Http\Requests\Admin\Cotiz\ResumenFilaUpdateRequest;
 use App\Models\Cotiz\ResumenFila;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ResumenFilaController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $resumenFilas = ResumenFila::query()
-            ->when($request->search, fn ($q, $s) => $q->where('descripcion', 'like', "%{$s}%"))
-            ->orderBy('orden')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('admin/cotiz/resumen-filas/index', [
-            'resumenFilas' => $resumenFilas,
-            'filters' => $request->only('search'),
+            'resumenFilas' => ResumenFila::query()->orderBy('orden')->get(),
+            'bloques' => ResumenBloque::options(),
+            'tiposFormula' => ResumenTipoFormula::options(),
         ]);
     }
 

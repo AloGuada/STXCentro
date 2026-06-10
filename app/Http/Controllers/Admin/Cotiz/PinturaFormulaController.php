@@ -7,24 +7,15 @@ use App\Http\Requests\Admin\Cotiz\PinturaFormulaStoreRequest;
 use App\Http\Requests\Admin\Cotiz\PinturaFormulaUpdateRequest;
 use App\Models\Cotiz\PinturaFormula;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class PinturaFormulaController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $pinturaFormulas = PinturaFormula::query()
-            ->when($request->search, fn ($q, $s) => $q->where('clave', 'like', "%{$s}%")
-                ->orWhere('nombre', 'like', "%{$s}%"))
-            ->orderBy('orden')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('admin/cotiz/pintura-formulas/index', [
-            'pinturaFormulas' => $pinturaFormulas,
-            'filters' => $request->only('search'),
+            'pinturaFormulas' => PinturaFormula::query()->orderBy('orden')->get(),
         ]);
     }
 

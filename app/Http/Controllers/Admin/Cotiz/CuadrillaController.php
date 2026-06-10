@@ -9,25 +9,20 @@ use App\Models\Cotiz\CentroCosto;
 use App\Models\Cotiz\Cuadrilla;
 use App\Models\Cotiz\Insumo;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CuadrillaController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $cuadrillas = Cuadrilla::query()
-            ->with(['centroCosto', 'insumo'])
-            ->when($request->search, fn ($q, $s) => $q->where('codigo', 'like', "%{$s}%")
-                ->orWhere('nombre', 'like', "%{$s}%"))
-            ->orderBy('codigo')
-            ->paginate(15)
-            ->withQueryString();
-
         return Inertia::render('admin/cotiz/cuadrillas/index', [
-            'cuadrillas' => $cuadrillas,
-            'filters' => $request->only('search'),
+            'cuadrillas' => Cuadrilla::query()
+                ->with(['centroCosto', 'insumo'])
+                ->orderBy('codigo')
+                ->get(),
+            'centrosCosto' => CentroCosto::query()->orderBy('concepto')->get(),
+            'insumos' => Insumo::query()->orderBy('descripcion')->get(),
         ]);
     }
 
