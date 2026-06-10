@@ -360,7 +360,15 @@ class RolesAndPermissionsSeeder extends Seeder
             }
         }
 
-        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $rhPermissions, $drivePermissions, $dgPermissions, $calPermissions, $corePermissions, $cotizPermissions);
+        // Trabajo por obra (Fase 1+): lo opera el usuario-cotiz, no solo el admin.
+        $cotizTrabajoPermissions = [];
+        foreach (['obras', 'generadoras'] as $recurso) {
+            foreach (['ver', 'crear', 'editar', 'eliminar'] as $accion) {
+                $cotizTrabajoPermissions[] = "cotiz.{$recurso}.{$accion}";
+            }
+        }
+
+        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $rhPermissions, $drivePermissions, $dgPermissions, $calPermissions, $corePermissions, $cotizPermissions, $cotizTrabajoPermissions);
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
@@ -508,13 +516,14 @@ class RolesAndPermissionsSeeder extends Seeder
             'dg.reportes.notas',
         ]);
 
-        // Admin Cotización gestiona los catálogos globales (y todo el módulo).
-        $adminCotiz->givePermissionTo($cotizPermissions);
+        // Admin Cotización gestiona los catálogos globales y todo el trabajo por obra.
+        $adminCotiz->givePermissionTo(array_merge($cotizPermissions, $cotizTrabajoPermissions));
 
-        // Usuario Cotización consume los catálogos (solo lectura); el trabajo por obra
-        // se le concede en fases posteriores. Corte fino permiso-por-permiso en Fase 6.
-        $usuarioCotiz->syncPermissions(
+        // Usuario Cotización: consume los catálogos (solo lectura) y opera el trabajo por
+        // obra (obras/generadoras). Corte fino permiso-por-permiso en Fase 6.
+        $usuarioCotiz->syncPermissions(array_merge(
             array_values(array_filter($cotizPermissions, fn (string $p) => str_ends_with($p, '.ver'))),
-        );
+            $cotizTrabajoPermissions,
+        ));
     }
 }
