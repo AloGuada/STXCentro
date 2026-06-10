@@ -23,6 +23,7 @@
         "smalot/pdfparser": "^2.12",
         "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-permission": "^6.24",
+        "symfony/expression-language": "^8.1",
         "thiagoalessio/tesseract_ocr": "^2.13"
     },
     "require-dev": {
