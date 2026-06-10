@@ -45,12 +45,16 @@ use App\Http\Controllers\Admin\Costos\UsoCfdiController as CostosUsoCfdiControll
 use App\Http\Controllers\Admin\Cotiz\CategoriaTarjetaController as CotizCategoriaTarjetaController;
 use App\Http\Controllers\Admin\Cotiz\CentroCostoController as CotizCentroCostoController;
 use App\Http\Controllers\Admin\Cotiz\CuadrillaController as CotizCuadrillaController;
+use App\Http\Controllers\Admin\Cotiz\EditLockController as CotizEditLockController;
 use App\Http\Controllers\Admin\Cotiz\FactorController as CotizFactorController;
 use App\Http\Controllers\Admin\Cotiz\FaseMontajeController as CotizFaseMontajeController;
 use App\Http\Controllers\Admin\Cotiz\FleteViaticoCatalogoController as CotizFleteViaticoCatalogoController;
+use App\Http\Controllers\Admin\Cotiz\GeneradoraController as CotizGeneradoraController;
+use App\Http\Controllers\Admin\Cotiz\GeneradoraRegistroController as CotizGeneradoraRegistroController;
 use App\Http\Controllers\Admin\Cotiz\InsumoController as CotizInsumoController;
 use App\Http\Controllers\Admin\Cotiz\KilosRealesCategoriaController as CotizKilosRealesCategoriaController;
 use App\Http\Controllers\Admin\Cotiz\MermaController as CotizMermaController;
+use App\Http\Controllers\Admin\Cotiz\ObraController as CotizObraController;
 use App\Http\Controllers\Admin\Cotiz\PersonalCategoriaController as CotizPersonalCategoriaController;
 use App\Http\Controllers\Admin\Cotiz\PinturaFormulaController as CotizPinturaFormulaController;
 use App\Http\Controllers\Admin\Cotiz\ResumenFilaController as CotizResumenFilaController;
@@ -292,6 +296,21 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('fases-montaje', CotizFaseMontajeController::class)->parameters(['fases-montaje' => 'faseMontaje']);
         Route::resource('fletes-viaticos', CotizFleteViaticoCatalogoController::class)->parameters(['fletes-viaticos' => 'fleteViatico']);
         Route::resource('resumen-filas', CotizResumenFilaController::class)->parameters(['resumen-filas' => 'resumenFila']);
+
+        // Obras + generadoras (Fase 1)
+        Route::resource('obras', CotizObraController::class)->parameters(['obras' => 'obra'])->except(['show']);
+        Route::get('obras/{obra}/generadoras', [CotizGeneradoraController::class, 'index'])->name('generadoras.index');
+        Route::post('generadoras', [CotizGeneradoraController::class, 'store'])->name('generadoras.store');
+        Route::post('generadoras/reorder', [CotizGeneradoraController::class, 'reorder'])->name('generadoras.reorder');
+        Route::get('generadoras/{generadora}/edit', [CotizGeneradoraController::class, 'edit'])->name('generadoras.edit');
+        Route::put('generadoras/{generadora}', [CotizGeneradoraController::class, 'update'])->name('generadoras.update');
+        Route::delete('generadoras/{generadora}', [CotizGeneradoraController::class, 'destroy'])->name('generadoras.destroy');
+        Route::post('generadoras/{generadora}/registros', [CotizGeneradoraRegistroController::class, 'store'])->name('generadoras.registros.store');
+        Route::put('registros/{registro}', [CotizGeneradoraRegistroController::class, 'update'])->name('registros.update');
+        Route::delete('registros/{registro}', [CotizGeneradoraRegistroController::class, 'destroy'])->name('registros.destroy');
+        Route::patch('registros/{registro}/validar', [CotizGeneradoraRegistroController::class, 'validar'])->name('registros.validar');
+        Route::post('lock/{type}/{id}', [CotizEditLockController::class, 'lock'])->name('lock');
+        Route::post('unlock/{type}/{id}', [CotizEditLockController::class, 'unlock'])->name('unlock');
     });
 
     // Cobranza admin routes
