@@ -1081,6 +1081,57 @@ export type CotizResumenFila = {
     updated_at: string;
 };
 
+export type CotizObra = {
+    id: number;
+    nombre: string;
+    op: string | null;
+    factor_contratista: string;
+    num_grupos: number;
+    generadoras_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizLockUser = {
+    id: string;
+    name: string;
+};
+
+export type CotizGeneradora = {
+    id: number;
+    obra_id: number;
+    titulo: string;
+    orden: number;
+    registros_count?: number;
+    is_locked?: boolean;
+    locked_by?: CotizLockUser | null;
+    locked_at?: string | null;
+    obra?: CotizObra;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CotizGeneradoraRegistro = {
+    id: number;
+    generadora_id: number;
+    material_origen_id: number | null;
+    material: string | null;
+    marca: string | null;
+    ancho: string | null;
+    largo: string | null;
+    cantidad: string | null;
+    cant_pzas: string | null;
+    peso_porcentual: string | null;
+    kilos_totales: string | null;
+    merma_id: number;
+    validado: boolean;
+    t_ml_m2: number | null;
+    kilos_reales: number | null;
+    kilos_con_merma: number;
+    material_origen?: CotizInsumo | null;
+    merma?: CotizMerma;
+};
+
 export type CostosRubro = {
     id: number;
     codigo: string;

@@ -136,6 +136,7 @@ const navGroups: NavGroup[] = [
         title: 'Cotización',
         icon: Calculator,
         items: [
+            { title: 'Obras', href: '/admin/cotiz/obras', icon: Briefcase, permission: 'cotiz.obras.ver' },
             {
                 title: 'Catálogos',
                 href: '/admin/cotiz/insumos',
