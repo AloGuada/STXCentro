@@ -1188,6 +1188,7 @@ export type CotizTarjetaRegistroResuelto = {
     id: number;
     es_manual: boolean;
     generadora_titulo: string | null;
+    marca: string | null;
     insumo_id: number | null;
     descripcion: string;
     codigo_stumis: string | null;
@@ -1195,10 +1196,15 @@ export type CotizTarjetaRegistroResuelto = {
     categoria: string | null;
     categoria_orden: number;
     peso_lineal: number | null;
+    kilos_reales: number | null;
     tipo_pintura: string;
     cantidad: number;
     precio_unitario: number;
+    precio_obra: number;
+    precio_global: number;
     importe: number;
+    importe_sugerido: number;
+    area_pintura: number;
     validado: boolean;
 };
 
@@ -1208,11 +1214,15 @@ export type CotizTarjetaFactorResuelto = {
     codigo: string;
     nombre: string;
     formula: string | null;
+    formula_global: string | null;
     categoria: string | null;
     categoria_orden: number;
     cantidad: number;
     precio_unitario: number;
+    precio_obra: number;
+    precio_global: number;
     importe: number;
+    importe_sugerido: number;
     validado: boolean;
 };
 

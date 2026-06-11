@@ -1,4 +1,5 @@
 import { EditableGrid } from '@/components/cotiz/editable-grid';
+import { FormulaCellEditor } from '@/components/cotiz/formula-cell-editor';
 import { useCotizEditLock } from '@/hooks/use-cotiz-edit-lock';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -66,27 +67,34 @@ type Props = {
     };
 };
 
-/** Fila unificada de la grilla: registro de insumo o factor; fila fantasma (alta) y footer. */
+/** Fila unificada de la grilla: grupo de registros (mismo insumo), factor, fantasma o footer. */
 type Row = {
     rowId: string;
     tipo: 'registro' | 'factor' | 'footer' | 'ghost';
-    refId: number;
+    ids: number[]; // tarjeta_registros del grupo
+    refId: number; // factor: tarjeta_factor id
     insumoId: number | null;
-    esManual: boolean;
+    todosManuales: boolean;
     esGeneradora: boolean;
     categoria: string | null;
     categoriaOrden: number;
     showCategoria: boolean;
     generadora: string | null;
+    marca: string | null;
     descripcion: string;
     unidad: string | null;
     cantidad: number | null;
     precio: number | null;
+    precioObra: number | null;
     formula: string | null;
+    formulaGlobal: string | null;
     factorManual: boolean;
     importe: number;
+    importeSugerido: number;
+    area: number;
     tipoPintura: string | null;
     validado: boolean;
+    numRegistros: number;
 };
 
 const ONLY = [
@@ -99,7 +107,6 @@ const ONLY = [
     'totales',
     'tarjeta',
 ];
-
 const reloadOpts = { preserveScroll: true, preserveState: true, only: ONLY };
 
 const fmtMoney = new Intl.NumberFormat('es-MX', {
@@ -128,121 +135,131 @@ export default function TarjetaEdit(props: Props) {
         },
     ];
 
-    // Filas unificadas: registros (ordenados por categoría) seguidos de los factores.
+    // Agrupa registros por insumo (suma cantidad/kilos/importe/área, concatena marcas/gen).
     const rows = useMemo<Row[]>(() => {
-        const regs = [...props.registros].sort(
+        const grupos = new Map<string, CotizTarjetaRegistroResuelto[]>();
+        for (const r of props.registros) {
+            const key = r.insumo_id != null ? `ins-${r.insumo_id}` : `solo-${r.id}`;
+            (grupos.get(key) ?? grupos.set(key, []).get(key)!).push(r);
+        }
+        const grupoRows: Row[] = [...grupos.values()].map((grp) => {
+            const first = grp[0];
+            const marcas = [...new Set(grp.map((r) => r.marca).filter(Boolean))];
+            const gens = [
+                ...new Set(grp.map((r) => r.generadora_titulo).filter(Boolean)),
+            ];
+            const tipos = new Set(grp.map((r) => r.tipo_pintura));
+            return {
+                rowId: `r-${grp.map((r) => r.id).join('-')}`,
+                tipo: 'registro' as const,
+                ids: grp.map((r) => r.id),
+                refId: first.id,
+                insumoId: first.insumo_id,
+                todosManuales: grp.every((r) => r.es_manual),
+                esGeneradora: grp.some((r) => !r.es_manual),
+                categoria: first.categoria,
+                categoriaOrden: first.categoria_orden,
+                showCategoria: false,
+                generadora: gens.length > 0 ? gens.join(', ') : null,
+                marca: marcas.length > 0 ? marcas.join(', ') : null,
+                descripcion: first.descripcion,
+                unidad: first.unidad,
+                cantidad: grp.reduce((s, r) => s + (r.cantidad ?? 0), 0),
+                precio: Number(first.precio_unitario),
+                precioObra: Number(first.precio_obra),
+                formula: null,
+                formulaGlobal: null,
+                factorManual: false,
+                importe: grp.reduce((s, r) => s + r.importe, 0),
+                importeSugerido: grp.reduce((s, r) => s + r.importe_sugerido, 0),
+                area: grp.reduce((s, r) => s + r.area_pintura, 0),
+                tipoPintura: tipos.size === 1 ? first.tipo_pintura : 'auto',
+                validado: grp.every((r) => r.validado),
+                numRegistros: grp.length,
+            };
+        });
+        grupoRows.sort(
             (a, b) =>
-                a.categoria_orden - b.categoria_orden ||
+                a.categoriaOrden - b.categoriaOrden ||
+                (a.categoria ?? '').localeCompare(b.categoria ?? '') ||
                 a.descripcion.localeCompare(b.descripcion),
         );
         let prevCat: string | null = '__none__';
-        const regRows: Row[] = regs.map((r) => {
+        for (const r of grupoRows) {
             const cat = r.categoria ?? '(sin clasificar)';
-            const show = cat !== prevCat;
+            r.showCategoria = cat !== prevCat;
             prevCat = cat;
-            return {
-                rowId: `r-${r.id}`,
-                tipo: 'registro',
-                refId: r.id,
-                insumoId: r.insumo_id,
-                esManual: r.es_manual,
-                esGeneradora: !r.es_manual,
-                categoria: r.categoria,
-                categoriaOrden: r.categoria_orden,
-                showCategoria: show,
-                generadora: r.generadora_titulo,
-                descripcion: r.descripcion,
-                unidad: r.unidad,
-                cantidad: r.cantidad,
-                precio: r.precio_unitario,
-                formula: null,
-                factorManual: false,
-                importe: r.importe,
-                tipoPintura: r.tipo_pintura,
-                validado: r.validado,
-            };
-        });
+        }
         const facRows: Row[] = props.factores.map((f, i) => ({
             rowId: `f-${f.id}`,
             tipo: 'factor',
+            ids: [],
             refId: f.id,
             insumoId: null,
-            esManual: false,
+            todosManuales: false,
             esGeneradora: false,
             categoria: f.categoria,
             categoriaOrden: f.categoria_orden,
             showCategoria: i === 0,
             generadora: null,
+            marca: null,
             descripcion: f.nombre || f.codigo,
             unidad: null,
             cantidad: f.cantidad,
-            precio: f.precio_unitario,
+            precio: Number(f.precio_unitario),
+            precioObra: Number(f.precio_obra),
             formula: f.formula,
+            formulaGlobal: f.formula_global,
             factorManual: f.formula == null,
             importe: f.importe,
+            importeSugerido: f.importe_sugerido,
+            area: 0,
             tipoPintura: null,
             validado: f.validado,
+            numRegistros: 1,
         }));
-        return [...regRows, ...facRows];
+        return [...grupoRows, ...facRows];
     }, [props.registros, props.factores]);
 
-    const footerRow = useMemo<Row[]>(
-        () => [
-            {
-                rowId: 'footer',
-                tipo: 'footer',
-                refId: 0,
-                insumoId: null,
-                esManual: false,
-                esGeneradora: false,
-                categoria: null,
-                categoriaOrden: 99999,
-                showCategoria: false,
-                generadora: null,
-                descripcion: 'TOTAL',
-                unidad: null,
-                cantidad: totales.kg_fab,
-                precio: null,
-                formula: null,
-                factorManual: false,
-                importe: totales.total_importe,
-                tipoPintura: null,
-                validado: false,
-            },
-        ],
-        [totales],
-    );
+    const blank = (tipo: Row['tipo']): Row => ({
+        rowId: tipo,
+        tipo,
+        ids: [],
+        refId: 0,
+        insumoId: null,
+        todosManuales: false,
+        esGeneradora: false,
+        categoria: null,
+        categoriaOrden: 99999,
+        showCategoria: false,
+        generadora: null,
+        marca: null,
+        descripcion: tipo === 'footer' ? 'TOTAL' : '',
+        unidad: null,
+        cantidad: tipo === 'footer' ? totales.kg_fab : null,
+        precio: null,
+        precioObra: null,
+        formula: null,
+        formulaGlobal: null,
+        factorManual: false,
+        importe: tipo === 'footer' ? totales.total_importe : 0,
+        importeSugerido: 0,
+        area: tipo === 'footer' ? totales.area_pintura : 0,
+        tipoPintura: null,
+        validado: false,
+        numRegistros: 0,
+    });
 
-    // Fila fantasma de alta (inline, al pie de la tabla): elegir insumo o factor lo agrega.
     const vinculados = new Set(props.factores.map((f) => f.factor_id));
-    const factoresLibres = catalogos.factores.filter(
-        (f) => !vinculados.has(f.id),
-    );
-    const ghostRow = useMemo<Row>(
-        () => ({
-            rowId: 'ghost',
-            tipo: 'ghost',
-            refId: 0,
-            insumoId: null,
-            esManual: false,
-            esGeneradora: false,
-            categoria: null,
-            categoriaOrden: 99999,
-            showCategoria: false,
-            generadora: null,
-            descripcion: '',
-            unidad: null,
-            cantidad: null,
-            precio: null,
-            formula: null,
-            factorManual: false,
-            importe: 0,
-            tipoPintura: null,
-            validado: false,
-        }),
-        [],
-    );
+    const factoresLibres = catalogos.factores.filter((f) => !vinculados.has(f.id));
 
+    const numValidados = rows.filter((r) => r.validado).length;
+    const desperdicio =
+        totales.kg_reales_total > 0
+            ? (totales.kg_fab - totales.kg_reales_total) / totales.kg_reales_total
+            : 0;
+
+    // ===== Handlers =====
     const agregarInsumo = (insumoId: number) =>
         router.post(
             `/admin/cotiz/tarjetas/${tarjeta.id}/registros-manual`,
@@ -256,19 +273,22 @@ export default function TarjetaEdit(props: Props) {
             reloadOpts,
         );
 
-    const numValidados = rows.filter((r) => r.validado).length;
-
     const guardar = async (row: Row, field?: string) => {
-        if (row.tipo === 'footer') {
+        if (row.tipo === 'footer' || row.tipo === 'ghost') {
             return;
         }
         if (field === 'precio') {
             if (row.insumoId == null) {
                 return;
             }
+            // Si el P.U. vuelve a igualar el de obra, limpiamos el override de tarjeta.
+            const v =
+                row.precio != null && row.precio === row.precioObra
+                    ? null
+                    : row.precio;
             router.put(
                 `/admin/cotiz/tarjetas/${tarjeta.id}/precios/${row.insumoId}`,
-                { precio_unitario: row.precio },
+                { precio_unitario: v },
                 reloadOpts,
             );
             return;
@@ -282,14 +302,22 @@ export default function TarjetaEdit(props: Props) {
                 );
             } else {
                 router.put(
-                    `/admin/cotiz/tarjeta-registros/${row.refId}`,
-                    { cantidad: row.cantidad },
+                    `/admin/cotiz/tarjetas/${tarjeta.id}/registros-grupo`,
+                    { ids: row.ids, cantidad: row.cantidad },
                     reloadOpts,
                 );
             }
             return;
         }
-        if (field === 'formula') {
+        if (field === 'importe' && row.tipo === 'factor') {
+            router.put(
+                `/admin/cotiz/tarjeta-factores/${row.refId}`,
+                { importe: row.importe },
+                reloadOpts,
+            );
+            return;
+        }
+        if (field === 'formula' && row.tipo === 'factor') {
             const formula = row.formula ?? '';
             if (formula.trim() !== '') {
                 const { data } = await axios.post(
@@ -298,6 +326,7 @@ export default function TarjetaEdit(props: Props) {
                 );
                 if (data.error) {
                     alert(`Fórmula inválida: ${data.error}`);
+                    router.reload({ only: ONLY });
                     return;
                 }
             }
@@ -318,32 +347,35 @@ export default function TarjetaEdit(props: Props) {
             );
         } else {
             router.put(
-                `/admin/cotiz/tarjeta-registros/${row.refId}`,
-                { validado: valor },
+                `/admin/cotiz/tarjetas/${tarjeta.id}/registros-grupo`,
+                { ids: row.ids, validado: valor },
                 reloadOpts,
             );
         }
     };
 
-    const setPintura = (row: Row, clave: string) => {
+    const setPintura = (row: Row, clave: string) =>
         router.put(
-            `/admin/cotiz/tarjeta-registros/${row.refId}`,
-            { tipo_pintura: clave },
+            `/admin/cotiz/tarjetas/${tarjeta.id}/registros-grupo`,
+            { ids: row.ids, tipo_pintura: clave },
             reloadOpts,
         );
-    };
 
     const eliminar = (row: Row) => {
-        const url =
-            row.tipo === 'factor'
-                ? `/admin/cotiz/tarjeta-factores/${row.refId}`
-                : `/admin/cotiz/tarjeta-registros/${row.refId}`;
-        const msg =
-            row.tipo === 'factor'
-                ? '¿Quitar este factor?'
-                : '¿Eliminar este registro?';
-        if (confirm(msg)) {
-            router.delete(url, reloadOpts);
+        if (row.tipo === 'factor') {
+            if (confirm('¿Quitar este factor?')) {
+                router.delete(
+                    `/admin/cotiz/tarjeta-factores/${row.refId}`,
+                    reloadOpts,
+                );
+            }
+            return;
+        }
+        if (confirm('¿Eliminar este registro?')) {
+            router.delete(`/admin/cotiz/tarjetas/${tarjeta.id}/registros-grupo`, {
+                ...reloadOpts,
+                data: { ids: row.ids },
+            });
         }
     };
 
@@ -351,10 +383,13 @@ export default function TarjetaEdit(props: Props) {
         () => [
             {
                 headerName: 'Cat.',
-                width: 130,
+                width: 120,
                 sortable: false,
                 cellRenderer: (p: ICellRendererParams<Row>) =>
-                    p.data && p.data.tipo !== 'footer' && p.data.showCategoria ? (
+                    p.data &&
+                    p.data.tipo !== 'footer' &&
+                    p.data.tipo !== 'ghost' &&
+                    p.data.showCategoria ? (
                         <strong className="text-xs uppercase opacity-70">
                             {p.data.categoria ?? '(sin clasificar)'}
                         </strong>
@@ -362,18 +397,16 @@ export default function TarjetaEdit(props: Props) {
             },
             {
                 headerName: 'Generadora',
-                width: 150,
+                width: 140,
                 cellClass: 'text-xs',
                 valueGetter: (p) =>
-                    p.data?.tipo === 'footer' || p.data?.tipo === 'ghost'
+                    !p.data || p.data.tipo === 'footer' || p.data.tipo === 'ghost'
                         ? ''
-                        : p.data?.tipo === 'factor'
+                        : p.data.tipo === 'factor'
                           ? '(factor)'
-                          : (p.data?.generadora ?? '(manual)'),
+                          : (p.data.generadora ?? '(manual)'),
                 cellStyle: (p) =>
-                    p.data &&
-                    p.data.tipo === 'registro' &&
-                    p.data.generadora == null
+                    p.data?.tipo === 'registro' && p.data.generadora == null
                         ? { fontStyle: 'italic', opacity: 0.5 }
                         : null,
             },
@@ -381,13 +414,24 @@ export default function TarjetaEdit(props: Props) {
                 headerName: 'Insumo / Factor',
                 field: 'descripcion',
                 flex: 2,
-                minWidth: 240,
+                minWidth: 230,
                 sortable: false,
                 cellStyle: (p) =>
                     p.data?.tipo === 'footer' ? { fontWeight: 'bold' } : null,
                 cellRenderer: (p: ICellRendererParams<Row>) => {
                     if (p.data?.tipo !== 'ghost') {
-                        return p.data?.descripcion ?? '';
+                        const marca =
+                            p.data?.tipo === 'registro' && p.data.marca
+                                ? ` · ${p.data.marca}`
+                                : '';
+                        return (
+                            <span>
+                                {p.data?.descripcion}
+                                {marca && (
+                                    <span className="opacity-50">{marca}</span>
+                                )}
+                            </span>
+                        );
                     }
                     return (
                         <select
@@ -406,9 +450,7 @@ export default function TarjetaEdit(props: Props) {
                                 }
                             }}
                         >
-                            <option value="">
-                                + Añadir insumo o factor…
-                            </option>
+                            <option value="">+ Añadir insumo o factor…</option>
                             {factoresLibres.length > 0 && (
                                 <optgroup label="Factores">
                                     {factoresLibres.map((f) => (
@@ -431,7 +473,7 @@ export default function TarjetaEdit(props: Props) {
             },
             {
                 headerName: '✓',
-                width: 70,
+                width: 64,
                 sortable: false,
                 cellRenderer: (p: ICellRendererParams<Row>) => {
                     if (
@@ -472,9 +514,11 @@ export default function TarjetaEdit(props: Props) {
             {
                 headerName: 'Unidad',
                 field: 'unidad',
-                width: 90,
+                width: 80,
                 valueFormatter: (p) =>
-                    p.data?.tipo === 'footer' ? '' : (p.value ?? ''),
+                    p.data?.tipo === 'footer' || p.data?.tipo === 'ghost'
+                        ? ''
+                        : (p.value ?? ''),
             },
             {
                 headerName: 'Cantidad',
@@ -483,52 +527,110 @@ export default function TarjetaEdit(props: Props) {
                 type: 'numericColumn',
                 editable: (p) =>
                     !readOnly &&
-                    ((p.data?.tipo === 'registro' && p.data.esManual) ||
+                    ((p.data?.tipo === 'registro' && p.data.todosManuales) ||
                         (p.data?.tipo === 'factor' && p.data.factorManual)),
                 cellEditor: 'agNumberCellEditor',
                 cellClass: (p) =>
                     p.data?.tipo === 'factor' && !p.data.factorManual
                         ? 'italic opacity-70'
                         : '',
-                valueFormatter: (p) => fmtNum(p.value, 4),
+                valueFormatter: (p) =>
+                    p.data?.tipo === 'ghost' ? '' : fmtNum(p.value, 4),
             },
             {
                 headerName: 'P.U.',
                 field: 'precio',
-                width: 140,
+                width: 130,
                 type: 'numericColumn',
                 editable: (p) =>
                     !readOnly &&
-                    p.data?.tipo === 'registro' &&
-                    p.data.insumoId != null,
+                    ((p.data?.tipo === 'registro' && p.data.insumoId != null) ||
+                        p.data?.tipo === 'factor'),
                 cellEditor: 'agNumberCellEditor',
                 cellEditorParams: { precision: 4, min: 0 },
+                cellRenderer: (p: ICellRendererParams<Row>) => {
+                    if (
+                        !p.data ||
+                        p.data.tipo === 'footer' ||
+                        p.data.tipo === 'ghost'
+                    ) {
+                        return null;
+                    }
+                    if (p.data.precio == null) {
+                        return <span className="opacity-40 italic">—</span>;
+                    }
+                    const override =
+                        p.data.precio !== p.data.precioObra ||
+                        (p.data.insumoId != null &&
+                            props.preciosOverride[String(p.data.insumoId)] != null);
+                    return (
+                        <div className="flex items-center justify-between gap-1">
+                            <span className={override ? 'font-bold' : 'opacity-80'}>
+                                {fmtMoney.format(Number(p.data.precio))}
+                            </span>
+                            <span
+                                className={override ? 'text-success' : 'opacity-30'}
+                                title={
+                                    override
+                                        ? `Override de tarjeta. P.U. de obra: ${fmtMoney.format(Number(p.data.precioObra ?? 0))}.`
+                                        : 'Click para fijar un P.U. solo para esta tarjeta.'
+                                }
+                            >
+                                ✎
+                            </span>
+                        </div>
+                    );
+                },
+            },
+            {
+                headerName: 'Imp. sug.',
+                field: 'importeSugerido',
+                width: 120,
+                type: 'numericColumn',
+                cellClass: 'opacity-60',
                 valueFormatter: (p) =>
-                    p.data?.tipo === 'footer' || p.value == null
+                    p.data?.tipo === 'footer' || p.data?.tipo === 'ghost'
                         ? ''
-                        : fmtMoney.format(Number(p.value)),
-                cellClass: (p) =>
-                    p.data?.insumoId != null &&
-                    props.preciosOverride[String(p.data.insumoId)] != null
-                        ? 'font-semibold text-warning'
-                        : '',
+                        : fmtMoney.format(Number(p.value ?? 0)),
             },
             {
                 headerName: 'Fórmula',
                 field: 'formula',
-                width: 240,
+                width: 230,
                 editable: (p) => !readOnly && p.data?.tipo === 'factor',
-                cellClass: 'font-mono text-xs',
-                valueFormatter: (p) =>
-                    p.data?.tipo === 'factor'
-                        ? p.value || '(manual)'
-                        : '',
+                cellEditor: FormulaCellEditor,
+                cellEditorPopup: true,
+                cellRenderer: (p: ICellRendererParams<Row>) => {
+                    if (p.data?.tipo !== 'factor') {
+                        return null;
+                    }
+                    const override =
+                        p.data.formula != null &&
+                        p.data.formula !== p.data.formulaGlobal;
+                    return (
+                        <div className="flex items-center justify-between gap-1">
+                            <span
+                                className={`truncate font-mono text-xs ${override ? 'font-bold' : 'opacity-80'}`}
+                            >
+                                {p.data.formula ?? '(manual)'}
+                            </span>
+                            <span
+                                className={override ? 'text-success' : 'opacity-30'}
+                                title="Click para editar la fórmula (override por tarjeta)"
+                            >
+                                ✎
+                            </span>
+                        </div>
+                    );
+                },
             },
             {
                 headerName: 'Importe',
                 field: 'importe',
-                width: 170,
+                width: 160,
                 type: 'numericColumn',
+                editable: (p) => !readOnly && p.data?.tipo === 'factor',
+                cellEditor: 'agNumberCellEditor',
                 cellClass: 'font-semibold',
                 valueFormatter: (p) => {
                     if (p.value == null || p.data?.tipo === 'ghost') {
@@ -546,7 +648,7 @@ export default function TarjetaEdit(props: Props) {
             },
             {
                 headerName: '%',
-                width: 80,
+                width: 76,
                 type: 'numericColumn',
                 sortable: false,
                 cellClass: 'opacity-70',
@@ -560,8 +662,19 @@ export default function TarjetaEdit(props: Props) {
                     p.value == null ? '' : fmtPct(Number(p.value)),
             },
             {
+                headerName: 'Área m²',
+                field: 'area',
+                width: 100,
+                type: 'numericColumn',
+                cellClass: 'opacity-70',
+                valueFormatter: (p) =>
+                    p.data?.tipo === 'registro' && Number(p.value) > 0
+                        ? fmtNum(p.value)
+                        : '',
+            },
+            {
                 headerName: 'Fórmula pintura',
-                width: 160,
+                width: 150,
                 sortable: false,
                 cellRenderer: (p: ICellRendererParams<Row>) => {
                     if (!p.data || p.data.tipo !== 'registro') {
@@ -587,7 +700,7 @@ export default function TarjetaEdit(props: Props) {
             },
             {
                 headerName: '',
-                width: 56,
+                width: 50,
                 sortable: false,
                 filter: false,
                 cellRenderer: (p: ICellRendererParams<Row>) =>
@@ -616,14 +729,16 @@ export default function TarjetaEdit(props: Props) {
         ],
     );
 
-    const pinnedBottom = readOnly ? footerRow : [ghostRow, ...footerRow];
+    const pinnedBottom = readOnly
+        ? [blank('footer')]
+        : [blank('ghost'), blank('footer')];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Editar — ${tarjeta.descripcion}`} />
 
             <div className="flex h-[calc(100vh-3.5rem)] flex-col gap-3 p-4">
-                {/* Barra de título + badges */}
+                {/* Barra de título + badges + acciones */}
                 <div className="flex flex-wrap items-center gap-2">
                     <Link
                         href={`/admin/cotiz/obras/${obra.id}/tarjetas`}
@@ -644,19 +759,22 @@ export default function TarjetaEdit(props: Props) {
                                 );
                             }
                         }}
-                        className="input input-sm input-bordered w-72 text-lg font-semibold"
+                        className="input input-sm input-bordered w-64 text-lg font-semibold"
                     />
                     <span
                         className="badge badge-lg badge-info"
-                        title="Suma del Análisis de kilos reales (TIRAS + RAZ + KG + CNX)."
+                        title="Σ del Análisis de kilos reales (TIRAS+RAZ+KG+CNX)."
                     >
                         Kg reales: {fmtNum(totales.kg_reales_total)} kg
                     </span>
                     <span
-                        className="badge badge-lg badge-accent"
-                        title="Área pintable total — alimenta area_pintura."
+                        className="badge badge-lg badge-warning"
+                        title="(kg fab − kg reales) / kg reales"
                     >
-                        Área pintura: {fmtNum(totales.area_pintura)} m²
+                        Desp.: {fmtPct(desperdicio)}
+                    </span>
+                    <span className="badge badge-lg badge-accent">
+                        Área: {fmtNum(totales.area_pintura)} m²
                     </span>
                     <span className="badge badge-ghost">
                         {props.registros.length} registros
@@ -672,18 +790,46 @@ export default function TarjetaEdit(props: Props) {
                     >
                         📊 Análisis kg reales
                     </button>
+                    {!readOnly && (
+                        <>
+                            <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() =>
+                                    router.post(
+                                        `/admin/cotiz/tarjetas/${tarjeta.id}/aplicar-sugerido`,
+                                        {},
+                                        reloadOpts,
+                                    )
+                                }
+                            >
+                                Aplicar sugerido
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() =>
+                                    router.post(
+                                        `/admin/cotiz/tarjetas/${tarjeta.id}/validar-todas`,
+                                        {},
+                                        reloadOpts,
+                                    )
+                                }
+                            >
+                                Validar todas
+                            </button>
+                        </>
+                    )}
                 </div>
 
                 <LockBanner state={lockState} fallback={lock} />
 
-                {/* Generadoras vinculadas */}
                 <GeneradorasRow
                     tarjeta={tarjeta}
                     generadorasDisponibles={props.generadorasDisponibles}
                     readOnly={readOnly}
                 />
 
-                {/* Grilla unificada */}
                 <div className="min-h-0 flex-1">
                     <EditableGrid<Row>
                         rowData={rows}
@@ -732,13 +878,18 @@ function GeneradorasRow({
     generadorasDisponibles: Pick<CotizGeneradora, 'id' | 'titulo' | 'orden'>[];
     readOnly: boolean;
 }) {
-    const vincular = (id: number) => {
+    const vincular = (id: number) =>
         router.post(
             `/admin/cotiz/tarjetas/${tarjeta.id}/generadoras`,
             { generadora_id: id },
             { preserveScroll: true },
         );
-    };
+    const resincronizar = (id: number) =>
+        router.post(
+            `/admin/cotiz/tarjetas/${tarjeta.id}/generadoras/${id}/resincronizar`,
+            {},
+            { preserveScroll: true },
+        );
     const desvincular = (g: Pick<CotizGeneradora, 'id' | 'titulo'>) => {
         if (
             confirm(
@@ -764,14 +915,24 @@ function GeneradorasRow({
                 <span key={g.id} className="badge gap-1 badge-primary">
                     {g.titulo}
                     {!readOnly && (
-                        <button
-                            type="button"
-                            className="ml-1 hover:text-error"
-                            title="Desvincular"
-                            onClick={() => desvincular(g)}
-                        >
-                            ✕
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                className="ml-1 hover:text-warning"
+                                title="Resincronizar (importar líneas nuevas, quitar las sin material)"
+                                onClick={() => resincronizar(g.id)}
+                            >
+                                ↻
+                            </button>
+                            <button
+                                type="button"
+                                className="hover:text-error"
+                                title="Desvincular"
+                                onClick={() => desvincular(g)}
+                            >
+                                ✕
+                            </button>
+                        </>
                     )}
                 </span>
             ))}
@@ -1061,11 +1222,7 @@ function KilosRealesModal({
                     </div>
                 )}
             </div>
-            <button
-                type="button"
-                className="modal-backdrop"
-                onClick={onClose}
-            >
+            <button type="button" className="modal-backdrop" onClick={onClose}>
                 cerrar
             </button>
         </dialog>
@@ -1125,8 +1282,7 @@ function LockBanner({
         <div className="alert alert-warning py-2">
             <LockIcon className="size-5" />
             <span className="text-sm">
-                La está editando {nombre}.{' '}
-                {desde ? `Inició ${desde}. ` : ''}
+                La está editando {nombre}. {desde ? `Inició ${desde}. ` : ''}
                 Solo lectura hasta que termine o expire su sesión.
             </span>
         </div>

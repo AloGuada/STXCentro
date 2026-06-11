@@ -1,8 +1,11 @@
 <?php
 
 use App\Models\Cotiz\Factor;
+use App\Models\Cotiz\Generadora;
+use App\Models\Cotiz\GeneradoraRegistro;
 use App\Models\Cotiz\Insumo;
 use App\Models\Cotiz\KilosRealesCategoria;
+use App\Models\Cotiz\Obra;
 use App\Models\Cotiz\Tarjeta;
 use App\Models\Cotiz\TarjetaCategoriaKilos;
 use App\Models\Cotiz\TarjetaEstructura;
@@ -201,6 +204,76 @@ describe('estructuras y kilos reales', function () {
         $this->delete(route('admin.cotiz.tarjetas.kr-categorias.destroy', $catKilos))->assertRedirect();
 
         $this->assertDatabaseMissing('cotiz_tarjeta_categorias_kilos', ['id' => $catKilos->id]);
+    });
+});
+
+describe('acciones masivas y grupos', function () {
+    test('validar-todas marca registros (manual + generadora) y factores', function () {
+        $obra = Obra::factory()->create();
+        $tarjeta = Tarjeta::factory()->create(['obra_id' => $obra->id]);
+        $manual = TarjetaRegistro::factory()->create(['tarjeta_id' => $tarjeta->id, 'generadora_registro_id' => null, 'validado' => false]);
+        $gen = \App\Models\Cotiz\Generadora::factory()->create(['obra_id' => $obra->id]);
+        $genReg = \App\Models\Cotiz\GeneradoraRegistro::factory()->create(['generadora_id' => $gen->id, 'validado' => false]);
+        TarjetaRegistro::factory()->create(['tarjeta_id' => $tarjeta->id, 'generadora_registro_id' => $genReg->id, 'insumo_id' => null]);
+        $tf = TarjetaFactor::factory()->create(['tarjeta_id' => $tarjeta->id, 'validado' => false]);
+
+        $this->post(route('admin.cotiz.tarjetas.validar-todas', $tarjeta))->assertRedirect();
+
+        expect($manual->fresh()->validado)->toBeTrue();
+        expect($genReg->fresh()->validado)->toBeTrue();
+        expect($tf->fresh()->validado)->toBeTrue();
+    });
+
+    test('aplicar-sugerido limpia los importes override de factores', function () {
+        $tarjeta = Tarjeta::factory()->create();
+        $tf = TarjetaFactor::factory()->create(['tarjeta_id' => $tarjeta->id, 'importe' => 999]);
+
+        $this->post(route('admin.cotiz.tarjetas.aplicar-sugerido', $tarjeta))->assertRedirect();
+
+        expect($tf->fresh()->importe)->toBeNull();
+    });
+
+    test('registros-grupo distribuye cantidad entre manuales', function () {
+        $tarjeta = Tarjeta::factory()->create();
+        $insumo = Insumo::factory()->create();
+        $a = TarjetaRegistro::factory()->create(['tarjeta_id' => $tarjeta->id, 'generadora_registro_id' => null, 'insumo_id' => $insumo->id, 'cantidad' => 10]);
+        $b = TarjetaRegistro::factory()->create(['tarjeta_id' => $tarjeta->id, 'generadora_registro_id' => null, 'insumo_id' => $insumo->id, 'cantidad' => 30]);
+
+        $this->put(route('admin.cotiz.tarjetas.registros.grupo', $tarjeta), [
+            'ids' => [$a->id, $b->id],
+            'cantidad' => 80,
+        ])->assertRedirect();
+
+        // 80 distribuido proporcional a 10:30 → 20 y 60.
+        expect((float) $a->fresh()->cantidad)->toBe(20.0);
+        expect((float) $b->fresh()->cantidad)->toBe(60.0);
+    });
+
+    test('registros-grupo destroy borra todos los ids', function () {
+        $tarjeta = Tarjeta::factory()->create();
+        $insumo = Insumo::factory()->create();
+        $a = TarjetaRegistro::factory()->create(['tarjeta_id' => $tarjeta->id, 'generadora_registro_id' => null, 'insumo_id' => $insumo->id]);
+        $b = TarjetaRegistro::factory()->create(['tarjeta_id' => $tarjeta->id, 'generadora_registro_id' => null, 'insumo_id' => $insumo->id]);
+
+        $this->delete(route('admin.cotiz.tarjetas.registros.grupo-destroy', $tarjeta), ['ids' => [$a->id, $b->id]])
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('cotiz_tarjeta_registros', ['id' => $a->id]);
+        $this->assertDatabaseMissing('cotiz_tarjeta_registros', ['id' => $b->id]);
+    });
+
+    test('resincronizar importa nuevos y quita los sin material', function () {
+        $obra = Obra::factory()->create();
+        $tarjeta = Tarjeta::factory()->create(['obra_id' => $obra->id]);
+        $gen = \App\Models\Cotiz\Generadora::factory()->create(['obra_id' => $obra->id]);
+        // Dos con material (se importan), uno sin material (no).
+        \App\Models\Cotiz\GeneradoraRegistro::factory()->count(2)->create(['generadora_id' => $gen->id]);
+        \App\Models\Cotiz\GeneradoraRegistro::factory()->create(['generadora_id' => $gen->id, 'material_origen_id' => null]);
+        $tarjeta->generadoras()->attach($gen->id);
+
+        $this->post(route('admin.cotiz.tarjetas.generadoras.resincronizar', [$tarjeta, $gen]))->assertRedirect();
+
+        expect($tarjeta->registros()->count())->toBe(2);
     });
 });
 

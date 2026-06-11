@@ -89,6 +89,7 @@ class TarjetaCalculator
                 $registro,
                 $insumoOverrides,
                 $preciosTarjeta,
+                $pinturaFormulas,
             ))
             ->all();
 
@@ -253,9 +254,10 @@ class TarjetaCalculator
             ->get()
             ->keyBy('insumo_id');
         $preciosTarjeta = $tarjeta->insumoPrecios->keyBy('insumo_id');
+        $pinturaFormulas = PinturaFormula::query()->pluck('formula', 'clave')->all();
 
         $registros = $tarjeta->registros
-            ->map(fn (TarjetaRegistro $registro) => $this->resolverRegistro($registro, $insumoOverrides, $preciosTarjeta))
+            ->map(fn (TarjetaRegistro $registro) => $this->resolverRegistro($registro, $insumoOverrides, $preciosTarjeta, $pinturaFormulas))
             ->all();
 
         $kgPorTipoCorte = $this->kilosReales->porTipoCorte(
@@ -274,7 +276,7 @@ class TarjetaCalculator
             'dominio' => 'tarjeta',
             'registros' => $registros,
             'kg_por_tipo_corte' => $kgPorTipoCorte,
-            'pintura_formulas' => PinturaFormula::query()->pluck('formula', 'clave')->all(),
+            'pintura_formulas' => $pinturaFormulas,
         ];
     }
 
@@ -283,9 +285,10 @@ class TarjetaCalculator
      *
      * @param  \Illuminate\Support\Collection<int, ObraInsumoOverride>  $insumoOverrides
      * @param  \Illuminate\Support\Collection<int, \App\Models\Cotiz\TarjetaInsumoPrecio>  $preciosTarjeta
+     * @param  array<string, string>  $pinturaFormulas
      * @return array<string, mixed>
      */
-    private function resolverRegistro(TarjetaRegistro $registro, $insumoOverrides, $preciosTarjeta): array
+    private function resolverRegistro(TarjetaRegistro $registro, $insumoOverrides, $preciosTarjeta, array $pinturaFormulas = []): array
     {
         $esManual = $registro->esManual();
         $gen = $registro->generadoraRegistro;
@@ -299,11 +302,22 @@ class TarjetaCalculator
         $precioTarjeta = ($insumo !== null && $preciosTarjeta->has($insumo->id))
             ? (float) $preciosTarjeta->get($insumo->id)->precio_unitario
             : null;
+        // Efectivo (tarjeta > obra > global), de obra (obra > global) y global puro.
         $precio = $insumo !== null
             ? $this->overrides->precioInsumo($insumo, $override, $precioTarjeta)
             : 0.0;
+        $precioObra = $insumo !== null
+            ? $this->overrides->precioInsumo($insumo, $override)
+            : 0.0;
+        $precioGlobal = $insumo !== null ? (float) $insumo->precio_unitario : 0.0;
 
         $cantidad = $this->cantidadConMerma($registro, $datos['peso_lineal'], $datos['peso_default']);
+        $pesoLineal = $datos['peso_lineal'];
+        $kilosReales = (! $esManual && $gen?->t_ml_m2 !== null && $pesoLineal !== null)
+            ? (float) $gen->t_ml_m2 * (float) $pesoLineal
+            : null;
+
+        $area = $this->pintura->area($registro->tipo_pintura, $cantidad, $pesoLineal !== null ? (float) $pesoLineal : null, $datos['descripcion'], $pinturaFormulas);
 
         $unidad = $insumo?->unidad?->descripcion;
         $categoria = $insumo?->categoriaTarjeta;
@@ -312,17 +326,23 @@ class TarjetaCalculator
             'id' => $registro->id,
             'es_manual' => $esManual,
             'generadora_titulo' => $gen?->generadora?->titulo,
+            'marca' => $gen?->marca,
             'insumo_id' => $insumo?->id,
             'descripcion' => $datos['descripcion'],
             'codigo_stumis' => $datos['codigo_stumis'],
             'unidad' => $unidad,
             'categoria' => $categoria?->descripcion,
             'categoria_orden' => $categoria?->orden ?? 99999,
-            'peso_lineal' => $datos['peso_lineal'],
+            'peso_lineal' => $pesoLineal,
+            'kilos_reales' => $kilosReales,
             'tipo_pintura' => $registro->tipo_pintura,
             'cantidad' => $cantidad,
             'precio_unitario' => $precio,
+            'precio_obra' => $precioObra,
+            'precio_global' => $precioGlobal,
             'importe' => $cantidad * $precio,
+            'importe_sugerido' => $cantidad * $precio,
+            'area_pintura' => $area,
             'validado' => $esManual ? $registro->validado : (bool) ($gen?->validado ?? false),
         ];
     }
@@ -476,12 +496,16 @@ class TarjetaCalculator
 
             $insumoEf = $override?->insumo ?? $factor->insumo;
             $precio = 0.0;
+            $precioObra = 0.0;
+            $precioGlobal = 0.0;
             if ($insumoEf !== null) {
                 $insumoOverride = $insumoOverrides->get($insumoEf->id);
                 $precioTarjeta = $preciosTarjeta->has($insumoEf->id)
                     ? (float) $preciosTarjeta->get($insumoEf->id)->precio_unitario
                     : null;
                 $precio = $this->overrides->precioInsumo($insumoEf, $insumoOverride, $precioTarjeta);
+                $precioObra = $this->overrides->precioInsumo($insumoEf, $insumoOverride);
+                $precioGlobal = (float) $insumoEf->precio_unitario;
             }
 
             $paraResolver[] = ['codigo' => $factor->codigo, 'formula' => $datos['formula']];
@@ -494,6 +518,9 @@ class TarjetaCalculator
                 'factor' => $factor,
                 'datos' => $datos,
                 'precio' => $precio,
+                'precio_obra' => $precioObra,
+                'precio_global' => $precioGlobal,
+                'formula_global' => $factor->formula,
             ];
         }
 
@@ -516,11 +543,15 @@ class TarjetaCalculator
                 'codigo' => $factor->codigo,
                 'nombre' => $r['datos']['nombre'],
                 'formula' => $r['datos']['formula'],
+                'formula_global' => $r['formula_global'],
                 'categoria' => $factor->categoriaTarjeta?->descripcion,
                 'categoria_orden' => $factor->categoriaTarjeta?->orden ?? 99999,
                 'cantidad' => $cantidad,
                 'precio_unitario' => $r['precio'],
+                'precio_obra' => $r['precio_obra'],
+                'precio_global' => $r['precio_global'],
                 'importe' => $importe,
+                'importe_sugerido' => $cantidad * $r['precio'],
                 'validado' => (bool) $tf->validado,
             ];
         }

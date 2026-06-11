@@ -6,6 +6,8 @@ use App\Enums\Cotiz\TipoPintura;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Cotiz\TarjetaFactorVincularRequest;
 use App\Http\Requests\Admin\Cotiz\TarjetaRegistroManualRequest;
+use App\Models\Cotiz\Generadora;
+use App\Models\Cotiz\GeneradoraRegistro;
 use App\Models\Cotiz\Insumo;
 use App\Models\Cotiz\Tarjeta;
 use App\Models\Cotiz\TarjetaCategoriaKilos;
@@ -18,6 +20,7 @@ use App\Services\Cotiz\Variables\Validar;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -76,6 +79,92 @@ class TarjetaDetalleController extends Controller
         $tarjetaRegistro->delete();
 
         return back();
+    }
+
+    /**
+     * Borra todos los registros de un grupo (mismo insumo) a la vez.
+     */
+    public function registroGrupoDestroy(Request $request, Tarjeta $tarjeta): RedirectResponse
+    {
+        $datos = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $tarjeta->registros()->whereIn('id', $datos['ids'])->delete();
+
+        return back();
+    }
+
+    /**
+     * Edita una fila AGRUPADA (varios tarjeta_registros del mismo insumo a la vez):
+     * - cantidad: se distribuye entre los manuales proporcional a su cantidad actual.
+     * - tipo_pintura: se aplica a todos los ids del grupo.
+     * - validado: manuales usan su propio flag; los de generadora marcan el registro origen.
+     */
+    public function registroGrupo(Request $request, Tarjeta $tarjeta): RedirectResponse
+    {
+        $datos = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer'],
+            'cantidad' => ['nullable', 'numeric'],
+            'tipo_pintura' => ['nullable', Rule::enum(TipoPintura::class)],
+            'validado' => ['nullable', 'boolean'],
+        ]);
+
+        $registros = $tarjeta->registros()->whereIn('id', $datos['ids'])->get();
+        if ($registros->isEmpty()) {
+            return back();
+        }
+
+        if ($request->has('tipo_pintura') && $datos['tipo_pintura'] !== null) {
+            $tarjeta->registros()->whereIn('id', $registros->pluck('id'))
+                ->update(['tipo_pintura' => $datos['tipo_pintura']]);
+        }
+
+        if ($request->has('validado') && $datos['validado'] !== null) {
+            $manualIds = $registros->whereNull('generadora_registro_id')->pluck('id');
+            $tarjeta->registros()->whereIn('id', $manualIds)->update(['validado' => $datos['validado']]);
+
+            $genIds = $registros->whereNotNull('generadora_registro_id')->pluck('generadora_registro_id');
+            GeneradoraRegistro::query()->whereIn('id', $genIds)->update(['validado' => $datos['validado']]);
+        }
+
+        if ($request->has('cantidad')) {
+            $this->distribuirCantidad($registros->whereNull('generadora_registro_id'), $datos['cantidad']);
+        }
+
+        return back();
+    }
+
+    /**
+     * Distribuye una cantidad total entre registros manuales, proporcional a su cantidad
+     * actual; en partes iguales si todas son 0.
+     *
+     * @param  \Illuminate\Support\Collection<int, TarjetaRegistro>  $manuales
+     */
+    private function distribuirCantidad($manuales, ?string $cantidad): void
+    {
+        if ($manuales->isEmpty()) {
+            return;
+        }
+        $total = $cantidad !== null ? (float) $cantidad : null;
+
+        if ($total === null || $manuales->count() === 1) {
+            foreach ($manuales as $registro) {
+                $registro->update(['cantidad' => $total]);
+            }
+
+            return;
+        }
+
+        $suma = (float) $manuales->sum(fn (TarjetaRegistro $r) => (float) ($r->cantidad ?? 0));
+        foreach ($manuales as $registro) {
+            $porcion = $suma > 0
+                ? (float) ($registro->cantidad ?? 0) / $suma
+                : 1 / $manuales->count();
+            $registro->update(['cantidad' => $total * $porcion]);
+        }
     }
 
     // ===== P.U. por tarjeta (M040) =====
@@ -232,6 +321,74 @@ class TarjetaDetalleController extends Controller
         );
 
         return back();
+    }
+
+    // ===== Acciones masivas =====
+
+    /**
+     * Valida todos: manuales con su propio flag; los de generadora marcan el ✓ en el
+     * registro origen (M045, afecta a otras tarjetas que usen esos items).
+     */
+    public function validarTodas(Tarjeta $tarjeta): RedirectResponse
+    {
+        $tarjeta->registros()->whereNull('generadora_registro_id')->update(['validado' => true]);
+
+        $genRegistroIds = $tarjeta->registros()
+            ->whereNotNull('generadora_registro_id')
+            ->pluck('generadora_registro_id');
+        GeneradoraRegistro::query()->whereIn('id', $genRegistroIds)->update(['validado' => true]);
+
+        $tarjeta->factores()->update(['validado' => true]);
+
+        return back();
+    }
+
+    /**
+     * Aplica el importe sugerido (cantidad × P.U. calculado) a todos los factores, limpiando
+     * cualquier override de importe persistido para que caiga al cálculo en vivo.
+     */
+    public function aplicarSugerido(Tarjeta $tarjeta): RedirectResponse
+    {
+        $tarjeta->factores()->update(['importe' => null]);
+
+        return back();
+    }
+
+    /**
+     * Resincroniza una generadora: importa sus registros nuevos (con material y no usados en
+     * otra tarjeta) y quita los importados cuya línea perdió el material. Reporta el resultado.
+     */
+    public function resincronizarGeneradora(Tarjeta $tarjeta, Generadora $generadora): RedirectResponse
+    {
+        $resultado = DB::transaction(function () use ($tarjeta, $generadora) {
+            // 1) Limpieza: registros de esta generadora cuya línea ya no tiene material.
+            $sinMaterialIds = $generadora->registros()->whereNull('material_origen_id')->pluck('id');
+            $quitados = $tarjeta->registros()
+                ->whereIn('generadora_registro_id', $sinMaterialIds)
+                ->delete();
+
+            // 2) Importar líneas nuevas con material, no vinculadas a ninguna tarjeta.
+            $yaImportados = TarjetaRegistro::query()
+                ->whereNotNull('generadora_registro_id')
+                ->pluck('generadora_registro_id');
+            $nuevos = $generadora->registros()
+                ->whereNotNull('material_origen_id')
+                ->whereNotIn('id', $yaImportados)
+                ->pluck('id');
+            $tarjeta->registros()->createMany(
+                $nuevos->map(fn (int $gid) => [
+                    'generadora_registro_id' => $gid,
+                    'validado' => false,
+                    'tipo_pintura' => TipoPintura::Auto->value,
+                ])->all(),
+            );
+
+            return ['importados' => $nuevos->count(), 'quitados' => $quitados];
+        });
+
+        return back()->with('flash', [
+            'message' => "Resincronizada \"{$generadora->titulo}\": {$resultado['importados']} importado(s), {$resultado['quitados']} quitado(s).",
+        ]);
     }
 
     // ===== Validación de fórmula (editor) =====

@@ -347,6 +347,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('tarjeta-kr-categorias/{categoriaKilos}', [CotizTarjetaDetalleController::class, 'krCategoriaUpdate'])->name('tarjetas.kr-categorias.update');
         Route::delete('tarjeta-kr-categorias/{categoriaKilos}', [CotizTarjetaDetalleController::class, 'krCategoriaDestroy'])->name('tarjetas.kr-categorias.destroy');
         Route::put('tarjetas/{tarjeta}/kr-celdas', [CotizTarjetaDetalleController::class, 'krCeldaUpsert'])->name('tarjetas.kr-celdas.upsert');
+        Route::put('tarjetas/{tarjeta}/registros-grupo', [CotizTarjetaDetalleController::class, 'registroGrupo'])->name('tarjetas.registros.grupo');
+        Route::delete('tarjetas/{tarjeta}/registros-grupo', [CotizTarjetaDetalleController::class, 'registroGrupoDestroy'])->name('tarjetas.registros.grupo-destroy');
+        Route::post('tarjetas/{tarjeta}/validar-todas', [CotizTarjetaDetalleController::class, 'validarTodas'])->name('tarjetas.validar-todas');
+        Route::post('tarjetas/{tarjeta}/aplicar-sugerido', [CotizTarjetaDetalleController::class, 'aplicarSugerido'])->name('tarjetas.aplicar-sugerido');
+        Route::post('tarjetas/{tarjeta}/generadoras/{generadora}/resincronizar', [CotizTarjetaDetalleController::class, 'resincronizarGeneradora'])->name('tarjetas.generadoras.resincronizar');
     });
 
     // Cobranza admin routes
