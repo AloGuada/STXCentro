@@ -1183,6 +1183,60 @@ export type CotizTarjeta = {
     generadoras?: Pick<CotizGeneradora, 'id' | 'titulo' | 'orden'>[];
 };
 
+/** Registro de tarjeta ya resuelto por el TarjetaCalculator (no es un modelo crudo). */
+export type CotizTarjetaRegistroResuelto = {
+    id: number;
+    es_manual: boolean;
+    insumo_id: number | null;
+    descripcion: string;
+    codigo_stumis: string | null;
+    unidad: string | null;
+    categoria: string | null;
+    categoria_orden: number;
+    peso_lineal: number | null;
+    tipo_pintura: string;
+    cantidad: number;
+    precio_unitario: number;
+    importe: number;
+    validado: boolean;
+};
+
+export type CotizTarjetaFactorResuelto = {
+    id: number;
+    factor_id: number;
+    codigo: string;
+    nombre: string;
+    formula: string | null;
+    categoria: string | null;
+    categoria_orden: number;
+    cantidad: number;
+    precio_unitario: number;
+    importe: number;
+    validado: boolean;
+};
+
+export type CotizTarjetaEstructura = {
+    id: number;
+    nombre: string;
+    orden: number;
+};
+
+export type CotizTarjetaCategoriaKilos = {
+    id: number;
+    categoria_id: number;
+    descripcion: string | null;
+    tipo_corte: string | null;
+    porcentual: string | null;
+    orden: number;
+};
+
+export type CotizTarjetaKilosCelda = {
+    id: number;
+    categoria_id: number;
+    estructura_id: number;
+    kilos: string;
+};
+
 export type CostosRubro = {
     id: number;
     codigo: string;

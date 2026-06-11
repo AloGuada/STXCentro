@@ -226,26 +226,14 @@ Tres problemas separados; no acoplarlos. El cálculo autoritativo en PHP (deriva
 - [x] Conectado al `TarjetaCalculator`: `construirExpandir()` arma el Registry+contexto self y lo pasa al `FactorResolver` como `$expandir`; `datosTarjeta()` para instancias concretas. **Todas las fórmulas sembradas usan solo direcciones self de tarjeta** — ese camino está cubierto end-to-end.
 - [x] Tests: `Variables/ParserTest`, `Variables/ValidarTest` (unit) y `TarjetaVariablesTest` (e2e: total.tarjeta.kg/area/kg_real[corte]/importe[cc], tarjeta.factor[cod=X], factor inexistente→0). **159 tests `--filter=Cotiz` verdes, pint OK.**
 
-### Fase 3c-2 (frontend grilla densa + subrecursos — pendiente)
-- [ ] Migraciones: `cotiz_tarjetas` (cache `importe_materiales`, `kilos_reales`), `cotiz_tarjeta_generadoras` (N:N),
-      `cotiz_tarjeta_registros` (gen | manual + CHECK), `cotiz_tarjeta_factores` (formula_override),
-      `cotiz_tarjeta_insumo_precio`, `cotiz_tarjeta_estructuras`, `cotiz_tarjeta_categorias_kilos` (porcentual),
-      `cotiz_tarjeta_kilos_reales`.
-- [ ] **Port completo del motor** a `App\Services\Cotiz\`:
-  - `TarjetaCalculator` (port de `tarjetaTotales.ts`): registros (gen+manual), cantidad con merma, importe por categoría (`importe_<slug>`), kg_fab, area_pintura, totales.
-  - `PinturaCalculator` (port de `pintura.ts`: inferir tipo, parseo lado/peralte/patín, fórmulas por clave).
-  - `KilosRealesCalculator` (port de `calcularKgPorTipoCorte`, incluye filas porcentuales).
-  - `VariableResolver` (port de `lib/variables/`: direccionamiento semántico M046 — catálogo, parser, registry, dominios, expandir, validar).
-- [ ] `TarjetaController` (+ subrecursos: vincular/desvincular generadora, registros manuales, factores, estructuras, análisis kg reales, validar).
-- [ ] Refrescar cache (`importe_materiales`, `kilos_reales`) al recalcular (equivalente M039).
-- [ ] **Lock estricto en tarjetas** (reutiliza `LockManager`): badge "editando por X", apertura en solo-lectura si está bloqueada, override solo `admin-cotiz`, heartbeat + TTL.
+### Fase 3c-2 — Grilla densa + subrecursos ✅ COMPLETA (2026-06-11)
+- [x] `TarjetaDetalleController`: subrecursos de la grilla — registros manuales (store/update/destroy), P.U. por tarjeta (set/clear `tarjeta_insumo_precio`), factores (vincular/update `formula_override`/`cantidad_manual`/`importe`/`validado`/desvincular), estructuras (CRUD), kilos reales (categoría store/update/destroy + celda upsert), y `validar-formula` (usa `Validar`). 2 Form Requests.
+- [x] `TarjetaController::edit` enriquecido: expone `registros`/`factores` resueltos (del `TarjetaCalculator`), `estructuras`, `categoriasKilos`, `celdas`, `preciosOverride`, `totales` y catálogos (insumos, factores, krCategorias, tiposPintura).
+- [x] Frontend `tarjetas/edit.tsx` reescrito: grilla de registros (AG-Grid: cantidad [manual], P.U. con override marcado, importe, tipo de pintura [select], validado, eliminar; orden por categoría) + alta manual; grilla de factores (fórmula editable con validación en vivo vía endpoint, validado, quitar) + vincular; matriz de kilos reales (estructuras=columnas, categorías=filas con % y celdas editables) + altas; secciones de totales y generadoras. `EditableGrid` extendido para reportar la columna editada (P.U. → endpoint distinto). M045: el ✓ de un registro de generadora muta el registro origen.
+- [x] Lock estricto en tarjetas ya integrado en 3a; badge/solo-lectura/heartbeat funcionando.
+- [x] `TarjetaDetalleTest` (14 tests: registros, P.U. set/clear, factores, estructuras+celdas KR, validación de fórmula). **173 tests `--filter=Cotiz` verdes, pint, build OK. FASE 3 COMPLETA.**
 
-### Frontend
-- [ ] `TarjetasIndex`, `TarjetaEdit` (grid AG-Grid denso: agrupación por categoría, P.U. con override, fórmula de factor, importe, %, pintura).
-- [ ] Modal "Análisis de kilos reales" (matriz categorías × estructuras, filas %).
-
-### Verificación
-- [ ] Tests del cálculo end-to-end de una tarjeta contra un caso conocido (idealmente derivado del proyecto Tekpark) — comparar importe/kg con valores esperados.
+> Nota: 1 fila por registro (sin el merge por insumo ni la back-propagación de importe del `TarjetaEditPage` original de prepsim — refinamiento UX diferible). Caso Tekpark como verificación de referencia: diferido a Fase 6 (plantilla).
 
 ---
 

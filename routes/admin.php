@@ -60,6 +60,7 @@ use App\Http\Controllers\Admin\Cotiz\PersonalCategoriaController as CotizPersona
 use App\Http\Controllers\Admin\Cotiz\PinturaFormulaController as CotizPinturaFormulaController;
 use App\Http\Controllers\Admin\Cotiz\ResumenFilaController as CotizResumenFilaController;
 use App\Http\Controllers\Admin\Cotiz\TarjetaController as CotizTarjetaController;
+use App\Http\Controllers\Admin\Cotiz\TarjetaDetalleController as CotizTarjetaDetalleController;
 use App\Http\Controllers\Admin\DepartamentoController;
 use App\Http\Controllers\Admin\Dg\CarpetaAccesoController as DgCarpetaAccesoController;
 use App\Http\Controllers\Admin\Dg\CarpetaController as DgCarpetaController;
@@ -329,6 +330,23 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('tarjetas/{tarjeta}', [CotizTarjetaController::class, 'destroy'])->name('tarjetas.destroy');
         Route::post('tarjetas/{tarjeta}/generadoras', [CotizTarjetaController::class, 'vincularGeneradora'])->name('tarjetas.generadoras.vincular');
         Route::delete('tarjetas/{tarjeta}/generadoras/{generadora}', [CotizTarjetaController::class, 'desvincularGeneradora'])->name('tarjetas.generadoras.desvincular');
+
+        // Tarjetas — subrecursos de la grilla densa (Fase 3c-2)
+        Route::post('tarjetas/validar-formula', [CotizTarjetaDetalleController::class, 'validarFormula'])->name('tarjetas.validar-formula');
+        Route::post('tarjetas/{tarjeta}/registros-manual', [CotizTarjetaDetalleController::class, 'registroStore'])->name('tarjetas.registros.store');
+        Route::put('tarjeta-registros/{tarjetaRegistro}', [CotizTarjetaDetalleController::class, 'registroUpdate'])->name('tarjetas.registros.update');
+        Route::delete('tarjeta-registros/{tarjetaRegistro}', [CotizTarjetaDetalleController::class, 'registroDestroy'])->name('tarjetas.registros.destroy');
+        Route::put('tarjetas/{tarjeta}/precios/{insumo}', [CotizTarjetaDetalleController::class, 'precioUpdate'])->name('tarjetas.precios.update');
+        Route::post('tarjetas/{tarjeta}/factores', [CotizTarjetaDetalleController::class, 'factorStore'])->name('tarjetas.factores.store');
+        Route::put('tarjeta-factores/{tarjetaFactor}', [CotizTarjetaDetalleController::class, 'factorUpdate'])->name('tarjetas.factores.update');
+        Route::delete('tarjeta-factores/{tarjetaFactor}', [CotizTarjetaDetalleController::class, 'factorDestroy'])->name('tarjetas.factores.destroy');
+        Route::post('tarjetas/{tarjeta}/estructuras', [CotizTarjetaDetalleController::class, 'estructuraStore'])->name('tarjetas.estructuras.store');
+        Route::put('tarjeta-estructuras/{tarjetaEstructura}', [CotizTarjetaDetalleController::class, 'estructuraUpdate'])->name('tarjetas.estructuras.update');
+        Route::delete('tarjeta-estructuras/{tarjetaEstructura}', [CotizTarjetaDetalleController::class, 'estructuraDestroy'])->name('tarjetas.estructuras.destroy');
+        Route::post('tarjetas/{tarjeta}/kr-categorias', [CotizTarjetaDetalleController::class, 'krCategoriaStore'])->name('tarjetas.kr-categorias.store');
+        Route::put('tarjeta-kr-categorias/{categoriaKilos}', [CotizTarjetaDetalleController::class, 'krCategoriaUpdate'])->name('tarjetas.kr-categorias.update');
+        Route::delete('tarjeta-kr-categorias/{categoriaKilos}', [CotizTarjetaDetalleController::class, 'krCategoriaDestroy'])->name('tarjetas.kr-categorias.destroy');
+        Route::put('tarjetas/{tarjeta}/kr-celdas', [CotizTarjetaDetalleController::class, 'krCeldaUpsert'])->name('tarjetas.kr-celdas.upsert');
     });
 
     // Cobranza admin routes

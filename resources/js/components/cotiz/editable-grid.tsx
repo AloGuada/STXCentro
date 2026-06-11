@@ -23,8 +23,11 @@ export type EditableGridProps<T> = {
     rowData: T[];
     columnDefs: ColDef<T>[];
     getRowId: (row: T) => string;
-    /** Se invoca con la fila completa cuando una celda termina de editarse y cambió de valor. */
-    onCellEdited?: (row: T) => void;
+    /**
+     * Se invoca cuando una celda termina de editarse y cambió de valor. Recibe la fila
+     * completa y el `field`/`colId` de la columna editada (para enrutar el guardado).
+     */
+    onCellEdited?: (row: T, field?: string) => void;
     quickFilterText?: string;
     /** Alto del contenedor; AG-Grid requiere altura explícita. */
     height?: string;
@@ -69,7 +72,10 @@ export function EditableGrid<T>({
                 stopEditingWhenCellsLoseFocus
                 onCellValueChanged={(event) => {
                     if (event.oldValue !== event.newValue) {
-                        onCellEdited?.(event.data);
+                        onCellEdited?.(
+                            event.data,
+                            event.colDef.field ?? event.colDef.colId,
+                        );
                     }
                 }}
                 animateRows

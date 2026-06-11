@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers\Admin\Cotiz;
 
+use App\Enums\Cotiz\TipoPintura;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Cotiz\TarjetaStoreRequest;
 use App\Http\Requests\Admin\Cotiz\TarjetaUpdateRequest;
 use App\Http\Requests\Admin\Cotiz\TarjetaVincularGeneradoraRequest;
+use App\Models\Cotiz\Factor;
 use App\Models\Cotiz\Generadora;
 use App\Models\Cotiz\GeneradoraRegistro;
+use App\Models\Cotiz\Insumo;
+use App\Models\Cotiz\KilosRealesCategoria;
 use App\Models\Cotiz\Obra;
 use App\Models\Cotiz\Tarjeta;
+use App\Models\Cotiz\TarjetaCategoriaKilos;
 use App\Models\Cotiz\TarjetaRegistro;
 use App\Services\Cotiz\TarjetaCalculator;
 use Illuminate\Http\RedirectResponse;
@@ -79,7 +84,22 @@ class TarjetaController extends Controller
         $tarjeta->load(['obra', 'lockedBy:id,name', 'generadoras:id,titulo,orden']);
 
         $vinculadas = $tarjeta->generadoras->pluck('id');
-        $totales = $calculator->refrescarCache($tarjeta);
+        $resultado = $calculator->refrescarCache($tarjeta);
+
+        $estructuras = $tarjeta->estructuras()->orderBy('orden')->orderBy('id')->get(['id', 'nombre', 'orden']);
+        $categoriasKilos = $tarjeta->categoriasKilos()
+            ->with('categoria:id,descripcion,tipo_corte')
+            ->orderBy('orden')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (TarjetaCategoriaKilos $c) => [
+                'id' => $c->id,
+                'categoria_id' => $c->categoria_id,
+                'descripcion' => $c->categoria?->descripcion,
+                'tipo_corte' => $c->categoria?->tipo_corte?->value,
+                'porcentual' => $c->porcentual,
+                'orden' => $c->orden,
+            ]);
 
         return Inertia::render('admin/cotiz/tarjetas/edit', [
             'tarjeta' => [
@@ -91,15 +111,27 @@ class TarjetaController extends Controller
                 'kilos_reales' => $tarjeta->kilos_reales,
                 'obra' => $tarjeta->obra,
                 'generadoras' => $tarjeta->generadoras->map->only(['id', 'titulo', 'orden']),
-                'registros_count' => $tarjeta->registros()->count(),
+                'registros_count' => count($resultado['registros']),
             ],
+            'registros' => $resultado['registros'],
+            'factores' => $resultado['factores'],
+            'estructuras' => $estructuras,
+            'categoriasKilos' => $categoriasKilos,
+            'celdas' => $tarjeta->kilosReales()->get(['id', 'categoria_id', 'estructura_id', 'kilos']),
+            'preciosOverride' => $tarjeta->insumoPrecios()->pluck('precio_unitario', 'insumo_id'),
             'totales' => [
-                'total_importe' => $totales['total_importe'],
-                'total_registros' => $totales['total_registros'],
-                'total_factores' => $totales['total_factores'],
-                'kg_fab' => $totales['kg_fab'],
-                'area_pintura' => $totales['area_pintura'],
-                'kg_reales_total' => $totales['kg_reales_total'],
+                'total_importe' => $resultado['total_importe'],
+                'total_registros' => $resultado['total_registros'],
+                'total_factores' => $resultado['total_factores'],
+                'kg_fab' => $resultado['kg_fab'],
+                'area_pintura' => $resultado['area_pintura'],
+                'kg_reales_total' => $resultado['kg_reales_total'],
+            ],
+            'catalogos' => [
+                'insumos' => Insumo::query()->orderBy('descripcion')->get(['id', 'descripcion', 'precio_unitario']),
+                'factores' => Factor::query()->orderBy('codigo')->get(['id', 'codigo', 'nombre', 'formula']),
+                'krCategorias' => KilosRealesCategoria::query()->orderBy('orden')->get(['id', 'descripcion', 'tipo_corte']),
+                'tiposPintura' => TipoPintura::options(),
             ],
             'generadorasDisponibles' => $tarjeta->obra->generadoras()
                 ->whereNotIn('id', $vinculadas)
