@@ -31,17 +31,28 @@ function AccionFila({
     label: string;
 }) {
     return (
-        <button
-            type="button"
-            className="inline-flex link items-center gap-1 text-xs link-primary"
+        <span
+            role="link"
+            tabIndex={0}
+            className="inline-flex cursor-pointer link items-center gap-1 text-xs link-primary"
+            // <span> (no <a>/<button>) para no anidar interactivos dentro del <Link> de la fila.
+            // preventDefault corta la navegación nativa del ancla; stopPropagation, el onClick de Inertia.
             onClick={(e: MouseEvent) => {
+                e.preventDefault();
                 e.stopPropagation();
                 router.visit(href);
+            }}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.visit(href);
+                }
             }}
         >
             <Icon className="size-3.5" />
             {label}
-        </button>
+        </span>
     );
 }
 
