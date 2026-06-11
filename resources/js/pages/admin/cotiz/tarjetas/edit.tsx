@@ -21,8 +21,18 @@ type TarjetaProp = {
     registros_count: number;
 };
 
+type Totales = {
+    total_importe: number;
+    total_registros: number;
+    total_factores: number;
+    kg_fab: number;
+    area_pintura: number;
+    kg_reales_total: number;
+};
+
 type Props = {
     tarjeta: TarjetaProp;
+    totales: Totales;
     generadorasDisponibles: Pick<CotizGeneradora, 'id' | 'titulo' | 'orden'>[];
     lock: {
         is_locked: boolean;
@@ -30,6 +40,12 @@ type Props = {
         locked_at: string | null;
     };
 };
+
+const fmtMoney = new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+});
+const fmtNum = (n: number, d = 2) => Number(n).toFixed(d);
 
 function formatDesde(iso: string | null): string {
     if (!iso) {
@@ -47,6 +63,7 @@ function formatDesde(iso: string | null): string {
 
 export default function TarjetaEdit({
     tarjeta,
+    totales,
     generadorasDisponibles,
     lock,
 }: Props) {
@@ -237,9 +254,38 @@ export default function TarjetaEdit({
                     )}
                 </div>
 
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    <TotalCard
+                        label="Total importe"
+                        value={fmtMoney.format(totales.total_importe)}
+                        accent
+                    />
+                    <TotalCard
+                        label="Materiales"
+                        value={fmtMoney.format(totales.total_registros)}
+                    />
+                    <TotalCard
+                        label="Factores"
+                        value={fmtMoney.format(totales.total_factores)}
+                    />
+                    <TotalCard
+                        label="Kg fab."
+                        value={fmtNum(totales.kg_fab)}
+                    />
+                    <TotalCard
+                        label="Área pintura (m²)"
+                        value={fmtNum(totales.area_pintura)}
+                    />
+                    <TotalCard
+                        label="Kg reales"
+                        value={fmtNum(totales.kg_reales_total)}
+                    />
+                </div>
+
                 <div className="rounded-box border border-dashed border-base-300 p-6 text-center text-sm text-base-content/60">
-                    La grilla de cálculo (registros, factores, pintura, kilos
-                    reales) llega en la siguiente entrega (Fase 3c).
+                    La grilla editable (registros, factores, pintura, kilos
+                    reales) llega en la siguiente entrega (Fase 3c). Los totales
+                    de arriba ya se calculan en el backend.
                 </div>
 
                 <div className="flex justify-end">
@@ -252,6 +298,33 @@ export default function TarjetaEdit({
                 </div>
             </div>
         </AppLayout>
+    );
+}
+
+function TotalCard({
+    label,
+    value,
+    accent,
+}: {
+    label: string;
+    value: string;
+    accent?: boolean;
+}) {
+    return (
+        <div
+            className={`rounded-box border p-3 ${
+                accent
+                    ? 'border-primary/40 bg-primary/5'
+                    : 'border-base-300'
+            }`}
+        >
+            <p className="text-xs text-base-content/60">{label}</p>
+            <p
+                className={`mt-1 font-semibold ${accent ? 'text-primary' : ''}`}
+            >
+                {value}
+            </p>
+        </div>
     );
 }
 

@@ -213,7 +213,14 @@ Tres problemas separados; no acoplarlos. El cálculo autoritativo en PHP (deriva
 - [x] Front: `tarjetas/index` (tabla + alta con generadora inicial opcional), `tarjetas/edit` (shell: cabecera, lock banner, vincular/desvincular generadoras, placeholder de grilla 3c). Enlace "Ver tarjetas" en obras/index.
 - [x] `TarjetaTest` (CRUD, import al vincular, no-doble-import, desvincular, lock). **109 tests `--filter=Cotiz` verdes, pint, build OK.**
 
-### Backend (3b/3c pendientes)
+### Fase 3b — Motor de cálculo (namespace plano) ✅ COMPLETA (2026-06-11)
+- [x] `PinturaCalculator` (port de `pintura.ts`): `inferirTipo` (heurística galv/no-estructural/hss/ipr/placa), `extraerLadoPulgadas`/`extraerPeralteMetros` (parseo de descripción), `area` (clave→fórmula, vars kg/peso_lineal/lado/peralte/patin; error→0).
+- [x] `KilosRealesCalculator` (port de `calcularKgPorTipoCorte`): filas fijas suman directo; porcentuales aportan % × Σ fijas. `total()`.
+- [x] `TarjetaCalculator` (port de `tarjetaTotales.ts`): resuelve cada registro (insumo efectivo, cantidad con merma vía `cantidadConMerma`, P.U. `tarjeta>obra>global` con `OverrideResolver`+`tarjeta_insumo_precio`, categoría, unidad); `importe_<slug>` (slug con `Normalizer` NFD), `kg_fab`, `area_pintura`, kg por tipo de corte; factores vía `FactorResolver` **SIN expandir** (namespace plano: kg_fab/area_pintura/kg_<corte>/importe_<slug> + refs entre factores); `total_importe`/`kg_reales_total`. `refrescarCache()` escribe M039 solo si difiere (`saveQuietly`).
+- [x] Controlador: index/edit refrescan cache y exponen totales; panel de totales en `tarjetas/edit`.
+- [x] Tests: `PinturaCalculatorTest`+`KilosRealesCalculatorTest` (unit) y `TarjetaCalculatorTest` (e2e: registro manual, prioridad P.U. tarjeta>obra>global, factor con fórmula, factor manual, DAG entre factores, importe persistido, kg reales, refrescarCache, slug). **134 tests `--filter=Cotiz` verdes, pint, build OK.** El hook `$expandir` (M046) queda para 3c.
+
+### Backend (3c pendiente)
 - [ ] Migraciones: `cotiz_tarjetas` (cache `importe_materiales`, `kilos_reales`), `cotiz_tarjeta_generadoras` (N:N),
       `cotiz_tarjeta_registros` (gen | manual + CHECK), `cotiz_tarjeta_factores` (formula_override),
       `cotiz_tarjeta_insumo_precio`, `cotiz_tarjeta_estructuras`, `cotiz_tarjeta_categorias_kilos` (porcentual),

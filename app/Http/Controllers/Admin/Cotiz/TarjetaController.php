@@ -11,6 +11,7 @@ use App\Models\Cotiz\GeneradoraRegistro;
 use App\Models\Cotiz\Obra;
 use App\Models\Cotiz\Tarjeta;
 use App\Models\Cotiz\TarjetaRegistro;
+use App\Services\Cotiz\TarjetaCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -22,25 +23,31 @@ use Inertia\Response;
  */
 class TarjetaController extends Controller
 {
-    public function index(Obra $obra): Response
+    public function index(Obra $obra, TarjetaCalculator $calculator): Response
     {
         $tarjetas = $obra->tarjetas()
             ->withCount(['registros', 'generadoras'])
             ->orderBy('orden')
             ->orderBy('id')
             ->get()
-            ->map(fn (Tarjeta $tarjeta) => [
-                'id' => $tarjeta->id,
-                'obra_id' => $tarjeta->obra_id,
-                'descripcion' => $tarjeta->descripcion,
-                'orden' => $tarjeta->orden,
-                'registros_count' => $tarjeta->registros_count,
-                'generadoras_count' => $tarjeta->generadoras_count,
-                'importe_materiales' => $tarjeta->importe_materiales,
-                'kilos_reales' => $tarjeta->kilos_reales,
-                'is_locked' => $tarjeta->isLocked(),
-                'locked_by' => $tarjeta->lockedBy?->only(['id', 'name']),
-            ]);
+            ->map(function (Tarjeta $tarjeta) use ($calculator) {
+                // Recalcula en vivo y refresca el cache M039 (igual que prepsim, para que
+                // el Resumen no dependa de abrir cada tarjeta).
+                $totales = $calculator->refrescarCache($tarjeta);
+
+                return [
+                    'id' => $tarjeta->id,
+                    'obra_id' => $tarjeta->obra_id,
+                    'descripcion' => $tarjeta->descripcion,
+                    'orden' => $tarjeta->orden,
+                    'registros_count' => $tarjeta->registros_count,
+                    'generadoras_count' => $tarjeta->generadoras_count,
+                    'importe_materiales' => $totales['total_importe'],
+                    'kilos_reales' => $totales['kg_reales_total'],
+                    'is_locked' => $tarjeta->isLocked(),
+                    'locked_by' => $tarjeta->lockedBy?->only(['id', 'name']),
+                ];
+            });
 
         return Inertia::render('admin/cotiz/tarjetas/index', [
             'obra' => $obra,
@@ -67,11 +74,12 @@ class TarjetaController extends Controller
         return to_route('admin.cotiz.tarjetas.edit', $tarjeta);
     }
 
-    public function edit(Tarjeta $tarjeta): Response
+    public function edit(Tarjeta $tarjeta, TarjetaCalculator $calculator): Response
     {
         $tarjeta->load(['obra', 'lockedBy:id,name', 'generadoras:id,titulo,orden']);
 
         $vinculadas = $tarjeta->generadoras->pluck('id');
+        $totales = $calculator->refrescarCache($tarjeta);
 
         return Inertia::render('admin/cotiz/tarjetas/edit', [
             'tarjeta' => [
@@ -84,6 +92,14 @@ class TarjetaController extends Controller
                 'obra' => $tarjeta->obra,
                 'generadoras' => $tarjeta->generadoras->map->only(['id', 'titulo', 'orden']),
                 'registros_count' => $tarjeta->registros()->count(),
+            ],
+            'totales' => [
+                'total_importe' => $totales['total_importe'],
+                'total_registros' => $totales['total_registros'],
+                'total_factores' => $totales['total_factores'],
+                'kg_fab' => $totales['kg_fab'],
+                'area_pintura' => $totales['area_pintura'],
+                'kg_reales_total' => $totales['kg_reales_total'],
             ],
             'generadorasDisponibles' => $tarjeta->obra->generadoras()
                 ->whereNotIn('id', $vinculadas)
