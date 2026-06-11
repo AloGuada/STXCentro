@@ -1167,6 +1167,22 @@ export type CotizCatalogoFactorRow = {
     override: CotizObraFactorOverride | null;
 };
 
+export type CotizTarjeta = {
+    id: number;
+    obra_id: number;
+    descripcion: string;
+    orden: number;
+    registros_count?: number;
+    generadoras_count?: number;
+    importe_materiales: string | null;
+    kilos_reales: string | null;
+    is_locked?: boolean;
+    locked_by?: CotizLockUser | null;
+    locked_at?: string | null;
+    obra?: CotizObra;
+    generadoras?: Pick<CotizGeneradora, 'id' | 'titulo' | 'orden'>[];
+};
+
 export type CostosRubro = {
     id: number;
     codigo: string;

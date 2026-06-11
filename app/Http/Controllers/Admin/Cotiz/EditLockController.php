@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Cotiz;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cotiz\Generadora;
+use App\Models\Cotiz\Tarjeta;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ class EditLockController extends Controller
      */
     private const LOCKABLE_TYPES = [
         'generadora' => Generadora::class,
+        'tarjeta' => Tarjeta::class,
     ];
 
     public function lock(Request $request, string $type, int $id): JsonResponse

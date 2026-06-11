@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CotizObra, PaginatedData } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-import { LayersIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { CreditCardIcon, LayersIcon, SlidersHorizontalIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -41,6 +41,20 @@ const columns: Column<CotizObra>[] = [
                     Ver generadoras
                 </Link>
             </div>
+        ),
+    },
+    {
+        key: 'tarjetas',
+        label: 'Tarjetas',
+        render: (o) => (
+            <Link
+                href={`/admin/cotiz/obras/${o.id}/tarjetas`}
+                className="inline-flex link items-center gap-1 text-xs link-primary"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <CreditCardIcon className="size-3.5" />
+                Ver tarjetas
+            </Link>
         ),
     },
     {

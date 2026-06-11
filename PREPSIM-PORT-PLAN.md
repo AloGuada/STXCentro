@@ -203,7 +203,17 @@ Tres problemas separados; no acoplarlos. El cálculo autoritativo en PHP (deriva
 
 ## Fase 3 — Tarjetas (núcleo del cálculo) ← fase más pesada
 
-### Backend
+> **Troceada en 3a→3b→3c** (decisión 2026-06-11). 3a esquema+CRUD+vínculo; 3b motor de cálculo (namespace plano); 3c M046 + grilla densa.
+
+### Fase 3a — Esquema + CRUD + vínculo con generadoras ✅ COMPLETA (2026-06-11)
+- [x] 8 migraciones: `cotiz_tarjetas` (+cache `importe_materiales`/`kilos_reales` +lock), `cotiz_tarjeta_generadoras` (N:N UNIQUE), `cotiz_tarjeta_estructuras`, `cotiz_tarjeta_registros` (gen|manual, `tipo_pintura`, UNIQUE en `generadora_registro_id`; invariante gen|manual validada en app, no CHECK por paridad SQLite/PG), `cotiz_tarjeta_factores` (`formula_override`, UNIQUE), `cotiz_tarjeta_insumo_precio` (UNIQUE), `cotiz_tarjeta_categorias_kilos` (`porcentual`), `cotiz_tarjeta_kilos_reales`. Legacy `solo_exterior` NO portado. FKs normalizadas (`tarjeta_id`, `categoria_id`, `estructura_id`).
+- [x] 8 modelos + factories. `Tarjeta` con `HasEditLock` y relaciones (generadoras BelongsToMany, registros/factores/estructuras/categoriasKilos/kilosReales/insumoPrecios HasMany).
+- [x] `TarjetaController` (index por obra, store +vincular opcional, edit shell, update, destroy, vincularGeneradora, desvincularGeneradora). Import de registros = los de la generadora con `material_origen_id` y no ya importados (UNIQUE lo garantiza). 3 Form Requests.
+- [x] Lock `tarjeta` añadido a `EditLockController` + hook `use-cotiz-edit-lock` (`'generadora'|'tarjeta'`). Rutas + permisos `cotiz.tarjetas.*`.
+- [x] Front: `tarjetas/index` (tabla + alta con generadora inicial opcional), `tarjetas/edit` (shell: cabecera, lock banner, vincular/desvincular generadoras, placeholder de grilla 3c). Enlace "Ver tarjetas" en obras/index.
+- [x] `TarjetaTest` (CRUD, import al vincular, no-doble-import, desvincular, lock). **109 tests `--filter=Cotiz` verdes, pint, build OK.**
+
+### Backend (3b/3c pendientes)
 - [ ] Migraciones: `cotiz_tarjetas` (cache `importe_materiales`, `kilos_reales`), `cotiz_tarjeta_generadoras` (N:N),
       `cotiz_tarjeta_registros` (gen | manual + CHECK), `cotiz_tarjeta_factores` (formula_override),
       `cotiz_tarjeta_insumo_precio`, `cotiz_tarjeta_estructuras`, `cotiz_tarjeta_categorias_kilos` (porcentual),

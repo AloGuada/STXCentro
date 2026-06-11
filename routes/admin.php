@@ -59,6 +59,7 @@ use App\Http\Controllers\Admin\Cotiz\ObraController as CotizObraController;
 use App\Http\Controllers\Admin\Cotiz\PersonalCategoriaController as CotizPersonalCategoriaController;
 use App\Http\Controllers\Admin\Cotiz\PinturaFormulaController as CotizPinturaFormulaController;
 use App\Http\Controllers\Admin\Cotiz\ResumenFilaController as CotizResumenFilaController;
+use App\Http\Controllers\Admin\Cotiz\TarjetaController as CotizTarjetaController;
 use App\Http\Controllers\Admin\DepartamentoController;
 use App\Http\Controllers\Admin\Dg\CarpetaAccesoController as DgCarpetaAccesoController;
 use App\Http\Controllers\Admin\Dg\CarpetaController as DgCarpetaController;
@@ -319,6 +320,15 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('obras/{obra}/catalogo/insumos/{insumo}', [CotizCatalogoObraController::class, 'destroyInsumo'])->name('obras.catalogo.insumos.destroy');
         Route::put('obras/{obra}/catalogo/factores/{factor}', [CotizCatalogoObraController::class, 'updateFactor'])->name('obras.catalogo.factores.update');
         Route::delete('obras/{obra}/catalogo/factores/{factor}', [CotizCatalogoObraController::class, 'destroyFactor'])->name('obras.catalogo.factores.destroy');
+
+        // Tarjetas (Fase 3a): CRUD por obra + vínculo con generadoras
+        Route::get('obras/{obra}/tarjetas', [CotizTarjetaController::class, 'index'])->name('tarjetas.index');
+        Route::post('tarjetas', [CotizTarjetaController::class, 'store'])->name('tarjetas.store');
+        Route::get('tarjetas/{tarjeta}/edit', [CotizTarjetaController::class, 'edit'])->name('tarjetas.edit');
+        Route::put('tarjetas/{tarjeta}', [CotizTarjetaController::class, 'update'])->name('tarjetas.update');
+        Route::delete('tarjetas/{tarjeta}', [CotizTarjetaController::class, 'destroy'])->name('tarjetas.destroy');
+        Route::post('tarjetas/{tarjeta}/generadoras', [CotizTarjetaController::class, 'vincularGeneradora'])->name('tarjetas.generadoras.vincular');
+        Route::delete('tarjetas/{tarjeta}/generadoras/{generadora}', [CotizTarjetaController::class, 'desvincularGeneradora'])->name('tarjetas.generadoras.desvincular');
     });
 
     // Cobranza admin routes

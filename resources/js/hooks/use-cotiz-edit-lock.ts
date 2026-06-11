@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 
-export type CotizEditLockType = 'generadora';
+export type CotizEditLockType = 'generadora' | 'tarjeta';
 
 export type CotizEditLockState =
     | { status: 'taking' }

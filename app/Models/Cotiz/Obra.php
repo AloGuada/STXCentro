@@ -43,6 +43,11 @@ class Obra extends Model
         return $this->hasMany(Generadora::class, 'obra_id');
     }
 
+    public function tarjetas(): HasMany
+    {
+        return $this->hasMany(Tarjeta::class, 'obra_id');
+    }
+
     public function insumoOverrides(): HasMany
     {
         return $this->hasMany(ObraInsumoOverride::class, 'obra_id');
