@@ -1,3 +1,4 @@
+import { AutocompleteCellEditor } from '@/components/cotiz/autocomplete-cell-editor';
 import { EditableGrid } from '@/components/cotiz/editable-grid';
 import { Button } from '@/components/ui/button';
 import { useCotizEditLock } from '@/hooks/use-cotiz-edit-lock';
@@ -109,8 +110,8 @@ export default function GeneradorasEdit({
                 editable: !readOnly,
                 minWidth: 200,
                 flex: 2,
-                cellEditor: 'agSelectCellEditor',
-                cellEditorParams: { values: insumoLabels },
+                cellEditor: AutocompleteCellEditor,
+                cellEditorParams: { opciones: insumoLabels },
                 valueGetter: (p) =>
                     p.data?.material_origen?.descripcion ?? NINGUNO,
                 valueSetter: (p: ValueSetterParams<RegistroRow>) => {
