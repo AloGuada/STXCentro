@@ -10,6 +10,12 @@ use App\Models\Cotiz\PinturaFormula;
 use App\Models\Cotiz\Tarjeta;
 use App\Models\Cotiz\TarjetaFactor;
 use App\Models\Cotiz\TarjetaRegistro;
+use App\Services\Cotiz\Variables\ContextoEval;
+use App\Services\Cotiz\Variables\Dominios\ResolvedorCuadrilla;
+use App\Services\Cotiz\Variables\Dominios\ResolvedorGeneradora;
+use App\Services\Cotiz\Variables\Dominios\ResolvedorTarjeta;
+use App\Services\Cotiz\Variables\Registry;
+use Closure;
 use Normalizer;
 
 /**
@@ -102,6 +108,15 @@ class TarjetaCalculator
         );
         $kgRealesTotal = $this->kilosReales->total($kgPorTipoCorte);
 
+        // Direccionamiento semántico (M046): el factor puede referenciar total.tarjeta.kg,
+        // total.tarjeta.kg_real[corte=X], total.tarjeta.importe[cc=Y], tarjeta.factor[cod=Z], etc.
+        $expandir = $this->construirExpandir($tarjeta, [
+            'dominio' => 'tarjeta',
+            'registros' => $registros,
+            'kg_por_tipo_corte' => $kgPorTipoCorte,
+            'pintura_formulas' => $pinturaFormulas,
+        ]);
+
         $factores = $this->resolverFactores(
             $tarjeta->factores,
             $factorOverrides,
@@ -111,6 +126,7 @@ class TarjetaCalculator
             $areaPintura,
             $kgPorTipoCorte,
             $importePorCategoria,
+            $expandir,
         );
 
         $totalRegistros = array_sum(array_column($registros, 'importe'));
@@ -176,6 +192,89 @@ class TarjetaCalculator
         $s = preg_replace('/[^a-z0-9]+/', '_', $s) ?? $s;
 
         return trim($s, '_');
+    }
+
+    /**
+     * Construye el hook `$expandir` para el FactorResolver: arma el registro de resolvedores
+     * (tarjeta self con precargados, generadora, cuadrilla) y el contexto de la tarjeta actual.
+     *
+     * @param  array<string, mixed>  $precargados
+     * @return Closure(string, array<string, float>): array{formula: string, vars: array<string, float>}
+     */
+    private function construirExpandir(Tarjeta $tarjeta, array $precargados): Closure
+    {
+        // Instancia concreta `tarjeta#nombre`: carga otra tarjeta de la misma obra y sus datos.
+        $cargarDatos = function (string $nombre, ?int $obraId): ?array {
+            $otra = Tarjeta::query()
+                ->where('descripcion', $nombre)
+                ->where('obra_id', $obraId)
+                ->first();
+
+            return $otra !== null ? $this->datosTarjeta($otra) : null;
+        };
+
+        $registry = new Registry(
+            new ResolvedorTarjeta($this->pintura, $cargarDatos),
+            new ResolvedorGeneradora($this->merma),
+            new ResolvedorCuadrilla,
+        );
+
+        $contexto = new ContextoEval(
+            obraId: $tarjeta->obra_id,
+            self: ['dominio' => 'tarjeta', 'instancia' => $tarjeta->id],
+            precargados: $precargados,
+        );
+
+        return $registry->expandirConContexto($contexto);
+    }
+
+    /**
+     * Datos de variables (registros resueltos + kg por corte + fórmulas de pintura) de una
+     * tarjeta — para resolver direcciones `tarjeta#nombre.<col>` de otra instancia.
+     *
+     * @return array<string, mixed>
+     */
+    private function datosTarjeta(Tarjeta $tarjeta): array
+    {
+        $tarjeta->loadMissing([
+            'registros.generadoraRegistro.materialOrigen.unidad',
+            'registros.generadoraRegistro.materialOrigen.categoriaTarjeta',
+            'registros.generadoraRegistro.merma',
+            'registros.insumo.unidad',
+            'registros.insumo.categoriaTarjeta',
+            'categoriasKilos.categoria',
+            'kilosReales',
+            'insumoPrecios',
+        ]);
+
+        $insumoOverrides = ObraInsumoOverride::query()
+            ->where('obra_id', $tarjeta->obra_id)
+            ->get()
+            ->keyBy('insumo_id');
+        $preciosTarjeta = $tarjeta->insumoPrecios->keyBy('insumo_id');
+
+        $registros = $tarjeta->registros
+            ->map(fn (TarjetaRegistro $registro) => $this->resolverRegistro($registro, $insumoOverrides, $preciosTarjeta))
+            ->all();
+
+        $kgPorTipoCorte = $this->kilosReales->porTipoCorte(
+            $tarjeta->categoriasKilos->map(fn ($c) => [
+                'categoria_id' => $c->categoria_id,
+                'tipo_corte' => $c->categoria?->tipo_corte?->value ?? '',
+                'porcentual' => $c->porcentual,
+            ])->all(),
+            $tarjeta->kilosReales->map(fn ($k) => [
+                'categoria_id' => $k->categoria_id,
+                'kilos' => $k->kilos,
+            ])->all(),
+        );
+
+        return [
+            'dominio' => 'tarjeta',
+            'registros' => $registros,
+            'kg_por_tipo_corte' => $kgPorTipoCorte,
+            'pintura_formulas' => PinturaFormula::query()->pluck('formula', 'clave')->all(),
+        ];
     }
 
     /**
@@ -335,6 +434,7 @@ class TarjetaCalculator
      * @param  \Illuminate\Support\Collection<int, \App\Models\Cotiz\TarjetaInsumoPrecio>  $preciosTarjeta
      * @param  array{TIRAS: float, RAZ: float, KG: float, CNX: float}  $kgPorTipoCorte
      * @param  array<string, float>  $importePorCategoria
+     * @param  Closure(string, array<string, float>): array{formula: string, vars: array<string, float>}  $expandir
      * @return list<array<string, mixed>>
      */
     private function resolverFactores(
@@ -346,6 +446,7 @@ class TarjetaCalculator
         float $areaPintura,
         array $kgPorTipoCorte,
         array $importePorCategoria,
+        Closure $expandir,
     ): array {
         if ($tarjetaFactores->isEmpty()) {
             return [];
@@ -394,7 +495,7 @@ class TarjetaCalculator
             ];
         }
 
-        $cantidades = $this->factores->resolver($paraResolver, $variablesBase, $cantidadesManuales);
+        $cantidades = $this->factores->resolver($paraResolver, $variablesBase, $cantidadesManuales, $expandir);
 
         $salida = [];
         foreach ($resueltos as $r) {

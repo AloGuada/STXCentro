@@ -220,7 +220,13 @@ Tres problemas separados; no acoplarlos. El cálculo autoritativo en PHP (deriva
 - [x] Controlador: index/edit refrescan cache y exponen totales; panel de totales en `tarjetas/edit`.
 - [x] Tests: `PinturaCalculatorTest`+`KilosRealesCalculatorTest` (unit) y `TarjetaCalculatorTest` (e2e: registro manual, prioridad P.U. tarjeta>obra>global, factor con fórmula, factor manual, DAG entre factores, importe persistido, kg reales, refrescarCache, slug). **134 tests `--filter=Cotiz` verdes, pint, build OK.** El hook `$expandir` (M046) queda para 3c.
 
-### Backend (3c pendiente)
+### Fase 3c-1 — Direccionamiento semántico M046 (backend) ✅ COMPLETA (2026-06-11)
+- [x] Subsistema `App\Services\Cotiz\Variables\`: `Direccion` (DTO), `Catalogo` (dominios/columnas/filtros; `seccion`/`resumen`/`cuadrilla.importe` marcados `resoluble:false`), `Parser` (regex anclado a dominios, `parse`/`extraer` con offsets de byte), `Expandir` (direcciones→`__vN`), `ContextoEval` (memo/pila/factores), `Registry` (resolución raíz con memo + detección de ciclos + `expandirConContexto`), `Validar` (dirección + sintaxis), interfaz `ResolvedorDominio`.
+- [x] Resolvedores: `ResolvedorTarjeta` (self vía precargados: importe/importe[cc]/kg/area/kg_real/kg_real[corte]/factor[cod]; todas-las-tarjetas vía cache; instancia concreta vía closure), `ResolvedorGeneradora` (port DB: kg con merma + peso_porcentual, kg_real, filtro marca), `ResolvedorCuadrilla` (rendimiento). `seccion` diferido a Fase 4.
+- [x] Conectado al `TarjetaCalculator`: `construirExpandir()` arma el Registry+contexto self y lo pasa al `FactorResolver` como `$expandir`; `datosTarjeta()` para instancias concretas. **Todas las fórmulas sembradas usan solo direcciones self de tarjeta** — ese camino está cubierto end-to-end.
+- [x] Tests: `Variables/ParserTest`, `Variables/ValidarTest` (unit) y `TarjetaVariablesTest` (e2e: total.tarjeta.kg/area/kg_real[corte]/importe[cc], tarjeta.factor[cod=X], factor inexistente→0). **159 tests `--filter=Cotiz` verdes, pint OK.**
+
+### Fase 3c-2 (frontend grilla densa + subrecursos — pendiente)
 - [ ] Migraciones: `cotiz_tarjetas` (cache `importe_materiales`, `kilos_reales`), `cotiz_tarjeta_generadoras` (N:N),
       `cotiz_tarjeta_registros` (gen | manual + CHECK), `cotiz_tarjeta_factores` (formula_override),
       `cotiz_tarjeta_insumo_precio`, `cotiz_tarjeta_estructuras`, `cotiz_tarjeta_categorias_kilos` (porcentual),
