@@ -66,10 +66,10 @@ type Props = {
     };
 };
 
-/** Fila unificada de la grilla: registro de insumo o factor; más el footer fijo. */
+/** Fila unificada de la grilla: registro de insumo o factor; fila fantasma (alta) y footer. */
 type Row = {
     rowId: string;
-    tipo: 'registro' | 'factor' | 'footer';
+    tipo: 'registro' | 'factor' | 'footer' | 'ghost';
     refId: number;
     insumoId: number | null;
     esManual: boolean;
@@ -213,6 +213,49 @@ export default function TarjetaEdit(props: Props) {
         [totales],
     );
 
+    // Fila fantasma de alta (inline, al pie de la tabla): elegir insumo o factor lo agrega.
+    const vinculados = new Set(props.factores.map((f) => f.factor_id));
+    const factoresLibres = catalogos.factores.filter(
+        (f) => !vinculados.has(f.id),
+    );
+    const ghostRow = useMemo<Row>(
+        () => ({
+            rowId: 'ghost',
+            tipo: 'ghost',
+            refId: 0,
+            insumoId: null,
+            esManual: false,
+            esGeneradora: false,
+            categoria: null,
+            categoriaOrden: 99999,
+            showCategoria: false,
+            generadora: null,
+            descripcion: '',
+            unidad: null,
+            cantidad: null,
+            precio: null,
+            formula: null,
+            factorManual: false,
+            importe: 0,
+            tipoPintura: null,
+            validado: false,
+        }),
+        [],
+    );
+
+    const agregarInsumo = (insumoId: number) =>
+        router.post(
+            `/admin/cotiz/tarjetas/${tarjeta.id}/registros-manual`,
+            { insumo_id: insumoId, cantidad: null },
+            reloadOpts,
+        );
+    const vincularFactor = (factorId: number) =>
+        router.post(
+            `/admin/cotiz/tarjetas/${tarjeta.id}/factores`,
+            { factor_id: factorId },
+            reloadOpts,
+        );
+
     const numValidados = rows.filter((r) => r.validado).length;
 
     const guardar = async (row: Row, field?: string) => {
@@ -322,7 +365,7 @@ export default function TarjetaEdit(props: Props) {
                 width: 150,
                 cellClass: 'text-xs',
                 valueGetter: (p) =>
-                    p.data?.tipo === 'footer'
+                    p.data?.tipo === 'footer' || p.data?.tipo === 'ghost'
                         ? ''
                         : p.data?.tipo === 'factor'
                           ? '(factor)'
@@ -339,15 +382,63 @@ export default function TarjetaEdit(props: Props) {
                 field: 'descripcion',
                 flex: 2,
                 minWidth: 240,
+                sortable: false,
                 cellStyle: (p) =>
                     p.data?.tipo === 'footer' ? { fontWeight: 'bold' } : null,
+                cellRenderer: (p: ICellRendererParams<Row>) => {
+                    if (p.data?.tipo !== 'ghost') {
+                        return p.data?.descripcion ?? '';
+                    }
+                    return (
+                        <select
+                            className="select select-xs select-bordered h-6 min-h-0 w-full text-xs"
+                            value=""
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                if (!v) {
+                                    return;
+                                }
+                                const id = Number(v.slice(2));
+                                if (v.startsWith('f:')) {
+                                    vincularFactor(id);
+                                } else {
+                                    agregarInsumo(id);
+                                }
+                            }}
+                        >
+                            <option value="">
+                                + Añadir insumo o factor…
+                            </option>
+                            {factoresLibres.length > 0 && (
+                                <optgroup label="Factores">
+                                    {factoresLibres.map((f) => (
+                                        <option key={`f-${f.id}`} value={`f:${f.id}`}>
+                                            [factor] {f.codigo} — {f.nombre}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            )}
+                            <optgroup label="Insumos">
+                                {catalogos.insumos.map((i) => (
+                                    <option key={`i-${i.id}`} value={`i:${i.id}`}>
+                                        {i.descripcion}
+                                    </option>
+                                ))}
+                            </optgroup>
+                        </select>
+                    );
+                },
             },
             {
                 headerName: '✓',
                 width: 70,
                 sortable: false,
                 cellRenderer: (p: ICellRendererParams<Row>) => {
-                    if (!p.data || p.data.tipo === 'footer') {
+                    if (
+                        !p.data ||
+                        p.data.tipo === 'footer' ||
+                        p.data.tipo === 'ghost'
+                    ) {
                         return null;
                     }
                     if (p.data.esGeneradora) {
@@ -440,7 +531,7 @@ export default function TarjetaEdit(props: Props) {
                 type: 'numericColumn',
                 cellClass: 'font-semibold',
                 valueFormatter: (p) => {
-                    if (p.value == null) {
+                    if (p.value == null || p.data?.tipo === 'ghost') {
                         return '';
                     }
                     if (p.data?.tipo === 'footer') {
@@ -460,7 +551,9 @@ export default function TarjetaEdit(props: Props) {
                 sortable: false,
                 cellClass: 'opacity-70',
                 valueGetter: (p) =>
-                    p.data && p.data.tipo !== 'footer' && totales.total_importe > 0
+                    p.data &&
+                    (p.data.tipo === 'registro' || p.data.tipo === 'factor') &&
+                    totales.total_importe > 0
                         ? p.data.importe / totales.total_importe
                         : null,
                 valueFormatter: (p) =>
@@ -498,7 +591,8 @@ export default function TarjetaEdit(props: Props) {
                 sortable: false,
                 filter: false,
                 cellRenderer: (p: ICellRendererParams<Row>) =>
-                    p.data && p.data.tipo !== 'footer' ? (
+                    p.data &&
+                    (p.data.tipo === 'registro' || p.data.tipo === 'factor') ? (
                         <button
                             type="button"
                             className="btn text-error btn-ghost btn-xs"
@@ -512,8 +606,17 @@ export default function TarjetaEdit(props: Props) {
             },
         ],
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [readOnly, props.preciosOverride, totales, catalogos.tiposPintura],
+        [
+            readOnly,
+            props.preciosOverride,
+            totales,
+            catalogos.tiposPintura,
+            catalogos.insumos,
+            factoresLibres,
+        ],
     );
+
+    const pinnedBottom = readOnly ? footerRow : [ghostRow, ...footerRow];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -587,22 +690,20 @@ export default function TarjetaEdit(props: Props) {
                         columnDefs={columnDefs}
                         getRowId={(row) => row.rowId}
                         onCellEdited={readOnly ? undefined : guardar}
-                        pinnedBottomRowData={footerRow}
+                        pinnedBottomRowData={pinnedBottom}
                         paginated={false}
                         height="100%"
                         getRowStyle={(p) => {
                             if (p.data?.tipo === 'footer') {
                                 return { fontWeight: 'bold' };
                             }
+                            if (p.data?.tipo === 'ghost') {
+                                return { fontStyle: 'italic', opacity: 0.85 };
+                            }
                             return undefined;
                         }}
                     />
                 </div>
-
-                {/* Alta rápida de registros / factores */}
-                {!readOnly && (
-                    <AltaRapida tarjeta={tarjeta} catalogos={catalogos} factores={props.factores} />
-                )}
             </div>
 
             {mostrarKr && (
@@ -699,137 +800,6 @@ function GeneradorasRow({
                         ))}
                     </ul>
                 </details>
-            )}
-        </div>
-    );
-}
-
-// ===== Alta rápida =====
-
-function AltaRapida({
-    tarjeta,
-    catalogos,
-    factores,
-}: {
-    tarjeta: TarjetaProp;
-    catalogos: Catalogos;
-    factores: CotizTarjetaFactorResuelto[];
-}) {
-    const [insumoId, setInsumoId] = useState<number | ''>('');
-    const [cantidad, setCantidad] = useState('');
-    const [factorId, setFactorId] = useState<number | ''>('');
-
-    const vinculados = new Set(factores.map((f) => f.factor_id));
-    const factoresLibres = catalogos.factores.filter(
-        (f) => !vinculados.has(f.id),
-    );
-
-    return (
-        <div className="flex flex-wrap items-end gap-4 rounded-box border border-base-300 p-3">
-            <div className="flex items-end gap-2">
-                <div className="w-64">
-                    <label className="label py-0">
-                        <span className="label-text text-xs">
-                            + Insumo manual
-                        </span>
-                    </label>
-                    <select
-                        className="select w-full select-sm select-bordered"
-                        value={insumoId}
-                        onChange={(e) =>
-                            setInsumoId(
-                                e.target.value === ''
-                                    ? ''
-                                    : Number(e.target.value),
-                            )
-                        }
-                    >
-                        <option value="">Insumo…</option>
-                        {catalogos.insumos.map((i) => (
-                            <option key={i.id} value={i.id}>
-                                {i.descripcion}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                <input
-                    type="number"
-                    step="any"
-                    placeholder="Cantidad"
-                    className="input input-sm input-bordered w-28"
-                    value={cantidad}
-                    onChange={(e) => setCantidad(e.target.value)}
-                />
-                <button
-                    type="button"
-                    className="btn btn-sm btn-secondary"
-                    disabled={insumoId === ''}
-                    onClick={() =>
-                        router.post(
-                            `/admin/cotiz/tarjetas/${tarjeta.id}/registros-manual`,
-                            {
-                                insumo_id: insumoId,
-                                cantidad: cantidad === '' ? null : cantidad,
-                            },
-                            {
-                                ...reloadOpts,
-                                onSuccess: () => {
-                                    setInsumoId('');
-                                    setCantidad('');
-                                },
-                            },
-                        )
-                    }
-                >
-                    Agregar
-                </button>
-            </div>
-
-            {factoresLibres.length > 0 && (
-                <div className="flex items-end gap-2">
-                    <div className="w-64">
-                        <label className="label py-0">
-                            <span className="label-text text-xs">
-                                + Vincular factor
-                            </span>
-                        </label>
-                        <select
-                            className="select w-full select-sm select-bordered"
-                            value={factorId}
-                            onChange={(e) =>
-                                setFactorId(
-                                    e.target.value === ''
-                                        ? ''
-                                        : Number(e.target.value),
-                                )
-                            }
-                        >
-                            <option value="">Factor…</option>
-                            {factoresLibres.map((f) => (
-                                <option key={f.id} value={f.id}>
-                                    {f.codigo} — {f.nombre}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <button
-                        type="button"
-                        className="btn btn-sm btn-secondary"
-                        disabled={factorId === ''}
-                        onClick={() =>
-                            router.post(
-                                `/admin/cotiz/tarjetas/${tarjeta.id}/factores`,
-                                { factor_id: factorId },
-                                {
-                                    ...reloadOpts,
-                                    onSuccess: () => setFactorId(''),
-                                },
-                            )
-                        }
-                    >
-                        Vincular
-                    </button>
-                </div>
             )}
         </div>
     );
