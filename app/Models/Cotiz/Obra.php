@@ -42,4 +42,14 @@ class Obra extends Model
     {
         return $this->hasMany(Generadora::class, 'obra_id');
     }
+
+    public function insumoOverrides(): HasMany
+    {
+        return $this->hasMany(ObraInsumoOverride::class, 'obra_id');
+    }
+
+    public function factorOverrides(): HasMany
+    {
+        return $this->hasMany(ObraFactorOverride::class, 'obra_id');
+    }
 }

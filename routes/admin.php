@@ -42,6 +42,7 @@ use App\Http\Controllers\Admin\Costos\SolicitudPagoController as CostosSolicitud
 use App\Http\Controllers\Admin\Costos\TipoRubroController as CostosTipoRubroController;
 use App\Http\Controllers\Admin\Costos\TipoSolicitudController as CostosTipoSolicitudController;
 use App\Http\Controllers\Admin\Costos\UsoCfdiController as CostosUsoCfdiController;
+use App\Http\Controllers\Admin\Cotiz\CatalogoObraController as CotizCatalogoObraController;
 use App\Http\Controllers\Admin\Cotiz\CategoriaTarjetaController as CotizCategoriaTarjetaController;
 use App\Http\Controllers\Admin\Cotiz\CentroCostoController as CotizCentroCostoController;
 use App\Http\Controllers\Admin\Cotiz\CuadrillaController as CotizCuadrillaController;
@@ -311,6 +312,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::patch('registros/{registro}/validar', [CotizGeneradoraRegistroController::class, 'validar'])->name('registros.validar');
         Route::post('lock/{type}/{id}', [CotizEditLockController::class, 'lock'])->name('lock');
         Route::post('unlock/{type}/{id}', [CotizEditLockController::class, 'unlock'])->name('unlock');
+
+        // Overrides de catálogo por obra (Fase 2)
+        Route::get('obras/{obra}/catalogo', [CotizCatalogoObraController::class, 'index'])->name('obras.catalogo.index');
+        Route::put('obras/{obra}/catalogo/insumos/{insumo}', [CotizCatalogoObraController::class, 'updateInsumo'])->name('obras.catalogo.insumos.update');
+        Route::delete('obras/{obra}/catalogo/insumos/{insumo}', [CotizCatalogoObraController::class, 'destroyInsumo'])->name('obras.catalogo.insumos.destroy');
+        Route::put('obras/{obra}/catalogo/factores/{factor}', [CotizCatalogoObraController::class, 'updateFactor'])->name('obras.catalogo.factores.update');
+        Route::delete('obras/{obra}/catalogo/factores/{factor}', [CotizCatalogoObraController::class, 'destroyFactor'])->name('obras.catalogo.factores.destroy');
     });
 
     // Cobranza admin routes

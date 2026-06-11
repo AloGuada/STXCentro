@@ -1132,6 +1132,41 @@ export type CotizGeneradoraRegistro = {
     merma?: CotizMerma;
 };
 
+export type CotizObraInsumoOverride = {
+    id: number;
+    obra_id: number;
+    insumo_id: number;
+    descripcion: string | null;
+    codigo_stumis: string | null;
+    unidad_id: number | null;
+    precio_unitario: string | null;
+    peso_lineal: string | null;
+    peso_default: string | null;
+    centro_costo_id: number | null;
+    comentario: string | null;
+};
+
+export type CotizObraFactorOverride = {
+    id: number;
+    obra_id: number;
+    factor_id: number;
+    nombre: string | null;
+    insumo_id: number | null;
+    formula: string | null;
+    descripcion: string | null;
+    comentario: string | null;
+};
+
+export type CotizCatalogoInsumoRow = {
+    insumo: CotizInsumo;
+    override: CotizObraInsumoOverride | null;
+};
+
+export type CotizCatalogoFactorRow = {
+    factor: CotizFactor;
+    override: CotizObraFactorOverride | null;
+};
+
 export type CostosRubro = {
     id: number;
     codigo: string;

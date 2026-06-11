@@ -184,19 +184,20 @@ Tres problemas separados; no acoplarlos. El cálculo autoritativo en PHP (deriva
 
 ---
 
-## Fase 2 — Overrides de catálogo por obra
+## Fase 2 — Overrides de catálogo por obra ✅ COMPLETA
 
 ### Backend
-- [ ] Migraciones `cotiz_obra_insumo_override`, `cotiz_obra_factor_override` (todos los campos nullable, UNIQUE(obra,insumo|factor)).
-- [ ] `App\Services\Cotiz\OverrideResolver` — resuelve P.U./fórmula efectivos con prioridad
-      `tarjeta > obra > global` (port de las cadenas `COALESCE` de `tarjetaTotales.ts`). Helper para limpiar fila cuando todo queda NULL.
-- [ ] `CatalogoObraController` (tabs Insumos/Factores).
+- [x] Migraciones `cotiz_obra_insumo_override`, `cotiz_obra_factor_override` (campos nullable, UNIQUE(obra,insumo|factor)). `categoria_id` del legacy NO portado (referenciaba `insumo_categorias`).
+- [x] Modelos `ObraInsumoOverride`/`ObraFactorOverride` con `estaVacio()` + relaciones; relaciones `insumoOverrides`/`factorOverrides` en `Obra`.
+- [x] `App\Services\Cotiz\OverrideResolver` — `resolverInsumo`/`precioInsumo`/`resolverFactor` con prioridad
+      `tarjeta > obra > global` (port de las cadenas `COALESCE` de `tarjetaTotales.ts`; el nivel tarjeta entra como param opcional para Fase 3). `obra_insumo_precios` legacy NO portado.
+- [x] `CatalogoObraController` (index con insumos+factores global/override; updateInsumo/Factor con upsert+cleanup-on-empty; destroyInsumo/Factor para reset de fila). 2 Form Requests. Rutas `obras/{obra}/catalogo*`.
 
 ### Frontend
-- [ ] `CatalogoObraInsumos`, `CatalogoObraFactores` (vista diff Global vs Proyecto; lápiz de override).
+- [x] `catalogo-obra/index.tsx` — una página con tabs Insumos/Factores (AG-Grid, vista diff Global vs Proyecto, edición inline clic→PUT, badge de diffs, toggle "solo cambios", reset de fila). Tipos en models.ts. Enlace "Overrides" en `obras/index`.
 
 ### Verificación
-- [ ] Tests de resolución de prioridad y limpieza de overrides nulos.
+- [x] `OverrideResolverTest` (prioridad + `estaVacio`) y `CatalogoObraTest` (upsert, limpieza, no-crear-vacío, sin duplicar, destroy). **97 tests `--filter=Cotiz` verdes, pint pass, build OK. Fase 2 COMPLETA.**
 
 ---
 

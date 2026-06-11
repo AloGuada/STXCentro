@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CotizObra, PaginatedData } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-import { LayersIcon } from 'lucide-react';
+import { LayersIcon, SlidersHorizontalIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -41,6 +41,20 @@ const columns: Column<CotizObra>[] = [
                     Ver generadoras
                 </Link>
             </div>
+        ),
+    },
+    {
+        key: 'catalogo',
+        label: 'Catálogo',
+        render: (o) => (
+            <Link
+                href={`/admin/cotiz/obras/${o.id}/catalogo`}
+                className="inline-flex link items-center gap-1 text-xs link-primary"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <SlidersHorizontalIcon className="size-3.5" />
+                Overrides
+            </Link>
         ),
     },
 ];
