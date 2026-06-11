@@ -4,6 +4,8 @@ import {
     type ColDef,
     colorSchemeDark,
     ModuleRegistry,
+    type RowClassParams,
+    type RowStyle,
     themeQuartz,
 } from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
@@ -31,6 +33,12 @@ export type EditableGridProps<T> = {
     quickFilterText?: string;
     /** Alto del contenedor; AG-Grid requiere altura explícita. */
     height?: string;
+    /** Filas fijadas al pie (p. ej. la fila TOTAL del footer). */
+    pinnedBottomRowData?: T[];
+    /** Estilo por fila (p. ej. resaltar el footer o filas con problema). */
+    getRowStyle?: (params: RowClassParams<T>) => RowStyle | undefined;
+    /** Desactiva la paginación (útil cuando hay footer fijo y pocas filas). */
+    paginated?: boolean;
 };
 
 /**
@@ -45,6 +53,9 @@ export function EditableGrid<T>({
     onCellEdited,
     quickFilterText,
     height = '70vh',
+    pinnedBottomRowData,
+    getRowStyle,
+    paginated = true,
 }: EditableGridProps<T>) {
     const { resolvedAppearance } = useAppearance();
 
@@ -68,6 +79,8 @@ export function EditableGrid<T>({
                 defaultColDef={defaultColDef}
                 getRowId={(params) => getRowId(params.data)}
                 quickFilterText={quickFilterText}
+                pinnedBottomRowData={pinnedBottomRowData}
+                getRowStyle={getRowStyle}
                 singleClickEdit
                 stopEditingWhenCellsLoseFocus
                 onCellValueChanged={(event) => {
@@ -79,7 +92,7 @@ export function EditableGrid<T>({
                     }
                 }}
                 animateRows
-                pagination
+                pagination={paginated}
                 paginationPageSize={50}
                 paginationPageSizeSelector={[25, 50, 100, 200]}
             />

@@ -62,6 +62,7 @@ class TarjetaCalculator
             'registros.generadoraRegistro.materialOrigen.unidad',
             'registros.generadoraRegistro.materialOrigen.categoriaTarjeta',
             'registros.generadoraRegistro.merma',
+            'registros.generadoraRegistro.generadora:id,titulo',
             'registros.insumo.unidad',
             'registros.insumo.categoriaTarjeta',
             'factores.factor.insumo',
@@ -310,6 +311,7 @@ class TarjetaCalculator
         return [
             'id' => $registro->id,
             'es_manual' => $esManual,
+            'generadora_titulo' => $gen?->generadora?->titulo,
             'insumo_id' => $insumo?->id,
             'descripcion' => $datos['descripcion'],
             'codigo_stumis' => $datos['codigo_stumis'],

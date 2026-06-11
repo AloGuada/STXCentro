@@ -1,6 +1,4 @@
 import { EditableGrid } from '@/components/cotiz/editable-grid';
-import { Button, ButtonLink } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useCotizEditLock } from '@/hooks/use-cotiz-edit-lock';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -13,15 +11,10 @@ import type {
     CotizTarjetaKilosCelda,
     CotizTarjetaRegistroResuelto,
 } from '@/types/models';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import axios from 'axios';
-import type {
-    ColDef,
-    ICellRendererParams,
-    ValueSetterParams,
-} from 'ag-grid-community';
-import { LockIcon, Loader2Icon, Trash2Icon, UnlinkIcon } from 'lucide-react';
-import type { FormEvent } from 'react';
+import type { ColDef, ICellRendererParams } from 'ag-grid-community';
+import { LockIcon, Loader2Icon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 type TarjetaProp = {
@@ -73,6 +66,29 @@ type Props = {
     };
 };
 
+/** Fila unificada de la grilla: registro de insumo o factor; más el footer fijo. */
+type Row = {
+    rowId: string;
+    tipo: 'registro' | 'factor' | 'footer';
+    refId: number;
+    insumoId: number | null;
+    esManual: boolean;
+    esGeneradora: boolean;
+    categoria: string | null;
+    categoriaOrden: number;
+    showCategoria: boolean;
+    generadora: string | null;
+    descripcion: string;
+    unidad: string | null;
+    cantidad: number | null;
+    precio: number | null;
+    formula: string | null;
+    factorManual: boolean;
+    importe: number;
+    tipoPintura: string | null;
+    validado: boolean;
+};
+
 const ONLY = [
     'registros',
     'factores',
@@ -84,17 +100,21 @@ const ONLY = [
     'tarjeta',
 ];
 
+const reloadOpts = { preserveScroll: true, preserveState: true, only: ONLY };
+
 const fmtMoney = new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: 'MXN',
 });
 const fmtNum = (n: number | null | undefined, d = 2) =>
     n == null ? '' : Number(n).toFixed(d);
+const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;
 
 export default function TarjetaEdit(props: Props) {
-    const { tarjeta, lock } = props;
+    const { tarjeta, totales, catalogos, lock } = props;
     const lockState = useCotizEditLock('tarjeta', tarjeta.id);
     const readOnly = lockState.status !== 'owned';
+    const [mostrarKr, setMostrarKr] = useState(false);
 
     const obra = tarjeta.obra;
     const breadcrumbs: BreadcrumbItem[] = [
@@ -108,461 +128,124 @@ export default function TarjetaEdit(props: Props) {
         },
     ];
 
-    return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`Editar — ${tarjeta.descripcion}`} />
+    // Filas unificadas: registros (ordenados por categoría) seguidos de los factores.
+    const rows = useMemo<Row[]>(() => {
+        const regs = [...props.registros].sort(
+            (a, b) =>
+                a.categoria_orden - b.categoria_orden ||
+                a.descripcion.localeCompare(b.descripcion),
+        );
+        let prevCat: string | null = '__none__';
+        const regRows: Row[] = regs.map((r) => {
+            const cat = r.categoria ?? '(sin clasificar)';
+            const show = cat !== prevCat;
+            prevCat = cat;
+            return {
+                rowId: `r-${r.id}`,
+                tipo: 'registro',
+                refId: r.id,
+                insumoId: r.insumo_id,
+                esManual: r.es_manual,
+                esGeneradora: !r.es_manual,
+                categoria: r.categoria,
+                categoriaOrden: r.categoria_orden,
+                showCategoria: show,
+                generadora: r.generadora_titulo,
+                descripcion: r.descripcion,
+                unidad: r.unidad,
+                cantidad: r.cantidad,
+                precio: r.precio_unitario,
+                formula: null,
+                factorManual: false,
+                importe: r.importe,
+                tipoPintura: r.tipo_pintura,
+                validado: r.validado,
+            };
+        });
+        const facRows: Row[] = props.factores.map((f, i) => ({
+            rowId: `f-${f.id}`,
+            tipo: 'factor',
+            refId: f.id,
+            insumoId: null,
+            esManual: false,
+            esGeneradora: false,
+            categoria: f.categoria,
+            categoriaOrden: f.categoria_orden,
+            showCategoria: i === 0,
+            generadora: null,
+            descripcion: f.nombre || f.codigo,
+            unidad: null,
+            cantidad: f.cantidad,
+            precio: f.precio_unitario,
+            formula: f.formula,
+            factorManual: f.formula == null,
+            importe: f.importe,
+            tipoPintura: null,
+            validado: f.validado,
+        }));
+        return [...regRows, ...facRows];
+    }, [props.registros, props.factores]);
 
-            <div className="space-y-5 p-6">
-                <Cabecera tarjeta={tarjeta} readOnly={readOnly} />
-                <LockBanner state={lockState} fallback={lock} />
-                <TotalesPanel totales={props.totales} />
-
-                <RegistrosSection
-                    tarjeta={tarjeta}
-                    registros={props.registros}
-                    preciosOverride={props.preciosOverride}
-                    catalogos={props.catalogos}
-                    readOnly={readOnly}
-                />
-
-                <FactoresSection
-                    tarjeta={tarjeta}
-                    factores={props.factores}
-                    catalogos={props.catalogos}
-                    readOnly={readOnly}
-                />
-
-                <KilosRealesSection
-                    tarjeta={tarjeta}
-                    estructuras={props.estructuras}
-                    categoriasKilos={props.categoriasKilos}
-                    celdas={props.celdas}
-                    catalogos={props.catalogos}
-                    readOnly={readOnly}
-                />
-
-                <GeneradorasSection
-                    tarjeta={tarjeta}
-                    generadorasDisponibles={props.generadorasDisponibles}
-                    readOnly={readOnly}
-                />
-
-                <div className="flex justify-end">
-                    <ButtonLink
-                        variant="ghost"
-                        href={`/admin/cotiz/obras/${obra.id}/tarjetas`}
-                    >
-                        ← Volver a tarjetas
-                    </ButtonLink>
-                </div>
-            </div>
-        </AppLayout>
-    );
-}
-
-// ===== Cabecera =====
-
-function Cabecera({
-    tarjeta,
-    readOnly,
-}: {
-    tarjeta: TarjetaProp;
-    readOnly: boolean;
-}) {
-    const { data, setData, put, processing, errors } = useForm({
-        descripcion: tarjeta.descripcion,
-        orden: String(tarjeta.orden),
-    });
-
-    const submit = (e: FormEvent) => {
-        e.preventDefault();
-        put(`/admin/cotiz/tarjetas/${tarjeta.id}`, { preserveScroll: true });
-    };
-
-    return (
-        <div>
-            <h1 className="text-2xl font-semibold">{tarjeta.descripcion}</h1>
-            <p className="mb-3 text-sm text-base-content/60">
-                Obra: {tarjeta.obra.nombre} · {tarjeta.registros_count} registros
-            </p>
-            <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
-                <div className="min-w-64 flex-1">
-                    <label className="label" htmlFor="descripcion">
-                        <span className="label-text">Descripción</span>
-                    </label>
-                    <Input
-                        id="descripcion"
-                        value={data.descripcion}
-                        disabled={readOnly}
-                        onChange={(e) => setData('descripcion', e.target.value)}
-                    />
-                    {errors.descripcion && (
-                        <p className="mt-1 text-xs text-error">
-                            {errors.descripcion}
-                        </p>
-                    )}
-                </div>
-                <div className="w-24">
-                    <label className="label" htmlFor="orden">
-                        <span className="label-text">Orden</span>
-                    </label>
-                    <Input
-                        id="orden"
-                        type="number"
-                        value={data.orden}
-                        disabled={readOnly}
-                        onChange={(e) => setData('orden', e.target.value)}
-                    />
-                </div>
-                <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={readOnly || processing}
-                >
-                    Guardar
-                </Button>
-            </form>
-        </div>
-    );
-}
-
-// ===== Totales =====
-
-function TotalesPanel({ totales }: { totales: Totales }) {
-    return (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <TotalCard
-                label="Total importe"
-                value={fmtMoney.format(totales.total_importe)}
-                accent
-            />
-            <TotalCard
-                label="Materiales"
-                value={fmtMoney.format(totales.total_registros)}
-            />
-            <TotalCard
-                label="Factores"
-                value={fmtMoney.format(totales.total_factores)}
-            />
-            <TotalCard label="Kg fab." value={fmtNum(totales.kg_fab)} />
-            <TotalCard
-                label="Área pintura (m²)"
-                value={fmtNum(totales.area_pintura)}
-            />
-            <TotalCard label="Kg reales" value={fmtNum(totales.kg_reales_total)} />
-        </div>
-    );
-}
-
-function TotalCard({
-    label,
-    value,
-    accent,
-}: {
-    label: string;
-    value: string;
-    accent?: boolean;
-}) {
-    return (
-        <div
-            className={`rounded-box border p-3 ${accent ? 'border-primary/40 bg-primary/5' : 'border-base-300'}`}
-        >
-            <p className="text-xs text-base-content/60">{label}</p>
-            <p className={`mt-1 font-semibold ${accent ? 'text-primary' : ''}`}>
-                {value}
-            </p>
-        </div>
-    );
-}
-
-// ===== Registros =====
-
-function RegistrosSection({
-    tarjeta,
-    registros,
-    preciosOverride,
-    catalogos,
-    readOnly,
-}: {
-    tarjeta: TarjetaProp;
-    registros: CotizTarjetaRegistroResuelto[];
-    preciosOverride: Record<string, string>;
-    catalogos: Catalogos;
-    readOnly: boolean;
-}) {
-    const [insumoId, setInsumoId] = useState<number | ''>('');
-    const [cantidad, setCantidad] = useState('');
-
-    const tipoLabels = Object.values(catalogos.tiposPintura);
-    const tipoPorLabel = useMemo(
-        () =>
-            Object.fromEntries(
-                Object.entries(catalogos.tiposPintura).map(([k, v]) => [v, k]),
-            ),
-        [catalogos.tiposPintura],
+    const footerRow = useMemo<Row[]>(
+        () => [
+            {
+                rowId: 'footer',
+                tipo: 'footer',
+                refId: 0,
+                insumoId: null,
+                esManual: false,
+                esGeneradora: false,
+                categoria: null,
+                categoriaOrden: 99999,
+                showCategoria: false,
+                generadora: null,
+                descripcion: 'TOTAL',
+                unidad: null,
+                cantidad: totales.kg_fab,
+                precio: null,
+                formula: null,
+                factorManual: false,
+                importe: totales.total_importe,
+                tipoPintura: null,
+                validado: false,
+            },
+        ],
+        [totales],
     );
 
-    const guardar = (row: CotizTarjetaRegistroResuelto, field?: string) => {
-        if (field === 'precio_unitario') {
-            if (row.insumo_id == null) {
+    const numValidados = rows.filter((r) => r.validado).length;
+
+    const guardar = async (row: Row, field?: string) => {
+        if (row.tipo === 'footer') {
+            return;
+        }
+        if (field === 'precio') {
+            if (row.insumoId == null) {
                 return;
             }
             router.put(
-                `/admin/cotiz/tarjetas/${tarjeta.id}/precios/${row.insumo_id}`,
-                { precio_unitario: row.precio_unitario },
-                { preserveScroll: true, preserveState: true, only: ONLY },
+                `/admin/cotiz/tarjetas/${tarjeta.id}/precios/${row.insumoId}`,
+                { precio_unitario: row.precio },
+                reloadOpts,
             );
             return;
         }
-        router.put(
-            `/admin/cotiz/tarjeta-registros/${row.id}`,
-            {
-                cantidad: row.cantidad,
-                tipo_pintura: row.tipo_pintura,
-                validado: row.validado,
-            },
-            { preserveScroll: true, preserveState: true, only: ONLY },
-        );
-    };
-
-    const columnDefs = useMemo<ColDef<CotizTarjetaRegistroResuelto>[]>(
-        () => [
-            {
-                field: 'categoria',
-                headerName: 'Categoría',
-                minWidth: 150,
-                valueGetter: (p) => p.data?.categoria ?? '(sin clasificar)',
-            },
-            {
-                field: 'descripcion',
-                headerName: 'Insumo',
-                minWidth: 220,
-                pinned: 'left',
-                cellRenderer: (
-                    p: ICellRendererParams<CotizTarjetaRegistroResuelto>,
-                ) =>
-                    p.data ? (
-                        <span>
-                            {p.data.descripcion}
-                            {!p.data.es_manual && (
-                                <span className="badge badge-ghost badge-xs ml-2">
-                                    gen
-                                </span>
-                            )}
-                        </span>
-                    ) : null,
-            },
-            { field: 'unidad', headerName: 'Unidad', minWidth: 90 },
-            {
-                field: 'cantidad',
-                headerName: 'Cantidad',
-                minWidth: 120,
-                type: 'numericColumn',
-                editable: (p) => !readOnly && !!p.data?.es_manual,
-                cellEditor: 'agNumberCellEditor',
-                valueFormatter: (p) => fmtNum(p.value, 4),
-            },
-            {
-                field: 'precio_unitario',
-                headerName: 'P.U.',
-                minWidth: 130,
-                type: 'numericColumn',
-                editable: (p) => !readOnly && p.data?.insumo_id != null,
-                cellEditor: 'agNumberCellEditor',
-                cellEditorParams: { precision: 4, min: 0 },
-                valueFormatter: (p) => fmtMoney.format(Number(p.value ?? 0)),
-                cellClass: (p) =>
-                    p.data?.insumo_id != null &&
-                    preciosOverride[String(p.data.insumo_id)] != null
-                        ? 'font-semibold text-warning'
-                        : '',
-            },
-            {
-                field: 'importe',
-                headerName: 'Importe',
-                minWidth: 130,
-                type: 'numericColumn',
-                valueFormatter: (p) => fmtMoney.format(Number(p.value ?? 0)),
-                cellClass: 'font-medium',
-            },
-            {
-                headerName: 'Pintura',
-                minWidth: 170,
-                editable: !readOnly,
-                cellEditor: 'agSelectCellEditor',
-                cellEditorParams: { values: tipoLabels },
-                valueGetter: (p) =>
-                    catalogos.tiposPintura[p.data?.tipo_pintura ?? 'auto'] ??
-                    p.data?.tipo_pintura,
-                valueSetter: (
-                    p: ValueSetterParams<CotizTarjetaRegistroResuelto>,
-                ) => {
-                    const clave = tipoPorLabel[p.newValue];
-                    if (!clave) {
-                        return false;
-                    }
-                    p.data.tipo_pintura = clave;
-                    return true;
-                },
-            },
-            {
-                field: 'validado',
-                headerName: '✓',
-                minWidth: 80,
-                editable: !readOnly,
-                cellEditor: 'agCheckboxCellEditor',
-                cellRenderer: 'agCheckboxCellRenderer',
-            },
-            {
-                headerName: '',
-                width: 60,
-                sortable: false,
-                filter: false,
-                cellRenderer: (
-                    p: ICellRendererParams<CotizTarjetaRegistroResuelto>,
-                ) =>
-                    p.data ? (
-                        <button
-                            type="button"
-                            className="btn text-error btn-ghost btn-xs"
-                            disabled={readOnly}
-                            title="Eliminar registro"
-                            onClick={() => {
-                                if (confirm('¿Eliminar este registro?')) {
-                                    router.delete(
-                                        `/admin/cotiz/tarjeta-registros/${p.data!.id}`,
-                                        {
-                                            preserveScroll: true,
-                                            preserveState: true,
-                                            only: ONLY,
-                                        },
-                                    );
-                                }
-                            }}
-                        >
-                            <Trash2Icon className="size-4" />
-                        </button>
-                    ) : null,
-            },
-        ],
-        [readOnly, preciosOverride, catalogos.tiposPintura, tipoLabels, tipoPorLabel],
-    );
-
-    const sorted = useMemo(
-        () =>
-            [...registros].sort(
-                (a, b) =>
-                    a.categoria_orden - b.categoria_orden ||
-                    a.descripcion.localeCompare(b.descripcion),
-            ),
-        [registros],
-    );
-
-    const agregarManual = (e: FormEvent) => {
-        e.preventDefault();
-        if (insumoId === '') {
+        if (field === 'cantidad') {
+            if (row.tipo === 'factor') {
+                router.put(
+                    `/admin/cotiz/tarjeta-factores/${row.refId}`,
+                    { cantidad_manual: row.cantidad },
+                    reloadOpts,
+                );
+            } else {
+                router.put(
+                    `/admin/cotiz/tarjeta-registros/${row.refId}`,
+                    { cantidad: row.cantidad },
+                    reloadOpts,
+                );
+            }
             return;
         }
-        router.post(
-            `/admin/cotiz/tarjetas/${tarjeta.id}/registros-manual`,
-            { insumo_id: insumoId, cantidad: cantidad === '' ? null : cantidad },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                only: ONLY,
-                onSuccess: () => {
-                    setInsumoId('');
-                    setCantidad('');
-                },
-            },
-        );
-    };
-
-    return (
-        <section className="space-y-2">
-            <h2 className="font-medium">Registros (insumos)</h2>
-            <EditableGrid<CotizTarjetaRegistroResuelto>
-                rowData={sorted}
-                columnDefs={columnDefs}
-                getRowId={(row) => String(row.id)}
-                onCellEdited={readOnly ? undefined : guardar}
-                height="46vh"
-            />
-            {!readOnly && (
-                <form
-                    onSubmit={agregarManual}
-                    className="flex flex-wrap items-end gap-2 rounded-box border border-base-300 p-3"
-                >
-                    <div className="min-w-64 flex-1">
-                        <label className="label py-0">
-                            <span className="label-text text-xs">
-                                Agregar insumo manual
-                            </span>
-                        </label>
-                        <select
-                            className="select w-full select-sm select-bordered"
-                            value={insumoId}
-                            onChange={(e) =>
-                                setInsumoId(
-                                    e.target.value === ''
-                                        ? ''
-                                        : Number(e.target.value),
-                                )
-                            }
-                        >
-                            <option value="">Selecciona insumo…</option>
-                            {catalogos.insumos.map((i) => (
-                                <option key={i.id} value={i.id}>
-                                    {i.descripcion}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="w-32">
-                        <label className="label py-0">
-                            <span className="label-text text-xs">Cantidad</span>
-                        </label>
-                        <Input
-                            className="input-sm"
-                            type="number"
-                            step="any"
-                            value={cantidad}
-                            onChange={(e) => setCantidad(e.target.value)}
-                        />
-                    </div>
-                    <Button
-                        type="submit"
-                        variant="secondary"
-                        className="btn-sm"
-                        disabled={insumoId === ''}
-                    >
-                        Agregar
-                    </Button>
-                </form>
-            )}
-        </section>
-    );
-}
-
-// ===== Factores =====
-
-function FactoresSection({
-    tarjeta,
-    factores,
-    catalogos,
-    readOnly,
-}: {
-    tarjeta: TarjetaProp;
-    factores: CotizTarjetaFactorResuelto[];
-    catalogos: Catalogos;
-    readOnly: boolean;
-}) {
-    const [factorId, setFactorId] = useState<number | ''>('');
-
-    const guardar = async (
-        row: CotizTarjetaFactorResuelto,
-        field?: string,
-    ) => {
         if (field === 'formula') {
             const formula = row.formula ?? '';
             if (formula.trim() !== '') {
@@ -576,141 +259,538 @@ function FactoresSection({
                 }
             }
             router.put(
-                `/admin/cotiz/tarjeta-factores/${row.id}`,
+                `/admin/cotiz/tarjeta-factores/${row.refId}`,
                 { formula_override: row.formula },
-                { preserveScroll: true, preserveState: true, only: ONLY },
+                reloadOpts,
             );
-            return;
         }
+    };
+
+    const setValidado = (row: Row, valor: boolean) => {
+        if (row.tipo === 'factor') {
+            router.put(
+                `/admin/cotiz/tarjeta-factores/${row.refId}`,
+                { validado: valor },
+                reloadOpts,
+            );
+        } else {
+            router.put(
+                `/admin/cotiz/tarjeta-registros/${row.refId}`,
+                { validado: valor },
+                reloadOpts,
+            );
+        }
+    };
+
+    const setPintura = (row: Row, clave: string) => {
         router.put(
-            `/admin/cotiz/tarjeta-factores/${row.id}`,
-            { validado: row.validado },
-            { preserveScroll: true, preserveState: true, only: ONLY },
+            `/admin/cotiz/tarjeta-registros/${row.refId}`,
+            { tipo_pintura: clave },
+            reloadOpts,
         );
     };
 
-    const columnDefs = useMemo<ColDef<CotizTarjetaFactorResuelto>[]>(
+    const eliminar = (row: Row) => {
+        const url =
+            row.tipo === 'factor'
+                ? `/admin/cotiz/tarjeta-factores/${row.refId}`
+                : `/admin/cotiz/tarjeta-registros/${row.refId}`;
+        const msg =
+            row.tipo === 'factor'
+                ? '¿Quitar este factor?'
+                : '¿Eliminar este registro?';
+        if (confirm(msg)) {
+            router.delete(url, reloadOpts);
+        }
+    };
+
+    const columnDefs = useMemo<ColDef<Row>[]>(
         () => [
             {
-                field: 'codigo',
-                headerName: 'Código',
-                minWidth: 150,
-                pinned: 'left',
-                cellClass: 'font-mono text-xs',
-            },
-            { field: 'nombre', headerName: 'Nombre', minWidth: 180 },
-            {
-                field: 'formula',
-                headerName: 'Fórmula',
-                minWidth: 260,
-                editable: !readOnly,
-                valueFormatter: (p) => p.value || '(manual)',
-                cellClass: 'font-mono text-xs',
+                headerName: 'Cat.',
+                width: 130,
+                sortable: false,
+                cellRenderer: (p: ICellRendererParams<Row>) =>
+                    p.data && p.data.tipo !== 'footer' && p.data.showCategoria ? (
+                        <strong className="text-xs uppercase opacity-70">
+                            {p.data.categoria ?? '(sin clasificar)'}
+                        </strong>
+                    ) : null,
             },
             {
-                field: 'cantidad',
+                headerName: 'Generadora',
+                width: 150,
+                cellClass: 'text-xs',
+                valueGetter: (p) =>
+                    p.data?.tipo === 'footer'
+                        ? ''
+                        : p.data?.tipo === 'factor'
+                          ? '(factor)'
+                          : (p.data?.generadora ?? '(manual)'),
+                cellStyle: (p) =>
+                    p.data &&
+                    p.data.tipo === 'registro' &&
+                    p.data.generadora == null
+                        ? { fontStyle: 'italic', opacity: 0.5 }
+                        : null,
+            },
+            {
+                headerName: 'Insumo / Factor',
+                field: 'descripcion',
+                flex: 2,
+                minWidth: 240,
+                cellStyle: (p) =>
+                    p.data?.tipo === 'footer' ? { fontWeight: 'bold' } : null,
+            },
+            {
+                headerName: '✓',
+                width: 70,
+                sortable: false,
+                cellRenderer: (p: ICellRendererParams<Row>) => {
+                    if (!p.data || p.data.tipo === 'footer') {
+                        return null;
+                    }
+                    if (p.data.esGeneradora) {
+                        return p.data.validado ? (
+                            <span
+                                className="font-semibold text-success"
+                                title="Validado en la generadora"
+                            >
+                                ✔
+                            </span>
+                        ) : (
+                            <span
+                                className="opacity-30"
+                                title="Pendiente: palomear en la generadora"
+                            >
+                                ○
+                            </span>
+                        );
+                    }
+                    return (
+                        <input
+                            type="checkbox"
+                            className="checkbox checkbox-xs checkbox-primary"
+                            checked={p.data.validado}
+                            disabled={readOnly}
+                            onChange={(e) => setValidado(p.data!, e.target.checked)}
+                        />
+                    );
+                },
+            },
+            {
+                headerName: 'Unidad',
+                field: 'unidad',
+                width: 90,
+                valueFormatter: (p) =>
+                    p.data?.tipo === 'footer' ? '' : (p.value ?? ''),
+            },
+            {
                 headerName: 'Cantidad',
-                minWidth: 120,
+                field: 'cantidad',
+                width: 120,
                 type: 'numericColumn',
+                editable: (p) =>
+                    !readOnly &&
+                    ((p.data?.tipo === 'registro' && p.data.esManual) ||
+                        (p.data?.tipo === 'factor' && p.data.factorManual)),
+                cellEditor: 'agNumberCellEditor',
+                cellClass: (p) =>
+                    p.data?.tipo === 'factor' && !p.data.factorManual
+                        ? 'italic opacity-70'
+                        : '',
                 valueFormatter: (p) => fmtNum(p.value, 4),
             },
             {
-                field: 'precio_unitario',
                 headerName: 'P.U.',
-                minWidth: 120,
+                field: 'precio',
+                width: 140,
                 type: 'numericColumn',
-                valueFormatter: (p) => fmtMoney.format(Number(p.value ?? 0)),
+                editable: (p) =>
+                    !readOnly &&
+                    p.data?.tipo === 'registro' &&
+                    p.data.insumoId != null,
+                cellEditor: 'agNumberCellEditor',
+                cellEditorParams: { precision: 4, min: 0 },
+                valueFormatter: (p) =>
+                    p.data?.tipo === 'footer' || p.value == null
+                        ? ''
+                        : fmtMoney.format(Number(p.value)),
+                cellClass: (p) =>
+                    p.data?.insumoId != null &&
+                    props.preciosOverride[String(p.data.insumoId)] != null
+                        ? 'font-semibold text-warning'
+                        : '',
             },
             {
-                field: 'importe',
+                headerName: 'Fórmula',
+                field: 'formula',
+                width: 240,
+                editable: (p) => !readOnly && p.data?.tipo === 'factor',
+                cellClass: 'font-mono text-xs',
+                valueFormatter: (p) =>
+                    p.data?.tipo === 'factor'
+                        ? p.value || '(manual)'
+                        : '',
+            },
+            {
                 headerName: 'Importe',
-                minWidth: 130,
+                field: 'importe',
+                width: 170,
                 type: 'numericColumn',
-                valueFormatter: (p) => fmtMoney.format(Number(p.value ?? 0)),
-                cellClass: 'font-medium',
+                cellClass: 'font-semibold',
+                valueFormatter: (p) => {
+                    if (p.value == null) {
+                        return '';
+                    }
+                    if (p.data?.tipo === 'footer') {
+                        const costoKg =
+                            totales.kg_reales_total > 0
+                                ? Number(p.value) / totales.kg_reales_total
+                                : 0;
+                        return `${fmtMoney.format(Number(p.value))}  (${fmtMoney.format(costoKg)}/kg)`;
+                    }
+                    return fmtMoney.format(Number(p.value));
+                },
             },
             {
-                field: 'validado',
-                headerName: '✓',
-                minWidth: 80,
-                editable: !readOnly,
-                cellEditor: 'agCheckboxCellEditor',
-                cellRenderer: 'agCheckboxCellRenderer',
+                headerName: '%',
+                width: 80,
+                type: 'numericColumn',
+                sortable: false,
+                cellClass: 'opacity-70',
+                valueGetter: (p) =>
+                    p.data && p.data.tipo !== 'footer' && totales.total_importe > 0
+                        ? p.data.importe / totales.total_importe
+                        : null,
+                valueFormatter: (p) =>
+                    p.value == null ? '' : fmtPct(Number(p.value)),
+            },
+            {
+                headerName: 'Fórmula pintura',
+                width: 160,
+                sortable: false,
+                cellRenderer: (p: ICellRendererParams<Row>) => {
+                    if (!p.data || p.data.tipo !== 'registro') {
+                        return null;
+                    }
+                    return (
+                        <select
+                            className="select select-xs select-bordered h-6 min-h-0 w-full text-xs"
+                            value={p.data.tipoPintura ?? 'auto'}
+                            disabled={readOnly}
+                            onChange={(e) => setPintura(p.data!, e.target.value)}
+                        >
+                            {Object.entries(catalogos.tiposPintura).map(
+                                ([clave, label]) => (
+                                    <option key={clave} value={clave}>
+                                        {label}
+                                    </option>
+                                ),
+                            )}
+                        </select>
+                    );
+                },
             },
             {
                 headerName: '',
-                width: 60,
+                width: 56,
                 sortable: false,
                 filter: false,
-                cellRenderer: (
-                    p: ICellRendererParams<CotizTarjetaFactorResuelto>,
-                ) =>
-                    p.data ? (
+                cellRenderer: (p: ICellRendererParams<Row>) =>
+                    p.data && p.data.tipo !== 'footer' ? (
                         <button
                             type="button"
                             className="btn text-error btn-ghost btn-xs"
                             disabled={readOnly}
-                            title="Quitar factor"
-                            onClick={() => {
-                                if (confirm('¿Quitar este factor?')) {
-                                    router.delete(
-                                        `/admin/cotiz/tarjeta-factores/${p.data!.id}`,
-                                        {
-                                            preserveScroll: true,
-                                            preserveState: true,
-                                            only: ONLY,
-                                        },
-                                    );
-                                }
-                            }}
+                            title="Eliminar"
+                            onClick={() => eliminar(p.data!)}
                         >
-                            <Trash2Icon className="size-4" />
+                            ✕
                         </button>
                     ) : null,
             },
         ],
-        [readOnly],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [readOnly, props.preciosOverride, totales, catalogos.tiposPintura],
     );
 
-    const vinculados = new Set(factores.map((f) => f.factor_id));
-    const disponibles = catalogos.factores.filter((f) => !vinculados.has(f.id));
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title={`Editar — ${tarjeta.descripcion}`} />
 
-    const vincular = (e: FormEvent) => {
-        e.preventDefault();
-        if (factorId === '') {
-            return;
-        }
+            <div className="flex h-[calc(100vh-3.5rem)] flex-col gap-3 p-4">
+                {/* Barra de título + badges */}
+                <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                        href={`/admin/cotiz/obras/${obra.id}/tarjetas`}
+                        className="text-sm link link-primary"
+                    >
+                        ← Tarjetas
+                    </Link>
+                    <input
+                        defaultValue={tarjeta.descripcion}
+                        disabled={readOnly}
+                        onBlur={(e) => {
+                            const v = e.target.value.trim();
+                            if (v && v !== tarjeta.descripcion) {
+                                router.put(
+                                    `/admin/cotiz/tarjetas/${tarjeta.id}`,
+                                    { descripcion: v, orden: tarjeta.orden },
+                                    { preserveScroll: true },
+                                );
+                            }
+                        }}
+                        className="input input-sm input-bordered w-72 text-lg font-semibold"
+                    />
+                    <span
+                        className="badge badge-lg badge-info"
+                        title="Suma del Análisis de kilos reales (TIRAS + RAZ + KG + CNX)."
+                    >
+                        Kg reales: {fmtNum(totales.kg_reales_total)} kg
+                    </span>
+                    <span
+                        className="badge badge-lg badge-accent"
+                        title="Área pintable total — alimenta area_pintura."
+                    >
+                        Área pintura: {fmtNum(totales.area_pintura)} m²
+                    </span>
+                    <span className="badge badge-ghost">
+                        {props.registros.length} registros
+                    </span>
+                    <span className="text-xs opacity-60">
+                        Validados: {numValidados}/{rows.length}
+                    </span>
+                    <div className="flex-1" />
+                    <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setMostrarKr(true)}
+                    >
+                        📊 Análisis kg reales
+                    </button>
+                </div>
+
+                <LockBanner state={lockState} fallback={lock} />
+
+                {/* Generadoras vinculadas */}
+                <GeneradorasRow
+                    tarjeta={tarjeta}
+                    generadorasDisponibles={props.generadorasDisponibles}
+                    readOnly={readOnly}
+                />
+
+                {/* Grilla unificada */}
+                <div className="min-h-0 flex-1">
+                    <EditableGrid<Row>
+                        rowData={rows}
+                        columnDefs={columnDefs}
+                        getRowId={(row) => row.rowId}
+                        onCellEdited={readOnly ? undefined : guardar}
+                        pinnedBottomRowData={footerRow}
+                        paginated={false}
+                        height="100%"
+                        getRowStyle={(p) => {
+                            if (p.data?.tipo === 'footer') {
+                                return { fontWeight: 'bold' };
+                            }
+                            return undefined;
+                        }}
+                    />
+                </div>
+
+                {/* Alta rápida de registros / factores */}
+                {!readOnly && (
+                    <AltaRapida tarjeta={tarjeta} catalogos={catalogos} factores={props.factores} />
+                )}
+            </div>
+
+            {mostrarKr && (
+                <KilosRealesModal
+                    tarjeta={tarjeta}
+                    estructuras={props.estructuras}
+                    categoriasKilos={props.categoriasKilos}
+                    celdas={props.celdas}
+                    catalogos={catalogos}
+                    readOnly={readOnly}
+                    onClose={() => setMostrarKr(false)}
+                />
+            )}
+        </AppLayout>
+    );
+}
+
+// ===== Generadoras vinculadas =====
+
+function GeneradorasRow({
+    tarjeta,
+    generadorasDisponibles,
+    readOnly,
+}: {
+    tarjeta: TarjetaProp;
+    generadorasDisponibles: Pick<CotizGeneradora, 'id' | 'titulo' | 'orden'>[];
+    readOnly: boolean;
+}) {
+    const vincular = (id: number) => {
         router.post(
-            `/admin/cotiz/tarjetas/${tarjeta.id}/factores`,
-            { factor_id: factorId },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                only: ONLY,
-                onSuccess: () => setFactorId(''),
-            },
+            `/admin/cotiz/tarjetas/${tarjeta.id}/generadoras`,
+            { generadora_id: id },
+            { preserveScroll: true },
         );
+    };
+    const desvincular = (g: Pick<CotizGeneradora, 'id' | 'titulo'>) => {
+        if (
+            confirm(
+                `¿Desvincular "${g.titulo}"? Se quitarán sus registros importados.`,
+            )
+        ) {
+            router.delete(
+                `/admin/cotiz/tarjetas/${tarjeta.id}/generadoras/${g.id}`,
+                { preserveScroll: true },
+            );
+        }
     };
 
     return (
-        <section className="space-y-2">
-            <h2 className="font-medium">Factores</h2>
-            <EditableGrid<CotizTarjetaFactorResuelto>
-                rowData={factores}
-                columnDefs={columnDefs}
-                getRowId={(row) => String(row.id)}
-                onCellEdited={readOnly ? undefined : guardar}
-                height="36vh"
-            />
-            {!readOnly && disponibles.length > 0 && (
-                <form
-                    onSubmit={vincular}
-                    className="flex items-end gap-2 rounded-box border border-base-300 p-3"
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="opacity-60">Generadoras vinculadas:</span>
+            {tarjeta.generadoras.length === 0 && (
+                <span className="italic opacity-50">
+                    ninguna — solo registros manuales
+                </span>
+            )}
+            {tarjeta.generadoras.map((g) => (
+                <span key={g.id} className="badge gap-1 badge-primary">
+                    {g.titulo}
+                    {!readOnly && (
+                        <button
+                            type="button"
+                            className="ml-1 hover:text-error"
+                            title="Desvincular"
+                            onClick={() => desvincular(g)}
+                        >
+                            ✕
+                        </button>
+                    )}
+                </span>
+            ))}
+            {!readOnly && generadorasDisponibles.length > 0 && (
+                <details className="dropdown">
+                    <summary className="btn btn-outline btn-xs">
+                        + Vincular generadora
+                    </summary>
+                    <ul className="dropdown-content menu z-10 w-72 rounded-box bg-base-200 shadow">
+                        {generadorasDisponibles.map((g) => (
+                            <li key={g.id}>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        (
+                                            e.currentTarget.closest(
+                                                'details',
+                                            ) as HTMLDetailsElement
+                                        ).open = false;
+                                        vincular(g.id);
+                                    }}
+                                >
+                                    {g.titulo}
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </details>
+            )}
+        </div>
+    );
+}
+
+// ===== Alta rápida =====
+
+function AltaRapida({
+    tarjeta,
+    catalogos,
+    factores,
+}: {
+    tarjeta: TarjetaProp;
+    catalogos: Catalogos;
+    factores: CotizTarjetaFactorResuelto[];
+}) {
+    const [insumoId, setInsumoId] = useState<number | ''>('');
+    const [cantidad, setCantidad] = useState('');
+    const [factorId, setFactorId] = useState<number | ''>('');
+
+    const vinculados = new Set(factores.map((f) => f.factor_id));
+    const factoresLibres = catalogos.factores.filter(
+        (f) => !vinculados.has(f.id),
+    );
+
+    return (
+        <div className="flex flex-wrap items-end gap-4 rounded-box border border-base-300 p-3">
+            <div className="flex items-end gap-2">
+                <div className="w-64">
+                    <label className="label py-0">
+                        <span className="label-text text-xs">
+                            + Insumo manual
+                        </span>
+                    </label>
+                    <select
+                        className="select w-full select-sm select-bordered"
+                        value={insumoId}
+                        onChange={(e) =>
+                            setInsumoId(
+                                e.target.value === ''
+                                    ? ''
+                                    : Number(e.target.value),
+                            )
+                        }
+                    >
+                        <option value="">Insumo…</option>
+                        {catalogos.insumos.map((i) => (
+                            <option key={i.id} value={i.id}>
+                                {i.descripcion}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                <input
+                    type="number"
+                    step="any"
+                    placeholder="Cantidad"
+                    className="input input-sm input-bordered w-28"
+                    value={cantidad}
+                    onChange={(e) => setCantidad(e.target.value)}
+                />
+                <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    disabled={insumoId === ''}
+                    onClick={() =>
+                        router.post(
+                            `/admin/cotiz/tarjetas/${tarjeta.id}/registros-manual`,
+                            {
+                                insumo_id: insumoId,
+                                cantidad: cantidad === '' ? null : cantidad,
+                            },
+                            {
+                                ...reloadOpts,
+                                onSuccess: () => {
+                                    setInsumoId('');
+                                    setCantidad('');
+                                },
+                            },
+                        )
+                    }
                 >
-                    <div className="min-w-64 flex-1">
+                    Agregar
+                </button>
+            </div>
+
+            {factoresLibres.length > 0 && (
+                <div className="flex items-end gap-2">
+                    <div className="w-64">
                         <label className="label py-0">
                             <span className="label-text text-xs">
-                                Vincular factor
+                                + Vincular factor
                             </span>
                         </label>
                         <select
@@ -724,37 +804,47 @@ function FactoresSection({
                                 )
                             }
                         >
-                            <option value="">Selecciona factor…</option>
-                            {disponibles.map((f) => (
+                            <option value="">Factor…</option>
+                            {factoresLibres.map((f) => (
                                 <option key={f.id} value={f.id}>
                                     {f.codigo} — {f.nombre}
                                 </option>
                             ))}
                         </select>
                     </div>
-                    <Button
-                        type="submit"
-                        variant="secondary"
-                        className="btn-sm"
+                    <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
                         disabled={factorId === ''}
+                        onClick={() =>
+                            router.post(
+                                `/admin/cotiz/tarjetas/${tarjeta.id}/factores`,
+                                { factor_id: factorId },
+                                {
+                                    ...reloadOpts,
+                                    onSuccess: () => setFactorId(''),
+                                },
+                            )
+                        }
                     >
                         Vincular
-                    </Button>
-                </form>
+                    </button>
+                </div>
             )}
-        </section>
+        </div>
     );
 }
 
-// ===== Kilos reales (matriz) =====
+// ===== Modal Análisis de kilos reales =====
 
-function KilosRealesSection({
+function KilosRealesModal({
     tarjeta,
     estructuras,
     categoriasKilos,
     celdas,
     catalogos,
     readOnly,
+    onClose,
 }: {
     tarjeta: TarjetaProp;
     estructuras: CotizTarjetaEstructura[];
@@ -762,6 +852,7 @@ function KilosRealesSection({
     celdas: CotizTarjetaKilosCelda[];
     catalogos: Catalogos;
     readOnly: boolean;
+    onClose: () => void;
 }) {
     const [estructura, setEstructura] = useState('');
     const [categoriaId, setCategoriaId] = useState<number | ''>('');
@@ -775,221 +866,176 @@ function KilosRealesSection({
         return m;
     }, [celdas]);
 
-    const setCelda = (
-        categoria_id: number,
-        estructura_id: number,
-        kilos: string,
-    ) => {
+    const setCelda = (categoria_id: number, estructura_id: number, kilos: string) =>
         router.put(
             `/admin/cotiz/tarjetas/${tarjeta.id}/kr-celdas`,
             { categoria_id, estructura_id, kilos: kilos === '' ? 0 : kilos },
-            { preserveScroll: true, preserveState: true, only: ONLY },
+            reloadOpts,
         );
-    };
-
-    const agregarEstructura = (e: FormEvent) => {
-        e.preventDefault();
-        if (estructura.trim() === '') {
-            return;
-        }
-        router.post(
-            `/admin/cotiz/tarjetas/${tarjeta.id}/estructuras`,
-            { nombre: estructura, orden: estructuras.length },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                only: ONLY,
-                onSuccess: () => setEstructura(''),
-            },
-        );
-    };
-
-    const agregarCategoria = (e: FormEvent) => {
-        e.preventDefault();
-        if (categoriaId === '') {
-            return;
-        }
-        router.post(
-            `/admin/cotiz/tarjetas/${tarjeta.id}/kr-categorias`,
-            {
-                categoria_id: categoriaId,
-                porcentual: porcentual === '' ? null : porcentual,
-                orden: categoriasKilos.length,
-            },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                only: ONLY,
-                onSuccess: () => {
-                    setCategoriaId('');
-                    setPorcentual('');
-                },
-            },
-        );
-    };
 
     return (
-        <section className="space-y-2">
-            <h2 className="font-medium">Análisis de kilos reales</h2>
+        <dialog className="modal modal-open">
+            <div className="modal-box max-w-5xl">
+                <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">
+                        Análisis de kilos reales
+                    </h3>
+                    <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={onClose}
+                    >
+                        ✕
+                    </button>
+                </div>
 
-            {categoriasKilos.length === 0 || estructuras.length === 0 ? (
-                <p className="text-sm text-base-content/60">
-                    Agrega al menos una estructura (columna) y una categoría (fila)
-                    para capturar kilos.
-                </p>
-            ) : (
-                <div className="overflow-x-auto rounded-box border border-base-300">
-                    <table className="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Categoría</th>
-                                <th>Corte</th>
-                                {estructuras.map((est) => (
-                                    <th key={est.id} className="text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            {est.nombre}
-                                            {!readOnly && (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-ghost btn-xs"
-                                                    title="Quitar estructura"
-                                                    onClick={() =>
-                                                        router.delete(
-                                                            `/admin/cotiz/tarjeta-estructuras/${est.id}`,
-                                                            {
-                                                                preserveScroll: true,
-                                                                preserveState: true,
-                                                                only: ONLY,
-                                                            },
-                                                        )
-                                                    }
-                                                >
-                                                    ✕
-                                                </button>
-                                            )}
-                                        </div>
-                                    </th>
-                                ))}
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {categoriasKilos.map((cat) => {
-                                const esPct = cat.porcentual != null;
-                                return (
-                                    <tr key={cat.id}>
-                                        <td>{cat.descripcion}</td>
-                                        <td>
-                                            <span className="badge badge-ghost badge-sm">
-                                                {cat.tipo_corte}
-                                            </span>
-                                        </td>
-                                        {estructuras.map((est) => (
-                                            <td key={est.id} className="text-right">
-                                                {esPct ? (
-                                                    <span className="text-xs opacity-40">
-                                                        —
-                                                    </span>
-                                                ) : (
-                                                    <input
-                                                        type="number"
-                                                        step="any"
-                                                        className="input input-xs input-bordered w-24 text-right"
-                                                        defaultValue={
-                                                            celdaPorClave.get(
-                                                                `${cat.categoria_id}:${est.id}`,
-                                                            )?.kilos ?? ''
-                                                        }
-                                                        disabled={readOnly}
-                                                        onBlur={(e) =>
-                                                            setCelda(
-                                                                cat.categoria_id,
-                                                                est.id,
-                                                                e.target.value,
+                {categoriasKilos.length === 0 || estructuras.length === 0 ? (
+                    <p className="text-sm text-base-content/60">
+                        Agrega al menos una estructura (columna) y una categoría
+                        (fila) para capturar kilos.
+                    </p>
+                ) : (
+                    <div className="overflow-x-auto rounded-box border border-base-300">
+                        <table className="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Categoría</th>
+                                    <th>Corte</th>
+                                    {estructuras.map((est) => (
+                                        <th key={est.id} className="text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                {est.nombre}
+                                                {!readOnly && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-ghost btn-xs"
+                                                        title="Quitar estructura"
+                                                        onClick={() =>
+                                                            router.delete(
+                                                                `/admin/cotiz/tarjeta-estructuras/${est.id}`,
+                                                                reloadOpts,
                                                             )
                                                         }
-                                                    />
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </th>
+                                    ))}
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {categoriasKilos.map((cat) => {
+                                    const esPct = cat.porcentual != null;
+                                    return (
+                                        <tr key={cat.id}>
+                                            <td>{cat.descripcion}</td>
+                                            <td>
+                                                <span className="badge badge-ghost badge-sm">
+                                                    {cat.tipo_corte}
+                                                </span>
+                                            </td>
+                                            {estructuras.map((est) => (
+                                                <td
+                                                    key={est.id}
+                                                    className="text-right"
+                                                >
+                                                    {esPct ? (
+                                                        <span className="text-xs opacity-40">
+                                                            —
+                                                        </span>
+                                                    ) : (
+                                                        <input
+                                                            type="number"
+                                                            step="any"
+                                                            className="input input-xs input-bordered w-24 text-right"
+                                                            defaultValue={
+                                                                celdaPorClave.get(
+                                                                    `${cat.categoria_id}:${est.id}`,
+                                                                )?.kilos ?? ''
+                                                            }
+                                                            disabled={readOnly}
+                                                            onBlur={(e) =>
+                                                                setCelda(
+                                                                    cat.categoria_id,
+                                                                    est.id,
+                                                                    e.target.value,
+                                                                )
+                                                            }
+                                                        />
+                                                    )}
+                                                </td>
+                                            ))}
+                                            <td className="whitespace-nowrap">
+                                                {esPct && (
+                                                    <span className="badge mr-1 badge-info badge-sm">
+                                                        {(
+                                                            Number(
+                                                                cat.porcentual,
+                                                            ) * 100
+                                                        ).toFixed(1)}
+                                                        %
+                                                    </span>
+                                                )}
+                                                {!readOnly && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn text-error btn-ghost btn-xs"
+                                                        title="Quitar categoría"
+                                                        onClick={() =>
+                                                            router.delete(
+                                                                `/admin/cotiz/tarjeta-kr-categorias/${cat.id}`,
+                                                                reloadOpts,
+                                                            )
+                                                        }
+                                                    >
+                                                        ✕
+                                                    </button>
                                                 )}
                                             </td>
-                                        ))}
-                                        <td className="whitespace-nowrap">
-                                            {esPct && (
-                                                <span className="badge badge-info badge-sm mr-1">
-                                                    {(
-                                                        Number(cat.porcentual) *
-                                                        100
-                                                    ).toFixed(1)}
-                                                    %
-                                                </span>
-                                            )}
-                                            {!readOnly && (
-                                                <button
-                                                    type="button"
-                                                    className="btn text-error btn-ghost btn-xs"
-                                                    title="Quitar categoría"
-                                                    onClick={() =>
-                                                        router.delete(
-                                                            `/admin/cotiz/tarjeta-kr-categorias/${cat.id}`,
-                                                            {
-                                                                preserveScroll: true,
-                                                                preserveState: true,
-                                                                only: ONLY,
-                                                            },
-                                                        )
-                                                    }
-                                                >
-                                                    <Trash2Icon className="size-3.5" />
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
 
-            {!readOnly && (
-                <div className="flex flex-wrap gap-4">
-                    <form
-                        onSubmit={agregarEstructura}
-                        className="flex items-end gap-2 rounded-box border border-base-300 p-3"
-                    >
-                        <div className="w-48">
-                            <label className="label py-0">
-                                <span className="label-text text-xs">
-                                    Nueva estructura (columna)
-                                </span>
-                            </label>
-                            <Input
-                                className="input-sm"
+                {!readOnly && (
+                    <div className="mt-3 flex flex-wrap gap-3">
+                        <div className="flex items-end gap-2">
+                            <input
+                                className="input input-sm input-bordered w-40"
+                                placeholder="Nueva estructura"
                                 value={estructura}
-                                placeholder="Ej. NAVE"
                                 onChange={(e) => setEstructura(e.target.value)}
                             />
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-secondary"
+                                disabled={estructura.trim() === ''}
+                                onClick={() =>
+                                    router.post(
+                                        `/admin/cotiz/tarjetas/${tarjeta.id}/estructuras`,
+                                        {
+                                            nombre: estructura,
+                                            orden: estructuras.length,
+                                        },
+                                        {
+                                            ...reloadOpts,
+                                            onSuccess: () => setEstructura(''),
+                                        },
+                                    )
+                                }
+                            >
+                                + Columna
+                            </button>
                         </div>
-                        <Button
-                            type="submit"
-                            variant="secondary"
-                            className="btn-sm"
-                        >
-                            + Columna
-                        </Button>
-                    </form>
-
-                    <form
-                        onSubmit={agregarCategoria}
-                        className="flex items-end gap-2 rounded-box border border-base-300 p-3"
-                    >
-                        <div className="w-56">
-                            <label className="label py-0">
-                                <span className="label-text text-xs">
-                                    Nueva categoría (fila)
-                                </span>
-                            </label>
+                        <div className="flex items-end gap-2">
                             <select
-                                className="select w-full select-sm select-bordered"
+                                className="select select-sm select-bordered w-52"
                                 value={categoriaId}
                                 onChange={(e) =>
                                     setCategoriaId(
@@ -1006,132 +1052,53 @@ function KilosRealesSection({
                                     </option>
                                 ))}
                             </select>
-                        </div>
-                        <div className="w-28">
-                            <label className="label py-0">
-                                <span className="label-text text-xs">
-                                    % (opcional)
-                                </span>
-                            </label>
-                            <Input
-                                className="input-sm"
+                            <input
                                 type="number"
                                 step="any"
-                                placeholder="0.22"
+                                className="input input-sm input-bordered w-24"
+                                placeholder="% (opc.)"
                                 value={porcentual}
                                 onChange={(e) => setPorcentual(e.target.value)}
                             />
-                        </div>
-                        <Button
-                            type="submit"
-                            variant="secondary"
-                            className="btn-sm"
-                            disabled={categoriaId === ''}
-                        >
-                            + Fila
-                        </Button>
-                    </form>
-                </div>
-            )}
-        </section>
-    );
-}
-
-// ===== Generadoras =====
-
-function GeneradorasSection({
-    tarjeta,
-    generadorasDisponibles,
-    readOnly,
-}: {
-    tarjeta: TarjetaProp;
-    generadorasDisponibles: Pick<CotizGeneradora, 'id' | 'titulo' | 'orden'>[];
-    readOnly: boolean;
-}) {
-    const [generadoraId, setGeneradoraId] = useState<number | ''>('');
-
-    const vincular = () => {
-        if (generadoraId === '') {
-            return;
-        }
-        router.post(
-            `/admin/cotiz/tarjetas/${tarjeta.id}/generadoras`,
-            { generadora_id: generadoraId },
-            { preserveScroll: true, onSuccess: () => setGeneradoraId('') },
-        );
-    };
-
-    return (
-        <section className="rounded-box border border-base-300 p-4">
-            <h2 className="mb-3 font-medium">Generadoras vinculadas</h2>
-            {tarjeta.generadoras.length === 0 ? (
-                <p className="text-sm text-base-content/60">
-                    Sin generadoras vinculadas.
-                </p>
-            ) : (
-                <ul className="divide-y divide-base-200">
-                    {tarjeta.generadoras.map((g) => (
-                        <li
-                            key={g.id}
-                            className="flex items-center justify-between py-2"
-                        >
-                            <span>{g.titulo}</span>
                             <button
                                 type="button"
-                                className="btn text-error btn-ghost btn-xs"
-                                disabled={readOnly}
-                                onClick={() => {
-                                    if (
-                                        confirm(
-                                            `¿Desvincular "${g.titulo}"? Se quitarán sus registros importados.`,
-                                        )
-                                    ) {
-                                        router.delete(
-                                            `/admin/cotiz/tarjetas/${tarjeta.id}/generadoras/${g.id}`,
-                                            { preserveScroll: true },
-                                        );
-                                    }
-                                }}
+                                className="btn btn-sm btn-secondary"
+                                disabled={categoriaId === ''}
+                                onClick={() =>
+                                    router.post(
+                                        `/admin/cotiz/tarjetas/${tarjeta.id}/kr-categorias`,
+                                        {
+                                            categoria_id: categoriaId,
+                                            porcentual:
+                                                porcentual === ''
+                                                    ? null
+                                                    : porcentual,
+                                            orden: categoriasKilos.length,
+                                        },
+                                        {
+                                            ...reloadOpts,
+                                            onSuccess: () => {
+                                                setCategoriaId('');
+                                                setPorcentual('');
+                                            },
+                                        },
+                                    )
+                                }
                             >
-                                <UnlinkIcon className="size-4" />
-                                Desvincular
+                                + Fila
                             </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
-            {!readOnly && generadorasDisponibles.length > 0 && (
-                <div className="mt-3 flex items-end gap-2">
-                    <select
-                        className="select select-sm select-bordered"
-                        value={generadoraId}
-                        onChange={(e) =>
-                            setGeneradoraId(
-                                e.target.value === ''
-                                    ? ''
-                                    : Number(e.target.value),
-                            )
-                        }
-                    >
-                        <option value="">Vincular generadora…</option>
-                        {generadorasDisponibles.map((g) => (
-                            <option key={g.id} value={g.id}>
-                                {g.titulo}
-                            </option>
-                        ))}
-                    </select>
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        className="btn-sm"
-                        disabled={generadoraId === ''}
-                        onClick={vincular}
-                    >
-                        Vincular
-                    </Button>
-                </div>
-            )}
-        </section>
+                        </div>
+                    </div>
+                )}
+            </div>
+            <button
+                type="button"
+                className="modal-backdrop"
+                onClick={onClose}
+            >
+                cerrar
+            </button>
+        </dialog>
     );
 }
 
@@ -1160,7 +1127,7 @@ function LockBanner({
 }) {
     if (state.status === 'taking') {
         return (
-            <div className="alert">
+            <div className="alert py-2">
                 <Loader2Icon className="size-5 animate-spin" />
                 <span>Iniciando sesión de edición…</span>
             </div>
@@ -1171,7 +1138,7 @@ function LockBanner({
     }
     if (state.status === 'error') {
         return (
-            <div className="alert alert-error">
+            <div className="alert alert-error py-2">
                 <LockIcon className="size-5" />
                 <span>
                     {state.message} Puede ver los datos pero no guardar cambios.
@@ -1185,16 +1152,13 @@ function LockBanner({
     const desde = formatDesde(state.lockedAt ?? fallback.locked_at);
 
     return (
-        <div className="alert alert-warning">
+        <div className="alert alert-warning py-2">
             <LockIcon className="size-5" />
-            <div>
-                <p className="font-medium">La está editando {nombre}.</p>
-                <p className="text-xs opacity-80">
-                    {desde ? `Inició ${desde}. ` : ''}
-                    Puede ver la tarjeta pero no guardar cambios hasta que termine
-                    o su sesión expire.
-                </p>
-            </div>
+            <span className="text-sm">
+                La está editando {nombre}.{' '}
+                {desde ? `Inició ${desde}. ` : ''}
+                Solo lectura hasta que termine o expire su sesión.
+            </span>
         </div>
     );
 }

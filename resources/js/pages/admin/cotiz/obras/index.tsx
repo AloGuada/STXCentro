@@ -2,14 +2,48 @@ import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CotizObra, PaginatedData } from '@/types/models';
-import { Head, Link } from '@inertiajs/react';
-import { CreditCardIcon, LayersIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import {
+    type LucideIcon,
+    CreditCardIcon,
+    LayersIcon,
+    SlidersHorizontalIcon,
+} from 'lucide-react';
+import type { MouseEvent } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Cotización', href: '/admin/cotiz/obras' },
     { title: 'Obras', href: '/admin/cotiz/obras' },
 ];
+
+/**
+ * Botón de acción dentro de una fila que ya es un <Link> (getRowHref). Usamos un <button>
+ * (no un <Link>) para no anidar <a> dentro de <a>, y navegamos con router.visit.
+ */
+function AccionFila({
+    href,
+    icon: Icon,
+    label,
+}: {
+    href: string;
+    icon: LucideIcon;
+    label: string;
+}) {
+    return (
+        <button
+            type="button"
+            className="inline-flex link items-center gap-1 text-xs link-primary"
+            onClick={(e: MouseEvent) => {
+                e.stopPropagation();
+                router.visit(href);
+            }}
+        >
+            <Icon className="size-3.5" />
+            {label}
+        </button>
+    );
+}
 
 const columns: Column<CotizObra>[] = [
     { key: 'nombre', label: 'Nombre' },
@@ -32,14 +66,11 @@ const columns: Column<CotizObra>[] = [
                 <span className="badge badge-ghost badge-sm">
                     {o.generadoras_count ?? 0}
                 </span>
-                <Link
+                <AccionFila
                     href={`/admin/cotiz/obras/${o.id}/generadoras`}
-                    className="inline-flex link items-center gap-1 text-xs link-primary"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <LayersIcon className="size-3.5" />
-                    Ver generadoras
-                </Link>
+                    icon={LayersIcon}
+                    label="Ver generadoras"
+                />
             </div>
         ),
     },
@@ -47,28 +78,22 @@ const columns: Column<CotizObra>[] = [
         key: 'tarjetas',
         label: 'Tarjetas',
         render: (o) => (
-            <Link
+            <AccionFila
                 href={`/admin/cotiz/obras/${o.id}/tarjetas`}
-                className="inline-flex link items-center gap-1 text-xs link-primary"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <CreditCardIcon className="size-3.5" />
-                Ver tarjetas
-            </Link>
+                icon={CreditCardIcon}
+                label="Ver tarjetas"
+            />
         ),
     },
     {
         key: 'catalogo',
         label: 'Catálogo',
         render: (o) => (
-            <Link
+            <AccionFila
                 href={`/admin/cotiz/obras/${o.id}/catalogo`}
-                className="inline-flex link items-center gap-1 text-xs link-primary"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <SlidersHorizontalIcon className="size-3.5" />
-                Overrides
-            </Link>
+                icon={SlidersHorizontalIcon}
+                label="Overrides"
+            />
         ),
     },
 ];

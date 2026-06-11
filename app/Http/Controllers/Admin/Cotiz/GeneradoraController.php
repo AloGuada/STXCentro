@@ -75,6 +75,9 @@ class GeneradoraController extends Controller
                 't_ml_m2' => $registro->t_ml_m2,
                 'kilos_reales' => $registro->kilos_reales,
                 'kilos_con_merma' => $mermaCalculator->aplicar($registro),
+                // Objetos anidados que la grilla usa en sus valueGetter (material/merma).
+                'material_origen' => $registro->materialOrigen?->only(['id', 'descripcion', 'peso_lineal']),
+                'merma' => $registro->merma?->only(['id', 'descripcion', 'formula']),
             ]);
 
         return Inertia::render('admin/cotiz/generadoras/edit', [

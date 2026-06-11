@@ -1187,6 +1187,7 @@ export type CotizTarjeta = {
 export type CotizTarjetaRegistroResuelto = {
     id: number;
     es_manual: boolean;
+    generadora_titulo: string | null;
     insumo_id: number | null;
     descripcion: string;
     codigo_stumis: string | null;
