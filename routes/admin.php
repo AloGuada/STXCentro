@@ -42,14 +42,19 @@ use App\Http\Controllers\Admin\Costos\SolicitudPagoController as CostosSolicitud
 use App\Http\Controllers\Admin\Costos\TipoRubroController as CostosTipoRubroController;
 use App\Http\Controllers\Admin\Costos\TipoSolicitudController as CostosTipoSolicitudController;
 use App\Http\Controllers\Admin\Costos\UsoCfdiController as CostosUsoCfdiController;
+use App\Http\Controllers\Admin\Cotiz\AnalisisMoController as CotizAnalisisMoController;
+use App\Http\Controllers\Admin\Cotiz\CaratulaController as CotizCaratulaController;
 use App\Http\Controllers\Admin\Cotiz\CatalogoObraController as CotizCatalogoObraController;
 use App\Http\Controllers\Admin\Cotiz\CategoriaTarjetaController as CotizCategoriaTarjetaController;
 use App\Http\Controllers\Admin\Cotiz\CentroCostoController as CotizCentroCostoController;
 use App\Http\Controllers\Admin\Cotiz\CuadrillaController as CotizCuadrillaController;
+use App\Http\Controllers\Admin\Cotiz\CuadrillaGlobalController as CotizCuadrillaGlobalController;
 use App\Http\Controllers\Admin\Cotiz\EditLockController as CotizEditLockController;
 use App\Http\Controllers\Admin\Cotiz\FactorController as CotizFactorController;
 use App\Http\Controllers\Admin\Cotiz\FaseMontajeController as CotizFaseMontajeController;
+use App\Http\Controllers\Admin\Cotiz\FleteEstandarController as CotizFleteEstandarController;
 use App\Http\Controllers\Admin\Cotiz\FleteViaticoCatalogoController as CotizFleteViaticoCatalogoController;
+use App\Http\Controllers\Admin\Cotiz\FleteViaticoObraController as CotizFleteViaticoObraController;
 use App\Http\Controllers\Admin\Cotiz\GeneradoraController as CotizGeneradoraController;
 use App\Http\Controllers\Admin\Cotiz\GeneradoraRegistroController as CotizGeneradoraRegistroController;
 use App\Http\Controllers\Admin\Cotiz\InsumoController as CotizInsumoController;
@@ -58,9 +63,12 @@ use App\Http\Controllers\Admin\Cotiz\MermaController as CotizMermaController;
 use App\Http\Controllers\Admin\Cotiz\ObraController as CotizObraController;
 use App\Http\Controllers\Admin\Cotiz\PersonalCategoriaController as CotizPersonalCategoriaController;
 use App\Http\Controllers\Admin\Cotiz\PinturaFormulaController as CotizPinturaFormulaController;
+use App\Http\Controllers\Admin\Cotiz\ResumenController as CotizResumenController;
 use App\Http\Controllers\Admin\Cotiz\ResumenFilaController as CotizResumenFilaController;
+use App\Http\Controllers\Admin\Cotiz\SeccionMontajeController as CotizSeccionMontajeController;
 use App\Http\Controllers\Admin\Cotiz\TarjetaController as CotizTarjetaController;
 use App\Http\Controllers\Admin\Cotiz\TarjetaDetalleController as CotizTarjetaDetalleController;
+use App\Http\Controllers\Admin\Cotiz\VersionController as CotizVersionController;
 use App\Http\Controllers\Admin\DepartamentoController;
 use App\Http\Controllers\Admin\Dg\CarpetaAccesoController as DgCarpetaAccesoController;
 use App\Http\Controllers\Admin\Dg\CarpetaController as DgCarpetaController;
@@ -310,6 +318,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('generadoras/{generadora}', [CotizGeneradoraController::class, 'destroy'])->name('generadoras.destroy');
         Route::post('generadoras/{generadora}/registros', [CotizGeneradoraRegistroController::class, 'store'])->name('generadoras.registros.store');
         Route::put('registros/{registro}', [CotizGeneradoraRegistroController::class, 'update'])->name('registros.update');
+        Route::put('registros/{registro}/insumo-override', [CotizGeneradoraController::class, 'insumoOverride'])->name('registros.insumo-override');
         Route::delete('registros/{registro}', [CotizGeneradoraRegistroController::class, 'destroy'])->name('registros.destroy');
         Route::patch('registros/{registro}/validar', [CotizGeneradoraRegistroController::class, 'validar'])->name('registros.validar');
         Route::post('lock/{type}/{id}', [CotizEditLockController::class, 'lock'])->name('lock');
@@ -346,12 +355,59 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('tarjetas/{tarjeta}/kr-categorias', [CotizTarjetaDetalleController::class, 'krCategoriaStore'])->name('tarjetas.kr-categorias.store');
         Route::put('tarjeta-kr-categorias/{categoriaKilos}', [CotizTarjetaDetalleController::class, 'krCategoriaUpdate'])->name('tarjetas.kr-categorias.update');
         Route::delete('tarjeta-kr-categorias/{categoriaKilos}', [CotizTarjetaDetalleController::class, 'krCategoriaDestroy'])->name('tarjetas.kr-categorias.destroy');
+        Route::put('kr-categorias-catalogo/{categoria}/tipo', [CotizTarjetaDetalleController::class, 'krCategoriaTipo'])->name('tarjetas.kr-categorias.tipo');
         Route::put('tarjetas/{tarjeta}/kr-celdas', [CotizTarjetaDetalleController::class, 'krCeldaUpsert'])->name('tarjetas.kr-celdas.upsert');
         Route::put('tarjetas/{tarjeta}/registros-grupo', [CotizTarjetaDetalleController::class, 'registroGrupo'])->name('tarjetas.registros.grupo');
         Route::delete('tarjetas/{tarjeta}/registros-grupo', [CotizTarjetaDetalleController::class, 'registroGrupoDestroy'])->name('tarjetas.registros.grupo-destroy');
         Route::post('tarjetas/{tarjeta}/validar-todas', [CotizTarjetaDetalleController::class, 'validarTodas'])->name('tarjetas.validar-todas');
         Route::post('tarjetas/{tarjeta}/aplicar-sugerido', [CotizTarjetaDetalleController::class, 'aplicarSugerido'])->name('tarjetas.aplicar-sugerido');
         Route::post('tarjetas/{tarjeta}/generadoras/{generadora}/resincronizar', [CotizTarjetaDetalleController::class, 'resincronizarGeneradora'])->name('tarjetas.generadoras.resincronizar');
+
+        // Análisis MO / Montaje + Fletes y Viáticos (Fase 4)
+        Route::get('obras/{obra}/analisis-mo', [CotizAnalisisMoController::class, 'index'])->name('analisis-mo.index');
+
+        // Secciones / zonas de montaje
+        Route::post('obras/{obra}/secciones', [CotizSeccionMontajeController::class, 'store'])->name('secciones.store');
+        Route::get('secciones/{seccion}/edit', [CotizSeccionMontajeController::class, 'edit'])->name('secciones.edit');
+        Route::put('secciones/{seccion}', [CotizSeccionMontajeController::class, 'update'])->name('secciones.update');
+        Route::delete('secciones/{seccion}', [CotizSeccionMontajeController::class, 'destroy'])->name('secciones.destroy');
+        Route::put('secciones/{seccion}/personal', [CotizSeccionMontajeController::class, 'personalUpsert'])->name('secciones.personal.upsert');
+        Route::post('secciones/{seccion}/rendimientos', [CotizSeccionMontajeController::class, 'rendimientoStore'])->name('secciones.rendimientos.store');
+        Route::put('seccion-rendimientos/{rendimiento}', [CotizSeccionMontajeController::class, 'rendimientoUpdate'])->name('secciones.rendimientos.update');
+        Route::delete('seccion-rendimientos/{rendimiento}', [CotizSeccionMontajeController::class, 'rendimientoDestroy'])->name('secciones.rendimientos.destroy');
+
+        // Cuadrilla global de montaje
+        Route::put('obras/{obra}/cuadrilla-global', [CotizCuadrillaGlobalController::class, 'upsert'])->name('cuadrilla-global.upsert');
+        Route::put('obras/{obra}/num-grupos', [CotizCuadrillaGlobalController::class, 'updateGrupos'])->name('cuadrilla-global.num-grupos');
+
+        // Fletes y viáticos por obra (nombres bajo `obras.` para no chocar con el catálogo global `fletes-viaticos.*`)
+        Route::post('obras/{obra}/fletes-viaticos', [CotizFleteViaticoObraController::class, 'store'])->name('obras.fletes-viaticos.store');
+        Route::post('obras/{obra}/fletes-viaticos/importar', [CotizFleteViaticoObraController::class, 'importarPlantilla'])->name('obras.fletes-viaticos.importar');
+        Route::post('obras/{obra}/fletes-viaticos/aplicar-formulas', [CotizFleteViaticoObraController::class, 'aplicarFormulas'])->name('obras.fletes-viaticos.aplicar-formulas');
+        Route::post('obras/{obra}/fletes-viaticos/recalcular', [CotizFleteViaticoObraController::class, 'recalcular'])->name('obras.fletes-viaticos.recalcular');
+        Route::put('obra-fletes-viaticos/{fleteViatico}', [CotizFleteViaticoObraController::class, 'update'])->name('obras.fletes-viaticos.update');
+        Route::delete('obra-fletes-viaticos/{fleteViatico}', [CotizFleteViaticoObraController::class, 'destroy'])->name('obras.fletes-viaticos.destroy');
+
+        // Fletes estándar por obra
+        Route::post('obras/{obra}/fletes-estandar', [CotizFleteEstandarController::class, 'store'])->name('obras.fletes-estandar.store');
+        Route::put('obra-fletes-estandar/{fleteEstandar}', [CotizFleteEstandarController::class, 'update'])->name('obras.fletes-estandar.update');
+        Route::delete('obra-fletes-estandar/{fleteEstandar}', [CotizFleteEstandarController::class, 'destroy'])->name('obras.fletes-estandar.destroy');
+
+        // Resumen de Proyecto (Fase 5)
+        Route::get('obras/{obra}/resumen', [CotizResumenController::class, 'index'])->name('resumen.index');
+        Route::put('obras/{obra}/resumen/celda', [CotizResumenController::class, 'updateCelda'])->name('resumen.celda');
+        Route::put('obras/{obra}/resumen/coeficiente', [CotizResumenController::class, 'updateCoeficiente'])->name('resumen.coeficiente');
+        Route::put('resumen-columnas/{columna}/sueldo', [CotizResumenController::class, 'updateColumnaSueldo'])->name('resumen.columna-sueldo');
+
+        // Carátula de cotización (Fase 5)
+        Route::get('obras/{obra}/caratula', [CotizCaratulaController::class, 'index'])->name('caratula.index');
+        Route::get('obras/{obra}/caratula/pdf', [CotizCaratulaController::class, 'pdf'])->name('caratula.pdf');
+
+        // Versiones (Fase 5.5, modelo lineal)
+        Route::get('obras/{obra}/versiones', [CotizVersionController::class, 'index'])->name('versiones.index');
+        Route::post('obras/{obra}/versiones', [CotizVersionController::class, 'store'])->name('versiones.store');
+        Route::post('obras/{obra}/versiones/{version}/restaurar', [CotizVersionController::class, 'restaurar'])->name('versiones.restaurar');
+        Route::delete('obras/{obra}/versiones/{version}', [CotizVersionController::class, 'destroy'])->name('versiones.destroy');
     });
 
     // Cobranza admin routes

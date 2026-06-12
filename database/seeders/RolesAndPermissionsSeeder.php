@@ -362,7 +362,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Trabajo por obra (Fase 1+): lo opera el usuario-cotiz, no solo el admin.
         $cotizTrabajoPermissions = [];
-        foreach (['obras', 'generadoras', 'tarjetas'] as $recurso) {
+        foreach (['obras', 'generadoras', 'tarjetas', 'analisis-mo', 'resumen', 'versiones'] as $recurso) {
             foreach (['ver', 'crear', 'editar', 'eliminar'] as $accion) {
                 $cotizTrabajoPermissions[] = "cotiz.{$recurso}.{$accion}";
             }

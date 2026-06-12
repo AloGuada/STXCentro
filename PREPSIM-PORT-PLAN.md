@@ -237,55 +237,66 @@ Tres problemas separados; no acoplarlos. El cálculo autoritativo en PHP (deriva
 
 ---
 
-## Fase 4 — Análisis MO/Montaje + Fletes/Viáticos
+## Fase 4 — Análisis MO/Montaje + Fletes/Viáticos ✅ COMPLETA (2026-06-12)
 
 ### Backend
-- [ ] Migraciones: `cotiz_secciones_montaje`, `cotiz_seccion_personal`, `cotiz_seccion_fase_rendimiento`,
-      `cotiz_obra_cuadrilla_global`, `cotiz_obra_flete_estandar`, `cotiz_obra_fletes_viaticos`.
-- [ ] **Servicios de derivación** (reemplazan las 8 vistas; guardar contra división por cero):
-      `MontajeDerivations` (días, nómina, importe por sección/fase, importe por sección, semanas requeridas),
-      `CuadrillaGlobalDerivations`, `FleteEstandarDerivations`, `FletesViaticosSubtotales`.
-- [ ] `FletesViaticosCalculator` (port de `fletesViaticos.ts`: fórmulas `formula_cantidad`/`formula_p_unit`, cross-refs `importe_<clave>`).
-- [ ] `AnalisisMoController`, `SeccionMontajeController`, controladores de fletes/cuadrilla por obra.
+- [x] 6 migraciones: `cotiz_secciones_montaje`, `cotiz_seccion_personal` (UNIQUE sección+fase+categoría),
+      `cotiz_seccion_fase_rendimiento`, `cotiz_obra_cuadrilla_global` (UNIQUE obra+categoría),
+      `cotiz_obra_flete_estandar` (UNIQUE obra+tarjeta+método), `cotiz_obra_fletes_viaticos`. FKs normalizadas
+      (`seccion_id`, `fase_id`, `categoria_id`). Enum `MetodoFleteEstandar` (por_kg/por_piezas). 6 modelos + factories + relaciones en `Obra`.
+- [x] **Servicios de derivación** (reemplazan las 8 vistas; toda la aritmética en PHP, guardas explícitas contra ÷0):
+      `MontajeDerivations` (días/nómina/importe por fase, importe+semanas por sección, semanas requeridas y mo_montaje de obra, agregados por fase),
+      `CuadrillaGlobalDerivations` (×num_grupos, personas para viáticos sin CABO, +15% contratista literal),
+      `FleteEstandarDerivations` (volumen por_kg vía `KilosRealesCalculator` = fijas×(1+Σpct), por_piezas = Σ cantidad de registros, override; camiones ROUNDUP; agregado por grupo-slug),
+      `FletesViaticosSubtotales` (Σ cantidad×p_unit por grupo).
+- [x] `FletesViaticosCalculator` (port de `fletesViaticos.ts`): `construirContexto` (grupos/personas/semanas/meses/días/kg_obra/mo_montaje/camiones_<GRUPO>/dias_fase_<COD>), `evaluarItems` (DAG 5 pasadas, cross-refs `cantidad_/p_unit_/importe_<clave>`, irresolubles conservan valor), `recalcular` (persiste cantidad/p_unit, patrón cache).
+- [x] `AnalisisMoController` (index con las 4 secciones de datos; recalcula fletes al entrar), `SeccionMontajeController` (secciones + detalle: matriz personal upsert, rendimientos CRUD), `CuadrillaGlobalController` (celda + num_grupos), `FleteViaticoObraController` (CRUD + importar plantilla + ƒ del catálogo + recalcular, valida sintaxis de fórmula), `FleteEstandarController`. 11 Form Requests. Rutas por-obra bajo `obras.fletes-*` (evita choque con catálogo `fletes-viaticos.*`). Permiso `cotiz.analisis-mo.*` a `usuario-cotiz`/`admin-cotiz`.
 
 ### Frontend
-- [ ] `AnalisisMo` (tabs: cuadrillas globales, por sección, personal montaje, fletes/viáticos) — AG-Grid.
-- [ ] `SeccionMontajeEdit` (m², personal, fases con rendimientos).
+- [x] `analisis-mo/index.tsx` (4 pestañas AG-Grid: zonas, montaje global [cuadrilla + matriz consolidada], fletes/viáticos [grid + fórmulas con validación + variables + subtotales + importar/recalcular], fletes estándar [grid + camiones]).
+- [x] `analisis-mo/seccion-edit.tsx` (m²/nombre inline, matriz personal × fase con footer nómina/días/semanas/importe, rendimientos por fase). Tipos en models.ts. Enlace "Análisis MO" en `obras/index`.
 
 ### Verificación
-- [ ] Tests de cada derivación vs el resultado de la vista original (mismos inputs).
+- [x] `MontajeDerivationsTest`, `FletesViaticosCalculatorTest`, `AnalisisMoTest` (28 nuevos): días/nómina/importe vs fórmula de la vista, ×num_grupos sin cabo, volumen por_kg/por_piezas/override + camiones ROUNDUP, subtotales por grupo, DAG de fórmulas, recálculo persistido, CRUD de los controladores. **201 tests `--filter=Cotiz` verdes (627 assertions), pint pass, build OK. FASE 4 COMPLETA.**
 
 ---
 
-## Fase 5 — Resumen + Carátula (auto-derivadas)
+## Fase 5 — Resumen + Carátula (auto-derivadas) ✅ COMPLETA (2026-06-12)
 
 ### Backend
-- [ ] Migraciones: `cotiz_resumen_columnas` (sync con tarjetas), `cotiz_resumen_columna_tarjetas` (1:1),
-      `cotiz_obra_resumen_coeficientes`, `cotiz_obra_resumen_celda_override`.
-- [ ] `ResumenCalculator` (port de `resumen.ts`: coef efectivo celda→fila→default; pasadas para subtotal/margen/total).
-- [ ] `ResumenController` (sincroniza columnas↔tarjetas), `CaratulaController`.
-- [ ] Exports PDF/XLSX — **decisión de dependencia diferida** (p.ej. `barryvdh/laravel-dompdf`, `maatwebsite/excel`), pedir aprobación al llegar aquí.
+- [x] 4 migraciones: `cotiz_resumen_columnas` (sueldo_mo_pza), `cotiz_resumen_columna_tarjetas` (UNIQUE tarjeta → 1:1),
+      `cotiz_obra_resumen_coeficientes` (UNIQUE obra+fila), `cotiz_obra_resumen_celda_override` (UNIQUE obra+fila+columna). FKs normalizadas (`columna_id`, `fila_id`). 4 modelos + factories + relaciones en `Obra`.
+- [x] `ResumenCalculator` (port de `resumen.ts`): `coefEfectivo` (celda→fila→default), `calcularMatriz` (pasada 1 bases + pasadas 2-4 subtotal/margen/total acumulando costo directo), `importeBase` (los 9 tipos de fórmula), y `calcular(Obra)` que ensambla columnas (kg/m²/importe vía `TarjetaCalculator`), extras (subtotales de Fletes/Viáticos mapeados por `EXPL_MO_F<row>`→grupo) y overrides.
+- [x] `ResumenColumnaSync` (servicio compartido: 1 columna por tarjeta, borra huérfanas, renombra). `ResumenController` (index sincroniza+calcula; updateCelda/updateCoeficiente upsert+delete-on-empty; updateColumnaSueldo). `CaratulaController` (resumen ejecutivo read-only). 3 Form Requests. Rutas + permiso `cotiz.resumen.*`.
+- [x] Export PDF de la carátula vía `barryvdh/laravel-dompdf` (ya estaba en el mono — sin dependencia nueva): `CaratulaController::pdf` + vista `pdf/cotiz/caratula.blade.php` + botón "Descargar PDF". Export a **XLSX queda diferido** (no hay necesidad concreta aún).
 
 ### Frontend
-- [ ] `ResumenProyecto` (matriz filas × columnas, colores por bloque, candado de fila), `CaratulaCotizacion`.
+- [x] `resumen/index.tsx` (AgGridReact directo: grupos por nave con 3 subcolumnas Tarifa/$kg/Importe, edición inline por celda → override, footer TOTALES pinned, colores por bloque, filas bloqueadas, panel de sueldo M.O. FAB por columna).
+- [x] `caratula/index.tsx` (tabla read-only: columnas con kg/m²/importe + total de venta). Enlaces "Resumen" y "Carátula" en `obras/index`. Tipos reusan `CotizResumenBloque`/`CotizResumenTipoFormula`.
 
 ### Verificación
-- [ ] Tests del resumen (subtotal/margen/total) contra caso conocido.
+- [x] `ResumenCalculatorTest` (matriz vs caso conocido: materiales/mo_fab/subtotal/flete prorrateado/margen/total, override de celda, prorrateo por kg entre columnas) y `ResumenTest` (sync 1-columna-por-tarjeta, borrado de huérfanas, overrides celda/fila/sueldo, carátula). **210 tests `--filter=Cotiz` verdes (686 assertions), pint pass, build OK. FASE 5 COMPLETA (exports diferidos).**
 
 ---
 
-## Fase 5.5 — Versiones (snapshots de inputs, etapa B1)
+## Fase 5.5 — Versiones (snapshots de inputs, etapa B1) ✅ COMPLETA (2026-06-12)
+
+> **Modelo LINEAL (decisión 2026-06-12):** el equipo de ingeniería NO maneja sistemas ramificados. Solo
+> **snapshots continuos** en una línea de tiempo. Restaurar **sobrescribe** los inputs actuales de la obra
+> (NO crea rama); antes de sobrescribir se captura el estado actual como snapshot automático ("Antes de
+> restaurar …") para no perder nada. Historial append-only, sin árbol, sin `parent_version_id`.
+> Ver memoria `project_cotiz_versiones_lineal`.
 
 ### Backend
-- [ ] Migración `cotiz_obra_versiones` (obra, nombre, nota, creado_por, creado_at) + almacenamiento del árbol de inputs (filas tagueadas con `version_id` **o** blob JSON normalizado — decidir al implementar).
-- [ ] `App\Services\Cotiz\VersionManager`: `crear(obra, nombre)` (snapshot de inputs), `comparar(v1, v2)` (diff de inputs), `restaurar(version)` → **ramifica** a versión nueva + recálculo.
-- [ ] `VersionController` (listar, crear, ver, comparar, restaurar).
+- [x] Migración `cotiz_obra_versiones` (obra, nombre, nota, `auto` bool, `creado_por` UUID→usuarios, `snapshot` JSON, timestamps). Sin parentesco. Modelo + factory + relación `Obra::versiones()`.
+- [x] `App\Services\Cotiz\VersionManager`: `capturar(obra)` (serializa el árbol de inputs de ~20 tablas vía `getAttributes`, excluye cache/locks/timestamps), `crear`, `comparar(a,b)` (diff por grupo: conteo + `cambio` ignorando IDs/orden + cambios de campos de obra), `restaurar(version)` → auto-snapshot + borra inputs (cascada) + **reinserta remapeando IDs** (`forceFill`, mapas `viejo→nuevo` por grupo: generadora_registro_id, tarjeta_id, estructura_id, seccion_id, columna_id…) + recálculo al leer. Lineal, sin ramas.
+- [x] `VersionController` (index con diff opcional `?a=&b=`, store, restaurar con guardia de obra, destroy). Form Request. Rutas + permiso `cotiz.versiones.*`.
 
 ### Frontend
-- [ ] Sección "Versiones" en la obra: lista de snapshots, crear versión nombrada, ver diff entre dos, restaurar (ramificar).
+- [x] `versiones/index.tsx`: crear versión (nombre+nota), comparar dos (diff de obra + tabla por grupo), historial cronológico con restaurar (confirm "se sobrescribe; se guarda respaldo automático") y eliminar. Enlace "Versiones" en `obras/index`.
 
 ### Verificación
-- [ ] Tests: snapshot captura solo inputs; restaurar reproduce importes/kg idénticos vía recálculo; diff detecta cambios.
+- [x] `VersionManagerTest` (captura solo inputs sin cache/locks; restaurar remapea FKs y **reproduce el importe** vía recálculo sobre la tarjeta restaurada; respaldo auto + sin columna de parentesco; diff por grupo) y `VersionControllerTest` (lista, store con autor, restaurar deja respaldo, diff por query, guardia cross-obra). **220 tests `--filter=Cotiz` verdes (749 assertions), pint pass, build OK. FASE 5.5 COMPLETA.**
 
 ---
 

@@ -57,4 +57,44 @@ class Obra extends Model
     {
         return $this->hasMany(ObraFactorOverride::class, 'obra_id');
     }
+
+    public function seccionesMontaje(): HasMany
+    {
+        return $this->hasMany(SeccionMontaje::class, 'obra_id');
+    }
+
+    public function cuadrillaGlobal(): HasMany
+    {
+        return $this->hasMany(ObraCuadrillaGlobal::class, 'obra_id');
+    }
+
+    public function fletesEstandar(): HasMany
+    {
+        return $this->hasMany(ObraFleteEstandar::class, 'obra_id');
+    }
+
+    public function fletesViaticos(): HasMany
+    {
+        return $this->hasMany(ObraFleteViatico::class, 'obra_id');
+    }
+
+    public function resumenColumnas(): HasMany
+    {
+        return $this->hasMany(ResumenColumna::class, 'obra_id');
+    }
+
+    public function resumenCoeficientes(): HasMany
+    {
+        return $this->hasMany(ObraResumenCoeficiente::class, 'obra_id');
+    }
+
+    public function resumenCeldaOverrides(): HasMany
+    {
+        return $this->hasMany(ObraResumenCeldaOverride::class, 'obra_id');
+    }
+
+    public function versiones(): HasMany
+    {
+        return $this->hasMany(ObraVersion::class, 'obra_id');
+    }
 }

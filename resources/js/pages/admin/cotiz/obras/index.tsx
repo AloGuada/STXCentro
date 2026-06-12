@@ -1,15 +1,19 @@
-import { DataTable, type Column } from '@/components/data-table';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
-import type { CotizObra, PaginatedData } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
 import {
     type LucideIcon,
     CreditCardIcon,
+    FileTextIcon,
+    HardHatIcon,
+    HistoryIcon,
     LayersIcon,
     SlidersHorizontalIcon,
+    TableIcon,
 } from 'lucide-react';
 import type { MouseEvent } from 'react';
+import { DataTable, type Column } from '@/components/data-table';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
+import type { CotizObra, PaginatedData } from '@/types/models';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -34,7 +38,7 @@ function AccionFila({
         <span
             role="link"
             tabIndex={0}
-            className="inline-flex cursor-pointer link items-center gap-1 text-xs link-primary"
+            className="inline-flex link cursor-pointer items-center gap-1 text-xs link-primary"
             // <span> (no <a>/<button>) para no anidar interactivos dentro del <Link> de la fila.
             // preventDefault corta la navegación nativa del ancla; stopPropagation, el onClick de Inertia.
             onClick={(e: MouseEvent) => {
@@ -93,6 +97,50 @@ const columns: Column<CotizObra>[] = [
                 href={`/admin/cotiz/obras/${o.id}/tarjetas`}
                 icon={CreditCardIcon}
                 label="Ver tarjetas"
+            />
+        ),
+    },
+    {
+        key: 'analisis_mo',
+        label: 'Montaje',
+        render: (o) => (
+            <AccionFila
+                href={`/admin/cotiz/obras/${o.id}/analisis-mo`}
+                icon={HardHatIcon}
+                label="Análisis MO"
+            />
+        ),
+    },
+    {
+        key: 'resumen',
+        label: 'Resumen',
+        render: (o) => (
+            <AccionFila
+                href={`/admin/cotiz/obras/${o.id}/resumen`}
+                icon={TableIcon}
+                label="Resumen"
+            />
+        ),
+    },
+    {
+        key: 'caratula',
+        label: 'Carátula',
+        render: (o) => (
+            <AccionFila
+                href={`/admin/cotiz/obras/${o.id}/caratula`}
+                icon={FileTextIcon}
+                label="Carátula"
+            />
+        ),
+    },
+    {
+        key: 'versiones',
+        label: 'Versiones',
+        render: (o) => (
+            <AccionFila
+                href={`/admin/cotiz/obras/${o.id}/versiones`}
+                icon={HistoryIcon}
+                label="Versiones"
             />
         ),
     },
