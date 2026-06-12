@@ -18,6 +18,7 @@ use App\Models\Cotiz\TarjetaCategoriaKilos;
 use App\Models\Cotiz\TarjetaRegistro;
 use App\Services\Cotiz\TarjetaCalculator;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -28,17 +29,23 @@ use Inertia\Response;
  */
 class TarjetaController extends Controller
 {
-    public function index(Obra $obra, TarjetaCalculator $calculator): Response
+    public function index(Request $request, Obra $obra, TarjetaCalculator $calculator): Response
     {
+        $me = $request->user()?->id;
+
         $tarjetas = $obra->tarjetas()
             ->withCount(['registros', 'generadoras'])
             ->orderBy('orden')
             ->orderBy('id')
             ->get()
-            ->map(function (Tarjeta $tarjeta) use ($calculator) {
+            ->map(function (Tarjeta $tarjeta) use ($calculator, $me) {
                 // Recalcula en vivo y refresca el cache M039 (igual que prepsim, para que
                 // el Resumen no dependa de abrir cada tarjeta).
                 $totales = $calculator->refrescarCache($tarjeta);
+
+                // El lock propio no se muestra como bloqueo: uno siempre puede re-entrar a lo suyo.
+                // Solo bloquea (badge + acciones) si lo edita OTRO usuario.
+                $bloqueadaPorOtro = $me !== null && $tarjeta->isLocked() && ! $tarjeta->isLockedBy($me);
 
                 return [
                     'id' => $tarjeta->id,
@@ -49,8 +56,8 @@ class TarjetaController extends Controller
                     'generadoras_count' => $tarjeta->generadoras_count,
                     'importe_materiales' => $totales['total_importe'],
                     'kilos_reales' => $totales['kg_reales_total'],
-                    'is_locked' => $tarjeta->isLocked(),
-                    'locked_by' => $tarjeta->lockedBy?->only(['id', 'name']),
+                    'is_locked' => $bloqueadaPorOtro,
+                    'locked_by' => $bloqueadaPorOtro ? $tarjeta->lockedBy?->only(['id', 'name']) : null,
                 ];
             });
 

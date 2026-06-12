@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 
@@ -33,17 +34,45 @@ export function useCotizEditLock(
     useEffect(() => {
         let cancelled = false;
         let owned = false;
+        let released = false;
         let heartbeat: ReturnType<typeof setInterval> | undefined;
 
         const lockUrl = `/admin/cotiz/lock/${type}/${id}`;
 
+        const release = () => {
+            // Solo liberamos si el servidor llegó a crear NUESTRO lock, y una sola vez.
+            if (!owned || released) {
+                return;
+            }
+            released = true;
+            // fetch con keepalive sobrevive a la navegación SPA y al cierre de pestaña (como
+            // sendBeacon) PERO permite mandar el header CSRF. La app Inertia no expone un meta
+            // csrf-token; el token va en X-XSRF-TOKEN leído de la cookie (igual que axios), si no
+            // Laravel responde 419. Best-effort.
+            const url = `/admin/cotiz/unlock/${type}/${id}`;
+            const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+            const xsrf = match ? decodeURIComponent(match[1]) : '';
+
+            fetch(url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                keepalive: true,
+                headers: { 'X-XSRF-TOKEN': xsrf, Accept: 'application/json' },
+            }).catch(() => undefined);
+        };
+
         axios
             .post(lockUrl)
             .then(() => {
+                // El servidor ya creó el lock a nuestro nombre: somos dueños aunque el
+                // componente se haya desmontado mientras tanto.
+                owned = true;
                 if (cancelled) {
+                    // Salimos antes de que resolviera el POST → liberar ahora para no dejar
+                    // un lock huérfano (la carrera de "entrar y volver con atrás" enseguida).
+                    release();
                     return;
                 }
-                owned = true;
                 setState({ status: 'owned' });
                 heartbeat = setInterval(() => {
                     axios.post(lockUrl).catch(() => undefined);
@@ -67,27 +96,17 @@ export function useCotizEditLock(
                 }
             });
 
-        const release = () => {
-            if (!owned) {
-                return;
-            }
-            // Best-effort. sendBeacon sobrevive al unload.
-            const url = `/admin/cotiz/unlock/${type}/${id}`;
-            const token =
-                document.querySelector<HTMLMetaElement>(
-                    'meta[name="csrf-token"]',
-                )?.content ?? '';
-
-            if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
-                const payload = new FormData();
-                payload.append('_token', token);
-                navigator.sendBeacon(url, payload);
-            } else {
-                axios.post(url).catch(() => undefined);
-            }
-        };
-
         window.addEventListener('beforeunload', release);
+
+        // Inertia desmonta esta página DESPUÉS de recibir la respuesta del destino, así que el
+        // unlock del cleanup llegaría tarde (el índice ya se renderizó con el lock). Por eso lo
+        // enviamos al INICIAR la navegación. Solo en visitas GET (back/forward/enlaces): los
+        // guardados inline de la grilla son PUT/POST/DELETE y no deben soltar el lock.
+        const offBefore = router.on('before', (event) => {
+            if (event.detail.visit.method === 'get') {
+                release();
+            }
+        });
 
         return () => {
             cancelled = true;
@@ -95,6 +114,7 @@ export function useCotizEditLock(
                 clearInterval(heartbeat);
             }
             window.removeEventListener('beforeunload', release);
+            offBefore();
             release();
         };
     }, [type, id]);

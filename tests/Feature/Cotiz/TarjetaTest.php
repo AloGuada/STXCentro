@@ -213,4 +213,31 @@ describe('cotiz tarjetas — lock', function () {
             ->post(route('admin.cotiz.lock', ['type' => 'tarjeta', 'id' => $tarjeta->id]))
             ->assertStatus(423);
     });
+
+    test('el index NO marca como bloqueado el lock propio', function () {
+        $obra = Obra::factory()->create();
+        $tarjeta = Tarjeta::factory()->create(['obra_id' => $obra->id]);
+        $tarjeta->lock($this->user->id); // lo bloqueo yo mismo
+
+        $this->actingAs($this->user)
+            ->get(route('admin.cotiz.tarjetas.index', $obra))
+            ->assertInertia(fn ($page) => $page
+                ->where('tarjetas.0.is_locked', false)
+                ->where('tarjetas.0.locked_by', null)
+            );
+    });
+
+    test('el index SÍ marca como bloqueado el lock de otro usuario', function () {
+        $obra = Obra::factory()->create();
+        $otro = User::factory()->create();
+        $tarjeta = Tarjeta::factory()->create(['obra_id' => $obra->id]);
+        $tarjeta->lock($otro->id);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.cotiz.tarjetas.index', $obra))
+            ->assertInertia(fn ($page) => $page
+                ->where('tarjetas.0.is_locked', true)
+                ->where('tarjetas.0.locked_by.id', $otro->id)
+            );
+    });
 });

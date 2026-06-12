@@ -66,6 +66,10 @@ export function EditableGrid<T>({
             filter: true,
             flex: 1,
             minWidth: 120,
+            // Desactiva la inferencia automática de tipo de celda de AG-Grid v35: con datos nulos
+            // en la primera fila (p. ej. ancho/largo sin valor) inferiría mal el tipo y rechazaría
+            // la edición numérica (warning #135). Cada columna ya declara su cellEditor explícito.
+            cellDataType: false,
         }),
         [],
     );
