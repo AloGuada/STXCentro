@@ -10,7 +10,7 @@ import {
     themeQuartz,
 } from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppearance } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -109,6 +109,26 @@ const SUBCOL1_EDITABLE: CotizResumenTipoFormula[] = [
     'margen',
 ];
 
+// Props que cambian al editar un coef/sueldo (recarga parcial sin remontar la grilla).
+const RELOAD_ONLY = [
+    'matriz',
+    'overrides',
+    'totalesPorFila',
+    'obraTotales',
+    'importeTotalVenta',
+    'columnas',
+];
+
+// Tarifas $/kg de M.O. Fabricación por tipo de estructura (atajos del modal).
+const TARIFAS_MO_FAB: { label: string; valor: number }[] = [
+    { label: 'Estructura metálica', valor: 4.91 },
+    { label: 'Polinería', valor: 3.28 },
+    { label: 'Armadura', valor: 6.28 },
+    { label: 'Joist', valor: 6.28 },
+    { label: 'Anclas', valor: 9.56 },
+    { label: 'Bastidores', valor: 6.26 },
+];
+
 export default function ResumenIndex({
     obra,
     filas,
@@ -121,6 +141,15 @@ export default function ResumenIndex({
     bloqueColores,
 }: Props) {
     const { resolvedAppearance } = useAppearance();
+    const [moFabColumnaId, setMoFabColumnaId] = useState<number | null>(null);
+    const moFabColumna =
+        moFabColumnaId == null
+            ? null
+            : (columnas.find((c) => c.columna_id === moFabColumnaId) ?? null);
+    const filasMoFab = useMemo(
+        () => filas.filter((f) => f.tipo_formula === 'mo_fab_subgrupo'),
+        [filas],
+    );
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -231,8 +260,15 @@ export default function ResumenIndex({
 
         for (const c of columnas) {
             base.push({
-                headerName: `${c.nombre} · ${fmtNum(c.kg, 0)} kg`,
+                headerName: c.nombre,
                 marryChildren: true,
+                headerGroupComponent: NaveGroupHeader,
+                headerGroupComponentParams: {
+                    kg: c.kg,
+                    m2: c.m2_pintura,
+                    columnaId: c.columna_id,
+                    onOpenMoFab: setMoFabColumnaId,
+                },
                 children: [
                     {
                         colId: `tar_${c.columna_id}`,
@@ -325,11 +361,14 @@ export default function ResumenIndex({
         router.put(
             `/admin/cotiz/obras/${obra.id}/resumen/celda`,
             { fila_id: e.data.fila_id, columna_id: columnaId, coef },
-            { preserveScroll: true, preserveState: false },
+            { preserveScroll: true, preserveState: true, only: RELOAD_ONLY },
         );
     };
 
+    // Los colores de bloque son pasteles claros: solo se aplican en modo claro (en oscuro
+    // harían el texto ilegible). En oscuro se usa el fondo del tema.
     const getRowStyle = (p: RowClassParams<MatrixRow>) => {
+        if (resolvedAppearance === 'dark') return undefined;
         const b = p.data?.bloque;
         if (b && bloqueColores[b]) return { background: bloqueColores[b] };
         return undefined;
@@ -341,13 +380,13 @@ export default function ResumenIndex({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Resumen — ${obra.nombre}`} />
 
-            <div className="space-y-4 p-6">
+            <div className="flex h-[calc(100vh-3.5rem)] flex-col gap-3 p-4">
                 <div className="flex flex-wrap items-center gap-2">
                     <div>
-                        <h1 className="text-2xl font-semibold">
+                        <h1 className="text-xl font-semibold">
                             Resumen de Proyecto
                         </h1>
-                        <p className="text-sm text-base-content/60">
+                        <p className="text-xs text-base-content/60">
                             Obra: {obra.nombre} · matriz auto-derivada (1
                             columna por tarjeta)
                         </p>
@@ -363,77 +402,249 @@ export default function ResumenIndex({
                         automáticamente su columna.
                     </p>
                 ) : (
-                    <>
-                        <div style={{ height: '62vh' }}>
-                            <AgGridReact<MatrixRow>
-                                theme={theme}
-                                rowData={rowsScroll}
-                                pinnedBottomRowData={rowsTotales}
-                                columnDefs={columnDefs}
-                                getRowId={(p) => String(p.data.fila_id)}
-                                onCellValueChanged={onCellChanged}
-                                getRowStyle={getRowStyle}
-                                groupHeaderHeight={40}
-                                defaultColDef={{
-                                    sortable: false,
-                                    resizable: true,
-                                    suppressMovable: true,
-                                    cellDataType: false,
-                                }}
-                                singleClickEdit
-                                stopEditingWhenCellsLoseFocus
-                            />
-                        </div>
+                    <div className="min-h-0 flex-1">
+                        <AgGridReact<MatrixRow>
+                            theme={theme}
+                            rowData={rowsScroll}
+                            pinnedBottomRowData={rowsTotales}
+                            columnDefs={columnDefs}
+                            getRowId={(p) => String(p.data.fila_id)}
+                            onCellValueChanged={onCellChanged}
+                            getRowStyle={getRowStyle}
+                            groupHeaderHeight={74}
+                            defaultColDef={{
+                                sortable: false,
+                                resizable: true,
+                                suppressMovable: true,
+                                cellDataType: false,
+                            }}
+                            singleClickEdit
+                            stopEditingWhenCellsLoseFocus
+                        />
+                    </div>
+                )}
+            </div>
 
-                        <div className="card border border-base-300 bg-base-100 p-4">
-                            <h3 className="mb-2 text-sm font-semibold">
-                                M.O. Fabricación — sueldo $/kg por columna
-                            </h3>
-                            <p className="mb-2 text-xs opacity-60">
-                                Drivea el default de los subgrupos M.O. FAB
-                                (coef × sueldo). El $/kg directo de cada
-                                subgrupo se edita en la columna «$/kg» de la
-                                grilla.
-                            </p>
-                            <div className="flex flex-wrap gap-3">
-                                {columnas.map((c) => (
-                                    <label
-                                        key={c.columna_id}
-                                        className="flex items-center gap-2 text-sm"
-                                    >
-                                        <span className="max-w-[160px] truncate opacity-70">
-                                            {c.nombre}
-                                        </span>
+            {moFabColumna && (
+                <MoFabModal
+                    obraId={obra.id}
+                    columna={moFabColumna}
+                    filasMoFab={filasMoFab}
+                    porCelda={overrides.por_celda}
+                    onClose={() => setMoFabColumnaId(null)}
+                />
+            )}
+        </AppLayout>
+    );
+}
+
+/** Header de cada nave/columna: nombre + kg/m² + botón que abre el modal de M.O. Fabricación. */
+function NaveGroupHeader(props: {
+    displayName?: string;
+    kg?: number;
+    m2?: number;
+    columnaId?: number;
+    onOpenMoFab?: (id: number) => void;
+}) {
+    return (
+        <div className="flex w-full flex-col justify-center gap-0.5 py-1 leading-tight">
+            <span className="truncate font-semibold" title={props.displayName}>
+                {props.displayName}
+            </span>
+            <span className="text-[10px] whitespace-nowrap opacity-70">
+                {fmtNum(props.kg ?? 0, 0)} kg · {fmtNum(props.m2 ?? 0, 0)} m²
+            </span>
+            <button
+                type="button"
+                className="btn h-5 min-h-0 px-2 text-[10px] font-normal normal-case btn-outline btn-xs"
+                title="Editar M.O. Fabricación (sueldo $/kg + subgrupos)"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (props.columnaId != null)
+                        props.onOpenMoFab?.(props.columnaId);
+                }}
+            >
+                M.O. FAB…
+            </button>
+        </div>
+    );
+}
+
+/**
+ * Modal de M.O. Fabricación por columna: edita el sueldo $/kg de la columna y el $/kg directo
+ * (override) de cada subgrupo M.O. FAB (HABILITADO / ARMADO Y SOLDADO / SUPERVISIÓN).
+ */
+function MoFabModal({
+    obraId,
+    columna,
+    filasMoFab,
+    porCelda,
+    onClose,
+}: {
+    obraId: number;
+    columna: Columna;
+    filasMoFab: Fila[];
+    porCelda: Record<string, number>;
+    onClose: () => void;
+}) {
+    const [sueldo, setSueldo] = useState(
+        columna.sueldo_mo_pza ? String(columna.sueldo_mo_pza) : '',
+    );
+    // $/kg local por fila (override). '' = sin override (usa coef × sueldo).
+    const [locales, setLocales] = useState<Record<number, string>>(() => {
+        const init: Record<number, string> = {};
+        for (const f of filasMoFab) {
+            const ov = porCelda[`${f.id}-${columna.columna_id}`];
+            init[f.id] = ov == null ? '' : String(ov);
+        }
+        return init;
+    });
+
+    const sueldoNum = Number(sueldo) || 0;
+
+    const saveSueldo = (valor: string) =>
+        router.put(
+            `/admin/cotiz/resumen-columnas/${columna.columna_id}/sueldo`,
+            { sueldo_mo_pza: valor.trim() === '' ? null : Number(valor) },
+            { preserveScroll: true, preserveState: true, only: RELOAD_ONLY },
+        );
+
+    const saveCelda = (filaId: number, raw: string) =>
+        router.put(
+            `/admin/cotiz/obras/${obraId}/resumen/celda`,
+            {
+                fila_id: filaId,
+                columna_id: columna.columna_id,
+                coef: raw.trim() === '' ? null : Number(raw),
+            },
+            { preserveScroll: true, preserveState: true, only: RELOAD_ONLY },
+        );
+
+    return (
+        <dialog className="modal-open modal">
+            <div className="modal-box max-w-xl">
+                <div className="mb-3 flex items-center gap-2">
+                    <h3 className="text-lg font-bold">M.O. FABRICACIÓN</h3>
+                    <span className="truncate text-xs opacity-60">
+                        {columna.nombre} · {fmtNum(columna.kg, 0)} kg
+                    </span>
+                    <button
+                        type="button"
+                        className="btn ml-auto btn-ghost btn-sm"
+                        onClick={onClose}
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <label className="mb-4 block">
+                    <span className="text-xs opacity-70">
+                        Tarifa $/kg por tipo de estructura (o captura libre)
+                    </span>
+                    <div className="mt-1 flex items-center gap-2">
+                        <select
+                            className="select-bordered select w-64 select-sm"
+                            value={(() => {
+                                const i = TARIFAS_MO_FAB.findIndex(
+                                    (t) => Math.abs(sueldoNum - t.valor) < 1e-9,
+                                );
+                                return i >= 0 ? String(i) : 'custom';
+                            })()}
+                            onChange={(e) => {
+                                if (e.target.value === 'custom') return;
+                                const t =
+                                    TARIFAS_MO_FAB[Number(e.target.value)];
+                                setSueldo(String(t.valor));
+                                saveSueldo(String(t.valor));
+                            }}
+                        >
+                            <option value="custom">Personalizado…</option>
+                            {TARIFAS_MO_FAB.map((t, i) => (
+                                <option key={t.label} value={i}>
+                                    {t.label} — {t.valor} $/kg
+                                </option>
+                            ))}
+                        </select>
+                        <input
+                            type="number"
+                            step="0.01"
+                            className="input-bordered input input-sm w-28"
+                            value={sueldo}
+                            placeholder="0"
+                            onChange={(e) => setSueldo(e.target.value)}
+                            onBlur={(e) => saveSueldo(e.target.value)}
+                        />
+                    </div>
+                </label>
+
+                <div className="mb-1 text-xs opacity-60">
+                    Subgrupos — $/kg directo (vacío = coef default × sueldo)
+                </div>
+                <table className="table table-xs">
+                    <thead>
+                        <tr>
+                            <th>Concepto</th>
+                            <th className="text-right">$/kg</th>
+                            <th className="text-right opacity-50">Default</th>
+                            <th className="text-right">Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filasMoFab.map((f) => {
+                            const local = locales[f.id] ?? '';
+                            const override = local.trim() !== '';
+                            const def = (f.coef_default ?? 0) * sueldoNum;
+                            const efectivo = override ? Number(local) : def;
+                            return (
+                                <tr key={f.id}>
+                                    <td>
+                                        {f.bloqueada ? '🔒 ' : ''}
+                                        {f.descripcion}
+                                    </td>
+                                    <td className="text-right">
                                         <input
                                             type="number"
                                             step="0.01"
-                                            className="input-bordered input input-sm w-28"
-                                            defaultValue={c.sueldo_mo_pza || ''}
-                                            placeholder="0"
+                                            disabled={f.bloqueada}
+                                            className={`input-bordered input input-xs w-24 text-right ${override ? 'font-semibold text-success' : ''}`}
+                                            value={local}
+                                            placeholder={def.toFixed(2)}
+                                            onChange={(e) =>
+                                                setLocales((s) => ({
+                                                    ...s,
+                                                    [f.id]: e.target.value,
+                                                }))
+                                            }
                                             onBlur={(e) =>
-                                                router.put(
-                                                    `/admin/cotiz/resumen-columnas/${c.columna_id}/sueldo`,
-                                                    {
-                                                        sueldo_mo_pza:
-                                                            e.target.value ===
-                                                            ''
-                                                                ? null
-                                                                : Number(
-                                                                      e.target
-                                                                          .value,
-                                                                  ),
-                                                    },
-                                                    { preserveScroll: true },
-                                                )
+                                                saveCelda(f.id, e.target.value)
                                             }
                                         />
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-                    </>
-                )}
+                                    </td>
+                                    <td className="text-right font-mono text-[11px] opacity-50">
+                                        {def.toFixed(2)}
+                                    </td>
+                                    <td className="text-right font-semibold">
+                                        {fmtMoney(efectivo * columna.kg)}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+
+                <div className="modal-action">
+                    <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={onClose}
+                    >
+                        Cerrar
+                    </button>
+                </div>
             </div>
-        </AppLayout>
+            <button type="button" className="modal-backdrop" onClick={onClose}>
+                cerrar
+            </button>
+        </dialog>
     );
 }
