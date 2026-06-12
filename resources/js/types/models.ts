@@ -1040,6 +1040,8 @@ export type CotizGrupoFlete =
     | 'LABORATORIO'
     | 'TOPOGRAFIA';
 
+export type CotizMetodoFleteEstandar = 'por_kg' | 'por_piezas';
+
 export type CotizFleteViaticoCatalogo = {
     id: number;
     grupo: CotizGrupoFlete;
