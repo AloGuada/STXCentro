@@ -319,3 +319,122 @@ describe('cotiz generadora edit lock', function () {
             ->assertNotFound();
     });
 });
+
+describe('cotiz generadora — override de peso por obra', function () {
+    beforeEach(function () {
+        $this->obra = Obra::factory()->create();
+        $this->insumo = Insumo::factory()->create(['peso_lineal' => 10, 'peso_default' => 50]);
+        $generadora = Generadora::factory()->create(['obra_id' => $this->obra->id]);
+        $merma = Merma::factory()->create(['formula' => '']);
+        $this->registro = GeneradoraRegistro::factory()->create([
+            'generadora_id' => $generadora->id,
+            'material_origen_id' => $this->insumo->id,
+            'merma_id' => $merma->id,
+        ]);
+    });
+
+    test('editar Peso ml/m² crea un override por obra (no toca el catálogo global)', function () {
+        $this->actingAs($this->user)
+            ->put(route('admin.cotiz.registros.insumo-override', $this->registro), ['field' => 'peso_lineal', 'value' => 12.5])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('cotiz_obra_insumo_override', [
+            'obra_id' => $this->obra->id,
+            'insumo_id' => $this->insumo->id,
+            'peso_lineal' => 12.5,
+        ]);
+        // El catálogo global del insumo NO cambia.
+        expect((float) $this->insumo->fresh()->peso_lineal)->toBe(10.0);
+    });
+
+    test('igualar al valor global limpia el override', function () {
+        $this->actingAs($this->user)
+            ->put(route('admin.cotiz.registros.insumo-override', $this->registro), ['field' => 'peso_default', 'value' => 99])
+            ->assertRedirect();
+        $this->assertDatabaseHas('cotiz_obra_insumo_override', ['obra_id' => $this->obra->id, 'peso_default' => 99]);
+
+        // Volver a poner el valor global (50) borra la fila de override (queda vacía).
+        $this->actingAs($this->user)
+            ->put(route('admin.cotiz.registros.insumo-override', $this->registro), ['field' => 'peso_default', 'value' => 50])
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('cotiz_obra_insumo_override', ['obra_id' => $this->obra->id, 'insumo_id' => $this->insumo->id]);
+    });
+
+    test('el override de peso se ve en el catálogo de obra (Fase 2)', function () {
+        $this->actingAs($this->user)
+            ->put(route('admin.cotiz.registros.insumo-override', $this->registro), ['field' => 'peso_lineal', 'value' => 15])
+            ->assertRedirect();
+
+        $this->actingAs($this->user)
+            ->get(route('admin.cotiz.obras.catalogo.index', $this->obra))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('insumos', fn ($insumos) => collect($insumos)->contains(
+                    fn ($row) => data_get($row, 'override.peso_lineal') !== null
+                ))
+            );
+    });
+});
+
+describe('cotiz generadora — peso % autocalculado', function () {
+    test('peso % se calcula por agregados del mismo insumo: (Σ c/merma − Σ reales) / Σ reales', function () {
+        $insumo = Insumo::factory()->create(['peso_lineal' => 10]);
+        $merma = Merma::factory()->create(['formula' => 'kilos_reales * 1.1']); // +10% de merma
+        $generadora = Generadora::factory()->create();
+
+        // Dos registros del mismo insumo: reales 60 y 10; con merma 66 y 11.
+        GeneradoraRegistro::factory()->create([
+            'generadora_id' => $generadora->id, 'material_origen_id' => $insumo->id, 'merma_id' => $merma->id,
+            'ancho' => 2, 'largo' => 3, 'cantidad' => 1, 'cant_pzas' => 1,
+        ]);
+        GeneradoraRegistro::factory()->create([
+            'generadora_id' => $generadora->id, 'material_origen_id' => $insumo->id, 'merma_id' => $merma->id,
+            'ancho' => 1, 'largo' => 1, 'cantidad' => 1, 'cant_pzas' => 1,
+        ]);
+
+        // peso % = (77 − 70) / 70 = 0.1; T. kilos = reales × 1.1 (66 y 11).
+        $this->actingAs($this->user)
+            ->get(route('admin.cotiz.generadoras.edit', $generadora))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('registros.0.peso_porcentual_ef', fn ($v) => abs((float) $v - 0.1) < 1e-6)
+                ->where('registros.0.kilos_totales_ef', fn ($v) => abs((float) $v - 66.0) < 1e-6)
+                ->where('registros.1.kilos_totales_ef', fn ($v) => abs((float) $v - 11.0) < 1e-6)
+            );
+    });
+
+    test('un registro sin insumo deja peso % y T. kilos en null (sin ceros)', function () {
+        $merma = Merma::factory()->create(['formula' => 'kilos_reales']);
+        $generadora = Generadora::factory()->create();
+        GeneradoraRegistro::factory()->create([
+            'generadora_id' => $generadora->id, 'material_origen_id' => null, 'merma_id' => $merma->id,
+            'ancho' => 2, 'largo' => 3, 'cantidad' => 1, 'cant_pzas' => 1,
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.cotiz.generadoras.edit', $generadora))
+            ->assertInertia(fn ($page) => $page
+                ->where('registros.0.peso_porcentual_ef', null)
+                ->where('registros.0.kilos_totales_ef', null)
+            );
+    });
+
+    test('un override de peso % gana sobre el calculado', function () {
+        $insumo = Insumo::factory()->create(['peso_lineal' => 10]);
+        $merma = Merma::factory()->create(['formula' => 'kilos_reales * 1.1']);
+        $generadora = Generadora::factory()->create();
+        GeneradoraRegistro::factory()->create([
+            'generadora_id' => $generadora->id, 'material_origen_id' => $insumo->id, 'merma_id' => $merma->id,
+            'ancho' => 2, 'largo' => 3, 'cantidad' => 1, 'cant_pzas' => 1,
+            'peso_porcentual' => 0.25, // override
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.cotiz.generadoras.edit', $generadora))
+            ->assertInertia(fn ($page) => $page
+                ->where('registros.0.peso_porcentual_ef', fn ($v) => abs((float) $v - 0.25) < 1e-6)
+                ->where('registros.0.kilos_totales_ef', fn ($v) => abs((float) $v - 75.0) < 1e-6) // 60 × 1.25
+            );
+    });
+});

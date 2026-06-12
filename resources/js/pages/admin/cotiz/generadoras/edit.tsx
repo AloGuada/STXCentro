@@ -1,3 +1,12 @@
+import { Head, router } from '@inertiajs/react';
+import type {
+    ColDef,
+    EditableCallbackParams,
+    ICellRendererParams,
+    ValueSetterParams,
+} from 'ag-grid-community';
+import { LockIcon, Loader2Icon, Trash2Icon } from 'lucide-react';
+import { useMemo } from 'react';
 import { AutocompleteCellEditor } from '@/components/cotiz/autocomplete-cell-editor';
 import { EditableGrid } from '@/components/cotiz/editable-grid';
 import { Button } from '@/components/ui/button';
@@ -10,16 +19,30 @@ import type {
     CotizInsumo,
     CotizMerma,
 } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
-import type {
-    ColDef,
-    ICellRendererParams,
-    ValueSetterParams,
-} from 'ag-grid-community';
-import { LockIcon, Loader2Icon, Trash2Icon } from 'lucide-react';
-import { useMemo, useState } from 'react';
 
-type RegistroRow = CotizGeneradoraRegistro;
+/**
+ * El insumo de origen viene con los pesos EFECTIVOS (override por obra > global) más los
+ * valores globales y banderas de override (para estilo). Editar peso_lineal/peso_default
+ * en la grilla escribe un override por obra (no el catálogo global).
+ */
+type MaterialOrigen = {
+    id: number;
+    descripcion: string;
+    peso_lineal: number | null;
+    peso_default: number | null;
+    peso_lineal_global?: number | null;
+    peso_default_global?: number | null;
+    peso_lineal_overridden?: boolean;
+    peso_default_overridden?: boolean;
+};
+
+type RegistroRow = Omit<CotizGeneradoraRegistro, 'material_origen'> & {
+    material_origen?: MaterialOrigen | null;
+    // Efectivos calculados en el backend (null cuando no aplican, p. ej. registro sin insumo):
+    // peso % por agregados del mismo insumo, y T. kilos = kg reales × (1 + peso %).
+    peso_porcentual_ef: number | null;
+    kilos_totales_ef: number | null;
+};
 
 type Props = {
     generadora: CotizGeneradora;
@@ -49,8 +72,8 @@ function formatDesde(iso: string | null): string {
     return `hace ${Math.round(diff / 60)} h`;
 }
 
-function fmtKg(value: number | null): string {
-    return value == null ? '' : Number(value).toFixed(2);
+function fmtKg(value: number | string | null): string {
+    return value == null || value === '' ? '' : Number(value).toFixed(2);
 }
 
 function guardarFila(row: RegistroRow): void {
@@ -64,11 +87,42 @@ function guardarFila(row: RegistroRow): void {
             largo: row.largo,
             cantidad: row.cantidad,
             cant_pzas: row.cant_pzas,
+            peso_porcentual: row.peso_porcentual,
+            kilos_totales: row.kilos_totales,
             merma_id: row.merma_id,
             validado: row.validado,
         },
         { preserveScroll: true, preserveState: true, only: ['registros'] },
     );
+}
+
+/**
+ * Peso ml/m² y Peso pres. NO tocan el registro ni el catálogo global: guardan un override por
+ * obra (obra_insumo_override). El backend limpia el override si el valor iguala al global.
+ */
+function savePesoOverride(
+    row: RegistroRow,
+    field: 'peso_lineal' | 'peso_default',
+): void {
+    if (row.material_origen_id == null) {
+        return;
+    }
+    router.put(
+        `/admin/cotiz/registros/${row.id}/insumo-override`,
+        { field, value: row.material_origen?.[field] ?? null },
+        { preserveScroll: true, preserveState: true, only: ['registros'] },
+    );
+}
+
+function onRegistroEdited(row: RegistroRow, field?: string): void {
+    if (row.id < 0) {
+        return; // fila de totales (footer), no se guarda
+    }
+    if (field === 'peso_lineal' || field === 'peso_default') {
+        savePesoOverride(row, field);
+    } else {
+        guardarFila(row);
+    }
 }
 
 export default function GeneradorasEdit({
@@ -103,17 +157,23 @@ export default function GeneradorasEdit({
     const columnDefs = useMemo<ColDef<RegistroRow>[]>(() => {
         const insumoLabels = [NINGUNO, ...insumos.map((i) => i.descripcion)];
         const mermaLabels = mermas.map((m) => m.descripcion);
+        // No editable en la fila de totales (footer pinned).
+        const editableCell = (p: EditableCallbackParams<RegistroRow>) =>
+            !readOnly && !p.node?.rowPinned;
 
         return [
             {
                 headerName: 'Material (insumo)',
-                editable: !readOnly,
+                editable: editableCell,
                 minWidth: 200,
                 flex: 2,
                 cellEditor: AutocompleteCellEditor,
                 cellEditorParams: { opciones: insumoLabels },
+                cellClass: (p) => (p.node?.rowPinned ? 'font-bold' : ''),
                 valueGetter: (p) =>
-                    p.data?.material_origen?.descripcion ?? NINGUNO,
+                    p.node?.rowPinned
+                        ? 'TOTALES'
+                        : (p.data?.material_origen?.descripcion ?? NINGUNO),
                 valueSetter: (p: ValueSetterParams<RegistroRow>) => {
                     if (p.newValue === NINGUNO) {
                         p.data.material_origen_id = null;
@@ -127,26 +187,43 @@ export default function GeneradorasEdit({
                         return false;
                     }
                     p.data.material_origen_id = match.id;
-                    p.data.material_origen = match as CotizInsumo;
+                    // Optimista; el servidor recarga los pesos efectivos al guardar.
+                    p.data.material_origen = {
+                        id: match.id,
+                        descripcion: match.descripcion,
+                        peso_lineal:
+                            match.peso_lineal == null
+                                ? null
+                                : Number(match.peso_lineal),
+                        peso_default: null,
+                    };
                     return true;
                 },
             },
             {
                 field: 'material',
                 headerName: 'Material (texto)',
-                editable: !readOnly,
+                editable: editableCell,
                 minWidth: 160,
             },
             {
                 field: 'marca',
                 headerName: 'Marca',
-                editable: !readOnly,
+                editable: editableCell,
                 minWidth: 120,
+            },
+            {
+                field: 'validado',
+                headerName: 'Validado',
+                editable: editableCell,
+                minWidth: 110,
+                cellEditor: 'agCheckboxCellEditor',
+                cellRenderer: 'agCheckboxCellRenderer',
             },
             {
                 field: 'ancho',
                 headerName: 'Ancho',
-                editable: !readOnly,
+                editable: editableCell,
                 minWidth: 110,
                 cellEditor: 'agNumberCellEditor',
                 cellEditorParams: { precision: 6, min: 0 },
@@ -154,7 +231,7 @@ export default function GeneradorasEdit({
             {
                 field: 'largo',
                 headerName: 'Largo',
-                editable: !readOnly,
+                editable: editableCell,
                 minWidth: 110,
                 cellEditor: 'agNumberCellEditor',
                 cellEditorParams: { precision: 6, min: 0 },
@@ -162,7 +239,7 @@ export default function GeneradorasEdit({
             {
                 field: 'cantidad',
                 headerName: 'Cantidad',
-                editable: !readOnly,
+                editable: editableCell,
                 minWidth: 110,
                 cellEditor: 'agNumberCellEditor',
                 cellEditorParams: { precision: 6, min: 0 },
@@ -170,14 +247,84 @@ export default function GeneradorasEdit({
             {
                 field: 'cant_pzas',
                 headerName: 'Cant. piezas',
-                editable: !readOnly,
+                editable: editableCell,
                 minWidth: 120,
                 cellEditor: 'agNumberCellEditor',
                 cellEditorParams: { precision: 6, min: 0 },
             },
             {
+                field: 't_ml_m2',
+                headerName: 'T ML/M²',
+                editable: false,
+                minWidth: 120,
+                valueFormatter: (p) => fmtKg(p.value),
+            },
+            {
+                colId: 'peso_lineal',
+                headerName: 'Peso ml/m²',
+                editable: (p) =>
+                    !readOnly && p.data?.material_origen_id != null,
+                minWidth: 120,
+                cellEditor: 'agNumberCellEditor',
+                cellEditorParams: { precision: 6, min: 0 },
+                headerTooltip:
+                    'Peso por ml/m² efectivo. Editar guarda un override SOLO para esta obra (visible en el catálogo de obra); vaciarlo o igualarlo al global lo quita.',
+                valueGetter: (p) =>
+                    p.data?.material_origen?.peso_lineal ?? null,
+                valueSetter: (p: ValueSetterParams<RegistroRow>) => {
+                    if (!p.data.material_origen) {
+                        return false;
+                    }
+                    p.data.material_origen.peso_lineal =
+                        p.newValue === '' || p.newValue == null
+                            ? null
+                            : Number(p.newValue);
+                    return true;
+                },
+                cellClass: (p) =>
+                    p.data?.material_origen?.peso_lineal_overridden
+                        ? 'font-semibold text-info'
+                        : 'italic opacity-70',
+                valueFormatter: (p) => fmtKg(p.value),
+            },
+            {
+                colId: 'peso_default',
+                headerName: 'Peso pres.',
+                editable: (p) =>
+                    !readOnly && p.data?.material_origen_id != null,
+                minWidth: 120,
+                cellEditor: 'agNumberCellEditor',
+                cellEditorParams: { precision: 6, min: 0 },
+                headerTooltip:
+                    'Peso por presentación (placa/barra/polín) efectivo. Editar guarda un override SOLO para esta obra; vaciarlo o igualarlo al global lo quita.',
+                valueGetter: (p) =>
+                    p.data?.material_origen?.peso_default ?? null,
+                valueSetter: (p: ValueSetterParams<RegistroRow>) => {
+                    if (!p.data.material_origen) {
+                        return false;
+                    }
+                    p.data.material_origen.peso_default =
+                        p.newValue === '' || p.newValue == null
+                            ? null
+                            : Number(p.newValue);
+                    return true;
+                },
+                cellClass: (p) =>
+                    p.data?.material_origen?.peso_default_overridden
+                        ? 'font-semibold text-info'
+                        : 'italic opacity-70',
+                valueFormatter: (p) => fmtKg(p.value),
+            },
+            {
+                field: 'kilos_reales',
+                headerName: 'Kg reales',
+                editable: false,
+                minWidth: 120,
+                valueFormatter: (p) => fmtKg(p.value),
+            },
+            {
                 headerName: 'Merma',
-                editable: !readOnly,
+                editable: editableCell,
                 minWidth: 150,
                 cellEditor: 'agSelectCellEditor',
                 cellEditorParams: { values: mermaLabels },
@@ -195,32 +342,51 @@ export default function GeneradorasEdit({
                 },
             },
             {
-                field: 'validado',
-                headerName: 'Validado',
-                editable: !readOnly,
-                minWidth: 110,
-                cellEditor: 'agCheckboxCellEditor',
-                cellRenderer: 'agCheckboxCellRenderer',
-            },
-            {
-                field: 't_ml_m2',
-                headerName: 'T ML/M²',
+                colId: 'peso_porcentual',
+                headerName: 'Peso %',
                 editable: false,
                 minWidth: 120,
-                valueFormatter: (p) => fmtKg(p.value),
+                headerTooltip:
+                    'Peso porcentual calculado por agregados del mismo insumo: (Σ kg c/merma − Σ kg reales) / Σ kg reales. En el footer: Δ = T. kilos − kg reales (kg).',
+                valueGetter: (p) => p.data?.peso_porcentual_ef ?? null,
+                cellClass: (p) =>
+                    p.node?.rowPinned
+                        ? 'font-bold'
+                        : p.data?.peso_porcentual == null
+                          ? 'italic opacity-70'
+                          : '',
+                valueFormatter: (p) => {
+                    if (p.node?.rowPinned) {
+                        return p.value == null ? '' : `Δ ${fmtKg(p.value)} kg`;
+                    }
+                    return p.value == null
+                        ? ''
+                        : `${(Number(p.value) * 100).toFixed(2)} %`;
+                },
             },
             {
-                field: 'kilos_reales',
-                headerName: 'Kg reales',
-                editable: false,
-                minWidth: 120,
-                valueFormatter: (p) => fmtKg(p.value),
-            },
-            {
-                field: 'kilos_con_merma',
-                headerName: 'Kg c/merma',
-                editable: false,
-                minWidth: 120,
+                colId: 'kilos_totales',
+                headerName: 'T. kilos (kg c/merma)',
+                editable: (p) =>
+                    !readOnly &&
+                    !p.node?.rowPinned &&
+                    p.data?.kilos_totales_ef != null,
+                minWidth: 160,
+                cellEditor: 'agNumberCellEditor',
+                cellEditorParams: { precision: 6, min: 0 },
+                headerTooltip:
+                    'Kg con merma efectivos = kg reales × (1 + peso %). En blanco si el registro no tiene insumo. Editar fija un override; vaciar vuelve al valor calculado.',
+                valueGetter: (p) => p.data?.kilos_totales_ef ?? null,
+                valueSetter: (p: ValueSetterParams<RegistroRow>) => {
+                    const v = p.newValue;
+                    p.data.kilos_totales =
+                        v === '' || v == null ? null : String(Number(v));
+                    return true;
+                },
+                cellClass: (p) =>
+                    p.data?.kilos_totales == null
+                        ? 'font-semibold opacity-90'
+                        : 'font-semibold',
                 valueFormatter: (p) => fmtKg(p.value),
             },
             {
@@ -234,13 +400,21 @@ export default function GeneradorasEdit({
         ];
     }, [insumos, mermas, readOnly]);
 
-    const totalReales = registros.reduce(
-        (sum, r) => sum + (r.kilos_reales ?? 0),
+    // Fila de totales (footer fijo del grid): Σ kg reales, Σ T. kilos (merma total) y el Δ.
+    const sumReales = registros.reduce((s, r) => s + (r.kilos_reales ?? 0), 0);
+    const sumTKilos = registros.reduce(
+        (s, r) => s + (r.kilos_totales_ef ?? 0),
         0,
     );
-    const totalConMerma = registros.reduce(
-        (sum, r) => sum + (r.kilos_con_merma ?? 0),
-        0,
+    const footerRow = useMemo(
+        () =>
+            ({
+                id: -1,
+                kilos_reales: sumReales,
+                kilos_totales_ef: sumTKilos,
+                peso_porcentual_ef: sumTKilos - sumReales, // Δ entre kg reales y merma total
+            }) as unknown as RegistroRow,
+        [sumReales, sumTKilos],
     );
 
     const handleNuevo = () => {
@@ -290,35 +464,21 @@ export default function GeneradorasEdit({
                     rowData={registros}
                     columnDefs={columnDefs}
                     getRowId={(row) => String(row.id)}
-                    onCellEdited={readOnly ? undefined : guardarFila}
+                    onCellEdited={readOnly ? undefined : onRegistroEdited}
+                    pinnedBottomRowData={[footerRow]}
+                    getRowStyle={(p) =>
+                        p.node.rowPinned ? { fontWeight: 700 } : undefined
+                    }
+                    paginated={false}
                 />
-
-                <div className="flex justify-end gap-8 rounded-box border border-base-300 px-4 py-3 text-sm">
-                    <div>
-                        <span className="text-base-content/60">
-                            Σ Kg reales:{' '}
-                        </span>
-                        <span className="font-semibold">
-                            {totalReales.toFixed(2)}
-                        </span>
-                    </div>
-                    <div>
-                        <span className="text-base-content/60">
-                            Σ Kg c/merma:{' '}
-                        </span>
-                        <span className="font-semibold">
-                            {totalConMerma.toFixed(2)}
-                        </span>
-                    </div>
-                </div>
             </div>
         </AppLayout>
     );
 }
 
 function DeleteCell(readOnly: boolean) {
-    return function Cell({ data }: ICellRendererParams<RegistroRow>) {
-        if (!data) {
+    return function Cell({ data, node }: ICellRendererParams<RegistroRow>) {
+        if (!data || node.rowPinned) {
             return null;
         }
         return (

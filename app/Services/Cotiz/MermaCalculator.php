@@ -19,25 +19,36 @@ class MermaCalculator
     /**
      * Kilos con merma de un registro de generadora. Si el registro no tiene fórmula de
      * merma, devuelve sus kilos reales tal cual.
+     *
+     * Los pesos efectivos (override por obra > global del insumo) se pueden inyectar; si no
+     * se pasan, se usan los del insumo de origen (comportamiento por defecto).
      */
-    public function aplicar(GeneradoraRegistro $registro): float
+    public function aplicar(GeneradoraRegistro $registro, ?float $pesoLineal = null, ?float $pesoDefault = null): float
     {
-        $kilosReales = $registro->kilos_reales ?? 0.0;
-        $formula = $registro->merma?->formula;
+        $pesoLineal ??= $registro->materialOrigen?->peso_lineal !== null
+            ? (float) $registro->materialOrigen->peso_lineal
+            : null;
+        $pesoDefault ??= $registro->materialOrigen?->peso_default !== null
+            ? (float) $registro->materialOrigen->peso_default
+            : null;
 
+        $tMlM2 = $registro->t_ml_m2;
+        $kilosReales = ($tMlM2 !== null && $pesoLineal !== null) ? (float) $tMlM2 * $pesoLineal : 0.0;
+
+        $formula = $registro->merma?->formula;
         if ($formula === null || trim($formula) === '') {
             return $kilosReales;
         }
 
         return $this->evaluar($formula, [
-            't_ml_m2' => $registro->t_ml_m2,
+            't_ml_m2' => $tMlM2,
             'kilos_reales' => $kilosReales,
             'ancho' => $registro->ancho,
             'largo' => $registro->largo,
             'cantidad' => $registro->cantidad,
             'cant_pzas' => $registro->cant_pzas,
-            'peso_lineal' => $registro->materialOrigen?->peso_lineal,
-            'peso_default' => $registro->materialOrigen?->peso_default,
+            'peso_lineal' => $pesoLineal,
+            'peso_default' => $pesoDefault,
         ]);
     }
 
