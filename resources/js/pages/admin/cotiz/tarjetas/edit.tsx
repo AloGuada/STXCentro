@@ -664,6 +664,9 @@ export default function TarjetaEdit(props: Props) {
                 editable: (p) => !readOnly && p.data?.tipo === 'factor',
                 cellEditor: 'agNumberCellEditor',
                 cellClass: 'font-semibold',
+                // En el footer la celda abarca también la siguiente columna (%) para que
+                // quepa el total + el importe por kilo sin recortarse.
+                colSpan: (p) => (p.data?.tipo === 'footer' ? 2 : 1),
                 valueFormatter: (p) => {
                     if (p.value == null || p.data?.tipo === 'ghost') {
                         return '';
@@ -673,7 +676,7 @@ export default function TarjetaEdit(props: Props) {
                             totales.kg_reales_total > 0
                                 ? Number(p.value) / totales.kg_reales_total
                                 : 0;
-                        return `${fmtMoney.format(Number(p.value))}  (${fmtMoney.format(costoKg)}/kg)`;
+                        return `${fmtMoney.format(Number(p.value))}  ·  ${fmtMoney.format(costoKg)}/kg`;
                     }
                     return fmtMoney.format(Number(p.value));
                 },
