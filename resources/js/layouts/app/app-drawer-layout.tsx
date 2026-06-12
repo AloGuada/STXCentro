@@ -999,14 +999,7 @@ function SidebarContent({
         <div className="flex h-full flex-col">
             {/* Logo + botón colapsar/expandir */}
             {collapsed ? (
-                <div className="flex flex-col items-center gap-2 p-3">
-                    <Link
-                        href={dashboard()}
-                        className="flex items-center"
-                        prefetch
-                    >
-                        <AppLogo />
-                    </Link>
+                <div className="flex justify-center p-3">
                     <button
                         type="button"
                         className="tooltip btn tooltip-right btn-square btn-ghost btn-sm"
