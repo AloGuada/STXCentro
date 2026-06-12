@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Cotiz;
 
+use App\Enums\Cotiz\TipoCorte;
 use App\Enums\Cotiz\TipoPintura;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Cotiz\TarjetaFactorVincularRequest;
@@ -9,11 +10,13 @@ use App\Http\Requests\Admin\Cotiz\TarjetaRegistroManualRequest;
 use App\Models\Cotiz\Generadora;
 use App\Models\Cotiz\GeneradoraRegistro;
 use App\Models\Cotiz\Insumo;
+use App\Models\Cotiz\KilosRealesCategoria;
 use App\Models\Cotiz\Tarjeta;
 use App\Models\Cotiz\TarjetaCategoriaKilos;
 use App\Models\Cotiz\TarjetaEstructura;
 use App\Models\Cotiz\TarjetaFactor;
 use App\Models\Cotiz\TarjetaInsumoPrecio;
+use App\Models\Cotiz\TarjetaKilosReal;
 use App\Models\Cotiz\TarjetaRegistro;
 use App\Services\Cotiz\FormulaEvaluator;
 use App\Services\Cotiz\Variables\Validar;
@@ -272,13 +275,30 @@ class TarjetaDetalleController extends Controller
     public function krCategoriaStore(Request $request, Tarjeta $tarjeta): RedirectResponse
     {
         $datos = $request->validate([
-            'categoria_id' => ['required', 'exists:cotiz_kilos_reales_categorias,id'],
+            'categoria_id' => ['nullable', 'exists:cotiz_kilos_reales_categorias,id'],
+            'descripcion' => ['nullable', 'string', 'max:255'],
+            'tipo_corte' => ['nullable', Rule::enum(TipoCorte::class)],
             'porcentual' => ['nullable', 'numeric'],
             'orden' => ['nullable', 'integer'],
         ]);
 
+        $categoriaId = $datos['categoria_id'] ?? null;
+
+        // Sin id: crear/encontrar la categoría global por descripción (como prepsim).
+        if ($categoriaId === null) {
+            $descripcion = trim((string) ($datos['descripcion'] ?? ''));
+            if ($descripcion === '') {
+                return back();
+            }
+            $categoria = KilosRealesCategoria::query()->firstOrCreate(
+                ['descripcion' => $descripcion],
+                ['tipo_corte' => $datos['tipo_corte'] ?? TipoCorte::KG->value, 'orden' => (int) KilosRealesCategoria::query()->max('orden') + 1],
+            );
+            $categoriaId = $categoria->id;
+        }
+
         TarjetaCategoriaKilos::query()->firstOrCreate(
-            ['tarjeta_id' => $tarjeta->id, 'categoria_id' => $datos['categoria_id']],
+            ['tarjeta_id' => $tarjeta->id, 'categoria_id' => $categoriaId],
             ['porcentual' => $datos['porcentual'] ?? null, 'orden' => $datos['orden'] ?? 0],
         );
 
@@ -292,10 +312,31 @@ class TarjetaDetalleController extends Controller
             'orden' => ['nullable', 'integer'],
         ]);
 
+        $porcentual = $datos['porcentual'] ?? null;
         $categoriaKilos->update([
-            'porcentual' => $datos['porcentual'] ?? null,
+            'porcentual' => $porcentual,
             'orden' => $datos['orden'] ?? $categoriaKilos->orden,
         ]);
+
+        // Al pasar a fila porcentual sus celdas fijas ya no se editan (se calculan) → limpiar.
+        if ($porcentual !== null) {
+            TarjetaKilosReal::query()
+                ->where('tarjeta_id', $categoriaKilos->tarjeta_id)
+                ->where('categoria_id', $categoriaKilos->categoria_id)
+                ->delete();
+        }
+
+        return back();
+    }
+
+    /**
+     * Cambia el tipo de corte de una categoría (catálogo global). Afecta a todas las tarjetas
+     * que la usen; igual que en prepsim, se edita desde el modal de kilos reales.
+     */
+    public function krCategoriaTipo(Request $request, KilosRealesCategoria $categoria): RedirectResponse
+    {
+        $datos = $request->validate(['tipo_corte' => ['required', Rule::enum(TipoCorte::class)]]);
+        $categoria->update(['tipo_corte' => $datos['tipo_corte']]);
 
         return back();
     }

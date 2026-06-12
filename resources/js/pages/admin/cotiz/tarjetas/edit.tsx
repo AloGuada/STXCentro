@@ -1,3 +1,8 @@
+import { Head, Link, router } from '@inertiajs/react';
+import type { ColDef, ICellRendererParams } from 'ag-grid-community';
+import axios from 'axios';
+import { LockIcon, Loader2Icon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { EditableGrid } from '@/components/cotiz/editable-grid';
 import { FormulaCellEditor } from '@/components/cotiz/formula-cell-editor';
 import { useCotizEditLock } from '@/hooks/use-cotiz-edit-lock';
@@ -11,12 +16,8 @@ import type {
     CotizTarjetaFactorResuelto,
     CotizTarjetaKilosCelda,
     CotizTarjetaRegistroResuelto,
+    CotizTipoCorte,
 } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
-import axios from 'axios';
-import type { ColDef, ICellRendererParams } from 'ag-grid-community';
-import { LockIcon, Loader2Icon } from 'lucide-react';
-import { useMemo, useState } from 'react';
 
 type TarjetaProp = {
     id: number;
@@ -139,12 +140,15 @@ export default function TarjetaEdit(props: Props) {
     const rows = useMemo<Row[]>(() => {
         const grupos = new Map<string, CotizTarjetaRegistroResuelto[]>();
         for (const r of props.registros) {
-            const key = r.insumo_id != null ? `ins-${r.insumo_id}` : `solo-${r.id}`;
+            const key =
+                r.insumo_id != null ? `ins-${r.insumo_id}` : `solo-${r.id}`;
             (grupos.get(key) ?? grupos.set(key, []).get(key)!).push(r);
         }
         const grupoRows: Row[] = [...grupos.values()].map((grp) => {
             const first = grp[0];
-            const marcas = [...new Set(grp.map((r) => r.marca).filter(Boolean))];
+            const marcas = [
+                ...new Set(grp.map((r) => r.marca).filter(Boolean)),
+            ];
             const gens = [
                 ...new Set(grp.map((r) => r.generadora_titulo).filter(Boolean)),
             ];
@@ -171,7 +175,10 @@ export default function TarjetaEdit(props: Props) {
                 formulaGlobal: null,
                 factorManual: false,
                 importe: grp.reduce((s, r) => s + r.importe, 0),
-                importeSugerido: grp.reduce((s, r) => s + r.importe_sugerido, 0),
+                importeSugerido: grp.reduce(
+                    (s, r) => s + r.importe_sugerido,
+                    0,
+                ),
                 area: grp.reduce((s, r) => s + r.area_pintura, 0),
                 tipoPintura: tipos.size === 1 ? first.tipo_pintura : 'auto',
                 validado: grp.every((r) => r.validado),
@@ -251,12 +258,15 @@ export default function TarjetaEdit(props: Props) {
     });
 
     const vinculados = new Set(props.factores.map((f) => f.factor_id));
-    const factoresLibres = catalogos.factores.filter((f) => !vinculados.has(f.id));
+    const factoresLibres = catalogos.factores.filter(
+        (f) => !vinculados.has(f.id),
+    );
 
     const numValidados = rows.filter((r) => r.validado).length;
     const desperdicio =
         totales.kg_reales_total > 0
-            ? (totales.kg_fab - totales.kg_reales_total) / totales.kg_reales_total
+            ? (totales.kg_fab - totales.kg_reales_total) /
+              totales.kg_reales_total
             : 0;
 
     // ===== Handlers =====
@@ -372,10 +382,13 @@ export default function TarjetaEdit(props: Props) {
             return;
         }
         if (confirm('¿Eliminar este registro?')) {
-            router.delete(`/admin/cotiz/tarjetas/${tarjeta.id}/registros-grupo`, {
-                ...reloadOpts,
-                data: { ids: row.ids },
-            });
+            router.delete(
+                `/admin/cotiz/tarjetas/${tarjeta.id}/registros-grupo`,
+                {
+                    ...reloadOpts,
+                    data: { ids: row.ids },
+                },
+            );
         }
     };
 
@@ -400,7 +413,9 @@ export default function TarjetaEdit(props: Props) {
                 width: 140,
                 cellClass: 'text-xs',
                 valueGetter: (p) =>
-                    !p.data || p.data.tipo === 'footer' || p.data.tipo === 'ghost'
+                    !p.data ||
+                    p.data.tipo === 'footer' ||
+                    p.data.tipo === 'ghost'
                         ? ''
                         : p.data.tipo === 'factor'
                           ? '(factor)'
@@ -435,7 +450,7 @@ export default function TarjetaEdit(props: Props) {
                     }
                     return (
                         <select
-                            className="select select-xs select-bordered h-6 min-h-0 w-full text-xs"
+                            className="select-bordered select h-6 min-h-0 w-full select-xs text-xs"
                             value=""
                             onChange={(e) => {
                                 const v = e.target.value;
@@ -454,7 +469,10 @@ export default function TarjetaEdit(props: Props) {
                             {factoresLibres.length > 0 && (
                                 <optgroup label="Factores">
                                     {factoresLibres.map((f) => (
-                                        <option key={`f-${f.id}`} value={`f:${f.id}`}>
+                                        <option
+                                            key={`f-${f.id}`}
+                                            value={`f:${f.id}`}
+                                        >
                                             [factor] {f.codigo} — {f.nombre}
                                         </option>
                                     ))}
@@ -462,7 +480,10 @@ export default function TarjetaEdit(props: Props) {
                             )}
                             <optgroup label="Insumos">
                                 {catalogos.insumos.map((i) => (
-                                    <option key={`i-${i.id}`} value={`i:${i.id}`}>
+                                    <option
+                                        key={`i-${i.id}`}
+                                        value={`i:${i.id}`}
+                                    >
                                         {i.descripcion}
                                     </option>
                                 ))}
@@ -506,7 +527,9 @@ export default function TarjetaEdit(props: Props) {
                             className="checkbox checkbox-xs checkbox-primary"
                             checked={p.data.validado}
                             disabled={readOnly}
-                            onChange={(e) => setValidado(p.data!, e.target.checked)}
+                            onChange={(e) =>
+                                setValidado(p.data!, e.target.checked)
+                            }
                         />
                     );
                 },
@@ -557,19 +580,26 @@ export default function TarjetaEdit(props: Props) {
                         return null;
                     }
                     if (p.data.precio == null) {
-                        return <span className="opacity-40 italic">—</span>;
+                        return <span className="italic opacity-40">—</span>;
                     }
                     const override =
                         p.data.precio !== p.data.precioObra ||
                         (p.data.insumoId != null &&
-                            props.preciosOverride[String(p.data.insumoId)] != null);
+                            props.preciosOverride[String(p.data.insumoId)] !=
+                                null);
                     return (
                         <div className="flex items-center justify-between gap-1">
-                            <span className={override ? 'font-bold' : 'opacity-80'}>
+                            <span
+                                className={
+                                    override ? 'font-bold' : 'opacity-80'
+                                }
+                            >
                                 {fmtMoney.format(Number(p.data.precio))}
                             </span>
                             <span
-                                className={override ? 'text-success' : 'opacity-30'}
+                                className={
+                                    override ? 'text-success' : 'opacity-30'
+                                }
                                 title={
                                     override
                                         ? `Override de tarjeta. P.U. de obra: ${fmtMoney.format(Number(p.data.precioObra ?? 0))}.`
@@ -615,7 +645,9 @@ export default function TarjetaEdit(props: Props) {
                                 {p.data.formula ?? '(manual)'}
                             </span>
                             <span
-                                className={override ? 'text-success' : 'opacity-30'}
+                                className={
+                                    override ? 'text-success' : 'opacity-30'
+                                }
                                 title="Click para editar la fórmula (override por tarjeta)"
                             >
                                 ✎
@@ -682,10 +714,12 @@ export default function TarjetaEdit(props: Props) {
                     }
                     return (
                         <select
-                            className="select select-xs select-bordered h-6 min-h-0 w-full text-xs"
+                            className="select-bordered select h-6 min-h-0 w-full select-xs text-xs"
                             value={p.data.tipoPintura ?? 'auto'}
                             disabled={readOnly}
-                            onChange={(e) => setPintura(p.data!, e.target.value)}
+                            onChange={(e) =>
+                                setPintura(p.data!, e.target.value)
+                            }
                         >
                             {Object.entries(catalogos.tiposPintura).map(
                                 ([clave, label]) => (
@@ -742,7 +776,7 @@ export default function TarjetaEdit(props: Props) {
                 <div className="flex flex-wrap items-center gap-2">
                     <Link
                         href={`/admin/cotiz/obras/${obra.id}/tarjetas`}
-                        className="text-sm link link-primary"
+                        className="link text-sm link-primary"
                     >
                         ← Tarjetas
                     </Link>
@@ -759,7 +793,7 @@ export default function TarjetaEdit(props: Props) {
                                 );
                             }
                         }}
-                        className="input input-sm input-bordered w-64 text-lg font-semibold"
+                        className="input-bordered input input-sm w-64 text-lg font-semibold"
                     />
                     <span
                         className="badge badge-lg badge-info"
@@ -785,7 +819,7 @@ export default function TarjetaEdit(props: Props) {
                     <div className="flex-1" />
                     <button
                         type="button"
-                        className="btn btn-secondary btn-sm"
+                        className="btn btn-sm btn-secondary"
                         onClick={() => setMostrarKr(true)}
                     >
                         📊 Análisis kg reales
@@ -968,6 +1002,20 @@ function GeneradorasRow({
 
 // ===== Modal Análisis de kilos reales =====
 
+const TIPOS_CORTE: CotizTipoCorte[] = ['TIRAS', 'RAZ', 'KG', 'CNX'];
+
+const fmtKr = (n: number) =>
+    Number(n ?? 0).toLocaleString('es-MX', { maximumFractionDigits: 2 });
+
+/** Parsea "22", "22%", "0.22" → 0.22. null si no parsea o ≤ 0. */
+function parsePorcentual(raw: string): number | null {
+    const trim = raw.trim().replace('%', '').replace(',', '.');
+    if (!trim) return null;
+    const n = Number(trim);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return n > 1 ? n / 100 : n; // heurística: >1 se asume formato %
+}
+
 function KilosRealesModal({
     tarjeta,
     estructuras,
@@ -985,32 +1033,163 @@ function KilosRealesModal({
     readOnly: boolean;
     onClose: () => void;
 }) {
-    const [estructura, setEstructura] = useState('');
-    const [categoriaId, setCategoriaId] = useState<number | ''>('');
-    const [porcentual, setPorcentual] = useState('');
+    const [picker, setPicker] = useState('');
 
     const celdaPorClave = useMemo(() => {
-        const m = new Map<string, CotizTarjetaKilosCelda>();
-        for (const c of celdas) {
-            m.set(`${c.categoria_id}:${c.estructura_id}`, c);
-        }
+        const m = new Map<string, number>();
+        for (const c of celdas)
+            m.set(`${c.categoria_id}:${c.estructura_id}`, Number(c.kilos));
         return m;
     }, [celdas]);
 
-    const setCelda = (categoria_id: number, estructura_id: number, kilos: string) =>
+    // Σ de celdas FIJAS (porcentual null) por estructura — denominador de las porcentuales.
+    const sumFijasPorEstructura = useMemo(() => {
+        const m = new Map<number, number>();
+        const fijas = new Set(
+            categoriasKilos
+                .filter((c) => c.porcentual == null)
+                .map((c) => c.categoria_id),
+        );
+        for (const c of celdas) {
+            if (!fijas.has(c.categoria_id)) continue;
+            m.set(
+                c.estructura_id,
+                (m.get(c.estructura_id) ?? 0) + Number(c.kilos),
+            );
+        }
+        return m;
+    }, [celdas, categoriasKilos]);
+
+    // Valor efectivo de una celda: fija = lookup; porcentual = % × Σ fijas de esa estructura.
+    const calcCelda = (cat: CotizTarjetaCategoriaKilos, estId: number) => {
+        if (cat.porcentual == null)
+            return celdaPorClave.get(`${cat.categoria_id}:${estId}`) ?? 0;
+        return Number(cat.porcentual) * (sumFijasPorEstructura.get(estId) ?? 0);
+    };
+
+    const totales = useMemo(() => {
+        const porEstructura = new Map<number, number>();
+        const porTipo: Record<CotizTipoCorte, number> = {
+            TIRAS: 0,
+            RAZ: 0,
+            KG: 0,
+            CNX: 0,
+        };
+        let total = 0;
+        for (const cat of categoriasKilos) {
+            const tipo = (cat.tipo_corte ?? 'KG') as CotizTipoCorte;
+            for (const e of estructuras) {
+                const v = calcCelda(cat, e.id);
+                porEstructura.set(e.id, (porEstructura.get(e.id) ?? 0) + v);
+                porTipo[tipo] += v;
+                total += v;
+            }
+        }
+        return { porEstructura, porTipo, total };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [celdas, categoriasKilos, estructuras]);
+
+    const vinculadas = useMemo(
+        () => new Set(categoriasKilos.map((c) => c.categoria_id)),
+        [categoriasKilos],
+    );
+    const disponibles = catalogos.krCategorias.filter(
+        (c) => !vinculadas.has(c.id),
+    );
+
+    const setCelda = (
+        categoria_id: number,
+        estructura_id: number,
+        kilos: string,
+    ) =>
         router.put(
             `/admin/cotiz/tarjetas/${tarjeta.id}/kr-celdas`,
             { categoria_id, estructura_id, kilos: kilos === '' ? 0 : kilos },
             reloadOpts,
         );
 
+    const setPorcentual = (linkId: number, raw: string) =>
+        router.put(
+            `/admin/cotiz/tarjeta-kr-categorias/${linkId}`,
+            { porcentual: parsePorcentual(raw) },
+            reloadOpts,
+        );
+
+    const setTipo = (categoriaId: number, tipo: string) =>
+        router.put(
+            `/admin/cotiz/kr-categorias-catalogo/${categoriaId}/tipo`,
+            { tipo_corte: tipo },
+            reloadOpts,
+        );
+
+    const addEstructura = () => {
+        const nombre =
+            estructuras.length === 0
+                ? 'NAVE'
+                : `NAVE ${String.fromCharCode(65 + estructuras.length)}`;
+        router.post(
+            `/admin/cotiz/tarjetas/${tarjeta.id}/estructuras`,
+            { nombre, orden: estructuras.length },
+            reloadOpts,
+        );
+    };
+
+    const renameEstructura = (id: number, current: string) => {
+        const nuevo = prompt('Nombre de la estructura', current);
+        if (nuevo == null || nuevo.trim() === '') return;
+        router.put(
+            `/admin/cotiz/tarjeta-estructuras/${id}`,
+            { nombre: nuevo.trim() },
+            reloadOpts,
+        );
+    };
+
+    const commitPicker = (texto: string) => {
+        const trim = texto.trim();
+        if (trim === '') {
+            setPicker('');
+            return;
+        }
+        const existente = catalogos.krCategorias.find(
+            (c) => c.descripcion.toLowerCase() === trim.toLowerCase(),
+        );
+        if (existente && vinculadas.has(existente.id)) {
+            setPicker('');
+            return;
+        }
+        const payload = existente
+            ? { categoria_id: existente.id, orden: categoriasKilos.length }
+            : { descripcion: trim, orden: categoriasKilos.length };
+        router.post(
+            `/admin/cotiz/tarjetas/${tarjeta.id}/kr-categorias`,
+            payload,
+            { ...reloadOpts, onSuccess: () => setPicker('') },
+        );
+    };
+
+    const hayMatriz = estructuras.length > 0;
+
     return (
-        <dialog className="modal modal-open">
+        <dialog className="modal-open modal">
             <div className="modal-box max-w-5xl">
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-3 flex items-center gap-3">
                     <h3 className="text-lg font-semibold">
                         Análisis de kilos reales
                     </h3>
+                    <span className="text-xs opacity-60">
+                        Alimenta <code>kg_tiras</code>, <code>kg_raz</code>,{' '}
+                        <code>kg_kg</code>, <code>kg_cnx</code> en factores.
+                    </span>
+                    <div className="flex-1" />
+                    {!readOnly && (
+                        <button
+                            type="button"
+                            className="btn btn-outline btn-xs"
+                            onClick={addEstructura}
+                        >
+                            + Estructura
+                        </button>
+                    )}
                     <button
                         type="button"
                         className="btn btn-ghost btn-sm"
@@ -1020,207 +1199,321 @@ function KilosRealesModal({
                     </button>
                 </div>
 
-                {categoriasKilos.length === 0 || estructuras.length === 0 ? (
+                {!hayMatriz ? (
                     <p className="text-sm text-base-content/60">
-                        Agrega al menos una estructura (columna) y una categoría
-                        (fila) para capturar kilos.
+                        No hay estructuras todavía. Pulsa{' '}
+                        <strong>+ Estructura</strong> para empezar.
                     </p>
                 ) : (
                     <div className="overflow-x-auto rounded-box border border-base-300">
                         <table className="table table-sm">
                             <thead>
                                 <tr>
-                                    <th>Categoría</th>
-                                    <th>Corte</th>
+                                    <th className="bg-base-200">Categoría</th>
+                                    <th className="w-20 bg-base-200">Tipo</th>
+                                    <th
+                                        className="w-20 bg-base-200 text-center"
+                                        title="Tipea un número (22 ó 22%) para que la fila se calcule como ese % de la Σ de fijas; vacío vuelve a fija."
+                                    >
+                                        %
+                                    </th>
                                     {estructuras.map((est) => (
-                                        <th key={est.id} className="text-right">
-                                            <div className="flex items-center justify-end gap-1">
-                                                {est.nombre}
+                                        <th
+                                            key={est.id}
+                                            className="min-w-[120px] bg-base-200 text-center"
+                                        >
+                                            <div className="flex items-center justify-center gap-1">
+                                                <span>{est.nombre}</span>
                                                 {!readOnly && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-ghost btn-xs"
-                                                        title="Quitar estructura"
-                                                        onClick={() =>
-                                                            router.delete(
-                                                                `/admin/cotiz/tarjeta-estructuras/${est.id}`,
-                                                                reloadOpts,
-                                                            )
-                                                        }
-                                                    >
-                                                        ✕
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            className="btn px-1 btn-ghost btn-xs"
+                                                            title="Renombrar"
+                                                            onClick={() =>
+                                                                renameEstructura(
+                                                                    est.id,
+                                                                    est.nombre,
+                                                                )
+                                                            }
+                                                        >
+                                                            ✎
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="btn px-1 text-error btn-ghost btn-xs"
+                                                            title="Eliminar estructura"
+                                                            onClick={() =>
+                                                                confirm(
+                                                                    `¿Eliminar "${est.nombre}" y sus kilos?`,
+                                                                ) &&
+                                                                router.delete(
+                                                                    `/admin/cotiz/tarjeta-estructuras/${est.id}`,
+                                                                    reloadOpts,
+                                                                )
+                                                            }
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </>
                                                 )}
                                             </div>
                                         </th>
                                     ))}
-                                    <th></th>
+                                    <th className="bg-base-200 text-right">
+                                        Total fila
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {categoriasKilos.map((cat) => {
                                     const esPct = cat.porcentual != null;
+                                    const totalFila = estructuras.reduce(
+                                        (s, e) => s + calcCelda(cat, e.id),
+                                        0,
+                                    );
                                     return (
-                                        <tr key={cat.id}>
-                                            <td>{cat.descripcion}</td>
-                                            <td>
-                                                <span className="badge badge-ghost badge-sm">
-                                                    {cat.tipo_corte}
-                                                </span>
+                                        <tr
+                                            key={cat.id}
+                                            className={
+                                                esPct ? 'bg-warning/5' : ''
+                                            }
+                                        >
+                                            <td className="font-medium">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="flex-1 truncate">
+                                                        {cat.descripcion}
+                                                    </span>
+                                                    {!readOnly && (
+                                                        <button
+                                                            type="button"
+                                                            className="btn px-1 text-error btn-ghost btn-xs"
+                                                            title="Quitar de esta tarjeta (no borra del catálogo)"
+                                                            onClick={() =>
+                                                                router.delete(
+                                                                    `/admin/cotiz/tarjeta-kr-categorias/${cat.id}`,
+                                                                    reloadOpts,
+                                                                )
+                                                            }
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
-                                            {estructuras.map((est) => (
-                                                <td
-                                                    key={est.id}
-                                                    className="text-right"
+                                            <td>
+                                                <select
+                                                    key={`tipo-${cat.id}-${cat.tipo_corte}`}
+                                                    className="select-bordered select w-full select-xs"
+                                                    defaultValue={
+                                                        cat.tipo_corte ?? 'KG'
+                                                    }
+                                                    disabled={readOnly}
+                                                    onChange={(e) =>
+                                                        setTipo(
+                                                            cat.categoria_id,
+                                                            e.target.value,
+                                                        )
+                                                    }
                                                 >
-                                                    {esPct ? (
-                                                        <span className="text-xs opacity-40">
-                                                            —
-                                                        </span>
-                                                    ) : (
+                                                    {TIPOS_CORTE.map((t) => (
+                                                        <option
+                                                            key={t}
+                                                            value={t}
+                                                        >
+                                                            {t}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <input
+                                                    key={`pct-${cat.id}-${cat.porcentual}`}
+                                                    type="text"
+                                                    className={`input-bordered input input-xs w-full text-right ${esPct ? 'font-semibold' : ''}`}
+                                                    defaultValue={
+                                                        cat.porcentual != null
+                                                            ? `${(Number(cat.porcentual) * 100).toFixed(2)}%`
+                                                            : ''
+                                                    }
+                                                    placeholder="—"
+                                                    disabled={readOnly}
+                                                    onBlur={(ev) => {
+                                                        const parsed =
+                                                            parsePorcentual(
+                                                                ev.target.value,
+                                                            );
+                                                        const current =
+                                                            cat.porcentual !=
+                                                            null
+                                                                ? Number(
+                                                                      cat.porcentual,
+                                                                  )
+                                                                : null;
+                                                        if (parsed === current)
+                                                            return;
+                                                        if (
+                                                            ev.target.value.trim() ===
+                                                                '' &&
+                                                            current == null
+                                                        )
+                                                            return;
+                                                        setPorcentual(
+                                                            cat.id,
+                                                            ev.target.value,
+                                                        );
+                                                    }}
+                                                    onKeyDown={(ev) => {
+                                                        if (ev.key === 'Enter')
+                                                            (
+                                                                ev.target as HTMLInputElement
+                                                            ).blur();
+                                                    }}
+                                                />
+                                            </td>
+                                            {estructuras.map((est) => {
+                                                if (esPct) {
+                                                    return (
+                                                        <td
+                                                            key={est.id}
+                                                            className="text-right italic opacity-70"
+                                                            title={`${(Number(cat.porcentual) * 100).toFixed(2)}% × Σ fijas`}
+                                                        >
+                                                            {fmtKr(
+                                                                calcCelda(
+                                                                    cat,
+                                                                    est.id,
+                                                                ),
+                                                            )}
+                                                        </td>
+                                                    );
+                                                }
+                                                return (
+                                                    <td key={est.id}>
                                                         <input
                                                             type="number"
                                                             step="any"
-                                                            className="input input-xs input-bordered w-24 text-right"
+                                                            className="input-bordered input input-xs w-full text-right"
                                                             defaultValue={
                                                                 celdaPorClave.get(
                                                                     `${cat.categoria_id}:${est.id}`,
-                                                                )?.kilos ?? ''
+                                                                ) || ''
                                                             }
+                                                            placeholder="0"
                                                             disabled={readOnly}
                                                             onBlur={(e) =>
                                                                 setCelda(
                                                                     cat.categoria_id,
                                                                     est.id,
-                                                                    e.target.value,
+                                                                    e.target
+                                                                        .value,
                                                                 )
                                                             }
                                                         />
-                                                    )}
-                                                </td>
-                                            ))}
-                                            <td className="whitespace-nowrap">
-                                                {esPct && (
-                                                    <span className="badge mr-1 badge-info badge-sm">
-                                                        {(
-                                                            Number(
-                                                                cat.porcentual,
-                                                            ) * 100
-                                                        ).toFixed(1)}
-                                                        %
-                                                    </span>
-                                                )}
-                                                {!readOnly && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn text-error btn-ghost btn-xs"
-                                                        title="Quitar categoría"
-                                                        onClick={() =>
-                                                            router.delete(
-                                                                `/admin/cotiz/tarjeta-kr-categorias/${cat.id}`,
-                                                                reloadOpts,
-                                                            )
-                                                        }
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                )}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className="text-right font-semibold">
+                                                {fmtKr(totalFila)}
                                             </td>
                                         </tr>
                                     );
                                 })}
+
+                                {/* Fila fantasma: vincular/crear categoría inline con datalist */}
+                                {!readOnly && (
+                                    <tr className="bg-base-200/40">
+                                        <td>
+                                            <input
+                                                type="text"
+                                                list="kr-cat-datalist"
+                                                placeholder="+ Categoría (autocompleta del catálogo)…"
+                                                className="input-bordered input input-xs w-full italic"
+                                                value={picker}
+                                                onChange={(e) =>
+                                                    setPicker(e.target.value)
+                                                }
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        commitPicker(picker);
+                                                    }
+                                                    if (e.key === 'Escape')
+                                                        setPicker('');
+                                                }}
+                                                onBlur={() =>
+                                                    picker.trim() &&
+                                                    commitPicker(picker)
+                                                }
+                                            />
+                                            <datalist id="kr-cat-datalist">
+                                                {disponibles.map((c) => (
+                                                    <option
+                                                        key={c.id}
+                                                        value={c.descripcion}
+                                                    >
+                                                        {c.tipo_corte}
+                                                    </option>
+                                                ))}
+                                            </datalist>
+                                        </td>
+                                        <td className="text-xs opacity-30">
+                                            —
+                                        </td>
+                                        <td className="opacity-30"></td>
+                                        {estructuras.map((e) => (
+                                            <td
+                                                key={e.id}
+                                                className="opacity-30"
+                                            ></td>
+                                        ))}
+                                        <td className="opacity-30"></td>
+                                    </tr>
+                                )}
                             </tbody>
+                            <tfoot>
+                                <tr className="border-t-2 border-base-300">
+                                    <td className="font-bold">Total columna</td>
+                                    <td></td>
+                                    <td></td>
+                                    {estructuras.map((est) => (
+                                        <td
+                                            key={est.id}
+                                            className="text-right font-bold"
+                                        >
+                                            {fmtKr(
+                                                totales.porEstructura.get(
+                                                    est.id,
+                                                ) ?? 0,
+                                            )}
+                                        </td>
+                                    ))}
+                                    <td className="bg-primary/10 text-right font-bold">
+                                        {fmtKr(totales.total)}
+                                    </td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 )}
 
-                {!readOnly && (
-                    <div className="mt-3 flex flex-wrap gap-3">
-                        <div className="flex items-end gap-2">
-                            <input
-                                className="input input-sm input-bordered w-40"
-                                placeholder="Nueva estructura"
-                                value={estructura}
-                                onChange={(e) => setEstructura(e.target.value)}
-                            />
-                            <button
-                                type="button"
-                                className="btn btn-sm btn-secondary"
-                                disabled={estructura.trim() === ''}
-                                onClick={() =>
-                                    router.post(
-                                        `/admin/cotiz/tarjetas/${tarjeta.id}/estructuras`,
-                                        {
-                                            nombre: estructura,
-                                            orden: estructuras.length,
-                                        },
-                                        {
-                                            ...reloadOpts,
-                                            onSuccess: () => setEstructura(''),
-                                        },
-                                    )
-                                }
-                            >
-                                + Columna
-                            </button>
-                        </div>
-                        <div className="flex items-end gap-2">
-                            <select
-                                className="select select-sm select-bordered w-52"
-                                value={categoriaId}
-                                onChange={(e) =>
-                                    setCategoriaId(
-                                        e.target.value === ''
-                                            ? ''
-                                            : Number(e.target.value),
-                                    )
-                                }
-                            >
-                                <option value="">Categoría…</option>
-                                {catalogos.krCategorias.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.descripcion} ({c.tipo_corte})
-                                    </option>
-                                ))}
-                            </select>
-                            <input
-                                type="number"
-                                step="any"
-                                className="input input-sm input-bordered w-24"
-                                placeholder="% (opc.)"
-                                value={porcentual}
-                                onChange={(e) => setPorcentual(e.target.value)}
-                            />
-                            <button
-                                type="button"
-                                className="btn btn-sm btn-secondary"
-                                disabled={categoriaId === ''}
-                                onClick={() =>
-                                    router.post(
-                                        `/admin/cotiz/tarjetas/${tarjeta.id}/kr-categorias`,
-                                        {
-                                            categoria_id: categoriaId,
-                                            porcentual:
-                                                porcentual === ''
-                                                    ? null
-                                                    : porcentual,
-                                            orden: categoriasKilos.length,
-                                        },
-                                        {
-                                            ...reloadOpts,
-                                            onSuccess: () => {
-                                                setCategoriaId('');
-                                                setPorcentual('');
-                                            },
-                                        },
-                                    )
-                                }
-                            >
-                                + Fila
-                            </button>
-                        </div>
+                <div className="mt-4 rounded-box bg-base-200 p-3">
+                    <div className="mb-2 text-sm font-semibold">
+                        Totales por tipo de corte (alimenta factores)
                     </div>
-                )}
+                    <div className="grid grid-cols-4 gap-3">
+                        {TIPOS_CORTE.map((tipo) => (
+                            <div key={tipo} className="flex flex-col">
+                                <span className="text-xs opacity-60">
+                                    kg_{tipo.toLowerCase()}
+                                </span>
+                                <span className="font-mono text-lg font-bold">
+                                    {fmtKr(totales.porTipo[tipo])}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
             <button type="button" className="modal-backdrop" onClick={onClose}>
                 cerrar
@@ -1265,7 +1558,7 @@ function LockBanner({
     }
     if (state.status === 'error') {
         return (
-            <div className="alert alert-error py-2">
+            <div className="alert py-2 alert-error">
                 <LockIcon className="size-5" />
                 <span>
                     {state.message} Puede ver los datos pero no guardar cambios.
@@ -1279,7 +1572,7 @@ function LockBanner({
     const desde = formatDesde(state.lockedAt ?? fallback.locked_at);
 
     return (
-        <div className="alert alert-warning py-2">
+        <div className="alert py-2 alert-warning">
             <LockIcon className="size-5" />
             <span className="text-sm">
                 La está editando {nombre}. {desde ? `Inició ${desde}. ` : ''}

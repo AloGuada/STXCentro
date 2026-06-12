@@ -1,8 +1,6 @@
 <?php
 
 use App\Models\Cotiz\Factor;
-use App\Models\Cotiz\Generadora;
-use App\Models\Cotiz\GeneradoraRegistro;
 use App\Models\Cotiz\Insumo;
 use App\Models\Cotiz\KilosRealesCategoria;
 use App\Models\Cotiz\Obra;
@@ -204,6 +202,41 @@ describe('estructuras y kilos reales', function () {
         $this->delete(route('admin.cotiz.tarjetas.kr-categorias.destroy', $catKilos))->assertRedirect();
 
         $this->assertDatabaseMissing('cotiz_tarjeta_categorias_kilos', ['id' => $catKilos->id]);
+    });
+
+    test('crear categoría inline por descripción (crea global + la vincula)', function () {
+        $tarjeta = Tarjeta::factory()->create();
+
+        $this->post(route('admin.cotiz.tarjetas.kr-categorias.store', $tarjeta), [
+            'descripcion' => 'COLUMNAS HSS', 'tipo_corte' => 'RAZ',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('cotiz_kilos_reales_categorias', ['descripcion' => 'COLUMNAS HSS', 'tipo_corte' => 'RAZ']);
+        $categoria = KilosRealesCategoria::where('descripcion', 'COLUMNAS HSS')->firstOrFail();
+        $this->assertDatabaseHas('cotiz_tarjeta_categorias_kilos', ['tarjeta_id' => $tarjeta->id, 'categoria_id' => $categoria->id]);
+    });
+
+    test('cambiar tipo de corte de la categoría (catálogo global)', function () {
+        $categoria = KilosRealesCategoria::factory()->create(['tipo_corte' => 'KG']);
+
+        $this->put(route('admin.cotiz.tarjetas.kr-categorias.tipo', $categoria), ['tipo_corte' => 'CNX'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('cotiz_kilos_reales_categorias', ['id' => $categoria->id, 'tipo_corte' => 'CNX']);
+    });
+
+    test('pasar fila a porcentual limpia sus celdas fijas', function () {
+        $tarjeta = Tarjeta::factory()->create();
+        $estructura = TarjetaEstructura::factory()->create(['tarjeta_id' => $tarjeta->id]);
+        $categoria = KilosRealesCategoria::factory()->create();
+        $catKilos = TarjetaCategoriaKilos::factory()->create(['tarjeta_id' => $tarjeta->id, 'categoria_id' => $categoria->id, 'porcentual' => null]);
+        $tarjeta->kilosReales()->create(['categoria_id' => $categoria->id, 'estructura_id' => $estructura->id, 'kilos' => 500]);
+
+        $this->put(route('admin.cotiz.tarjetas.kr-categorias.update', $catKilos), ['porcentual' => 0.22])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('cotiz_tarjeta_categorias_kilos', ['id' => $catKilos->id, 'porcentual' => 0.22]);
+        expect($tarjeta->kilosReales()->where('categoria_id', $categoria->id)->count())->toBe(0);
     });
 });
 
