@@ -88,39 +88,34 @@ class ResumenCalculator
             }
         }
 
-        // Pasadas 2-4: subtotales (Σ bloque), margen (costo directo × coef) y total.
+        // Pasadas 2-4: subtotales ACUMULATIVOS (checkpoints), margen y total.
+        // Todas las filas base (MO_FAB, MO_MONTAJE, EXTRAS) suman a un acumulado corriente; cada
+        // `subtotal` muestra ese acumulado (p. ej. SUBTOTAL = Σ MO; COSTO DIRECTO = Σ MO + Σ EXTRAS).
+        // `margen` = acumulado × coef; `total` = acumulado + margen.
         foreach ($columnas as $c) {
-            $subtotalBloque = 0.0;
-            $costoDirecto = 0.0;
+            $acumulado = 0.0;
             $margen = 0.0;
             foreach ($filas as $f) {
-                $coef = $this->coefEfectivo($f['id'], $f['coef_default'], $c['columna_id'], $overrides['por_fila'], $overrides['por_celda']);
-
                 if ($f['tipo_formula'] === 'subtotal') {
-                    $resultado[$f['id']][$c['columna_id']] = $subtotalBloque;
-                    $costoDirecto += $subtotalBloque;
-                    $subtotalBloque = 0.0;
+                    $resultado[$f['id']][$c['columna_id']] = $acumulado;
 
                     continue;
                 }
                 if ($f['tipo_formula'] === 'margen') {
-                    $margen = $costoDirecto * $coef;
+                    $coef = $this->coefEfectivo($f['id'], $f['coef_default'], $c['columna_id'], $overrides['por_fila'], $overrides['por_celda']);
+                    $margen = $acumulado * $coef;
                     $resultado[$f['id']][$c['columna_id']] = $margen;
 
                     continue;
                 }
                 if ($f['tipo_formula'] === 'total') {
-                    $resultado[$f['id']][$c['columna_id']] = $costoDirecto + $margen;
+                    $resultado[$f['id']][$c['columna_id']] = $acumulado + $margen;
 
                     continue;
                 }
 
-                $v = $resultado[$f['id']][$c['columna_id']] ?? 0.0;
-                if ($f['bloque'] === 'EXTRAS') {
-                    $costoDirecto += $v;
-                } elseif ($f['bloque'] === 'MO_FAB' || $f['bloque'] === 'MO_MONTAJE') {
-                    $subtotalBloque += $v;
-                }
+                // Filas base: acumulan al costo directo corriente.
+                $acumulado += $resultado[$f['id']][$c['columna_id']] ?? 0.0;
             }
         }
 

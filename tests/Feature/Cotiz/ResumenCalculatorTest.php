@@ -37,11 +37,11 @@ describe('calcularMatriz — caso conocido', function () {
 
         expect($m[1][10])->toEqualWithDelta(1000.0, 1e-9)  // materiales
             ->and($m[2][10])->toEqualWithDelta(50.0, 1e-9)   // 0.1 × 100 × 5
-            ->and($m[3][10])->toEqualWithDelta(1050.0, 1e-9) // subtotal fab = 1000 + 50
+            ->and($m[3][10])->toEqualWithDelta(1050.0, 1e-9) // subtotal acumulado = 1000 + 50
             ->and($m[4][10])->toEqualWithDelta(200.0, 1e-9)  // 2 × 100
-            ->and($m[5][10])->toEqualWithDelta(200.0, 1e-9)  // subtotal montaje
+            ->and($m[5][10])->toEqualWithDelta(1250.0, 1e-9) // subtotal acumulado = 1050 + 200
             ->and($m[6][10])->toEqualWithDelta(500.0, 1e-9)  // (100/100) × 500 × 1
-            ->and($m[7][10])->toEqualWithDelta(175.0, 1e-9)  // costoDirecto 1750 × 0.1
+            ->and($m[7][10])->toEqualWithDelta(175.0, 1e-9)  // costo directo 1750 × 0.1
             ->and($m[8][10])->toEqualWithDelta(1925.0, 1e-9); // 1750 + 175
     });
 
