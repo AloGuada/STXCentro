@@ -45,9 +45,20 @@ class Rubro extends Model
         'codigo',
         'descripcion',
         'ambito',
+        'ocultar_en_reporte',
         'tipo_rubro_id',
         'departamento_id',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'ocultar_en_reporte' => 'boolean',
+        ];
+    }
 
     public function tipoRubro(): BelongsTo
     {

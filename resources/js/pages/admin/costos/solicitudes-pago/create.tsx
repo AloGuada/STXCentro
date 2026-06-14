@@ -6,7 +6,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { CostosObraRubro, CostosTipoSolicitud, Departamento, Obra, Proveedor } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, FileTextIcon, Loader2Icon, PlusIcon, Trash2Icon, UploadIcon } from 'lucide-react';
-import { type FormEvent, useCallback, useMemo, useRef } from 'react';
+import { type FormEvent, useCallback, useMemo, useRef, useState } from 'react';
 
 function getMinViernes(): string {
     const now = new Date();
@@ -121,6 +121,14 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
 
     const total = data.detalles.reduce((sum, d) => sum + calcSubtotal(d), 0);
 
+    // Por defecto se ocultan obras/adicionales cerrados; el checkbox los incluye.
+    const [incluirCerradas, setIncluirCerradas] = useState(false);
+
+    const esCerrado = (or: CostosObraRubro) =>
+        or.adicional_partida ? or.adicional_partida.estatus === 'cerrada' : or.obra?.estatus === 'cerrada';
+
+    const obrasVisibles = obras.filter((o) => incluirCerradas || o.estatus !== 'cerrada');
+
     const getDisponible = (obraRubroId: string) => {
         const or = obraRubros.find((r) => r.id === Number(obraRubroId));
         if (!or) {
@@ -133,7 +141,8 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
 
     const getRubroOptionLabel = (or: CostosObraRubro) => {
         const disp = Number(or.presupuestado) - Number(or.acumulado);
-        const prefix = `${or.rubro?.codigo} - ${or.rubro?.descripcion}`;
+        const adPrefix = or.adicional_partida ? `[ad${or.adicional_partida.numero_adicional}] ` : '';
+        const prefix = `${adPrefix}${or.rubro?.codigo} - ${or.rubro?.descripcion}`;
         if (disp <= 0) {
             return `${prefix}  |  SOBREGIRO: -$${formatMoney(Math.abs(disp))}`;
         }
@@ -295,10 +304,21 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between border-b border-base-300 pb-2">
                                     <h2 className="text-lg font-medium">Detalles / Centros de Costos</h2>
-                                    <Button type="button" variant="outline" onClick={addDetalle}>
-                                        <PlusIcon className="size-4" />
-                                        Agregar
-                                    </Button>
+                                    <div className="flex items-center gap-3">
+                                        <label className="label cursor-pointer gap-2 py-0">
+                                            <input
+                                                type="checkbox"
+                                                className="checkbox checkbox-xs"
+                                                checked={incluirCerradas}
+                                                onChange={(e) => setIncluirCerradas(e.target.checked)}
+                                            />
+                                            <span className="label-text text-xs">Incluir cerradas</span>
+                                        </label>
+                                        <Button type="button" variant="outline" onClick={addDetalle}>
+                                            <PlusIcon className="size-4" />
+                                            Agregar
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 {data.detalles.length === 0 && (
@@ -328,8 +348,8 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                                         onChange={(e) => updateDetalle(index, 'obra_id', e.target.value)}
                                                     >
                                                         <option value="">Seleccionar obra</option>
-                                                        {obras.map((o) => (
-                                                            <option key={o.id} value={o.id}>{o.no} - {o.descripcion}</option>
+                                                        {obrasVisibles.map((o) => (
+                                                            <option key={o.id} value={o.id}>{o.no} - {o.descripcion}{o.estatus === 'cerrada' ? ' (Cerrada)' : ''}</option>
                                                         ))}
                                                     </select>
                                                 </FormField>
@@ -344,7 +364,7 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                                     >
                                                         <option value="">{det.obra_id ? 'Seleccionar centro de costos' : 'Seleccione obra primero'}</option>
                                                         {obraRubros
-                                                            .filter((or) => or.obra_id === Number(det.obra_id))
+                                                            .filter((or) => or.obra_id === Number(det.obra_id) && (incluirCerradas || !esCerrado(or)))
                                                             .map((or) => (
                                                                 <option key={or.id} value={or.id}>
                                                                     {getRubroOptionLabel(or)}

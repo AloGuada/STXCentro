@@ -103,9 +103,22 @@ class Obra extends Model
         return $this->hasMany(Prod\GrupoPrecio::class, 'obra_id');
     }
 
+    /**
+     * Presupuesto base de la obra. Excluye los rubros de adicionales
+     * (`adicional_partida_id` no nulo), que tienen su propio presupuesto.
+     */
     public function obraRubros(): HasMany
     {
-        return $this->hasMany(Costos\ObraRubro::class, 'obra_id');
+        return $this->hasMany(Costos\ObraRubro::class, 'obra_id')->whereNull('adicional_partida_id');
+    }
+
+    /**
+     * Partidas marcadas como adicional; cada una se comporta como un centro
+     * de cargo con presupuesto propio en el módulo de costos.
+     */
+    public function adicionales(): HasMany
+    {
+        return $this->hasMany(Cob\Partida::class, 'obra_id')->where('es_adicional', true);
     }
 
     // Cobranza relations

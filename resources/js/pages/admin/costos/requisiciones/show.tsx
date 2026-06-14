@@ -386,6 +386,11 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                             <span className={`badge ${REQUISICION_ESTATUS_COLORS[requisicion.estatus]}`}>
                                 {REQUISICION_ESTATUS_LABELS[requisicion.estatus]}
                             </span>
+                            {requisicion.sobre_obra_cerrada && (
+                                <span className="badge badge-warning gap-1" title="Carga sobre obra/adicional cerrado">
+                                    ⚠ Obra cerrada
+                                </span>
+                            )}
                             <span className="text-sm text-base-content/60">
                                 {requisicion.solicitante?.name} · {requisicion.departamento?.descripcion}
                                 {requisicion.obra && ` · ${requisicion.obra.no ? `OP-${requisicion.obra.no} ` : ''}${requisicion.obra.descripcion}`}

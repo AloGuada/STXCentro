@@ -71,7 +71,7 @@ class RequisicionController extends Controller
 
         return Inertia::render('admin/costos/requisiciones/create', [
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
-            'obras' => Obra::orderBy('descripcion')->get(['id', 'no', 'descripcion']),
+            'obras' => Obra::orderBy('descripcion')->get(['id', 'no', 'descripcion', 'estatus']),
             'obraRubros' => $this->obraRubrosOptions(),
             'usosCfdi' => $this->usosCfdiOptions(),
         ]);
@@ -101,6 +101,8 @@ class RequisicionController extends Controller
                     'notas' => $d['notas'] ?? null,
                 ]);
             }
+
+            $this->marcarSobreObraCerrada($requisicion);
 
             return $requisicion;
         });
@@ -442,7 +444,7 @@ class RequisicionController extends Controller
         return Inertia::render('admin/costos/requisiciones/edit', [
             'requisicion' => $requisicion,
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
-            'obras' => Obra::orderBy('descripcion')->get(['id', 'no', 'descripcion']),
+            'obras' => Obra::orderBy('descripcion')->get(['id', 'no', 'descripcion', 'estatus']),
             'obraRubros' => $this->obraRubrosOptions(),
             'usosCfdi' => $this->usosCfdiOptions(),
         ]);
@@ -501,6 +503,8 @@ class RequisicionController extends Controller
                     ]);
                 }
             }
+
+            $this->marcarSobreObraCerrada($requisicion);
 
             // Si venia de rechazada, vuelve a borrador para empezar nueva ronda.
             if ($requisicion->estatus === RequisicionEstatus::Rechazada) {
@@ -737,24 +741,50 @@ class RequisicionController extends Controller
      *
      * @return \Illuminate\Support\Collection<int, array{id: int, label: string, presupuestado: float, acumulado: float, disponible: float, sobregiro: bool}>
      */
+    /**
+     * Marca si la requisición carga a algún centro de costos cuyo objetivo
+     * (obra base o adicional) está cerrado. El aprobador lo verá señalado;
+     * no altera la cadena de aprobaciones.
+     */
+    private function marcarSobreObraCerrada(Requisicion $requisicion): void
+    {
+        $rubroIds = $requisicion->detalles()->pluck('obra_rubro_id')->filter()->unique();
+
+        $cerrada = ObraRubro::with(['obra:id,estatus', 'adicionalPartida:id,estatus'])
+            ->whereIn('id', $rubroIds)
+            ->get()
+            ->contains(fn (ObraRubro $or) => $or->estaCerrado());
+
+        $requisicion->update(['sobre_obra_cerrada' => $cerrada]);
+    }
+
     private function obraRubrosOptions(): \Illuminate\Support\Collection
     {
-        return ObraRubro::with(['obra:id,no,descripcion', 'rubro:id,codigo,descripcion'])
+        return ObraRubro::with([
+            'obra:id,no,descripcion,estatus',
+            'rubro:id,codigo,descripcion',
+            'adicionalPartida:id,numero_adicional,descripcion,estatus',
+        ])
             ->get()
             ->map(function ($or) {
                 $disponible = $or->disponible;
+                $adicional = $or->adicionalPartida;
+                $adLabel = $adicional ? ' ad'.$adicional->numero_adicional : '';
+                $adRubroPrefix = $adicional ? '[ad'.$adicional->numero_adicional.'] ' : '';
+                $obraDesc = ($or->obra?->descripcion ?? '-').($adicional ? ' / '.$adicional->descripcion : '');
 
-                $opPrefix = $or->obra?->no ? 'OP-'.$or->obra->no.' · ' : '';
+                $opPrefix = $or->obra?->no ? 'OP-'.$or->obra->no.$adLabel.' · ' : '';
 
                 return [
                     'id' => $or->id,
                     'obra_id' => $or->obra_id,
-                    'obra_label' => trim($opPrefix.($or->obra?->descripcion ?? '-')),
-                    'rubro_label' => trim(sprintf('%s %s', $or->rubro?->codigo ?? '', $or->rubro?->descripcion ?? '-')),
+                    'adicional_partida_id' => $or->adicional_partida_id,
+                    'obra_label' => trim($opPrefix.$obraDesc),
+                    'rubro_label' => trim($adRubroPrefix.sprintf('%s %s', $or->rubro?->codigo ?? '', $or->rubro?->descripcion ?? '-')),
                     'label' => sprintf(
                         '%s%s · %s %s',
                         $opPrefix,
-                        $or->obra?->descripcion ?? '-',
+                        $obraDesc,
                         $or->rubro?->codigo ?? '',
                         $or->rubro?->descripcion ?? '-',
                     ),
@@ -762,6 +792,7 @@ class RequisicionController extends Controller
                     'acumulado' => (float) $or->acumulado,
                     'disponible' => $disponible,
                     'sobregiro' => $disponible < 0,
+                    'cerrado' => $or->estaCerrado(),
                 ];
             })
             ->values();

@@ -28,6 +28,7 @@ export default function RubrosCreate({ tipoRubros, departamentos }: Props) {
         ambito: 'obra',
         tipo_rubro_id: '',
         departamento_id: '',
+        ocultar_en_reporte: false,
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -81,6 +82,16 @@ export default function RubrosCreate({ tipoRubros, departamentos }: Props) {
                                 </Select>
                             </FormField>
                         </div>
+
+                        <label className="label cursor-pointer justify-start gap-2">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm"
+                                checked={data.ocultar_en_reporte}
+                                onChange={(e) => setData('ocultar_en_reporte', e.target.checked)}
+                            />
+                            <span className="label-text">Ocultar en el reporte de presupuestos</span>
+                        </label>
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>

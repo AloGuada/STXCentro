@@ -184,6 +184,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'cob.clientes.eliminar',
             'cob.obras.ver',
             'cob.obras.editar',
+            'cob.obras.cerrar',
             'cob.partidas.ver',
             'cob.partidas.crear',
             'cob.partidas.editar',

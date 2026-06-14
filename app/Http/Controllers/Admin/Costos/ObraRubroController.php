@@ -15,6 +15,7 @@ class ObraRubroController extends Controller
     {
         $validated = $request->validate([
             'obra_id' => ['required', 'exists:obras,id'],
+            'adicional_partida_id' => ['nullable', 'exists:cob_partidas,id'],
             'rubro_id' => ['required', 'exists:costos_rubros,id'],
             'presupuestado' => ['required', 'numeric', 'min:0'],
         ]);

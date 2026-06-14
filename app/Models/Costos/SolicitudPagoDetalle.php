@@ -21,6 +21,7 @@ class SolicitudPagoDetalle extends Model
     protected $fillable = [
         'solicitud_id',
         'obra_rubro_id',
+        'sobre_obra_cerrada',
         'concepto',
         'cantidad',
         'precio_unitario',
@@ -36,6 +37,7 @@ class SolicitudPagoDetalle extends Model
             'cantidad' => 'decimal:2',
             'precio_unitario' => 'decimal:2',
             'subtotal' => 'decimal:2',
+            'sobre_obra_cerrada' => 'boolean',
         ];
     }
 

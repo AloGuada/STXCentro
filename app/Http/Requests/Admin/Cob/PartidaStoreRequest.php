@@ -19,6 +19,7 @@ class PartidaStoreRequest extends FormRequest
         return [
             'tipo' => ['required', 'string', 'in:suministro,montaje'],
             'es_adicional' => ['sometimes', 'boolean'],
+            'estatus' => ['sometimes', 'string', 'in:abierta,cerrada'],
             'descripcion' => ['required', 'string', 'max:255'],
             'monto' => ['required', 'numeric', 'min:0'],
             'moneda' => ['sometimes', 'string', 'max:3'],

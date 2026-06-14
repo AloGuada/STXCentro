@@ -18,13 +18,15 @@ import {
     COB_COMPARATIVO_ESTADO_LABELS,
     COB_DISPUTA_ESTADO_LABELS,
     COB_TIPO_CONTRATO_LABELS,
+    OBRA_ESTATUS_LABELS,
     type Cliente,
     type CobDocumentoArchivo,
     type CobDocumentoSeccion,
     type Obra,
 } from '@/types/models';
+import { useCan } from '@/hooks/use-can';
 import { Head, router, useForm } from '@inertiajs/react';
-import { Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { Loader2Icon, LockIcon, PencilIcon, PlusIcon, Trash2Icon, UnlockIcon } from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
 
 type Props = {
@@ -54,6 +56,16 @@ const TABS: { key: TabKey; label: string }[] = [
 export default function ObraShow({ obra, clientes, documentoSecciones }: Props) {
     const [activeTab, setActiveTab] = useState<TabKey>('resumen');
     const [viewerArchivo, setViewerArchivo] = useState<CobDocumentoArchivo | null>(null);
+    const { can } = useCan();
+
+    const cambiarEstadoObra = () => {
+        const cerrar = obra.estatus === 'abierta';
+        const accion = cerrar ? 'cerrar' : 'reabrir';
+        if (!window.confirm(`¿Seguro que deseas ${accion} la obra ${obra.no}?`)) {
+            return;
+        }
+        router.put(`/admin/cob/obras/${obra.id}/estado`, { estatus: cerrar ? 'cerrada' : 'abierta' }, { preserveScroll: true });
+    };
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -77,16 +89,33 @@ export default function ObraShow({ obra, clientes, documentoSecciones }: Props) 
             <div className="p-6">
                 <div className="mb-4 flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-semibold">{obra.no} - {obra.descripcion}</h1>
+                        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+                            {obra.no} - {obra.descripcion}
+                            <span className={`badge ${obra.estatus === 'cerrada' ? 'badge-error' : 'badge-success'}`}>
+                                {OBRA_ESTATUS_LABELS[obra.estatus]}
+                            </span>
+                        </h1>
                         {obra.cliente && <p className="text-sm opacity-70">Cliente: {obra.cliente.nombre}</p>}
                     </div>
-                    <a
-                        href={`/admin/cob/obras/${obra.id}/estado-cuenta-pdf`}
-                        target="_blank"
-                        className="btn btn-outline btn-sm"
-                    >
-                        Estado de Cuenta PDF
-                    </a>
+                    <div className="flex items-center gap-2">
+                        {can('cob.obras.cerrar') && (
+                            <button
+                                type="button"
+                                onClick={cambiarEstadoObra}
+                                className={`btn btn-sm ${obra.estatus === 'abierta' ? 'btn-outline btn-error' : 'btn-outline btn-success'}`}
+                            >
+                                {obra.estatus === 'abierta' ? <LockIcon className="size-4" /> : <UnlockIcon className="size-4" />}
+                                {obra.estatus === 'abierta' ? 'Cerrar obra' : 'Reabrir obra'}
+                            </button>
+                        )}
+                        <a
+                            href={`/admin/cob/obras/${obra.id}/estado-cuenta-pdf`}
+                            target="_blank"
+                            className="btn btn-outline btn-sm"
+                        >
+                            Estado de Cuenta PDF
+                        </a>
+                    </div>
                 </div>
 
                 {/* Tabs */}
@@ -332,7 +361,18 @@ function PartidasTab({ obra }: { obra: Obra }) {
                                 <td className="capitalize">{p.tipo}</td>
                                 <td>{p.descripcion}</td>
                                 <td className="text-right">{formatearMXN(p.monto)}</td>
-                                <td>{p.es_adicional ? 'Si' : 'No'}</td>
+                                <td>
+                                    {p.es_adicional ? (
+                                        <span className="flex items-center gap-1">
+                                            <span className="font-medium">{p.numero_adicional_label ?? `ad${p.numero_adicional ?? ''}`}</span>
+                                            <span className={`badge badge-xs ${p.estatus === 'cerrada' ? 'badge-error' : 'badge-success'}`}>
+                                                {OBRA_ESTATUS_LABELS[p.estatus]}
+                                            </span>
+                                        </span>
+                                    ) : (
+                                        'No'
+                                    )}
+                                </td>
                                 <td className="flex gap-1">
                                     <a href={`/admin/cob/obras/${obra.id}/partidas/${p.id}/edit`} className="btn btn-ghost btn-xs">
                                         <PencilIcon className="size-3" />

@@ -29,6 +29,7 @@ export default function RubrosEdit({ rubro, tipoRubros, departamentos }: Props) 
         descripcion: rubro.descripcion,
         tipo_rubro_id: String(rubro.tipo_rubro_id),
         departamento_id: rubro.departamento_id ? String(rubro.departamento_id) : '',
+        ocultar_en_reporte: rubro.ocultar_en_reporte,
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -83,6 +84,16 @@ export default function RubrosEdit({ rubro, tipoRubros, departamentos }: Props) 
                                 ))}
                             </Select>
                         </FormField>
+
+                        <label className="label cursor-pointer justify-start gap-2">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm"
+                                checked={data.ocultar_en_reporte}
+                                onChange={(e) => setData('ocultar_en_reporte', e.target.checked)}
+                            />
+                            <span className="label-text">Ocultar en el reporte de presupuestos</span>
+                        </label>
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>

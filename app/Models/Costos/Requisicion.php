@@ -47,6 +47,7 @@ class Requisicion extends Model implements Aprobable
         'justificacion',
         'fecha_requerida',
         'estatus',
+        'sobre_obra_cerrada',
         'motivo_rechazo',
         'locked_by',
         'locked_at',
@@ -60,6 +61,7 @@ class Requisicion extends Model implements Aprobable
         return [
             'fecha_requerida' => 'date',
             'estatus' => RequisicionEstatus::class,
+            'sobre_obra_cerrada' => 'boolean',
             'locked_at' => 'datetime',
         ];
     }

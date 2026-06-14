@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Models\Cob\Partida;
 use App\Models\Obra;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,6 +23,7 @@ class ObraRubro extends Model
      */
     protected $fillable = [
         'obra_id',
+        'adicional_partida_id',
         'rubro_id',
         'presupuestado',
         'acumulado',
@@ -46,6 +48,28 @@ class ObraRubro extends Model
     public function rubro(): BelongsTo
     {
         return $this->belongsTo(Rubro::class);
+    }
+
+    /**
+     * Adicional al que pertenece este centro de costo, o null si es de la
+     * obra base.
+     */
+    public function adicionalPartida(): BelongsTo
+    {
+        return $this->belongsTo(Partida::class, 'adicional_partida_id');
+    }
+
+    /**
+     * Indica si el objetivo de cargo (obra base o adicional) está cerrado.
+     * Obra y adicional tienen estado independiente.
+     */
+    public function estaCerrado(): bool
+    {
+        if ($this->adicional_partida_id !== null) {
+            return $this->adicionalPartida?->estatus === 'cerrada';
+        }
+
+        return $this->obra?->estatus === 'cerrada';
     }
 
     /**

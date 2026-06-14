@@ -73,7 +73,11 @@ class SolicitudPagoController extends Controller
                 ->each->append('bloqueado_complemento'),
             'tipoSolicitudes' => TipoSolicitud::with('documentos')->orderBy('titulo')->get(),
             'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
-            'obraRubros' => ObraRubro::with('rubro')->get(),
+            'obraRubros' => ObraRubro::with([
+                'rubro',
+                'obra:id,estatus',
+                'adicionalPartida:id,numero_adicional,descripcion,estatus',
+            ])->get(),
         ]);
     }
 
@@ -104,8 +108,13 @@ class SolicitudPagoController extends Controller
 
             foreach ($request->input('detalles', []) as $detalle) {
                 $subtotal = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
+
+                $obraRubro = ObraRubro::with(['rubro:id,codigo', 'obra:id,estatus', 'adicionalPartida:id,estatus'])
+                    ->find($detalle['obra_rubro_id']);
+
                 $solicitud->detalles()->create([
                     'obra_rubro_id' => $detalle['obra_rubro_id'],
+                    'sobre_obra_cerrada' => $obraRubro?->estaCerrado() ?? false,
                     'concepto' => $detalle['concepto'],
                     'cantidad' => $detalle['cantidad'],
                     'precio_unitario' => $detalle['precio_unitario'],
@@ -114,7 +123,6 @@ class SolicitudPagoController extends Controller
                 $montoTotal += $subtotal;
 
                 // Check budget
-                $obraRubro = ObraRubro::find($detalle['obra_rubro_id']);
                 if ($obraRubro) {
                     $disponible = $obraRubro->disponible;
                     if ($subtotal > $disponible) {
@@ -241,7 +249,11 @@ class SolicitudPagoController extends Controller
                 ->each->append('bloqueado_complemento'),
             'tipoSolicitudes' => TipoSolicitud::with('documentos')->orderBy('titulo')->get(),
             'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
-            'obraRubros' => ObraRubro::with('rubro')->get(),
+            'obraRubros' => ObraRubro::with([
+                'rubro',
+                'obra:id,estatus',
+                'adicionalPartida:id,numero_adicional,descripcion,estatus',
+            ])->get(),
         ]);
     }
 
@@ -275,9 +287,14 @@ class SolicitudPagoController extends Controller
             foreach ($request->input('detalles', []) as $detalle) {
                 $subtotal = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
 
+                $obraRubro = ObraRubro::with(['rubro:id,codigo', 'obra:id,estatus', 'adicionalPartida:id,estatus'])
+                    ->find($detalle['obra_rubro_id']);
+                $sobreObraCerrada = $obraRubro?->estaCerrado() ?? false;
+
                 if (! empty($detalle['id'])) {
                     SolicitudPagoDetalle::where('id', $detalle['id'])->update([
                         'obra_rubro_id' => $detalle['obra_rubro_id'],
+                        'sobre_obra_cerrada' => $sobreObraCerrada,
                         'concepto' => $detalle['concepto'],
                         'cantidad' => $detalle['cantidad'],
                         'precio_unitario' => $detalle['precio_unitario'],
@@ -286,6 +303,7 @@ class SolicitudPagoController extends Controller
                 } else {
                     $solicitudPago->detalles()->create([
                         'obra_rubro_id' => $detalle['obra_rubro_id'],
+                        'sobre_obra_cerrada' => $sobreObraCerrada,
                         'concepto' => $detalle['concepto'],
                         'cantidad' => $detalle['cantidad'],
                         'precio_unitario' => $detalle['precio_unitario'],
@@ -296,7 +314,6 @@ class SolicitudPagoController extends Controller
                 $montoTotal += $subtotal;
 
                 // Check budget
-                $obraRubro = ObraRubro::find($detalle['obra_rubro_id']);
                 if ($obraRubro) {
                     $disponible = $obraRubro->disponible;
                     if ($subtotal > $disponible) {

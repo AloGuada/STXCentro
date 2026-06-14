@@ -221,8 +221,13 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                                         </thead>
                                         <tbody>
                                             {solicitud.detalles.map((d) => (
-                                                <tr key={d.id}>
-                                                    <td>{d.obra_rubro?.rubro?.codigo ?? '-'} - {d.obra_rubro?.rubro?.descripcion ?? ''}</td>
+                                                <tr key={d.id} className={d.sobre_obra_cerrada ? 'bg-warning/10' : ''}>
+                                                    <td>
+                                                        {d.obra_rubro?.rubro?.codigo ?? '-'} - {d.obra_rubro?.rubro?.descripcion ?? ''}
+                                                        {d.sobre_obra_cerrada && (
+                                                            <span className="badge badge-warning badge-xs ml-1" title="Carga sobre obra/adicional cerrado">⚠ cerrada</span>
+                                                        )}
+                                                    </td>
                                                     <td>{d.concepto}</td>
                                                     <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                                                     <td className="text-right">${Number(d.precio_unitario).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>

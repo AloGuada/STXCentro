@@ -20,6 +20,7 @@ class RubroUpdateRequest extends FormRequest
         return [
             'codigo' => ['required', 'string', 'max:50', Rule::unique('costos_rubros', 'codigo')->ignore($this->route('rubro'))],
             'descripcion' => ['required', 'string', 'max:255'],
+            'ocultar_en_reporte' => ['sometimes', 'boolean'],
             'tipo_rubro_id' => ['required', 'exists:costos_tipo_rubros,id'],
             'departamento_id' => ['nullable', 'exists:departamentos,id'],
         ];

@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { PlusIcon, Trash2Icon } from 'lucide-react';
+import { useState } from 'react';
 import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
@@ -27,7 +28,7 @@ type FormData = {
 type Props = {
     requisicion: CostosRequisicion;
     departamentos: Pick<Departamento, 'id' | 'descripcion'>[];
-    obras: Pick<Obra, 'id' | 'no' | 'descripcion'>[];
+    obras: Pick<Obra, 'id' | 'no' | 'descripcion' | 'estatus'>[];
     obraRubros: ObraRubroOption[];
     usosCfdi: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>[];
 };
@@ -59,7 +60,11 @@ export default function RequisicionesEdit({ requisicion, departamentos, obras, o
         _version: requisicion.updated_at,
     });
 
-    const rubrosDeObra = data.obra_id ? obraRubros.filter((r) => r.obra_id === data.obra_id) : [];
+    const [incluirCerradas, setIncluirCerradas] = useState(false);
+    const obrasVisibles = obras.filter((o) => incluirCerradas || o.estatus !== 'cerrada');
+    const rubrosDeObra = data.obra_id
+        ? obraRubros.filter((r) => r.obra_id === data.obra_id && (incluirCerradas || !r.cerrado))
+        : [];
 
     const setObra = (value: number | '') => {
         setData((prev) => ({
@@ -105,15 +110,28 @@ export default function RequisicionesEdit({ requisicion, departamentos, obras, o
                     </div>
 
                     <div>
-                        <label className="label label-text">Obra / Proyecto *</label>
+                        <div className="flex items-center justify-between">
+                            <label className="label label-text">Obra / Proyecto *</label>
+                            <label className="label cursor-pointer gap-2 py-0">
+                                <input
+                                    type="checkbox"
+                                    className="checkbox checkbox-xs"
+                                    checked={incluirCerradas}
+                                    onChange={(e) => setIncluirCerradas(e.target.checked)}
+                                />
+                                <span className="label-text text-xs">Incluir cerradas</span>
+                            </label>
+                        </div>
                         <select
                             className="select select-bordered w-full"
                             value={data.obra_id}
                             onChange={(e) => setObra(e.target.value ? Number(e.target.value) : '')}
                         >
                             <option value="">Selecciona una obra</option>
-                            {obras.map((o) => (
-                                <option key={o.id} value={o.id}>{o.no ? `OP-${o.no} · ` : ''}{o.descripcion}</option>
+                            {obrasVisibles.map((o) => (
+                                <option key={o.id} value={o.id}>
+                                    {o.no ? `OP-${o.no} · ` : ''}{o.descripcion}{o.estatus === 'cerrada' ? ' (Cerrada)' : ''}
+                                </option>
                             ))}
                         </select>
                         {errors.obra_id && <p className="text-error text-sm mt-1">{errors.obra_id}</p>}

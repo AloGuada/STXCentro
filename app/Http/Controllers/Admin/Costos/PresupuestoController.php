@@ -129,7 +129,11 @@ class PresupuestoController extends Controller
 
     public function edit(Obra $obra): Response
     {
-        $obra->load(['obraRubros.rubro.tipoRubro']);
+        $obra->load([
+            'obraRubros.rubro.tipoRubro',
+            'adicionales' => fn ($q) => $q->orderBy('numero_adicional'),
+            'adicionales.obraRubros.rubro.tipoRubro',
+        ]);
 
         $rubros = Rubro::query()
             ->where('ambito', $obra->es_planta ? 'planta' : 'obra')
@@ -139,13 +143,16 @@ class PresupuestoController extends Controller
 
         return Inertia::render('admin/costos/presupuestos/edit', [
             'obra' => $obra,
+            'adicionales' => $obra->adicionales,
             'rubros' => $rubros,
         ]);
     }
 
     public function generarReportePdf(): HttpResponse
     {
-        $tipos = TipoRubro::with(['rubros' => fn ($q) => $q->where('ambito', 'obra')->orderBy('codigo')])
+        $tipos = TipoRubro::with(['rubros' => fn ($q) => $q->where('ambito', 'obra')
+            ->where('ocultar_en_reporte', false)
+            ->orderBy('codigo')])
             ->orderBy('descripcion')
             ->get();
 

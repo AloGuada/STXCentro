@@ -16,9 +16,11 @@ type Props = {
 export function RubroSelector({ value, options, onChange, rubroOnly = false, disabled = false }: Props) {
     const isAlerta = (r: ObraRubroOption) => r.sobregiro || r.presupuestado <= 0;
     const sufijo = (r: ObraRubroOption) => {
-        if (r.sobregiro) return ' · ⚠ sobregiro';
-        if (r.presupuestado <= 0) return ' · ⚠ sin presupuesto';
-        return '';
+        const partes: string[] = [];
+        if (r.cerrado) partes.push('⚠ cerrada');
+        if (r.sobregiro) partes.push('⚠ sobregiro');
+        else if (r.presupuestado <= 0) partes.push('⚠ sin presupuesto');
+        return partes.length ? ' · ' + partes.join(' · ') : '';
     };
 
     return (

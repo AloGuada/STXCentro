@@ -213,7 +213,7 @@ export default function ObrasIndex({ obras, filters }: Props) {
                                     className="max-w-xs"
                                 />
                                 <a
-                                    href="/admin/cob/obras/reporte-pdf"
+                                    href={`/admin/cob/obras/reporte-pdf?estatus=${filters.estatus}${filters.search ? `&search=${encodeURIComponent(filters.search)}` : ''}`}
                                     target="_blank"
                                     className="btn btn-outline btn-sm"
                                 >

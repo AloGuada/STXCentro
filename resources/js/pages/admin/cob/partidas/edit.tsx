@@ -29,6 +29,7 @@ export default function PartidaEdit({ obra, partida }: Props) {
         monto: String(partida.monto),
         moneda: partida.moneda,
         es_adicional: partida.es_adicional,
+        estatus: partida.estatus,
         es_subobra: partida.es_subobra,
     });
 
@@ -94,6 +95,18 @@ export default function PartidaEdit({ obra, partida }: Props) {
                                     <span className="label-text">Subobra</span>
                                 </label>
                             </div>
+
+                            {data.es_adicional && (
+                                <FormField label="Estado del adicional" htmlFor="estatus" error={errors.estatus}>
+                                    <Select value={data.estatus} onValueChange={(v) => setData('estatus', v as typeof data.estatus)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="abierta">Abierta</SelectItem>
+                                            <SelectItem value="cerrada">Cerrada</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </FormField>
+                            )}
                         </div>
 
                         <div className="flex justify-end gap-2">

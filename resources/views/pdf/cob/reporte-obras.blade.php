@@ -137,7 +137,13 @@
     </table>
 
     {{-- Title --}}
-    <div class="title">REPORTE DE OBRAS - COBRANZA</div>
+    <div class="title">
+        REPORTE DE OBRAS - COBRANZA
+        @php
+            $estatusLabel = ['abierta' => 'Abiertas', 'cerrada' => 'Cerradas', 'todas' => 'Todas'][$estatusFiltro ?? 'abierta'] ?? 'Abiertas';
+        @endphp
+        ({{ $estatusLabel }})
+    </div>
 
     @php
         $estadosFacturados = ['facturada', 'pago_parcial', 'pagado'];

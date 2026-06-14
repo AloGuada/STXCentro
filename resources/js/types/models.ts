@@ -1255,6 +1255,7 @@ export type CostosRubro = {
     codigo: string;
     descripcion: string;
     ambito: 'obra' | 'planta';
+    ocultar_en_reporte: boolean;
     tipo_rubro_id: number;
     departamento_id: number | null;
     tipo_rubro?: CostosTipoRubro;
@@ -1288,11 +1289,13 @@ export type CostosDocumento = {
 export type CostosObraRubro = {
     id: number;
     obra_id: number;
+    adicional_partida_id?: number | null;
     rubro_id: number;
     presupuestado: number;
     acumulado: number;
     rubro?: CostosRubro;
     obra?: Obra;
+    adicional_partida?: Pick<CobPartida, 'id' | 'numero_adicional' | 'descripcion' | 'estatus'> | null;
     created_at: string;
     updated_at: string;
 };
@@ -1514,6 +1517,7 @@ export const MODO_PAGO_LABELS: Record<ModoPago, string> = {
 export type ObraRubroOption = {
     id: number;
     obra_id: number;
+    adicional_partida_id: number | null;
     obra_label: string;
     rubro_label: string;
     label: string;
@@ -1521,6 +1525,7 @@ export type ObraRubroOption = {
     acumulado: number;
     disponible: number;
     sobregiro: boolean;
+    cerrado: boolean;
 };
 
 export type CostosUsoCfdi = {
@@ -1542,6 +1547,7 @@ export type CostosRequisicion = {
     justificacion: string | null;
     fecha_requerida: string | null;
     estatus: CostosRequisicionEstatus;
+    sobre_obra_cerrada: boolean;
     motivo_rechazo: string | null;
     locked_by: string | null;
     locked_at: string | null;
@@ -1666,6 +1672,7 @@ export type CostosSolicitudPagoDetalle = {
     id: number;
     solicitud_id: number;
     obra_rubro_id: number;
+    sobre_obra_cerrada: boolean;
     concepto: string;
     cantidad: number;
     precio_unitario: number;
@@ -2244,6 +2251,9 @@ export type CobPartida = {
     obra_id: number;
     tipo: CobPartidaTipo;
     es_adicional: boolean;
+    estatus: ObraEstatus;
+    numero_adicional: number | null;
+    numero_adicional_label?: string | null;
     descripcion: string;
     monto: number;
     moneda: string;

@@ -4,7 +4,8 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Obra } from '@/types/models';
 import { Head } from '@inertiajs/react';
-import { useMemo } from 'react';
+import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -421,7 +422,54 @@ function KpiCard({ label, valor, color }: { label: string; valor: string; color?
     );
 }
 
+type PortafolioSort = { key: string; dir: 'asc' | 'desc' };
+
+const PORTAFOLIO_ACCESSORS: Record<string, (p: DatosProyecto) => number | string> = {
+    no: (p) => p.obra.no,
+    descripcion: (p) => p.obra.descripcion,
+    cliente: (p) => p.obra.cliente?.nombre ?? '',
+    presupuesto: (p) => p.presupuestoEjecutar,
+    facturado: (p) => p.totalFacturado,
+    cobrado: (p) => p.totalCobrado,
+    porCobrar: (p) => p.porCobrar,
+    pctCobrado: (p) => p.porcentajeCobrado,
+};
+
 function PortafolioTable({ proyectos }: { proyectos: DatosProyecto[] }) {
+    const [sort, setSort] = useState<PortafolioSort | null>(null);
+
+    const toggleSort = (key: string) => {
+        setSort((prev) => (prev?.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
+    };
+
+    const sorted = useMemo(() => {
+        if (!sort) return proyectos;
+        const accessor = PORTAFOLIO_ACCESSORS[sort.key];
+        if (!accessor) return proyectos;
+        return [...proyectos].sort((a, b) => {
+            const va = accessor(a);
+            const vb = accessor(b);
+            const cmp =
+                typeof va === 'number' && typeof vb === 'number'
+                    ? va - vb
+                    : String(va).localeCompare(String(vb), 'es', { numeric: true });
+            return sort.dir === 'asc' ? cmp : -cmp;
+        });
+    }, [proyectos, sort]);
+
+    const sortTh = (id: string, label: string, align: 'left' | 'right' = 'left') => {
+        const dir = sort?.key === id ? sort.dir : undefined;
+        const Icon = dir === 'asc' ? ArrowUpIcon : dir === 'desc' ? ArrowDownIcon : ArrowUpDownIcon;
+        return (
+            <th className={`cursor-pointer select-none ${align === 'right' ? 'text-right' : ''}`} onClick={() => toggleSort(id)}>
+                <span className="inline-flex items-center gap-1">
+                    {label}
+                    <Icon className={dir ? 'size-3' : 'size-3 opacity-30'} />
+                </span>
+            </th>
+        );
+    };
+
     if (proyectos.length === 0) {
         return <EmptyChart label="No hay obras registradas" />;
     }
@@ -431,18 +479,18 @@ function PortafolioTable({ proyectos }: { proyectos: DatosProyecto[] }) {
             <table className="table table-sm">
                 <thead className="sticky top-0 z-10 bg-base-100">
                     <tr>
-                        <th>No Obra</th>
-                        <th>Descripcion</th>
-                        <th>Cliente</th>
-                        <th className="text-right">Presupuesto</th>
-                        <th className="text-right">Facturado</th>
-                        <th className="text-right">Cobrado</th>
-                        <th className="text-right">Por Cobrar</th>
-                        <th>% Cobrado</th>
+                        {sortTh('no', 'No Obra')}
+                        {sortTh('descripcion', 'Descripcion')}
+                        {sortTh('cliente', 'Cliente')}
+                        {sortTh('presupuesto', 'Presupuesto', 'right')}
+                        {sortTh('facturado', 'Facturado', 'right')}
+                        {sortTh('cobrado', 'Cobrado', 'right')}
+                        {sortTh('porCobrar', 'Por Cobrar', 'right')}
+                        {sortTh('pctCobrado', '% Cobrado')}
                     </tr>
                 </thead>
                 <tbody>
-                    {proyectos.map((p) => (
+                    {sorted.map((p) => (
                         <tr key={p.obra.id}>
                             <td>{p.obra.no}</td>
                             <td>{p.obra.descripcion}</td>

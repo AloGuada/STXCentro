@@ -21,6 +21,7 @@ class RubroStoreRequest extends FormRequest
             'codigo' => ['required', 'string', 'max:50', 'unique:costos_rubros,codigo'],
             'descripcion' => ['required', 'string', 'max:255'],
             'ambito' => ['required', Rule::in(['obra', 'planta'])],
+            'ocultar_en_reporte' => ['sometimes', 'boolean'],
             'tipo_rubro_id' => ['required', 'exists:costos_tipo_rubros,id'],
             'departamento_id' => ['nullable', 'exists:departamentos,id'],
         ];
