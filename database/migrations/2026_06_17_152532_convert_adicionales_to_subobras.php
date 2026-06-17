@@ -52,11 +52,15 @@ return new class extends Migration
                             ->update(['obra_id' => $subObra->id, 'adicional_partida_id' => null]);
 
                         // La partida queda como partida normal de la sub-obra.
-                        $partida->update([
-                            'obra_id' => $subObra->id,
-                            'es_adicional' => false,
-                            'numero_adicional' => null,
-                        ]);
+                        // DB directo: el modelo ya no expone es_adicional/numero_adicional
+                        // en fillable (parche retirado), un update Eloquent los ignoraría.
+                        DB::table('cob_partidas')
+                            ->where('id', $partida->id)
+                            ->update([
+                                'obra_id' => $subObra->id,
+                                'es_adicional' => false,
+                                'numero_adicional' => null,
+                            ]);
                     });
                 }
             });

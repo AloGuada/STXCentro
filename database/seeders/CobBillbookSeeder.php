@@ -303,11 +303,9 @@ class CobBillbookSeeder extends Seeder
             Partida::create([
                 'obra_id' => $obraMap[$row->proyecto_id],
                 'tipo' => $row->tipo,
-                'es_adicional' => $row->es_adicional ?? false,
                 'descripcion' => $row->descripcion,
                 'monto' => $row->monto,
                 'moneda' => $this->mapMoneda($row->moneda),
-                'es_subobra' => $row->es_subobra ?? false,
             ]);
             $count++;
         }

@@ -131,8 +131,6 @@ class PresupuestoController extends Controller
     {
         $obra->load([
             'obraRubros.rubro.tipoRubro',
-            'adicionales' => fn ($q) => $q->orderBy('numero_adicional'),
-            'adicionales.obraRubros.rubro.tipoRubro',
         ]);
 
         $rubros = Rubro::query()
@@ -143,7 +141,6 @@ class PresupuestoController extends Controller
 
         return Inertia::render('admin/costos/presupuestos/edit', [
             'obra' => $obra,
-            'adicionales' => $obra->adicionales,
             'rubros' => $rubros,
         ]);
     }

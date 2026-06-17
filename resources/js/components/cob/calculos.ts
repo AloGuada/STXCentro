@@ -33,13 +33,11 @@ export function calcularResumen(
     deducciones: CobDeduccion[],
     tipoContrato: string | null = null,
 ): ResumenFinanciero {
-    const presupuestoPartidas = partidas
-        .filter((p) => !p.es_adicional)
-        .reduce((sum, p) => sum + Number(p.monto), 0);
+    const presupuestoPartidas = partidas.reduce((sum, p) => sum + Number(p.monto), 0);
 
-    const partidasAdicionales = partidas
-        .filter((p) => p.es_adicional)
-        .reduce((sum, p) => sum + Number(p.monto), 0);
+    // Los adicionales ahora son sub-obras (obras con sus propias partidas), por
+    // lo que ya no se separan dentro de una obra.
+    const partidasAdicionales = 0;
 
     const lastComparativo = comparativos
         .filter((c) => c.estado === 'implementado' || c.estado === 'aprobado')

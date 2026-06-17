@@ -1314,13 +1314,11 @@ export type CostosDocumento = {
 export type CostosObraRubro = {
     id: number;
     obra_id: number;
-    adicional_partida_id?: number | null;
     rubro_id: number;
     presupuestado: number;
     acumulado: number;
     rubro?: CostosRubro;
     obra?: Obra;
-    adicional_partida?: Pick<CobPartida, 'id' | 'numero_adicional' | 'descripcion' | 'estatus'> | null;
     created_at: string;
     updated_at: string;
 };
@@ -1542,7 +1540,6 @@ export const MODO_PAGO_LABELS: Record<ModoPago, string> = {
 export type ObraRubroOption = {
     id: number;
     obra_id: number;
-    adicional_partida_id: number | null;
     obra_label: string;
     rubro_label: string;
     label: string;
@@ -2275,14 +2272,10 @@ export type CobPartida = {
     id: number;
     obra_id: number;
     tipo: CobPartidaTipo;
-    es_adicional: boolean;
     estatus: ObraEstatus;
-    numero_adicional: number | null;
-    numero_adicional_label?: string | null;
     descripcion: string;
     monto: number;
     moneda: string;
-    es_subobra: boolean;
     created_at: string;
     updated_at: string;
 };

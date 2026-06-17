@@ -142,16 +142,14 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
     };
 
     const [incluirCerradas, setIncluirCerradas] = useState(false);
-    const esCerrado = (or: CostosObraRubro) =>
-        or.adicional_partida ? or.adicional_partida.estatus === 'cerrada' : or.obra?.estatus === 'cerrada';
+    const esCerrado = (or: CostosObraRubro) => or.obra?.estatus === 'cerrada';
     const obrasVisibles = obras.filter((o) => incluirCerradas || o.estatus !== 'cerrada');
 
     const formatMoney = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
     const getRubroOptionLabel = (or: CostosObraRubro) => {
         const disp = Number(or.presupuestado) - Number(or.acumulado);
-        const adPrefix = or.adicional_partida ? `[ad${or.adicional_partida.numero_adicional}] ` : '';
-        const prefix = `${adPrefix}${or.rubro?.codigo} - ${or.rubro?.descripcion}`;
+        const prefix = `${or.rubro?.codigo} - ${or.rubro?.descripcion}`;
         if (disp <= 0) {
             return `${prefix}  |  SOBREGIRO: -$${formatMoney(Math.abs(disp))}`;
         }

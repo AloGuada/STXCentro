@@ -107,21 +107,12 @@ class Obra extends Model
     }
 
     /**
-     * Presupuesto base de la obra. Excluye los rubros de adicionales
-     * (`adicional_partida_id` no nulo), que tienen su propio presupuesto.
+     * Presupuesto de la obra (centro de costo). Cada obra/sub-obra tiene el
+     * suyo; los adicionales son sub-obras con sus propios rubros.
      */
     public function obraRubros(): HasMany
     {
-        return $this->hasMany(Costos\ObraRubro::class, 'obra_id')->whereNull('adicional_partida_id');
-    }
-
-    /**
-     * Partidas marcadas como adicional; cada una se comporta como un centro
-     * de cargo con presupuesto propio en el módulo de costos.
-     */
-    public function adicionales(): HasMany
-    {
-        return $this->hasMany(Cob\Partida::class, 'obra_id')->where('es_adicional', true);
+        return $this->hasMany(Costos\ObraRubro::class, 'obra_id');
     }
 
     // Proyecto / jerarquía

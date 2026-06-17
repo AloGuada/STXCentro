@@ -1,14 +1,14 @@
+import { Head, Link, router } from '@inertiajs/react';
+import { ArrowLeftIcon, CheckIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CobPartida, CostosObraRubro, CostosRubro, Obra, ObraEstatus } from '@/types/models';
+import type { CostosObraRubro, CostosRubro, Obra, ObraEstatus } from '@/types/models';
 import { OBRA_ESTATUS_LABELS } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeftIcon, CheckIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
 
 const ESTATUS_COLORS: Record<ObraEstatus, string> = {
     abierta: 'badge-success',
@@ -17,23 +17,18 @@ const ESTATUS_COLORS: Record<ObraEstatus, string> = {
 
 const fmt = (v: number) => `$${Number(v).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
-type AdicionalConRubros = CobPartida & { obra_rubros: CostosObraRubro[] };
-
 type Props = {
     obra: Obra & { obra_rubros: CostosObraRubro[] };
-    adicionales: AdicionalConRubros[];
     rubros: CostosRubro[];
 };
 
-export default function PresupuestosEdit({ obra, adicionales, rubros }: Props) {
+export default function PresupuestosEdit({ obra, rubros }: Props) {
     const [newRubroId, setNewRubroId] = useState('');
     const [newPresupuestado, setNewPresupuestado] = useState('');
     const [addingRubro, setAddingRubro] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editValue, setEditValue] = useState('');
     const [updatingId, setUpdatingId] = useState<number | null>(null);
-    // null = presupuesto de la obra base; id = presupuesto de ese adicional.
-    const [targetId, setTargetId] = useState<number | null>(null);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -42,8 +37,7 @@ export default function PresupuestosEdit({ obra, adicionales, rubros }: Props) {
         { title: obra.no, href: `/admin/costos/presupuestos/${obra.id}/edit` },
     ];
 
-    const targetAdicional = adicionales.find((a) => a.id === targetId) ?? null;
-    const currentRubros = targetAdicional ? (targetAdicional.obra_rubros ?? []) : (obra.obra_rubros ?? []);
+    const currentRubros = obra.obra_rubros ?? [];
 
     const assignedRubroIds = currentRubros.map((or) => or.rubro_id);
     const availableRubros = rubros.filter((r) => !assignedRubroIds.includes(r.id));
@@ -55,7 +49,6 @@ export default function PresupuestosEdit({ obra, adicionales, rubros }: Props) {
         setAddingRubro(true);
         router.post('/admin/costos/obra-rubros', {
             obra_id: obra.id,
-            adicional_partida_id: targetId,
             rubro_id: newRubroId,
             presupuestado: newPresupuestado,
         }, {
@@ -127,33 +120,6 @@ export default function PresupuestosEdit({ obra, adicionales, rubros }: Props) {
                         </div>
                     </div>
                 </div>
-
-                {/* Selector de objetivo: obra base o adicional */}
-                {adicionales.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm text-base-content/60">Presupuesto de:</span>
-                        <div role="tablist" className="tabs tabs-boxed tabs-sm">
-                            <button
-                                role="tab"
-                                className={`tab ${targetId === null ? 'tab-active' : ''}`}
-                                onClick={() => setTargetId(null)}
-                            >
-                                Obra base
-                            </button>
-                            {adicionales.map((a) => (
-                                <button
-                                    key={a.id}
-                                    role="tab"
-                                    className={`tab ${targetId === a.id ? 'tab-active' : ''}`}
-                                    onClick={() => setTargetId(a.id)}
-                                >
-                                    ad{a.numero_adicional} - {a.descripcion}
-                                    {a.estatus === 'cerrada' && <span className="badge badge-error badge-xs ml-1">Cerrada</span>}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
 
                 {/* Tabla de rubros */}
                 {currentRubros.length > 0 ? (

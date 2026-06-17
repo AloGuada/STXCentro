@@ -1,3 +1,6 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import { type FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -5,9 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { type Obra } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import { type FormEvent } from 'react';
 
 type Props = {
     obra: Obra;
@@ -26,8 +26,6 @@ export default function PartidaCreate({ obra }: Props) {
         descripcion: '',
         monto: '',
         moneda: 'MXN',
-        es_adicional: false,
-        es_subobra: false,
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -72,18 +70,6 @@ export default function PartidaCreate({ obra }: Props) {
                                 </Select>
                             </FormField>
 
-                            <div className="flex items-end gap-6">
-                                {/* Los adicionales ahora se crean como sub-obras desde la pestaña "Sub-obras" de la obra. */}
-                                <label className="label cursor-pointer gap-2">
-                                    <input
-                                        type="checkbox"
-                                        className="checkbox checkbox-sm"
-                                        checked={data.es_subobra as boolean}
-                                        onChange={(e) => setData('es_subobra', e.target.checked)}
-                                    />
-                                    <span className="label-text">Subobra</span>
-                                </label>
-                            </div>
                         </div>
 
                         <div className="flex justify-end gap-2">

@@ -197,9 +197,8 @@
         $comparativos = $obra->comparativos ?? collect();
         $deducciones = $obra->deducciones ?? collect();
 
-        $presupuestoPartidas = $partidas->where('es_adicional', false)->sum('monto');
-        $partidasAdicionales = $partidas->where('es_adicional', true)->sum('monto');
-        $basePartidas = $presupuestoPartidas + $partidasAdicionales;
+        $presupuestoPartidas = $partidas->sum('monto');
+        $basePartidas = $presupuestoPartidas;
 
         $lastComparativo = $comparativos
             ->whereIn('estado', ['implementado', 'aprobado'])

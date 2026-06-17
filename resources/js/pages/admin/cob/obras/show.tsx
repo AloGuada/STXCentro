@@ -1,3 +1,6 @@
+import { Head, router, useForm } from '@inertiajs/react';
+import { Loader2Icon, LockIcon, PencilIcon, PlusIcon, Trash2Icon, UnlockIcon } from 'lucide-react';
+import { type FormEvent, useMemo, useState } from 'react';
 import ArchivoViewerModal from '@/components/cob/archivo-viewer-modal';
 import { calcularResumen } from '@/components/cob/calculos';
 import { DocumentoTree } from '@/components/cob/documento-tree';
@@ -8,6 +11,7 @@ import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import {
@@ -23,10 +27,6 @@ import {
     type CobDocumentoSeccion,
     type Obra,
 } from '@/types/models';
-import { useCan } from '@/hooks/use-can';
-import { Head, router, useForm } from '@inertiajs/react';
-import { Loader2Icon, LockIcon, PencilIcon, PlusIcon, Trash2Icon, UnlockIcon } from 'lucide-react';
-import { type FormEvent, useMemo, useState } from 'react';
 
 type Props = {
     obra: Obra;
@@ -350,7 +350,6 @@ function PartidasTab({ obra }: { obra: Obra }) {
                             <th>Tipo</th>
                             <th>Descripcion</th>
                             <th className="text-right">Monto</th>
-                            <th>Adicional</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -360,18 +359,6 @@ function PartidasTab({ obra }: { obra: Obra }) {
                                 <td className="capitalize">{p.tipo}</td>
                                 <td>{p.descripcion}</td>
                                 <td className="text-right">{formatearMXN(p.monto)}</td>
-                                <td>
-                                    {p.es_adicional ? (
-                                        <span className="flex items-center gap-1">
-                                            <span className="font-medium">{p.numero_adicional_label ?? `ad${p.numero_adicional ?? ''}`}</span>
-                                            <span className={`badge badge-xs ${p.estatus === 'cerrada' ? 'badge-error' : 'badge-success'}`}>
-                                                {OBRA_ESTATUS_LABELS[p.estatus]}
-                                            </span>
-                                        </span>
-                                    ) : (
-                                        'No'
-                                    )}
-                                </td>
                                 <td className="flex gap-1">
                                     <a href={`/admin/cob/obras/${obra.id}/partidas/${p.id}/edit`} className="btn btn-ghost btn-xs">
                                         <PencilIcon className="size-3" />
@@ -383,7 +370,7 @@ function PartidasTab({ obra }: { obra: Obra }) {
                             </tr>
                         ))}
                         {(obra.partidas ?? []).length === 0 && (
-                            <tr><td colSpan={5} className="text-center opacity-50">No hay partidas</td></tr>
+                            <tr><td colSpan={4} className="text-center opacity-50">No hay partidas</td></tr>
                         )}
                     </tbody>
                 </table>

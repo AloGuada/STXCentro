@@ -1,3 +1,6 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import { type FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -5,9 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { type CobPartida, type Obra } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import { type FormEvent } from 'react';
 
 type Props = {
     obra: Obra;
@@ -28,9 +28,6 @@ export default function PartidaEdit({ obra, partida }: Props) {
         descripcion: partida.descripcion,
         monto: String(partida.monto),
         moneda: partida.moneda,
-        es_adicional: partida.es_adicional,
-        estatus: partida.estatus,
-        es_subobra: partida.es_subobra,
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -75,38 +72,6 @@ export default function PartidaEdit({ obra, partida }: Props) {
                                 </Select>
                             </FormField>
 
-                            <div className="flex items-end gap-6">
-                                <label className="label cursor-pointer gap-2">
-                                    <input
-                                        type="checkbox"
-                                        className="checkbox checkbox-sm"
-                                        checked={data.es_adicional as boolean}
-                                        onChange={(e) => setData('es_adicional', e.target.checked)}
-                                    />
-                                    <span className="label-text">Adicional</span>
-                                </label>
-                                <label className="label cursor-pointer gap-2">
-                                    <input
-                                        type="checkbox"
-                                        className="checkbox checkbox-sm"
-                                        checked={data.es_subobra as boolean}
-                                        onChange={(e) => setData('es_subobra', e.target.checked)}
-                                    />
-                                    <span className="label-text">Subobra</span>
-                                </label>
-                            </div>
-
-                            {data.es_adicional && (
-                                <FormField label="Estado del adicional" htmlFor="estatus" error={errors.estatus}>
-                                    <Select value={data.estatus} onValueChange={(v) => setData('estatus', v as typeof data.estatus)}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="abierta">Abierta</SelectItem>
-                                            <SelectItem value="cerrada">Cerrada</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormField>
-                            )}
                         </div>
 
                         <div className="flex justify-end gap-2">

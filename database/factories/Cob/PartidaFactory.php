@@ -16,11 +16,9 @@ class PartidaFactory extends Factory
         return [
             'obra_id' => Obra::factory(),
             'tipo' => fake()->randomElement(['suministro', 'montaje']),
-            'es_adicional' => false,
             'descripcion' => fake()->sentence(3),
             'monto' => fake()->randomFloat(2, 1000, 500000),
             'moneda' => 'MXN',
-            'es_subobra' => false,
         ];
     }
 }

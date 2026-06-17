@@ -15,11 +15,9 @@ describe('admin cob partidas', function () {
             ->post(route('admin.cob.obras.partidas.store', $this->obra), [
                 'obra_id' => $this->obra->id,
                 'tipo' => 'suministro',
-                'es_adicional' => false,
                 'descripcion' => 'Estructura metalica',
                 'monto' => 150000.00,
                 'moneda' => 'MXN',
-                'es_subobra' => false,
             ]);
 
         $response->assertRedirect();
@@ -37,11 +35,9 @@ describe('admin cob partidas', function () {
             ->put(route('admin.cob.obras.partidas.update', [$this->obra, $partida]), [
                 'obra_id' => $this->obra->id,
                 'tipo' => 'montaje',
-                'es_adicional' => true,
                 'descripcion' => 'Partida actualizada',
                 'monto' => 200000.00,
                 'moneda' => 'USD',
-                'es_subobra' => false,
             ]);
 
         $response->assertRedirect();

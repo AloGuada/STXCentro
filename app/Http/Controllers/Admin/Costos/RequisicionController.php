@@ -750,7 +750,7 @@ class RequisicionController extends Controller
     {
         $rubroIds = $requisicion->detalles()->pluck('obra_rubro_id')->filter()->unique();
 
-        $cerrada = ObraRubro::with(['obra:id,estatus', 'adicionalPartida:id,estatus'])
+        $cerrada = ObraRubro::with(['obra:id,estatus'])
             ->whereIn('id', $rubroIds)
             ->get()
             ->contains(fn (ObraRubro $or) => $or->estaCerrado());
@@ -763,24 +763,18 @@ class RequisicionController extends Controller
         return ObraRubro::with([
             'obra:id,no,descripcion,estatus',
             'rubro:id,codigo,descripcion',
-            'adicionalPartida:id,numero_adicional,descripcion,estatus',
         ])
             ->get()
             ->map(function ($or) {
                 $disponible = $or->disponible;
-                $adicional = $or->adicionalPartida;
-                $adLabel = $adicional ? ' ad'.$adicional->numero_adicional : '';
-                $adRubroPrefix = $adicional ? '[ad'.$adicional->numero_adicional.'] ' : '';
-                $obraDesc = ($or->obra?->descripcion ?? '-').($adicional ? ' / '.$adicional->descripcion : '');
-
-                $opPrefix = $or->obra?->no ? 'OP-'.$or->obra->no.$adLabel.' · ' : '';
+                $obraDesc = $or->obra?->descripcion ?? '-';
+                $opPrefix = $or->obra?->no ? 'OP-'.$or->obra->no.' · ' : '';
 
                 return [
                     'id' => $or->id,
                     'obra_id' => $or->obra_id,
-                    'adicional_partida_id' => $or->adicional_partida_id,
                     'obra_label' => trim($opPrefix.$obraDesc),
-                    'rubro_label' => trim($adRubroPrefix.sprintf('%s %s', $or->rubro?->codigo ?? '', $or->rubro?->descripcion ?? '-')),
+                    'rubro_label' => trim(sprintf('%s %s', $or->rubro?->codigo ?? '', $or->rubro?->descripcion ?? '-')),
                     'label' => sprintf(
                         '%s%s · %s %s',
                         $opPrefix,
