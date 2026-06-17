@@ -61,10 +61,10 @@ class Proyecto extends Model
         return $this->hasMany(Obra::class, 'proyecto_id')->where('tipo', 'base');
     }
 
-    /** La obra base (centro de costo principal) del proyecto. */
+    /** La obra base (centro de costo principal) del proyecto: la más antigua. */
     public function obraBase(): HasOne
     {
-        return $this->hasOne(Obra::class, 'proyecto_id')->where('tipo', 'base');
+        return $this->hasOne(Obra::class, 'proyecto_id')->where('tipo', 'base')->oldest('id');
     }
 
     public function subObras(): HasMany

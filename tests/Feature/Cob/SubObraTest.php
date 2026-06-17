@@ -9,37 +9,52 @@ beforeEach(function () {
     $this->user = User::factory()->create();
 });
 
-it('crea una sub-obra desde la obra base con su propio presupuesto', function () {
+it('crea una obra adicional desde el proyecto con su propio presupuesto', function () {
     Rubro::factory()->count(2)->create(['ambito' => 'obra']);
     $proyecto = Proyecto::factory()->create();
     $base = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
 
     $this->actingAs($this->user)
-        ->post(route('admin.cob.obras.sub-obras.store', $base), [
+        ->post(route('admin.cob.proyectos.obras.store', $proyecto), [
             'no' => 'AD-1',
             'descripcion' => 'Adicional A',
+            'tipo' => 'adicional',
         ])
-        ->assertRedirect();
+        ->assertRedirect(route('admin.cob.proyectos.show', $proyecto));
 
-    $sub = $base->subObras()->firstOrFail();
+    $sub = $proyecto->subObras()->firstOrFail();
 
     expect($sub->proyecto_id)->toBe($proyecto->id)
-        ->and($sub->obra_padre_id)->toBe($base->id)
+        ->and($sub->obra_padre_id)->toBe($base->id) // cuelga de la obra base (ancla)
         ->and($sub->tipo)->toBe('adicional')
         ->and($sub->estatus)->toBe('abierta')
         ->and($sub->obraRubros()->count())->toBe(2) // presupuesto propio auto-creado
-        ->and($sub->partidas()->count())->toBe(0);   // sin partidas (pendientes)
-
-    expect($proyecto->subObras()->count())->toBe(1);
+        ->and($sub->partidas()->count())->toBe(0);
 });
 
-it('una sub-obra puede tener sus propias partidas', function () {
+it('crea una obra normal (base) desde el proyecto sin padre', function () {
+    Rubro::factory()->create(['ambito' => 'obra']);
     $proyecto = Proyecto::factory()->create();
-    $base = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
-    $sub = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'obra_padre_id' => $base->id, 'tipo' => 'adicional']);
 
     $this->actingAs($this->user)
-        ->post(route('admin.cob.obras.partidas.store', $sub), [
+        ->post(route('admin.cob.proyectos.obras.store', $proyecto), [
+            'no' => 'OB-2',
+            'descripcion' => 'Segunda obra',
+            'tipo' => 'base',
+        ])
+        ->assertRedirect();
+
+    $obra = $proyecto->obras()->where('no', 'OB-2')->firstOrFail();
+    expect($obra->tipo)->toBe('base')
+        ->and($obra->obra_padre_id)->toBeNull();
+});
+
+it('una obra puede tener sus propias partidas', function () {
+    $proyecto = Proyecto::factory()->create();
+    $obra = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'adicional']);
+
+    $this->actingAs($this->user)
+        ->post(route('admin.cob.obras.partidas.store', $obra), [
             'tipo' => 'suministro',
             'descripcion' => 'Suministro adicional',
             'monto' => 5000,
@@ -47,15 +62,26 @@ it('una sub-obra puede tener sus propias partidas', function () {
         ])
         ->assertRedirect();
 
-    expect($sub->partidas()->count())->toBe(1);
+    expect($obra->partidas()->count())->toBe(1);
 });
 
-it('no permite crear sub-obras sobre una sub-obra', function () {
+it('actualiza no, descripción y tipo de una obra', function () {
     $proyecto = Proyecto::factory()->create();
-    $base = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
-    $sub = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'obra_padre_id' => $base->id, 'tipo' => 'adicional']);
+    $obra = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
 
     $this->actingAs($this->user)
-        ->post(route('admin.cob.obras.sub-obras.store', $sub), ['no' => 'X', 'descripcion' => 'Y'])
-        ->assertStatus(422);
+        ->put(route('admin.cob.proyectos.obras.update', [$proyecto, $obra]), [
+            'no' => 'OB-9',
+            'descripcion' => 'Renombrada',
+            'tipo' => 'adicional',
+            'estatus' => 'cerrada',
+        ])
+        ->assertRedirect();
+
+    $obra->refresh();
+    expect($obra->no)->toBe('OB-9')
+        ->and($obra->descripcion)->toBe('Renombrada')
+        ->and($obra->tipo)->toBe('adicional')
+        ->and($obra->estatus)->toBe('cerrada')
+        ->and((bool) $obra->activa)->toBeFalse(); // estatus y activa sincronizados
 });

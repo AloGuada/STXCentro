@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Admin\Cob;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Cob\ObraCobDatosRequest;
 use App\Http\Requests\Admin\Cob\ObraCobUpdateRequest;
 use App\Http\Requests\Admin\Cob\ObraEstadoRequest;
-use App\Http\Requests\Admin\Cob\SubObraStoreRequest;
 use App\Models\Obra;
+use App\Models\Proyecto;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -88,28 +89,64 @@ class ObraCobranzaController extends Controller
         return back();
     }
 
-    /**
-     * Crea una sub-obra (adicional) colgada de la obra base, dentro del mismo
-     * proyecto. Su presupuesto (obra_rubros) se auto-crea vía Obra::booted();
-     * sus partidas quedan pendientes. Solo se crean desde una obra base.
-     */
-    public function crearSubObra(SubObraStoreRequest $request, Obra $obra): RedirectResponse
+    public function createObra(Proyecto $proyecto): Response
     {
-        abort_if($obra->es_planta, 404);
-        abort_if($obra->obra_padre_id !== null, 422, 'Una sub-obra no puede tener sub-obras.');
+        return Inertia::render('admin/cob/obras/create', [
+            'proyecto' => $proyecto->only('id', 'no', 'descripcion'),
+        ]);
+    }
 
-        $obra->subObras()->create([
-            'proyecto_id' => $obra->proyecto_id,
-            'tipo' => 'adicional',
+    /**
+     * Crea una obra (normal o adicional) dentro del proyecto. El presupuesto
+     * (obra_rubros) se auto-crea vía Obra::booted(); sus partidas quedan
+     * pendientes. Las adicionales cuelgan de la obra base (ancla comercial).
+     */
+    public function storeObra(ObraCobDatosRequest $request, Proyecto $proyecto): RedirectResponse
+    {
+        $tipo = $request->validated('tipo');
+
+        $proyecto->obras()->create([
+            'tipo' => $tipo,
             'no' => $request->validated('no'),
             'descripcion' => $request->validated('descripcion'),
-            'cliente_id' => $obra->cliente_id,
-            'tipo_contrato' => $obra->tipo_contrato,
+            'obra_padre_id' => $tipo === 'adicional' ? $proyecto->obraBase?->id : null,
+            'cliente_id' => $proyecto->cliente_id,
+            'tipo_contrato' => $proyecto->tipo_contrato,
             'estatus' => 'abierta',
             'activa' => true,
         ]);
 
-        return back();
+        return to_route('admin.cob.proyectos.show', $proyecto);
+    }
+
+    public function editObra(Proyecto $proyecto, Obra $obra): Response
+    {
+        abort_unless($obra->proyecto_id === $proyecto->id, 404);
+
+        return Inertia::render('admin/cob/obras/edit', [
+            'proyecto' => $proyecto->only('id', 'no', 'descripcion'),
+            'obra' => $obra->only('id', 'no', 'descripcion', 'tipo', 'estatus'),
+        ]);
+    }
+
+    public function updateObra(ObraCobDatosRequest $request, Proyecto $proyecto, Obra $obra): RedirectResponse
+    {
+        abort_unless($obra->proyecto_id === $proyecto->id, 404);
+
+        $tipo = $request->validated('tipo');
+        $estatus = $request->validated('estatus', $obra->estatus);
+
+        $obra->update([
+            'no' => $request->validated('no'),
+            'descripcion' => $request->validated('descripcion'),
+            'tipo' => $tipo,
+            'obra_padre_id' => $tipo === 'adicional' ? $proyecto->obraBase?->id : null,
+            // estatus y activa van sincronizados (igual que cambiarEstado).
+            'estatus' => $estatus,
+            'activa' => $estatus === 'abierta',
+        ]);
+
+        return to_route('admin.cob.proyectos.show', $proyecto);
     }
 
     public function reportePdf(Request $request): HttpResponse
