@@ -35,11 +35,12 @@ type Props = {
     documentoSecciones: CobDocumentoSeccion[];
 };
 
-type TabKey = 'resumen' | 'partidas' | 'estimaciones' | 'anticipos' | 'adendas' | 'comparativos' | 'deducciones' | 'documentacion' | 'gantt' | 'disputas' | 'penalizaciones' | 'configuracion' | 'financieros';
+type TabKey = 'resumen' | 'partidas' | 'sub-obras' | 'estimaciones' | 'anticipos' | 'adendas' | 'comparativos' | 'deducciones' | 'documentacion' | 'gantt' | 'disputas' | 'penalizaciones' | 'configuracion' | 'financieros';
 
 const TABS: { key: TabKey; label: string }[] = [
     { key: 'resumen', label: 'Resumen' },
     { key: 'partidas', label: 'Partidas' },
+    { key: 'sub-obras', label: 'Sub-obras' },
     { key: 'estimaciones', label: 'Estimaciones' },
     { key: 'anticipos', label: 'Anticipos' },
     { key: 'adendas', label: 'Adendas' },
@@ -136,6 +137,7 @@ export default function ObraShow({ obra, clientes, documentoSecciones }: Props) 
                     <ResumenTab obra={obra} resumen={resumen} documentoSecciones={documentoSecciones} onOpenArchivo={setViewerArchivo} />
                 )}
                 {activeTab === 'partidas' && <PartidasTab obra={obra} />}
+                {activeTab === 'sub-obras' && <SubObrasTab obra={obra} />}
                 {activeTab === 'estimaciones' && <EstimacionesTab obra={obra} />}
                 {activeTab === 'anticipos' && <AnticiposTab obra={obra} />}
                 {activeTab === 'adendas' && <AdendasTab obra={obra} />}
@@ -385,6 +387,74 @@ function PartidasTab({ obra }: { obra: Obra }) {
                         ))}
                         {(obra.partidas ?? []).length === 0 && (
                             <tr><td colSpan={5} className="text-center opacity-50">No hay partidas</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+// -- Sub-obras Tab --
+
+function SubObrasTab({ obra }: { obra: Obra }) {
+    const esSubObra = obra.tipo === 'adicional';
+    const { data, setData, post, processing, errors, reset } = useForm({ no: '', descripcion: '' });
+
+    const submit = (e: FormEvent) => {
+        e.preventDefault();
+        post(`/admin/cob/obras/${obra.id}/sub-obras`, { preserveScroll: true, onSuccess: () => reset() });
+    };
+
+    if (esSubObra) {
+        return <p className="opacity-60">Esta es una sub-obra; no puede tener sub-obras propias.</p>;
+    }
+
+    return (
+        <div className="flex flex-col gap-4">
+            <h2 className="text-lg font-semibold">Sub-obras / Adicionales</h2>
+
+            <form onSubmit={submit} className="flex flex-wrap items-end gap-2 rounded border border-base-300 p-3">
+                <FormField label="No *" htmlFor="sub_no" error={errors.no}>
+                    <Input id="sub_no" value={data.no} onChange={(e) => setData('no', e.target.value)} className="w-32" />
+                </FormField>
+                <FormField label="Descripción *" htmlFor="sub_desc" error={errors.descripcion}>
+                    <Input id="sub_desc" value={data.descripcion} onChange={(e) => setData('descripcion', e.target.value)} className="w-72" />
+                </FormField>
+                <Button type="submit" size="sm" disabled={processing}>
+                    <PlusIcon className="size-4" /> Crear sub-obra
+                </Button>
+            </form>
+
+            <div className="overflow-x-auto">
+                <table className="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Descripción</th>
+                            <th className="text-right">Partidas</th>
+                            <th>Estatus</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {(obra.sub_obras ?? []).map((sub) => (
+                            <tr key={sub.id}>
+                                <td>{sub.no}</td>
+                                <td>{sub.descripcion}</td>
+                                <td className="text-right">{sub.partidas?.length ?? 0}</td>
+                                <td>
+                                    <span className={`badge badge-xs ${sub.estatus === 'cerrada' ? 'badge-error' : 'badge-success'}`}>
+                                        {OBRA_ESTATUS_LABELS[sub.estatus]}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href={`/admin/cob/obras/${sub.id}`} className="btn btn-ghost btn-xs">Abrir</a>
+                                </td>
+                            </tr>
+                        ))}
+                        {(obra.sub_obras ?? []).length === 0 && (
+                            <tr><td colSpan={5} className="text-center opacity-50">No hay sub-obras</td></tr>
                         )}
                     </tbody>
                 </table>

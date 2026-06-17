@@ -73,15 +73,7 @@ export default function PartidaCreate({ obra }: Props) {
                             </FormField>
 
                             <div className="flex items-end gap-6">
-                                <label className="label cursor-pointer gap-2">
-                                    <input
-                                        type="checkbox"
-                                        className="checkbox checkbox-sm"
-                                        checked={data.es_adicional as boolean}
-                                        onChange={(e) => setData('es_adicional', e.target.checked)}
-                                    />
-                                    <span className="label-text">Adicional</span>
-                                </label>
+                                {/* Los adicionales ahora se crean como sub-obras desde la pestaña "Sub-obras" de la obra. */}
                                 <label className="label cursor-pointer gap-2">
                                     <input
                                         type="checkbox"

@@ -435,6 +435,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('obras/{obra}/estado-cuenta-pdf', [CobObraCobranzaController::class, 'estadoCuentaPdf'])->name('obras.estado-cuenta-pdf');
         Route::put('obras/{obra}/financial', [CobObraCobranzaController::class, 'updateFinancial'])->name('obras.update-financial');
         Route::put('obras/{obra}/estado', [CobObraCobranzaController::class, 'cambiarEstado'])->name('obras.cambiar-estado');
+        Route::post('obras/{obra}/sub-obras', [CobObraCobranzaController::class, 'crearSubObra'])->name('obras.sub-obras.store');
 
         // Sub-recursos de obra
         Route::get('obras/{obra}/partidas/create', [CobPartidaController::class, 'create'])->name('obras.partidas.create');
