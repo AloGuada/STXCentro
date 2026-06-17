@@ -23,6 +23,7 @@ yarn-error.log
 /auth.json
 /.claude
 /app/graphify-out
+/ocr-service
 /.fleet
 /.idea
 /.nova
