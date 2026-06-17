@@ -28,6 +28,40 @@ it('muestra un proyecto con sus obras', function () {
         ->assertInertia(fn ($page) => $page->component('admin/cob/proyectos/show'));
 });
 
+it('actualiza los datos comerciales del proyecto', function () {
+    $proyecto = Proyecto::factory()->create(['monto' => 100, 'anticipo' => 0]);
+
+    $this->actingAs($this->user)
+        ->put(route('admin.cob.proyectos.update', $proyecto), [
+            'descripcion' => 'Nave actualizada',
+            'tipo_contrato' => 'alzado',
+            'monto' => 500000,
+            'anticipo' => 150000,
+            'garantia' => 25000,
+        ])
+        ->assertRedirect();
+
+    $proyecto->refresh();
+    expect($proyecto->descripcion)->toBe('Nave actualizada')
+        ->and((float) $proyecto->monto)->toBe(500000.0)
+        ->and((float) $proyecto->anticipo)->toBe(150000.0);
+});
+
+it('el show carga la obra base con sus relaciones comerciales', function () {
+    $proyecto = Proyecto::factory()->create();
+    Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
+
+    $this->actingAs($this->user)
+        ->get(route('admin.cob.proyectos.show', $proyecto))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/cob/proyectos/show')
+            ->has('proyecto.obra_base')
+            ->has('clientes')
+            ->has('documentoSecciones')
+        );
+});
+
 it('crea un proyecto', function () {
     $this->actingAs($this->user)
         ->post(route('admin.cob.proyectos.store'), [

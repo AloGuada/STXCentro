@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin\Cob;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Cob\ProyectoStoreRequest;
+use App\Http\Requests\Admin\Cob\ProyectoUpdateRequest;
 use App\Models\Cliente;
+use App\Models\Cob\DocumentoSeccion;
 use App\Models\Proyecto;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,6 +31,7 @@ class ProyectoController extends Controller
                 'obras.comparativos',
                 'obras.deducciones',
                 'estimaciones.pagos',
+                'estimaciones.historial',
             ])
             ->when($estatus !== 'todas', fn ($q) => $q->where('estatus', $estatus))
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
@@ -49,17 +52,39 @@ class ProyectoController extends Controller
     {
         $proyecto->load([
             'cliente',
+            // Tab Partidas: una sección por obra (base + adicionales) con sus partidas.
+            'obras' => fn ($q) => $q->orderByRaw("CASE WHEN tipo = 'base' THEN 0 ELSE 1 END")->orderBy('no'),
             'obras.partidas',
-            'obras.anticipos',
             'obras.comparativos',
             'obras.deducciones',
-            'obras.subObras.partidas',
+            'obras.anticipos',
+            // Lo comercial vive en la obra base; el hub lo gestiona desde ahí.
+            'obraBase.anticipos',
+            'obraBase.adendas',
+            'obraBase.comparativos',
+            'obraBase.deducciones',
+            'obraBase.disputas',
+            'obraBase.penalizaciones',
+            'obraBase.eventos.children',
+            'obraBase.configuracionDocumentos',
+            'obraBase.documentoCarpetas',
+            'obraBase.documentoArchivos',
             'estimaciones.pagos',
-            'estimaciones.historial',
+            'estimaciones.historial.usuario',
+            'estimaciones.retenciones.tipoRetencion',
+            'estimaciones.documentos.configuracionDocumento',
         ]);
+
+        $documentoSecciones = DocumentoSeccion::query()
+            ->activas()
+            ->orderBy('orden')
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'orden']);
 
         return Inertia::render('admin/cob/proyectos/show', [
             'proyecto' => $proyecto,
+            'clientes' => $this->clientes(),
+            'documentoSecciones' => $documentoSecciones,
         ]);
     }
 
@@ -92,6 +117,13 @@ class ProyectoController extends Controller
         });
 
         return to_route('admin.cob.proyectos.show', $proyecto);
+    }
+
+    public function update(ProyectoUpdateRequest $request, Proyecto $proyecto): RedirectResponse
+    {
+        $proyecto->update($request->validated());
+
+        return back();
     }
 
     /** @return Collection<int, Cliente> */

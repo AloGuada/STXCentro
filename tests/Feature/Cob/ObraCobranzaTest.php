@@ -1,10 +1,8 @@
 <?php
 
 use App\Models\Cliente;
-use App\Models\Cob\Anticipo;
-use App\Models\Cob\Estimacion;
-use App\Models\Cob\Partida;
 use App\Models\Obra;
+use App\Models\Proyecto;
 use App\Models\User;
 
 beforeEach(function () {
@@ -55,22 +53,13 @@ describe('admin cob obras', function () {
             ->assertInertia(fn ($page) => $page->has('obras', 5));
     });
 
-    test('show page renders with all related data', function () {
-        $cliente = Cliente::factory()->create();
-        $obra = Obra::factory()->create(['cliente_id' => $cliente->id]);
-        Partida::factory()->create(['obra_id' => $obra->id]);
-        Estimacion::factory()->create(['obra_id' => $obra->id]);
-        Anticipo::factory()->create(['obra_id' => $obra->id]);
+    test('show redirects to its proyecto (la obra ya no tiene página propia)', function () {
+        $proyecto = Proyecto::factory()->create();
+        $obra = Obra::factory()->create(['proyecto_id' => $proyecto->id]);
 
-        $response = $this->actingAs($this->user)
-            ->get(route('admin.cob.obras.show', $obra));
-
-        $response->assertOk();
-        $response->assertInertia(fn ($page) => $page
-            ->component('admin/cob/obras/show')
-            ->has('obra')
-            ->has('clientes')
-        );
+        $this->actingAs($this->user)
+            ->get(route('admin.cob.obras.show', $obra))
+            ->assertRedirect(route('admin.cob.proyectos.show', $proyecto));
     });
 
     test('financial fields can be updated', function () {

@@ -403,12 +403,6 @@ const navGroups: NavGroup[] = [
                 permission: 'cob.obras.ver',
             },
             {
-                title: 'Obras',
-                href: '/admin/cob/obras',
-                icon: Briefcase,
-                permission: 'cob.obras.ver',
-            },
-            {
                 title: 'Clientes',
                 href: '/admin/cob/clientes',
                 icon: Building,

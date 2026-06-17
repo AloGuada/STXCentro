@@ -4,6 +4,7 @@ use App\Models\Cob\DocumentoArchivo;
 use App\Models\Cob\DocumentoCarpeta;
 use App\Models\Cob\DocumentoSeccion;
 use App\Models\Obra;
+use App\Models\Proyecto;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -48,13 +49,14 @@ describe('catálogo de secciones', function () {
 });
 
 describe('documentación por obra', function () {
-    test('show incluye las secciones activas', function () {
+    test('el hub del proyecto incluye las secciones activas', function () {
         DocumentoSeccion::factory()->create(['activo' => true]);
         DocumentoSeccion::factory()->create(['activo' => false]);
-        $obra = Obra::factory()->create();
+        $proyecto = Proyecto::factory()->create();
+        Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
 
         $this->actingAs($this->user)
-            ->get(route('admin.cob.obras.show', $obra))
+            ->get(route('admin.cob.proyectos.show', $proyecto))
             ->assertInertia(fn ($page) => $page->has('documentoSecciones', 1));
     });
 

@@ -427,6 +427,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('proyectos/create', [CobProyectoController::class, 'create'])->name('proyectos.create');
         Route::post('proyectos', [CobProyectoController::class, 'store'])->name('proyectos.store');
         Route::get('proyectos/{proyecto}', [CobProyectoController::class, 'show'])->name('proyectos.show');
+        Route::put('proyectos/{proyecto}', [CobProyectoController::class, 'update'])->name('proyectos.update');
 
         // Obras cobranza
         Route::get('obras', [CobObraCobranzaController::class, 'index'])->name('obras.index');

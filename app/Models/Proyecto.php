@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Entidad comercial que agrupa una o más obras (centros de costo/ejecución).
@@ -58,6 +59,12 @@ class Proyecto extends Model
     public function obrasBase(): HasMany
     {
         return $this->hasMany(Obra::class, 'proyecto_id')->where('tipo', 'base');
+    }
+
+    /** La obra base (centro de costo principal) del proyecto. */
+    public function obraBase(): HasOne
+    {
+        return $this->hasOne(Obra::class, 'proyecto_id')->where('tipo', 'base');
     }
 
     public function subObras(): HasMany

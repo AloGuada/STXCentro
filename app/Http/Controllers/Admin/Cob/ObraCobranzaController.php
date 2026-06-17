@@ -6,8 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Cob\ObraCobUpdateRequest;
 use App\Http\Requests\Admin\Cob\ObraEstadoRequest;
 use App\Http\Requests\Admin\Cob\SubObraStoreRequest;
-use App\Models\Cliente;
-use App\Models\Cob\DocumentoSeccion;
 use App\Models\Obra;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -50,46 +48,16 @@ class ObraCobranzaController extends Controller
         ]);
     }
 
-    public function show(Obra $obra): Response
+    /**
+     * La obra ya no tiene página propia en cobranza: todo se gestiona desde el
+     * hub del proyecto (Proyecto → Obra → Partida). Se redirige para no romper
+     * enlaces antiguos. El presupuesto de la obra sigue en el módulo costos.
+     */
+    public function show(Obra $obra): RedirectResponse
     {
         abort_if($obra->es_planta, 404);
 
-        $obra->load([
-            'cliente',
-            'partidas',
-            'subObras.partidas',
-            'estimaciones.pagos',
-            'estimaciones.historial.usuario',
-            'estimaciones.retenciones.tipoRetencion',
-            'estimaciones.documentos.configuracionDocumento',
-            'anticipos',
-            'adendas',
-            'comparativos',
-            'deducciones',
-            'eventos.children',
-            'disputas',
-            'penalizaciones',
-            'configuracionDocumentos',
-            'documentoCarpetas',
-            'documentoArchivos',
-        ]);
-
-        $clientes = Cliente::query()
-            ->where('activo', true)
-            ->orderBy('nombre')
-            ->get(['id', 'nombre']);
-
-        $documentoSecciones = DocumentoSeccion::query()
-            ->activas()
-            ->orderBy('orden')
-            ->orderBy('nombre')
-            ->get(['id', 'nombre', 'orden']);
-
-        return Inertia::render('admin/cob/obras/show', [
-            'obra' => $obra,
-            'clientes' => $clientes,
-            'documentoSecciones' => $documentoSecciones,
-        ]);
+        return to_route('admin.cob.proyectos.show', $obra->proyecto_id);
     }
 
     public function updateFinancial(ObraCobUpdateRequest $request, Obra $obra): RedirectResponse
