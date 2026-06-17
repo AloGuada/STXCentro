@@ -34,6 +34,9 @@ class Obra extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'proyecto_id',
+        'obra_padre_id',
+        'tipo',
         'no',
         'descripcion',
         'fecha_inicio',
@@ -119,6 +122,24 @@ class Obra extends Model
     public function adicionales(): HasMany
     {
         return $this->hasMany(Cob\Partida::class, 'obra_id')->where('es_adicional', true);
+    }
+
+    // Proyecto / jerarquía
+
+    public function proyecto(): BelongsTo
+    {
+        return $this->belongsTo(Proyecto::class, 'proyecto_id');
+    }
+
+    public function obraPadre(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'obra_padre_id');
+    }
+
+    /** Sub-obras (adicionales) que cuelgan de esta obra. */
+    public function subObras(): HasMany
+    {
+        return $this->hasMany(self::class, 'obra_padre_id');
     }
 
     // Cobranza relations

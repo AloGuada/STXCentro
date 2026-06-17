@@ -44,8 +44,32 @@ export const OBRA_ESTATUS_LABELS: Record<ObraEstatus, string> = {
     cerrada: 'Cerrada',
 };
 
+export type Proyecto = {
+    id: number;
+    no: string;
+    descripcion: string;
+    cliente_id?: number | null;
+    tipo_contrato?: string | null;
+    monto?: number | null;
+    monto_iva?: number | null;
+    anticipo?: number | null;
+    garantia?: number | null;
+    estatus: ObraEstatus;
+    activa?: boolean;
+    cliente?: Cliente;
+    obras?: Obra[];
+    created_at: string;
+    updated_at: string;
+};
+
 export type Obra = {
     id: number;
+    proyecto_id?: number | null;
+    obra_padre_id?: number | null;
+    tipo?: 'base' | 'adicional';
+    proyecto?: Proyecto;
+    obra_padre?: Obra;
+    sub_obras?: Obra[];
     no: string;
     descripcion: string;
     fecha_inicio: string | null;

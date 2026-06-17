@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\Cob\ObraCobranzaController as CobObraCobranzaCont
 use App\Http\Controllers\Admin\Cob\ObraDocumentoController as CobObraDocumentoController;
 use App\Http\Controllers\Admin\Cob\PartidaController as CobPartidaController;
 use App\Http\Controllers\Admin\Cob\PenalizacionController as CobPenalizacionController;
+use App\Http\Controllers\Admin\Cob\ProyectoController as CobProyectoController;
 use App\Http\Controllers\Admin\Cob\TipoRetencionController as CobTipoRetencionController;
 use App\Http\Controllers\Admin\Costos\AfectacionPresupuestalController as CostosAfectacionPresupuestalController;
 use App\Http\Controllers\Admin\Costos\AnticipoController as CostosAnticipoController;
@@ -420,6 +421,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('clientes/{cliente}/contactos/{contacto}', [CobContactoController::class, 'destroy'])->name('clientes.contactos.destroy');
 
         Route::resource('tipos-retenciones', CobTipoRetencionController::class)->parameters(['tipos-retenciones' => 'tipoRetencion']);
+
+        // Proyectos (entidad comercial que agrupa obras)
+        Route::get('proyectos', [CobProyectoController::class, 'index'])->name('proyectos.index');
+        Route::get('proyectos/create', [CobProyectoController::class, 'create'])->name('proyectos.create');
+        Route::post('proyectos', [CobProyectoController::class, 'store'])->name('proyectos.store');
+        Route::get('proyectos/{proyecto}', [CobProyectoController::class, 'show'])->name('proyectos.show');
 
         // Obras cobranza
         Route::get('obras', [CobObraCobranzaController::class, 'index'])->name('obras.index');
