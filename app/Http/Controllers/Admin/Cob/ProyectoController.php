@@ -22,7 +22,14 @@ class ProyectoController extends Controller
             : 'abierta';
 
         $proyectos = Proyecto::query()
-            ->with(['cliente', 'obras'])
+            ->with([
+                'cliente',
+                'obras.partidas',
+                'obras.anticipos',
+                'obras.comparativos',
+                'obras.deducciones',
+                'estimaciones.pagos',
+            ])
             ->when($estatus !== 'todas', fn ($q) => $q->where('estatus', $estatus))
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
                 ->orWhere('descripcion', 'like', "%{$s}%")))
@@ -43,7 +50,12 @@ class ProyectoController extends Controller
         $proyecto->load([
             'cliente',
             'obras.partidas',
+            'obras.anticipos',
+            'obras.comparativos',
+            'obras.deducciones',
             'obras.subObras.partidas',
+            'estimaciones.pagos',
+            'estimaciones.historial',
         ]);
 
         return Inertia::render('admin/cob/proyectos/show', [

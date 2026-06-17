@@ -1,4 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { calcularResumenProyecto } from '@/components/cob/calculos';
+import { formatearMXN } from '@/components/cob/money-display';
 import { SearchInput } from '@/components/data-table/search-input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -63,37 +65,44 @@ export default function ProyectosIndex({ proyectos, filters }: Props) {
                                 <th>Cliente</th>
                                 <th>No</th>
                                 <th>Proyecto</th>
-                                <th>Contrato</th>
                                 <th className="text-right">Obras</th>
+                                <th className="text-right">Pres. final</th>
+                                <th className="text-right">Cobrado</th>
+                                <th className="text-right">Por cobrar</th>
                                 <th>Estatus</th>
                             </tr>
                         </thead>
                         <tbody>
                             {proyectos.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="text-base-content/60 py-8 text-center">
+                                    <td colSpan={8} className="text-base-content/60 py-8 text-center">
                                         No hay proyectos registrados
                                     </td>
                                 </tr>
                             ) : (
-                                proyectos.map((p) => (
-                                    <tr key={p.id} className="hover">
-                                        <td>{p.cliente?.nombre ?? '-'}</td>
-                                        <td>{p.no}</td>
-                                        <td>
-                                            <Link href={`/admin/cob/proyectos/${p.id}`} className="link link-primary font-medium">
-                                                {p.descripcion}
-                                            </Link>
-                                        </td>
-                                        <td>{p.tipo_contrato ?? '-'}</td>
-                                        <td className="text-right">{p.obras?.length ?? 0}</td>
-                                        <td>
-                                            <span className={`badge badge-sm ${p.estatus === 'abierta' ? 'badge-success' : 'badge-ghost'}`}>
-                                                {p.estatus}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))
+                                proyectos.map((p) => {
+                                    const d = calcularResumenProyecto(p);
+                                    return (
+                                        <tr key={p.id} className="hover">
+                                            <td>{p.cliente?.nombre ?? '-'}</td>
+                                            <td>{p.no}</td>
+                                            <td>
+                                                <Link href={`/admin/cob/proyectos/${p.id}`} className="link link-primary font-medium">
+                                                    {p.descripcion}
+                                                </Link>
+                                            </td>
+                                            <td className="text-right">{p.obras?.length ?? 0}</td>
+                                            <td className="text-right">{formatearMXN(d.presupuestoFinal)}</td>
+                                            <td className="text-right">{formatearMXN(d.totalCobrado)}</td>
+                                            <td className="text-right">{formatearMXN(d.porCobrar)}</td>
+                                            <td>
+                                                <span className={`badge badge-sm ${p.estatus === 'abierta' ? 'badge-success' : 'badge-ghost'}`}>
+                                                    {p.estatus}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>

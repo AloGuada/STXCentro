@@ -58,6 +58,7 @@ export type Proyecto = {
     activa?: boolean;
     cliente?: Cliente;
     obras?: Obra[];
+    estimaciones?: CobEstimacion[];
     created_at: string;
     updated_at: string;
 };

@@ -1,4 +1,4 @@
-import type { CobAnticipo, CobComparativo, CobDeduccion, CobEstimacion, CobPartida, Obra } from '@/types/models';
+import type { CobAnticipo, CobComparativo, CobDeduccion, CobEstimacion, CobPartida, Obra, Proyecto } from '@/types/models';
 
 export type ResumenFinanciero = {
     presupuestoPartidas: number;
@@ -154,5 +154,60 @@ export function calcularDatosProyecto(obra: Obra): DatosProyecto {
         ...resumen,
         porcentajeFacturado,
         porcentajeCobrado,
+    };
+}
+
+/**
+ * Facturación a nivel proyecto: el presupuesto, comparativos, deducciones y
+ * anticipos se suman POR OBRA (cada obra/sub-obra con su propio comparativo y
+ * deducción); las estimaciones son del PROYECTO (una sola vez). Así "la
+ * estimación del proyecto cobra todas las obras y adicionales".
+ */
+export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
+    const obras = proyecto.obras ?? [];
+
+    const porObra = obras.map((o) =>
+        calcularResumen(o.partidas ?? [], [], o.anticipos ?? [], o.comparativos ?? [], o.deducciones ?? [], o.tipo_contrato ?? null),
+    );
+    const sum = (f: (r: ResumenFinanciero) => number) => porObra.reduce((s, r) => s + f(r), 0);
+
+    const presupuestoPartidas = sum((r) => r.presupuestoPartidas);
+    const partidasAdicionales = sum((r) => r.partidasAdicionales);
+    const presupuestoEjecutar = sum((r) => r.presupuestoEjecutar);
+    const totalDeducciones = sum((r) => r.totalDeducciones);
+    const totalAnticiposFacturados = sum((r) => r.totalAnticiposFacturados);
+    const totalAnticiposCobrados = sum((r) => r.totalAnticiposCobrados);
+
+    // Estimaciones: a nivel proyecto (una vez), no por obra.
+    const est = calcularResumen([], proyecto.estimaciones ?? [], [], [], [], proyecto.tipo_contrato ?? null);
+
+    const totalFacturado = totalAnticiposFacturados + est.totalEstimacionesFacturadas;
+    const totalCobrado = totalAnticiposCobrados + est.totalEstimacionesCobradas;
+    const presupuestoFinal = presupuestoEjecutar - totalDeducciones;
+    const ajustePresupuesto = presupuestoEjecutar - presupuestoPartidas;
+
+    return {
+        presupuestoPartidas,
+        partidasAdicionales,
+        presupuestoEjecutar,
+        ajustePresupuesto,
+        presupuestoFinal,
+        totalAnticiposFacturados,
+        totalAnticiposCobrados,
+        totalEstimacionesFacturadas: est.totalEstimacionesFacturadas,
+        totalEstimacionesCobradas: est.totalEstimacionesCobradas,
+        totalFacturado,
+        totalCobrado,
+        totalDeducciones,
+        porFacturar: presupuestoFinal - totalFacturado,
+        porCobrar: presupuestoFinal - totalCobrado,
+        estimacionesGeneradas: est.estimacionesGeneradas,
+        estimacionesIngresadas: est.estimacionesIngresadas,
+        facturadasPorCobrar: totalFacturado - totalCobrado,
+        tieneComparativos: porObra.some((r) => r.tieneComparativos),
+        montoComparativo: sum((r) => r.montoComparativo),
+        montoComparativoUltimo: sum((r) => r.montoComparativoUltimo),
+        tieneComparativoCualquiera: porObra.some((r) => r.tieneComparativoCualquiera),
+        tipoContrato: proyecto.tipo_contrato ?? null,
     };
 }

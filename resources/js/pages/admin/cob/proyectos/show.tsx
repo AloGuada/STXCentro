@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { Fragment } from 'react';
+import { calcularResumenProyecto } from '@/components/cob/calculos';
 import { formatearMXN } from '@/components/cob/money-display';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -42,6 +43,7 @@ export default function ProyectoShow({ proyecto }: Props) {
     ];
 
     const obrasBase = (proyecto.obras ?? []).filter((o) => o.tipo !== 'adicional');
+    const d = calcularResumenProyecto(proyecto);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -67,6 +69,25 @@ export default function ProyectoShow({ proyecto }: Props) {
                             <div className="font-medium">{valor}</div>
                         </div>
                     ))}
+                </div>
+
+                <div className="rounded-box border border-base-300 p-4">
+                    <div className="mb-3 font-semibold">Facturación del proyecto (suma de obras + adicionales)</div>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                        {[
+                            ['Pres. a ejecutar', d.presupuestoEjecutar],
+                            ['Deducciones', d.totalDeducciones],
+                            ['Pres. final', d.presupuestoFinal],
+                            ['Facturado', d.totalFacturado],
+                            ['Cobrado', d.totalCobrado],
+                            ['Por cobrar', d.porCobrar],
+                        ].map(([label, valor]) => (
+                            <div key={label as string}>
+                                <div className="text-base-content/60 text-xs">{label}</div>
+                                <div className="font-medium">{formatearMXN(valor as number)}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 <div className="rounded-box border border-base-300">
