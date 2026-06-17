@@ -1,6 +1,6 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Loader2Icon, LockIcon, PencilIcon, PlusIcon, Trash2Icon, UnlockIcon } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { Fragment, type FormEvent, useState } from 'react';
 import ArchivoViewerModal from '@/components/cob/archivo-viewer-modal';
 import { calcularResumenProyecto } from '@/components/cob/calculos';
 import {
@@ -115,7 +115,7 @@ export default function ProyectoShow({ proyecto, clientes, documentoSecciones }:
                 </div>
 
                 {activeTab === 'resumen' && <ResumenTab proyecto={proyecto} obraBase={obraBase} resumen={d} />}
-                {activeTab === 'partidas' && <PartidasTab proyecto={proyecto} obraBase={obraBase} />}
+                {activeTab === 'partidas' && <PartidasTab proyecto={proyecto} />}
                 {activeTab === 'estimaciones' && <EstimacionesTab proyecto={proyecto} />}
                 {obraBase && activeTab === 'anticipos' && <AnticiposTab obra={obraBase} />}
                 {obraBase && activeTab === 'adendas' && <AdendasTab obra={obraBase} />}
@@ -177,17 +177,15 @@ function ResumenTab({
     );
 }
 
-// -- Partidas (agrupado por obra) --
-function PartidasTab({ proyecto, obraBase }: { proyecto: Proyecto; obraBase: Obra | null }) {
+// -- Partidas (obras del proyecto, agrupadas por tipo) --
+const PARTIDA_GRUPOS: { tipo: string; label: string }[] = [
+    { tipo: 'suministro', label: 'Suministro' },
+    { tipo: 'montaje', label: 'Montaje' },
+];
+
+function PartidasTab({ proyecto }: { proyecto: Proyecto }) {
     const { can } = useCan();
     const obras = proyecto.obras ?? [];
-    const { data, setData, post, processing, errors, reset } = useForm({ no: '', descripcion: '' });
-
-    const crearObra = (e: FormEvent) => {
-        e.preventDefault();
-        if (!obraBase) return;
-        post(`/admin/cob/obras/${obraBase.id}/sub-obras`, { preserveScroll: true, onSuccess: () => reset() });
-    };
 
     const cambiarEstadoObra = (obra: Obra) => {
         const cerrar = obra.estatus === 'abierta';
@@ -195,85 +193,133 @@ function PartidasTab({ proyecto, obraBase }: { proyecto: Proyecto; obraBase: Obr
         router.put(`/admin/cob/obras/${obra.id}/estado`, { estatus: cerrar ? 'cerrada' : 'abierta' }, { preserveScroll: true });
     };
 
+    const totalProyecto = obras.reduce(
+        (s, o) => s + (o.partidas ?? []).reduce((ss, p) => ss + Number(p.monto), 0),
+        0,
+    );
+
     return (
-        <div className="space-y-6">
-            <form onSubmit={crearObra} className="flex flex-wrap items-end gap-2 rounded border border-base-300 p-3">
-                <FormField label="No (adicional) *" htmlFor="obra_no" error={errors.no}>
-                    <Input id="obra_no" value={data.no} onChange={(e) => setData('no', e.target.value)} className="w-36" />
-                </FormField>
-                <FormField label="Descripción *" htmlFor="obra_desc" error={errors.descripcion}>
-                    <Input id="obra_desc" value={data.descripcion} onChange={(e) => setData('descripcion', e.target.value)} className="w-72" />
-                </FormField>
-                <Button type="submit" size="sm" disabled={processing || !obraBase}>
-                    {processing ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />} Crear obra/adicional
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Obras y partidas</h2>
+                <Button size="sm" asChild>
+                    <Link href={`/admin/cob/proyectos/${proyecto.id}/obras/create`}>
+                        <PlusIcon className="size-4" /> Nueva obra
+                    </Link>
                 </Button>
-            </form>
+            </div>
 
-            {obras.length === 0 && <p className="text-base-content/60">Este proyecto no tiene obras.</p>}
+            {obras.length === 0 && (
+                <p className="text-base-content/60 rounded-box border border-dashed border-base-300 p-6 text-center">
+                    Este proyecto no tiene obras. Crea la primera con "Nueva obra".
+                </p>
+            )}
 
-            {obras.map((obra) => {
-                const partidas = obra.partidas ?? [];
-                const subtotal = partidas.reduce((s, p) => s + Number(p.monto), 0);
-                const esAdicional = obra.tipo === 'adicional';
+            {obras.map((obra) => (
+                <ObraCard key={obra.id} proyecto={proyecto} obra={obra} can={can} onToggleEstado={cambiarEstadoObra} />
+            ))}
 
-                return (
-                    <div key={obra.id} className="rounded-box border border-base-300">
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-base-300 px-4 py-2">
-                            <div className="flex items-center gap-2">
-                                <span className="font-semibold">{obra.no} — {obra.descripcion}</span>
-                                <span className={`badge badge-sm ${esAdicional ? 'badge-warning' : 'badge-ghost'}`}>
-                                    {esAdicional ? 'Adicional' : 'Obra base'}
-                                </span>
-                                <span className={`badge badge-sm ${obra.estatus === 'cerrada' ? 'badge-error' : 'badge-success'}`}>
-                                    {OBRA_ESTATUS_LABELS[obra.estatus]}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <span className="text-base-content/60 mr-2 text-sm">Subtotal: {formatearMXN(subtotal)}</span>
-                                <Button size="sm" asChild>
-                                    <a href={`/admin/cob/obras/${obra.id}/partidas/create`}><PlusIcon className="size-3" /> Partida</a>
-                                </Button>
-                                <a href={`/admin/costos/presupuestos/${obra.id}/edit`} className="btn btn-ghost btn-sm">Presupuesto</a>
-                                {can('cob.obras.cerrar') && (
-                                    <button
-                                        type="button"
-                                        className={`btn btn-ghost btn-sm ${obra.estatus === 'abierta' ? 'text-error' : 'text-success'}`}
-                                        onClick={() => cambiarEstadoObra(obra)}
-                                        title={obra.estatus === 'abierta' ? 'Cerrar obra' : 'Reabrir obra'}
-                                    >
-                                        {obra.estatus === 'abierta' ? <LockIcon className="size-4" /> : <UnlockIcon className="size-4" />}
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                        <table className="table table-sm">
-                            <thead>
-                                <tr><th>Tipo</th><th>Descripción</th><th className="text-right">Monto</th><th></th></tr>
-                            </thead>
-                            <tbody>
-                                {partidas.map((p) => (
-                                    <tr key={p.id}>
-                                        <td className="capitalize">{p.tipo}</td>
-                                        <td>{p.descripcion}</td>
-                                        <td className="text-right">{formatearMXN(p.monto)}</td>
-                                        <td className="flex gap-1">
-                                            <a href={`/admin/cob/obras/${obra.id}/partidas/${p.id}/edit`} className="btn btn-ghost btn-xs">
-                                                <PencilIcon className="size-3" />
-                                            </a>
-                                            <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/partidas/${p.id}`, { preserveScroll: true })}>
-                                                <Trash2Icon className="size-3" />
-                                            </button>
-                                        </td>
+            {obras.length > 0 && (
+                <div className="rounded-box border border-base-300 bg-base-200 flex items-center justify-between px-4 py-3 font-bold">
+                    <span>Total del proyecto</span>
+                    <span>{formatearMXN(totalProyecto)}</span>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ObraCard({
+    proyecto,
+    obra,
+    can,
+    onToggleEstado,
+}: {
+    proyecto: Proyecto;
+    obra: Obra;
+    can: (permiso: string) => boolean;
+    onToggleEstado: (obra: Obra) => void;
+}) {
+    const partidas = obra.partidas ?? [];
+    const subtotal = partidas.reduce((s, p) => s + Number(p.monto), 0);
+    const esAdicional = obra.tipo === 'adicional';
+
+    return (
+        <div className="rounded-box overflow-hidden border border-base-300">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-base-300 bg-base-200 px-4 py-2">
+                <div className="flex items-center gap-2">
+                    <span className="font-semibold">{obra.no} — {obra.descripcion}</span>
+                    <span className={`badge badge-sm ${esAdicional ? 'badge-warning' : 'badge-ghost'}`}>
+                        {esAdicional ? 'Adicional' : 'Obra'}
+                    </span>
+                    <span className={`badge badge-sm ${obra.estatus === 'cerrada' ? 'badge-error' : 'badge-success'}`}>
+                        {OBRA_ESTATUS_LABELS[obra.estatus]}
+                    </span>
+                </div>
+                <div className="flex items-center gap-1">
+                    <span className="text-base-content/60 mr-2 text-sm">Subtotal: {formatearMXN(subtotal)}</span>
+                    <Button size="sm" asChild>
+                        <Link href={`/admin/cob/obras/${obra.id}/partidas/create`}><PlusIcon className="size-3" /> Partida</Link>
+                    </Button>
+                    <Link href={`/admin/cob/proyectos/${proyecto.id}/obras/${obra.id}/edit`} className="btn btn-ghost btn-sm">
+                        <PencilIcon className="size-3" /> Editar
+                    </Link>
+                    <a href={`/admin/costos/presupuestos/${obra.id}/edit`} className="btn btn-ghost btn-sm">Presupuesto</a>
+                    {can('cob.obras.cerrar') && (
+                        <button
+                            type="button"
+                            className={`btn btn-ghost btn-sm ${obra.estatus === 'abierta' ? 'text-error' : 'text-success'}`}
+                            onClick={() => onToggleEstado(obra)}
+                            title={obra.estatus === 'abierta' ? 'Cerrar obra' : 'Reabrir obra'}
+                        >
+                            {obra.estatus === 'abierta' ? <LockIcon className="size-4" /> : <UnlockIcon className="size-4" />}
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {partidas.length === 0 ? (
+                <p className="text-base-content/50 px-4 py-6 text-center text-sm">Sin partidas. Agrégalas con "Partida".</p>
+            ) : (
+                <table className="table table-sm">
+                    <tbody>
+                        {PARTIDA_GRUPOS.map((g) => {
+                            const items = partidas.filter((p) => p.tipo === g.tipo);
+                            if (items.length === 0) return null;
+                            const sub = items.reduce((s, p) => s + Number(p.monto), 0);
+                            return (
+                                <Fragment key={g.tipo}>
+                                    <tr className="bg-base-100">
+                                        <td colSpan={3} className="text-xs font-semibold uppercase opacity-70">{g.label}</td>
                                     </tr>
-                                ))}
-                                {partidas.length === 0 && (
-                                    <tr><td colSpan={4} className="text-center opacity-50">Sin partidas</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                );
-            })}
+                                    {items.map((p) => (
+                                        <tr key={p.id} className="hover">
+                                            <td className="pl-6">{p.descripcion}</td>
+                                            <td className="text-right">{formatearMXN(p.monto)}</td>
+                                            <td className="flex justify-end gap-1">
+                                                <Link href={`/admin/cob/obras/${obra.id}/partidas/${p.id}/edit`} className="btn btn-ghost btn-xs">
+                                                    <PencilIcon className="size-3" />
+                                                </Link>
+                                                <button
+                                                    className="btn btn-ghost btn-xs text-error"
+                                                    onClick={() => router.delete(`/admin/cob/obras/${obra.id}/partidas/${p.id}`, { preserveScroll: true })}
+                                                >
+                                                    <Trash2Icon className="size-3" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    <tr className="text-sm">
+                                        <td className="pl-6 italic opacity-60">Subtotal {g.label}</td>
+                                        <td className="text-right italic opacity-60">{formatearMXN(sub)}</td>
+                                        <td></td>
+                                    </tr>
+                                </Fragment>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            )}
         </div>
     );
 }

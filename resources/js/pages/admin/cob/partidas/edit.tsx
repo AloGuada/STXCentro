@@ -17,8 +17,8 @@ type Props = {
 export default function PartidaEdit({ obra, partida }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Cobranza', href: '/admin/cob/obras' },
-        { title: `Obra ${obra.no}`, href: `/admin/cob/obras/${obra.id}` },
+        { title: 'Cobranza', href: '/admin/cob/proyectos' },
+        { title: `Obra ${obra.no}`, href: `/admin/cob/proyectos/${obra.proyecto_id}` },
         { title: 'Editar Partida', href: '#' },
     ];
 
@@ -76,7 +76,7 @@ export default function PartidaEdit({ obra, partida }: Props) {
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>
-                                <Link href={`/admin/cob/obras/${obra.id}`}>Cancelar</Link>
+                                <Link href={`/admin/cob/proyectos/${obra.proyecto_id}`}>Cancelar</Link>
                             </Button>
                             <Button type="submit" disabled={processing}>
                                 {processing && <Loader2Icon className="size-4 animate-spin" />}
