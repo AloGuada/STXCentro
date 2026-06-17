@@ -444,14 +444,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('obras/{obra}/partidas/{partida}', [CobPartidaController::class, 'update'])->name('obras.partidas.update');
         Route::delete('obras/{obra}/partidas/{partida}', [CobPartidaController::class, 'destroy'])->name('obras.partidas.destroy');
 
-        Route::get('obras/{obra}/estimaciones/create', [CobEstimacionController::class, 'create'])->name('obras.estimaciones.create');
-        Route::post('obras/{obra}/estimaciones', [CobEstimacionController::class, 'store'])->name('obras.estimaciones.store');
-        Route::get('obras/{obra}/estimaciones/{estimacion}/edit', [CobEstimacionController::class, 'edit'])->name('obras.estimaciones.edit');
-        Route::put('obras/{obra}/estimaciones/{estimacion}', [CobEstimacionController::class, 'update'])->name('obras.estimaciones.update');
-        Route::delete('obras/{obra}/estimaciones/{estimacion}', [CobEstimacionController::class, 'destroy'])->name('obras.estimaciones.destroy');
-        Route::post('obras/{obra}/estimaciones/{estimacion}/cambiar-estado', [CobEstimacionController::class, 'cambiarEstado'])->name('obras.estimaciones.cambiar-estado');
-
-        Route::post('obras/{obra}/estimaciones/{estimacion}/pagos', [CobEstimacionPagoController::class, 'store'])->name('obras.estimaciones.pagos.store');
+        // Estimaciones: a nivel proyecto (cobran todas las obras + adicionales del proyecto).
+        Route::get('proyectos/{proyecto}/estimaciones/create', [CobEstimacionController::class, 'create'])->name('proyectos.estimaciones.create');
+        Route::post('proyectos/{proyecto}/estimaciones', [CobEstimacionController::class, 'store'])->name('proyectos.estimaciones.store');
+        Route::get('proyectos/{proyecto}/estimaciones/{estimacion}/edit', [CobEstimacionController::class, 'edit'])->name('proyectos.estimaciones.edit');
+        Route::put('proyectos/{proyecto}/estimaciones/{estimacion}', [CobEstimacionController::class, 'update'])->name('proyectos.estimaciones.update');
+        Route::delete('proyectos/{proyecto}/estimaciones/{estimacion}', [CobEstimacionController::class, 'destroy'])->name('proyectos.estimaciones.destroy');
+        Route::post('proyectos/{proyecto}/estimaciones/{estimacion}/cambiar-estado', [CobEstimacionController::class, 'cambiarEstado'])->name('proyectos.estimaciones.cambiar-estado');
+        Route::post('proyectos/{proyecto}/estimaciones/{estimacion}/pagos', [CobEstimacionPagoController::class, 'store'])->name('proyectos.estimaciones.pagos.store');
 
         Route::get('obras/{obra}/anticipos/create', [CobAnticipoController::class, 'create'])->name('obras.anticipos.create');
         Route::post('obras/{obra}/anticipos', [CobAnticipoController::class, 'store'])->name('obras.anticipos.store');

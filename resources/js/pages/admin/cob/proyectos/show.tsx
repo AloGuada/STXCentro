@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { Fragment } from 'react';
 import { calcularResumenProyecto } from '@/components/cob/calculos';
+import { EstadoBadge } from '@/components/cob/estado-badge';
 import { formatearMXN } from '@/components/cob/money-display';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -121,7 +122,54 @@ export default function ProyectoShow({ proyecto }: Props) {
                         </tbody>
                     </table>
                 </div>
+
+                <div className="rounded-box border border-base-300">
+                    <div className="flex items-center justify-between border-b border-base-300 px-4 py-2">
+                        <span className="font-semibold">Estimaciones del proyecto</span>
+                        <a href={`/admin/cob/proyectos/${proyecto.id}/estimaciones/create`} className="btn btn-primary btn-xs">
+                            Nueva estimación
+                        </a>
+                    </div>
+                    <table className="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Folio</th>
+                                <th>Periodo</th>
+                                <th className="text-right">Monto estimado</th>
+                                <th className="text-right">Pagado</th>
+                                <th>Estado</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(proyecto.estimaciones ?? []).map((e) => (
+                                <tr key={e.id}>
+                                    <td>{e.numero_estimacion}</td>
+                                    <td>{e.folio ?? '-'}</td>
+                                    <td>{e.inicio && e.fin ? `${fmtFecha(e.inicio)} - ${fmtFecha(e.fin)}` : '-'}</td>
+                                    <td className="text-right">{formatearMXN(Number(e.monto_estimado))}</td>
+                                    <td className="text-right">{formatearMXN(Number(e.monto_pagado))}</td>
+                                    <td><EstadoBadge estado={e.estado} /></td>
+                                    <td>
+                                        <a href={`/admin/cob/proyectos/${proyecto.id}/estimaciones/${e.id}/edit`} className="btn btn-ghost btn-xs">
+                                            Editar
+                                        </a>
+                                    </td>
+                                </tr>
+                            ))}
+                            {(proyecto.estimaciones ?? []).length === 0 && (
+                                <tr><td colSpan={7} className="py-6 text-center opacity-50">No hay estimaciones</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </AppLayout>
     );
+}
+
+function fmtFecha(fecha: string | null): string {
+    if (!fecha) return '-';
+    return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }

@@ -1,3 +1,6 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import { type FormEvent, useState } from 'react';
 import { EstadoBadge } from '@/components/cob/estado-badge';
 import { formatearMXN } from '@/components/cob/money-display';
 import { FormField } from '@/components/form';
@@ -11,23 +14,20 @@ import {
     type CobEstimacion,
     type CobEstimacionEstado,
     type CobTipoRetencion,
-    type Obra,
+    type Proyecto,
 } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
 
 type Props = {
-    obra: Obra;
+    proyecto: Proyecto;
     estimacion: CobEstimacion;
     tiposRetencion: CobTipoRetencion[];
 };
 
-export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Props) {
+export default function EstimacionEdit({ proyecto, estimacion }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Cobranza', href: '/admin/cob/obras' },
-        { title: `Obra ${obra.no}`, href: `/admin/cob/obras/${obra.id}` },
+        { title: 'Cobranza', href: '/admin/cob/proyectos' },
+        { title: `Proyecto ${proyecto.no}`, href: `/admin/cob/proyectos/${proyecto.id}` },
         { title: `Estimacion #${estimacion.numero_estimacion}`, href: '#' },
     ];
 
@@ -50,7 +50,7 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        form.put(`/admin/cob/obras/${obra.id}/estimaciones/${estimacion.id}`);
+        form.put(`/admin/cob/proyectos/${proyecto.id}/estimaciones/${estimacion.id}`);
     };
 
     // State change form
@@ -59,7 +59,7 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
 
     const handleCambiarEstado = (e: FormEvent) => {
         e.preventDefault();
-        estadoForm.post(`/admin/cob/obras/${obra.id}/estimaciones/${estimacion.id}/cambiar-estado`, {
+        estadoForm.post(`/admin/cob/proyectos/${proyecto.id}/estimaciones/${estimacion.id}/cambiar-estado`, {
             onSuccess: () => { setShowEstadoForm(false); estadoForm.reset(); },
         });
     };
@@ -84,7 +84,7 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
 
     const handleRegistrarPago = (e: FormEvent) => {
         e.preventDefault();
-        pagoForm.post(`/admin/cob/obras/${obra.id}/estimaciones/${estimacion.id}/pagos`, {
+        pagoForm.post(`/admin/cob/proyectos/${proyecto.id}/estimaciones/${estimacion.id}/pagos`, {
             forceFormData: true,
             onSuccess: () => { setShowPagoForm(false); pagoForm.reset(); },
         });
@@ -99,7 +99,7 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-semibold">Estimacion #{estimacion.numero_estimacion}</h1>
-                        <p className="text-sm opacity-70">Obra {obra.no} - {obra.descripcion}</p>
+                        <p className="text-sm opacity-70">Proyecto {proyecto.no} - {proyecto.descripcion}</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <EstadoBadge estado={estimacion.estado} />
@@ -170,7 +170,7 @@ export default function EstimacionEdit({ obra, estimacion, tiposRetencion }: Pro
                             <textarea className="textarea textarea-bordered w-full" value={form.data.comentarios} onChange={(e) => form.setData('comentarios', e.target.value)} rows={3} />
                         </FormField>
                         <div className="flex justify-end gap-2">
-                            <Button variant="outline" asChild><Link href={`/admin/cob/obras/${obra.id}`}>Volver</Link></Button>
+                            <Button variant="outline" asChild><Link href={`/admin/cob/proyectos/${proyecto.id}`}>Volver</Link></Button>
                             <Button type="submit" disabled={form.processing}>
                                 {form.processing && <Loader2Icon className="size-4 animate-spin" />}
                                 Guardar

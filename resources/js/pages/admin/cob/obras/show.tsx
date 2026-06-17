@@ -1,7 +1,6 @@
 import ArchivoViewerModal from '@/components/cob/archivo-viewer-modal';
 import { calcularResumen } from '@/components/cob/calculos';
 import { DocumentoTree } from '@/components/cob/documento-tree';
-import { EstadoBadge } from '@/components/cob/estado-badge';
 import { EstimacionesGantt } from '@/components/cob/estimaciones-gantt';
 import { formatearMXN } from '@/components/cob/money-display';
 import { ResumenFinancieroCard } from '@/components/cob/resumen-financiero';
@@ -35,13 +34,12 @@ type Props = {
     documentoSecciones: CobDocumentoSeccion[];
 };
 
-type TabKey = 'resumen' | 'partidas' | 'sub-obras' | 'estimaciones' | 'anticipos' | 'adendas' | 'comparativos' | 'deducciones' | 'documentacion' | 'gantt' | 'disputas' | 'penalizaciones' | 'configuracion' | 'financieros';
+type TabKey = 'resumen' | 'partidas' | 'sub-obras' | 'anticipos' | 'adendas' | 'comparativos' | 'deducciones' | 'documentacion' | 'gantt' | 'disputas' | 'penalizaciones' | 'configuracion' | 'financieros';
 
 const TABS: { key: TabKey; label: string }[] = [
     { key: 'resumen', label: 'Resumen' },
     { key: 'partidas', label: 'Partidas' },
     { key: 'sub-obras', label: 'Sub-obras' },
-    { key: 'estimaciones', label: 'Estimaciones' },
     { key: 'anticipos', label: 'Anticipos' },
     { key: 'adendas', label: 'Adendas' },
     { key: 'comparativos', label: 'Comparativos' },
@@ -138,7 +136,6 @@ export default function ObraShow({ obra, clientes, documentoSecciones }: Props) 
                 )}
                 {activeTab === 'partidas' && <PartidasTab obra={obra} />}
                 {activeTab === 'sub-obras' && <SubObrasTab obra={obra} />}
-                {activeTab === 'estimaciones' && <EstimacionesTab obra={obra} />}
                 {activeTab === 'anticipos' && <AnticiposTab obra={obra} />}
                 {activeTab === 'adendas' && <AdendasTab obra={obra} />}
                 {activeTab === 'comparativos' && <ComparativosTab obra={obra} />}
@@ -455,54 +452,6 @@ function SubObrasTab({ obra }: { obra: Obra }) {
                         ))}
                         {(obra.sub_obras ?? []).length === 0 && (
                             <tr><td colSpan={5} className="text-center opacity-50">No hay sub-obras</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-}
-
-// -- Estimaciones Tab --
-function EstimacionesTab({ obra }: { obra: Obra }) {
-    return (
-        <div>
-            <div className="flex justify-between mb-4">
-                <h2 className="text-lg font-semibold">Estimaciones</h2>
-                <Button size="sm" asChild>
-                    <a href={`/admin/cob/obras/${obra.id}/estimaciones/create`}><PlusIcon className="size-4" /> Nueva Estimacion</a>
-                </Button>
-            </div>
-
-            <div className="overflow-x-auto">
-                <table className="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Folio</th>
-                            <th>Periodo</th>
-                            <th className="text-right">Monto Estimado</th>
-                            <th className="text-right">Monto Pagado</th>
-                            <th>Estado</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {(obra.estimaciones ?? []).map((e) => (
-                            <tr key={e.id}>
-                                <td>{e.numero_estimacion}</td>
-                                <td>{e.folio ?? '-'}</td>
-                                <td>{e.inicio && e.fin ? `${formatFecha(e.inicio)} - ${formatFecha(e.fin)}` : '-'}</td>
-                                <td className="text-right">{formatearMXN(e.monto_estimado)}</td>
-                                <td className="text-right">{formatearMXN(e.monto_pagado)}</td>
-                                <td><EstadoBadge estado={e.estado} /></td>
-                                <td>
-                                    <a href={`/admin/cob/obras/${obra.id}/estimaciones/${e.id}/edit`} className="btn btn-ghost btn-xs">Editar</a>
-                                </td>
-                            </tr>
-                        ))}
-                        {(obra.estimaciones ?? []).length === 0 && (
-                            <tr><td colSpan={7} className="text-center opacity-50">No hay estimaciones</td></tr>
                         )}
                     </tbody>
                 </table>

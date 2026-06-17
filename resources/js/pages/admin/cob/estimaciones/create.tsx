@@ -1,23 +1,23 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import type { FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Obra } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import type { FormEvent } from 'react';
+import type { Proyecto } from '@/types/models';
 
 type Props = {
-    obra: Obra;
+    proyecto: Proyecto;
     nextNumber: number;
 };
 
-export default function EstimacionCreate({ obra, nextNumber }: Props) {
+export default function EstimacionCreate({ proyecto, nextNumber }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Cobranza', href: '/admin/cob/obras' },
-        { title: `Obra ${obra.no}`, href: `/admin/cob/obras/${obra.id}` },
+        { title: 'Cobranza', href: '/admin/cob/proyectos' },
+        { title: `Proyecto ${proyecto.no}`, href: `/admin/cob/proyectos/${proyecto.id}` },
         { title: 'Nueva Estimacion', href: '#' },
     ];
 
@@ -36,7 +36,7 @@ export default function EstimacionCreate({ obra, nextNumber }: Props) {
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        post(`/admin/cob/obras/${obra.id}/estimaciones`);
+        post(`/admin/cob/proyectos/${proyecto.id}/estimaciones`);
     };
 
     return (
@@ -45,7 +45,7 @@ export default function EstimacionCreate({ obra, nextNumber }: Props) {
 
             <div className="p-6">
                 <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Nueva Estimacion - Obra {obra.no}</h1>
+                    <h1 className="mb-6 text-2xl font-semibold">Nueva Estimacion - Proyecto {proyecto.no}</h1>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                             <FormField label="Numero Estimacion" htmlFor="numero_estimacion" error={errors.numero_estimacion} required>
@@ -92,7 +92,7 @@ export default function EstimacionCreate({ obra, nextNumber }: Props) {
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>
-                                <Link href={`/admin/cob/obras/${obra.id}`}>Cancelar</Link>
+                                <Link href={`/admin/cob/proyectos/${proyecto.id}`}>Cancelar</Link>
                             </Button>
                             <Button type="submit" disabled={processing}>
                                 {processing && <Loader2Icon className="size-4 animate-spin" />}
