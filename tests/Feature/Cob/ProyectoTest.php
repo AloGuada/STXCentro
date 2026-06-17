@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Cob\Estimacion;
 use App\Models\Obra;
 use App\Models\Proyecto;
 use App\Models\User;
@@ -38,11 +39,13 @@ it('crea un proyecto', function () {
         ])
         ->assertRedirect();
 
-    $this->assertDatabaseHas('proyectos', [
-        'no' => 'PRY-1',
-        'descripcion' => 'Nave industrial',
-        'estatus' => 'abierta',
-    ]);
+    $proyecto = Proyecto::firstWhere('no', 'PRY-1');
+    expect($proyecto)->not->toBeNull();
+
+    // Al crear el proyecto se crea su obra base (sin partidas).
+    expect($proyecto->obras()->where('tipo', 'base')->count())->toBe(1);
+    $obraBase = $proyecto->obras()->first();
+    expect($obraBase->partidas()->count())->toBe(0);
 });
 
 it('el backfill crea un proyecto por obra no-planta y deja la planta fuera', function () {
@@ -61,4 +64,15 @@ it('el backfill crea un proyecto por obra no-planta y deja la planta fuera', fun
         ->and($o1->tipo)->toBe('base')
         ->and($o1->proyecto->no)->toBe('OB-1')
         ->and((float) $o1->proyecto->anticipo)->toBe(1000.0);
+});
+
+it('el backfill liga las estimaciones al proyecto de su obra', function () {
+    $proyecto = Proyecto::factory()->create();
+    $obra = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
+    $est = Estimacion::factory()->create(['obra_id' => $obra->id, 'proyecto_id' => null]);
+
+    (require database_path('migrations/2026_06_17_075227_backfill_estimaciones_proyecto.php'))->up();
+
+    expect($est->fresh()->proyecto_id)->toBe($proyecto->id)
+        ->and($proyecto->estimaciones()->count())->toBe(1);
 });

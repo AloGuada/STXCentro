@@ -40,7 +40,10 @@ class EstimacionController extends Controller
 
     public function store(EstimacionStoreRequest $request, Obra $obra): RedirectResponse
     {
-        $obra->estimaciones()->create($request->validated());
+        $obra->estimaciones()->create([
+            ...$request->validated(),
+            'proyecto_id' => $obra->proyecto_id,
+        ]);
 
         return to_route('admin.cob.obras.show', $obra);
     }

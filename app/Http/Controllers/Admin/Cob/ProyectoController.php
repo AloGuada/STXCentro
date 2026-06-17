@@ -9,6 +9,7 @@ use App\Models\Proyecto;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -59,7 +60,24 @@ class ProyectoController extends Controller
 
     public function store(ProyectoStoreRequest $request): RedirectResponse
     {
-        $proyecto = Proyecto::create($request->validated());
+        $proyecto = DB::transaction(function () use ($request): Proyecto {
+            $proyecto = Proyecto::create($request->validated());
+
+            // Al crear el proyecto se crea su obra base (centro de costo). Sus
+            // partidas quedan pendientes: el usuario las carga después. El
+            // presupuesto (obra_rubros) se auto-crea vía Obra::booted().
+            $proyecto->obras()->create([
+                'no' => $proyecto->no,
+                'descripcion' => $proyecto->descripcion,
+                'cliente_id' => $proyecto->cliente_id,
+                'tipo_contrato' => $proyecto->tipo_contrato,
+                'tipo' => 'base',
+                'estatus' => 'abierta',
+                'activa' => true,
+            ]);
+
+            return $proyecto;
+        });
 
         return to_route('admin.cob.proyectos.show', $proyecto);
     }
