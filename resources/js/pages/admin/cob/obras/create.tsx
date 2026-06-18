@@ -61,9 +61,7 @@ export default function ObraCreate({ proyecto }: Props) {
                         </div>
 
                         <div className="flex justify-end gap-2">
-                            <Button variant="outline" asChild>
-                                <Link href={`/admin/cob/proyectos/${proyecto.id}`}>Cancelar</Link>
-                            </Button>
+                            <Link href={`/admin/cob/proyectos/${proyecto.id}`} className="btn btn-outline">Cancelar</Link>
                             <Button type="submit" disabled={processing}>
                                 {processing && <Loader2Icon className="size-4 animate-spin" />}
                                 Crear obra

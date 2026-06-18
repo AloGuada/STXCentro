@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Loader2Icon, LockIcon, PencilIcon, PlusIcon, Trash2Icon, UnlockIcon } from 'lucide-react';
-import { Fragment, type FormEvent, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import ArchivoViewerModal from '@/components/cob/archivo-viewer-modal';
 import { calcularResumenProyecto } from '@/components/cob/calculos';
 import {
@@ -177,12 +177,7 @@ function ResumenTab({
     );
 }
 
-// -- Partidas (obras del proyecto, agrupadas por tipo) --
-const PARTIDA_GRUPOS: { tipo: string; label: string }[] = [
-    { tipo: 'suministro', label: 'Suministro' },
-    { tipo: 'montaje', label: 'Montaje' },
-];
-
+// -- Partidas (obras del proyecto) --
 function PartidasTab({ proyecto }: { proyecto: Proyecto }) {
     const { can } = useCan();
     const obras = proyecto.obras ?? [];
@@ -202,11 +197,9 @@ function PartidasTab({ proyecto }: { proyecto: Proyecto }) {
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Obras y partidas</h2>
-                <Button size="sm" asChild>
-                    <Link href={`/admin/cob/proyectos/${proyecto.id}/obras/create`}>
-                        <PlusIcon className="size-4" /> Nueva obra
-                    </Link>
-                </Button>
+                <Link href={`/admin/cob/proyectos/${proyecto.id}/obras/create`} className="btn btn-primary btn-sm gap-1 flex-nowrap">
+                    <PlusIcon className="size-4" /> Nueva obra
+                </Link>
             </div>
 
             {obras.length === 0 && (
@@ -257,22 +250,21 @@ function ObraCard({
                     </span>
                 </div>
                 <div className="flex items-center gap-1">
-                    <span className="text-base-content/60 mr-2 text-sm">Subtotal: {formatearMXN(subtotal)}</span>
-                    <Button size="sm" asChild>
-                        <Link href={`/admin/cob/obras/${obra.id}/partidas/create`}><PlusIcon className="size-3" /> Partida</Link>
-                    </Button>
-                    <Link href={`/admin/cob/proyectos/${proyecto.id}/obras/${obra.id}/edit`} className="btn btn-ghost btn-sm">
+                    <Link href={`/admin/cob/obras/${obra.id}/partidas/create`} className="btn btn-primary btn-sm gap-1 flex-nowrap">
+                        <PlusIcon className="size-3" /> Partida
+                    </Link>
+                    <Link href={`/admin/cob/proyectos/${proyecto.id}/obras/${obra.id}/edit`} className="btn btn-outline btn-sm gap-1">
                         <PencilIcon className="size-3" /> Editar
                     </Link>
-                    <a href={`/admin/costos/presupuestos/${obra.id}/edit`} className="btn btn-ghost btn-sm">Presupuesto</a>
+                    <a href={`/admin/costos/presupuestos/${obra.id}/edit`} className="btn btn-outline btn-sm">Presupuesto</a>
                     {can('cob.obras.cerrar') && (
                         <button
                             type="button"
-                            className={`btn btn-ghost btn-sm ${obra.estatus === 'abierta' ? 'text-error' : 'text-success'}`}
+                            className={`btn btn-outline btn-sm gap-1 ${obra.estatus === 'abierta' ? 'btn-error' : 'btn-success'}`}
                             onClick={() => onToggleEstado(obra)}
-                            title={obra.estatus === 'abierta' ? 'Cerrar obra' : 'Reabrir obra'}
                         >
                             {obra.estatus === 'abierta' ? <LockIcon className="size-4" /> : <UnlockIcon className="size-4" />}
+                            {obra.estatus === 'abierta' ? 'Cerrar' : 'Reabrir'}
                         </button>
                     )}
                 </div>
@@ -282,42 +274,46 @@ function ObraCard({
                 <p className="text-base-content/50 px-4 py-6 text-center text-sm">Sin partidas. Agrégalas con "Partida".</p>
             ) : (
                 <table className="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Descripción</th>
+                            <th className="text-right">Monto</th>
+                            <th></th>
+                        </tr>
+                    </thead>
                     <tbody>
-                        {PARTIDA_GRUPOS.map((g) => {
-                            const items = partidas.filter((p) => p.tipo === g.tipo);
-                            if (items.length === 0) return null;
-                            const sub = items.reduce((s, p) => s + Number(p.monto), 0);
-                            return (
-                                <Fragment key={g.tipo}>
-                                    <tr className="bg-base-100">
-                                        <td colSpan={3} className="text-xs font-semibold uppercase opacity-70">{g.label}</td>
-                                    </tr>
-                                    {items.map((p) => (
-                                        <tr key={p.id} className="hover">
-                                            <td className="pl-6">{p.descripcion}</td>
-                                            <td className="text-right">{formatearMXN(p.monto)}</td>
-                                            <td className="flex justify-end gap-1">
-                                                <Link href={`/admin/cob/obras/${obra.id}/partidas/${p.id}/edit`} className="btn btn-ghost btn-xs">
-                                                    <PencilIcon className="size-3" />
-                                                </Link>
-                                                <button
-                                                    className="btn btn-ghost btn-xs text-error"
-                                                    onClick={() => router.delete(`/admin/cob/obras/${obra.id}/partidas/${p.id}`, { preserveScroll: true })}
-                                                >
-                                                    <Trash2Icon className="size-3" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    <tr className="text-sm">
-                                        <td className="pl-6 italic opacity-60">Subtotal {g.label}</td>
-                                        <td className="text-right italic opacity-60">{formatearMXN(sub)}</td>
-                                        <td></td>
-                                    </tr>
-                                </Fragment>
-                            );
-                        })}
+                        {partidas.map((p) => (
+                            <tr key={p.id} className="hover">
+                                <td className="capitalize">{p.tipo}</td>
+                                <td>{p.descripcion}</td>
+                                <td className="text-right">{formatearMXN(p.monto)}</td>
+                                <td className="text-right">
+                                    <div className="join">
+                                        <Link
+                                            href={`/admin/cob/obras/${obra.id}/partidas/${p.id}/edit`}
+                                            className="btn btn-outline btn-xs join-item gap-1"
+                                        >
+                                            <PencilIcon className="size-3" /> Editar
+                                        </Link>
+                                        <button
+                                            className="btn btn-outline btn-error btn-xs join-item gap-1"
+                                            onClick={() => router.delete(`/admin/cob/obras/${obra.id}/partidas/${p.id}`, { preserveScroll: true })}
+                                        >
+                                            <Trash2Icon className="size-3" /> Eliminar
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
                     </tbody>
+                    <tfoot>
+                        <tr className="font-semibold">
+                            <td colSpan={2} className="text-right">Subtotal</td>
+                            <td className="text-right">{formatearMXN(subtotal)}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             )}
         </div>
