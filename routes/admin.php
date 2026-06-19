@@ -428,6 +428,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('proyectos', [CobProyectoController::class, 'store'])->name('proyectos.store');
         Route::get('proyectos/{proyecto}', [CobProyectoController::class, 'show'])->name('proyectos.show');
         Route::put('proyectos/{proyecto}', [CobProyectoController::class, 'update'])->name('proyectos.update');
+        Route::put('proyectos/{proyecto}/plan-cobro', [CobProyectoController::class, 'guardarPlanCobro'])->name('proyectos.plan-cobro');
+        Route::put('proyectos/{proyecto}/planeacion', [CobProyectoController::class, 'guardarPlaneacion'])->name('proyectos.planeacion');
+        Route::post('proyectos/{proyecto}/etapas', [CobProyectoController::class, 'storeEtapa'])->name('proyectos.etapas.store');
+        Route::delete('proyectos/{proyecto}/etapas/{etapa}', [CobProyectoController::class, 'destroyEtapa'])->name('proyectos.etapas.destroy');
 
         // Obras del proyecto (alta/edición a nivel proyecto)
         Route::get('proyectos/{proyecto}/obras/create', [CobObraCobranzaController::class, 'createObra'])->name('proyectos.obras.create');

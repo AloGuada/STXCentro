@@ -54,12 +54,35 @@ export type Proyecto = {
     monto_iva?: number | null;
     anticipo?: number | null;
     garantia?: number | null;
+    fecha_inicio_plan?: string | null;
     estatus: ObraEstatus;
     activa?: boolean;
     cliente?: Cliente;
     obras?: Obra[];
     obra_base?: Obra | null;
     estimaciones?: CobEstimacion[];
+    plan_cobro?: CobPlanCobro[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobPlanCobro = {
+    id: number;
+    proyecto_id: number;
+    orden: number;
+    dias: number;
+    fecha_inicio_plan: string;
+    fecha_fin_plan: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobObraEtapa = {
+    id: number;
+    obra_id: number;
+    descripcion: string;
+    fecha_inicio_plan: string | null;
+    fecha_fin_plan: string | null;
     created_at: string;
     updated_at: string;
 };
@@ -97,6 +120,7 @@ export type Obra = {
     porcentaje_obra?: number | null;
     cliente?: Cliente;
     partidas?: CobPartida[];
+    etapas_pmo?: CobObraEtapa[];
     estimaciones?: CobEstimacion[];
     anticipos?: CobAnticipo[];
     adendas?: CobAdenda[];

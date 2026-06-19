@@ -29,6 +29,7 @@ class Proyecto extends Model
         'monto_iva',
         'anticipo',
         'garantia',
+        'fecha_inicio_plan',
         'estatus',
         'activa',
     ];
@@ -41,6 +42,7 @@ class Proyecto extends Model
             'monto_iva' => 'decimal:2',
             'anticipo' => 'decimal:2',
             'garantia' => 'decimal:2',
+            'fecha_inicio_plan' => 'date',
             'activa' => 'boolean',
         ];
     }
@@ -75,5 +77,11 @@ class Proyecto extends Model
     public function estimaciones(): HasMany
     {
         return $this->hasMany(\App\Models\Cob\Estimacion::class, 'proyecto_id');
+    }
+
+    /** Cronograma planeado de cobro (periodos por estimación planeada). */
+    public function planCobro(): HasMany
+    {
+        return $this->hasMany(\App\Models\Cob\PlanCobro::class, 'proyecto_id')->orderBy('orden');
     }
 }

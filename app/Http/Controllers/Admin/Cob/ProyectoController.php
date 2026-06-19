@@ -3,13 +3,18 @@
 namespace App\Http\Controllers\Admin\Cob;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Cob\EtapaStoreRequest;
+use App\Http\Requests\Admin\Cob\PlanCobroRequest;
+use App\Http\Requests\Admin\Cob\PlaneacionRequest;
 use App\Http\Requests\Admin\Cob\ProyectoStoreRequest;
 use App\Http\Requests\Admin\Cob\ProyectoUpdateRequest;
 use App\Models\Cliente;
 use App\Models\Cob\DocumentoSeccion;
+use App\Models\Cob\ObraEtapa;
 use App\Models\Proyecto;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -58,6 +63,8 @@ class ProyectoController extends Controller
             'obras.comparativos',
             'obras.deducciones',
             'obras.anticipos',
+            'obras.etapasPmo',
+            'planCobro',
             // Lo comercial vive en la obra base; el hub lo gestiona desde ahí.
             'obraBase.anticipos',
             'obraBase.adendas',
@@ -122,6 +129,91 @@ class ProyectoController extends Controller
     public function update(ProyectoUpdateRequest $request, Proyecto $proyecto): RedirectResponse
     {
         $proyecto->update($request->validated());
+
+        return back();
+    }
+
+    /**
+     * Regenera el cronograma planeado de cobro: N estimaciones, cada una con sus
+     * días; las fechas se calculan secuencialmente desde la fecha de inicio del
+     * plan (periodos contiguos). Reemplaza el plan anterior.
+     */
+    public function guardarPlanCobro(PlanCobroRequest $request, Proyecto $proyecto): RedirectResponse
+    {
+        $data = $request->validated();
+
+        DB::transaction(function () use ($data, $proyecto): void {
+            $proyecto->update(['fecha_inicio_plan' => $data['fecha_inicio_plan']]);
+            $proyecto->planCobro()->delete();
+
+            $dias = (int) $data['dias'];
+            $cursor = Carbon::parse($data['fecha_inicio_plan'])->startOfDay();
+            for ($orden = 1; $orden <= (int) $data['numero']; $orden++) {
+                $inicio = $cursor->copy();
+                $fin = $cursor->copy()->addDays($dias);
+
+                $proyecto->planCobro()->create([
+                    'orden' => $orden,
+                    'dias' => $dias,
+                    'fecha_inicio_plan' => $inicio->toDateString(),
+                    'fecha_fin_plan' => $fin->toDateString(),
+                ]);
+
+                $cursor = $fin;
+            }
+        });
+
+        return back();
+    }
+
+    /**
+     * Guarda los ajustes hechos arrastrando en el Gantt: fechas de cada periodo
+     * planeado (por orden) y de las etapas PMO por obra (upsert).
+     */
+    public function guardarPlaneacion(PlaneacionRequest $request, Proyecto $proyecto): RedirectResponse
+    {
+        $data = $request->validated();
+        $obraIds = $proyecto->obras()->pluck('id');
+
+        DB::transaction(function () use ($data, $proyecto, $obraIds): void {
+            foreach ($data['plan'] ?? [] as $p) {
+                $proyecto->planCobro()->where('orden', $p['orden'])->update([
+                    'fecha_inicio_plan' => $p['fecha_inicio_plan'],
+                    'fecha_fin_plan' => $p['fecha_fin_plan'],
+                    'dias' => (int) Carbon::parse($p['fecha_inicio_plan'])->diffInDays(Carbon::parse($p['fecha_fin_plan'])),
+                ]);
+            }
+
+            foreach ($data['etapas'] ?? [] as $e) {
+                ObraEtapa::query()
+                    ->where('id', $e['id'])
+                    ->whereIn('obra_id', $obraIds)
+                    ->update([
+                        'fecha_inicio_plan' => $e['fecha_inicio_plan'],
+                        'fecha_fin_plan' => $e['fecha_fin_plan'],
+                    ]);
+            }
+        });
+
+        return back();
+    }
+
+    /** Crea una etapa PMO (obra + descripción + fechas) desde el modal del Gantt. */
+    public function storeEtapa(EtapaStoreRequest $request, Proyecto $proyecto): RedirectResponse
+    {
+        $data = $request->validated();
+        abort_unless($proyecto->obras()->whereKey($data['obra_id'])->exists(), 404);
+
+        ObraEtapa::create($data);
+
+        return back();
+    }
+
+    public function destroyEtapa(Proyecto $proyecto, ObraEtapa $etapa): RedirectResponse
+    {
+        abort_unless($proyecto->obras()->whereKey($etapa->obra_id)->exists(), 404);
+
+        $etapa->delete();
 
         return back();
     }

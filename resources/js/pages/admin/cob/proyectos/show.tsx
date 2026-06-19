@@ -11,11 +11,11 @@ import {
     DeduccionesTab,
     DisputasTab,
     DocumentacionTab,
-    GanttTab,
     PenalizacionesTab,
 } from '@/components/cob/comercial-tabs';
 import { EstadoBadge } from '@/components/cob/estado-badge';
 import { formatearMXN } from '@/components/cob/money-display';
+import { PlaneacionGantt } from '@/components/cob/planeacion-gantt';
 import { ResumenFinancieroCard } from '@/components/cob/resumen-financiero';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
@@ -127,9 +127,7 @@ export default function ProyectoShow({ proyecto, clientes, documentoSecciones }:
                     <DocumentacionTab obra={obraBase} documentoSecciones={documentoSecciones} onOpenArchivo={setViewerArchivo} />
                 )}
                 {obraBase && activeTab === 'configuracion' && <ConfiguracionTab obra={obraBase} />}
-                {activeTab === 'gantt' && obraBase && (
-                    <GanttTab obras={[{ ...obraBase, estimaciones: proyecto.estimaciones ?? [] }]} />
-                )}
+                {activeTab === 'gantt' && <PlaneacionGantt proyecto={proyecto} />}
                 {activeTab === 'comerciales' && <DatosComercialesTab proyecto={proyecto} clientes={clientes} />}
             </div>
 

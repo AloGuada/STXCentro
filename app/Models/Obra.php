@@ -145,6 +145,12 @@ class Obra extends Model
         return $this->hasMany(Cob\Partida::class, 'obra_id');
     }
 
+    /** Etapas PMO planificadas (suministro / montaje) con sus fechas plan. */
+    public function etapasPmo(): HasMany
+    {
+        return $this->hasMany(Cob\ObraEtapa::class, 'obra_id');
+    }
+
     public function estimaciones(): HasMany
     {
         return $this->hasMany(Cob\Estimacion::class, 'obra_id');
