@@ -65,10 +65,8 @@ it('crea un proyecto', function () {
     $proyecto = Proyecto::firstWhere('no', 'PRY-1');
     expect($proyecto)->not->toBeNull();
 
-    // Al crear el proyecto se crea su obra base (sin partidas).
-    expect($proyecto->obras()->where('tipo', 'base')->count())->toBe(1);
-    $obraBase = $proyecto->obras()->first();
-    expect($obraBase->partidas()->count())->toBe(0);
+    // El proyecto nace vacío: las obras se agregan después.
+    expect($proyecto->obras()->count())->toBe(0);
 });
 
 it('el backfill crea un proyecto por obra no-planta y deja la planta fuera', function () {
