@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\Cob\ObraDocumentoController as CobObraDocumentoCo
 use App\Http\Controllers\Admin\Cob\PartidaController as CobPartidaController;
 use App\Http\Controllers\Admin\Cob\PenalizacionController as CobPenalizacionController;
 use App\Http\Controllers\Admin\Cob\ProyectoController as CobProyectoController;
+use App\Http\Controllers\Admin\Cob\ReporteCobranzaController as CobReporteCobranzaController;
 use App\Http\Controllers\Admin\Cob\TipoRetencionController as CobTipoRetencionController;
 use App\Http\Controllers\Admin\Costos\AfectacionPresupuestalController as CostosAfectacionPresupuestalController;
 use App\Http\Controllers\Admin\Costos\AnticipoController as CostosAnticipoController;
@@ -414,6 +415,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // Cobranza admin routes
     Route::prefix('cob')->name('cob.')->group(function () {
         Route::get('dashboard', [CobDashboardController::class, 'index'])->name('dashboard.index');
+
+        // Reporte semanal de cobranza (calculado en vivo; solo notas se guardan)
+        Route::get('reportes', [CobReporteCobranzaController::class, 'index'])->name('reportes.index');
+        Route::get('reportes/{anio}/{semana}', [CobReporteCobranzaController::class, 'show'])->whereNumber(['anio', 'semana'])->name('reportes.show');
+        Route::put('reportes/{anio}/{semana}/notas', [CobReporteCobranzaController::class, 'updateNotas'])->whereNumber(['anio', 'semana'])->name('reportes.notas');
+        Route::get('reportes/{anio}/{semana}/pdf', [CobReporteCobranzaController::class, 'pdf'])->whereNumber(['anio', 'semana'])->name('reportes.pdf');
 
         Route::resource('clientes', CobClienteController::class)->parameters(['clientes' => 'cliente']);
         Route::post('clientes/{cliente}/contactos', [CobContactoController::class, 'store'])->name('clientes.contactos.store');

@@ -397,6 +397,12 @@ const navGroups: NavGroup[] = [
                 permission: 'cob.dashboard.ver',
             },
             {
+                title: 'Reporte semanal',
+                href: '/admin/cob/reportes',
+                icon: Receipt,
+                permission: 'cob.reportes.ver',
+            },
+            {
                 title: 'Proyectos',
                 href: '/admin/cob/proyectos',
                 icon: FolderTree,

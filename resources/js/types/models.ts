@@ -81,6 +81,51 @@ export type CobObraEtapa = {
     updated_at: string;
 };
 
+export type CobReporteDetonacion = {
+    obra_id: number;
+    obra_no: string;
+    descripcion: string | null;
+    monto_sin_iva: number;
+    monto_con_iva: number;
+};
+
+export type CobReporteCobro = {
+    obra_id: number | null;
+    obra_no: string;
+    estimacion_id: number;
+    numero_estimacion: number;
+    monto_sin_iva: number;
+    monto_con_iva: number;
+};
+
+/** Montos comunes a la fila anual y al reporte de la semana (calculados en vivo). */
+type CobReporteMontos = {
+    anio: number;
+    semana: number;
+    fecha_inicio: string;
+    fecha_fin: string;
+    saldo_anterior_sin_iva: number;
+    saldo_anterior_con_iva: number;
+    total_detonaciones_sin_iva: number;
+    total_detonaciones_con_iva: number;
+    total_cobrado_sin_iva: number;
+    total_cobrado_con_iva: number;
+    saldo_nuevo_sin_iva: number;
+    saldo_nuevo_con_iva: number;
+};
+
+/** Fila de la tabla anual (una por semana). */
+export type CobReporteFila = CobReporteMontos & {
+    tiene_notas: boolean;
+};
+
+/** Reporte completo de una semana. */
+export type CobReporteSemana = CobReporteMontos & {
+    detonaciones: CobReporteDetonacion[];
+    cobros: CobReporteCobro[];
+    notas: string | null;
+};
+
 export type Obra = {
     id: number;
     proyecto_id?: number | null;

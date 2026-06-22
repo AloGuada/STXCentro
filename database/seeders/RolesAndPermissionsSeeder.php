@@ -234,6 +234,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'cob.configuracion-documentos.eliminar',
             'cob.documentos.ver',
             'cob.documentos.gestionar',
+            'cob.reportes.ver',
+            'cob.reportes.gestionar',
         ];
 
         // Crear permisos del módulo RH
