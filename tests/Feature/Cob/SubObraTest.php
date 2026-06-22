@@ -9,10 +9,10 @@ beforeEach(function () {
     $this->user = User::factory()->create();
 });
 
-it('crea una obra adicional desde el proyecto con su propio presupuesto', function () {
+it('crea una obra adicional (hermana) desde el proyecto con su propio presupuesto', function () {
     Rubro::factory()->count(2)->create(['ambito' => 'obra']);
     $proyecto = Proyecto::factory()->create();
-    $base = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
+    Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
 
     $this->actingAs($this->user)
         ->post(route('admin.cob.proyectos.obras.store', $proyecto), [
@@ -24,8 +24,7 @@ it('crea una obra adicional desde el proyecto con su propio presupuesto', functi
 
     $sub = $proyecto->subObras()->firstOrFail();
 
-    expect($sub->proyecto_id)->toBe($proyecto->id)
-        ->and($sub->obra_padre_id)->toBe($base->id) // cuelga de la obra base (ancla)
+    expect($sub->proyecto_id)->toBe($proyecto->id) // obra hermana en el mismo proyecto
         ->and($sub->tipo)->toBe('adicional')
         ->and($sub->estatus)->toBe('abierta')
         ->and($sub->obraRubros()->count())->toBe(2) // presupuesto propio auto-creado
@@ -45,8 +44,7 @@ it('crea una obra normal (base) desde el proyecto sin padre', function () {
         ->assertRedirect();
 
     $obra = $proyecto->obras()->where('no', 'OB-2')->firstOrFail();
-    expect($obra->tipo)->toBe('base')
-        ->and($obra->obra_padre_id)->toBeNull();
+    expect($obra->tipo)->toBe('base');
 });
 
 it('una obra puede tener sus propias partidas', function () {

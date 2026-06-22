@@ -35,7 +35,6 @@ class Obra extends Model
      */
     protected $fillable = [
         'proyecto_id',
-        'obra_padre_id',
         'tipo',
         'no',
         'descripcion',
@@ -120,17 +119,6 @@ class Obra extends Model
     public function proyecto(): BelongsTo
     {
         return $this->belongsTo(Proyecto::class, 'proyecto_id');
-    }
-
-    public function obraPadre(): BelongsTo
-    {
-        return $this->belongsTo(self::class, 'obra_padre_id');
-    }
-
-    /** Sub-obras (adicionales) que cuelgan de esta obra. */
-    public function subObras(): HasMany
-    {
-        return $this->hasMany(self::class, 'obra_padre_id');
     }
 
     // Cobranza relations

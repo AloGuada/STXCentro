@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Admin\Cob;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class ProyectoUpdateRequest extends FormRequest
 {
@@ -20,11 +19,6 @@ class ProyectoUpdateRequest extends FormRequest
         return [
             'descripcion' => ['required', 'string', 'max:255'],
             'cliente_id' => ['nullable', 'exists:clientes,id'],
-            'tipo_contrato' => ['nullable', Rule::in(['precio_unitario', 'alzado'])],
-            'monto' => ['nullable', 'numeric', 'min:0'],
-            'monto_iva' => ['nullable', 'numeric', 'min:0'],
-            'anticipo' => ['nullable', 'numeric', 'min:0'],
-            'garantia' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

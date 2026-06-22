@@ -49,14 +49,14 @@ describe('catálogo de secciones', function () {
 });
 
 describe('documentación por obra', function () {
-    test('el hub del proyecto incluye las secciones activas', function () {
+    test('la página de la obra incluye las secciones activas', function () {
         DocumentoSeccion::factory()->create(['activo' => true]);
         DocumentoSeccion::factory()->create(['activo' => false]);
         $proyecto = Proyecto::factory()->create();
-        Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
+        $obra = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
 
         $this->actingAs($this->user)
-            ->get(route('admin.cob.proyectos.show', $proyecto))
+            ->get(route('admin.cob.obras.show', $obra))
             ->assertInertia(fn ($page) => $page->has('documentoSecciones', 1));
     });
 

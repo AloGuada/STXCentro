@@ -3,7 +3,6 @@
 namespace App\Models\Cob;
 
 use App\Models\Obra;
-use App\Models\Proyecto;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,7 +16,6 @@ class Estimacion extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'proyecto_id',
         'obra_id',
         'numero_estimacion',
         'folio',
@@ -46,11 +44,6 @@ class Estimacion extends Model
             'monto_pagado' => 'decimal:2',
             'fecha_ultimo_cambio_estado' => 'datetime',
         ];
-    }
-
-    public function proyecto(): BelongsTo
-    {
-        return $this->belongsTo(Proyecto::class, 'proyecto_id');
     }
 
     public function obra(): BelongsTo

@@ -9,9 +9,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * Entidad comercial que agrupa una o más obras (centros de costo/ejecución).
- * Las condiciones contractuales (anticipo, garantía, IVA) viven aquí; las
- * estimaciones se cobran a nivel proyecto sumando las partidas de sus obras.
+ * Paraguas comercial que agrupa una o más obras (centros de costo/ejecución) y
+ * concentra el cronograma (Gantt) del cobro. Los datos contractuales/financieros
+ * y las estimaciones viven en cada obra.
  */
 class Proyecto extends Model
 {
@@ -24,11 +24,6 @@ class Proyecto extends Model
         'no',
         'descripcion',
         'cliente_id',
-        'tipo_contrato',
-        'monto',
-        'monto_iva',
-        'anticipo',
-        'garantia',
         'fecha_inicio_plan',
         'estatus',
         'activa',
@@ -38,10 +33,6 @@ class Proyecto extends Model
     protected function casts(): array
     {
         return [
-            'monto' => 'decimal:2',
-            'monto_iva' => 'decimal:2',
-            'anticipo' => 'decimal:2',
-            'garantia' => 'decimal:2',
             'fecha_inicio_plan' => 'date',
             'activa' => 'boolean',
         ];
@@ -72,11 +63,6 @@ class Proyecto extends Model
     public function subObras(): HasMany
     {
         return $this->hasMany(Obra::class, 'proyecto_id')->where('tipo', 'adicional');
-    }
-
-    public function estimaciones(): HasMany
-    {
-        return $this->hasMany(\App\Models\Cob\Estimacion::class, 'proyecto_id');
     }
 
     /** Cronograma planeado de cobro (periodos por estimación planeada). */

@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Cob\ObraCobDatosRequest;
 use App\Http\Requests\Admin\Cob\ObraCobUpdateRequest;
 use App\Http\Requests\Admin\Cob\ObraEstadoRequest;
+use App\Models\Cliente;
+use App\Models\Cob\DocumentoSeccion;
 use App\Models\Obra;
 use App\Models\Proyecto;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -50,15 +53,45 @@ class ObraCobranzaController extends Controller
     }
 
     /**
-     * La obra ya no tiene página propia en cobranza: todo se gestiona desde el
-     * hub del proyecto (Proyecto → Obra → Partida). Se redirige para no romper
-     * enlaces antiguos. El presupuesto de la obra sigue en el módulo costos.
+     * Página de la obra: concentra contrato/datos financieros, partidas,
+     * estimaciones y demás conceptos de cobranza de ESTA obra. El proyecto solo
+     * es el paraguas + Gantt. El presupuesto vive en el módulo costos.
      */
-    public function show(Obra $obra): RedirectResponse
+    public function show(Obra $obra): Response
     {
         abort_if($obra->es_planta, 404);
 
-        return to_route('admin.cob.proyectos.show', $obra->proyecto_id);
+        $obra->load([
+            'cliente',
+            'proyecto',
+            'partidas',
+            'estimaciones.pagos',
+            'estimaciones.historial.usuario',
+            'estimaciones.retenciones.tipoRetencion',
+            'estimaciones.documentos.configuracionDocumento',
+            'anticipos',
+            'adendas',
+            'comparativos',
+            'deducciones',
+            'disputas',
+            'penalizaciones',
+            'eventos.children',
+            'configuracionDocumentos',
+            'documentoCarpetas',
+            'documentoArchivos',
+        ]);
+
+        $documentoSecciones = DocumentoSeccion::query()
+            ->activas()
+            ->orderBy('orden')
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'orden']);
+
+        return Inertia::render('admin/cob/obras/show', [
+            'obra' => $obra,
+            'clientes' => $this->clientes(),
+            'documentoSecciones' => $documentoSecciones,
+        ]);
     }
 
     public function updateFinancial(ObraCobUpdateRequest $request, Obra $obra): RedirectResponse
@@ -97,21 +130,18 @@ class ObraCobranzaController extends Controller
     }
 
     /**
-     * Crea una obra (normal o adicional) dentro del proyecto. El presupuesto
-     * (obra_rubros) se auto-crea vía Obra::booted(); sus partidas quedan
-     * pendientes. Las adicionales cuelgan de la obra base (ancla comercial).
+     * Crea una obra (normal o adicional) dentro del proyecto. Las adicionales
+     * son obras hermanas (mismo proyecto, tipo `adicional`); ya no cuelgan de la
+     * obra base. El presupuesto (obra_rubros) se auto-crea vía Obra::booted() y
+     * sus partidas quedan pendientes.
      */
     public function storeObra(ObraCobDatosRequest $request, Proyecto $proyecto): RedirectResponse
     {
-        $tipo = $request->validated('tipo');
-
         $proyecto->obras()->create([
-            'tipo' => $tipo,
+            'tipo' => $request->validated('tipo'),
             'no' => $request->validated('no'),
             'descripcion' => $request->validated('descripcion'),
-            'obra_padre_id' => $tipo === 'adicional' ? $proyecto->obraBase?->id : null,
             'cliente_id' => $proyecto->cliente_id,
-            'tipo_contrato' => $proyecto->tipo_contrato,
             'estatus' => 'abierta',
             'activa' => true,
         ]);
@@ -133,14 +163,12 @@ class ObraCobranzaController extends Controller
     {
         abort_unless($obra->proyecto_id === $proyecto->id, 404);
 
-        $tipo = $request->validated('tipo');
         $estatus = $request->validated('estatus', $obra->estatus);
 
         $obra->update([
             'no' => $request->validated('no'),
             'descripcion' => $request->validated('descripcion'),
-            'tipo' => $tipo,
-            'obra_padre_id' => $tipo === 'adicional' ? $proyecto->obraBase?->id : null,
+            'tipo' => $request->validated('tipo'),
             // estatus y activa van sincronizados (igual que cambiarEstado).
             'estatus' => $estatus,
             'activa' => $estatus === 'abierta',
@@ -200,5 +228,14 @@ class ObraCobranzaController extends Controller
         $filename = "estado-cuenta-{$obra->no}.pdf";
 
         return $pdf->download($filename);
+    }
+
+    /** @return Collection<int, Cliente> */
+    private function clientes(): Collection
+    {
+        return Cliente::query()
+            ->where('activo', true)
+            ->orderBy('nombre')
+            ->get(['id', 'nombre']);
     }
 }

@@ -8,24 +8,24 @@ use App\Models\User;
 beforeEach(function () {
     $this->user = User::factory()->create();
     $this->proyecto = Proyecto::factory()->create();
-    $this->obraBase = Obra::factory()->create(['proyecto_id' => $this->proyecto->id, 'tipo' => 'base']);
+    $this->obra = Obra::factory()->create(['proyecto_id' => $this->proyecto->id, 'tipo' => 'base']);
 });
 
-describe('admin cob estimaciones (proyecto)', function () {
+describe('admin cob estimaciones (obra)', function () {
     test('create page can be rendered', function () {
         $this->actingAs($this->user)
-            ->get(route('admin.cob.proyectos.estimaciones.create', $this->proyecto))
+            ->get(route('admin.cob.obras.estimaciones.create', $this->obra))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('admin/cob/estimaciones/create')
-                ->has('proyecto')
+                ->has('obra')
                 ->has('nextNumber')
             );
     });
 
-    test('estimacion can be stored at proyecto level', function () {
+    test('estimacion can be stored at obra level', function () {
         $this->actingAs($this->user)
-            ->post(route('admin.cob.proyectos.estimaciones.store', $this->proyecto), [
+            ->post(route('admin.cob.obras.estimaciones.store', $this->obra), [
                 'numero_estimacion' => 1,
                 'folio' => 'EST-0001',
                 'tipo' => 'normal',
@@ -37,43 +37,42 @@ describe('admin cob estimaciones (proyecto)', function () {
                 'moneda' => 'MXN',
                 'comentarios' => 'Primera estimacion',
             ])
-            ->assertRedirect(route('admin.cob.proyectos.show', $this->proyecto));
+            ->assertRedirect(route('admin.cob.obras.show', $this->obra));
 
         $this->assertDatabaseHas('cob_estimaciones', [
-            'proyecto_id' => $this->proyecto->id,
-            'obra_id' => $this->obraBase->id, // obra base de transición
+            'obra_id' => $this->obra->id,
             'numero_estimacion' => 1,
             'folio' => 'EST-0001',
         ]);
     });
 
-    test('numero_estimacion es secuencial por proyecto', function () {
-        Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id, 'numero_estimacion' => 3]);
+    test('numero_estimacion es secuencial por obra', function () {
+        Estimacion::factory()->create(['obra_id' => $this->obra->id, 'numero_estimacion' => 3]);
 
         $this->actingAs($this->user)
-            ->get(route('admin.cob.proyectos.estimaciones.create', $this->proyecto))
+            ->get(route('admin.cob.obras.estimaciones.create', $this->obra))
             ->assertInertia(fn ($page) => $page->where('nextNumber', 4));
     });
 
     test('edit page can be rendered', function () {
-        $estimacion = Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id]);
+        $estimacion = Estimacion::factory()->create(['obra_id' => $this->obra->id]);
 
         $this->actingAs($this->user)
-            ->get(route('admin.cob.proyectos.estimaciones.edit', [$this->proyecto, $estimacion]))
+            ->get(route('admin.cob.obras.estimaciones.edit', [$this->obra, $estimacion]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('admin/cob/estimaciones/edit')
-                ->has('proyecto')
+                ->has('obra')
                 ->has('estimacion')
                 ->has('tiposRetencion')
             );
     });
 
     test('estimacion can be updated', function () {
-        $estimacion = Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id]);
+        $estimacion = Estimacion::factory()->create(['obra_id' => $this->obra->id]);
 
         $this->actingAs($this->user)
-            ->put(route('admin.cob.proyectos.estimaciones.update', [$this->proyecto, $estimacion]), [
+            ->put(route('admin.cob.obras.estimaciones.update', [$this->obra, $estimacion]), [
                 'folio' => 'EST-UPDATED',
                 'tipo' => 'extraordinaria',
                 'fecha_emision' => '2026-02-01',
@@ -94,20 +93,20 @@ describe('admin cob estimaciones (proyecto)', function () {
     });
 
     test('estimacion can be deleted', function () {
-        $estimacion = Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id]);
+        $estimacion = Estimacion::factory()->create(['obra_id' => $this->obra->id]);
 
         $this->actingAs($this->user)
-            ->delete(route('admin.cob.proyectos.estimaciones.destroy', [$this->proyecto, $estimacion]))
-            ->assertRedirect(route('admin.cob.proyectos.show', $this->proyecto));
+            ->delete(route('admin.cob.obras.estimaciones.destroy', [$this->obra, $estimacion]))
+            ->assertRedirect(route('admin.cob.obras.show', $this->obra));
 
         $this->assertDatabaseMissing('cob_estimaciones', ['id' => $estimacion->id]);
     });
 
     test('estimacion estado can be changed from pendiente to generada', function () {
-        $estimacion = Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id, 'estado' => 'pendiente']);
+        $estimacion = Estimacion::factory()->create(['obra_id' => $this->obra->id, 'estado' => 'pendiente']);
 
         $this->actingAs($this->user)
-            ->post(route('admin.cob.proyectos.estimaciones.cambiar-estado', [$this->proyecto, $estimacion]), [
+            ->post(route('admin.cob.obras.estimaciones.cambiar-estado', [$this->obra, $estimacion]), [
                 'estado' => 'generada',
                 'folio' => 'FOL-001',
                 'comentario' => 'Se genera la estimacion',
@@ -118,10 +117,10 @@ describe('admin cob estimaciones (proyecto)', function () {
     });
 
     test('invalid estado transition is rejected', function () {
-        $estimacion = Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id, 'estado' => 'pendiente']);
+        $estimacion = Estimacion::factory()->create(['obra_id' => $this->obra->id, 'estado' => 'pendiente']);
 
         $this->actingAs($this->user)
-            ->post(route('admin.cob.proyectos.estimaciones.cambiar-estado', [$this->proyecto, $estimacion]), [
+            ->post(route('admin.cob.obras.estimaciones.cambiar-estado', [$this->obra, $estimacion]), [
                 'estado' => 'facturada',
                 'folio' => null,
                 'comentario' => null,

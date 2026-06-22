@@ -49,18 +49,12 @@ export type Proyecto = {
     no: string;
     descripcion: string;
     cliente_id?: number | null;
-    tipo_contrato?: string | null;
-    monto?: number | null;
-    monto_iva?: number | null;
-    anticipo?: number | null;
-    garantia?: number | null;
     fecha_inicio_plan?: string | null;
     estatus: ObraEstatus;
     activa?: boolean;
     cliente?: Cliente;
     obras?: Obra[];
     obra_base?: Obra | null;
-    estimaciones?: CobEstimacion[];
     plan_cobro?: CobPlanCobro[];
     created_at: string;
     updated_at: string;
@@ -90,11 +84,8 @@ export type CobObraEtapa = {
 export type Obra = {
     id: number;
     proyecto_id?: number | null;
-    obra_padre_id?: number | null;
     tipo?: 'base' | 'adicional';
     proyecto?: Proyecto;
-    obra_padre?: Obra;
-    sub_obras?: Obra[];
     no: string;
     descripcion: string;
     fecha_inicio: string | null;

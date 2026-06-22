@@ -156,13 +156,13 @@ export function calcularDatosProyecto(obra: Obra): DatosProyecto {
 }
 
 /**
- * Facturación a nivel proyecto: el presupuesto, comparativos, deducciones y
- * anticipos se suman POR OBRA (cada obra/sub-obra con su propio comparativo y
- * deducción); las estimaciones son del PROYECTO (una sola vez). Así "la
- * estimación del proyecto cobra todas las obras y adicionales".
+ * Facturación a nivel proyecto: presupuesto, comparativos, deducciones,
+ * anticipos y estimaciones se suman POR OBRA (cada obra/adicional con lo suyo).
+ * El proyecto solo agrega; los datos financieros viven en la obra.
  */
 export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
     const obras = proyecto.obras ?? [];
+    const tipoContrato = (obras.find((o) => o.tipo !== 'adicional') ?? obras[0])?.tipo_contrato ?? null;
 
     const porObra = obras.map((o) =>
         calcularResumen(o.partidas ?? [], [], o.anticipos ?? [], o.comparativos ?? [], o.deducciones ?? [], o.tipo_contrato ?? null),
@@ -176,8 +176,8 @@ export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
     const totalAnticiposFacturados = sum((r) => r.totalAnticiposFacturados);
     const totalAnticiposCobrados = sum((r) => r.totalAnticiposCobrados);
 
-    // Estimaciones: a nivel proyecto (una vez), no por obra.
-    const est = calcularResumen([], proyecto.estimaciones ?? [], [], [], [], proyecto.tipo_contrato ?? null);
+    // Estimaciones: sumadas de todas las obras del proyecto.
+    const est = calcularResumen([], obras.flatMap((o) => o.estimaciones ?? []), [], [], [], tipoContrato);
 
     const totalFacturado = totalAnticiposFacturados + est.totalEstimacionesFacturadas;
     const totalCobrado = totalAnticiposCobrados + est.totalEstimacionesCobradas;
@@ -206,6 +206,6 @@ export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
         montoComparativo: sum((r) => r.montoComparativo),
         montoComparativoUltimo: sum((r) => r.montoComparativoUltimo),
         tieneComparativoCualquiera: porObra.some((r) => r.tieneComparativoCualquiera),
-        tipoContrato: proyecto.tipo_contrato ?? null,
+        tipoContrato,
     };
 }

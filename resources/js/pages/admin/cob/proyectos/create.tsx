@@ -20,11 +20,6 @@ export default function ProyectoCreate({ clientes }: Props) {
         no: '',
         descripcion: '',
         cliente_id: '' as string | number,
-        tipo_contrato: '',
-        monto: '',
-        monto_iva: '',
-        anticipo: '',
-        garantia: '',
     });
 
     const submit = (e: FormEvent) => {
@@ -54,26 +49,11 @@ export default function ProyectoCreate({ clientes }: Props) {
                             ))}
                         </select>
                     </Campo>
-                    <Campo label="Tipo de contrato" error={errors.tipo_contrato}>
-                        <select className="select select-bordered w-full" value={data.tipo_contrato} onChange={(e) => setData('tipo_contrato', e.target.value)}>
-                            <option value="">—</option>
-                            <option value="precio_unitario">Precio unitario</option>
-                            <option value="alzado">Alzado</option>
-                        </select>
-                    </Campo>
-                    <Campo label="Monto" error={errors.monto}>
-                        <input type="number" step="0.01" className="input input-bordered w-full" value={data.monto} onChange={(e) => setData('monto', e.target.value)} />
-                    </Campo>
-                    <Campo label="Monto IVA" error={errors.monto_iva}>
-                        <input type="number" step="0.01" className="input input-bordered w-full" value={data.monto_iva} onChange={(e) => setData('monto_iva', e.target.value)} />
-                    </Campo>
-                    <Campo label="Anticipo" error={errors.anticipo}>
-                        <input type="number" step="0.01" className="input input-bordered w-full" value={data.anticipo} onChange={(e) => setData('anticipo', e.target.value)} />
-                    </Campo>
-                    <Campo label="Garantía" error={errors.garantia}>
-                        <input type="number" step="0.01" className="input input-bordered w-full" value={data.garantia} onChange={(e) => setData('garantia', e.target.value)} />
-                    </Campo>
                 </div>
+
+                <p className="text-base-content/60 text-sm">
+                    Los datos de contrato (montos, anticipo, garantía) se capturan en cada obra del proyecto.
+                </p>
 
                 <div>
                     <button type="submit" className="btn btn-primary" disabled={processing}>

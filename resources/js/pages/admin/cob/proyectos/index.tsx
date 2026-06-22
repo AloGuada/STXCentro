@@ -24,9 +24,9 @@ const ACCESSORS: Record<string, (f: Fila) => number | string> = {
     obras: ({ proyecto }) => proyecto.obras?.length ?? 0,
     presupuesto: ({ datos }) => datos.presupuestoPartidas,
     ejecutar: ({ datos }) => datos.presupuestoEjecutar,
-    comparativo: ({ proyecto, datos }) =>
+    comparativo: ({ datos }) =>
         datos.tieneComparativos
-            ? proyecto.tipo_contrato === 'precio_unitario'
+            ? datos.tipoContrato === 'precio_unitario'
                 ? datos.ajustePresupuesto
                 : datos.montoComparativo
             : 0,
@@ -80,30 +80,23 @@ export default function ProyectosIndex({ proyectos, filters }: Props) {
         router.get(window.location.pathname, { ...params, estatus }, { preserveState: true, preserveScroll: true, replace: true });
     };
 
-    // Gantt: una fila por proyecto con sus estimaciones (a nivel proyecto).
+    // Gantt: una fila por obra (con sus propias estimaciones).
     const obrasGantt = useMemo<Obra[]>(
-        () =>
-            proyectos
-                .map((p) => {
-                    const base = (p.obras ?? []).find((o) => o.tipo !== 'adicional') ?? (p.obras ?? [])[0];
-                    if (!base) return null;
-                    return { ...base, no: p.no, descripcion: p.descripcion, estimaciones: p.estimaciones ?? [] };
-                })
-                .filter((o): o is Obra => o !== null),
+        () => proyectos.flatMap((p) => p.obras ?? []),
         [proyectos],
     );
 
     const availableYears = useMemo(() => {
         const years = new Set<number>();
-        for (const p of proyectos) {
-            for (const est of p.estimaciones ?? []) {
+        for (const o of obrasGantt) {
+            for (const est of o.estimaciones ?? []) {
                 for (const h of est.historial ?? []) {
                     years.add(new Date(h.fecha_cambio).getFullYear());
                 }
             }
         }
         return [...years].sort((a, b) => b - a);
-    }, [proyectos]);
+    }, [obrasGantt]);
 
     const datos = useMemo<Fila[]>(
         () => proyectos.map((proyecto) => ({ proyecto, datos: calcularResumenProyecto(proyecto) })),
@@ -272,13 +265,13 @@ export default function ProyectosIndex({ proyectos, filters }: Props) {
                                             <td className="text-right">{formatearMXN(d.presupuestoEjecutar)}</td>
                                             <td className="text-right">
                                                 {d.tieneComparativos
-                                                    ? p.tipo_contrato === 'precio_unitario'
+                                                    ? d.tipoContrato === 'precio_unitario'
                                                         ? formatearMXN(d.ajustePresupuesto)
                                                         : formatearMXN(d.montoComparativo)
                                                     : '-'}
                                                 {d.tieneComparativos && (
                                                     <div className="text-xs opacity-50">
-                                                        {p.tipo_contrato === 'precio_unitario' ? 'Ajuste' : 'Ref. comparativo'}
+                                                        {d.tipoContrato === 'precio_unitario' ? 'Ajuste' : 'Ref. comparativo'}
                                                     </div>
                                                 )}
                                             </td>

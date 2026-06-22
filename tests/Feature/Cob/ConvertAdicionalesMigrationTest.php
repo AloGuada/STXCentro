@@ -73,10 +73,9 @@ it('convierte una partida adicional en sub-obra y re-apunta su presupuesto', fun
 
     correrConversion();
 
-    $sub = $base->subObras()->firstOrFail();
+    $sub = Obra::where('proyecto_id', $proyecto->id)->where('tipo', 'adicional')->firstOrFail();
     expect($sub->tipo)->toBe('adicional')
         ->and($sub->proyecto_id)->toBe($proyecto->id)
-        ->and($sub->obra_padre_id)->toBe($base->id)
         ->and($sub->no)->toBe('OB-9-ad1');
 
     // Presupuesto re-apuntado a la sub-obra, conservando montos (neto-cero).
@@ -96,6 +95,88 @@ it('convierte una partida adicional en sub-obra y re-apunta su presupuesto', fun
     expect(ObraRubro::whereNotNull('adicional_partida_id')->count())->toBe(0);
 });
 
+it('convierte multiples adicionales de una obra en sub-obras independientes', function () {
+    $proyecto = Proyecto::factory()->create();
+    $base = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base', 'no' => 'OB-50']);
+
+    // 3 adicionales, cada uno con su propio presupuesto (rubro distinto).
+    $adicionales = collect([1, 2, 3])->map(function (int $n) use ($base) {
+        $partidaId = insertarPartidaAdicional($base->id, $n, 'suministro', $n * 1000);
+        $rubro = Rubro::factory()->create(['ambito' => 'obra']);
+        $or = ObraRubro::create([
+            'obra_id' => $base->id,
+            'rubro_id' => $rubro->id,
+            'presupuestado' => $n * 100,
+            'acumulado' => $n * 10,
+        ]);
+        DB::table('costos_obra_rubros')->where('id', $or->id)->update(['adicional_partida_id' => $partidaId]);
+
+        return ['n' => $n, 'partidaId' => $partidaId];
+    });
+
+    correrConversion();
+
+    // 3 adicionales → 3 sub-obras (hermanas), con sufijos distintos.
+    $subObras = Obra::where('proyecto_id', $proyecto->id)->where('tipo', 'adicional');
+    expect($subObras->count())->toBe(3)
+        ->and($subObras->pluck('no')->sort()->values()->all())
+        ->toBe(['OB-50-ad1', 'OB-50-ad2', 'OB-50-ad3']);
+
+    // Cada sub-obra recibe SOLO su propio presupuesto (no se cruzan).
+    foreach ($adicionales as $ad) {
+        $sub = Obra::where('no', 'OB-50-ad'.$ad['n'])->firstOrFail();
+        expect($sub->obraRubros()->count())->toBe(1)
+            ->and((float) $sub->obraRubros()->sum('presupuestado'))->toBe((float) ($ad['n'] * 100))
+            ->and((float) $sub->obraRubros()->sum('acumulado'))->toBe((float) ($ad['n'] * 10));
+
+        $partida = DB::table('cob_partidas')->where('id', $ad['partidaId'])->first();
+        expect((int) $partida->obra_id)->toBe($sub->id)
+            ->and((bool) $partida->es_adicional)->toBeFalse();
+    }
+
+    // Ningun obra_rubro quedo huerfano con adicional_partida_id.
+    expect(ObraRubro::whereNotNull('adicional_partida_id')->count())->toBe(0);
+});
+
+it('aisla los adicionales por obra cuando varias obras tienen adicionales', function () {
+    $proyecto = Proyecto::factory()->create();
+    $obraA = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base', 'no' => 'OB-A']);
+    $obraB = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base', 'no' => 'OB-B']);
+
+    foreach ([$obraA, $obraB] as $obra) {
+        foreach ([1, 2] as $n) {
+            $partidaId = insertarPartidaAdicional($obra->id, $n);
+            $or = ObraRubro::create(['obra_id' => $obra->id, 'rubro_id' => Rubro::factory()->create(['ambito' => 'obra'])->id, 'presupuestado' => 500, 'acumulado' => 0]);
+            DB::table('costos_obra_rubros')->where('id', $or->id)->update(['adicional_partida_id' => $partidaId]);
+        }
+    }
+
+    correrConversion();
+
+    // Cada obra base genera exactamente sus 2 sub-obras; el nombre conserva el
+    // origen (ya no hay vínculo padre-hijo: son hermanas en el proyecto).
+    expect(Obra::where('no', 'like', 'OB-A-ad%')->count())->toBe(2)
+        ->and(Obra::where('no', 'like', 'OB-B-ad%')->count())->toBe(2)
+        ->and(Obra::where('no', 'like', 'OB-A-ad%')->pluck('no')->sort()->values()->all())->toBe(['OB-A-ad1', 'OB-A-ad2'])
+        ->and(Obra::where('no', 'like', 'OB-B-ad%')->pluck('no')->sort()->values()->all())->toBe(['OB-B-ad1', 'OB-B-ad2']);
+});
+
+it('es idempotente con multiples adicionales (re-correr no duplica)', function () {
+    $proyecto = Proyecto::factory()->create();
+    $base = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base', 'no' => 'OB-77']);
+
+    foreach ([1, 2, 3] as $n) {
+        $partidaId = insertarPartidaAdicional($base->id, $n);
+        $or = ObraRubro::create(['obra_id' => $base->id, 'rubro_id' => Rubro::factory()->create(['ambito' => 'obra'])->id, 'presupuestado' => 100, 'acumulado' => 0]);
+        DB::table('costos_obra_rubros')->where('id', $or->id)->update(['adicional_partida_id' => $partidaId]);
+    }
+
+    correrConversion();
+    correrConversion();
+
+    expect(Obra::where('proyecto_id', $proyecto->id)->where('tipo', 'adicional')->count())->toBe(3);
+});
+
 it('es idempotente (re-correr no duplica sub-obras)', function () {
     Rubro::factory()->create(['ambito' => 'obra']);
     $proyecto = Proyecto::factory()->create();
@@ -108,5 +189,5 @@ it('es idempotente (re-correr no duplica sub-obras)', function () {
     correrConversion();
     correrConversion();
 
-    expect($base->subObras()->count())->toBe(1);
+    expect(Obra::where('proyecto_id', $proyecto->id)->where('tipo', 'adicional')->count())->toBe(1);
 });

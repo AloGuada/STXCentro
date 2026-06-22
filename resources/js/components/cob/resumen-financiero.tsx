@@ -1,10 +1,16 @@
-import type { Obra } from '@/types/models';
 import type { ResumenFinanciero } from './calculos';
 import { formatearMXN } from './money-display';
 
 type Props = {
-    obra: Obra;
+    titulo: string;
+    subtitulo: string;
     resumen: ResumenFinanciero;
+    anticipoMonto: number;
+    avance: number;
+    /** Etiqueta de la tarjeta de anticipo (p. ej. "Anticipo (30%)" en obra). */
+    anticipoLabel?: string;
+    /** Etiqueta del avance (p. ej. "Avance de Obra" u "Avance del Proyecto"). */
+    avanceLabel?: string;
 };
 
 function ProgressBar({ porcentaje, color }: { porcentaje: number; color: string }) {
@@ -20,7 +26,15 @@ function ProgressBar({ porcentaje, color }: { porcentaje: number; color: string 
     );
 }
 
-export function ResumenFinancieroCard({ obra, resumen }: Props) {
+export function ResumenFinancieroCard({
+    titulo,
+    subtitulo,
+    resumen,
+    anticipoMonto,
+    avance,
+    anticipoLabel = 'Anticipo',
+    avanceLabel = 'Avance de Obra',
+}: Props) {
     const pctFacturado = resumen.presupuestoEjecutar > 0
         ? (resumen.totalFacturado / resumen.presupuestoEjecutar) * 100
         : 0;
@@ -29,16 +43,11 @@ export function ResumenFinancieroCard({ obra, resumen }: Props) {
         ? (resumen.totalCobrado / resumen.presupuestoEjecutar) * 100
         : 0;
 
-    const anticipoPct = Number(obra.anticipo ?? 0);
-    const anticipoMonto = resumen.presupuestoEjecutar * (anticipoPct / 100);
-
-    const avanceObra = Number(obra.porcentaje_obra ?? 0);
-
     return (
         <div className="card bg-base-200 p-6">
             <div className="mb-4 border-b border-base-300 pb-4">
-                <h3 className="text-lg font-bold">{obra.descripcion}</h3>
-                <p className="text-sm opacity-70">OP: {obra.no}</p>
+                <h3 className="text-lg font-bold">{titulo}</h3>
+                <p className="text-sm opacity-70">{subtitulo}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-x-8 gap-y-4 lg:grid-cols-3">
@@ -71,7 +80,7 @@ export function ResumenFinancieroCard({ obra, resumen }: Props) {
                 </div>
 
                 <div>
-                    <div className="text-sm opacity-70">Anticipo ({anticipoPct.toFixed(4)}%)</div>
+                    <div className="text-sm opacity-70">{anticipoLabel}</div>
                     <div className="text-lg font-bold">{formatearMXN(anticipoMonto)}</div>
                 </div>
                 <div>
@@ -92,10 +101,10 @@ export function ResumenFinancieroCard({ obra, resumen }: Props) {
 
                 <div className="col-span-2 lg:col-span-3">
                     <div className="flex items-baseline justify-between">
-                        <div className="text-sm opacity-70">Avance de Obra</div>
-                        <div className="text-lg font-bold text-primary">{avanceObra.toFixed(1)}%</div>
+                        <div className="text-sm opacity-70">{avanceLabel}</div>
+                        <div className="text-lg font-bold text-primary">{avance.toFixed(1)}%</div>
                     </div>
-                    <ProgressBar porcentaje={avanceObra} color="bg-primary" />
+                    <ProgressBar porcentaje={avance} color="bg-primary" />
                 </div>
             </div>
         </div>

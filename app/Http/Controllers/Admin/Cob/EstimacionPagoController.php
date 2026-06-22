@@ -5,13 +5,13 @@ namespace App\Http\Controllers\Admin\Cob;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Cob\EstimacionPagoStoreRequest;
 use App\Models\Cob\Estimacion;
-use App\Models\Proyecto;
+use App\Models\Obra;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 
 class EstimacionPagoController extends Controller
 {
-    public function store(EstimacionPagoStoreRequest $request, Proyecto $proyecto, Estimacion $estimacion): RedirectResponse
+    public function store(EstimacionPagoStoreRequest $request, Obra $obra, Estimacion $estimacion): RedirectResponse
     {
         return DB::transaction(function () use ($request, $estimacion) {
             $estimacion = Estimacion::lockForUpdate()->find($estimacion->id);
@@ -33,7 +33,7 @@ class EstimacionPagoController extends Controller
                 $pago->media()->create([
                     'descripcion' => 'comprobante',
                     'nombre_original' => $file->getClientOriginalName(),
-                    'path' => $file->store("cob/proyectos/{$estimacion->proyecto_id}/pagos", 'public'),
+                    'path' => $file->store("cob/obras/{$estimacion->obra_id}/pagos", 'public'),
                     'mime' => $file->getMimeType(),
                     'size' => $file->getSize(),
                 ]);

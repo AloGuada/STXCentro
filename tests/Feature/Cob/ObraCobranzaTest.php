@@ -53,13 +53,19 @@ describe('admin cob obras', function () {
             ->assertInertia(fn ($page) => $page->has('obras', 5));
     });
 
-    test('show redirects to its proyecto (la obra ya no tiene página propia)', function () {
+    test('show renderiza la página de la obra con sus relaciones', function () {
         $proyecto = Proyecto::factory()->create();
-        $obra = Obra::factory()->create(['proyecto_id' => $proyecto->id]);
+        $obra = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
 
         $this->actingAs($this->user)
             ->get(route('admin.cob.obras.show', $obra))
-            ->assertRedirect(route('admin.cob.proyectos.show', $proyecto));
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/cob/obras/show')
+                ->where('obra.id', $obra->id)
+                ->has('clientes')
+                ->has('documentoSecciones')
+            );
     });
 
     test('financial fields can be updated', function () {

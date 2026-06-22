@@ -8,7 +8,7 @@ use App\Http\Requests\Admin\Cob\EstimacionStoreRequest;
 use App\Http\Requests\Admin\Cob\EstimacionUpdateRequest;
 use App\Models\Cob\Estimacion;
 use App\Models\Cob\TipoRetencion;
-use App\Models\Proyecto;
+use App\Models\Obra;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -28,47 +28,43 @@ class EstimacionController extends Controller
         'pagado' => [],
     ];
 
-    public function create(Proyecto $proyecto): Response
+    public function create(Obra $obra): Response
     {
-        $nextNumber = ($proyecto->estimaciones()->max('numero_estimacion') ?? 0) + 1;
+        $nextNumber = ($obra->estimaciones()->max('numero_estimacion') ?? 0) + 1;
 
         return Inertia::render('admin/cob/estimaciones/create', [
-            'proyecto' => $proyecto,
+            'obra' => $obra->only('id', 'no', 'descripcion', 'proyecto_id'),
             'nextNumber' => $nextNumber,
         ]);
     }
 
-    public function store(EstimacionStoreRequest $request, Proyecto $proyecto): RedirectResponse
+    public function store(EstimacionStoreRequest $request, Obra $obra): RedirectResponse
     {
-        $proyecto->estimaciones()->create([
-            ...$request->validated(),
-            // obra_id de transición = obra base del proyecto (se dropea en Fase 5).
-            'obra_id' => $proyecto->obrasBase()->value('id'),
-        ]);
+        $obra->estimaciones()->create($request->validated());
 
-        return to_route('admin.cob.proyectos.show', $proyecto);
+        return to_route('admin.cob.obras.show', $obra);
     }
 
-    public function edit(Proyecto $proyecto, Estimacion $estimacion): Response
+    public function edit(Obra $obra, Estimacion $estimacion): Response
     {
         $estimacion->load(['pagos', 'historial.usuario', 'retenciones.tipoRetencion', 'documentos.configuracionDocumento']);
         $tiposRetencion = TipoRetencion::all();
 
         return Inertia::render('admin/cob/estimaciones/edit', [
-            'proyecto' => $proyecto,
+            'obra' => $obra->only('id', 'no', 'descripcion', 'proyecto_id'),
             'estimacion' => $estimacion,
             'tiposRetencion' => $tiposRetencion,
         ]);
     }
 
-    public function update(EstimacionUpdateRequest $request, Proyecto $proyecto, Estimacion $estimacion): RedirectResponse
+    public function update(EstimacionUpdateRequest $request, Obra $obra, Estimacion $estimacion): RedirectResponse
     {
         $estimacion->update($request->validated());
 
         return back();
     }
 
-    public function destroy(Proyecto $proyecto, Estimacion $estimacion): RedirectResponse
+    public function destroy(Obra $obra, Estimacion $estimacion): RedirectResponse
     {
         if ($estimacion->pagos()->exists()) {
             return back()->withErrors(['delete' => 'No se puede eliminar una estimacion con pagos registrados.']);
@@ -76,10 +72,10 @@ class EstimacionController extends Controller
 
         $estimacion->delete();
 
-        return to_route('admin.cob.proyectos.show', $proyecto);
+        return to_route('admin.cob.obras.show', $obra);
     }
 
-    public function cambiarEstado(CambiarEstadoEstimacionRequest $request, Proyecto $proyecto, Estimacion $estimacion): RedirectResponse
+    public function cambiarEstado(CambiarEstadoEstimacionRequest $request, Obra $obra, Estimacion $estimacion): RedirectResponse
     {
         $estadoActual = $estimacion->estado;
         $estadoNuevo = $request->validated('estado');

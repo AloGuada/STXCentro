@@ -9,7 +9,6 @@ use App\Http\Requests\Admin\Cob\PlaneacionRequest;
 use App\Http\Requests\Admin\Cob\ProyectoStoreRequest;
 use App\Http\Requests\Admin\Cob\ProyectoUpdateRequest;
 use App\Models\Cliente;
-use App\Models\Cob\DocumentoSeccion;
 use App\Models\Cob\ObraEtapa;
 use App\Models\Proyecto;
 use Illuminate\Http\RedirectResponse;
@@ -35,8 +34,8 @@ class ProyectoController extends Controller
                 'obras.anticipos',
                 'obras.comparativos',
                 'obras.deducciones',
-                'estimaciones.pagos',
-                'estimaciones.historial',
+                'obras.estimaciones.pagos',
+                'obras.estimaciones.historial',
             ])
             ->when($estatus !== 'todas', fn ($q) => $q->where('estatus', $estatus))
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
@@ -57,41 +56,23 @@ class ProyectoController extends Controller
     {
         $proyecto->load([
             'cliente',
-            // Tab Partidas: una sección por obra (base + adicionales) con sus partidas.
+            // Lista de obras (base primero) con lo necesario para el resumen y las
+            // tarjetas; el detalle de cada obra vive en su propia página.
             'obras' => fn ($q) => $q->orderByRaw("CASE WHEN tipo = 'base' THEN 0 ELSE 1 END")->orderBy('no'),
             'obras.partidas',
             'obras.comparativos',
             'obras.deducciones',
             'obras.anticipos',
             'obras.etapasPmo',
+            // Estimaciones por obra: alimentan el rollup y la sección "Real" del Gantt.
+            'obras.estimaciones.pagos',
+            'obras.estimaciones.historial',
             'planCobro',
-            // Lo comercial vive en la obra base; el hub lo gestiona desde ahí.
-            'obraBase.anticipos',
-            'obraBase.adendas',
-            'obraBase.comparativos',
-            'obraBase.deducciones',
-            'obraBase.disputas',
-            'obraBase.penalizaciones',
-            'obraBase.eventos.children',
-            'obraBase.configuracionDocumentos',
-            'obraBase.documentoCarpetas',
-            'obraBase.documentoArchivos',
-            'estimaciones.pagos',
-            'estimaciones.historial.usuario',
-            'estimaciones.retenciones.tipoRetencion',
-            'estimaciones.documentos.configuracionDocumento',
         ]);
-
-        $documentoSecciones = DocumentoSeccion::query()
-            ->activas()
-            ->orderBy('orden')
-            ->orderBy('nombre')
-            ->get(['id', 'nombre', 'orden']);
 
         return Inertia::render('admin/cob/proyectos/show', [
             'proyecto' => $proyecto,
             'clientes' => $this->clientes(),
-            'documentoSecciones' => $documentoSecciones,
         ]);
     }
 
@@ -114,7 +95,6 @@ class ProyectoController extends Controller
                 'no' => $proyecto->no,
                 'descripcion' => $proyecto->descripcion,
                 'cliente_id' => $proyecto->cliente_id,
-                'tipo_contrato' => $proyecto->tipo_contrato,
                 'tipo' => 'base',
                 'estatus' => 'abierta',
                 'activa' => true,

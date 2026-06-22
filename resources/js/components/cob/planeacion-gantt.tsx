@@ -82,7 +82,7 @@ function etapaColor(desc: string): string {
 
 type PlanItem = { orden: number; inicio: Date; fin: Date };
 type EtapaItem = { id: number; obraNo: string; descripcion: string; inicio: Date; fin: Date };
-type RealRow = { estimacion: CobEstimacion; periods: StatePeriod[] };
+type RealRow = { estimacion: CobEstimacion; obraNo: string; periods: StatePeriod[] };
 type Drag = { mode: 'move' | 'l' | 'r'; startX: number; startInicio: Date; startFin: Date; apply: (inicio: Date, fin: Date) => void };
 
 const COLS = 4; // Cliente, Obra, Concepto, Monto
@@ -126,9 +126,10 @@ export function PlaneacionGantt({ proyecto }: { proyecto: Proyecto }) {
 
     const realRows = useMemo<RealRow[]>(
         () =>
-            (proyecto.estimaciones ?? [])
-                .filter((e) => e.historial && e.historial.length > 0)
-                .map((estimacion) => ({ estimacion, periods: buildStatePeriods(estimacion.historial!) }))
+            (proyecto.obras ?? [])
+                .flatMap((o) => (o.estimaciones ?? []).map((estimacion) => ({ estimacion, obraNo: o.no })))
+                .filter((r) => r.estimacion.historial && r.estimacion.historial.length > 0)
+                .map((r) => ({ ...r, periods: buildStatePeriods(r.estimacion.historial!) }))
                 .filter((r) => r.periods.length > 0)
                 .sort((a, b) => a.estimacion.numero_estimacion - b.estimacion.numero_estimacion),
         [proyecto],
@@ -415,7 +416,7 @@ export function PlaneacionGantt({ proyecto }: { proyecto: Proyecto }) {
                             realRows.map((row) => (
                                 <tr key={`re-${row.estimacion.id}`} className="hover">
                                     {clienteCell()}
-                                    <td {...sc(1, false, 'opacity-50')}>—</td>
+                                    <td {...sc(1, false, 'truncate')} title={row.obraNo}>{row.obraNo}</td>
                                     <td {...sc(2, false)}><span className="flex items-center gap-1">EST {row.estimacion.numero_estimacion} <EstadoBadge estado={row.estimacion.estado} /></span></td>
                                     <td {...sc(3, false, 'text-right')}>{formatearMXN(row.estimacion.monto_estimado)}</td>
                                     {timelineCell(

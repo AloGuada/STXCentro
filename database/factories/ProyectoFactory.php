@@ -20,11 +20,6 @@ class ProyectoFactory extends Factory
             'no' => 'PRY-'.$this->faker->unique()->numberBetween(1000, 9999),
             'descripcion' => $this->faker->sentence(3),
             'cliente_id' => null,
-            'tipo_contrato' => $this->faker->randomElement(['precio_unitario', 'alzado']),
-            'monto' => $this->faker->randomFloat(2, 100000, 5000000),
-            'monto_iva' => null,
-            'anticipo' => $this->faker->randomFloat(2, 0, 500000),
-            'garantia' => null,
             'estatus' => 'abierta',
             'activa' => true,
         ];
