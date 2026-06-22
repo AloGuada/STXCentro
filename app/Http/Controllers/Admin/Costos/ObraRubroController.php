@@ -37,6 +37,7 @@ class ObraRubroController extends Controller
     {
         $validated = $request->validate([
             'presupuestado' => ['required', 'numeric', 'min:0'],
+            'acumulado' => ['required', 'numeric', 'min:0'],
         ]);
 
         $obraRubro->update($validated);

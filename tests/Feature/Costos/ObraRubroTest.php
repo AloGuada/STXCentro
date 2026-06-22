@@ -40,12 +40,14 @@ describe('admin costos obra rubros', function () {
         $response = $this->actingAs($this->user)
             ->put(route('admin.costos.obra-rubros.update', $obraRubro), [
                 'presupuestado' => 75000.00,
+                'acumulado' => 12000.00,
             ]);
 
         $response->assertRedirect();
         $this->assertDatabaseHas('costos_obra_rubros', [
             'id' => $obraRubro->id,
             'presupuestado' => 75000.00,
+            'acumulado' => 12000.00,
         ]);
     });
 

@@ -27,6 +27,7 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
     const [newPresupuestado, setNewPresupuestado] = useState('');
     const [addingRubro, setAddingRubro] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [editingField, setEditingField] = useState<'presupuestado' | 'acumulado'>('presupuestado');
     const [editValue, setEditValue] = useState('');
     const [updatingId, setUpdatingId] = useState<number | null>(null);
 
@@ -69,9 +70,10 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
         });
     };
 
-    const handleStartEdit = (or: CostosObraRubro) => {
+    const handleStartEdit = (or: CostosObraRubro, field: 'presupuestado' | 'acumulado') => {
         setEditingId(or.id);
-        setEditValue(String(or.presupuestado));
+        setEditingField(field);
+        setEditValue(String(field === 'presupuestado' ? or.presupuestado : or.acumulado));
     };
 
     const handleCancelEdit = () => {
@@ -79,10 +81,11 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
         setEditValue('');
     };
 
-    const handleSaveEdit = (obraRubroId: number) => {
-        setUpdatingId(obraRubroId);
-        router.put(`/admin/costos/obra-rubros/${obraRubroId}`, {
-            presupuestado: editValue,
+    const handleSaveEdit = (or: CostosObraRubro) => {
+        setUpdatingId(or.id);
+        router.put(`/admin/costos/obra-rubros/${or.id}`, {
+            presupuestado: editingField === 'presupuestado' ? editValue : or.presupuestado,
+            acumulado: editingField === 'acumulado' ? editValue : or.acumulado,
         }, {
             preserveScroll: true,
             preserveState: true,
@@ -92,6 +95,48 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
             },
             onFinish: () => setUpdatingId(null),
         });
+    };
+
+    const montoEditable = (or: CostosObraRubro, field: 'presupuestado' | 'acumulado') => {
+        const editando = editingId === or.id && editingField === field;
+        const valor = field === 'presupuestado' ? or.presupuestado : or.acumulado;
+
+        return (
+            <td className="text-right font-mono">
+                {editando ? (
+                    <div className="flex items-center justify-end gap-1">
+                        <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="w-32 text-right"
+                        />
+                        <button
+                            type="button"
+                            className="btn btn-ghost btn-xs text-success"
+                            disabled={updatingId === or.id}
+                            onClick={() => handleSaveEdit(or)}
+                        >
+                            {updatingId === or.id ? <Loader2Icon className="size-3 animate-spin" /> : <CheckIcon className="size-3" />}
+                        </button>
+                        <button type="button" className="btn btn-ghost btn-xs" onClick={handleCancelEdit}>
+                            <XIcon className="size-3" />
+                        </button>
+                    </div>
+                ) : (
+                    <span
+                        className="cursor-pointer hover:text-primary"
+                        onClick={() => handleStartEdit(or, field)}
+                        title="Clic para editar"
+                    >
+                        {fmt(valor)}
+                        <PencilIcon className="ml-1 inline size-3 opacity-30" />
+                    </span>
+                )}
+            </td>
+        );
     };
 
     const totalPresupuestado = currentRubros.reduce((sum, or) => sum + Number(or.presupuestado), 0);
@@ -142,45 +187,8 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
                                         <td className="font-mono text-sm">{or.rubro?.codigo}</td>
                                         <td>{or.rubro?.descripcion}</td>
                                         <td className="text-sm">{or.rubro?.tipo_rubro?.descripcion}</td>
-                                        <td className="text-right font-mono">
-                                            {editingId === or.id ? (
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        value={editValue}
-                                                        onChange={(e) => setEditValue(e.target.value)}
-                                                        className="w-32 text-right"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-ghost btn-xs text-success"
-                                                        disabled={updatingId === or.id}
-                                                        onClick={() => handleSaveEdit(or.id)}
-                                                    >
-                                                        {updatingId === or.id ? <Loader2Icon className="size-3 animate-spin" /> : <CheckIcon className="size-3" />}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-ghost btn-xs"
-                                                        onClick={handleCancelEdit}
-                                                    >
-                                                        <XIcon className="size-3" />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <span
-                                                    className="cursor-pointer hover:text-primary"
-                                                    onClick={() => handleStartEdit(or)}
-                                                    title="Clic para editar"
-                                                >
-                                                    {fmt(or.presupuestado)}
-                                                    <PencilIcon className="ml-1 inline size-3 opacity-30" />
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="text-right font-mono">{fmt(or.acumulado)}</td>
+                                        {montoEditable(or, 'presupuestado')}
+                                        {montoEditable(or, 'acumulado')}
                                         <td className="text-right font-mono">
                                             {(() => {
                                                 const d = Number(or.presupuestado) - Number(or.acumulado);
