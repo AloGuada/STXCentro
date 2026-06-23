@@ -76,4 +76,22 @@ class Proyecto extends Model
     {
         return $this->hasMany(\App\Models\Cob\PlanCobro::class, 'proyecto_id')->orderBy('orden');
     }
+
+    /** Carpetas del expediente documental del proyecto. */
+    public function documentoCarpetas(): HasMany
+    {
+        return $this->hasMany(\App\Models\Cob\DocumentoCarpeta::class, 'proyecto_id');
+    }
+
+    /** Archivos del expediente documental del proyecto. */
+    public function documentoArchivos(): HasMany
+    {
+        return $this->hasMany(\App\Models\Cob\DocumentoArchivo::class, 'proyecto_id');
+    }
+
+    /** Estatus (pendiente/completado) de cada sección del expediente para este proyecto. */
+    public function seccionEstatus(): HasMany
+    {
+        return $this->hasMany(\App\Models\Cob\DocumentoSeccionProyecto::class, 'proyecto_id');
+    }
 }

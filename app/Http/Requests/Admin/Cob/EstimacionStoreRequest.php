@@ -22,7 +22,7 @@ class EstimacionStoreRequest extends FormRequest
             'obra_id' => ['nullable', 'required_unless:nivel,proyecto', 'integer', 'exists:obras,id'],
             'partida_ids' => ['array', 'required_if:nivel,partida'],
             'partida_ids.*' => ['integer', 'exists:cob_partidas,id'],
-            'numero_estimacion' => ['required', 'integer', 'min:1'],
+            // El número es consecutivo del proyecto y lo asigna el servidor; aquí solo se ignora si llega.
             'folio' => ['nullable', 'string', 'max:255'],
             'tipo' => ['nullable', 'string', 'max:255'],
             'fecha_emision' => ['nullable', 'date'],
@@ -41,9 +41,6 @@ class EstimacionStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'numero_estimacion.required' => 'El número de estimación es obligatorio.',
-            'numero_estimacion.integer' => 'El número de estimación debe ser un número entero.',
-            'numero_estimacion.min' => 'El número de estimación debe ser al menos 1.',
             'folio.max' => 'El folio no debe exceder 255 caracteres.',
             'tipo.max' => 'El tipo no debe exceder 255 caracteres.',
             'monto_estimado.required' => 'El monto estimado es obligatorio.',

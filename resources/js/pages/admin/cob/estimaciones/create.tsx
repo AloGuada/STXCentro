@@ -110,8 +110,8 @@ export default function EstimacionCreate({ proyecto, obras, nextNumber }: Props)
                         )}
 
                         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-                            <FormField label="Número Estimación" htmlFor="numero_estimacion" error={errors.numero_estimacion} required>
-                                <Input type="number" min="1" value={data.numero_estimacion} onChange={(e) => setData('numero_estimacion', Number(e.target.value))} />
+                            <FormField label="Número Estimación" htmlFor="numero_estimacion" error={errors.numero_estimacion}>
+                                <Input type="number" value={data.numero_estimacion} readOnly tabIndex={-1} className="bg-base-200" title="Consecutivo del proyecto, asignado automáticamente" />
                             </FormField>
                             <FormField label="Folio" htmlFor="folio" error={errors.folio}>
                                 <Input value={data.folio} onChange={(e) => setData('folio', e.target.value)} />

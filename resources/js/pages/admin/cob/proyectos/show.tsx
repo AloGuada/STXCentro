@@ -1,7 +1,9 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Loader2Icon, LockIcon, PencilIcon, PlusIcon, Trash2Icon, UnlockIcon } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
+import ArchivoViewerModal from '@/components/cob/archivo-viewer-modal';
 import { calcularResumenProyecto } from '@/components/cob/calculos';
+import { DocumentoTree } from '@/components/cob/documento-tree';
 import { EstadoBadge } from '@/components/cob/estado-badge';
 import { formatearMXN } from '@/components/cob/money-display';
 import { PlaneacionGantt } from '@/components/cob/planeacion-gantt';
@@ -13,20 +15,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { OBRA_ESTATUS_LABELS, type Cliente, type Obra, type Proyecto } from '@/types/models';
+import {
+    OBRA_ESTATUS_LABELS,
+    type Cliente,
+    type CobDocumentoArchivo,
+    type CobDocumentoSeccion,
+    type Obra,
+    type Proyecto,
+} from '@/types/models';
 
 type Props = {
     proyecto: Proyecto;
     clientes: Pick<Cliente, 'id' | 'nombre'>[];
+    documentoSecciones: CobDocumentoSeccion[];
 };
 
-type TabKey = 'resumen' | 'obras' | 'estimaciones' | 'gantt' | 'datos';
+type TabKey = 'resumen' | 'obras' | 'estimaciones' | 'gantt' | 'documentacion' | 'datos';
 
 const TABS: { key: TabKey; label: string }[] = [
     { key: 'resumen', label: 'Resumen' },
     { key: 'obras', label: 'Obras' },
     { key: 'estimaciones', label: 'Estimaciones' },
     { key: 'gantt', label: 'Gantt' },
+    { key: 'documentacion', label: 'Documentación' },
     { key: 'datos', label: 'Datos del proyecto' },
 ];
 
@@ -36,8 +47,9 @@ const NIVEL_LABEL: Record<string, string> = {
     partida: 'Partidas',
 };
 
-export default function ProyectoShow({ proyecto, clientes }: Props) {
+export default function ProyectoShow({ proyecto, clientes, documentoSecciones }: Props) {
     const [activeTab, setActiveTab] = useState<TabKey>('resumen');
+    const [viewerArchivo, setViewerArchivo] = useState<CobDocumentoArchivo | null>(null);
     const d = calcularResumenProyecto(proyecto);
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -80,8 +92,21 @@ export default function ProyectoShow({ proyecto, clientes }: Props) {
                 {activeTab === 'obras' && <ObrasTab proyecto={proyecto} />}
                 {activeTab === 'estimaciones' && <EstimacionesTab proyecto={proyecto} />}
                 {activeTab === 'gantt' && <PlaneacionGantt proyecto={proyecto} />}
+                {activeTab === 'documentacion' && (
+                    <DocumentacionTab proyecto={proyecto} documentoSecciones={documentoSecciones} onOpenArchivo={setViewerArchivo} />
+                )}
                 {activeTab === 'datos' && <DatosTab proyecto={proyecto} clientes={clientes} />}
             </div>
+
+            {viewerArchivo && (
+                <ArchivoViewerModal
+                    nombre={viewerArchivo.nombre_original}
+                    mime={viewerArchivo.mime}
+                    streamUrl={`/admin/cob/documentos/archivos/${viewerArchivo.id}/stream`}
+                    downloadUrl={`/admin/cob/documentos/archivos/${viewerArchivo.id}/descargar`}
+                    onClose={() => setViewerArchivo(null)}
+                />
+            )}
         </AppLayout>
     );
 }
@@ -318,6 +343,38 @@ function EstimacionesTab({ proyecto }: { proyecto: Proyecto }) {
                     </tbody>
                 </table>
             </div>
+        </div>
+    );
+}
+
+// -- Expediente documental del proyecto (secciones → carpetas → archivos) --
+function DocumentacionTab({
+    proyecto,
+    documentoSecciones,
+    onOpenArchivo,
+}: {
+    proyecto: Proyecto;
+    documentoSecciones: CobDocumentoSeccion[];
+    onOpenArchivo: (archivo: CobDocumentoArchivo) => void;
+}) {
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Documentación</h2>
+                <a href="/admin/cob/documento-secciones" className="btn btn-ghost btn-sm">
+                    Administrar secciones
+                </a>
+            </div>
+            <p className="text-base-content/60 text-sm">
+                Pasa el cursor sobre una sección o carpeta para crear subcarpetas, subir o eliminar archivos.
+            </p>
+            <DocumentoTree
+                proyectoId={proyecto.id}
+                secciones={documentoSecciones}
+                carpetas={proyecto.documento_carpetas ?? []}
+                archivos={proyecto.documento_archivos ?? []}
+                onOpenArchivo={onOpenArchivo}
+            />
         </div>
     );
 }

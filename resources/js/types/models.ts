@@ -57,6 +57,9 @@ export type Proyecto = {
     obra_base?: Obra | null;
     estimaciones?: CobEstimacion[];
     plan_cobro?: CobPlanCobro[];
+    documento_carpetas?: CobDocumentoCarpeta[];
+    documento_archivos?: CobDocumentoArchivo[];
+    seccion_estatus?: CobDocumentoSeccionProyecto[];
     created_at: string;
     updated_at: string;
 };
@@ -166,27 +169,39 @@ export type Obra = {
     eventos?: CobEvento[];
     disputas?: CobDisputa[];
     penalizaciones?: CobPenalizacion[];
-    configuracion_documentos?: CobConfiguracionDocumento[];
-    documento_carpetas?: CobDocumentoCarpeta[];
-    documento_archivos?: CobDocumentoArchivo[];
     created_at: string;
     updated_at: string;
 };
+
+export type CobSeccionEstatus = 'pendiente' | 'completado';
 
 export type CobDocumentoSeccion = {
     id: number;
     nombre: string;
     orden: number;
-    activo: boolean;
+    activo?: boolean;
     carpetas_count?: number;
     archivos_count?: number;
+    // Presentes solo en el contexto de un proyecto (overlay por proyecto).
+    estatus?: CobSeccionEstatus;
+    visible?: boolean;
+    created_at?: string;
+    updated_at?: string;
+};
+
+export type CobDocumentoSeccionProyecto = {
+    id: number;
+    proyecto_id: number;
+    seccion_id: number;
+    estatus: CobSeccionEstatus;
+    visible: boolean;
     created_at: string;
     updated_at: string;
 };
 
 export type CobDocumentoCarpeta = {
     id: number;
-    obra_id: number;
+    proyecto_id: number;
     seccion_id: number;
     parent_id: number | null;
     nombre: string;
@@ -197,7 +212,7 @@ export type CobDocumentoCarpeta = {
 
 export type CobDocumentoArchivo = {
     id: number;
-    obra_id: number;
+    proyecto_id: number;
     seccion_id: number;
     carpeta_id: number | null;
     nombre_original: string;
@@ -2389,7 +2404,6 @@ export type CobEstimacion = {
     pagos?: CobEstimacionPago[];
     historial?: CobEstimacionEstadoHistorial[];
     retenciones?: CobRetencion[];
-    documentos?: CobDocumentoEstimacion[];
     partidas?: CobPartida[];
     obra?: Obra;
     created_at: string;
@@ -2402,7 +2416,7 @@ export type CobEstimacionPago = {
     monto_pagado: number;
     fecha_pago: string;
     folio: string | null;
-    media?: Media | null;
+    comprobantes?: Media[];
     created_at: string;
     updated_at: string;
 };
@@ -2571,27 +2585,6 @@ export type CobPenalizacion = {
     updated_at: string;
 };
 
-export type CobConfiguracionDocumento = {
-    id: number;
-    obra_id: number;
-    nombre_documento: string;
-    descripcion: string | null;
-    obligatorio: boolean;
-    created_at: string;
-    updated_at: string;
-};
-
-export type CobDocumentoEstimacion = {
-    id: number;
-    estimacion_id: number;
-    configuracion_documento_id: number;
-    ruta_archivo: string;
-    fecha_subida: string | null;
-    subido_por: string;
-    configuracion_documento?: CobConfiguracionDocumento;
-    created_at: string;
-    updated_at: string;
-};
 
 export const COB_TIPO_CONTRATO_LABELS: Record<string, string> = {
     precio_alzado: 'Precio Alzado',

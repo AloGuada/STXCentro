@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
+import { FileIcon, Loader2Icon } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { EstadoBadge } from '@/components/cob/estado-badge';
 import { formatearMXN } from '@/components/cob/money-display';
@@ -102,7 +102,7 @@ export default function EstimacionEdit({ proyecto, obras, estimacion, partidaIds
     const estadosSiguientes = transiciones[estimacion.estado] ?? [];
 
     const [showPagoForm, setShowPagoForm] = useState(false);
-    const pagoForm = useForm({ monto_pagado: '', fecha_pago: '', folio: '', comprobante: null as File | null });
+    const pagoForm = useForm({ monto_pagado: '', fecha_pago: '', folio: '', comprobantes: [] as File[] });
 
     const handleRegistrarPago = (e: FormEvent) => {
         e.preventDefault();
@@ -264,8 +264,13 @@ export default function EstimacionEdit({ proyecto, obras, estimacion, partidaIds
                                 <FormField label="Folio" htmlFor="folio_pago" error={pagoForm.errors.folio}>
                                     <Input value={pagoForm.data.folio} onChange={(e) => pagoForm.setData('folio', e.target.value)} />
                                 </FormField>
-                                <FormField label="Comprobante" htmlFor="comprobante" error={pagoForm.errors.comprobante}>
-                                    <input type="file" className="file-input file-input-bordered w-full" onChange={(e) => pagoForm.setData('comprobante', e.target.files?.[0] ?? null)} />
+                                <FormField label="Comprobantes" htmlFor="comprobantes" error={pagoForm.errors.comprobantes}>
+                                    <input
+                                        type="file"
+                                        multiple
+                                        className="file-input file-input-bordered w-full"
+                                        onChange={(e) => pagoForm.setData('comprobantes', Array.from(e.target.files ?? []))}
+                                    />
                                 </FormField>
                             </div>
                             <div className="flex justify-end gap-2">
@@ -284,8 +289,22 @@ export default function EstimacionEdit({ proyecto, obras, estimacion, partidaIds
                                     <td>{p.folio ?? '-'}</td>
                                     <td className="text-right">{formatearMXN(p.monto_pagado)}</td>
                                     <td>
-                                        {p.comprobante ? (
-                                            <a href={`/storage/${p.comprobante}`} target="_blank" rel="noopener noreferrer" className="link link-primary">Ver archivo</a>
+                                        {(p.comprobantes ?? []).length > 0 ? (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {(p.comprobantes ?? []).map((m, i) => (
+                                                    <a
+                                                        key={m.id}
+                                                        href={`/storage/${m.path}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="link link-primary inline-flex items-center gap-1"
+                                                        title={m.nombre_original ?? `Comprobante ${i + 1}`}
+                                                    >
+                                                        <FileIcon className="size-3.5" />
+                                                        {m.nombre_original ?? `Archivo ${i + 1}`}
+                                                    </a>
+                                                ))}
+                                            </div>
                                         ) : '-'}
                                     </td>
                                 </tr>

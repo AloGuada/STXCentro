@@ -24,13 +24,12 @@ class EstimacionPagoController extends Controller
                 return back()->withErrors(['monto_pagado' => 'El monto excede el saldo pendiente de la estimacion.']);
             }
 
-            $data = $request->safe()->except('comprobante');
+            $data = $request->safe()->except('comprobantes');
 
             $pago = $estimacion->pagos()->create($data);
 
-            if ($request->hasFile('comprobante')) {
-                $file = $request->file('comprobante');
-                $pago->media()->create([
+            foreach ((array) $request->file('comprobantes', []) as $file) {
+                $pago->comprobantes()->create([
                     'descripcion' => 'comprobante',
                     'nombre_original' => $file->getClientOriginalName(),
                     'path' => $file->store("cob/estimaciones/{$estimacion->id}/pagos", 'public'),

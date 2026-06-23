@@ -4,7 +4,7 @@ namespace Database\Factories\Cob;
 
 use App\Models\Cob\DocumentoArchivo;
 use App\Models\Cob\DocumentoSeccion;
-use App\Models\Obra;
+use App\Models\Proyecto;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -20,7 +20,7 @@ class DocumentoArchivoFactory extends Factory
     public function definition(): array
     {
         return [
-            'obra_id' => Obra::factory(),
+            'proyecto_id' => Proyecto::factory(),
             'seccion_id' => DocumentoSeccion::factory(),
             'carpeta_id' => null,
             'nombre_original' => fake()->word().'.pdf',

@@ -1,16 +1,13 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import ArchivoViewerModal from '@/components/cob/archivo-viewer-modal';
 import { calcularDatosProyecto } from '@/components/cob/calculos';
 import {
     AdendasTab,
     AnticiposTab,
     ComparativosTab,
-    ConfiguracionTab,
     DeduccionesTab,
     DisputasTab,
-    DocumentacionTab,
     PenalizacionesTab,
 } from '@/components/cob/comercial-tabs';
 import { EstadoBadge } from '@/components/cob/estado-badge';
@@ -26,15 +23,12 @@ import {
     COB_TIPO_CONTRATO_LABELS,
     OBRA_ESTATUS_LABELS,
     type Cliente,
-    type CobDocumentoArchivo,
-    type CobDocumentoSeccion,
     type Obra,
 } from '@/types/models';
 
 type Props = {
     obra: Obra;
     clientes: Pick<Cliente, 'id' | 'nombre'>[];
-    documentoSecciones: CobDocumentoSeccion[];
 };
 
 type TabKey =
@@ -47,9 +41,7 @@ type TabKey =
     | 'comparativos'
     | 'deducciones'
     | 'disputas'
-    | 'penalizaciones'
-    | 'documentacion'
-    | 'configuracion';
+    | 'penalizaciones';
 
 const TABS: { key: TabKey; label: string }[] = [
     { key: 'resumen', label: 'Resumen' },
@@ -62,13 +54,10 @@ const TABS: { key: TabKey; label: string }[] = [
     { key: 'deducciones', label: 'Deducciones' },
     { key: 'disputas', label: 'Disputas' },
     { key: 'penalizaciones', label: 'Penalizaciones' },
-    { key: 'documentacion', label: 'Documentación' },
-    { key: 'configuracion', label: 'Configuración' },
 ];
 
-export default function ObraShow({ obra, clientes, documentoSecciones }: Props) {
+export default function ObraShow({ obra, clientes }: Props) {
     const [activeTab, setActiveTab] = useState<TabKey>('resumen');
-    const [viewerArchivo, setViewerArchivo] = useState<CobDocumentoArchivo | null>(null);
 
     const datos = calcularDatosProyecto(obra);
     const esAdicional = obra.tipo === 'adicional';
@@ -142,21 +131,7 @@ export default function ObraShow({ obra, clientes, documentoSecciones }: Props) 
                 {activeTab === 'deducciones' && <DeduccionesTab obra={obra} />}
                 {activeTab === 'disputas' && <DisputasTab obra={obra} />}
                 {activeTab === 'penalizaciones' && <PenalizacionesTab obra={obra} />}
-                {activeTab === 'documentacion' && (
-                    <DocumentacionTab obra={obra} documentoSecciones={documentoSecciones} onOpenArchivo={setViewerArchivo} />
-                )}
-                {activeTab === 'configuracion' && <ConfiguracionTab obra={obra} />}
             </div>
-
-            {viewerArchivo && (
-                <ArchivoViewerModal
-                    nombre={viewerArchivo.nombre_original}
-                    mime={viewerArchivo.mime}
-                    streamUrl={`/admin/cob/documentos/archivos/${viewerArchivo.id}/stream`}
-                    downloadUrl={`/admin/cob/documentos/archivos/${viewerArchivo.id}/descargar`}
-                    onClose={() => setViewerArchivo(null)}
-                />
-            )}
         </AppLayout>
     );
 }

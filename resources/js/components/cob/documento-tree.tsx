@@ -5,6 +5,7 @@ import {
     ChevronRightIcon,
     DownloadIcon,
     EyeIcon,
+    EyeOffIcon,
     FileIcon,
     FolderIcon,
     FolderPlusIcon,
@@ -14,7 +15,7 @@ import {
 import { useMemo, useRef, useState } from 'react';
 
 type Props = {
-    obraId: number;
+    proyectoId: number;
     secciones: CobDocumentoSeccion[];
     carpetas: CobDocumentoCarpeta[];
     archivos: CobDocumentoArchivo[];
@@ -31,7 +32,7 @@ function formatSize(bytes: number | null): string {
     return `${(kb / 1024).toFixed(1)} MB`;
 }
 
-export function DocumentoTree({ obraId, secciones, carpetas, archivos, readOnly = false, onOpenArchivo }: Props) {
+export function DocumentoTree({ proyectoId, secciones, carpetas, archivos, readOnly = false, onOpenArchivo }: Props) {
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
     const [uploading, setUploading] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
@@ -67,11 +68,28 @@ export function DocumentoTree({ obraId, secciones, carpetas, archivos, readOnly 
         });
     };
 
+    const toggleSeccionEstatus = (seccion: CobDocumentoSeccion) => {
+        const estatus = seccion.estatus === 'completado' ? 'pendiente' : 'completado';
+        router.put(
+            `/admin/cob/proyectos/${proyectoId}/secciones/${seccion.id}/estatus`,
+            { estatus },
+            { preserveScroll: true, preserveState: true },
+        );
+    };
+
+    const toggleSeccionVisible = (seccion: CobDocumentoSeccion) => {
+        router.put(
+            `/admin/cob/proyectos/${proyectoId}/secciones/${seccion.id}/visibilidad`,
+            { visible: seccion.visible === false },
+            { preserveScroll: true, preserveState: true },
+        );
+    };
+
     const crearCarpeta = (seccionId: number, parentId: number | null) => {
         const nombre = window.prompt('Nombre de la carpeta:');
         if (!nombre?.trim()) return;
         router.post(
-            `/admin/cob/obras/${obraId}/documentos/carpetas`,
+            `/admin/cob/proyectos/${proyectoId}/documentos/carpetas`,
             { seccion_id: seccionId, parent_id: parentId, nombre: nombre.trim() },
             { preserveScroll: true, preserveState: true },
         );
@@ -81,7 +99,7 @@ export function DocumentoTree({ obraId, secciones, carpetas, archivos, readOnly 
         const nombre = window.prompt('Nuevo nombre de la carpeta:', carpeta.nombre);
         if (!nombre?.trim() || nombre.trim() === carpeta.nombre) return;
         router.put(
-            `/admin/cob/obras/${obraId}/documentos/carpetas/${carpeta.id}`,
+            `/admin/cob/proyectos/${proyectoId}/documentos/carpetas/${carpeta.id}`,
             { seccion_id: carpeta.seccion_id, nombre: nombre.trim() },
             { preserveScroll: true, preserveState: true },
         );
@@ -89,7 +107,7 @@ export function DocumentoTree({ obraId, secciones, carpetas, archivos, readOnly 
 
     const eliminarCarpeta = (carpeta: CobDocumentoCarpeta) => {
         if (!window.confirm(`¿Eliminar la carpeta "${carpeta.nombre}" y todo su contenido?`)) return;
-        router.delete(`/admin/cob/obras/${obraId}/documentos/carpetas/${carpeta.id}`, {
+        router.delete(`/admin/cob/proyectos/${proyectoId}/documentos/carpetas/${carpeta.id}`, {
             preserveScroll: true,
             preserveState: true,
         });
@@ -97,7 +115,7 @@ export function DocumentoTree({ obraId, secciones, carpetas, archivos, readOnly 
 
     const eliminarArchivo = (archivo: CobDocumentoArchivo) => {
         if (!window.confirm(`¿Eliminar el archivo "${archivo.nombre_original}"?`)) return;
-        router.delete(`/admin/cob/obras/${obraId}/documentos/archivos/${archivo.id}`, {
+        router.delete(`/admin/cob/proyectos/${proyectoId}/documentos/archivos/${archivo.id}`, {
             preserveScroll: true,
             preserveState: true,
         });
@@ -115,7 +133,7 @@ export function DocumentoTree({ obraId, secciones, carpetas, archivos, readOnly 
 
         setUploading(true);
         router.post(
-            `/admin/cob/obras/${obraId}/documentos/archivos`,
+            `/admin/cob/proyectos/${proyectoId}/documentos/archivos`,
             {
                 seccion_id: target.seccion_id,
                 carpeta_id: target.carpeta_id,
@@ -226,28 +244,61 @@ export function DocumentoTree({ obraId, secciones, carpetas, archivos, readOnly 
             )}
             {secciones.map((seccion) => {
                 const key = `s${seccion.id}`;
-                const isOpen = expanded.has(key);
+                const visible = seccion.visible !== false;
+                const isOpen = visible && expanded.has(key);
                 const rootCarpetas = carpetasByParent.get(key) ?? [];
                 const rootArchivos = archivosByCarpeta.get(key) ?? [];
                 const total = rootCarpetas.length + rootArchivos.length;
 
                 return (
                     <div key={key} className="border-b border-base-300 last:border-b-0">
-                        <div className="group flex items-center gap-1 bg-base-200/50 px-2 py-1.5 hover:bg-base-200">
-                            <button type="button" className="flex min-w-0 items-center gap-1.5 text-left" onClick={() => toggle(key)}>
+                        <div className={`group flex items-center gap-1 bg-base-200/50 px-2 py-1.5 hover:bg-base-200 ${visible ? '' : 'opacity-60'}`}>
+                            <button
+                                type="button"
+                                className="flex min-w-0 items-center gap-1.5 text-left"
+                                onClick={() => visible && toggle(key)}
+                                disabled={!visible}
+                            >
                                 {isOpen ? <ChevronDownIcon className="size-4 shrink-0" /> : <ChevronRightIcon className="size-4 shrink-0" />}
                                 <FolderIcon className="size-4 shrink-0 text-primary" />
                                 <span className="truncate text-sm font-semibold">{seccion.nombre}</span>
-                                <span className="text-xs text-base-content/40">({total})</span>
+                                {visible ? (
+                                    <span className="text-xs text-base-content/40">({total})</span>
+                                ) : (
+                                    <span className="text-xs italic text-base-content/40">oculta</span>
+                                )}
                             </button>
+                            {visible && (
+                                <button
+                                    type="button"
+                                    className={`badge badge-sm ml-2 ${seccion.estatus === 'completado' ? 'badge-success' : 'badge-warning'} ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
+                                    onClick={readOnly ? undefined : () => toggleSeccionEstatus(seccion)}
+                                    disabled={readOnly}
+                                    title={readOnly ? undefined : 'Cambiar estatus de la sección'}
+                                >
+                                    {seccion.estatus === 'completado' ? 'Completado' : 'Pendiente'}
+                                </button>
+                            )}
                             {!readOnly && (
-                                <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                                    <button type="button" className="btn btn-ghost btn-xs" title="Nueva carpeta" onClick={() => crearCarpeta(seccion.id, null)}>
-                                        <FolderPlusIcon className="size-3.5" />
+                                <div className="ml-auto flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        className="btn btn-ghost btn-xs"
+                                        title={visible ? 'Ocultar sección en este proyecto' : 'Mostrar sección en este proyecto'}
+                                        onClick={() => toggleSeccionVisible(seccion)}
+                                    >
+                                        {visible ? <EyeIcon className="size-3.5" /> : <EyeOffIcon className="size-3.5" />}
                                     </button>
-                                    <button type="button" className="btn btn-ghost btn-xs" title="Subir archivo" onClick={() => pedirArchivos({ seccion_id: seccion.id, carpeta_id: null })}>
-                                        <UploadIcon className="size-3.5" />
-                                    </button>
+                                    {visible && (
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                                            <button type="button" className="btn btn-ghost btn-xs" title="Nueva carpeta" onClick={() => crearCarpeta(seccion.id, null)}>
+                                                <FolderPlusIcon className="size-3.5" />
+                                            </button>
+                                            <button type="button" className="btn btn-ghost btn-xs" title="Subir archivo" onClick={() => pedirArchivos({ seccion_id: seccion.id, carpeta_id: null })}>
+                                                <UploadIcon className="size-3.5" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

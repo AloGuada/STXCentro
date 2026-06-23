@@ -81,9 +81,4 @@ class Estimacion extends Model
     {
         return $this->hasMany(Retencion::class, 'estimacion_id');
     }
-
-    public function documentos(): HasMany
-    {
-        return $this->hasMany(DocumentoEstimacion::class, 'estimacion_id');
-    }
 }

@@ -5,7 +5,7 @@ namespace App\Models\Cob;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class EstimacionPago extends Model
 {
@@ -30,9 +30,10 @@ class EstimacionPago extends Model
         ];
     }
 
-    public function media(): MorphOne
+    /** Comprobantes (uno o varios) del pago. Pagos parciales pueden adjuntar varios. */
+    public function comprobantes(): MorphMany
     {
-        return $this->morphOne(\App\Models\Media::class, 'mediable');
+        return $this->morphMany(\App\Models\Media::class, 'mediable');
     }
 
     public function estimacion(): BelongsTo

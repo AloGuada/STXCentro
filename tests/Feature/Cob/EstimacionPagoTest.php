@@ -1,9 +1,12 @@
 <?php
 
 use App\Models\Cob\Estimacion;
+use App\Models\Cob\EstimacionPago;
 use App\Models\Obra;
 use App\Models\Proyecto;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -72,5 +75,50 @@ describe('admin cob estimacion pagos', function () {
         $response->assertSessionHasErrors(['monto_pagado']);
         $estimacion->refresh();
         expect((float) $estimacion->monto_pagado)->toBe(90000.00);
+    });
+
+    test('pago guarda múltiples comprobantes como media', function () {
+        Storage::fake('public');
+        $estimacion = Estimacion::factory()->create([
+            'obra_id' => $this->obra->id,
+            'estado' => 'facturada',
+            'monto_estimado' => 100000.00,
+            'monto_pagado' => 0,
+        ]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.cob.proyectos.estimaciones.pagos.store', [$this->proyecto, $estimacion]), [
+                'monto_pagado' => 50000.00,
+                'fecha_pago' => '2026-02-15',
+                'folio' => 'PAG-001',
+                'comprobantes' => [
+                    UploadedFile::fake()->create('rec1.pdf', 100, 'application/pdf'),
+                    UploadedFile::fake()->create('rec2.pdf', 120, 'application/pdf'),
+                ],
+            ])
+            ->assertRedirect();
+
+        $pago = EstimacionPago::where('estimacion_id', $estimacion->id)->firstOrFail();
+        expect($pago->comprobantes)->toHaveCount(2);
+        Storage::disk('public')->assertExists($pago->comprobantes->first()->path);
+    });
+
+    test('pago sin comprobante es válido', function () {
+        $estimacion = Estimacion::factory()->create([
+            'obra_id' => $this->obra->id,
+            'estado' => 'facturada',
+            'monto_estimado' => 100000.00,
+            'monto_pagado' => 0,
+        ]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.cob.proyectos.estimaciones.pagos.store', [$this->proyecto, $estimacion]), [
+                'monto_pagado' => 10000.00,
+                'fecha_pago' => '2026-02-15',
+            ])
+            ->assertRedirect();
+
+        $pago = EstimacionPago::where('estimacion_id', $estimacion->id)->firstOrFail();
+        expect($pago->comprobantes)->toHaveCount(0);
     });
 });

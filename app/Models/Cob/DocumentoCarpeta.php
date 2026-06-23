@@ -2,7 +2,7 @@
 
 namespace App\Models\Cob;
 
-use App\Models\Obra;
+use App\Models\Proyecto;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,16 +18,16 @@ class DocumentoCarpeta extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'obra_id',
+        'proyecto_id',
         'seccion_id',
         'parent_id',
         'nombre',
         'orden',
     ];
 
-    public function obra(): BelongsTo
+    public function proyecto(): BelongsTo
     {
-        return $this->belongsTo(Obra::class, 'obra_id');
+        return $this->belongsTo(Proyecto::class, 'proyecto_id');
     }
 
     public function seccion(): BelongsTo

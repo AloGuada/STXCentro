@@ -5,20 +5,23 @@ namespace App\Http\Controllers\Admin\Cob;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Cob\DocumentoArchivoStoreRequest;
 use App\Http\Requests\Admin\Cob\DocumentoCarpetaRequest;
+use App\Http\Requests\Admin\Cob\SeccionEstatusRequest;
+use App\Http\Requests\Admin\Cob\SeccionVisibilidadRequest;
 use App\Models\Cob\DocumentoArchivo;
 use App\Models\Cob\DocumentoCarpeta;
-use App\Models\Obra;
+use App\Models\Cob\DocumentoSeccion;
+use App\Models\Proyecto;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class ObraDocumentoController extends Controller
+class ProyectoDocumentoController extends Controller
 {
-    public function carpetaStore(DocumentoCarpetaRequest $request, Obra $obra): RedirectResponse
+    public function carpetaStore(DocumentoCarpetaRequest $request, Proyecto $proyecto): RedirectResponse
     {
         $data = $request->validated();
 
-        $obra->documentoCarpetas()->create([
+        $proyecto->documentoCarpetas()->create([
             'seccion_id' => $data['seccion_id'],
             'parent_id' => $data['parent_id'] ?? null,
             'nombre' => $data['nombre'],
@@ -27,14 +30,14 @@ class ObraDocumentoController extends Controller
         return back();
     }
 
-    public function carpetaUpdate(DocumentoCarpetaRequest $request, Obra $obra, DocumentoCarpeta $carpeta): RedirectResponse
+    public function carpetaUpdate(DocumentoCarpetaRequest $request, Proyecto $proyecto, DocumentoCarpeta $carpeta): RedirectResponse
     {
         $carpeta->update(['nombre' => $request->validated()['nombre']]);
 
         return back();
     }
 
-    public function carpetaDestroy(Obra $obra, DocumentoCarpeta $carpeta): RedirectResponse
+    public function carpetaDestroy(Proyecto $proyecto, DocumentoCarpeta $carpeta): RedirectResponse
     {
         $carpetaIds = $this->descendientes($carpeta);
 
@@ -48,14 +51,14 @@ class ObraDocumentoController extends Controller
         return back();
     }
 
-    public function archivoStore(DocumentoArchivoStoreRequest $request, Obra $obra): RedirectResponse
+    public function archivoStore(DocumentoArchivoStoreRequest $request, Proyecto $proyecto): RedirectResponse
     {
         $data = $request->validated();
 
         foreach ($request->file('archivos') as $file) {
-            $path = $file->store("cob/documentos/{$obra->id}/{$data['seccion_id']}", 'local');
+            $path = $file->store("cob/documentos/{$proyecto->id}/{$data['seccion_id']}", 'local');
 
-            $obra->documentoArchivos()->create([
+            $proyecto->documentoArchivos()->create([
                 'seccion_id' => $data['seccion_id'],
                 'carpeta_id' => $data['carpeta_id'] ?? null,
                 'nombre_original' => $file->getClientOriginalName(),
@@ -69,7 +72,7 @@ class ObraDocumentoController extends Controller
         return back();
     }
 
-    public function archivoDestroy(Obra $obra, DocumentoArchivo $archivo): RedirectResponse
+    public function archivoDestroy(Proyecto $proyecto, DocumentoArchivo $archivo): RedirectResponse
     {
         Storage::disk('local')->delete($archivo->path);
         $archivo->delete();
@@ -87,6 +90,28 @@ class ObraDocumentoController extends Controller
         return Storage::disk('local')->response($archivo->path, $archivo->nombre_original, [
             'Content-Type' => $archivo->mime ?? 'application/octet-stream',
         ]);
+    }
+
+    /** Marca una sección del expediente como pendiente/completado para este proyecto. */
+    public function seccionEstatus(SeccionEstatusRequest $request, Proyecto $proyecto, DocumentoSeccion $documentoSeccion): RedirectResponse
+    {
+        $proyecto->seccionEstatus()->updateOrCreate(
+            ['seccion_id' => $documentoSeccion->id],
+            ['estatus' => $request->validated('estatus')],
+        );
+
+        return back();
+    }
+
+    /** Muestra u oculta una sección del expediente para este proyecto (no afecta otros). */
+    public function seccionVisibilidad(SeccionVisibilidadRequest $request, Proyecto $proyecto, DocumentoSeccion $documentoSeccion): RedirectResponse
+    {
+        $proyecto->seccionEstatus()->updateOrCreate(
+            ['seccion_id' => $documentoSeccion->id],
+            ['visible' => $request->validated('visible')],
+        );
+
+        return back();
     }
 
     /**

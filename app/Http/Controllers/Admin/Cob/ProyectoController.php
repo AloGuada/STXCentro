@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\Cob\PlaneacionRequest;
 use App\Http\Requests\Admin\Cob\ProyectoStoreRequest;
 use App\Http\Requests\Admin\Cob\ProyectoUpdateRequest;
 use App\Models\Cliente;
+use App\Models\Cob\DocumentoSeccion;
 use App\Models\Cob\ObraEtapa;
 use App\Models\Proyecto;
 use Illuminate\Http\RedirectResponse;
@@ -72,11 +73,34 @@ class ProyectoController extends Controller
             'estimaciones.obra:id,no',
             'estimaciones.pagos',
             'planCobro',
+            // Expediente documental del proyecto.
+            'documentoCarpetas',
+            'documentoArchivos',
+            'seccionEstatus',
         ]);
+
+        // Catálogo global de secciones, enriquecido con el estatus y la visibilidad
+        // de cada una para ESTE proyecto (pendiente/visible por defecto si aún no
+        // se ha marcado nada).
+        $overlayPorSeccion = $proyecto->seccionEstatus->keyBy('seccion_id');
+
+        $documentoSecciones = DocumentoSeccion::query()
+            ->activas()
+            ->orderBy('orden')
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'orden'])
+            ->map(fn (DocumentoSeccion $seccion) => [
+                'id' => $seccion->id,
+                'nombre' => $seccion->nombre,
+                'orden' => $seccion->orden,
+                'estatus' => $overlayPorSeccion->get($seccion->id)?->estatus ?? 'pendiente',
+                'visible' => $overlayPorSeccion->get($seccion->id)?->visible ?? true,
+            ]);
 
         return Inertia::render('admin/cob/proyectos/show', [
             'proyecto' => $proyecto,
             'clientes' => $this->clientes(),
+            'documentoSecciones' => $documentoSecciones,
         ]);
     }
 

@@ -7,7 +7,6 @@ use App\Http\Requests\Admin\Cob\ObraCobDatosRequest;
 use App\Http\Requests\Admin\Cob\ObraCobUpdateRequest;
 use App\Http\Requests\Admin\Cob\ObraEstadoRequest;
 use App\Models\Cliente;
-use App\Models\Cob\DocumentoSeccion;
 use App\Models\Obra;
 use App\Models\Proyecto;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -68,7 +67,6 @@ class ObraCobranzaController extends Controller
             'estimaciones.pagos',
             'estimaciones.historial.usuario',
             'estimaciones.retenciones.tipoRetencion',
-            'estimaciones.documentos.configuracionDocumento',
             'anticipos',
             'adendas',
             'comparativos',
@@ -76,21 +74,11 @@ class ObraCobranzaController extends Controller
             'disputas',
             'penalizaciones',
             'eventos.children',
-            'configuracionDocumentos',
-            'documentoCarpetas',
-            'documentoArchivos',
         ]);
-
-        $documentoSecciones = DocumentoSeccion::query()
-            ->activas()
-            ->orderBy('orden')
-            ->orderBy('nombre')
-            ->get(['id', 'nombre', 'orden']);
 
         return Inertia::render('admin/cob/obras/show', [
             'obra' => $obra,
             'clientes' => $this->clientes(),
-            'documentoSecciones' => $documentoSecciones,
         ]);
     }
 

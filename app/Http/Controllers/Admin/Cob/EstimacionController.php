@@ -54,11 +54,17 @@ class EstimacionController extends Controller
         }
 
         DB::transaction(function () use ($request, $proyecto, $obraId, $partidaIds): void {
+            // Consecutivo autoritativo del proyecto (abarca todas sus obras). Se
+            // calcula con lock dentro de la transacción para evitar duplicados en
+            // creaciones concurrentes; el valor enviado por el cliente se ignora.
+            $siguienteNumero = ($proyecto->estimaciones()->lockForUpdate()->max('numero_estimacion') ?? 0) + 1;
+
             $estimacion = $proyecto->estimaciones()->create([
                 ...$request->safe()->only([
-                    'numero_estimacion', 'folio', 'tipo', 'fecha_emision', 'inicio', 'fin',
+                    'folio', 'tipo', 'fecha_emision', 'inicio', 'fin',
                     'monto_estimado', 'monto_total', 'moneda', 'comentarios',
                 ]),
+                'numero_estimacion' => $siguienteNumero,
                 'nivel' => $request->validated('nivel'),
                 'obra_id' => $obraId,
                 'estado' => 'pendiente',
@@ -72,7 +78,7 @@ class EstimacionController extends Controller
 
     public function edit(Proyecto $proyecto, Estimacion $estimacion): Response
     {
-        $estimacion->load(['pagos', 'historial.usuario', 'retenciones.tipoRetencion', 'documentos.configuracionDocumento', 'partidas:id']);
+        $estimacion->load(['pagos.comprobantes', 'historial.usuario', 'retenciones.tipoRetencion', 'partidas:id']);
 
         return Inertia::render('admin/cob/estimaciones/edit', [
             'proyecto' => $proyecto->only('id', 'no', 'descripcion'),

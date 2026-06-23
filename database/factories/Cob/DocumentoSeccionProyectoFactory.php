@@ -2,17 +2,15 @@
 
 namespace Database\Factories\Cob;
 
-use App\Models\Cob\DocumentoCarpeta;
 use App\Models\Cob\DocumentoSeccion;
+use App\Models\Cob\DocumentoSeccionProyecto;
 use App\Models\Proyecto;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Cob\DocumentoCarpeta>
- */
-class DocumentoCarpetaFactory extends Factory
+/** @extends Factory<DocumentoSeccionProyecto> */
+class DocumentoSeccionProyectoFactory extends Factory
 {
-    protected $model = DocumentoCarpeta::class;
+    protected $model = DocumentoSeccionProyecto::class;
 
     /**
      * @return array<string, mixed>
@@ -22,9 +20,7 @@ class DocumentoCarpetaFactory extends Factory
         return [
             'proyecto_id' => Proyecto::factory(),
             'seccion_id' => DocumentoSeccion::factory(),
-            'parent_id' => null,
-            'nombre' => fake()->words(2, true),
-            'orden' => 0,
+            'estatus' => fake()->randomElement(['pendiente', 'completado']),
         ];
     }
 }

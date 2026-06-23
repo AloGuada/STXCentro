@@ -118,6 +118,30 @@ describe('admin cob estimaciones (multi-nivel)', function () {
             ->assertInertia(fn ($page) => $page->where('nextNumber', 4));
     });
 
+    test('el servidor asigna el consecutivo del proyecto entre sus obras e ignora el valor del cliente', function () {
+        $otraObra = Obra::factory()->create(['proyecto_id' => $this->proyecto->id, 'tipo' => 'adicional']);
+        // Ya existe la #3 en la obra base del proyecto.
+        Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id, 'obra_id' => $this->obra->id, 'numero_estimacion' => 3]);
+
+        // Se crea en OTRA obra del mismo proyecto enviando un número falso: debe asignar 4.
+        $this->actingAs($this->user)
+            ->post(route('admin.cob.proyectos.estimaciones.store', $this->proyecto), [
+                'nivel' => 'obra',
+                'obra_id' => $otraObra->id,
+                'numero_estimacion' => 999,
+                'monto_estimado' => 10000,
+                'moneda' => 'MXN',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('cob_estimaciones', [
+            'proyecto_id' => $this->proyecto->id,
+            'obra_id' => $otraObra->id,
+            'numero_estimacion' => 4,
+        ]);
+        $this->assertDatabaseMissing('cob_estimaciones', ['numero_estimacion' => 999]);
+    });
+
     test('edit page can be rendered', function () {
         $estimacion = Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id, 'obra_id' => $this->obra->id]);
 

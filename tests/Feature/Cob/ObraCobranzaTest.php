@@ -64,7 +64,6 @@ describe('admin cob obras', function () {
                 ->component('admin/cob/obras/show')
                 ->where('obra.id', $obra->id)
                 ->has('clientes')
-                ->has('documentoSecciones')
             );
     });
 

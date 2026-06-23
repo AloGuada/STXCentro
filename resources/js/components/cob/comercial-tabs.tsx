@@ -1,7 +1,6 @@
 import { router } from '@inertiajs/react';
 import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { DocumentoTree } from '@/components/cob/documento-tree';
 import { EstimacionesGantt } from '@/components/cob/estimaciones-gantt';
 import { formatearMXN } from '@/components/cob/money-display';
 import { Button } from '@/components/ui/button';
@@ -11,8 +10,6 @@ import {
     COB_ANTICIPO_ESTADO_LABELS,
     COB_COMPARATIVO_ESTADO_LABELS,
     COB_DISPUTA_ESTADO_LABELS,
-    type CobDocumentoArchivo,
-    type CobDocumentoSeccion,
     type Obra,
 } from '@/types/models';
 
@@ -270,76 +267,6 @@ export function PenalizacionesTab({ obra }: { obra: Obra }) {
                     </tbody>
                 </table>
             </div>
-        </div>
-    );
-}
-
-export function ConfiguracionTab({ obra }: { obra: Obra }) {
-    return (
-        <div>
-            <div className="mb-4 flex justify-between">
-                <h2 className="text-lg font-semibold">Configuracion de Documentos</h2>
-                <Button size="sm" asChild>
-                    <a href={`/admin/cob/obras/${obra.id}/configuracion-documentos/create`}><PlusIcon className="size-4" /> Nuevo Documento</a>
-                </Button>
-            </div>
-
-            <div className="overflow-x-auto">
-                <table className="table table-sm">
-                    <thead><tr><th>Nombre</th><th>Descripcion</th><th>Obligatorio</th><th></th></tr></thead>
-                    <tbody>
-                        {(obra.configuracion_documentos ?? []).map((d) => (
-                            <tr key={d.id}>
-                                <td>{d.nombre_documento}</td>
-                                <td>{d.descripcion ?? '-'}</td>
-                                <td>{d.obligatorio ? 'Si' : 'No'}</td>
-                                <td className="flex gap-1">
-                                    <a href={`/admin/cob/obras/${obra.id}/configuracion-documentos/${d.id}/edit`} className="btn btn-ghost btn-xs">
-                                        <PencilIcon className="size-3" />
-                                    </a>
-                                    <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/configuracion-documentos/${d.id}`)}>
-                                        <Trash2Icon className="size-3" />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                        {(obra.configuracion_documentos ?? []).length === 0 && (
-                            <tr><td colSpan={4} className="text-center opacity-50">No hay documentos configurados</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-}
-
-export function DocumentacionTab({
-    obra,
-    documentoSecciones,
-    onOpenArchivo,
-}: {
-    obra: Obra;
-    documentoSecciones: CobDocumentoSeccion[];
-    onOpenArchivo: (archivo: CobDocumentoArchivo) => void;
-}) {
-    return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Documentación</h2>
-                <a href="/admin/cob/documento-secciones" className="btn btn-ghost btn-sm">
-                    Administrar secciones
-                </a>
-            </div>
-            <p className="text-sm text-base-content/60">
-                Pasa el cursor sobre una sección o carpeta para crear subcarpetas, subir o eliminar archivos.
-            </p>
-            <DocumentoTree
-                obraId={obra.id}
-                secciones={documentoSecciones}
-                carpetas={obra.documento_carpetas ?? []}
-                archivos={obra.documento_archivos ?? []}
-                onOpenArchivo={onOpenArchivo}
-            />
         </div>
     );
 }
