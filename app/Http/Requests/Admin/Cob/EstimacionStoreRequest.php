@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin\Cob;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class EstimacionStoreRequest extends FormRequest
 {
@@ -12,11 +13,15 @@ class EstimacionStoreRequest extends FormRequest
     }
 
     /**
-     * @return array<string, array<int, string>>
+     * @return array<string, array<int, mixed>>
      */
     public function rules(): array
     {
         return [
+            'nivel' => ['required', Rule::in(['proyecto', 'obra', 'partida'])],
+            'obra_id' => ['nullable', 'required_unless:nivel,proyecto', 'integer', 'exists:obras,id'],
+            'partida_ids' => ['array', 'required_if:nivel,partida'],
+            'partida_ids.*' => ['integer', 'exists:cob_partidas,id'],
             'numero_estimacion' => ['required', 'integer', 'min:1'],
             'folio' => ['nullable', 'string', 'max:255'],
             'tipo' => ['nullable', 'string', 'max:255'],

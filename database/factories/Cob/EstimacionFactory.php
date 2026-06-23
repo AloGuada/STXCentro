@@ -4,6 +4,7 @@ namespace Database\Factories\Cob;
 
 use App\Models\Cob\Estimacion;
 use App\Models\Obra;
+use App\Models\Proyecto;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /** @extends Factory<Estimacion> */
@@ -14,7 +15,9 @@ class EstimacionFactory extends Factory
     public function definition(): array
     {
         return [
+            'proyecto_id' => null,
             'obra_id' => Obra::factory(),
+            'nivel' => 'obra',
             'numero_estimacion' => fake()->numberBetween(1, 50),
             'folio' => fake()->optional()->regexify('EST-[0-9]{4}'),
             'tipo' => fake()->optional()->randomElement(['normal', 'extraordinaria']),
@@ -28,5 +31,28 @@ class EstimacionFactory extends Factory
             'estado' => 'pendiente',
             'comentarios' => fake()->optional()->sentence(),
         ];
+    }
+
+    public function configure(): static
+    {
+        // Si se creó con obra y sin proyecto, hereda el proyecto de la obra.
+        return $this->afterCreating(function (Estimacion $estimacion): void {
+            if ($estimacion->proyecto_id === null && $estimacion->obra_id !== null) {
+                $proyectoId = Obra::whereKey($estimacion->obra_id)->value('proyecto_id');
+                if ($proyectoId !== null) {
+                    $estimacion->update(['proyecto_id' => $proyectoId]);
+                }
+            }
+        });
+    }
+
+    /** Estimación global (a nivel proyecto, sin obra). */
+    public function global(): static
+    {
+        return $this->state(fn () => [
+            'nivel' => 'proyecto',
+            'obra_id' => null,
+            'proyecto_id' => Proyecto::factory(),
+        ]);
     }
 }

@@ -7,9 +7,11 @@ use App\Http\Requests\Admin\Cob\CambiarEstadoEstimacionRequest;
 use App\Http\Requests\Admin\Cob\EstimacionStoreRequest;
 use App\Http\Requests\Admin\Cob\EstimacionUpdateRequest;
 use App\Models\Cob\Estimacion;
+use App\Models\Cob\Partida;
 use App\Models\Cob\TipoRetencion;
-use App\Models\Obra;
+use App\Models\Proyecto;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -28,43 +30,88 @@ class EstimacionController extends Controller
         'pagado' => [],
     ];
 
-    public function create(Obra $obra): Response
+    public function create(Proyecto $proyecto): Response
     {
-        $nextNumber = ($obra->estimaciones()->max('numero_estimacion') ?? 0) + 1;
+        $nextNumber = ($proyecto->estimaciones()->max('numero_estimacion') ?? 0) + 1;
 
         return Inertia::render('admin/cob/estimaciones/create', [
-            'obra' => $obra->only('id', 'no', 'descripcion', 'proyecto_id'),
+            'proyecto' => $proyecto->only('id', 'no', 'descripcion'),
+            'obras' => $this->obrasConPartidas($proyecto),
             'nextNumber' => $nextNumber,
         ]);
     }
 
-    public function store(EstimacionStoreRequest $request, Obra $obra): RedirectResponse
+    public function store(EstimacionStoreRequest $request, Proyecto $proyecto): RedirectResponse
     {
-        $obra->estimaciones()->create($request->validated());
+        $obraId = $this->resolverObra($request, $proyecto);
+        if ($obraId === false) {
+            return back()->withErrors(['obra_id' => 'La obra no pertenece al proyecto.']);
+        }
 
-        return to_route('admin.cob.obras.show', $obra);
+        $partidaIds = $this->resolverPartidas($request, $obraId);
+        if ($partidaIds === false) {
+            return back()->withErrors(['partida_ids' => 'Las partidas no pertenecen a la obra.']);
+        }
+
+        DB::transaction(function () use ($request, $proyecto, $obraId, $partidaIds): void {
+            $estimacion = $proyecto->estimaciones()->create([
+                ...$request->safe()->only([
+                    'numero_estimacion', 'folio', 'tipo', 'fecha_emision', 'inicio', 'fin',
+                    'monto_estimado', 'monto_total', 'moneda', 'comentarios',
+                ]),
+                'nivel' => $request->validated('nivel'),
+                'obra_id' => $obraId,
+                'estado' => 'pendiente',
+            ]);
+
+            $estimacion->partidas()->sync($partidaIds);
+        });
+
+        return to_route('admin.cob.proyectos.show', $proyecto);
     }
 
-    public function edit(Obra $obra, Estimacion $estimacion): Response
+    public function edit(Proyecto $proyecto, Estimacion $estimacion): Response
     {
-        $estimacion->load(['pagos', 'historial.usuario', 'retenciones.tipoRetencion', 'documentos.configuracionDocumento']);
-        $tiposRetencion = TipoRetencion::all();
+        $estimacion->load(['pagos', 'historial.usuario', 'retenciones.tipoRetencion', 'documentos.configuracionDocumento', 'partidas:id']);
 
         return Inertia::render('admin/cob/estimaciones/edit', [
-            'obra' => $obra->only('id', 'no', 'descripcion', 'proyecto_id'),
+            'proyecto' => $proyecto->only('id', 'no', 'descripcion'),
+            'obras' => $this->obrasConPartidas($proyecto),
             'estimacion' => $estimacion,
-            'tiposRetencion' => $tiposRetencion,
+            'partidaIds' => $estimacion->partidas->pluck('id'),
+            'tiposRetencion' => TipoRetencion::all(),
         ]);
     }
 
-    public function update(EstimacionUpdateRequest $request, Obra $obra, Estimacion $estimacion): RedirectResponse
+    public function update(EstimacionUpdateRequest $request, Proyecto $proyecto, Estimacion $estimacion): RedirectResponse
     {
-        $estimacion->update($request->validated());
+        $obraId = $this->resolverObra($request, $proyecto);
+        if ($obraId === false) {
+            return back()->withErrors(['obra_id' => 'La obra no pertenece al proyecto.']);
+        }
+
+        $partidaIds = $this->resolverPartidas($request, $obraId);
+        if ($partidaIds === false) {
+            return back()->withErrors(['partida_ids' => 'Las partidas no pertenecen a la obra.']);
+        }
+
+        DB::transaction(function () use ($request, $estimacion, $obraId, $partidaIds): void {
+            $estimacion->update([
+                ...$request->safe()->only([
+                    'folio', 'tipo', 'fecha_emision', 'inicio', 'fin',
+                    'monto_estimado', 'monto_total', 'moneda', 'comentarios',
+                ]),
+                'nivel' => $request->validated('nivel'),
+                'obra_id' => $obraId,
+            ]);
+
+            $estimacion->partidas()->sync($partidaIds);
+        });
 
         return back();
     }
 
-    public function destroy(Obra $obra, Estimacion $estimacion): RedirectResponse
+    public function destroy(Proyecto $proyecto, Estimacion $estimacion): RedirectResponse
     {
         if ($estimacion->pagos()->exists()) {
             return back()->withErrors(['delete' => 'No se puede eliminar una estimacion con pagos registrados.']);
@@ -72,17 +119,15 @@ class EstimacionController extends Controller
 
         $estimacion->delete();
 
-        return to_route('admin.cob.obras.show', $obra);
+        return to_route('admin.cob.proyectos.show', $proyecto);
     }
 
-    public function cambiarEstado(CambiarEstadoEstimacionRequest $request, Obra $obra, Estimacion $estimacion): RedirectResponse
+    public function cambiarEstado(CambiarEstadoEstimacionRequest $request, Proyecto $proyecto, Estimacion $estimacion): RedirectResponse
     {
         $estadoActual = $estimacion->estado;
         $estadoNuevo = $request->validated('estado');
 
-        $transicionesPermitidas = self::TRANSICIONES[$estadoActual] ?? [];
-
-        if (! in_array($estadoNuevo, $transicionesPermitidas)) {
+        if (! in_array($estadoNuevo, self::TRANSICIONES[$estadoActual] ?? [])) {
             return back()->withErrors(['estado' => "No se puede cambiar de '{$estadoActual}' a '{$estadoNuevo}'."]);
         }
 
@@ -105,5 +150,62 @@ class EstimacionController extends Controller
         });
 
         return back();
+    }
+
+    /**
+     * Obra de la estimación según el nivel. `null` si es global; `false` si la
+     * obra no pertenece al proyecto.
+     */
+    private function resolverObra(EstimacionStoreRequest|EstimacionUpdateRequest $request, Proyecto $proyecto): int|false|null
+    {
+        if ($request->validated('nivel') === 'proyecto') {
+            return null;
+        }
+
+        $obraId = (int) $request->validated('obra_id');
+
+        return $proyecto->obras()->whereKey($obraId)->exists() ? $obraId : false;
+    }
+
+    /**
+     * Partidas a sincronizar. `false` si alguna no pertenece a la obra.
+     *
+     * @return list<int>|false
+     */
+    private function resolverPartidas(EstimacionStoreRequest|EstimacionUpdateRequest $request, int|false|null $obraId): array|false
+    {
+        if ($request->validated('nivel') !== 'partida' || $obraId === false || $obraId === null) {
+            return [];
+        }
+
+        /** @var list<int> $ids */
+        $ids = array_values(array_map('intval', $request->validated('partida_ids', [])));
+
+        $validas = Partida::query()
+            ->where('obra_id', $obraId)
+            ->whereIn('id', $ids)
+            ->count();
+
+        return $validas === count($ids) ? $ids : false;
+    }
+
+    /**
+     * Obras del proyecto con sus partidas, para los selectores del formulario.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function obrasConPartidas(Proyecto $proyecto): Collection
+    {
+        return $proyecto->obras()
+            ->with('partidas:id,obra_id,descripcion,tipo,monto')
+            ->orderByRaw("CASE WHEN tipo = 'base' THEN 0 ELSE 1 END")
+            ->orderBy('no')
+            ->get(['id', 'no', 'descripcion'])
+            ->map(fn ($obra) => [
+                'id' => $obra->id,
+                'no' => $obra->no,
+                'descripcion' => $obra->descripcion,
+                'partidas' => $obra->partidas->map(fn ($p) => $p->only('id', 'descripcion', 'tipo', 'monto'))->values(),
+            ]);
     }
 }

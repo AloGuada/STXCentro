@@ -6,6 +6,7 @@ use App\Models\Obra;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Partida extends Model
 {
@@ -34,5 +35,12 @@ class Partida extends Model
     public function obra(): BelongsTo
     {
         return $this->belongsTo(Obra::class, 'obra_id');
+    }
+
+    /** Estimaciones (nivel partida) que cubren esta partida. */
+    public function estimaciones(): BelongsToMany
+    {
+        return $this->belongsToMany(Estimacion::class, 'cob_estimacion_partida', 'partida_id', 'estimacion_id')
+            ->withTimestamps();
     }
 }

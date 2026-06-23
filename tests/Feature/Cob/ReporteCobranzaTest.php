@@ -4,6 +4,7 @@ use App\Models\Cob\Estimacion;
 use App\Models\Cob\Partida;
 use App\Models\Cob\ReporteNota;
 use App\Models\Obra;
+use App\Models\Proyecto;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,28 @@ function obraConPartidas(Carbon $creadaEn, array $montos): Obra
 
     return $obra;
 }
+
+it('una estimación global (sin obra) pagada en la semana suma al cobrado y al saldo', function () {
+    $proyecto = Proyecto::factory()->create();
+    Estimacion::factory()->global()->create([
+        'proyecto_id' => $proyecto->id,
+        'estado' => 'pagado',
+        'fecha_ultimo_cambio_estado' => diaDeSemana($this->anio, $this->semana),
+        'monto_estimado' => 3000,
+        'monto_total' => 3480,
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('admin.cob.reportes.show', ['anio' => $this->anio, 'semana' => $this->semana]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('reporte.total_cobrado_sin_iva', 3000)
+            ->where('reporte.total_cobrado_con_iva', 3480)
+            ->where('reporte.saldo_nuevo_sin_iva', -3000) // sin detonaciones: 0 + 0 - 3000
+            ->has('reporte.cobros', 1)
+            ->where('reporte.cobros.0.obra_no', "Global · {$proyecto->no}")
+        );
+});
 
 it('calcula detonaciones (Σ partidas ×1.16) y cobros de la semana', function () {
     $dentro = diaDeSemana($this->anio, $this->semana);

@@ -67,6 +67,10 @@ class ProyectoController extends Controller
             // Estimaciones por obra: alimentan el rollup y la sección "Real" del Gantt.
             'obras.estimaciones.pagos',
             'obras.estimaciones.historial',
+            // Todas las estimaciones del proyecto (cualquier nivel) para el tab Estimaciones.
+            'estimaciones' => fn ($q) => $q->orderByDesc('numero_estimacion'),
+            'estimaciones.obra:id,no',
+            'estimaciones.pagos',
             'planCobro',
         ]);
 

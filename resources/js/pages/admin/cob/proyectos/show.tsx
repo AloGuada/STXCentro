@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Loader2Icon, LockIcon, PencilIcon, PlusIcon, Trash2Icon, UnlockIcon } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { calcularResumenProyecto } from '@/components/cob/calculos';
+import { EstadoBadge } from '@/components/cob/estado-badge';
 import { formatearMXN } from '@/components/cob/money-display';
 import { PlaneacionGantt } from '@/components/cob/planeacion-gantt';
 import { ResumenFinancieroCard } from '@/components/cob/resumen-financiero';
@@ -19,14 +20,21 @@ type Props = {
     clientes: Pick<Cliente, 'id' | 'nombre'>[];
 };
 
-type TabKey = 'resumen' | 'obras' | 'gantt' | 'datos';
+type TabKey = 'resumen' | 'obras' | 'estimaciones' | 'gantt' | 'datos';
 
 const TABS: { key: TabKey; label: string }[] = [
     { key: 'resumen', label: 'Resumen' },
     { key: 'obras', label: 'Obras' },
+    { key: 'estimaciones', label: 'Estimaciones' },
     { key: 'gantt', label: 'Gantt' },
     { key: 'datos', label: 'Datos del proyecto' },
 ];
+
+const NIVEL_LABEL: Record<string, string> = {
+    proyecto: 'Global',
+    obra: 'Obra',
+    partida: 'Partidas',
+};
 
 export default function ProyectoShow({ proyecto, clientes }: Props) {
     const [activeTab, setActiveTab] = useState<TabKey>('resumen');
@@ -70,6 +78,7 @@ export default function ProyectoShow({ proyecto, clientes }: Props) {
 
                 {activeTab === 'resumen' && <ResumenTab proyecto={proyecto} resumen={d} />}
                 {activeTab === 'obras' && <ObrasTab proyecto={proyecto} />}
+                {activeTab === 'estimaciones' && <EstimacionesTab proyecto={proyecto} />}
                 {activeTab === 'gantt' && <PlaneacionGantt proyecto={proyecto} />}
                 {activeTab === 'datos' && <DatosTab proyecto={proyecto} clientes={clientes} />}
             </div>
@@ -254,6 +263,61 @@ function ObraCard({
                     </tfoot>
                 </table>
             )}
+        </div>
+    );
+}
+
+// -- Estimaciones del proyecto (hub: todos los niveles) --
+function EstimacionesTab({ proyecto }: { proyecto: Proyecto }) {
+    const estimaciones = proyecto.estimaciones ?? [];
+    const fmtFecha = (f: string | null) => (f ? new Date(f + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-');
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Estimaciones</h2>
+                <a href={`/admin/cob/proyectos/${proyecto.id}/estimaciones/create`} className="btn btn-primary btn-sm gap-1 flex-nowrap">
+                    <PlusIcon className="size-4" /> Nueva estimación
+                </a>
+            </div>
+
+            <div className="rounded-box border border-base-300 overflow-x-auto">
+                <table className="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Folio</th>
+                            <th>Nivel</th>
+                            <th>Alcance</th>
+                            <th>Periodo</th>
+                            <th className="text-right">Monto estimado</th>
+                            <th className="text-right">Pagado</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {estimaciones.map((e) => (
+                            <tr key={e.id} className="hover">
+                                <td>{e.numero_estimacion}</td>
+                                <td>{e.folio ?? '-'}</td>
+                                <td><span className="badge badge-ghost badge-sm">{NIVEL_LABEL[e.nivel] ?? e.nivel}</span></td>
+                                <td>{e.nivel === 'proyecto' ? 'Global' : (e.obra?.no ?? '-')}</td>
+                                <td>{e.inicio && e.fin ? `${fmtFecha(e.inicio)} – ${fmtFecha(e.fin)}` : '-'}</td>
+                                <td className="text-right">{formatearMXN(Number(e.monto_estimado))}</td>
+                                <td className="text-right">{formatearMXN(Number(e.monto_pagado))}</td>
+                                <td><EstadoBadge estado={e.estado} /></td>
+                                <td className="text-right">
+                                    <a href={`/admin/cob/proyectos/${proyecto.id}/estimaciones/${e.id}/edit`} className="btn btn-ghost btn-xs">Editar</a>
+                                </td>
+                            </tr>
+                        ))}
+                        {estimaciones.length === 0 && (
+                            <tr><td colSpan={9} className="py-6 text-center opacity-50">No hay estimaciones. Crea la primera con "Nueva estimación".</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }

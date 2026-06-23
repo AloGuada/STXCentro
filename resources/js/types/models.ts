@@ -55,6 +55,7 @@ export type Proyecto = {
     cliente?: Cliente;
     obras?: Obra[];
     obra_base?: Obra | null;
+    estimaciones?: CobEstimacion[];
     plan_cobro?: CobPlanCobro[];
     created_at: string;
     updated_at: string;
@@ -2365,9 +2366,13 @@ export const COB_ESTIMACION_ESTADO_COLORS: Record<CobEstimacionEstado, string> =
     pagado: 'badge-success',
 };
 
+export type CobEstimacionNivel = 'proyecto' | 'obra' | 'partida';
+
 export type CobEstimacion = {
     id: number;
-    obra_id: number;
+    proyecto_id: number | null;
+    obra_id: number | null;
+    nivel: CobEstimacionNivel;
     numero_estimacion: number;
     folio: string | null;
     tipo: string | null;
@@ -2385,6 +2390,8 @@ export type CobEstimacion = {
     historial?: CobEstimacionEstadoHistorial[];
     retenciones?: CobRetencion[];
     documentos?: CobDocumentoEstimacion[];
+    partidas?: CobPartida[];
+    obra?: Obra;
     created_at: string;
     updated_at: string;
 };

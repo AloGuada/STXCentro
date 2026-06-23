@@ -324,7 +324,7 @@ function EstimacionesTab({ obra }: { obra: Obra }) {
         <div className="rounded-box border border-base-300">
             <div className="flex items-center justify-between border-b border-base-300 px-4 py-2">
                 <span className="font-semibold">Estimaciones de la obra</span>
-                <a href={`/admin/cob/obras/${obra.id}/estimaciones/create`} className="btn btn-primary btn-xs">
+                <a href={`/admin/cob/proyectos/${obra.proyecto_id}/estimaciones/create`} className="btn btn-primary btn-xs">
                     Nueva estimación
                 </a>
             </div>
@@ -350,7 +350,7 @@ function EstimacionesTab({ obra }: { obra: Obra }) {
                             <td className="text-right">{formatearMXN(Number(e.monto_pagado))}</td>
                             <td><EstadoBadge estado={e.estado} /></td>
                             <td>
-                                <a href={`/admin/cob/obras/${obra.id}/estimaciones/${e.id}/edit`} className="btn btn-ghost btn-xs">
+                                <a href={`/admin/cob/proyectos/${obra.proyecto_id}/estimaciones/${e.id}/edit`} className="btn btn-ghost btn-xs">
                                     Editar
                                 </a>
                             </td>

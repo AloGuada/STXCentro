@@ -13,30 +13,37 @@ import {
     COB_ESTIMACION_ESTADO_LABELS,
     type CobEstimacion,
     type CobEstimacionEstado,
+    type CobEstimacionNivel,
+    type CobPartida,
     type CobTipoRetencion,
     type Obra,
+    type Proyecto,
 } from '@/types/models';
 
+type ObraConPartidas = Pick<Obra, 'id' | 'no' | 'descripcion'> & { partidas: Pick<CobPartida, 'id' | 'descripcion' | 'tipo' | 'monto'>[] };
+
 type Props = {
-    obra: Pick<Obra, 'id' | 'no' | 'descripcion' | 'proyecto_id'>;
+    proyecto: Pick<Proyecto, 'id' | 'no' | 'descripcion'>;
+    obras: ObraConPartidas[];
     estimacion: CobEstimacion;
+    partidaIds: number[];
     tiposRetencion: CobTipoRetencion[];
 };
 
-export default function EstimacionEdit({ obra, estimacion }: Props) {
+export default function EstimacionEdit({ proyecto, obras, estimacion, partidaIds }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Cobranza', href: '/admin/cob/proyectos' },
-        { title: `Obra ${obra.no}`, href: `/admin/cob/obras/${obra.id}` },
-        { title: `Estimacion #${estimacion.numero_estimacion}`, href: '#' },
+        { title: `Proyecto ${proyecto.no}`, href: `/admin/cob/proyectos/${proyecto.id}` },
+        { title: `Estimación #${estimacion.numero_estimacion}`, href: '#' },
     ];
 
-    const toDateInput = (value: string | null | undefined): string => {
-        if (!value) return '';
-        return value.substring(0, 10);
-    };
+    const toDateInput = (value: string | null | undefined): string => (value ? value.substring(0, 10) : '');
 
     const form = useForm({
+        nivel: estimacion.nivel as CobEstimacionNivel,
+        obra_id: estimacion.obra_id ? String(estimacion.obra_id) : '',
+        partida_ids: partidaIds ?? [],
         folio: estimacion.folio ?? '',
         tipo: estimacion.tipo ?? '',
         fecha_emision: toDateInput(estimacion.fecha_emision),
@@ -48,23 +55,39 @@ export default function EstimacionEdit({ obra, estimacion }: Props) {
         comentarios: estimacion.comentarios ?? '',
     });
 
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        form.put(`/admin/cob/obras/${obra.id}/estimaciones/${estimacion.id}`);
+    const obraSel = obras.find((o) => String(o.id) === form.data.obra_id);
+
+    const cambiarNivel = (nivel: CobEstimacionNivel) => {
+        form.setData((prev) => ({
+            ...prev,
+            nivel,
+            obra_id: nivel === 'proyecto' ? '' : prev.obra_id,
+            partida_ids: nivel === 'partida' ? prev.partida_ids : [],
+        }));
     };
 
-    // State change form
+    const togglePartida = (id: number) => {
+        form.setData('partida_ids', form.data.partida_ids.includes(id) ? form.data.partida_ids.filter((p) => p !== id) : [...form.data.partida_ids, id]);
+    };
+
+    const handleSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        form.put(`/admin/cob/proyectos/${proyecto.id}/estimaciones/${estimacion.id}`);
+    };
+
     const [showEstadoForm, setShowEstadoForm] = useState(false);
     const estadoForm = useForm({ estado: '', fecha_cambio: '', folio: '', comentario: '' });
 
     const handleCambiarEstado = (e: FormEvent) => {
         e.preventDefault();
-        estadoForm.post(`/admin/cob/obras/${obra.id}/estimaciones/${estimacion.id}/cambiar-estado`, {
-            onSuccess: () => { setShowEstadoForm(false); estadoForm.reset(); },
+        estadoForm.post(`/admin/cob/proyectos/${proyecto.id}/estimaciones/${estimacion.id}/cambiar-estado`, {
+            onSuccess: () => {
+                setShowEstadoForm(false);
+                estadoForm.reset();
+            },
         });
     };
 
-    // Transitions map
     const transiciones: Record<string, string[]> = {
         pendiente: ['generada'],
         generada: ['ingresada'],
@@ -78,28 +101,29 @@ export default function EstimacionEdit({ obra, estimacion }: Props) {
 
     const estadosSiguientes = transiciones[estimacion.estado] ?? [];
 
-    // Payment form
     const [showPagoForm, setShowPagoForm] = useState(false);
     const pagoForm = useForm({ monto_pagado: '', fecha_pago: '', folio: '', comprobante: null as File | null });
 
     const handleRegistrarPago = (e: FormEvent) => {
         e.preventDefault();
-        pagoForm.post(`/admin/cob/obras/${obra.id}/estimaciones/${estimacion.id}/pagos`, {
+        pagoForm.post(`/admin/cob/proyectos/${proyecto.id}/estimaciones/${estimacion.id}/pagos`, {
             forceFormData: true,
-            onSuccess: () => { setShowPagoForm(false); pagoForm.reset(); },
+            onSuccess: () => {
+                setShowPagoForm(false);
+                pagoForm.reset();
+            },
         });
     };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`Estimacion #${estimacion.numero_estimacion}`} />
+            <Head title={`Estimación #${estimacion.numero_estimacion}`} />
 
-            <div className="p-6 space-y-6">
-                {/* Header with estado */}
+            <div className="space-y-6 p-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-semibold">Estimacion #{estimacion.numero_estimacion}</h1>
-                        <p className="text-sm opacity-70">Obra {obra.no} - {obra.descripcion}</p>
+                        <h1 className="text-2xl font-semibold">Estimación #{estimacion.numero_estimacion}</h1>
+                        <p className="text-sm opacity-70">Proyecto {proyecto.no} · {proyecto.descripcion}</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <EstadoBadge estado={estimacion.estado} />
@@ -111,9 +135,8 @@ export default function EstimacionEdit({ obra, estimacion }: Props) {
                     </div>
                 </div>
 
-                {/* Estado change form */}
                 {showEstadoForm && (
-                    <form onSubmit={handleCambiarEstado} className="card bg-base-200 p-4 space-y-3">
+                    <form onSubmit={handleCambiarEstado} className="card bg-base-200 space-y-3 p-4">
                         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                             <FormField label="Nuevo Estado" htmlFor="estado" error={estadoForm.errors.estado} required>
                                 <Select value={estadoForm.data.estado} onValueChange={(v) => estadoForm.setData('estado', v)} placeholder="Seleccionar">
@@ -139,10 +162,49 @@ export default function EstimacionEdit({ obra, estimacion }: Props) {
                     </form>
                 )}
 
-                {/* Edit form */}
                 <div className="card bg-base-100 border p-6">
-                    <h2 className="text-lg font-semibold mb-4">Datos de la Estimacion</h2>
+                    <h2 className="mb-4 text-lg font-semibold">Datos de la Estimación</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+                            <FormField label="Nivel" htmlFor="nivel" error={form.errors.nivel}>
+                                <select className="select select-bordered w-full" value={form.data.nivel} onChange={(e) => cambiarNivel(e.target.value as CobEstimacionNivel)}>
+                                    <option value="proyecto">Global (todo el proyecto)</option>
+                                    <option value="obra">Una obra</option>
+                                    <option value="partida">Partidas de una obra</option>
+                                </select>
+                            </FormField>
+                            {form.data.nivel !== 'proyecto' && (
+                                <FormField label="Obra" htmlFor="obra_id" error={form.errors.obra_id} required>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={form.data.obra_id}
+                                        onChange={(e) => form.setData((prev) => ({ ...prev, obra_id: e.target.value, partida_ids: [] }))}
+                                    >
+                                        <option value="">Seleccionar obra</option>
+                                        {obras.map((o) => (
+                                            <option key={o.id} value={o.id}>{o.no} — {o.descripcion}</option>
+                                        ))}
+                                    </select>
+                                </FormField>
+                            )}
+                        </div>
+
+                        {form.data.nivel === 'partida' && obraSel && (
+                            <FormField label="Partidas" htmlFor="partida_ids" error={form.errors.partida_ids}>
+                                <div className="rounded-box max-h-48 space-y-1 overflow-auto border border-base-300 p-2">
+                                    {(obraSel.partidas ?? []).map((p) => (
+                                        <label key={p.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                                            <input type="checkbox" className="checkbox checkbox-sm" checked={form.data.partida_ids.includes(p.id)} onChange={() => togglePartida(p.id)} />
+                                            <span className="capitalize">{p.tipo}</span>
+                                            <span className="flex-1">{p.descripcion}</span>
+                                            <span className="opacity-60">{formatearMXN(Number(p.monto))}</span>
+                                        </label>
+                                    ))}
+                                    {(obraSel.partidas ?? []).length === 0 && <p className="text-sm opacity-50">La obra no tiene partidas.</p>}
+                                </div>
+                            </FormField>
+                        )}
+
                         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                             <FormField label="Folio" htmlFor="folio" error={form.errors.folio}>
                                 <Input value={form.data.folio} onChange={(e) => form.setData('folio', e.target.value)} />
@@ -150,7 +212,7 @@ export default function EstimacionEdit({ obra, estimacion }: Props) {
                             <FormField label="Tipo" htmlFor="tipo" error={form.errors.tipo}>
                                 <Input value={form.data.tipo} onChange={(e) => form.setData('tipo', e.target.value)} />
                             </FormField>
-                            <FormField label="Fecha Emision" htmlFor="fecha_emision" error={form.errors.fecha_emision}>
+                            <FormField label="Fecha Emisión" htmlFor="fecha_emision" error={form.errors.fecha_emision}>
                                 <Input type="date" value={form.data.fecha_emision} onChange={(e) => form.setData('fecha_emision', e.target.value)} />
                             </FormField>
                             <FormField label="Inicio" htmlFor="inicio" error={form.errors.inicio}>
@@ -170,7 +232,7 @@ export default function EstimacionEdit({ obra, estimacion }: Props) {
                             <textarea className="textarea textarea-bordered w-full" value={form.data.comentarios} onChange={(e) => form.setData('comentarios', e.target.value)} rows={3} />
                         </FormField>
                         <div className="flex justify-end gap-2">
-                            <Button variant="outline" asChild><Link href={`/admin/cob/obras/${obra.id}`}>Volver</Link></Button>
+                            <Button variant="outline" asChild><Link href={`/admin/cob/proyectos/${proyecto.id}`}>Volver</Link></Button>
                             <Button type="submit" disabled={form.processing}>
                                 {form.processing && <Loader2Icon className="size-4 animate-spin" />}
                                 Guardar
@@ -179,19 +241,19 @@ export default function EstimacionEdit({ obra, estimacion }: Props) {
                     </form>
                 </div>
 
-                {/* Pagos section */}
+                {/* Pagos */}
                 <div className="card bg-base-100 border p-6">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="mb-4 flex items-center justify-between">
                         <h2 className="text-lg font-semibold">Pagos ({formatearMXN(estimacion.monto_pagado)} / {formatearMXN(estimacion.monto_estimado)})</h2>
                         {['facturada', 'pago_parcial'].includes(estimacion.estado) && (
-                            <Button onClick={() => setShowPagoForm(!showPagoForm)} className="bg-green-600 hover:bg-green-700 text-white">
+                            <Button onClick={() => setShowPagoForm(!showPagoForm)} className="bg-green-600 text-white hover:bg-green-700">
                                 + Registrar Pago
                             </Button>
                         )}
                     </div>
 
                     {showPagoForm && (
-                        <form onSubmit={handleRegistrarPago} className="card bg-base-200 p-4 mb-4 space-y-3">
+                        <form onSubmit={handleRegistrarPago} className="card bg-base-200 mb-4 space-y-3 p-4">
                             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                                 <FormField label="Monto" htmlFor="monto_pagado" error={pagoForm.errors.monto_pagado} required>
                                     <Input type="number" step="0.01" value={pagoForm.data.monto_pagado} onChange={(e) => pagoForm.setData('monto_pagado', e.target.value)} />
@@ -203,11 +265,7 @@ export default function EstimacionEdit({ obra, estimacion }: Props) {
                                     <Input value={pagoForm.data.folio} onChange={(e) => pagoForm.setData('folio', e.target.value)} />
                                 </FormField>
                                 <FormField label="Comprobante" htmlFor="comprobante" error={pagoForm.errors.comprobante}>
-                                    <input
-                                        type="file"
-                                        className="file-input file-input-bordered w-full"
-                                        onChange={(e) => pagoForm.setData('comprobante', e.target.files?.[0] ?? null)}
-                                    />
+                                    <input type="file" className="file-input file-input-bordered w-full" onChange={(e) => pagoForm.setData('comprobante', e.target.files?.[0] ?? null)} />
                                 </FormField>
                             </div>
                             <div className="flex justify-end gap-2">
@@ -227,9 +285,7 @@ export default function EstimacionEdit({ obra, estimacion }: Props) {
                                     <td className="text-right">{formatearMXN(p.monto_pagado)}</td>
                                     <td>
                                         {p.comprobante ? (
-                                            <a href={`/storage/${p.comprobante}`} target="_blank" rel="noopener noreferrer" className="link link-primary">
-                                                Ver archivo
-                                            </a>
+                                            <a href={`/storage/${p.comprobante}`} target="_blank" rel="noopener noreferrer" className="link link-primary">Ver archivo</a>
                                         ) : '-'}
                                     </td>
                                 </tr>
@@ -243,7 +299,7 @@ export default function EstimacionEdit({ obra, estimacion }: Props) {
 
                 {/* Historial */}
                 <div className="card bg-base-100 border p-6">
-                    <h2 className="text-lg font-semibold mb-4">Historial de Estados</h2>
+                    <h2 className="mb-4 text-lg font-semibold">Historial de Estados</h2>
                     <table className="table table-sm">
                         <thead><tr><th>Fecha</th><th>De</th><th>A</th><th>Folio</th><th>Usuario</th><th>Comentario</th></tr></thead>
                         <tbody>

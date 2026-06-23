@@ -41,6 +41,7 @@ class DashboardController extends Controller
         $dsoPorObra = DB::table('cob_estimaciones')
             ->join('cob_estimaciones_pagos', 'cob_estimaciones.id', '=', 'cob_estimaciones_pagos.estimacion_id')
             ->join('obras', 'obras.id', '=', 'cob_estimaciones.obra_id')
+            ->whereNotNull('cob_estimaciones.obra_id') // DSO es por obra; las estimaciones globales no aplican
             ->whereNotNull('cob_estimaciones.fecha_emision')
             ->select([
                 'cob_estimaciones.obra_id',

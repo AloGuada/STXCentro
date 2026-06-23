@@ -65,6 +65,12 @@ class Proyecto extends Model
         return $this->hasMany(Obra::class, 'proyecto_id')->where('tipo', 'adicional');
     }
 
+    /** Todas las estimaciones del proyecto (cualquier nivel: global, obra o partida). */
+    public function estimaciones(): HasMany
+    {
+        return $this->hasMany(\App\Models\Cob\Estimacion::class, 'proyecto_id');
+    }
+
     /** Cronograma planeado de cobro (periodos por estimación planeada). */
     public function planCobro(): HasMany
     {

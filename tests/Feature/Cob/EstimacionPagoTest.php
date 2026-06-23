@@ -21,7 +21,7 @@ describe('admin cob estimacion pagos', function () {
         ]);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.cob.obras.estimaciones.pagos.store', [$this->obra, $estimacion]), [
+            ->post(route('admin.cob.proyectos.estimaciones.pagos.store', [$this->proyecto, $estimacion]), [
                 'monto_pagado' => 50000.00,
                 'fecha_pago' => '2026-02-15',
                 'folio' => 'PAG-001',
@@ -43,7 +43,7 @@ describe('admin cob estimacion pagos', function () {
         ]);
 
         $this->actingAs($this->user)
-            ->post(route('admin.cob.obras.estimaciones.pagos.store', [$this->obra, $estimacion]), [
+            ->post(route('admin.cob.proyectos.estimaciones.pagos.store', [$this->proyecto, $estimacion]), [
                 'monto_pagado' => 30000.00,
                 'fecha_pago' => '2026-02-15',
                 'folio' => 'PAG-001',
@@ -63,7 +63,7 @@ describe('admin cob estimacion pagos', function () {
         ]);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.cob.obras.estimaciones.pagos.store', [$this->obra, $estimacion]), [
+            ->post(route('admin.cob.proyectos.estimaciones.pagos.store', [$this->proyecto, $estimacion]), [
                 'monto_pagado' => 20000.00,
                 'fecha_pago' => '2026-02-15',
                 'folio' => 'PAG-OVER',

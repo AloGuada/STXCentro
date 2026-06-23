@@ -105,13 +105,14 @@ class ReporteCobranzaService
         return Estimacion::query()
             ->where('estado', 'pagado')
             ->whereBetween('fecha_ultimo_cambio_estado', [$inicio, $fin])
-            ->with('obra:id,no')
+            ->with(['obra:id,no', 'proyecto:id,no'])
             ->orderBy('obra_id')
             ->orderBy('numero_estimacion')
             ->get()
             ->map(fn (Estimacion $est): array => [
                 'obra_id' => $est->obra_id,
-                'obra_no' => $est->obra?->no ?? '—',
+                // Las estimaciones globales (sin obra) se agrupan bajo el proyecto.
+                'obra_no' => $est->obra?->no ?? ($est->proyecto ? "Global · {$est->proyecto->no}" : 'Global'),
                 'estimacion_id' => $est->id,
                 'numero_estimacion' => $est->numero_estimacion,
                 'monto_sin_iva' => (float) $est->monto_estimado,

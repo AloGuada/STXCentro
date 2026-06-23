@@ -3,9 +3,11 @@
 namespace App\Models\Cob;
 
 use App\Models\Obra;
+use App\Models\Proyecto;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Estimacion extends Model
@@ -16,7 +18,9 @@ class Estimacion extends Model
 
     /** @var list<string> */
     protected $fillable = [
+        'proyecto_id',
         'obra_id',
+        'nivel',
         'numero_estimacion',
         'folio',
         'tipo',
@@ -46,9 +50,21 @@ class Estimacion extends Model
         ];
     }
 
+    public function proyecto(): BelongsTo
+    {
+        return $this->belongsTo(Proyecto::class, 'proyecto_id');
+    }
+
     public function obra(): BelongsTo
     {
         return $this->belongsTo(Obra::class, 'obra_id');
+    }
+
+    /** Partidas que cubre (solo nivel 'partida'). */
+    public function partidas(): BelongsToMany
+    {
+        return $this->belongsToMany(Partida::class, 'cob_estimacion_partida', 'estimacion_id', 'partida_id')
+            ->withTimestamps();
     }
 
     public function pagos(): HasMany
