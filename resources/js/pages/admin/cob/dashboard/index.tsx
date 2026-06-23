@@ -41,7 +41,6 @@ function semaforoDesfase(desfase: number): string {
 }
 
 type DsoPorObra = { obra_id: number; obra_no: string; dias_promedio: number };
-type RetencionPorTipo = { tipo: string; monto: number };
 type DisputaItem = {
     id: number;
     obra_no: string;
@@ -56,11 +55,10 @@ type DisputaItem = {
 type Props = {
     obras: Obra[];
     dsoPorObra: DsoPorObra[];
-    retencionesPorTipo: RetencionPorTipo[];
     disputas: DisputaItem[];
 };
 
-export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTipo, disputas }: Props) {
+export default function CobDashboardIndex({ obras, dsoPorObra, disputas }: Props) {
     const proyectos = useMemo(() => obras.map((obra) => calcularDatosProyecto(obra)), [obras]);
 
     const totales = useMemo(() => {
@@ -106,25 +104,6 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
         const pendiente = Math.max(totalContractual - totalCobrado, 0);
         return { totalContractual, totalCobrado, pendiente };
     }, [proyectos]);
-
-    // Desfase avance vs cobranza
-    const desfaseData = useMemo(
-        () =>
-            proyectos
-                .filter((p) => Number(p.obra.porcentaje_obra ?? 0) > 0)
-                .map((p) => {
-                    const avance = Number(p.obra.porcentaje_obra ?? 0);
-                    const cobranza = p.porcentajeCobrado;
-                    return {
-                        obra: p.obra,
-                        avance,
-                        cobranza: Math.round(cobranza * 10) / 10,
-                        desfase: Math.round((avance - cobranza) * 10) / 10,
-                    };
-                })
-                .sort((a, b) => b.desfase - a.desfase),
-        [proyectos],
-    );
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -282,125 +261,6 @@ export default function CobDashboardIndex({ obras, dsoPorObra, retencionesPorTip
                 </div>
 
 
-                {/* Fila 4: Tablas */}
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                    {/* Tabla desfase avance vs cobranza */}
-                    <div className="rounded-box border border-base-300 bg-base-100 p-4">
-                        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
-                            Avance de Obra vs Cobranza
-                        </h3>
-                        {desfaseData.length === 0 ? (
-                            <EmptyChart label="Sin datos de avance registrados" />
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Obra</th>
-                                            <th className="text-right">% Avance</th>
-                                            <th className="text-right">% Cobrado</th>
-                                            <th className="text-right">Desfase</th>
-                                            <th>Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {desfaseData.map((d) => (
-                                            <tr key={d.obra.id}>
-                                                <td>
-                                                    {d.obra.no} — {d.obra.descripcion}
-                                                </td>
-                                                <td className="text-right">{d.avance}%</td>
-                                                <td className="text-right">{d.cobranza}%</td>
-                                                <td className="text-right font-semibold">{d.desfase}%</td>
-                                                <td>
-                                                    <span
-                                                        className="inline-block h-3 w-3 rounded-full"
-                                                        style={{ backgroundColor: semaforoDesfase(d.desfase) }}
-                                                    />
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Tabla disputas */}
-                    <div className="rounded-box border border-base-300 bg-base-100 p-4">
-                        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
-                            Disputas
-                        </h3>
-                        {disputas.length === 0 ? (
-                            <EmptyChart label="Sin disputas registradas" />
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Obra</th>
-                                            <th>Descripcion</th>
-                                            <th className="text-right">Dias</th>
-                                            <th>Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {disputas.map((d) => (
-                                            <tr key={d.id}>
-                                                <td className="whitespace-nowrap">{d.obra_no}</td>
-                                                <td className="max-w-xs truncate">{d.descripcion}</td>
-                                                <td className="text-right">{d.dias_abierta ?? '—'}</td>
-                                                <td>
-                                                    <span
-                                                        className={`badge badge-sm ${d.estado === 'en_proceso' ? 'badge-warning' : d.estado === 'resuelto' ? 'badge-success' : 'badge-ghost'}`}
-                                                    >
-                                                        {d.estado === 'en_proceso'
-                                                            ? 'En proceso'
-                                                            : d.estado === 'resuelto'
-                                                                ? 'Resuelto'
-                                                                : d.estado}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Retenciones por tipo */}
-                    <div className="rounded-box border border-base-300 bg-base-100 p-4">
-                        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
-                            Retenciones por Tipo
-                        </h3>
-                        {retencionesPorTipo.length === 0 ? (
-                            <EmptyChart label="Sin retenciones registradas" />
-                        ) : (
-                            <ResponsiveContainer width="100%" height={300}>
-                                <PieChart>
-                                    <Pie
-                                        data={retencionesPorTipo}
-                                        dataKey="monto"
-                                        nameKey="tipo"
-                                        cx="50%"
-                                        cy="50%"
-                                        outerRadius={90}
-                                        label={({ tipo, percent }: { tipo: string; percent: number }) =>
-                                            `${tipo.substring(0, 15)} ${(percent * 100).toFixed(0)}%`
-                                        }
-                                    >
-                                        {retencionesPorTipo.map((_, i) => (
-                                            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip formatter={(value: number) => formatearMXN(value)} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        )}
-                    </div>
-                </div>
-
                 {/* Tabla portafolio */}
                 <div className="rounded-box border border-base-300 bg-base-100 p-4">
                     <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
@@ -433,6 +293,8 @@ const PORTAFOLIO_ACCESSORS: Record<string, (p: DatosProyecto) => number | string
     cobrado: (p) => p.totalCobrado,
     porCobrar: (p) => p.porCobrar,
     pctCobrado: (p) => p.porcentajeCobrado,
+    avance: (p) => Number(p.obra.porcentaje_obra ?? 0),
+    desfase: (p) => Number(p.obra.porcentaje_obra ?? 0) - p.porcentajeCobrado,
 };
 
 function PortafolioTable({ proyectos }: { proyectos: DatosProyecto[] }) {
@@ -487,30 +349,45 @@ function PortafolioTable({ proyectos }: { proyectos: DatosProyecto[] }) {
                         {sortTh('cobrado', 'Cobrado', 'right')}
                         {sortTh('porCobrar', 'Por Cobrar', 'right')}
                         {sortTh('pctCobrado', '% Cobrado')}
+                        {sortTh('avance', '% Avance', 'right')}
+                        {sortTh('desfase', 'Desfase', 'right')}
+                        <th>Estado</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {sorted.map((p) => (
-                        <tr key={p.obra.id}>
-                            <td>{p.obra.no}</td>
-                            <td>{p.obra.descripcion}</td>
-                            <td>{p.obra.cliente?.nombre ?? '—'}</td>
-                            <td className="text-right">{formatearMXN(p.presupuestoEjecutar)}</td>
-                            <td className="text-right">{formatearMXN(p.totalFacturado)}</td>
-                            <td className="text-right">{formatearMXN(p.totalCobrado)}</td>
-                            <td className="text-right">{formatearMXN(p.porCobrar)}</td>
-                            <td>
-                                <div className="flex items-center gap-2">
-                                    <progress
-                                        className="progress progress-primary w-20"
-                                        value={Math.min(p.porcentajeCobrado, 100)}
-                                        max="100"
+                    {sorted.map((p) => {
+                        const avance = Number(p.obra.porcentaje_obra ?? 0);
+                        const desfase = Math.round((avance - p.porcentajeCobrado) * 10) / 10;
+                        return (
+                            <tr key={p.obra.id}>
+                                <td>{p.obra.no}</td>
+                                <td>{p.obra.descripcion}</td>
+                                <td>{p.obra.cliente?.nombre ?? '—'}</td>
+                                <td className="text-right">{formatearMXN(p.presupuestoEjecutar)}</td>
+                                <td className="text-right">{formatearMXN(p.totalFacturado)}</td>
+                                <td className="text-right">{formatearMXN(p.totalCobrado)}</td>
+                                <td className="text-right">{formatearMXN(p.porCobrar)}</td>
+                                <td>
+                                    <div className="flex items-center gap-2">
+                                        <progress
+                                            className="progress progress-primary w-20"
+                                            value={Math.min(p.porcentajeCobrado, 100)}
+                                            max="100"
+                                        />
+                                        <span className="text-sm">{p.porcentajeCobrado.toFixed(1)}%</span>
+                                    </div>
+                                </td>
+                                <td className="text-right">{avance.toFixed(1)}%</td>
+                                <td className="text-right font-semibold">{desfase}%</td>
+                                <td>
+                                    <span
+                                        className="inline-block h-3 w-3 rounded-full"
+                                        style={{ backgroundColor: semaforoDesfase(desfase) }}
                                     />
-                                    <span className="text-sm">{p.porcentajeCobrado.toFixed(1)}%</span>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
+                                </td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
         </div>
