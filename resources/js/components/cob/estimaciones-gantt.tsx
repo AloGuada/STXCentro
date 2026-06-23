@@ -164,9 +164,11 @@ function pct(valor: number, total: number): string {
 type Props = {
     obras: Obra[];
     year?: number;
+    /** Oculta las columnas financieras (Presupuesto…Fondo Gar.) para una vista de timeline limpia. */
+    simple?: boolean;
 };
 
-export function EstimacionesGantt({ obras, year }: Props) {
+export function EstimacionesGantt({ obras, year, simple = false }: Props) {
     const { groups, minDate, totalDays } = useMemo(() => buildGanttData(obras, year), [obras, year]);
 
     const weekMarkers = useMemo(() => {
@@ -238,18 +240,22 @@ export function EstimacionesGantt({ obras, year }: Props) {
                         <tr>
                             <th className={`${stickyCell} left-0`} rowSpan={2} style={{ minWidth: 120 }}>Cliente</th>
                             <th className={`${stickyCell} left-[120px]`} rowSpan={2} style={{ minWidth: 90 }}>No</th>
-                            <th className="text-right" rowSpan={2}>Presupuesto</th>
-                            <th className="text-right" rowSpan={2}>Pres. Ejecutar</th>
-                            <th className="text-right" rowSpan={2}>Ajuste</th>
-                            <th className="text-right" rowSpan={2}>Deductivas</th>
-                            <th className="text-right" rowSpan={2}>Pres. Final</th>
-                            <th className="text-right" rowSpan={2}>Imp. Cobrado</th>
-                            <th className="text-right" rowSpan={2}>Por Cobrar</th>
-                            <th className="text-right" rowSpan={2}>% Cobrado</th>
-                            <th className="text-right" rowSpan={2}>% Obra</th>
-                            <th className="text-right" rowSpan={2}>Total Est.</th>
-                            <th className="text-right" rowSpan={2}>Por Estimar</th>
-                            <th className="text-right" rowSpan={2}>Fondo Gar.</th>
+                            {!simple && (
+                                <>
+                                    <th className="text-right" rowSpan={2}>Presupuesto</th>
+                                    <th className="text-right" rowSpan={2}>Pres. Ejecutar</th>
+                                    <th className="text-right" rowSpan={2}>Ajuste</th>
+                                    <th className="text-right" rowSpan={2}>Deductivas</th>
+                                    <th className="text-right" rowSpan={2}>Pres. Final</th>
+                                    <th className="text-right" rowSpan={2}>Imp. Cobrado</th>
+                                    <th className="text-right" rowSpan={2}>Por Cobrar</th>
+                                    <th className="text-right" rowSpan={2}>% Cobrado</th>
+                                    <th className="text-right" rowSpan={2}>% Obra</th>
+                                    <th className="text-right" rowSpan={2}>Total Est.</th>
+                                    <th className="text-right" rowSpan={2}>Por Estimar</th>
+                                    <th className="text-right" rowSpan={2}>Fondo Gar.</th>
+                                </>
+                            )}
                             <th className="text-right" rowSpan={2}># Est.</th>
                             <th rowSpan={2}>Estado</th>
                             <th className="text-right" rowSpan={2}>Monto Est.</th>
@@ -259,7 +265,7 @@ export function EstimacionesGantt({ obras, year }: Props) {
                                     {monthMarkers.map((m, i) => (
                                         <div
                                             key={i}
-                                            className="absolute top-0 flex h-full items-center overflow-hidden border-l border-base-300/50 px-1 text-[10px] font-semibold"
+                                            className={`absolute top-0 flex h-full items-center justify-center overflow-hidden border-l border-base-300/50 px-1 text-xs font-bold capitalize ${i % 2 === 0 ? 'bg-base-100' : 'bg-base-300'}`}
                                             style={{ left: `${m.pct}%`, width: `${m.widthPct}%` }}
                                         >
                                             {m.label}
@@ -309,18 +315,22 @@ export function EstimacionesGantt({ obras, year }: Props) {
                                         ) : ''}
                                     </td>
                                     {/* Obra-level financial data (first row only) */}
-                                    <td className="text-right">{idx === 0 ? formatearMXN(datos.presupuestoPartidas) : ''}</td>
-                                    <td className="text-right">{idx === 0 ? formatearMXN(datos.presupuestoEjecutar) : ''}</td>
-                                    <td className="text-right">{idx === 0 ? (datos.tieneComparativos ? formatearMXN(datos.ajustePresupuesto) : '-') : ''}</td>
-                                    <td className="text-right">{idx === 0 ? formatearMXN(datos.totalDeducciones) : ''}</td>
-                                    <td className="text-right">{idx === 0 ? formatearMXN(datos.presupuestoFinal) : ''}</td>
-                                    <td className="text-right">{idx === 0 ? formatearMXN(datos.totalCobrado) : ''}</td>
-                                    <td className="text-right">{idx === 0 ? formatearMXN(datos.porCobrar) : ''}</td>
-                                    <td className="text-right">{idx === 0 ? pct(datos.totalCobrado, datos.presupuestoFinal) : ''}</td>
-                                    <td className="text-right">{idx === 0 ? (obra.porcentaje_obra != null ? `${obra.porcentaje_obra}%` : '-') : ''}</td>
-                                    <td className="text-right">{idx === 0 ? group.totalEstimaciones : ''}</td>
-                                    <td className="text-right">{idx === 0 ? formatearMXN(group.porEstimar) : ''}</td>
-                                    <td className="text-right">{idx === 0 ? formatearMXN(obra.garantia) : ''}</td>
+                                    {!simple && (
+                                        <>
+                                            <td className="text-right">{idx === 0 ? formatearMXN(datos.presupuestoPartidas) : ''}</td>
+                                            <td className="text-right">{idx === 0 ? formatearMXN(datos.presupuestoEjecutar) : ''}</td>
+                                            <td className="text-right">{idx === 0 ? (datos.tieneComparativos ? formatearMXN(datos.ajustePresupuesto) : '-') : ''}</td>
+                                            <td className="text-right">{idx === 0 ? formatearMXN(datos.totalDeducciones) : ''}</td>
+                                            <td className="text-right">{idx === 0 ? formatearMXN(datos.presupuestoFinal) : ''}</td>
+                                            <td className="text-right">{idx === 0 ? formatearMXN(datos.totalCobrado) : ''}</td>
+                                            <td className="text-right">{idx === 0 ? formatearMXN(datos.porCobrar) : ''}</td>
+                                            <td className="text-right">{idx === 0 ? pct(datos.totalCobrado, datos.presupuestoFinal) : ''}</td>
+                                            <td className="text-right">{idx === 0 ? (obra.porcentaje_obra != null ? `${obra.porcentaje_obra}%` : '-') : ''}</td>
+                                            <td className="text-right">{idx === 0 ? group.totalEstimaciones : ''}</td>
+                                            <td className="text-right">{idx === 0 ? formatearMXN(group.porEstimar) : ''}</td>
+                                            <td className="text-right">{idx === 0 ? formatearMXN(obra.garantia) : ''}</td>
+                                        </>
+                                    )}
                                     {/* Estimacion-level data */}
                                     <td className="text-right">{row.estimacion.numero_estimacion}</td>
                                     <td><EstadoBadge estado={row.estimacion.estado} /></td>
@@ -328,6 +338,14 @@ export function EstimacionesGantt({ obras, year }: Props) {
                                     {/* Timeline */}
                                     <td className="!p-0">
                                         <div className="relative w-full" style={{ height: ROW_HEIGHT, minWidth: timelineWidth }}>
+                                            {/* Month bands (alternan dos grises para separar meses) */}
+                                            {monthMarkers.map((m, i) => (
+                                                <div
+                                                    key={`mb${i}`}
+                                                    className={`absolute top-0 bottom-0 ${i % 2 === 0 ? 'bg-base-100' : 'bg-base-300'}`}
+                                                    style={{ left: `${m.pct}%`, width: `${m.widthPct}%` }}
+                                                />
+                                            ))}
                                             {/* Week grid */}
                                             {weekMarkers.map((m, i) => (
                                                 <div

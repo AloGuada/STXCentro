@@ -9,7 +9,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Obra, Proyecto } from '@/types/models';
 
-type TabKey = 'tabla' | 'gantt';
+type TabKey = 'tabla' | 'gantt' | 'gantt-simple';
 type EstatusFiltro = 'abierta' | 'cerrada' | 'todas';
 
 type Fila = { proyecto: Proyecto; datos: ReturnType<typeof calcularResumenProyecto> };
@@ -176,6 +176,9 @@ export default function ProyectosIndex({ proyectos, filters }: Props) {
                         <button role="tab" className={`tab ${activeTab === 'gantt' ? 'tab-active' : ''}`} onClick={() => setActiveTab('gantt')}>
                             Gantt
                         </button>
+                        <button role="tab" className={`tab ${activeTab === 'gantt-simple' ? 'tab-active' : ''}`} onClick={() => setActiveTab('gantt-simple')}>
+                            Gantt simple
+                        </button>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -201,7 +204,7 @@ export default function ProyectosIndex({ proyectos, filters }: Props) {
                             </>
                         )}
 
-                        {activeTab === 'gantt' && availableYears.length > 0 && (
+                        {activeTab !== 'tabla' && availableYears.length > 0 && (
                             <select
                                 className="select select-bordered select-sm"
                                 value={selectedYear ?? ''}
@@ -317,7 +320,7 @@ export default function ProyectosIndex({ proyectos, filters }: Props) {
                         </table>
                     </div>
                 ) : (
-                    <EstimacionesGantt obras={obrasGantt} year={selectedYear} />
+                    <EstimacionesGantt obras={obrasGantt} year={selectedYear} simple={activeTab === 'gantt-simple'} />
                 )}
             </div>
         </AppLayout>
