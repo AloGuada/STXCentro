@@ -24,18 +24,15 @@ const BAR_HEIGHT = 20;
 const WEEK_COL_PX = 70;
 
 const ESTADO_COLORS: Record<CobEstimacionEstado, string> = {
-    pendiente: 'bg-gray-300 text-gray-800',
-    generada: 'bg-yellow-400 text-black',
     ingresada: 'bg-amber-200 text-black',
-    revisada: 'bg-cyan-400 text-black',
     autorizada: 'bg-blue-400 text-white',
     facturada: 'bg-pink-400 text-white',
     pago_parcial: 'bg-orange-400 text-black',
     pagado: 'bg-green-400 text-black',
 };
 const ESTADO_LABELS: Record<CobEstimacionEstado, string> = {
-    pendiente: 'Pendiente', generada: 'Generada', ingresada: 'Ingresada', revisada: 'Revisada',
-    autorizada: 'Autorizada', facturada: 'Facturada', pago_parcial: 'Pago parcial', pagado: 'Pagado',
+    ingresada: 'Ingresada', autorizada: 'Autorizada', facturada: 'Facturada',
+    pago_parcial: 'Pago parcial', pagado: 'Pagado',
 };
 
 function parse(s: string | null | undefined): Date | null {

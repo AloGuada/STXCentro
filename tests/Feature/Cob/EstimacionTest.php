@@ -182,27 +182,43 @@ describe('admin cob estimaciones (multi-nivel)', function () {
         $this->assertDatabaseMissing('cob_estimaciones', ['id' => $estimacion->id]);
     });
 
-    test('estado can be changed from pendiente to generada', function () {
-        $estimacion = Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id, 'obra_id' => $this->obra->id, 'estado' => 'pendiente']);
+    test('estado can be changed from ingresada to autorizada', function () {
+        $estimacion = Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id, 'obra_id' => $this->obra->id, 'estado' => 'ingresada']);
 
         $this->actingAs($this->user)
             ->post(route('admin.cob.proyectos.estimaciones.cambiar-estado', [$this->proyecto, $estimacion]), [
-                'estado' => 'generada',
+                'estado' => 'autorizada',
                 'folio' => 'FOL-001',
-                'comentario' => 'Se genera',
+                'comentario' => 'Se autoriza',
             ])
             ->assertRedirect();
 
-        $this->assertDatabaseHas('cob_estimaciones', ['id' => $estimacion->id, 'estado' => 'generada']);
+        $this->assertDatabaseHas('cob_estimaciones', ['id' => $estimacion->id, 'estado' => 'autorizada']);
     });
 
     test('invalid estado transition is rejected', function () {
-        $estimacion = Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id, 'obra_id' => $this->obra->id, 'estado' => 'pendiente']);
+        $estimacion = Estimacion::factory()->create(['proyecto_id' => $this->proyecto->id, 'obra_id' => $this->obra->id, 'estado' => 'ingresada']);
 
         $this->actingAs($this->user)
             ->post(route('admin.cob.proyectos.estimaciones.cambiar-estado', [$this->proyecto, $estimacion]), [
                 'estado' => 'facturada',
             ])
             ->assertSessionHasErrors(['estado']);
+    });
+
+    test('una estimación nace en estado ingresada', function () {
+        $this->actingAs($this->user)
+            ->post(route('admin.cob.proyectos.estimaciones.store', $this->proyecto), [
+                'nivel' => 'obra',
+                'obra_id' => $this->obra->id,
+                'monto_estimado' => 10000,
+                'moneda' => 'MXN',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('cob_estimaciones', [
+            'obra_id' => $this->obra->id,
+            'estado' => 'ingresada',
+        ]);
     });
 });

@@ -88,9 +88,9 @@ export function calcularResumen(
     const porFacturar = presupuestoFinal - totalFacturado;
     const porCobrar = presupuestoFinal - totalCobrado;
 
-    const estimacionesGeneradas = estimaciones
-        .filter((e) => e.estado === 'generada')
-        .reduce((sum, e) => sum + Number(e.monto_estimado), 0);
+    // El estado 'generada' se eliminó del flujo; este bucket queda en 0 (la columna
+    // "Gen. por cobrar" del index queda obsoleta — pendiente decidir si se quita).
+    const estimacionesGeneradas = 0;
 
     const estimacionesIngresadas = estimaciones
         .filter((e) => e.estado === 'ingresada')

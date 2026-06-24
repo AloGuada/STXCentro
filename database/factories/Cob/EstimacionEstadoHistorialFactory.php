@@ -16,8 +16,8 @@ class EstimacionEstadoHistorialFactory extends Factory
     {
         return [
             'estimacion_id' => Estimacion::factory(),
-            'estado_anterior' => 'pendiente',
-            'estado_nuevo' => 'generada',
+            'estado_anterior' => 'ingresada',
+            'estado_nuevo' => 'autorizada',
             'folio' => fake()->optional()->regexify('FOL-[0-9]{4}'),
             'usuario_id' => User::factory(),
             'comentario' => fake()->optional()->sentence(),

@@ -89,10 +89,7 @@ export default function EstimacionEdit({ proyecto, obras, estimacion, partidaIds
     };
 
     const transiciones: Record<string, string[]> = {
-        pendiente: ['generada'],
-        generada: ['ingresada'],
-        ingresada: ['revisada'],
-        revisada: ['autorizada'],
+        ingresada: ['autorizada'],
         autorizada: ['facturada'],
         facturada: ['pago_parcial', 'pagado'],
         pago_parcial: ['pagado'],

@@ -2357,13 +2357,10 @@ export type CobPartida = {
     updated_at: string;
 };
 
-export type CobEstimacionEstado = 'pendiente' | 'generada' | 'ingresada' | 'revisada' | 'autorizada' | 'facturada' | 'pago_parcial' | 'pagado';
+export type CobEstimacionEstado = 'ingresada' | 'autorizada' | 'facturada' | 'pago_parcial' | 'pagado';
 
 export const COB_ESTIMACION_ESTADO_LABELS: Record<CobEstimacionEstado, string> = {
-    pendiente: 'Pendiente',
-    generada: 'Generada',
     ingresada: 'Ingresada',
-    revisada: 'Revisada',
     autorizada: 'Autorizada',
     facturada: 'Facturada',
     pago_parcial: 'Pago Parcial',
@@ -2371,10 +2368,7 @@ export const COB_ESTIMACION_ESTADO_LABELS: Record<CobEstimacionEstado, string> =
 };
 
 export const COB_ESTIMACION_ESTADO_COLORS: Record<CobEstimacionEstado, string> = {
-    pendiente: 'badge-ghost',
-    generada: 'badge-info',
     ingresada: 'badge-warning',
-    revisada: 'badge-accent',
     autorizada: 'badge-primary',
     facturada: 'badge-secondary',
     pago_parcial: 'badge-warning',

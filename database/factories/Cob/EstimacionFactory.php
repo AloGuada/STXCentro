@@ -28,7 +28,7 @@ class EstimacionFactory extends Factory
             'monto_total' => fake()->randomFloat(2, 10000, 1000000),
             'monto_pagado' => 0,
             'moneda' => 'MXN',
-            'estado' => 'pendiente',
+            'estado' => 'ingresada',
             'comentarios' => fake()->optional()->sentence(),
         ];
     }

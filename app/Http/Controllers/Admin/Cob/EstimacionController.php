@@ -20,10 +20,7 @@ class EstimacionController extends Controller
 {
     /** @var array<string, list<string>> */
     private const TRANSICIONES = [
-        'pendiente' => ['generada'],
-        'generada' => ['ingresada'],
-        'ingresada' => ['revisada'],
-        'revisada' => ['autorizada'],
+        'ingresada' => ['autorizada'],
         'autorizada' => ['facturada'],
         'facturada' => ['pago_parcial', 'pagado'],
         'pago_parcial' => ['pagado'],
@@ -67,7 +64,7 @@ class EstimacionController extends Controller
                 'numero_estimacion' => $siguienteNumero,
                 'nivel' => $request->validated('nivel'),
                 'obra_id' => $obraId,
-                'estado' => 'pendiente',
+                'estado' => 'ingresada',
             ]);
 
             $estimacion->partidas()->sync($partidaIds);
