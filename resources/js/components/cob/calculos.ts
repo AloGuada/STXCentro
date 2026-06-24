@@ -160,10 +160,7 @@ export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
     const totalAnticiposFacturados = sum((r) => r.totalAnticiposFacturados);
     const totalAnticiposCobrados = sum((r) => r.totalAnticiposCobrados);
 
-    // Comparativos de ingeniería, ligados a una obra. Regla de negocio (solo en
-    // precios unitarios): el comparativo de la obra BASE reemplaza el presupuesto;
-    // los de cada ADICIONAL se suman. Por obra gana el último (id más alto). Un
-    // adicional sin comparativo suma 0. En alzado el comparativo es solo referencia.
+    // Comparativos de ingeniería, ligados a una obra (último por obra gana).
     const comparativos = proyecto.comparativos ?? [];
     const ultimoPorObra = new Map<number, CobComparativo>();
     for (const c of [...comparativos].sort((a, b) => b.id - a.id)) {
@@ -172,21 +169,25 @@ export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
         }
     }
 
-    const esUnitario = tipoContrato === 'precio_unitario';
-    const comparativoBase = base ? ultimoPorObra.get(base.id) : undefined;
-
-    let presupuestoEjecutar: number;
-    if (esUnitario && comparativoBase) {
-        const valorAdicionales = obras
-            .filter((o) => o.id !== base?.id)
-            .reduce((s, o) => {
-                const c = ultimoPorObra.get(o.id);
-                return s + (c ? Number(c.monto_impacto) : 0);
-            }, 0);
-        presupuestoEjecutar = Number(comparativoBase.monto_impacto) + valorAdicionales;
-    } else {
-        presupuestoEjecutar = presupuestoPartidas;
-    }
+    // Presupuesto a ejecutar = suma del valor de cada obra. Regla de negocio:
+    //  - Si el proyecto no tiene ningún comparativo → todo por partidas (normal).
+    //  - Obra a precio UNITARIO → su comparativo (último) si tiene; si no, 0
+    //    (en unitario el precio final lo define la comparativa de ingeniería).
+    //  - Obra a precio ALZADO (u otro) → siempre sus partidas (el comparativo es
+    //    solo referencia; el monto está pactado fijo).
+    const hayComparativos = ultimoPorObra.size > 0;
+    const partidasDe = (o: Obra) => (o.partidas ?? []).reduce((s, p) => s + Number(p.monto), 0);
+    const valorObra = (o: Obra): number => {
+        if (!hayComparativos) {
+            return partidasDe(o);
+        }
+        if (o.tipo_contrato === 'precio_unitario') {
+            const c = ultimoPorObra.get(o.id);
+            return c ? Number(c.monto_impacto) : 0;
+        }
+        return partidasDe(o);
+    };
+    const presupuestoEjecutar = obras.reduce((s, o) => s + valorObra(o), 0);
 
     const comparativosUltimos = [...ultimoPorObra.values()];
     const montoComparativoUltimo = comparativosUltimos.reduce((s, c) => s + Number(c.monto_impacto), 0);

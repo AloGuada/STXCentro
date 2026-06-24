@@ -399,7 +399,7 @@ function ComparativosTab({ proyecto }: { proyecto: Proyecto }) {
                 <div>
                     <h2 className="text-lg font-semibold">Comparativos de ingeniería</h2>
                     <p className="text-base-content/60 text-sm">
-                        En precios unitarios, el comparativo de la obra base reemplaza el presupuesto y los de adicionales se suman; en alzado son solo referencia.
+                        En obras a precio unitario, el comparativo define el presupuesto a ejecutar de esa obra; en alzado el presupuesto son sus partidas y el comparativo es solo referencia.
                     </p>
                 </div>
                 <Button size="sm" asChild>
