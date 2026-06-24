@@ -154,11 +154,6 @@ class Obra extends Model
         return $this->hasMany(Cob\Adenda::class, 'obra_id');
     }
 
-    public function comparativos(): HasMany
-    {
-        return $this->hasMany(Cob\Comparativo::class, 'obra_id');
-    }
-
     public function deducciones(): HasMany
     {
         return $this->hasMany(Cob\Deduccion::class, 'obra_id');

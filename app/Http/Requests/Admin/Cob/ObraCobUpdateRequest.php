@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin\Cob;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ObraCobUpdateRequest extends FormRequest
 {
@@ -18,7 +19,7 @@ class ObraCobUpdateRequest extends FormRequest
     {
         return [
             'cliente_id' => ['nullable', 'exists:clientes,id'],
-            'tipo_contrato' => ['nullable', 'string', 'max:255'],
+            'tipo_contrato' => ['nullable', Rule::in(['precio_alzado', 'precio_unitario'])],
             'monto' => ['nullable', 'numeric', 'min:0'],
             'monto_iva' => ['nullable', 'numeric', 'min:0'],
             'anticipo' => ['nullable', 'numeric', 'min:0'],

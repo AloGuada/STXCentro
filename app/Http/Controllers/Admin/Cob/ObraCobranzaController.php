@@ -33,7 +33,6 @@ class ObraCobranzaController extends Controller
                 'estimaciones.pagos',
                 'estimaciones.historial',
                 'anticipos',
-                'comparativos',
                 'deducciones',
             ])
             ->when($estatus !== 'todas', fn ($q) => $q->where('estatus', $estatus))
@@ -69,7 +68,6 @@ class ObraCobranzaController extends Controller
             'estimaciones.retenciones.tipoRetencion',
             'anticipos',
             'adendas',
-            'comparativos',
             'deducciones',
             'disputas',
             'penalizaciones',
@@ -178,7 +176,6 @@ class ObraCobranzaController extends Controller
                 'partidas',
                 'estimaciones.pagos',
                 'anticipos',
-                'comparativos',
                 'deducciones',
             ])
             ->when($estatus !== 'todas', fn ($q) => $q->where('estatus', $estatus))
@@ -205,7 +202,6 @@ class ObraCobranzaController extends Controller
             'estimaciones.pagos',
             'estimaciones.historial',
             'anticipos',
-            'comparativos',
             'deducciones',
         ]);
 

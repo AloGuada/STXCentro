@@ -8,7 +8,6 @@ import {
     COB_ADENDA_ESTADO_LABELS,
     COB_ADENDA_TIPO_LABELS,
     COB_ANTICIPO_ESTADO_LABELS,
-    COB_COMPARATIVO_ESTADO_LABELS,
     COB_DISPUTA_ESTADO_LABELS,
     type Obra,
 } from '@/types/models';
@@ -104,46 +103,6 @@ export function AdendasTab({ obra }: { obra: Obra }) {
                         ))}
                         {(obra.adendas ?? []).length === 0 && (
                             <tr><td colSpan={5} className="text-center opacity-50">No hay adendas</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-}
-
-export function ComparativosTab({ obra }: { obra: Obra }) {
-    return (
-        <div>
-            <div className="mb-4 flex justify-between">
-                <h2 className="text-lg font-semibold">Comparativos</h2>
-                <Button size="sm" asChild>
-                    <a href={`/admin/cob/obras/${obra.id}/comparativos/create`}><PlusIcon className="size-4" /> Nuevo Comparativo</a>
-                </Button>
-            </div>
-
-            <div className="overflow-x-auto">
-                <table className="table table-sm">
-                    <thead><tr><th>Descripcion</th><th className="text-right">Monto Impacto</th><th>Fecha</th><th>Estado</th><th></th></tr></thead>
-                    <tbody>
-                        {(obra.comparativos ?? []).map((c) => (
-                            <tr key={c.id}>
-                                <td className="max-w-xs truncate">{c.descripcion}</td>
-                                <td className="text-right">{formatearMXN(c.monto_impacto)}</td>
-                                <td>{c.fecha_identificacion ?? '-'}</td>
-                                <td><span className="badge badge-sm">{COB_COMPARATIVO_ESTADO_LABELS[c.estado] ?? c.estado}</span></td>
-                                <td className="flex gap-1">
-                                    <a href={`/admin/cob/obras/${obra.id}/comparativos/${c.id}/edit`} className="btn btn-ghost btn-xs">
-                                        <PencilIcon className="size-3" />
-                                    </a>
-                                    <button className="btn btn-ghost btn-xs text-error" onClick={() => router.delete(`/admin/cob/obras/${obra.id}/comparativos/${c.id}`)}>
-                                        <Trash2Icon className="size-3" />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                        {(obra.comparativos ?? []).length === 0 && (
-                            <tr><td colSpan={5} className="text-center opacity-50">No hay comparativos</td></tr>
                         )}
                     </tbody>
                 </table>

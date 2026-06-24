@@ -22,7 +22,6 @@ class DashboardController extends Controller
                 'partidas',
                 'estimaciones.pagos',
                 'anticipos',
-                'comparativos',
                 'deducciones',
             ])
             ->whereNotNull('cliente_id')

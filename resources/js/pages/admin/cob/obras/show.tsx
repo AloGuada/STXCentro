@@ -5,7 +5,6 @@ import { calcularDatosProyecto } from '@/components/cob/calculos';
 import {
     AdendasTab,
     AnticiposTab,
-    ComparativosTab,
     DeduccionesTab,
     DisputasTab,
     PenalizacionesTab,
@@ -38,7 +37,6 @@ type TabKey =
     | 'estimaciones'
     | 'anticipos'
     | 'adendas'
-    | 'comparativos'
     | 'deducciones'
     | 'disputas'
     | 'penalizaciones';
@@ -50,7 +48,6 @@ const TABS: { key: TabKey; label: string }[] = [
     { key: 'estimaciones', label: 'Estimaciones' },
     { key: 'anticipos', label: 'Anticipos' },
     { key: 'adendas', label: 'Adendas' },
-    { key: 'comparativos', label: 'Comparativos' },
     { key: 'deducciones', label: 'Deducciones' },
     { key: 'disputas', label: 'Disputas' },
     { key: 'penalizaciones', label: 'Penalizaciones' },
@@ -127,7 +124,6 @@ export default function ObraShow({ obra, clientes }: Props) {
                 {activeTab === 'estimaciones' && <EstimacionesTab obra={obra} />}
                 {activeTab === 'anticipos' && <AnticiposTab obra={obra} />}
                 {activeTab === 'adendas' && <AdendasTab obra={obra} />}
-                {activeTab === 'comparativos' && <ComparativosTab obra={obra} />}
                 {activeTab === 'deducciones' && <DeduccionesTab obra={obra} />}
                 {activeTab === 'disputas' && <DisputasTab obra={obra} />}
                 {activeTab === 'penalizaciones' && <PenalizacionesTab obra={obra} />}

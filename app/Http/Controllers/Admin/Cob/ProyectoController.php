@@ -31,9 +31,9 @@ class ProyectoController extends Controller
         $proyectos = Proyecto::query()
             ->with([
                 'cliente',
+                'comparativos',
                 'obras.partidas',
                 'obras.anticipos',
-                'obras.comparativos',
                 'obras.deducciones',
                 'obras.estimaciones.pagos',
                 'obras.estimaciones.historial',
@@ -60,8 +60,8 @@ class ProyectoController extends Controller
             // Lista de obras (base primero) con lo necesario para el resumen y las
             // tarjetas; el detalle de cada obra vive en su propia página.
             'obras' => fn ($q) => $q->orderByRaw("CASE WHEN tipo = 'base' THEN 0 ELSE 1 END")->orderBy('no'),
+            'comparativos',
             'obras.partidas',
-            'obras.comparativos',
             'obras.deducciones',
             'obras.anticipos',
             'obras.etapasPmo',

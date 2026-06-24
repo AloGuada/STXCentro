@@ -74,7 +74,7 @@ describe('admin cob obras', function () {
         $response = $this->actingAs($this->user)
             ->put(route('admin.cob.obras.update-financial', $obra), [
                 'cliente_id' => $cliente->id,
-                'tipo_contrato' => 'Llave en mano',
+                'tipo_contrato' => 'precio_unitario',
                 'monto' => 5000000,
                 'monto_iva' => 800000,
                 'anticipo' => 500000,
@@ -92,7 +92,7 @@ describe('admin cob obras', function () {
         $this->assertDatabaseHas('obras', [
             'id' => $obra->id,
             'cliente_id' => $cliente->id,
-            'tipo_contrato' => 'Llave en mano',
+            'tipo_contrato' => 'precio_unitario',
             'porcentaje_obra' => 45.5,
         ]);
     });

@@ -6,43 +6,43 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Cob\ComparativoStoreRequest;
 use App\Http\Requests\Admin\Cob\ComparativoUpdateRequest;
 use App\Models\Cob\Comparativo;
-use App\Models\Obra;
+use App\Models\Proyecto;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ComparativoController extends Controller
 {
-    public function create(Obra $obra): Response
+    public function create(Proyecto $proyecto): Response
     {
         return Inertia::render('admin/cob/comparativos/create', [
-            'obra' => $obra,
+            'proyecto' => $proyecto->only('id', 'no', 'descripcion'),
         ]);
     }
 
-    public function store(ComparativoStoreRequest $request, Obra $obra): RedirectResponse
+    public function store(ComparativoStoreRequest $request, Proyecto $proyecto): RedirectResponse
     {
-        $obra->comparativos()->create($request->validated());
+        $proyecto->comparativos()->create($request->validated());
 
-        return to_route('admin.cob.obras.show', $obra);
+        return to_route('admin.cob.proyectos.show', $proyecto);
     }
 
-    public function edit(Obra $obra, Comparativo $comparativo): Response
+    public function edit(Proyecto $proyecto, Comparativo $comparativo): Response
     {
         return Inertia::render('admin/cob/comparativos/edit', [
-            'obra' => $obra,
+            'proyecto' => $proyecto->only('id', 'no', 'descripcion'),
             'comparativo' => $comparativo,
         ]);
     }
 
-    public function update(ComparativoUpdateRequest $request, Obra $obra, Comparativo $comparativo): RedirectResponse
+    public function update(ComparativoUpdateRequest $request, Proyecto $proyecto, Comparativo $comparativo): RedirectResponse
     {
         $comparativo->update($request->validated());
 
-        return to_route('admin.cob.obras.show', $obra);
+        return to_route('admin.cob.proyectos.show', $proyecto);
     }
 
-    public function destroy(Obra $obra, Comparativo $comparativo): RedirectResponse
+    public function destroy(Proyecto $proyecto, Comparativo $comparativo): RedirectResponse
     {
         $comparativo->delete();
 

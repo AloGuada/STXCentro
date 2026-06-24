@@ -4,20 +4,20 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { COB_COMPARATIVO_ESTADO_LABELS, type Obra } from '@/types/models';
+import { COB_COMPARATIVO_ESTADO_LABELS, type Proyecto } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import { type FormEvent } from 'react';
 
 type Props = {
-    obra: Obra;
+    proyecto: Pick<Proyecto, 'id' | 'no' | 'descripcion'>;
 };
 
-export default function ComparativoCreate({ obra }: Props) {
+export default function ComparativoCreate({ proyecto }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Cobranza', href: '/admin/cob/obras' },
-        { title: `Obra ${obra.no}`, href: `/admin/cob/obras/${obra.id}` },
+        { title: 'Cobranza', href: '/admin/cob/proyectos' },
+        { title: `Proyecto ${proyecto.no}`, href: `/admin/cob/proyectos/${proyecto.id}` },
         { title: 'Nuevo Comparativo', href: '#' },
     ];
 
@@ -30,7 +30,7 @@ export default function ComparativoCreate({ obra }: Props) {
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        post(`/admin/cob/obras/${obra.id}/comparativos`);
+        post(`/admin/cob/proyectos/${proyecto.id}/comparativos`);
     };
 
     return (
@@ -39,7 +39,7 @@ export default function ComparativoCreate({ obra }: Props) {
 
             <div className="p-6">
                 <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Nuevo Comparativo - Obra {obra.no}</h1>
+                    <h1 className="mb-6 text-2xl font-semibold">Nuevo Comparativo - Proyecto {proyecto.no}</h1>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                             <FormField label="Monto Impacto" htmlFor="monto_impacto" error={errors.monto_impacto} required>
@@ -73,7 +73,7 @@ export default function ComparativoCreate({ obra }: Props) {
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>
-                                <Link href={`/admin/cob/obras/${obra.id}`}>Cancelar</Link>
+                                <Link href={`/admin/cob/proyectos/${proyecto.id}`}>Cancelar</Link>
                             </Button>
                             <Button type="submit" disabled={processing}>
                                 {processing && <Loader2Icon className="size-4 animate-spin" />}

@@ -1,4 +1,4 @@
-import type { CobAnticipo, CobComparativo, CobDeduccion, CobEstimacion, CobPartida, Obra, Proyecto } from '@/types/models';
+import type { CobAnticipo, CobDeduccion, CobEstimacion, CobPartida, Obra, Proyecto } from '@/types/models';
 
 export type ResumenFinanciero = {
     presupuestoPartidas: number;
@@ -29,7 +29,6 @@ export function calcularResumen(
     partidas: CobPartida[],
     estimaciones: CobEstimacion[],
     anticipos: CobAnticipo[],
-    comparativos: CobComparativo[],
     deducciones: CobDeduccion[],
     tipoContrato: string | null = null,
 ): ResumenFinanciero {
@@ -39,25 +38,10 @@ export function calcularResumen(
     // lo que ya no se separan dentro de una obra.
     const partidasAdicionales = 0;
 
-    const lastComparativo = comparativos
-        .filter((c) => c.estado === 'implementado' || c.estado === 'aprobado')
-        .sort((a, b) => (a.id > b.id ? -1 : 1))[0];
-
-    const lastComparativoCualquiera = comparativos
-        .sort((a, b) => (a.id > b.id ? -1 : 1))[0];
-
-    const montoComparativo = lastComparativo ? Number(lastComparativo.monto_impacto) : 0;
-    const montoComparativoUltimo = lastComparativoCualquiera ? Number(lastComparativoCualquiera.monto_impacto) : 0;
-    const basePartidas = presupuestoPartidas + partidasAdicionales;
-
-    // Si hay comparativo (cualquier estado) se usa como presupuesto base, EXCEPTO
-    // en obras a precio alzado: ahí la comparativa de ingeniería es solo de
-    // referencia y no reemplaza el monto a ejecutar (regla de negocio de cobranza;
-    // en alzado el monto está pactado fijo). En precios unitarios/otros sí aplica.
-    const esAlzado = tipoContrato === 'precio_alzado';
-    const presupuestoEjecutar = lastComparativoCualquiera && !esAlzado
-        ? montoComparativoUltimo
-        : basePartidas;
+    // Los comparativos de ingeniería viven a nivel PROYECTO (ver
+    // calcularResumenProyecto); una obra suelta ya no ajusta su presupuesto por
+    // comparativa, así que su presupuesto a ejecutar es la suma de sus partidas.
+    const presupuestoEjecutar = presupuestoPartidas + partidasAdicionales;
 
     const totalAnticiposFacturados = anticipos.reduce((sum, a) => sum + Number(a.monto), 0);
 
@@ -98,9 +82,6 @@ export function calcularResumen(
 
     const facturadasPorCobrar = totalFacturado - totalCobrado;
 
-    const tieneComparativos = !!lastComparativo;
-    const tieneComparativoCualquiera = !!lastComparativoCualquiera;
-
     return {
         presupuestoPartidas,
         partidasAdicionales,
@@ -119,10 +100,10 @@ export function calcularResumen(
         estimacionesGeneradas,
         estimacionesIngresadas,
         facturadasPorCobrar,
-        tieneComparativos,
-        montoComparativo,
-        montoComparativoUltimo,
-        tieneComparativoCualquiera,
+        tieneComparativos: false,
+        montoComparativo: 0,
+        montoComparativoUltimo: 0,
+        tieneComparativoCualquiera: false,
         tipoContrato,
     };
 }
@@ -138,7 +119,6 @@ export function calcularDatosProyecto(obra: Obra): DatosProyecto {
         obra.partidas ?? [],
         obra.estimaciones ?? [],
         obra.anticipos ?? [],
-        obra.comparativos ?? [],
         obra.deducciones ?? [],
         obra.tipo_contrato ?? null,
     );
@@ -169,19 +149,32 @@ export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
     const tipoContrato = (obras.find((o) => o.tipo !== 'adicional') ?? obras[0])?.tipo_contrato ?? null;
 
     const porObra = obras.map((o) =>
-        calcularResumen(o.partidas ?? [], [], o.anticipos ?? [], o.comparativos ?? [], o.deducciones ?? [], o.tipo_contrato ?? null),
+        calcularResumen(o.partidas ?? [], [], o.anticipos ?? [], o.deducciones ?? [], o.tipo_contrato ?? null),
     );
     const sum = (f: (r: ResumenFinanciero) => number) => porObra.reduce((s, r) => s + f(r), 0);
 
     const presupuestoPartidas = sum((r) => r.presupuestoPartidas);
     const partidasAdicionales = sum((r) => r.partidasAdicionales);
-    const presupuestoEjecutar = sum((r) => r.presupuestoEjecutar);
     const totalDeducciones = sum((r) => r.totalDeducciones);
     const totalAnticiposFacturados = sum((r) => r.totalAnticiposFacturados);
     const totalAnticiposCobrados = sum((r) => r.totalAnticiposCobrados);
 
+    // Comparativo de ingeniería del PROYECTO. Regla de negocio: solo en precios
+    // unitarios reemplaza el presupuesto a ejecutar (es el precio final); en
+    // alzado (u otros tipos) es solo referencia y se usa la suma de partidas.
+    const comparativos = proyecto.comparativos ?? [];
+    const lastComparativo = comparativos
+        .filter((c) => c.estado === 'implementado' || c.estado === 'aprobado')
+        .slice()
+        .sort((a, b) => (a.id > b.id ? -1 : 1))[0];
+    const lastComparativoCualquiera = comparativos.slice().sort((a, b) => (a.id > b.id ? -1 : 1))[0];
+    const montoComparativo = lastComparativo ? Number(lastComparativo.monto_impacto) : 0;
+    const montoComparativoUltimo = lastComparativoCualquiera ? Number(lastComparativoCualquiera.monto_impacto) : 0;
+    const esUnitario = tipoContrato === 'precio_unitario';
+    const presupuestoEjecutar = lastComparativoCualquiera && esUnitario ? montoComparativoUltimo : presupuestoPartidas;
+
     // Estimaciones: sumadas de todas las obras del proyecto.
-    const est = calcularResumen([], obras.flatMap((o) => o.estimaciones ?? []), [], [], [], tipoContrato);
+    const est = calcularResumen([], obras.flatMap((o) => o.estimaciones ?? []), [], [], tipoContrato);
 
     const totalFacturado = totalAnticiposFacturados + est.totalEstimacionesFacturadas;
     const totalCobrado = totalAnticiposCobrados + est.totalEstimacionesCobradas;
@@ -206,10 +199,10 @@ export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
         estimacionesGeneradas: est.estimacionesGeneradas,
         estimacionesIngresadas: est.estimacionesIngresadas,
         facturadasPorCobrar: totalFacturado - totalCobrado,
-        tieneComparativos: porObra.some((r) => r.tieneComparativos),
-        montoComparativo: sum((r) => r.montoComparativo),
-        montoComparativoUltimo: sum((r) => r.montoComparativoUltimo),
-        tieneComparativoCualquiera: porObra.some((r) => r.tieneComparativoCualquiera),
+        tieneComparativos: !!lastComparativo,
+        montoComparativo,
+        montoComparativoUltimo,
+        tieneComparativoCualquiera: !!lastComparativoCualquiera,
         tipoContrato,
     };
 }

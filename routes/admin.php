@@ -482,11 +482,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('obras/{obra}/adendas/{adenda}', [CobAdendaController::class, 'update'])->name('obras.adendas.update');
         Route::delete('obras/{obra}/adendas/{adenda}', [CobAdendaController::class, 'destroy'])->name('obras.adendas.destroy');
 
-        Route::get('obras/{obra}/comparativos/create', [CobComparativoController::class, 'create'])->name('obras.comparativos.create');
-        Route::post('obras/{obra}/comparativos', [CobComparativoController::class, 'store'])->name('obras.comparativos.store');
-        Route::get('obras/{obra}/comparativos/{comparativo}/edit', [CobComparativoController::class, 'edit'])->name('obras.comparativos.edit');
-        Route::put('obras/{obra}/comparativos/{comparativo}', [CobComparativoController::class, 'update'])->name('obras.comparativos.update');
-        Route::delete('obras/{obra}/comparativos/{comparativo}', [CobComparativoController::class, 'destroy'])->name('obras.comparativos.destroy');
+        Route::get('proyectos/{proyecto}/comparativos/create', [CobComparativoController::class, 'create'])->name('proyectos.comparativos.create');
+        Route::post('proyectos/{proyecto}/comparativos', [CobComparativoController::class, 'store'])->name('proyectos.comparativos.store');
+        Route::get('proyectos/{proyecto}/comparativos/{comparativo}/edit', [CobComparativoController::class, 'edit'])->name('proyectos.comparativos.edit');
+        Route::put('proyectos/{proyecto}/comparativos/{comparativo}', [CobComparativoController::class, 'update'])->name('proyectos.comparativos.update');
+        Route::delete('proyectos/{proyecto}/comparativos/{comparativo}', [CobComparativoController::class, 'destroy'])->name('proyectos.comparativos.destroy');
 
         Route::get('obras/{obra}/deducciones/create', [CobDeduccionController::class, 'create'])->name('obras.deducciones.create');
         Route::post('obras/{obra}/deducciones', [CobDeduccionController::class, 'store'])->name('obras.deducciones.store');

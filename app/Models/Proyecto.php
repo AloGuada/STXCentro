@@ -94,4 +94,10 @@ class Proyecto extends Model
     {
         return $this->hasMany(\App\Models\Cob\DocumentoSeccionProyecto::class, 'proyecto_id');
     }
+
+    /** Comparativos de ingeniería del proyecto (re-evaluación del presupuesto). */
+    public function comparativos(): HasMany
+    {
+        return $this->hasMany(\App\Models\Cob\Comparativo::class, 'proyecto_id');
+    }
 }

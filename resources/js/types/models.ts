@@ -57,6 +57,7 @@ export type Proyecto = {
     obra_base?: Obra | null;
     estimaciones?: CobEstimacion[];
     plan_cobro?: CobPlanCobro[];
+    comparativos?: CobComparativo[];
     documento_carpetas?: CobDocumentoCarpeta[];
     documento_archivos?: CobDocumentoArchivo[];
     seccion_estatus?: CobDocumentoSeccionProyecto[];
@@ -164,7 +165,6 @@ export type Obra = {
     estimaciones?: CobEstimacion[];
     anticipos?: CobAnticipo[];
     adendas?: CobAdenda[];
-    comparativos?: CobComparativo[];
     deducciones?: CobDeduccion[];
     eventos?: CobEvento[];
     disputas?: CobDisputa[];
@@ -2493,7 +2493,7 @@ export const COB_COMPARATIVO_ESTADO_LABELS: Record<CobComparativoEstado, string>
 
 export type CobComparativo = {
     id: number;
-    obra_id: number;
+    proyecto_id: number;
     descripcion: string;
     monto_impacto: number;
     fecha_identificacion: string | null;
@@ -2583,8 +2583,6 @@ export type CobPenalizacion = {
 export const COB_TIPO_CONTRATO_LABELS: Record<string, string> = {
     precio_alzado: 'Precio Alzado',
     precio_unitario: 'Precio Unitario',
-    mixto: 'Mixto',
-    administracion: 'Administracion',
 };
 
 // ===================== RH (Recursos Humanos) =====================

@@ -16,8 +16,10 @@ import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import {
+    COB_COMPARATIVO_ESTADO_LABELS,
     OBRA_ESTATUS_LABELS,
     type Cliente,
+    type CobComparativo,
     type CobDocumentoArchivo,
     type CobDocumentoSeccion,
     type Obra,
@@ -30,12 +32,13 @@ type Props = {
     documentoSecciones: CobDocumentoSeccion[];
 };
 
-type TabKey = 'resumen' | 'obras' | 'estimaciones' | 'gantt' | 'documentacion' | 'datos';
+type TabKey = 'resumen' | 'obras' | 'estimaciones' | 'comparativos' | 'gantt' | 'documentacion' | 'datos';
 
 const TABS: { key: TabKey; label: string }[] = [
     { key: 'resumen', label: 'Resumen' },
     { key: 'obras', label: 'Obras' },
     { key: 'estimaciones', label: 'Estimaciones' },
+    { key: 'comparativos', label: 'Comparativos' },
     { key: 'gantt', label: 'Gantt' },
     { key: 'documentacion', label: 'Documentación' },
     { key: 'datos', label: 'Datos del proyecto' },
@@ -91,6 +94,7 @@ export default function ProyectoShow({ proyecto, clientes, documentoSecciones }:
                 {activeTab === 'resumen' && <ResumenTab proyecto={proyecto} resumen={d} />}
                 {activeTab === 'obras' && <ObrasTab proyecto={proyecto} />}
                 {activeTab === 'estimaciones' && <EstimacionesTab proyecto={proyecto} />}
+                {activeTab === 'comparativos' && <ComparativosTab proyecto={proyecto} />}
                 {activeTab === 'gantt' && <PlaneacionGantt proyecto={proyecto} />}
                 {activeTab === 'documentacion' && (
                     <DocumentacionTab proyecto={proyecto} documentoSecciones={documentoSecciones} onOpenArchivo={setViewerArchivo} />
@@ -375,6 +379,71 @@ function DocumentacionTab({
                 archivos={proyecto.documento_archivos ?? []}
                 onOpenArchivo={onOpenArchivo}
             />
+        </div>
+    );
+}
+
+// -- Comparativos de ingeniería del proyecto --
+function ComparativosTab({ proyecto }: { proyecto: Proyecto }) {
+    const comparativos = proyecto.comparativos ?? [];
+
+    return (
+        <div>
+            <div className="mb-4 flex items-center justify-between">
+                <div>
+                    <h2 className="text-lg font-semibold">Comparativos de ingeniería</h2>
+                    <p className="text-base-content/60 text-sm">
+                        En precios unitarios el último comparativo define el presupuesto a ejecutar; en alzado es solo referencia.
+                    </p>
+                </div>
+                <Button size="sm" asChild>
+                    <a href={`/admin/cob/proyectos/${proyecto.id}/comparativos/create`}>
+                        <PlusIcon className="size-4" /> Nuevo comparativo
+                    </a>
+                </Button>
+            </div>
+
+            <div className="rounded-box overflow-x-auto border border-base-300">
+                <table className="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Descripción</th>
+                            <th className="text-right">Monto Impacto</th>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {comparativos.map((c: CobComparativo) => (
+                            <tr key={c.id} className="hover">
+                                <td className="max-w-xs truncate">{c.descripcion}</td>
+                                <td className="text-right">{formatearMXN(c.monto_impacto)}</td>
+                                <td>{c.fecha_identificacion ?? '-'}</td>
+                                <td><span className="badge badge-sm">{COB_COMPARATIVO_ESTADO_LABELS[c.estado] ?? c.estado}</span></td>
+                                <td>
+                                    <div className="flex justify-end gap-1">
+                                        <a href={`/admin/cob/proyectos/${proyecto.id}/comparativos/${c.id}/edit`} className="btn btn-ghost btn-xs">
+                                            <PencilIcon className="size-3" />
+                                        </a>
+                                        <button
+                                            className="btn btn-ghost btn-xs text-error"
+                                            onClick={() => router.delete(`/admin/cob/proyectos/${proyecto.id}/comparativos/${c.id}`, { preserveScroll: true })}
+                                        >
+                                            <Trash2Icon className="size-3" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                        {comparativos.length === 0 && (
+                            <tr>
+                                <td colSpan={5} className="py-6 text-center opacity-50">No hay comparativos</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }
