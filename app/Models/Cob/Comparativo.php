@@ -2,6 +2,7 @@
 
 namespace App\Models\Cob;
 
+use App\Models\Obra;
 use App\Models\Proyecto;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,7 @@ class Comparativo extends Model
     /** @var list<string> */
     protected $fillable = [
         'proyecto_id',
+        'obra_id',
         'descripcion',
         'monto_impacto',
         'fecha_identificacion',
@@ -34,5 +36,10 @@ class Comparativo extends Model
     public function proyecto(): BelongsTo
     {
         return $this->belongsTo(Proyecto::class, 'proyecto_id');
+    }
+
+    public function obra(): BelongsTo
+    {
+        return $this->belongsTo(Obra::class, 'obra_id');
     }
 }

@@ -386,6 +386,12 @@ function DocumentacionTab({
 // -- Comparativos de ingeniería del proyecto --
 function ComparativosTab({ proyecto }: { proyecto: Proyecto }) {
     const comparativos = proyecto.comparativos ?? [];
+    const obraPorId = new Map((proyecto.obras ?? []).map((o) => [o.id, o]));
+    const etiquetaObra = (obraId: number | null) => {
+        const o = obraId != null ? obraPorId.get(obraId) : undefined;
+        if (!o) return '-';
+        return `${o.no} ${o.tipo === 'base' ? '(base)' : '(adic.)'}`;
+    };
 
     return (
         <div>
@@ -393,7 +399,7 @@ function ComparativosTab({ proyecto }: { proyecto: Proyecto }) {
                 <div>
                     <h2 className="text-lg font-semibold">Comparativos de ingeniería</h2>
                     <p className="text-base-content/60 text-sm">
-                        En precios unitarios el último comparativo define el presupuesto a ejecutar; en alzado es solo referencia.
+                        En precios unitarios, el comparativo de la obra base reemplaza el presupuesto y los de adicionales se suman; en alzado son solo referencia.
                     </p>
                 </div>
                 <Button size="sm" asChild>
@@ -407,6 +413,7 @@ function ComparativosTab({ proyecto }: { proyecto: Proyecto }) {
                 <table className="table table-sm">
                     <thead>
                         <tr>
+                            <th>Obra</th>
                             <th>Descripción</th>
                             <th className="text-right">Monto Impacto</th>
                             <th>Fecha</th>
@@ -417,6 +424,7 @@ function ComparativosTab({ proyecto }: { proyecto: Proyecto }) {
                     <tbody>
                         {comparativos.map((c: CobComparativo) => (
                             <tr key={c.id} className="hover">
+                                <td className="whitespace-nowrap">{etiquetaObra(c.obra_id)}</td>
                                 <td className="max-w-xs truncate">{c.descripcion}</td>
                                 <td className="text-right">{formatearMXN(c.monto_impacto)}</td>
                                 <td>{c.fecha_identificacion ?? '-'}</td>
@@ -438,7 +446,7 @@ function ComparativosTab({ proyecto }: { proyecto: Proyecto }) {
                         ))}
                         {comparativos.length === 0 && (
                             <tr>
-                                <td colSpan={5} className="py-6 text-center opacity-50">No hay comparativos</td>
+                                <td colSpan={6} className="py-6 text-center opacity-50">No hay comparativos</td>
                             </tr>
                         )}
                     </tbody>

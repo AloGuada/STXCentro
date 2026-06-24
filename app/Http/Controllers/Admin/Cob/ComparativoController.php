@@ -17,12 +17,16 @@ class ComparativoController extends Controller
     {
         return Inertia::render('admin/cob/comparativos/create', [
             'proyecto' => $proyecto->only('id', 'no', 'descripcion'),
+            'obras' => $this->obras($proyecto),
         ]);
     }
 
     public function store(ComparativoStoreRequest $request, Proyecto $proyecto): RedirectResponse
     {
-        $proyecto->comparativos()->create($request->validated());
+        $data = $request->validated();
+        abort_unless($proyecto->obras()->whereKey($data['obra_id'])->exists(), 404);
+
+        $proyecto->comparativos()->create($data);
 
         return to_route('admin.cob.proyectos.show', $proyecto);
     }
@@ -31,13 +35,17 @@ class ComparativoController extends Controller
     {
         return Inertia::render('admin/cob/comparativos/edit', [
             'proyecto' => $proyecto->only('id', 'no', 'descripcion'),
+            'obras' => $this->obras($proyecto),
             'comparativo' => $comparativo,
         ]);
     }
 
     public function update(ComparativoUpdateRequest $request, Proyecto $proyecto, Comparativo $comparativo): RedirectResponse
     {
-        $comparativo->update($request->validated());
+        $data = $request->validated();
+        abort_unless($proyecto->obras()->whereKey($data['obra_id'])->exists(), 404);
+
+        $comparativo->update($data);
 
         return to_route('admin.cob.proyectos.show', $proyecto);
     }
@@ -47,5 +55,19 @@ class ComparativoController extends Controller
         $comparativo->delete();
 
         return back();
+    }
+
+    /**
+     * Obras del proyecto (base primero) para el selector del formulario.
+     *
+     * @return \Illuminate\Support\Collection<int, array{id: int, no: string, tipo: string}>
+     */
+    private function obras(Proyecto $proyecto): \Illuminate\Support\Collection
+    {
+        return $proyecto->obras()
+            ->orderByRaw("CASE WHEN tipo = 'base' THEN 0 ELSE 1 END")
+            ->orderBy('no')
+            ->get(['id', 'no', 'tipo'])
+            ->map(fn ($o) => ['id' => $o->id, 'no' => $o->no, 'tipo' => $o->tipo]);
     }
 }

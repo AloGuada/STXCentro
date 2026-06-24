@@ -17,6 +17,7 @@ class ComparativoUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'obra_id' => ['required', 'integer', 'exists:obras,id'],
             'descripcion' => ['required', 'string'],
             'monto_impacto' => ['required', 'numeric', 'min:0'],
             'fecha_identificacion' => ['nullable', 'date'],
@@ -30,6 +31,7 @@ class ComparativoUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'obra_id.required' => 'La obra es obligatoria.',
             'descripcion.required' => 'La descripción es obligatoria.',
             'monto_impacto.required' => 'El monto de impacto es obligatorio.',
             'monto_impacto.numeric' => 'El monto de impacto debe ser un número.',

@@ -9,11 +9,14 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import { type FormEvent } from 'react';
 
+type ObraOpcion = { id: number; no: string; tipo: string };
+
 type Props = {
     proyecto: Pick<Proyecto, 'id' | 'no' | 'descripcion'>;
+    obras: ObraOpcion[];
 };
 
-export default function ComparativoCreate({ proyecto }: Props) {
+export default function ComparativoCreate({ proyecto, obras }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Cobranza', href: '/admin/cob/proyectos' },
@@ -22,6 +25,7 @@ export default function ComparativoCreate({ proyecto }: Props) {
     ];
 
     const { data, setData, post, processing, errors } = useForm({
+        obra_id: '',
         descripcion: '',
         monto_impacto: '',
         fecha_identificacion: '',
@@ -42,6 +46,19 @@ export default function ComparativoCreate({ proyecto }: Props) {
                     <h1 className="mb-6 text-2xl font-semibold">Nuevo Comparativo - Proyecto {proyecto.no}</h1>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+                            <FormField label="Obra" htmlFor="obra_id" error={errors.obra_id} required>
+                                <Select value={data.obra_id} onValueChange={(v) => setData('obra_id', v)}>
+                                    <SelectTrigger><SelectValue placeholder="Seleccionar obra" /></SelectTrigger>
+                                    <SelectContent>
+                                        {obras.map((o) => (
+                                            <SelectItem key={o.id} value={String(o.id)}>
+                                                {o.no} {o.tipo === 'base' ? '(base)' : '(adicional)'}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </FormField>
+
                             <FormField label="Monto Impacto" htmlFor="monto_impacto" error={errors.monto_impacto} required>
                                 <Input type="number" step="0.01" value={data.monto_impacto} onChange={(e) => setData('monto_impacto', e.target.value)} />
                             </FormField>

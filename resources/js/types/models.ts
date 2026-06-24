@@ -2494,6 +2494,7 @@ export const COB_COMPARATIVO_ESTADO_LABELS: Record<CobComparativoEstado, string>
 export type CobComparativo = {
     id: number;
     proyecto_id: number;
+    obra_id: number | null;
     descripcion: string;
     monto_impacto: number;
     fecha_identificacion: string | null;

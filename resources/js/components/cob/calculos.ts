@@ -1,4 +1,4 @@
-import type { CobAnticipo, CobDeduccion, CobEstimacion, CobPartida, Obra, Proyecto } from '@/types/models';
+import type { CobAnticipo, CobComparativo, CobDeduccion, CobEstimacion, CobPartida, Obra, Proyecto } from '@/types/models';
 
 export type ResumenFinanciero = {
     presupuestoPartidas: number;
@@ -146,7 +146,8 @@ export function calcularDatosProyecto(obra: Obra): DatosProyecto {
  */
 export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
     const obras = proyecto.obras ?? [];
-    const tipoContrato = (obras.find((o) => o.tipo !== 'adicional') ?? obras[0])?.tipo_contrato ?? null;
+    const base = obras.find((o) => o.tipo !== 'adicional') ?? obras[0];
+    const tipoContrato = base?.tipo_contrato ?? null;
 
     const porObra = obras.map((o) =>
         calcularResumen(o.partidas ?? [], [], o.anticipos ?? [], o.deducciones ?? [], o.tipo_contrato ?? null),
@@ -159,19 +160,39 @@ export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
     const totalAnticiposFacturados = sum((r) => r.totalAnticiposFacturados);
     const totalAnticiposCobrados = sum((r) => r.totalAnticiposCobrados);
 
-    // Comparativo de ingeniería del PROYECTO. Regla de negocio: solo en precios
-    // unitarios reemplaza el presupuesto a ejecutar (es el precio final); en
-    // alzado (u otros tipos) es solo referencia y se usa la suma de partidas.
+    // Comparativos de ingeniería, ligados a una obra. Regla de negocio (solo en
+    // precios unitarios): el comparativo de la obra BASE reemplaza el presupuesto;
+    // los de cada ADICIONAL se suman. Por obra gana el último (id más alto). Un
+    // adicional sin comparativo suma 0. En alzado el comparativo es solo referencia.
     const comparativos = proyecto.comparativos ?? [];
-    const lastComparativo = comparativos
-        .filter((c) => c.estado === 'implementado' || c.estado === 'aprobado')
-        .slice()
-        .sort((a, b) => (a.id > b.id ? -1 : 1))[0];
-    const lastComparativoCualquiera = comparativos.slice().sort((a, b) => (a.id > b.id ? -1 : 1))[0];
-    const montoComparativo = lastComparativo ? Number(lastComparativo.monto_impacto) : 0;
-    const montoComparativoUltimo = lastComparativoCualquiera ? Number(lastComparativoCualquiera.monto_impacto) : 0;
+    const ultimoPorObra = new Map<number, CobComparativo>();
+    for (const c of [...comparativos].sort((a, b) => b.id - a.id)) {
+        if (c.obra_id != null && !ultimoPorObra.has(c.obra_id)) {
+            ultimoPorObra.set(c.obra_id, c);
+        }
+    }
+
     const esUnitario = tipoContrato === 'precio_unitario';
-    const presupuestoEjecutar = lastComparativoCualquiera && esUnitario ? montoComparativoUltimo : presupuestoPartidas;
+    const comparativoBase = base ? ultimoPorObra.get(base.id) : undefined;
+
+    let presupuestoEjecutar: number;
+    if (esUnitario && comparativoBase) {
+        const valorAdicionales = obras
+            .filter((o) => o.id !== base?.id)
+            .reduce((s, o) => {
+                const c = ultimoPorObra.get(o.id);
+                return s + (c ? Number(c.monto_impacto) : 0);
+            }, 0);
+        presupuestoEjecutar = Number(comparativoBase.monto_impacto) + valorAdicionales;
+    } else {
+        presupuestoEjecutar = presupuestoPartidas;
+    }
+
+    const comparativosUltimos = [...ultimoPorObra.values()];
+    const montoComparativoUltimo = comparativosUltimos.reduce((s, c) => s + Number(c.monto_impacto), 0);
+    const montoComparativo = comparativosUltimos
+        .filter((c) => c.estado === 'implementado' || c.estado === 'aprobado')
+        .reduce((s, c) => s + Number(c.monto_impacto), 0);
 
     // Estimaciones: sumadas de todas las obras del proyecto.
     const est = calcularResumen([], obras.flatMap((o) => o.estimaciones ?? []), [], [], tipoContrato);
@@ -199,10 +220,10 @@ export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
         estimacionesGeneradas: est.estimacionesGeneradas,
         estimacionesIngresadas: est.estimacionesIngresadas,
         facturadasPorCobrar: totalFacturado - totalCobrado,
-        tieneComparativos: !!lastComparativo,
+        tieneComparativos: montoComparativo > 0,
         montoComparativo,
         montoComparativoUltimo,
-        tieneComparativoCualquiera: !!lastComparativoCualquiera,
+        tieneComparativoCualquiera: comparativosUltimos.length > 0,
         tipoContrato,
     };
 }
