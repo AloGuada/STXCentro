@@ -50,8 +50,12 @@ export function calcularResumen(
     const montoComparativoUltimo = lastComparativoCualquiera ? Number(lastComparativoCualquiera.monto_impacto) : 0;
     const basePartidas = presupuestoPartidas + partidasAdicionales;
 
-    // Si hay comparativo (cualquier estado), se usa como presupuesto base
-    const presupuestoEjecutar = lastComparativoCualquiera
+    // Si hay comparativo (cualquier estado) se usa como presupuesto base, EXCEPTO
+    // en obras a precio alzado: ahí la comparativa de ingeniería es solo de
+    // referencia y no reemplaza el monto a ejecutar (regla de negocio de cobranza;
+    // en alzado el monto está pactado fijo). En precios unitarios/otros sí aplica.
+    const esAlzado = tipoContrato === 'precio_alzado';
+    const presupuestoEjecutar = lastComparativoCualquiera && !esAlzado
         ? montoComparativoUltimo
         : basePartidas;
 
