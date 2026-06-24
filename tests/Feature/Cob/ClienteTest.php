@@ -22,6 +22,22 @@ describe('admin cob clientes', function () {
         );
     });
 
+    test('la búsqueda no distingue mayúsculas/minúsculas', function () {
+        Cliente::factory()->create(['nombre' => 'Constructora Águila SA']);
+        Cliente::factory()->create(['nombre' => 'Otra Empresa']);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.cob.clientes.index', ['search' => 'CONSTRUCTORA']))
+            ->assertInertia(fn ($page) => $page
+                ->has('clientes.data', 1)
+                ->where('clientes.data.0.nombre', 'Constructora Águila SA')
+            );
+
+        $this->actingAs($this->user)
+            ->get(route('admin.cob.clientes.index', ['search' => 'constructora']))
+            ->assertInertia(fn ($page) => $page->has('clientes.data', 1));
+    });
+
     test('create page can be rendered', function () {
         $response = $this->actingAs($this->user)
             ->get(route('admin.cob.clientes.create'));

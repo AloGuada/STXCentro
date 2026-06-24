@@ -17,7 +17,7 @@ class TipoRetencionController extends Controller
     {
         $tiposRetenciones = TipoRetencion::query()
             ->withCount('retenciones')
-            ->when($request->search, fn ($q, $s) => $q->where('nombre', 'like', "%{$s}%"))
+            ->when($request->search, fn ($q, $s) => $q->whereLike('nombre', "%{$s}%"))
             ->orderBy('nombre')
             ->paginate(15)
             ->withQueryString();

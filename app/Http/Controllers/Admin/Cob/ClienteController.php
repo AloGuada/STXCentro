@@ -17,9 +17,9 @@ class ClienteController extends Controller
     {
         $clientes = Cliente::query()
             ->withCount('contactos')
-            ->when($request->search, fn ($q, $s) => $q->where('nombre', 'like', "%{$s}%")
-                ->orWhere('rfc', 'like', "%{$s}%")
-                ->orWhere('email', 'like', "%{$s}%"))
+            ->when($request->search, fn ($q, $s) => $q->whereLike('nombre', "%{$s}%")
+                ->orWhereLike('rfc', "%{$s}%")
+                ->orWhereLike('email', "%{$s}%"))
             ->orderBy('nombre')
             ->paginate(15)
             ->withQueryString();

@@ -37,8 +37,8 @@ class ObraCobranzaController extends Controller
                 'deducciones',
             ])
             ->when($estatus !== 'todas', fn ($q) => $q->where('estatus', $estatus))
-            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
-                ->orWhere('descripcion', 'like', "%{$s}%")))
+            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->whereLike('no', "%{$s}%")
+                ->orWhereLike('descripcion', "%{$s}%")))
             ->orderBy('no')
             ->get();
 
@@ -182,8 +182,8 @@ class ObraCobranzaController extends Controller
                 'deducciones',
             ])
             ->when($estatus !== 'todas', fn ($q) => $q->where('estatus', $estatus))
-            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
-                ->orWhere('descripcion', 'like', "%{$s}%")))
+            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->whereLike('no', "%{$s}%")
+                ->orWhereLike('descripcion', "%{$s}%")))
             ->orderBy('no')
             ->get();
 
