@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, BugIcon, CheckIcon, CopyIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { calcularResumenProyecto } from '@/components/cob/calculos';
 import { EstimacionesGantt } from '@/components/cob/estimaciones-gantt';
@@ -16,6 +16,69 @@ type Fila = { proyecto: Proyecto; datos: ReturnType<typeof calcularResumenProyec
 type SortState = { key: string; dir: 'asc' | 'desc' };
 
 const ratio = (valor: number, total: number): number => (total > 0 ? valor / total : 0);
+
+/**
+ * Vuelca, para un proyecto, los datos crudos por obra (partidas, deducciones,
+ * anticipos, estimaciones + sus sumas) junto al resumen ya calculado. Sirve para
+ * conciliar a mano dónde difiere un total de sus insumos.
+ */
+function proyectoDebug(p: Proyecto) {
+    const obras = (p.obras ?? []).map((o) => ({
+        id: o.id,
+        no: o.no,
+        tipo: o.tipo ?? null,
+        tipo_contrato: o.tipo_contrato ?? null,
+        estatus: o.estatus,
+        sumaPartidas: (o.partidas ?? []).reduce((s, x) => s + Number(x.monto), 0),
+        sumaDeducciones: (o.deducciones ?? []).reduce((s, d) => s + Number(d.monto), 0),
+        sumaAnticipos: (o.anticipos ?? []).reduce((s, a) => s + Number(a.monto), 0),
+        partidas: (o.partidas ?? []).map((x) => ({ id: x.id, descripcion: x.descripcion, monto: Number(x.monto) })),
+        deducciones: (o.deducciones ?? []).map((d) => ({ id: d.id, descripcion: d.descripcion, monto: Number(d.monto), moneda: d.moneda, fecha: d.fecha })),
+        anticipos: (o.anticipos ?? []).map((a) => ({ id: a.id, monto: Number(a.monto), estado: a.estado, fecha_pagado: a.fecha_pagado })),
+        estimaciones: (o.estimaciones ?? []).map((e) => ({
+            id: e.id,
+            numero_estimacion: e.numero_estimacion,
+            estado: e.estado,
+            monto_estimado: Number(e.monto_estimado),
+            pagos: (e.pagos ?? []).map((pg) => ({ id: pg.id, monto_pagado: Number(pg.monto_pagado), fecha_pago: pg.fecha_pago })),
+        })),
+    }));
+
+    return {
+        id: p.id,
+        no: p.no,
+        descripcion: p.descripcion,
+        cliente: p.cliente?.nombre ?? null,
+        estatus: p.estatus,
+        comparativos: (p.comparativos ?? []).map((c) => ({ id: c.id, obra_id: c.obra_id, estado: c.estado, monto_impacto: Number(c.monto_impacto) })),
+        obras,
+        resumen: calcularResumenProyecto(p),
+    };
+}
+
+async function copiarPortapapeles(texto: string): Promise<boolean> {
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(texto);
+            return true;
+        }
+    } catch {
+        /* cae al fallback */
+    }
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = texto;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    } catch {
+        return false;
+    }
+}
 
 const ACCESSORS: Record<string, (f: Fila) => number | string> = {
     cliente: ({ proyecto }) => proyecto.cliente?.nombre ?? '',
@@ -70,6 +133,15 @@ export default function ProyectosIndex({ proyectos, filters }: Props) {
     const [activeTab, setActiveTab] = useState<TabKey>('tabla');
     const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
     const [sort, setSort] = useState<SortState | null>(null);
+    const [copiado, setCopiado] = useState<string | null>(null);
+
+    const copiarDebug = async (clave: string, payload: unknown) => {
+        const ok = await copiarPortapapeles(JSON.stringify(payload, null, 2));
+        if (ok) {
+            setCopiado(clave);
+            window.setTimeout(() => setCopiado((c) => (c === clave ? null : c)), 1500);
+        }
+    };
 
     const toggleSort = (key: string) => {
         setSort((prev) => (prev?.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
@@ -198,6 +270,15 @@ export default function ProyectosIndex({ proyectos, filters }: Props) {
                         {activeTab === 'tabla' && (
                             <>
                                 <SearchInput placeholder="Buscar proyectos..." defaultValue={filters.search} className="max-w-xs" />
+                                <button
+                                    type="button"
+                                    className="btn btn-outline btn-sm"
+                                    title="Copia al portapapeles el JSON de todos los proyectos (crudo + calculado) para conciliar"
+                                    onClick={() => copiarDebug('all', sortedDatos.map(({ proyecto }) => proyectoDebug(proyecto)))}
+                                >
+                                    {copiado === 'all' ? <CheckIcon className="size-4 text-success" /> : <BugIcon className="size-4" />}
+                                    Debug JSON
+                                </button>
                                 <Link href="/admin/cob/proyectos/create" className="btn btn-primary btn-sm">
                                     Nuevo proyecto
                                 </Link>
@@ -259,9 +340,19 @@ export default function ProyectosIndex({ proyectos, filters }: Props) {
                                             <td>{p.cliente?.nombre ?? '-'}</td>
                                             <td>{p.no}</td>
                                             <td>
-                                                <Link href={`/admin/cob/proyectos/${p.id}`} className="link link-primary font-medium">
-                                                    {p.descripcion}
-                                                </Link>
+                                                <div className="flex items-center gap-1">
+                                                    <Link href={`/admin/cob/proyectos/${p.id}`} className="link link-primary font-medium">
+                                                        {p.descripcion}
+                                                    </Link>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-ghost btn-xs btn-square opacity-40 hover:opacity-100"
+                                                        title="Copiar JSON de debug de este proyecto"
+                                                        onClick={() => copiarDebug(`p-${p.id}`, proyectoDebug(p))}
+                                                    >
+                                                        {copiado === `p-${p.id}` ? <CheckIcon className="size-3 text-success" /> : <CopyIcon className="size-3" />}
+                                                    </button>
+                                                </div>
                                             </td>
                                             <td className="text-right">{p.obras?.length ?? 0}</td>
                                             <td className="text-right">{formatearMXN(d.presupuestoPartidas)}</td>
