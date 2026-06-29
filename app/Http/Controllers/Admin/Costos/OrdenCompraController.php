@@ -12,11 +12,11 @@ use App\Http\Requests\Admin\Costos\OrdenCompraStoreRequest;
 use App\Models\Costos\Factura;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
-use App\Models\Costos\Permiso;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
 use App\Services\Costos\CfdiXmlParser;
+use App\Services\Costos\FirmasPdfBuilder;
 use App\Services\Costos\RetencionCalculator;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -425,27 +425,17 @@ class OrdenCompraController extends Controller
             'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
         ]);
 
-        // Build firmas from aprobaciones
+        // Columnas de firma: solo los niveles que aplican al tipo de documento
+        // (requisición) y al departamento de la requisición.
         $aprobaciones = $requisicion->aprobaciones()
             ->with('aprobador')
             ->get();
 
-        $niveles = Permiso::orderBy('nivel')->get();
-        $aprobacionesPorNivel = $aprobaciones->groupBy('nivel');
-
-        $firmas = $niveles->filter(fn ($p) => $aprobacionesPorNivel->has($p->nivel))
-            ->map(function ($permiso) use ($aprobacionesPorNivel) {
-                $aprobs = $aprobacionesPorNivel->get($permiso->nivel);
-                $aprobada = $aprobs->firstWhere('estatus', 'aprobada');
-
-                return (object) [
-                    'permiso' => $permiso,
-                    'aprobador' => $aprobada?->aprobador,
-                    'aprobada' => $aprobada !== null,
-                    'fecha' => $aprobada?->fecha_respuesta?->format('d/m/Y H:i'),
-                ];
-            })
-            ->values();
+        $firmas = app(FirmasPdfBuilder::class)->build(
+            $requisicion->tipoAprobacion(),
+            $requisicion->departamento_id,
+            $aprobaciones,
+        );
 
         $pdf = Pdf::loadView('pdf.costos.formato-requisicion-comparativo', [
             'requisicion' => $requisicion,

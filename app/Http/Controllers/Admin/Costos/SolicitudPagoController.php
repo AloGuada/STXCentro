@@ -12,7 +12,6 @@ use App\Http\Requests\Admin\Costos\SolicitudPagoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoUpdateRequest;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Pago;
-use App\Models\Costos\Permiso;
 use App\Models\Costos\SolicitudArchivo;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
@@ -22,6 +21,7 @@ use App\Models\Obra;
 use App\Models\Proveedor;
 use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
+use App\Services\Costos\FirmasPdfBuilder;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -428,23 +428,14 @@ class SolicitudPagoController extends Controller
             app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitudPago);
         }
 
-        // Agrupar aprobaciones por nivel para el PDF (una columna por nivel)
+        // Columnas de firma: solo los niveles que aplican a este tipo de
+        // documento y al departamento de la solicitud.
         $solicitudPago->load('aprobaciones.aprobador');
-        $niveles = Permiso::orderBy('nivel')->get();
-        $aprobacionesPorNivel = $solicitudPago->aprobaciones->groupBy('nivel');
-
-        $firmasPdf = $niveles->filter(fn ($permiso) => $aprobacionesPorNivel->has($permiso->nivel))
-            ->map(function ($permiso) use ($aprobacionesPorNivel) {
-                $aprobaciones = $aprobacionesPorNivel->get($permiso->nivel);
-                $aprobada = $aprobaciones->firstWhere('estatus', 'aprobada');
-
-                return (object) [
-                    'permiso' => $permiso,
-                    'aprobador' => $aprobada?->aprobador,
-                    'aprobada' => $aprobada !== null,
-                ];
-            })
-            ->values();
+        $firmasPdf = app(FirmasPdfBuilder::class)->build(
+            $solicitudPago->tipoAprobacion(),
+            $solicitudPago->departamento_id,
+            $solicitudPago->aprobaciones,
+        );
 
         $pdf = Pdf::loadView('pdf.costos.formato-solicitud-pago', [
             'solicitud' => $solicitudPago,
