@@ -1,5 +1,6 @@
-import { cn } from '@/lib/utils';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { cn } from '@/lib/utils';
 
 type Option = {
     value: string;
@@ -26,8 +27,10 @@ export function CreatableCombobox({
     const [query, setQuery] = useState('');
     const [open, setOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
+    const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const dropdownRef = useRef<HTMLUListElement>(null);
 
     const filtered = options.filter((o) =>
         o.label.toLowerCase().includes(query.toLowerCase()),
@@ -40,13 +43,37 @@ export function CreatableCombobox({
 
     const totalItems = filtered.length + (showCreate ? 1 : 0);
 
+    // Posiciona el dropdown (portal) bajo el input para que no lo recorte ningún
+    // contenedor con overflow; se realinea al hacer scroll/resize.
+    const updateCoords = () => {
+        const rect = inputRef.current?.getBoundingClientRect();
+        if (rect) {
+            setCoords({ top: rect.bottom, left: rect.left, width: rect.width });
+        }
+    };
+
+    const openDropdown = () => {
+        setOpen(true);
+        updateCoords();
+    };
+
     useEffect(() => {
-        setHighlightedIndex(0);
-    }, [query]);
+        if (!open) return;
+        const handler = () => updateCoords();
+        window.addEventListener('scroll', handler, true);
+        window.addEventListener('resize', handler);
+        return () => {
+            window.removeEventListener('scroll', handler, true);
+            window.removeEventListener('resize', handler);
+        };
+    }, [open]);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+            const target = e.target as Node;
+            const inWrapper = wrapperRef.current?.contains(target);
+            const inDropdown = dropdownRef.current?.contains(target);
+            if (!inWrapper && !inDropdown) {
                 setOpen(false);
             }
         };
@@ -72,7 +99,7 @@ export function CreatableCombobox({
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (!open) {
             if (e.key === 'ArrowDown' || e.key === 'Enter') {
-                setOpen(true);
+                openDropdown();
                 e.preventDefault();
             }
             return;
@@ -112,21 +139,23 @@ export function CreatableCombobox({
                 value={query}
                 onChange={(e) => {
                     setQuery(e.target.value);
-                    setOpen(true);
+                    setHighlightedIndex(0);
+                    openDropdown();
                 }}
-                onFocus={() => setOpen(true)}
+                onFocus={openDropdown}
                 onKeyDown={handleKeyDown}
             />
-            {open && totalItems > 0 && (
-                <ul className="menu bg-base-100 border-base-300 absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded border shadow-lg">
+            {open && totalItems > 0 && coords && createPortal(
+                <ul
+                    ref={dropdownRef}
+                    className="menu bg-base-100 border-base-300 fixed z-[100] max-h-60 overflow-auto rounded border shadow-lg"
+                    style={{ top: coords.top, left: coords.left, width: coords.width }}
+                >
                     {filtered.map((option, idx) => (
                         <li key={option.value}>
                             <button
                                 type="button"
-                                className={cn(
-                                    'w-full text-left',
-                                    idx === highlightedIndex && 'active',
-                                )}
+                                className={cn('w-full text-left', idx === highlightedIndex && 'active')}
                                 onMouseEnter={() => setHighlightedIndex(idx)}
                                 onClick={() => handleSelect(option)}
                             >
@@ -149,7 +178,8 @@ export function CreatableCombobox({
                             </button>
                         </li>
                     )}
-                </ul>
+                </ul>,
+                document.body,
             )}
         </div>
     );
