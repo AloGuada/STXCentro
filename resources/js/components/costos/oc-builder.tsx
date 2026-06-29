@@ -216,6 +216,7 @@ function OcCard({
     const [modoPago, setModoPago] = useState<ModoPago>(meta?.modo_pago ?? (manejaCredito ? 'credito' : 'contado'));
     const [metodoPago, setMetodoPago] = useState<'transferencia' | 'cheque' | 'efectivo'>(meta?.metodo_pago ?? 'transferencia');
     const [fecha, setFecha] = useState(meta?.fecha_entrega ?? '');
+    const [fechaPago, setFechaPago] = useState(meta?.fecha_pago ?? '');
     const [notas, setNotas] = useState(meta?.notas ?? '');
     const [pagos, setPagos] = useState<CostosRequisicionOcPago[]>(meta?.pagos ?? []);
 
@@ -248,7 +249,7 @@ function OcCard({
         );
     }
 
-    const persistMeta = (patch: { modo_pago?: ModoPago; metodo_pago?: 'transferencia' | 'cheque' | 'efectivo'; fecha_entrega?: string; notas?: string; pagos?: CostosRequisicionOcPago[] }) => {
+    const persistMeta = (patch: { modo_pago?: ModoPago; metodo_pago?: 'transferencia' | 'cheque' | 'efectivo'; fecha_entrega?: string; fecha_pago?: string; notas?: string; pagos?: CostosRequisicionOcPago[] }) => {
         const modo = patch.modo_pago ?? modoPago;
         const listaPagos = modo === 'contado' ? (patch.pagos ?? pagos) : [];
         router.post(
@@ -259,6 +260,7 @@ function OcCard({
                 modo_pago: modo,
                 metodo_pago: patch.metodo_pago ?? metodoPago,
                 fecha_entrega: (patch.fecha_entrega ?? fecha) || null,
+                fecha_pago: (patch.fecha_pago ?? fechaPago) || null,
                 notas: (patch.notas ?? notas).trim() || null,
                 pagos: listaPagos.map((p) => ({ porcentaje: p.porcentaje, concepto: p.concepto })),
             },
@@ -476,22 +478,36 @@ function OcCard({
 
                 {modoPago === 'contado' && (
                     <div className="mt-3 border-t border-base-200 pt-2">
-                        <div className="mb-2 flex items-center gap-2">
-                            <label className="text-[10px] uppercase tracking-wider text-base-content/60">Método de pago</label>
-                            <select
-                                className="select select-bordered select-xs w-40"
-                                value={metodoPago}
-                                disabled={!editable}
-                                onChange={(e) => {
-                                    const m = e.target.value as 'transferencia' | 'cheque' | 'efectivo';
-                                    setMetodoPago(m);
-                                    persistMeta({ metodo_pago: m });
-                                }}
-                            >
-                                <option value="transferencia">Transferencia</option>
-                                <option value="cheque">Cheque</option>
-                                <option value="efectivo">Efectivo</option>
-                            </select>
+                        <div className="mb-2 flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <label className="text-[10px] uppercase tracking-wider text-base-content/60">Método de pago</label>
+                                <select
+                                    className="select select-bordered select-xs w-40"
+                                    value={metodoPago}
+                                    disabled={!editable}
+                                    onChange={(e) => {
+                                        const m = e.target.value as 'transferencia' | 'cheque' | 'efectivo';
+                                        setMetodoPago(m);
+                                        persistMeta({ metodo_pago: m });
+                                    }}
+                                >
+                                    <option value="transferencia">Transferencia</option>
+                                    <option value="cheque">Cheque</option>
+                                    <option value="efectivo">Efectivo</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className="text-[10px] uppercase tracking-wider text-base-content/60">Fecha de pago</label>
+                                <input
+                                    type="date"
+                                    className="input input-bordered input-xs w-40"
+                                    value={fechaPago}
+                                    disabled={!editable}
+                                    onChange={(e) => setFechaPago(e.target.value)}
+                                    onBlur={() => persistMeta({})}
+                                    title="Fecha solicitada de pago del anticipo (opcional; si se deja vacía, usa la fecha del día al liberar)"
+                                />
+                            </div>
                         </div>
                         {pagos.length === 0 ? (
                             <label className="flex cursor-pointer items-center gap-2 text-xs">

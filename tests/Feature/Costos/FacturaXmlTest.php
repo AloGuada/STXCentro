@@ -1,14 +1,20 @@
 <?php
 
 use App\Enums\Costos\DocumentoTipo;
+use App\Enums\Costos\FacturaEstatus;
+use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
+use App\Models\Costos\SolicitudPago;
+use App\Models\Departamento;
 use App\Models\Proveedor;
+use App\Models\User;
 use App\Services\Costos\CfdiXmlParser;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Permission;
 
 function sampleCfdi(array $overrides = []): string
 {
@@ -167,6 +173,100 @@ describe('Portal upload XML auto-llena datos fiscales', function () {
                 'orden_compra_id' => $oc->id,
                 'xml' => $xml,
             ])
+            ->assertSessionHasErrors(['xml']);
+    });
+});
+
+describe('subir factura de contado (admin / Compras)', function () {
+    beforeEach(function () {
+        Storage::fake('public');
+        Permission::firstOrCreate(['name' => 'costos.facturas.crear', 'guard_name' => 'web']);
+        $this->compras = User::factory()->create();
+        $this->compras->givePermissionTo('costos.facturas.crear');
+    });
+
+    test('compras sube CFDI de OC contado y registra la factura con datos fiscales', function () {
+        $oc = OrdenCompra::factory()->pendienteFactura()->create(['tipo_pago' => 'contado', 'total' => 2320]);
+        Entrega::factory()->create(['orden_compra_id' => $oc->id]);
+        // Anticipo ya pagado vía solicitud → la factura debe nacer Pagada.
+        SolicitudPago::factory()->create([
+            'orden_compra_id' => $oc->id,
+            'departamento_id' => Departamento::factory(),
+            'estatus' => SolicitudPagoEstatus::Pagada->value,
+        ]);
+
+        $xml = UploadedFile::fake()->createWithContent('factura.xml', sampleCfdi([
+            'Uuid' => 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC',
+            'SubTotal' => '2000.00', 'Total' => '2320.00', 'IvaTrasladado' => '320.00',
+        ]));
+        $pdf = UploadedFile::fake()->create('factura.pdf', 100, 'application/pdf');
+
+        $this->actingAs($this->compras)
+            ->post("/admin/costos/ordenes-compra/{$oc->id}/factura-contado", ['xml' => $xml, 'pdf' => $pdf])
+            ->assertRedirect();
+
+        $factura = Factura::where('orden_compra_id', $oc->id)->first();
+        expect($factura)->not->toBeNull()
+            ->and($factura->uuid_fiscal)->toBe('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC')
+            ->and((float) $factura->total)->toBe(2320.0)
+            ->and((float) $factura->iva_trasladado)->toBe(320.0)
+            ->and($factura->estatus)->toBe(FacturaEstatus::Pagada)
+            ->and($factura->aprobada_costos)->toBeTrue()
+            ->and($factura->aceptada_contabilidad)->toBeTrue();
+
+        $this->assertDatabaseHas('media', ['mediable_type' => Factura::class, 'descripcion' => DocumentoTipo::XmlFactura->value]);
+        $this->assertDatabaseHas('media', ['mediable_type' => Factura::class, 'descripcion' => DocumentoTipo::PdfFactura->value]);
+    });
+
+    test('rechaza un CFDI cuyo total excede el saldo facturable de la OC', function () {
+        $oc = OrdenCompra::factory()->pendienteFactura()->create(['tipo_pago' => 'contado', 'total' => 100]);
+        Entrega::factory()->create(['orden_compra_id' => $oc->id]);
+
+        $xml = UploadedFile::fake()->createWithContent('factura.xml', sampleCfdi([
+            'Uuid' => 'AAAA1111-AAAA-AAAA-AAAA-AAAAAAAAAAAA', 'Total' => '5000.00',
+        ]));
+        $pdf = UploadedFile::fake()->create('factura.pdf', 100, 'application/pdf');
+
+        $this->actingAs($this->compras)
+            ->post("/admin/costos/ordenes-compra/{$oc->id}/factura-contado", ['xml' => $xml, 'pdf' => $pdf])
+            ->assertSessionHasErrors(['xml']);
+
+        expect(Factura::where('orden_compra_id', $oc->id)->count())->toBe(0);
+    });
+
+    test('rechaza un UUID fiscal duplicado', function () {
+        $oc = OrdenCompra::factory()->pendienteFactura()->create(['tipo_pago' => 'contado']);
+        Entrega::factory()->create(['orden_compra_id' => $oc->id]);
+        Factura::factory()->create(['uuid_fiscal' => 'DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD']);
+
+        $xml = UploadedFile::fake()->createWithContent('factura.xml', sampleCfdi(['Uuid' => 'DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD']));
+        $pdf = UploadedFile::fake()->create('factura.pdf', 100, 'application/pdf');
+
+        $this->actingAs($this->compras)
+            ->post("/admin/costos/ordenes-compra/{$oc->id}/factura-contado", ['xml' => $xml, 'pdf' => $pdf])
+            ->assertSessionHasErrors(['xml']);
+    });
+
+    test('exige recepción previa del almacén', function () {
+        $oc = OrdenCompra::factory()->pendienteEntrega()->create(['tipo_pago' => 'contado']);
+
+        $xml = UploadedFile::fake()->createWithContent('factura.xml', sampleCfdi(['Uuid' => 'FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF']));
+        $pdf = UploadedFile::fake()->create('factura.pdf', 100, 'application/pdf');
+
+        $this->actingAs($this->compras)
+            ->post("/admin/costos/ordenes-compra/{$oc->id}/factura-contado", ['xml' => $xml, 'pdf' => $pdf])
+            ->assertSessionHasErrors(['xml']);
+    });
+
+    test('rechaza una OC de crédito', function () {
+        $oc = OrdenCompra::factory()->pendienteFactura()->create(['tipo_pago' => 'credito']);
+        Entrega::factory()->create(['orden_compra_id' => $oc->id]);
+
+        $xml = UploadedFile::fake()->createWithContent('factura.xml', sampleCfdi(['Uuid' => 'EEEEEEEE-EEEE-EEEE-EEEE-EEEEEEEEEEEE']));
+        $pdf = UploadedFile::fake()->create('factura.pdf', 100, 'application/pdf');
+
+        $this->actingAs($this->compras)
+            ->post("/admin/costos/ordenes-compra/{$oc->id}/factura-contado", ['xml' => $xml, 'pdf' => $pdf])
             ->assertSessionHasErrors(['xml']);
     });
 });

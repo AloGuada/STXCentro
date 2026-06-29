@@ -26,6 +26,12 @@ interface Aprobable
     public function cadenaAprobacion(): MorphMany;
 
     /**
+     * True si el documento tiene presupuesto reservado vigente (apartado sin
+     * vencer). La cadena de aprobaciones lo usa para saltar niveles marcados.
+     */
+    public function tienePresupuestoReservado(): bool;
+
+    /**
      * Hook disparado cuando todas las aprobaciones se cubrieron en orden.
      */
     public function onAprobacionCompleta(?string $userId = null): void;

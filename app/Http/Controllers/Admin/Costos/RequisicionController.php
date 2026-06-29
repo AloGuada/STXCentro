@@ -601,12 +601,12 @@ class RequisicionController extends Controller
         }
 
         DB::transaction(function () use ($request, $requisicion) {
-            app(ApprovalChainService::class)->crearCadenaAprobaciones($requisicion);
-
             $requisicion->transitionTo(RequisicionEstatus::PendienteAprobacion);
 
             // Apartado temporal de presupuesto (5 días): cada partida usa
-            // el monto de sus selecciones (∑ cantidad × precio cotizado).
+            // el monto de sus selecciones (∑ cantidad × precio cotizado). Se
+            // hace ANTES de armar la cadena porque el salto de niveles depende
+            // de que ya exista presupuesto reservado.
             $items = $requisicion->detalles
                 ->filter(fn ($d) => $d->obra_rubro_id)
                 ->map(fn ($d) => [
@@ -620,6 +620,15 @@ class RequisicionController extends Controller
 
             app(\App\Services\Costos\ApartadoPresupuestal::class)
                 ->apartarDocumento($requisicion, $items, $request->user()->id);
+
+            $chain = app(ApprovalChainService::class);
+            $creados = $chain->crearCadenaAprobaciones($requisicion);
+
+            // Si había niveles configurados pero todos se saltaron (presupuesto
+            // reservado + niveles marcados), la requisición se aprueba sola.
+            if ($creados === 0 && $chain->tieneCadenaConfigurada($requisicion)) {
+                $requisicion->onAprobacionCompleta($request->user()->id);
+            }
         });
 
         return back()->with('success', 'Requisición enviada a aprobación.');
@@ -641,6 +650,16 @@ class RequisicionController extends Controller
 
         if ($requisicion->ordenesGeneradas()->exists()) {
             return back()->withErrors(['estatus' => 'Esta requisición ya tiene OCs generadas.']);
+        }
+
+        // Si la requisición se aprobó saltando niveles (presupuesto reservado) y
+        // su apartado ya venció, el salto dejó de ser válido: se bloquea liberar
+        // hasta re-apartar (que revalida el presupuesto y expone el sobregiro).
+        $chain = app(ApprovalChainService::class);
+        if ($chain->huboNivelesSaltados($requisicion) && ! $requisicion->tienePresupuestoReservado()) {
+            return back()->withErrors([
+                'estatus' => 'El apartado de presupuesto venció y esta requisición se aprobó saltando niveles. Re-aparta el presupuesto (verifica que no haya sobregiro) antes de liberar.',
+            ]);
         }
 
         $requisicion->load([
@@ -676,6 +695,7 @@ class RequisicionController extends Controller
                 'modo_pago' => $oc->modo_pago->value,
                 'metodo_pago' => $oc->metodo_pago,
                 'fecha_entrega' => $oc->fecha_entrega?->format('Y-m-d'),
+                'fecha_pago' => $oc->fecha_pago?->format('Y-m-d'),
                 'notas' => $oc->notas,
                 'pagos' => $oc->pagos ?? [],
             ]);
@@ -695,6 +715,7 @@ class RequisicionController extends Controller
                     'modo_pago' => $primera->proveedor?->maneja_credito ? 'credito' : 'contado',
                     'metodo_pago' => 'transferencia',
                     'fecha_entrega' => now()->addDays(7)->format('Y-m-d'),
+                    'fecha_pago' => null,
                     'notas' => null,
                     'pagos' => [],
                 ];

@@ -291,6 +291,12 @@ const navGroups: NavGroup[] = [
                         icon: CheckSquare,
                         permission: 'costos.aprobaciones.ver',
                     },
+                    {
+                        title: 'Configuración',
+                        href: '/admin/costos/configuracion',
+                        icon: Settings,
+                        permission: 'costos.aprobaciones.ver',
+                    },
                 ],
             },
         ],

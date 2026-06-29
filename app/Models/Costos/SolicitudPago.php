@@ -9,6 +9,7 @@ use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Costos\Concerns\AfectaPresupuesto;
+use App\Models\Costos\Concerns\VerificaPresupuestoReservado;
 use App\Models\Departamento;
 use App\Models\Proveedor;
 use App\Models\Usuario;
@@ -26,7 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class SolicitudPago extends Model implements Aprobable
 {
-    use AfectaPresupuesto, HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
+    use AfectaPresupuesto, HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity, VerificaPresupuestoReservado;
 
     public const TIPO_APROBACION = 'solicitud_pago';
 

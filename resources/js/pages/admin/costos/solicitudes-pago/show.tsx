@@ -121,9 +121,9 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                 {/* Confirmaciones */}
                 {solicitud.estatus === 'aprobada' && (
                     <div className="mb-6 flex gap-4">
-                        <div className={`flex-1 rounded-lg border p-3 ${solicitud.confirmada_costos ? 'border-green-300 bg-green-50' : 'border-base-300 bg-base-200'}`}>
+                        <div className={`flex-1 rounded-lg border p-3 ${solicitud.confirmada_costos ? 'border-success/40 bg-success/10' : 'border-base-300 bg-base-200'}`}>
                             <div className="flex items-center gap-2">
-                                {solicitud.confirmada_costos && <CheckCircleIcon className="size-4 text-green-600" />}
+                                {solicitud.confirmada_costos && <CheckCircleIcon className="size-4 text-success" />}
                                 <span className="text-sm font-medium">Costos</span>
                             </div>
                             {solicitud.confirmada_costos ? (
@@ -135,9 +135,9 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
                             )}
                         </div>
                         {solicitud.tipo_pago === 'credito' && (
-                            <div className={`flex-1 rounded-lg border p-3 ${solicitud.confirmada_contabilidad ? 'border-green-300 bg-green-50' : 'border-base-300 bg-base-200'}`}>
+                            <div className={`flex-1 rounded-lg border p-3 ${solicitud.confirmada_contabilidad ? 'border-success/40 bg-success/10' : 'border-base-300 bg-base-200'}`}>
                                 <div className="flex items-center gap-2">
-                                    {solicitud.confirmada_contabilidad && <CheckCircleIcon className="size-4 text-green-600" />}
+                                    {solicitud.confirmada_contabilidad && <CheckCircleIcon className="size-4 text-success" />}
                                     <span className="text-sm font-medium">Contabilidad</span>
                                 </div>
                                 {solicitud.confirmada_contabilidad ? (

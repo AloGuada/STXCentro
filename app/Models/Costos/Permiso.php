@@ -22,6 +22,7 @@ class Permiso extends Model
         'descripcion',
         'nivel',
         'tipo_aprobacion',
+        'omitir_si_presupuesto_reservado',
     ];
 
     /**
@@ -31,6 +32,7 @@ class Permiso extends Model
     {
         return [
             'nivel' => 'integer',
+            'omitir_si_presupuesto_reservado' => 'boolean',
         ];
     }
 

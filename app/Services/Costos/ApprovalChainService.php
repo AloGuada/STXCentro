@@ -26,15 +26,56 @@ class ApprovalChainService
     {
         $cadena = $this->cadenaDepartamento($aprobable);
 
+        // Un nivel marcado `omitir_si_presupuesto_reservado` se salta cuando el
+        // documento tiene presupuesto reservado vigente (apartado sin vencer).
+        // Se evalúa por nivel, de forma independiente.
+        $reservado = $aprobable->tienePresupuestoReservado();
+
+        $creados = 0;
         foreach ($cadena as $asignacion) {
+            if ($reservado && $asignacion->permiso->omitir_si_presupuesto_reservado) {
+                continue;
+            }
+
             $aprobable->cadenaAprobacion()->create([
                 'nivel' => $asignacion->permiso->nivel,
                 'aprobador_id' => $asignacion->aprobador_id,
                 'estatus' => AprobacionEstatus::Pendiente->value,
             ]);
+            $creados++;
         }
 
-        return $cadena->count();
+        return $creados;
+    }
+
+    /**
+     * ¿El departamento tiene al menos un nivel configurado para el tipo del
+     * aprobable? Sirve para distinguir "todos los niveles se saltaron" (auto
+     * aprobar) de "no hay cadena configurada" (queda pendiente).
+     */
+    public function tieneCadenaConfigurada(Aprobable&Model $aprobable): bool
+    {
+        return $this->cadenaDepartamento($aprobable)->isNotEmpty();
+    }
+
+    /**
+     * ¿Se saltó al menos un nivel configurado? Es decir, hay niveles en la
+     * configuración del departamento sin ningún registro de Aprobacion en el
+     * documento. Lo usa la liberación para reevaluar si el salto sigue válido.
+     */
+    public function huboNivelesSaltados(Aprobable&Model $aprobable): bool
+    {
+        $configurados = $this->cadenaDepartamento($aprobable)
+            ->pluck('permiso.nivel')
+            ->map(fn ($n) => (int) $n)
+            ->unique();
+
+        $conRegistro = $aprobable->cadenaAprobacion()
+            ->pluck('nivel')
+            ->map(fn ($n) => (int) $n)
+            ->unique();
+
+        return $configurados->diff($conRegistro)->isNotEmpty();
     }
 
     /**

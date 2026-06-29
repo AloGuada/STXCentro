@@ -1,0 +1,25 @@
+<?php
+
+namespace App\Models\Costos\Concerns;
+
+use App\Enums\Costos\RubroAfectadoEstatus;
+use App\Models\Costos\RubroAfectado;
+use Illuminate\Support\Carbon;
+
+/**
+ * Determina si el documento tiene presupuesto reservado vigente, es decir, al
+ * menos un RubroAfectado en estado Apartado cuyo `apartado_hasta` no ha vencido.
+ * Lo usa la cadena de aprobaciones para decidir si saltar niveles marcados.
+ */
+trait VerificaPresupuestoReservado
+{
+    public function tienePresupuestoReservado(): bool
+    {
+        return RubroAfectado::query()
+            ->where('entrada_type', static::class)
+            ->where('entrada_id', $this->getKey())
+            ->where('estatus', RubroAfectadoEstatus::Apartado->value)
+            ->whereDate('apartado_hasta', '>=', Carbon::today())
+            ->exists();
+    }
+}

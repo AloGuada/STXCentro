@@ -5,12 +5,14 @@ import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { DevolverItemModal } from '@/components/costos/devolver-item-modal';
 import { EntregaModal } from '@/components/costos/entrega-modal';
+import { CONTADO_STEPS, getContadoStep } from '@/components/costos/oc-contado';
+import { SubirFacturaContadoModal } from '@/components/costos/subir-factura-contado-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosOrdenCompra, CostosOrdenCompraEstatus, CostosRetencionDesglose } from '@/types/models';
-import { DEVOLUCION_ESTATUS_COLORS, DEVOLUCION_ESTATUS_LABELS, FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
+import { DEVOLUCION_ESTATUS_COLORS, DEVOLUCION_ESTATUS_LABELS, FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, MODO_PAGO_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 
 type Props = {
     ordenCompra: CostosOrdenCompra;
@@ -30,6 +32,7 @@ function getStepIndex(estatus: CostosOrdenCompraEstatus): number {
     return steps.findIndex((s) => s.key === estatus);
 }
 
+
 type DevolverTarget = {
     entregaDetalleId: number;
     partidaDescripcion: string;
@@ -46,11 +49,19 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
     ];
 
     const { can } = useCan();
-    const currentStep = getStepIndex(ordenCompra.estatus);
+    const esContado = ordenCompra.tipo_pago === 'contado';
+    const activeSteps = esContado ? CONTADO_STEPS : steps;
+    const currentStep = esContado ? getContadoStep(ordenCompra) : getStepIndex(ordenCompra.estatus);
     const [activeTab, setActiveTab] = useState<'datos' | 'facturas' | 'recepciones' | 'documentos' | 'historial'>('datos');
     const [showCancelarModal, setShowCancelarModal] = useState(false);
     const [showEntregaModal, setShowEntregaModal] = useState(false);
+    const [showSubirFacturaModal, setShowSubirFacturaModal] = useState(false);
     const [devolverTarget, setDevolverTarget] = useState<DevolverTarget | null>(null);
+
+    // Compras sube la factura de contado tras la recepción (paso "Subir factura").
+    const puedeSubirFacturaContado = esContado
+        && getContadoStep(ordenCompra) === 3
+        && can('costos.facturas.crear');
 
     const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
@@ -82,6 +93,11 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                             ) : (
                                 <span className={`badge ${ORDEN_COMPRA_ESTATUS_COLORS[ordenCompra.estatus]}`}>
                                     {ORDEN_COMPRA_ESTATUS_LABELS[ordenCompra.estatus]}
+                                </span>
+                            )}
+                            {ordenCompra.tipo_pago && (
+                                <span className={`badge ${ordenCompra.tipo_pago === 'credito' ? 'badge-warning' : 'badge-success'}`}>
+                                    {MODO_PAGO_LABELS[ordenCompra.tipo_pago]}
                                 </span>
                             )}
                             <span className="text-lg font-semibold">{formatMoney(ordenCompra.total)}</span>
@@ -117,6 +133,9 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                         {['pendiente_entrega', 'pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.entregas.crear') && (
                             <Button onClick={() => setShowEntregaModal(true)}>Registrar entrega</Button>
                         )}
+                        {puedeSubirFacturaContado && (
+                            <Button onClick={() => setShowSubirFacturaModal(true)}>Subir factura</Button>
+                        )}
                         {puedeCrearAnticipo && (
                             <Button variant="outline" asChild>
                                 <Link href={anticipoCreateUrl}>Crear anticipo</Link>
@@ -131,7 +150,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                 {/* Stepper */}
                 {ordenCompra.estatus !== 'cancelada' && (
                     <ul className="steps steps-horizontal w-full mb-6">
-                        {steps.map((step, idx) => (
+                        {activeSteps.map((step, idx) => (
                             <li key={step.key} className={`step ${idx <= currentStep ? 'step-primary' : ''}`}>
                                 {step.label}
                             </li>
@@ -228,6 +247,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                         <tr>
                                             <th>Descripción</th>
                                             <th>Centro de Costos</th>
+                                            <th>Uso CFDI</th>
                                             <th className="text-right">Cantidad</th>
                                             <th>Unidad</th>
                                             <th className="text-right">P. Unitario</th>
@@ -239,6 +259,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                             <tr key={d.id}>
                                                 <td>{d.descripcion}</td>
                                                 <td>{d.obra_rubro?.rubro?.codigo} - {d.obra_rubro?.rubro?.descripcion}</td>
+                                                <td>{d.uso_cfdi ? `${d.uso_cfdi.clave}` : '-'}</td>
                                                 <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
                                                 <td>{d.unidad}</td>
                                                 <td className="text-right">{formatMoney(d.precio_unitario)}</td>
@@ -477,6 +498,12 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                     open={showEntregaModal}
                     onClose={() => setShowEntregaModal(false)}
                     ordenCompra={ordenCompra}
+                />
+
+                <SubirFacturaContadoModal
+                    ordenCompraId={ordenCompra.id}
+                    open={showSubirFacturaModal}
+                    onClose={() => setShowSubirFacturaModal(false)}
                 />
 
                 {devolverTarget && (

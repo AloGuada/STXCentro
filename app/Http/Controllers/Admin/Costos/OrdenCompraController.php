@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Costos;
 use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\OrdenCompraEstatus;
+use App\Exports\Costos\OrdenesCompraExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Http\Requests\Admin\Costos\OrdenCompraStoreRequest;
@@ -15,6 +16,7 @@ use App\Models\Costos\Permiso;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
+use App\Services\Costos\CfdiXmlParser;
 use App\Services\Costos\RetencionCalculator;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -22,8 +24,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class OrdenCompraController extends Controller
 {
@@ -33,7 +37,10 @@ class OrdenCompraController extends Controller
             ->with([
                 'proveedor:id,razon_social,nombre_comercial',
                 'departamento:id,descripcion',
-                'detalles:id,orden_compra_id,precio_unitario,cantidad',
+                'obra:id,no,descripcion',
+                'requisicion:id,obra_id',
+                'requisicion.obra:id,no,descripcion',
+                'detalles:id,orden_compra_id,descripcion,unidad,cantidad,precio_unitario,subtotal',
                 'entregas.detalles.devoluciones',
                 'facturas.pago',
                 'solicitudesPago:id,orden_compra_id,folio,estatus',
@@ -58,6 +65,15 @@ class OrdenCompraController extends Controller
                 });
             })
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
+            ->when($request->proveedor_id, fn ($q, $id) => $q->where('proveedor_id', $id))
+            ->when($request->tipo_pago, fn ($q, $tp) => $q->where('tipo_pago', $tp))
+            ->when($request->obra_id, function ($q, $obraId) {
+                // La obra puede venir directa en la OC o heredarse de la requisición.
+                $q->where(function ($w) use ($obraId) {
+                    $w->where('obra_id', $obraId)
+                        ->orWhereHas('requisicion', fn ($r) => $r->where('obra_id', $obraId));
+                });
+            })
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -66,8 +82,166 @@ class OrdenCompraController extends Controller
 
         return Inertia::render('admin/costos/ordenes-compra/index', [
             'ordenes' => $ordenes,
-            'filters' => $request->only('search', 'estatus'),
+            'filters' => $request->only('search', 'estatus', 'proveedor_id', 'obra_id', 'tipo_pago'),
+            'proveedoresFiltro' => $this->proveedoresConOrdenes(),
+            'obrasFiltro' => $this->obrasConOrdenes(),
         ]);
+    }
+
+    /**
+     * Compras sube la factura (CFDI XML + PDF) de una OC de contado ya pagada.
+     * El CFDI se parsea solo para completar los datos fiscales (UUID, impuestos,
+     * total); no genera un segundo pago (el anticipo ya cubrió la OC). Requiere
+     * recepción previa del almacén.
+     */
+    public function subirFacturaContado(Request $request, OrdenCompra $ordenCompra, CfdiXmlParser $parser): RedirectResponse
+    {
+        Gate::authorize('costos.facturas.crear');
+
+        if (($ordenCompra->tipo_pago?->value ?? null) !== 'contado') {
+            return back()->withErrors(['xml' => 'Esta acción es solo para órdenes de compra de contado.']);
+        }
+
+        if (! $ordenCompra->entregas()->exists()) {
+            return back()->withErrors(['xml' => 'No se puede facturar hasta registrar la recepción del almacén.']);
+        }
+
+        $validated = $request->validate([
+            'xml' => ['required', 'file', 'mimes:xml', 'max:5120'],
+            'pdf' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'notas' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $fiscal = $parser->parse(file_get_contents($request->file('xml')->getRealPath()) ?: '');
+        } catch (\Throwable $e) {
+            return back()->withErrors(['xml' => 'No se pudo leer el CFDI: '.$e->getMessage()]);
+        }
+
+        if (! empty($fiscal['uuid_fiscal']) && Factura::where('uuid_fiscal', $fiscal['uuid_fiscal'])->exists()) {
+            return back()->withErrors(['xml' => 'Ya existe una factura registrada con ese UUID fiscal.']);
+        }
+
+        $saldoFacturable = (float) $ordenCompra->saldo_facturable;
+        $totalCfdi = (float) ($fiscal['total'] ?? 0);
+        if ($totalCfdi > $saldoFacturable + (float) config('costos.epsilon_monto')) {
+            return back()->withErrors(['xml' => sprintf(
+                'El total del CFDI ($%s) excede el saldo facturable de la OC ($%s). Verifica que el XML corresponda a esta orden.',
+                number_format($totalCfdi, 2),
+                number_format($saldoFacturable, 2),
+            )]);
+        }
+
+        // El anticipo de contado ya pagó la OC: la factura es solo el comprobante
+        // fiscal, así que nace Pagada (no entra al ciclo aprobación → pago). Si por
+        // alguna razón el anticipo aún no está pagado, cae al flujo normal.
+        $anticipoPagado = $ordenCompra->pagadaAnticipoContado();
+        $userId = $request->user()->id;
+
+        $factura = DB::transaction(function () use ($ordenCompra, $fiscal, $request, $validated, $anticipoPagado, $userId) {
+            $factura = Factura::create([
+                'orden_compra_id' => $ordenCompra->id,
+                'proveedor_id' => $ordenCompra->proveedor_id,
+                'uuid_fiscal' => $fiscal['uuid_fiscal'] ?? null,
+                'folio_fiscal' => $fiscal['folio_fiscal'] ?? null,
+                'subtotal' => $fiscal['subtotal'] ?? 0,
+                'iva' => $fiscal['iva_trasladado'] ?? 0,
+                'iva_trasladado' => $fiscal['iva_trasladado'] ?? 0,
+                'iva_retenido' => $fiscal['iva_retenido'] ?? 0,
+                'isr_retenido' => $fiscal['isr_retenido'] ?? 0,
+                'impuestos_detalle' => $fiscal['impuestos_detalle'] ?? null,
+                'total' => $fiscal['total'] ?? 0,
+                'moneda' => $ordenCompra->moneda,
+                'metodo_pago' => $fiscal['metodo_pago'] ?? null,
+                'forma_pago' => $fiscal['forma_pago'] ?? null,
+                'fecha_factura' => $fiscal['fecha_factura'] ?? null,
+                'estatus' => $anticipoPagado ? FacturaEstatus::Pagada->value : FacturaEstatus::PendienteAprobacion->value,
+                'aprobada_costos' => $anticipoPagado,
+                'aprobada_costos_por' => $anticipoPagado ? $userId : null,
+                'aprobada_costos_at' => $anticipoPagado ? now() : null,
+                'aceptada_contabilidad' => $anticipoPagado,
+                'aceptada_contabilidad_por' => $anticipoPagado ? $userId : null,
+                'aceptada_contabilidad_at' => $anticipoPagado ? now() : null,
+                'notas' => $validated['notas'] ?? null,
+            ]);
+
+            $dir = "facturas/{$ordenCompra->proveedor_id}/{$factura->id}";
+
+            $xmlPath = $request->file('xml')->storeAs($dir, 'cfdi.xml', 'public');
+            $factura->media()->create([
+                'descripcion' => DocumentoTipo::XmlFactura->value,
+                'nombre_original' => $request->file('xml')->getClientOriginalName(),
+                'path' => $xmlPath,
+                'mime' => 'application/xml',
+                'size' => Storage::disk('public')->size($xmlPath),
+            ]);
+
+            $pdfPath = $request->file('pdf')->storeAs($dir, 'cfdi.pdf', 'public');
+            $factura->media()->create([
+                'descripcion' => DocumentoTipo::PdfFactura->value,
+                'nombre_original' => $request->file('pdf')->getClientOriginalName(),
+                'path' => $pdfPath,
+                'mime' => 'application/pdf',
+                'size' => Storage::disk('public')->size($pdfPath),
+            ]);
+
+            return $factura;
+        });
+
+        $ordenCompra->recalcularEstatus();
+
+        return back()->with('success', "Factura {$factura->folio} registrada desde el CFDI.");
+    }
+
+    /**
+     * Exporta a Excel el listado filtrado, aplanado a una línea por
+     * (orden de compra × producto).
+     */
+    public function exportar(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $filtros = $request->only('search', 'estatus', 'proveedor_id', 'obra_id', 'tipo_pago');
+
+        return Excel::download(
+            new OrdenesCompraExport($filtros),
+            'ordenes-compra-'.now()->format('Ymd-His').'.xlsx',
+        );
+    }
+
+    /**
+     * Proveedores que tienen al menos una orden de compra, para el filtro.
+     *
+     * @return \Illuminate\Support\Collection<int, Proveedor>
+     */
+    private function proveedoresConOrdenes(): \Illuminate\Support\Collection
+    {
+        $ids = OrdenCompra::query()->distinct()->pluck('proveedor_id')->filter();
+
+        return Proveedor::whereIn('id', $ids)
+            ->orderBy('razon_social')
+            ->get(['id', 'razon_social', 'nombre_comercial']);
+    }
+
+    /**
+     * Obras referenciadas por alguna orden de compra (directa o vía requisición).
+     *
+     * @return \Illuminate\Support\Collection<int, Obra>
+     */
+    private function obrasConOrdenes(): \Illuminate\Support\Collection
+    {
+        $directas = OrdenCompra::query()->whereNotNull('obra_id')->distinct()->pluck('obra_id');
+
+        $viaRequisicion = OrdenCompra::query()
+            ->whereNotNull('requisicion_id')
+            ->join('costos_requisiciones', 'costos_requisiciones.id', '=', 'costos_ordenes_compra.requisicion_id')
+            ->whereNotNull('costos_requisiciones.obra_id')
+            ->distinct()
+            ->pluck('costos_requisiciones.obra_id');
+
+        $ids = $directas->merge($viaRequisicion)->unique();
+
+        return Obra::whereIn('id', $ids)
+            ->orderBy('no')
+            ->get(['id', 'no', 'descripcion']);
     }
 
     public function create(): Response
@@ -148,6 +322,7 @@ class OrdenCompraController extends Controller
             'creador',
             'detalles.obraRubro.rubro',
             'detalles.obraRubro.obra',
+            'detalles.usoCfdi:id,clave,descripcion',
             'entregas.detalles.ordenCompraDetalle:id,descripcion,unidad,cantidad',
             'entregas.detalles.devoluciones',
             'entregas.recibidoPor:id,name',
@@ -220,7 +395,7 @@ class OrdenCompraController extends Controller
 
     public function pdfOc(Request $request, OrdenCompra $ordenCompra): HttpResponse
     {
-        $ordenCompra->load(['proveedor', 'departamento', 'detalles']);
+        $ordenCompra->load(['proveedor', 'departamento', 'detalles.usoCfdi:id,clave', 'requisicion:id,folio']);
 
         $pdf = Pdf::loadView('pdf.costos.formato-orden-compra', [
             'oc' => $ordenCompra,

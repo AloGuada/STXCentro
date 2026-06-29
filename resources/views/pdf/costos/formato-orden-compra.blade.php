@@ -79,6 +79,10 @@
             <td class="label">Entrega Esperada</td>
             <td>{{ $oc->fecha_entrega_esperada ? \Carbon\Carbon::parse($oc->fecha_entrega_esperada)->format('d/m/Y') : '-' }}</td>
         </tr>
+        <tr>
+            <td class="label">Requisición</td>
+            <td colspan="3">{{ $oc->requisicion?->folio ?? '-' }}</td>
+        </tr>
     </table>
 
     @php
@@ -91,6 +95,7 @@
             <tr>
                 <th>#</th>
                 <th>Descripcion</th>
+                <th>Uso CFDI</th>
                 <th>Unidad</th>
                 <th>Cantidad</th>
                 <th>P. Unitario</th>
@@ -102,6 +107,7 @@
             <tr>
                 <td class="text-right">{{ $i + 1 }}</td>
                 <td>{{ $d->descripcion }}</td>
+                <td>{{ optional($d->usoCfdi)->clave ?? '-' }}</td>
                 <td>{{ $d->unidad }}</td>
                 <td class="text-right">{{ number_format($d->cantidad, 2) }}</td>
                 <td class="text-right">${{ number_format($d->precio_unitario, 2) }}</td>
@@ -111,15 +117,15 @@
         </tbody>
         <tfoot>
             <tr class="total-row">
-                <td colspan="5" class="text-right">SUBTOTAL</td>
+                <td colspan="6" class="text-right">SUBTOTAL</td>
                 <td class="text-right">${{ number_format($subtotal, 2) }}</td>
             </tr>
             <tr class="total-row">
-                <td colspan="5" class="text-right">IVA (16%)</td>
+                <td colspan="6" class="text-right">IVA (16%)</td>
                 <td class="text-right">${{ number_format($iva, 2) }}</td>
             </tr>
             <tr class="total-row">
-                <td colspan="5" class="text-right">TOTAL</td>
+                <td colspan="6" class="text-right">TOTAL</td>
                 <td class="text-right">${{ number_format($oc->total, 2) }}</td>
             </tr>
         </tfoot>

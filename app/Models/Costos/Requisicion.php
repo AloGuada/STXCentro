@@ -8,6 +8,7 @@ use App\Models\Concerns\HasCancelacion;
 use App\Models\Concerns\HasEditLock;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
+use App\Models\Costos\Concerns\VerificaPresupuestoReservado;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Usuario;
@@ -26,7 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Requisicion extends Model implements Aprobable
 {
-    use HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity;
+    use HasCancelacion, HasEditLock, HasFactory, HasMonthlyFolio, HasStateMachine, LogsActivity, VerificaPresupuestoReservado;
 
     public const TIPO_APROBACION = 'requisicion';
 

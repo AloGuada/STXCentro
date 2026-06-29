@@ -157,6 +157,26 @@ test('la solicitud usa el método de pago elegido en la OC', function () {
     expect($solicitud->tipo_pago)->toBe('cheque');
 });
 
+test('la solicitud usa la fecha de pago indicada en la OC', function () {
+    $rubro = ObraRubro::factory()->create();
+    $oc = ocContadoConDetalle($this->depto, $rubro);
+    $userId = User::factory()->create()->id;
+
+    $solicitud = app(SolicitudPagoDesdeOrdenCompra::class)->crear($oc, $userId, 'transferencia', '2026-08-15');
+
+    expect((string) $solicitud->fecha_pago_solicitada)->toContain('2026-08-15');
+});
+
+test('la solicitud usa la fecha del día si la OC no indica fecha de pago', function () {
+    $rubro = ObraRubro::factory()->create();
+    $oc = ocContadoConDetalle($this->depto, $rubro);
+    $userId = User::factory()->create()->id;
+
+    $solicitud = app(SolicitudPagoDesdeOrdenCompra::class)->crear($oc, $userId, 'transferencia', null);
+
+    expect((string) $solicitud->fecha_pago_solicitada)->toContain(now()->toDateString());
+});
+
 test('liberar OC de contado con parcialidades genera una solicitud por hito', function () {
     $permLiberar = Permission::firstOrCreate(['name' => 'costos.requisiciones.liberar', 'guard_name' => 'web']);
     $compras = User::factory()->create();
@@ -282,6 +302,8 @@ test('factura posterior de OC contado pagada no genera segundo pago', function (
 
     $factura->refresh();
     expect($factura->aceptada_contabilidad)->toBeTrue();
+    // La factura de contado queda Pagada (cubierta por el anticipo), no atorada en pendiente_pago.
+    expect($factura->estatus)->toBe(\App\Enums\Costos\FacturaEstatus::Pagada);
     expect(Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->count())->toBe(0);
 });
 

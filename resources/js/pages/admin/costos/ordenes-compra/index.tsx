@@ -1,10 +1,12 @@
+import { CONTADO_STEPS, getContadoStep } from '@/components/costos/oc-contado';
+import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosFactura, CostosOcEtapaProceso, CostosOrdenCompra, PaginatedData } from '@/types/models';
-import { OC_ETAPA_BADGE, OC_ETAPA_LABELS } from '@/types/models';
+import type { CostosFactura, CostosOcEtapaProceso, CostosOrdenCompra, ModoPago, Obra, PaginatedData, Proveedor } from '@/types/models';
+import { MODO_PAGO_LABELS, OC_ETAPA_BADGE, OC_ETAPA_LABELS } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
-import { PlusIcon, SearchIcon } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { ChevronDownIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, PlusIcon, SearchIcon } from 'lucide-react';
+import { Fragment, type FormEvent, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -24,8 +26,16 @@ const estatusOptions = [
 
 type Props = {
     ordenes: PaginatedData<CostosOrdenCompra>;
-    filters: { search?: string; estatus?: string };
+    filters: { search?: string; estatus?: string; proveedor_id?: string; obra_id?: string; tipo_pago?: string };
+    proveedoresFiltro: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>[];
+    obrasFiltro: Pick<Obra, 'id' | 'no' | 'descripcion'>[];
 };
+
+const tipoPagoOptions = [
+    { value: '', label: 'Todo tipo de pago' },
+    { value: 'contado', label: 'Contado' },
+    { value: 'credito', label: 'Crédito' },
+];
 
 const money = (n: number) =>
     Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -42,18 +52,11 @@ const pagosTotal = (oc: CostosOrdenCompra) =>
 const pagosPagadosCount = (oc: CostosOrdenCompra) =>
     facturasActivas(oc).filter((f) => f.pago?.estatus === 'pagado').length;
 
-function unidadesRecepcionadas(oc: CostosOrdenCompra): string {
-    const totalUnidades = (oc.detalles ?? []).reduce((s, d) => s + Number(d.cantidad), 0);
-    let recibidas = 0;
-    for (const entrega of oc.entregas ?? []) {
-        for (const ed of entrega.detalles ?? []) {
-            const devueltas = (ed.devoluciones ?? [])
-                .filter((d: any) => d.estatus === 'vigente')
-                .reduce((s: number, d: any) => s + Number(d.cantidad), 0);
-            recibidas += Math.max(0, Number(ed.cantidad_recibida) - devueltas);
-        }
-    }
-    return `${recibidas.toLocaleString('es-MX')} / ${totalUnidades.toLocaleString('es-MX')} unidades recibidas`;
+function obraFolio(oc: CostosOrdenCompra): string {
+    // La OC manual puede traer obra_id directo; la generada hereda la obra de la requisición.
+    const obra = oc.obra ?? oc.requisicion?.obra;
+    if (!obra) return 'Sin obra';
+    return `OP-${obra.no}${obra.descripcion ? ` · ${obra.descripcion}` : ''}`;
 }
 
 function recepcionSubtitle(oc: CostosOrdenCompra): string {
@@ -100,18 +103,79 @@ function pctClasses(pct: number | undefined): string {
     return 'text-warning';
 }
 
+function contadoSubtitle(oc: CostosOrdenCompra, step: number): string {
+    switch (step) {
+        case 0: return 'Anticipo pendiente de firma';
+        case 1: return 'Anticipo aprobado, por pagar';
+        case 2: return recepcionSubtitle(oc);
+        case 3: return 'Recibido, falta subir factura';
+        case 4: return 'Factura registrada';
+        default: return 'Cancelada';
+    }
+}
+
 function EtapaCell({ oc }: { oc: CostosOrdenCompra }) {
+    // Las OCs de contado siguen otro flujo (anticipo por solicitud de pago).
+    if (oc.tipo_pago === 'contado') {
+        const step = getContadoStep(oc);
+        if (step < 0) {
+            return <span className="badge badge-neutral">Cancelada</span>;
+        }
+        const etapa = CONTADO_STEPS[step];
+        return (
+            <div>
+                <span className={etapa.badge}>{etapa.label}</span>
+                <div className="text-xs text-base-content/60 mt-1.5">{contadoSubtitle(oc, step)}</div>
+            </div>
+        );
+    }
+
     const etapa = (oc.etapa_proceso ?? 'recepcion') as CostosOcEtapaProceso;
     return (
         <div>
             <span className={OC_ETAPA_BADGE[etapa]}>{OC_ETAPA_LABELS[etapa]}</span>
-            {oc.pagada_anticipo_contado && (
-                <div className="mt-1">
-                    <span className="badge badge-success badge-sm">Pagada (anticipo contado)</span>
-                </div>
-            )}
             <div className="text-xs text-base-content/60 mt-1.5">{etapaSubtitle(oc)}</div>
         </div>
+    );
+}
+
+function PartidasTree({ oc }: { oc: CostosOrdenCompra }) {
+    const detalles = oc.detalles ?? [];
+    if (detalles.length === 0) {
+        return <div className="text-xs text-base-content/40">Esta orden no tiene partidas.</div>;
+    }
+    return (
+        <div className="ml-1 border-l border-base-300 pl-3">
+            <div className="mb-1 text-[10px] uppercase tracking-wider text-base-content/50">
+                {detalles.length} {detalles.length === 1 ? 'partida' : 'partidas'}
+            </div>
+            <div className="space-y-0.5">
+                {detalles.map((d) => (
+                    <div key={d.id} className="flex items-center gap-2 text-xs">
+                        <FileTextIcon className="size-3 shrink-0 text-base-content/40" />
+                        <span className="flex-1 truncate" title={d.descripcion}>{d.descripcion}</span>
+                        <span className="shrink-0 text-base-content/60">
+                            {Number(d.cantidad).toLocaleString('es-MX')} {d.unidad}
+                        </span>
+                        <span className="w-24 shrink-0 text-right text-base-content/60">${money(d.precio_unitario)}</span>
+                        <span className="w-28 shrink-0 text-right font-medium">${money(d.subtotal)}</span>
+                    </div>
+                ))}
+            </div>
+            <div className="mt-1.5 flex items-center justify-end gap-2 border-t border-base-300 pt-1.5 text-xs">
+                <span className="text-base-content/60">Total</span>
+                <span className="w-28 text-right font-semibold">${money(oc.total)} MXN</span>
+            </div>
+        </div>
+    );
+}
+
+function TipoPagoBadge({ tipo }: { tipo: ModoPago | null }) {
+    if (!tipo) return null;
+    return (
+        <span className={`badge badge-sm ${tipo === 'credito' ? 'badge-warning' : 'badge-success'}`}>
+            {MODO_PAGO_LABELS[tipo]}
+        </span>
     );
 }
 
@@ -141,21 +205,51 @@ function AlertasCell({ oc }: { oc: CostosOrdenCompra }) {
     );
 }
 
-export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
+export default function OrdenesCompraIndex({ ordenes, filters, proveedoresFiltro, obrasFiltro }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
+    const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+    const toggleExpanded = (id: number) =>
+        setExpanded((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+
+    const applyFilter = (patch: Record<string, string | undefined>) => {
+        const next: Record<string, string | undefined> = { ...filters, ...patch };
+        Object.keys(next).forEach((k) => {
+            if (!next[k]) delete next[k];
+        });
+        router.get('/admin/costos/ordenes-compra', next, { preserveState: true, replace: true, preserveScroll: true });
+    };
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        router.get(
-            '/admin/costos/ordenes-compra',
-            { ...filters, search: search || undefined },
-            { preserveState: true, replace: true },
-        );
+        applyFilter({ search: search || undefined });
     };
 
-    const handleEstatusChange = (estatus: string) => {
-        router.get('/admin/costos/ordenes-compra', { ...filters, estatus: estatus || undefined }, { preserveState: true });
-    };
+    const proveedorOptions = [
+        { value: '', label: 'Todos los proveedores' },
+        ...proveedoresFiltro.map((p) => ({ value: String(p.id), label: p.razon_social })),
+    ];
+    const obraOptions = [
+        { value: '', label: 'Todas las obras' },
+        ...obrasFiltro.map((o) => ({ value: String(o.id), label: `OP-${o.no} · ${o.descripcion}` })),
+    ];
+
+    const exportUrl = (() => {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => {
+            if (v) params.set(k, String(v));
+        });
+        const qs = params.toString();
+        return `/admin/costos/ordenes-compra/exportar${qs ? `?${qs}` : ''}`;
+    })();
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -167,22 +261,27 @@ export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
                         <h1 className="text-xl md:text-2xl font-semibold">Órdenes de compra</h1>
                         <p className="text-base-content/60 text-sm mt-1">Etapa en proceso, avance por monto y alertas.</p>
                     </div>
-                    <Link
-                        href="/admin/costos/ordenes-compra/create"
-                        className="btn btn-primary btn-sm gap-1 self-start md:self-auto"
-                    >
-                        <PlusIcon className="size-4" /> Nueva orden
-                    </Link>
+                    <div className="flex gap-2 self-start md:self-auto">
+                        <a href={exportUrl} className="btn btn-outline btn-sm gap-1">
+                            <DownloadIcon className="size-4" /> Exportar Excel
+                        </a>
+                        <Link
+                            href="/admin/costos/ordenes-compra/create"
+                            className="btn btn-primary btn-sm gap-1"
+                        >
+                            <PlusIcon className="size-4" /> Nueva orden
+                        </Link>
+                    </div>
                 </div>
 
-                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                    <form onSubmit={handleSubmit} className="flex flex-1 items-center gap-2">
+                <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-3">
+                    <form onSubmit={handleSubmit} className="flex items-center gap-2">
                         <div className="relative flex-1 sm:flex-initial">
                             <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-base-content/40" />
                             <input
                                 type="text"
-                                className="input input-bordered input-sm pl-8 w-full sm:w-72"
-                                placeholder="Buscar por folio o proveedor..."
+                                className="input input-bordered input-sm pl-8 w-full sm:w-64"
+                                placeholder="Buscar por folio..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                             />
@@ -190,10 +289,36 @@ export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
                         <button type="submit" className="btn btn-sm">Buscar</button>
                     </form>
 
+                    <SearchSelect
+                        options={proveedorOptions}
+                        value={filters.proveedor_id ?? ''}
+                        onValueChange={(v) => applyFilter({ proveedor_id: v || undefined })}
+                        placeholder="Proveedor..."
+                        className="w-full lg:w-56"
+                    />
+
+                    <SearchSelect
+                        options={obraOptions}
+                        value={filters.obra_id ?? ''}
+                        onValueChange={(v) => applyFilter({ obra_id: v || undefined })}
+                        placeholder="Obra..."
+                        className="w-full lg:w-64"
+                    />
+
                     <select
-                        className="select select-bordered select-sm w-full sm:w-auto"
+                        className="select select-bordered select-sm w-full lg:w-auto"
+                        value={filters.tipo_pago ?? ''}
+                        onChange={(e) => applyFilter({ tipo_pago: e.target.value || undefined })}
+                    >
+                        {tipoPagoOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        className="select select-bordered select-sm w-full lg:w-auto"
                         value={filters.estatus ?? ''}
-                        onChange={(e) => handleEstatusChange(e.target.value)}
+                        onChange={(e) => applyFilter({ estatus: e.target.value || undefined })}
                     >
                         {estatusOptions.map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -224,7 +349,10 @@ export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
                                             ${money(oc.total)} MXN
                                         </div>
                                         <div className="text-base-content/50 text-xs mt-0.5">
-                                            {unidadesRecepcionadas(oc)}
+                                            {obraFolio(oc)}
+                                        </div>
+                                        <div className="mt-1.5">
+                                            <TipoPagoBadge tipo={oc.tipo_pago} />
                                         </div>
                                     </div>
                                     <EtapaCell oc={oc} />
@@ -265,6 +393,8 @@ export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
                         <thead className="bg-base-200 text-base-content/70 sticky top-0 z-10">
                             <tr className="text-left text-sm">
                                 <th className="p-3 xl:p-5 font-semibold">OC</th>
+                                <th className="p-3 xl:p-5 font-semibold">Proveedor</th>
+                                <th className="p-3 xl:p-5 font-semibold">Obra</th>
                                 <th className="p-3 xl:p-5 font-semibold">En proceso</th>
                                 <th className="p-3 xl:p-5 font-semibold">
                                     Recepción <span className="font-normal text-base-content/40 normal-case">(% del monto)</span>
@@ -281,34 +411,46 @@ export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
                         <tbody className="divide-y divide-base-300">
                             {ordenes.data.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="p-10 text-center text-base-content/40">
+                                    <td colSpan={8} className="p-10 text-center text-base-content/40">
                                         No hay órdenes de compra
                                     </td>
                                 </tr>
                             ) : (
                                 ordenes.data.map((oc) => (
+                                    <Fragment key={oc.id}>
                                     <tr
-                                        key={oc.id}
                                         className="hover:bg-base-200 cursor-pointer"
                                         onClick={() => router.visit(`/admin/costos/ordenes-compra/${oc.id}`)}
                                     >
                                         <td className="p-3 xl:p-5 w-[260px]">
-                                            <Link
-                                                href={`/admin/costos/ordenes-compra/${oc.id}`}
-                                                className="font-bold text-primary text-base xl:text-lg hover:underline"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                {oc.folio}
-                                            </Link>
-                                            <div className="text-base-content/60 text-sm mt-1">
-                                                {oc.proveedor?.razon_social ?? '—'}
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-ghost btn-xs px-1"
+                                                    title={expanded.has(oc.id) ? 'Ocultar partidas' : 'Ver partidas'}
+                                                    onClick={(e) => { e.stopPropagation(); toggleExpanded(oc.id); }}
+                                                >
+                                                    {expanded.has(oc.id)
+                                                        ? <ChevronDownIcon className="size-4" />
+                                                        : <ChevronRightIcon className="size-4" />}
+                                                </button>
+                                                <Link
+                                                    href={`/admin/costos/ordenes-compra/${oc.id}`}
+                                                    className="font-bold text-primary text-base xl:text-lg hover:underline"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {oc.folio}
+                                                </Link>
                                             </div>
-                                            <div className="text-base-content text-sm font-semibold mt-1">
-                                                ${money(oc.total)} MXN
+                                            <div className="mt-1.5">
+                                                <TipoPagoBadge tipo={oc.tipo_pago} />
                                             </div>
-                                            <div className="text-base-content/50 text-xs mt-0.5">
-                                                {unidadesRecepcionadas(oc)}
-                                            </div>
+                                        </td>
+                                        <td className="p-3 xl:p-5">
+                                            <div className="text-sm">{oc.proveedor?.razon_social ?? '—'}</div>
+                                        </td>
+                                        <td className="p-3 xl:p-5">
+                                            <div className="text-sm">{obraFolio(oc)}</div>
                                         </td>
                                         <td className="p-3 xl:p-5">
                                             <EtapaCell oc={oc} />
@@ -332,6 +474,14 @@ export default function OrdenesCompraIndex({ ordenes, filters }: Props) {
                                             <AlertasCell oc={oc} />
                                         </td>
                                     </tr>
+                                    {expanded.has(oc.id) && (
+                                        <tr className="bg-base-200/30">
+                                            <td colSpan={8} className="px-5 pb-4 pt-1">
+                                                <PartidasTree oc={oc} />
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </Fragment>
                                 ))
                             )}
                         </tbody>

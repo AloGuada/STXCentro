@@ -127,11 +127,12 @@ class OrdenCompraGenerator
         if ($oc->tipo_pago === ModoPago::Contado) {
             $parcialidades = array_values(array_filter((array) ($payload['pagos'] ?? [])));
             $metodoPago = (string) ($payload['metodo_pago'] ?? 'transferencia');
+            $fechaPago = $payload['fecha_pago'] ?? null;
 
             if (count($parcialidades) > 0) {
-                $this->solicitudDesdeOc->crearParcialidades($oc, $parcialidades, $userId, $metodoPago);
+                $this->solicitudDesdeOc->crearParcialidades($oc, $parcialidades, $userId, $metodoPago, $fechaPago);
             } else {
-                $this->solicitudDesdeOc->crear($oc, $userId, $metodoPago);
+                $this->solicitudDesdeOc->crear($oc, $userId, $metodoPago, $fechaPago);
             }
         }
     }

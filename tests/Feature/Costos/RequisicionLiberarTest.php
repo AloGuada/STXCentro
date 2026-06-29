@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
+use App\Models\Costos\Permiso;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
@@ -262,6 +264,33 @@ test('liberar aplica impacto presupuestal con base subtotal', function () {
 
     $rubro->refresh();
     expect((float) $rubro->acumulado)->toBe(500.0);
+});
+
+test('no libera una requisición que saltó niveles si el apartado venció', function () {
+    // Cadena: nivel 1 saltable, nivel 2 normal.
+    $p1 = Permiso::create(['descripcion' => 'N1', 'nivel' => 1, 'tipo_aprobacion' => 'requisicion', 'omitir_si_presupuesto_reservado' => true]);
+    $p2 = Permiso::create(['descripcion' => 'N2', 'nivel' => 2, 'tipo_aprobacion' => 'requisicion', 'omitir_si_presupuesto_reservado' => false]);
+    AprobacionDepartamento::create(['departamento_id' => $this->depto->id, 'permiso_id' => $p1->id, 'aprobador_id' => User::factory()->create()->id]);
+    AprobacionDepartamento::create(['departamento_id' => $this->depto->id, 'permiso_id' => $p2->id, 'aprobador_id' => User::factory()->create()->id]);
+
+    $rubro = ObraRubro::factory()->create();
+    [$req, $detalle] = setupRequisicionAprobadaConRubro($this->depto, $rubro);
+    // Solo el nivel 2 tiene registro (el 1 se saltó). Sin apartado vigente.
+    $req->cadenaAprobacion()->create(['nivel' => 2, 'aprobador_id' => User::factory()->create()->id, 'estatus' => 'aprobada']);
+
+    $proveedor = Proveedor::factory()->create();
+    $precio = RequisicionCotizacionPrecio::factory()->create(['requisicion_detalle_id' => $detalle->id, 'proveedor_id' => $proveedor->id]);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $detalle->id, 'cotizacion_precio_id' => $precio->id,
+        'numero_oc' => 1, 'proveedor_id' => $proveedor->id, 'cantidad' => 10,
+    ]);
+    ocMeta($req->id, $proveedor->id, 1, 'credito');
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/liberar")
+        ->assertSessionHasErrors(['estatus']);
+
+    expect(OrdenCompra::count())->toBe(0);
 });
 
 test('liberar requiere permiso costos.requisiciones.liberar', function () {

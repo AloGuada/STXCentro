@@ -1405,6 +1405,7 @@ export type CostosPermiso = {
     descripcion: string;
     nivel: number;
     tipo_aprobacion: 'solicitud_pago' | 'requisicion';
+    omitir_si_presupuesto_reservado: boolean;
     created_at: string;
     updated_at: string;
 };
@@ -1723,6 +1724,7 @@ export type CostosRequisicionOc = {
     modo_pago: ModoPago;
     metodo_pago: 'transferencia' | 'cheque' | 'efectivo';
     fecha_entrega: string | null;
+    fecha_pago: string | null;
     notas: string | null;
     pagos: CostosRequisicionOcPago[] | null;
     created_at: string;
@@ -2009,6 +2011,7 @@ export type CostosOrdenCompra = {
     pagada_anticipo_contado?: boolean;
     detalles_count?: number;
     requisicion_id: number | null;
+    requisicion?: { id: number; obra?: Pick<Obra, 'id' | 'no' | 'descripcion'> };
     proveedor?: Proveedor;
     obra?: Obra;
     departamento?: Departamento;
@@ -2041,7 +2044,9 @@ export type CostosOrdenCompraDetalle = {
     cantidad: number;
     precio_unitario: number;
     subtotal: number;
+    uso_cfdi_id: number | null;
     obra_rubro?: CostosObraRubro;
+    uso_cfdi?: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>;
     created_at: string;
     updated_at: string;
 };

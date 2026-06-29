@@ -24,9 +24,15 @@ use Illuminate\Support\Facades\DB;
  */
 class ApartadoPresupuestal
 {
+    /** Valor por defecto si no hay configuración guardada. */
     public const DIAS_APARTADO = 5;
 
     public function __construct(private readonly ValidadorPresupuesto $validador) {}
+
+    private function diasApartado(): int
+    {
+        return \App\Models\Costos\ConfiguracionCostos::actual()->dias_apartado ?: self::DIAS_APARTADO;
+    }
 
     /**
      * Aparta presupuesto temporalmente para una entrada (SolicitudPago o
@@ -37,7 +43,7 @@ class ApartadoPresupuestal
     public function apartarDocumento(Model $entrada, iterable $items, ?string $userId = null): void
     {
         $userId = $userId ?? Auth::id();
-        $apartadoHasta = Carbon::today()->addDays(self::DIAS_APARTADO);
+        $apartadoHasta = Carbon::today()->addDays($this->diasApartado());
 
         DB::transaction(function () use ($entrada, $items, $userId, $apartadoHasta) {
             foreach ($items as $item) {

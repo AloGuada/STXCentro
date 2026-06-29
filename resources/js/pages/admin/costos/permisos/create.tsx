@@ -19,6 +19,7 @@ export default function PermisosCreate() {
         descripcion: '',
         nivel: 1,
         tipo_aprobacion: 'solicitud_pago',
+        omitir_si_presupuesto_reservado: false,
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -65,6 +66,22 @@ export default function PermisosCreate() {
                                 <option value="requisicion">Requisición</option>
                             </select>
                         </FormField>
+
+                        <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-base-300 p-3">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm mt-0.5"
+                                checked={data.omitir_si_presupuesto_reservado}
+                                onChange={(e) => setData('omitir_si_presupuesto_reservado', e.target.checked)}
+                            />
+                            <span className="text-sm">
+                                <span className="font-medium">Saltar si hay presupuesto reservado</span>
+                                <span className="block text-xs text-base-content/60">
+                                    Este nivel se omite automáticamente cuando el documento tiene presupuesto reservado
+                                    (apartado vigente). Si el apartado venció, el nivel vuelve a requerir firma.
+                                </span>
+                            </span>
+                        </label>
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>

@@ -24,7 +24,7 @@ class SolicitudPagoDesdeOrdenCompra
      *
      * Idempotente: si la OC ya tiene una solicitud asociada, no hace nada.
      */
-    public function crear(OrdenCompra $oc, string $userId, string $metodoPago = 'transferencia'): ?SolicitudPago
+    public function crear(OrdenCompra $oc, string $userId, string $metodoPago = 'transferencia', ?string $fechaPago = null): ?SolicitudPago
     {
         if ($oc->solicitudesPago()->exists()) {
             return null;
@@ -53,7 +53,7 @@ class SolicitudPagoDesdeOrdenCompra
                 'monto_total' => $oc->total,
                 'tipo_pago' => $metodoPago,
                 'tipo_moneda' => $oc->moneda,
-                'fecha_pago_solicitada' => now()->toDateString(),
+                'fecha_pago_solicitada' => $fechaPago ?: now()->toDateString(),
                 'estatus' => SolicitudPagoEstatus::PendienteFirma->value,
             ]);
 
@@ -96,7 +96,7 @@ class SolicitudPagoDesdeOrdenCompra
      *
      * @param  list<array{porcentaje: float|int|string, concepto?: string|null}>  $parcialidades
      */
-    public function crearParcialidades(OrdenCompra $oc, array $parcialidades, string $userId, string $metodoPago = 'transferencia'): void
+    public function crearParcialidades(OrdenCompra $oc, array $parcialidades, string $userId, string $metodoPago = 'transferencia', ?string $fechaPago = null): void
     {
         if ($oc->solicitudesPago()->exists()) {
             return;
@@ -131,7 +131,7 @@ class SolicitudPagoDesdeOrdenCompra
                     'monto_total' => $monto,
                     'tipo_pago' => $metodoPago,
                     'tipo_moneda' => $oc->moneda,
-                    'fecha_pago_solicitada' => now()->toDateString(),
+                    'fecha_pago_solicitada' => $fechaPago ?: now()->toDateString(),
                     'estatus' => SolicitudPagoEstatus::PendienteFirma->value,
                 ]);
 
@@ -171,6 +171,8 @@ class SolicitudPagoDesdeOrdenCompra
      */
     private function generarPdfMedia(OrdenCompra $oc): Media
     {
+        $oc->loadMissing(['detalles.usoCfdi:id,clave', 'requisicion:id,folio']);
+
         $pdf = Pdf::loadView('pdf.costos.formato-orden-compra', ['oc' => $oc])
             ->setPaper('letter', 'portrait');
 

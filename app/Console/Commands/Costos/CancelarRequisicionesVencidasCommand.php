@@ -14,11 +14,13 @@ class CancelarRequisicionesVencidasCommand extends Command
 
     protected $description = 'Cancela requisiciones en pendiente_aprobacion o aprobada que llevan mas de 10 dias sin avanzar.';
 
+    /** Valor por defecto si no hay configuración guardada. */
     public const DIAS_LIMITE = 10;
 
     public function handle(ApartadoPresupuestal $apartado): int
     {
-        $limite = now()->subDays(self::DIAS_LIMITE);
+        $dias = \App\Models\Costos\ConfiguracionCostos::actual()->dias_cancelar_requisicion ?: self::DIAS_LIMITE;
+        $limite = now()->subDays($dias);
 
         $requisiciones = Requisicion::query()
             ->whereIn('estatus', [

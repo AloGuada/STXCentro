@@ -250,6 +250,11 @@ class FacturaAdminController extends Controller
                     'aceptada_contabilidad_at' => now(),
                 ])->save();
 
+                // El anticipo ya cubrió la OC; la factura queda saldada (no habrá
+                // un segundo pago), así que se marca como Pagada en vez de quedar
+                // atorada en "Pendiente de pago".
+                $factura->transitionTo(FacturaEstatus::Pagada);
+
                 $oc->recalcularEstatus();
             });
 

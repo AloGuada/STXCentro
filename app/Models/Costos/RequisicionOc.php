@@ -27,6 +27,7 @@ class RequisicionOc extends Model
         'modo_pago',
         'metodo_pago',
         'fecha_entrega',
+        'fecha_pago',
         'notas',
         'pagos',
     ];
@@ -40,6 +41,7 @@ class RequisicionOc extends Model
             'numero_oc' => 'integer',
             'modo_pago' => ModoPago::class,
             'fecha_entrega' => 'date',
+            'fecha_pago' => 'date',
             'pagos' => 'array',
         ];
     }

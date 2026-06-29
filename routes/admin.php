@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\Cob\TipoRetencionController as CobTipoRetencionCo
 use App\Http\Controllers\Admin\Costos\AfectacionPresupuestalController as CostosAfectacionPresupuestalController;
 use App\Http\Controllers\Admin\Costos\AnticipoController as CostosAnticipoController;
 use App\Http\Controllers\Admin\Costos\AprobacionController as CostosAprobacionController;
+use App\Http\Controllers\Admin\Costos\ConfiguracionCostosController as CostosConfiguracionController;
 use App\Http\Controllers\Admin\Costos\CuentaInternaController as CostosCuentaInternaController;
 use App\Http\Controllers\Admin\Costos\DevolucionController as CostosDevolucionController;
 use App\Http\Controllers\Admin\Costos\EditLockController as CostosEditLockController;
@@ -194,6 +195,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('tipo-solicitudes', CostosTipoSolicitudController::class)->parameters(['tipo-solicitudes' => 'tipoSolicitud']);
         Route::resource('permisos', CostosPermisoController::class)->parameters(['permisos' => 'permiso']);
         Route::post('permisos/{permiso}/sync-departamentos', [CostosPermisoController::class, 'syncDepartamentos'])->name('permisos.sync-departamentos');
+        Route::get('configuracion', [CostosConfiguracionController::class, 'edit'])->name('configuracion.edit');
+        Route::put('configuracion', [CostosConfiguracionController::class, 'update'])->name('configuracion.update');
         // Devoluciones a proveedor (Fase 13)
         Route::resource('devoluciones', CostosDevolucionController::class)->only(['index', 'store', 'show'])->parameters(['devoluciones' => 'devolucion']);
         Route::post('devoluciones/{devolucion}/cancelar', [CostosDevolucionController::class, 'cancelar'])->name('devoluciones.cancelar');
@@ -237,8 +240,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('solicitudes-pago/{solicitudPago}/re-apartar', [CostosSolicitudPagoController::class, 'reApartar'])->name('solicitudes-pago.re-apartar');
 
         // Ordenes de Compra
+        Route::get('ordenes-compra/exportar', [CostosOrdenCompraController::class, 'exportar'])->name('ordenes-compra.exportar');
         Route::resource('ordenes-compra', CostosOrdenCompraController::class)->only(['index', 'create', 'store', 'show', 'destroy'])->parameters(['ordenes-compra' => 'ordenCompra']);
         Route::post('ordenes-compra/{ordenCompra}/cancelar', [CostosOrdenCompraController::class, 'cancelar'])->name('ordenes-compra.cancelar');
+        Route::post('ordenes-compra/{ordenCompra}/factura-contado', [CostosOrdenCompraController::class, 'subirFacturaContado'])->name('ordenes-compra.factura-contado');
         Route::get('ordenes-compra/{ordenCompra}/pdf-requisicion', [CostosOrdenCompraController::class, 'pdfRequisicion'])->name('ordenes-compra.pdf-requisicion');
         Route::get('ordenes-compra/{ordenCompra}/pdf-oc', [CostosOrdenCompraController::class, 'pdfOc'])->name('ordenes-compra.pdf-oc');
         Route::get('ordenes-compra/{ordenCompra}/pdf-contrarecibo/{factura}', [CostosOrdenCompraController::class, 'pdfContrarecibo'])->name('ordenes-compra.pdf-contrarecibo');

@@ -1,5 +1,6 @@
 <?php
 
+use App\Exports\Costos\OrdenesCompraExport;
 use App\Models\Costos\Factura;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
@@ -24,6 +25,44 @@ test('lista ordenes de compra', function () {
             ->component('admin/costos/ordenes-compra/index')
             ->has('ordenes.data', 3)
         );
+});
+
+test('el export aplana una linea por producto de la OC', function () {
+    $oc = OrdenCompra::factory()->create();
+    OrdenCompraDetalle::factory()->count(2)->create(['orden_compra_id' => $oc->id]);
+    $otra = OrdenCompra::factory()->create();
+    OrdenCompraDetalle::factory()->create(['orden_compra_id' => $otra->id]);
+
+    $filas = (new OrdenesCompraExport([]))->collection();
+
+    // 2 + 1 = 3 líneas, una por producto, repitiendo los datos de la OC.
+    expect($filas)->toHaveCount(3);
+    expect($filas->first())->toHaveKeys(['folio', 'estatus', 'proveedor', 'obra', 'tipo_pago', 'total', 'producto', 'cantidad', 'subtotal']);
+});
+
+test('una OC sin productos exporta una sola linea', function () {
+    OrdenCompra::factory()->create();
+
+    expect((new OrdenesCompraExport([]))->collection())->toHaveCount(1);
+});
+
+test('exporta el listado de OC a excel', function () {
+    OrdenCompra::factory()->create();
+
+    $res = $this->actingAs($this->user)->get('/admin/costos/ordenes-compra/exportar');
+
+    $res->assertOk();
+    expect($res->headers->get('content-disposition'))->toContain('.xlsx');
+});
+
+test('el PDF de la OC se genera con requisición y uso CFDI', function () {
+    $oc = OrdenCompra::factory()->create();
+    OrdenCompraDetalle::factory()->create(['orden_compra_id' => $oc->id]);
+
+    $res = $this->actingAs($this->user)->get("/admin/costos/ordenes-compra/{$oc->id}/pdf-oc");
+
+    $res->assertOk();
+    expect($res->headers->get('content-type'))->toContain('pdf');
 });
 
 test('muestra formulario de creacion', function () {
