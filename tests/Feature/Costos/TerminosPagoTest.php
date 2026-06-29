@@ -1,58 +1,51 @@
 <?php
 
-use App\Enums\Costos\BaseDiasCredito;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\Pago;
 use App\Models\Proveedor;
+use Illuminate\Support\Carbon;
 
 describe('Factura::calcularFechaPago', function () {
-    test('base factura: suma dias_credito y ajusta al proximo viernes', function () {
-        // 2026-02-17 (martes) + 30 = 2026-03-19 (jueves), next friday = 2026-03-20
-        $factura = Factura::factory()->make([
-            'fecha_factura' => '2026-02-17',
-            'dias_credito' => 30,
-            'base_dias_credito' => BaseDiasCredito::Factura,
-        ]);
+    afterEach(fn () => Carbon::setTestNow());
 
-        $fecha = $factura->calcularFechaPago();
+    test('cuenta los días de crédito desde hoy y ajusta al viernes (corte miércoles)', function () {
+        Carbon::setTestNow('2026-06-29'); // lunes
+        // hoy + 30 = 2026-07-29 (miércoles) -> viernes de esa semana 2026-07-31
+        $factura = Factura::factory()->make(['dias_credito' => 30]);
 
-        expect($fecha?->format('Y-m-d'))->toBe('2026-03-20');
+        expect($factura->calcularFechaPago()?->format('Y-m-d'))->toBe('2026-07-31');
     });
 
-    test('base factura: respeta fecha si ya cae en viernes', function () {
-        // 2026-02-20 (viernes) + 0 = 2026-02-20 (viernes)
+    test('respeta la fecha de la factura solo si el proveedor lo exige', function () {
+        $proveedor = Proveedor::factory()->create(['respetar_fecha_factura' => true]);
+        // fecha_factura miércoles 2026-07-29 + 0 -> viernes 2026-07-31
         $factura = Factura::factory()->make([
-            'fecha_factura' => '2026-02-20',
+            'fecha_factura' => '2026-07-29',
             'dias_credito' => 0,
-            'base_dias_credito' => BaseDiasCredito::Factura,
-        ]);
-
-        expect($factura->calcularFechaPago()?->format('Y-m-d'))->toBe('2026-02-20');
-    });
-
-    test('retorna null si base=factura y fecha_factura esta vacia', function () {
-        $factura = Factura::factory()->make([
-            'fecha_factura' => null,
-            'dias_credito' => 15,
-            'base_dias_credito' => BaseDiasCredito::Factura,
-        ]);
-
-        expect($factura->calcularFechaPago())->toBeNull();
-    });
-
-    test('cae al default del proveedor si dias_credito no esta seteado', function () {
-        $proveedor = Proveedor::factory()->create(['dias_credito_default' => 45]);
-        $factura = Factura::factory()->make([
-            'fecha_factura' => '2026-02-17',
-            'dias_credito' => null,
-            'base_dias_credito' => BaseDiasCredito::Factura,
             'proveedor_id' => $proveedor->id,
         ]);
         $factura->setRelation('proveedor', $proveedor);
 
-        // 2026-02-17 + 45 = 2026-04-03 (viernes) -> se mantiene
-        expect($factura->calcularFechaPago()?->format('Y-m-d'))->toBe('2026-04-03');
+        expect($factura->calcularFechaPago()?->format('Y-m-d'))->toBe('2026-07-31');
+    });
+
+    test('no depende de fecha_factura cuando el proveedor no la exige', function () {
+        Carbon::setTestNow('2026-06-29'); // lunes
+        // sin fecha_factura: base = hoy + 15 = 2026-07-14 (martes) -> viernes 2026-07-17
+        $factura = Factura::factory()->make(['fecha_factura' => null, 'dias_credito' => 15]);
+
+        expect($factura->calcularFechaPago()?->format('Y-m-d'))->toBe('2026-07-17');
+    });
+
+    test('cae al default del proveedor si dias_credito no esta seteado', function () {
+        Carbon::setTestNow('2026-06-29'); // lunes
+        $proveedor = Proveedor::factory()->create(['dias_credito_default' => 45]);
+        $factura = Factura::factory()->make(['dias_credito' => null, 'proveedor_id' => $proveedor->id]);
+        $factura->setRelation('proveedor', $proveedor);
+
+        // hoy + 45 = 2026-08-13 (jueves) -> viernes siguiente 2026-08-21
+        expect($factura->calcularFechaPago()?->format('Y-m-d'))->toBe('2026-08-21');
     });
 });
 

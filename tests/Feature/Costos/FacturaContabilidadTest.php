@@ -61,10 +61,11 @@ test('contabilidad acepta factura y crea pago programado', function () {
 
 test('pago programado con dias credito ajusta al viernes', function () {
     Mail::fake();
+    Carbon::setTestNow('2026-06-29'); // lunes
 
     $proveedor = Proveedor::factory()->create(['dias_credito_default' => 30, 'email' => null]);
-    // Factura emitida el martes 2026-02-17; 30 dias naturales -> jueves 2026-03-19,
-    // ajuste al siguiente viernes = 2026-03-20.
+    // Sin respetar_fecha_factura: base = HOY (2026-06-29) + 30 = 2026-07-29 (miércoles),
+    // ajuste a viernes de esa semana = 2026-07-31.
     $factura = crearFacturaAprobadaCostos($proveedor, '2026-02-17');
 
     $this->actingAs($this->user)
@@ -74,7 +75,9 @@ test('pago programado con dias credito ajusta al viernes', function () {
     $pago = Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->first();
     expect($pago->estatus->value)->toBe('programado');
     expect($pago->fecha_pago_programada->dayOfWeek)->toBe(Carbon::FRIDAY);
-    expect($pago->fecha_pago_programada->format('Y-m-d'))->toBe('2026-03-20');
+    expect($pago->fecha_pago_programada->format('Y-m-d'))->toBe('2026-07-31');
+
+    Carbon::setTestNow();
 });
 
 test('no acepta factura sin aprobacion costos', function () {
