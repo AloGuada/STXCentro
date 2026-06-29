@@ -19,7 +19,6 @@ class ProveedorStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'codigo' => ['required', 'string', 'max:50', 'unique:proveedores,codigo'],
             'razon_social' => ['required', 'string', 'max:255'],
             'nombre_comercial' => ['nullable', 'string', 'max:255'],
             'rfc' => ['required', 'string', 'max:13', 'unique:proveedores,rfc'],
@@ -81,8 +80,6 @@ class ProveedorStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'codigo.required' => 'El código es obligatorio.',
-            'codigo.unique' => 'Este código ya está registrado.',
             'razon_social.required' => 'La razón social es obligatoria.',
             'rfc.required' => 'El RFC es obligatorio.',
             'rfc.unique' => 'Este RFC ya está registrado.',

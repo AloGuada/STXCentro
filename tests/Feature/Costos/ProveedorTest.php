@@ -96,7 +96,7 @@ describe('admin proveedores', function () {
 
         $response->assertRedirect(route('admin.proveedores.index'));
         $this->assertDatabaseHas('proveedores', [
-            'codigo' => 'PROV001',
+            'codigo' => 'PROV0001',
             'razon_social' => 'Test SA de CV',
             'estatus' => 'pendiente_validacion',
             'activo' => false,
@@ -173,24 +173,24 @@ describe('admin proveedores', function () {
         $this->assertDatabaseMissing('proveedores', ['id' => $proveedor->id]);
     });
 
-    test('validation requires codigo and razon_social and rfc', function () {
+    test('validation requires razon_social and rfc', function () {
         $response = $this->actingAs($this->user)
             ->post(route('admin.proveedores.store'), []);
 
-        $response->assertSessionHasErrors(['codigo', 'razon_social', 'rfc']);
+        $response->assertSessionHasErrors(['razon_social', 'rfc']);
     });
 
-    test('codigo must be unique', function () {
-        Proveedor::factory()->create(['codigo' => 'DUP001']);
+    test('codigo se genera automáticamente de forma secuencial', function () {
+        Proveedor::factory()->create(['codigo' => 'PROV0005']);
 
-        $response = $this->actingAs($this->user)
+        $this->actingAs($this->user)
             ->post(route('admin.proveedores.store'), datosProveedorValidos([
-                'codigo' => 'DUP001',
-                'razon_social' => 'Test',
-                'titular_cuenta' => 'Test',
+                'razon_social' => 'Nuevo SA de CV',
+                'titular_cuenta' => 'Nuevo',
                 'rfc' => 'UNIQUE12345AB',
-            ]));
+            ]))
+            ->assertRedirect(route('admin.proveedores.index'));
 
-        $response->assertSessionHasErrors(['codigo']);
+        expect(Proveedor::where('rfc', 'UNIQUE12345AB')->value('codigo'))->toBe('PROV0006');
     });
 });

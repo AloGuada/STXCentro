@@ -24,7 +24,6 @@ const esBanorte = (banco: string) => banco.toLowerCase().includes('banorte');
 
 export default function ProveedoresCreate({ regimenes }: Props) {
     const { data, setData, post, processing, errors } = useForm<{
-        codigo: string;
         razon_social: string;
         nombre_comercial: string;
         rfc: string;
@@ -54,7 +53,6 @@ export default function ProveedoresCreate({ regimenes }: Props) {
         dias_credito_default: string;
         tipo_proveedor: string;
     }>({
-        codigo: '',
         razon_social: '',
         nombre_comercial: '',
         rfc: '',
@@ -105,14 +103,10 @@ export default function ProveedoresCreate({ regimenes }: Props) {
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <h2 className="text-lg font-medium">Datos Fiscales</h2>
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Código" htmlFor="codigo" error={errors.codigo} required>
-                                <Input id="codigo" value={data.codigo} onChange={(e) => setData('codigo', e.target.value)} placeholder="Ej: PROV001" />
-                            </FormField>
-                            <FormField label="RFC" htmlFor="rfc" error={errors.rfc} required>
-                                <Input id="rfc" value={data.rfc} onChange={(e) => setData('rfc', e.target.value)} placeholder="Ej: ABC123456XY0" />
-                            </FormField>
-                        </div>
+                        <FormField label="RFC" htmlFor="rfc" error={errors.rfc} required>
+                            <Input id="rfc" value={data.rfc} onChange={(e) => setData('rfc', e.target.value)} placeholder="Ej: ABC123456XY0" />
+                            <p className="mt-1 text-xs text-base-content/60">El código de proveedor se generará automáticamente.</p>
+                        </FormField>
 
                         <FormField label="Razón Social" htmlFor="razon_social" error={errors.razon_social} required>
                             <Input id="razon_social" value={data.razon_social} onChange={(e) => setData('razon_social', e.target.value)} />
