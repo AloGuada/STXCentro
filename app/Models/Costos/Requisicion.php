@@ -106,6 +106,11 @@ class Requisicion extends Model implements Aprobable
         );
     }
 
+    public function ocs(): HasMany
+    {
+        return $this->hasMany(RequisicionOc::class, 'requisicion_id');
+    }
+
     public function aprobaciones(): MorphMany
     {
         return $this->morphMany(Aprobacion::class, 'aprobable');

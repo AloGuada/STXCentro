@@ -5,6 +5,7 @@ use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
+use App\Models\Costos\RequisicionOc;
 use App\Models\Costos\RequisicionSeleccion;
 use App\Models\Departamento;
 use App\Models\Proveedor;
@@ -24,6 +25,18 @@ beforeEach(function () {
 
     $this->depto = Departamento::factory()->create();
 });
+
+function ocMeta(int $reqId, int $proveedorId, int $numeroOc, string $modoPago, ?string $notas = null): void
+{
+    RequisicionOc::create([
+        'requisicion_id' => $reqId,
+        'proveedor_id' => $proveedorId,
+        'numero_oc' => $numeroOc,
+        'modo_pago' => $modoPago,
+        'fecha_entrega' => now()->addDays(7)->format('Y-m-d'),
+        'notas' => $notas,
+    ]);
+}
 
 function setupRequisicionAprobadaConRubro(Departamento $depto, ObraRubro $rubro): array
 {
@@ -58,19 +71,10 @@ test('liberar genera 1 OC con rubro heredado y modo_pago por OC', function () {
         'proveedor_id' => $proveedor->id,
         'cantidad' => 10,
     ]);
+    ocMeta($req->id, $proveedor->id, 1, 'credito', 'Notas OC 1');
 
     $this->actingAs($this->compras)
-        ->post("/admin/costos/requisiciones/{$req->id}/liberar", [
-            'ocs' => [
-                [
-                    'proveedor_id' => $proveedor->id,
-                    'numero_oc' => 1,
-                    'modo_pago' => 'credito',
-                    'moneda' => 'mxn',
-                    'notas' => 'Notas OC 1',
-                ],
-            ],
-        ])
+        ->post("/admin/costos/requisiciones/{$req->id}/liberar")
         ->assertRedirect();
 
     expect(OrdenCompra::count())->toBe(1);
@@ -81,6 +85,9 @@ test('liberar genera 1 OC con rubro heredado y modo_pago por OC', function () {
     // subtotal = 25 * 10 = 250; iva = 40; total = 290
     expect((float) $oc->total)->toBe(290.0);
     expect($oc->dias_credito)->toBe(30);
+    // El modo de pago, fecha y notas vienen de costos_requisicion_ocs.
+    expect($oc->notas)->toBe('Notas OC 1');
+    expect($oc->fecha_entrega_esperada->format('Y-m-d'))->toBe(now()->addDays(7)->format('Y-m-d'));
 
     $ocDet = $oc->detalles()->first();
     expect($ocDet->obra_rubro_id)->toBe($rubro->id);
@@ -113,14 +120,11 @@ test('numero_oc distinto del mismo proveedor genera dos OCs separadas', function
         'proveedor_id' => $proveedor->id,
         'cantidad' => 4,
     ]);
+    ocMeta($req->id, $proveedor->id, 1, 'credito');
+    ocMeta($req->id, $proveedor->id, 2, 'contado');
 
     $this->actingAs($this->compras)
-        ->post("/admin/costos/requisiciones/{$req->id}/liberar", [
-            'ocs' => [
-                ['proveedor_id' => $proveedor->id, 'numero_oc' => 1, 'modo_pago' => 'credito', 'moneda' => 'mxn'],
-                ['proveedor_id' => $proveedor->id, 'numero_oc' => 2, 'modo_pago' => 'contado', 'moneda' => 'mxn'],
-            ],
-        ])
+        ->post("/admin/costos/requisiciones/{$req->id}/liberar")
         ->assertRedirect();
 
     expect(OrdenCompra::count())->toBe(2);
@@ -159,14 +163,11 @@ test('liberar genera N OCs cuando se split entre varios proveedores', function (
         'proveedor_id' => $provB->id,
         'cantidad' => 4,
     ]);
+    ocMeta($req->id, $provA->id, 1, 'credito');
+    ocMeta($req->id, $provB->id, 1, 'contado');
 
     $this->actingAs($this->compras)
-        ->post("/admin/costos/requisiciones/{$req->id}/liberar", [
-            'ocs' => [
-                ['proveedor_id' => $provA->id, 'numero_oc' => 1, 'modo_pago' => 'credito', 'moneda' => 'mxn'],
-                ['proveedor_id' => $provB->id, 'numero_oc' => 1, 'modo_pago' => 'contado', 'moneda' => 'mxn'],
-            ],
-        ])
+        ->post("/admin/costos/requisiciones/{$req->id}/liberar")
         ->assertRedirect();
 
     expect(OrdenCompra::count())->toBe(2);

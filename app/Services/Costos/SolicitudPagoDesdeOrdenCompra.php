@@ -24,7 +24,7 @@ class SolicitudPagoDesdeOrdenCompra
      *
      * Idempotente: si la OC ya tiene una solicitud asociada, no hace nada.
      */
-    public function crear(OrdenCompra $oc, string $userId): ?SolicitudPago
+    public function crear(OrdenCompra $oc, string $userId, string $metodoPago = 'transferencia'): ?SolicitudPago
     {
         if ($oc->solicitudesPago()->exists()) {
             return null;
@@ -51,7 +51,7 @@ class SolicitudPagoDesdeOrdenCompra
                 'tipo_solicitud_id' => $tipo->id,
                 'concepto' => "Pago de contado de orden de compra {$oc->folio}",
                 'monto_total' => $oc->total,
-                'tipo_pago' => 'transferencia',
+                'tipo_pago' => $metodoPago,
                 'tipo_moneda' => $oc->moneda,
                 'fecha_pago_solicitada' => now()->toDateString(),
                 'estatus' => SolicitudPagoEstatus::PendienteFirma->value,
@@ -87,6 +87,82 @@ class SolicitudPagoDesdeOrdenCompra
         }
 
         return $solicitud;
+    }
+
+    /**
+     * Genera N solicitudes de pago para una OC de contado con parcialidades:
+     * una por cada hito, con monto = total × (porcentaje / 100) y su propia
+     * cadena de aprobación. Comparte el PDF de la OC como respaldo. Idempotente.
+     *
+     * @param  list<array{porcentaje: float|int|string, concepto?: string|null}>  $parcialidades
+     */
+    public function crearParcialidades(OrdenCompra $oc, array $parcialidades, string $userId, string $metodoPago = 'transferencia'): void
+    {
+        if ($oc->solicitudesPago()->exists()) {
+            return;
+        }
+
+        $tipo = TipoSolicitud::firstOrCreate(
+            ['titulo' => self::TIPO_TITULO],
+            [
+                'descripcion' => 'Generada automáticamente al liberar una OC de contado.',
+                'rubros' => true,
+            ],
+        );
+
+        $oc->load(['proveedor', 'departamento', 'detalles']);
+
+        $media = $this->generarPdfMedia($oc);
+
+        try {
+            foreach (array_values($parcialidades) as $i => $parcialidad) {
+                $pct = (float) $parcialidad['porcentaje'];
+                $factor = $pct / 100;
+                $monto = round((float) $oc->total * $factor, 2);
+                $etiqueta = trim((string) ($parcialidad['concepto'] ?? '')) ?: 'Pago '.($i + 1);
+
+                $solicitud = SolicitudPago::create([
+                    'solicitante_id' => $userId,
+                    'departamento_id' => $oc->departamento_id,
+                    'proveedor_id' => $oc->proveedor_id,
+                    'orden_compra_id' => $oc->id,
+                    'tipo_solicitud_id' => $tipo->id,
+                    'concepto' => "{$etiqueta} (".rtrim(rtrim(number_format($pct, 2, '.', ''), '0'), '.')."%) de orden de compra {$oc->folio}",
+                    'monto_total' => $monto,
+                    'tipo_pago' => $metodoPago,
+                    'tipo_moneda' => $oc->moneda,
+                    'fecha_pago_solicitada' => now()->toDateString(),
+                    'estatus' => SolicitudPagoEstatus::PendienteFirma->value,
+                ]);
+
+                foreach ($oc->detalles as $detalle) {
+                    $solicitud->detalles()->create([
+                        'obra_rubro_id' => $detalle->obra_rubro_id,
+                        'concepto' => $detalle->descripcion,
+                        'cantidad' => $detalle->cantidad,
+                        'precio_unitario' => round((float) $detalle->precio_unitario * $factor, 2),
+                        'subtotal' => round((float) $detalle->subtotal * $factor, 2),
+                    ]);
+                }
+
+                $solicitud->archivos()->create([
+                    'media_id' => $media->id,
+                    'archivo_id' => null,
+                    'texto_adicional' => "Formato de OC {$oc->folio}",
+                ]);
+
+                if (app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitud) === 0) {
+                    Log::warning('Solicitud de pago (parcialidad) de OC contado sin cadena de aprobación configurada.', [
+                        'solicitud_id' => $solicitud->id,
+                        'departamento_id' => $solicitud->departamento_id,
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Storage::disk('public')->delete($media->path);
+
+            throw $e;
+        }
     }
 
     /**

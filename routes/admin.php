@@ -37,6 +37,7 @@ use App\Http\Controllers\Admin\Costos\PermisoController as CostosPermisoControll
 use App\Http\Controllers\Admin\Costos\PresupuestoController as CostosPresupuestoController;
 use App\Http\Controllers\Admin\Costos\RequisicionController as CostosRequisicionController;
 use App\Http\Controllers\Admin\Costos\RequisicionCotizacionController as CostosRequisicionCotizacionController;
+use App\Http\Controllers\Admin\Costos\RequisicionOcController as CostosRequisicionOcController;
 use App\Http\Controllers\Admin\Costos\RequisicionSeleccionController as CostosRequisicionSeleccionController;
 use App\Http\Controllers\Admin\Costos\RubroController as CostosRubroController;
 use App\Http\Controllers\Admin\Costos\SolicitudPagoController as CostosSolicitudPagoController;
@@ -218,8 +219,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/detalles/{detalle}/clasificacion', [CostosRequisicionCotizacionController::class, 'clasificar'])->name('requisiciones.detalles.clasificar');
         Route::post('requisiciones/cotizaciones', [CostosRequisicionCotizacionController::class, 'store'])->name('requisiciones.cotizaciones.store');
         Route::delete('requisiciones/cotizaciones/{precio}', [CostosRequisicionCotizacionController::class, 'destroy'])->name('requisiciones.cotizaciones.destroy');
+        Route::delete('requisiciones/{requisicion}/proveedores/{proveedor}', [CostosRequisicionCotizacionController::class, 'destroyProveedor'])->name('requisiciones.proveedores.destroy');
         Route::post('requisiciones/selecciones', [CostosRequisicionSeleccionController::class, 'store'])->name('requisiciones.selecciones.store');
+        Route::patch('requisiciones/selecciones/{seleccion}', [CostosRequisicionSeleccionController::class, 'update'])->name('requisiciones.selecciones.update');
         Route::delete('requisiciones/selecciones/{seleccion}', [CostosRequisicionSeleccionController::class, 'destroy'])->name('requisiciones.selecciones.destroy');
+        Route::post('requisiciones/{requisicion}/ocs', [CostosRequisicionOcController::class, 'store'])->name('requisiciones.ocs.store');
 
         Route::resource('solicitudes-pago', CostosSolicitudPagoController::class)->parameters(['solicitudes-pago' => 'solicitudPago']);
         Route::post('solicitudes-pago/{solicitudPago}/archivos', [CostosSolicitudPagoController::class, 'storeArchivo'])->name('solicitudes-pago.archivos.store');

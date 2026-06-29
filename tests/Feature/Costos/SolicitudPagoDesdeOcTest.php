@@ -113,18 +113,83 @@ test('liberar OC de contado crea solicitud vinculada; credito no', function () {
         'proveedor_id' => $proveedor->id,
         'cantidad' => 10,
     ]);
+    \App\Models\Costos\RequisicionOc::create([
+        'requisicion_id' => $req->id, 'proveedor_id' => $proveedor->id, 'numero_oc' => 1,
+        'modo_pago' => 'contado', 'fecha_entrega' => now()->addDays(7)->format('Y-m-d'),
+    ]);
 
     $this->actingAs($compras)
-        ->post("/admin/costos/requisiciones/{$req->id}/liberar", [
-            'ocs' => [
-                ['proveedor_id' => $proveedor->id, 'numero_oc' => 1, 'modo_pago' => 'contado', 'moneda' => 'mxn'],
-            ],
-        ])
+        ->post("/admin/costos/requisiciones/{$req->id}/liberar")
         ->assertRedirect();
 
     $oc = OrdenCompra::first();
     expect(SolicitudPago::where('orden_compra_id', $oc->id)->count())->toBe(1);
     expect((float) SolicitudPago::first()->monto_total)->toBe((float) $oc->total);
+});
+
+test('genera N solicitudes para una OC de contado con parcialidades', function () {
+    $rubro = ObraRubro::factory()->create();
+    cadenaSolicitudPago($this->depto, 1);
+    $oc = ocContadoConDetalle($this->depto, $rubro, 100, 5); // total = 580
+    $userId = User::factory()->create()->id;
+
+    app(SolicitudPagoDesdeOrdenCompra::class)->crearParcialidades($oc, [
+        ['porcentaje' => 50, 'concepto' => 'Anticipo'],
+        ['porcentaje' => 50, 'concepto' => 'Contra entrega'],
+    ], $userId);
+
+    $solicitudes = SolicitudPago::where('orden_compra_id', $oc->id)->orderBy('id')->get();
+    expect($solicitudes)->toHaveCount(2);
+    expect((float) $solicitudes[0]->monto_total)->toBe(290.0)
+        ->and((float) $solicitudes[1]->monto_total)->toBe(290.0)
+        ->and($solicitudes[0]->concepto)->toContain('Anticipo')
+        ->and($solicitudes[1]->concepto)->toContain('Contra entrega')
+        ->and($solicitudes[0]->aprobaciones()->count())->toBe(1);
+});
+
+test('la solicitud usa el método de pago elegido en la OC', function () {
+    $rubro = ObraRubro::factory()->create();
+    $oc = ocContadoConDetalle($this->depto, $rubro);
+    $userId = User::factory()->create()->id;
+
+    $solicitud = app(SolicitudPagoDesdeOrdenCompra::class)->crear($oc, $userId, 'cheque');
+
+    expect($solicitud->tipo_pago)->toBe('cheque');
+});
+
+test('liberar OC de contado con parcialidades genera una solicitud por hito', function () {
+    $permLiberar = Permission::firstOrCreate(['name' => 'costos.requisiciones.liberar', 'guard_name' => 'web']);
+    $compras = User::factory()->create();
+    $compras->givePermissionTo($permLiberar);
+    cadenaSolicitudPago($this->depto, 1);
+
+    $rubro = ObraRubro::factory()->create();
+    $req = Requisicion::factory()->aprobada()->create(['departamento_id' => $this->depto->id]);
+    $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'obra_rubro_id' => $rubro->id, 'cantidad' => 10]);
+    $proveedor = Proveedor::factory()->create();
+    $precio = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id, 'proveedor_id' => $proveedor->id, 'precio_unitario' => 25.00,
+    ]);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $detalle->id, 'cotizacion_precio_id' => $precio->id,
+        'numero_oc' => 1, 'proveedor_id' => $proveedor->id, 'cantidad' => 10,
+    ]);
+    \App\Models\Costos\RequisicionOc::create([
+        'requisicion_id' => $req->id, 'proveedor_id' => $proveedor->id, 'numero_oc' => 1,
+        'modo_pago' => 'contado', 'fecha_entrega' => now()->addDays(7)->format('Y-m-d'),
+        'pagos' => [['porcentaje' => 60, 'concepto' => 'Anticipo'], ['porcentaje' => 40, 'concepto' => 'Liquidación']],
+    ]);
+
+    $this->actingAs($compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/liberar")
+        ->assertRedirect();
+
+    $oc = OrdenCompra::first();
+    $sols = SolicitudPago::where('orden_compra_id', $oc->id)->orderBy('id')->get();
+    // total = 25 * 10 * 1.16 = 290; 60% = 174, 40% = 116
+    expect($sols)->toHaveCount(2)
+        ->and((float) $sols[0]->monto_total)->toBe(174.0)
+        ->and((float) $sols[1]->monto_total)->toBe(116.0);
 });
 
 test('OC de credito no genera solicitud de pago', function () {
@@ -152,13 +217,13 @@ test('OC de credito no genera solicitud de pago', function () {
         'proveedor_id' => $proveedor->id,
         'cantidad' => 10,
     ]);
+    \App\Models\Costos\RequisicionOc::create([
+        'requisicion_id' => $req->id, 'proveedor_id' => $proveedor->id, 'numero_oc' => 1,
+        'modo_pago' => 'credito', 'fecha_entrega' => now()->addDays(7)->format('Y-m-d'),
+    ]);
 
     $this->actingAs($compras)
-        ->post("/admin/costos/requisiciones/{$req->id}/liberar", [
-            'ocs' => [
-                ['proveedor_id' => $proveedor->id, 'numero_oc' => 1, 'modo_pago' => 'credito', 'moneda' => 'mxn'],
-            ],
-        ])
+        ->post("/admin/costos/requisiciones/{$req->id}/liberar")
         ->assertRedirect();
 
     expect(SolicitudPago::count())->toBe(0);

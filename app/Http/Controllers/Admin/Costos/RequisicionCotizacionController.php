@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Admin\Costos;
 use App\Enums\Costos\RequisicionEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\RequisicionCotizacionPrecioStoreRequest;
+use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
+use App\Models\Costos\RequisicionSeleccion;
+use App\Models\Proveedor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -29,18 +32,20 @@ class RequisicionCotizacionController extends Controller
 
         $this->ensureEditable($detalle->requisicion->estatus);
 
+        $valores = ['precio_unitario' => $request->float('precio_unitario')];
+
+        foreach (['codigo_producto', 'moneda', 'tiempo_entrega_dias', 'observaciones'] as $campo) {
+            if ($request->has($campo)) {
+                $valores[$campo] = $request->input($campo);
+            }
+        }
+
         RequisicionCotizacionPrecio::updateOrCreate(
             [
                 'requisicion_detalle_id' => $detalle->id,
                 'proveedor_id' => $request->integer('proveedor_id'),
             ],
-            [
-                'precio_unitario' => $request->float('precio_unitario'),
-                'codigo_producto' => $request->input('codigo_producto'),
-                'moneda' => $request->input('moneda'),
-                'tiempo_entrega_dias' => $request->input('tiempo_entrega_dias'),
-                'observaciones' => $request->input('observaciones'),
-            ],
+            $valores,
         );
 
         $this->promoverACotizada($detalle->requisicion);
@@ -84,6 +89,30 @@ class RequisicionCotizacionController extends Controller
         $precio->delete();
 
         return back()->with('success', 'Precio eliminado.');
+    }
+
+    /**
+     * Quita un proveedor completo de la matriz de cotización: borra todas sus
+     * cotizaciones en la requisición y las selecciones que las usaban. Usado
+     * por el botón de quitar columna en el tab de cotización.
+     */
+    public function destroyProveedor(Requisicion $requisicion, Proveedor $proveedor): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $this->ensureEditable($requisicion->estatus);
+
+        $detalleIds = $requisicion->detalles()->pluck('id');
+
+        RequisicionSeleccion::whereIn('requisicion_detalle_id', $detalleIds)
+            ->where('proveedor_id', $proveedor->id)
+            ->delete();
+
+        RequisicionCotizacionPrecio::whereIn('requisicion_detalle_id', $detalleIds)
+            ->where('proveedor_id', $proveedor->id)
+            ->delete();
+
+        return back()->with('success', 'Proveedor eliminado de la cotización.');
     }
 
     private function ensureEditable(RequisicionEstatus $estatus): void

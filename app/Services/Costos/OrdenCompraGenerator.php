@@ -120,11 +120,19 @@ class OrdenCompraGenerator
         $oc->load('detalles');
         $oc->aplicarImpactoPresupuestal($userId);
 
-        // Las OCs de contado se pagan por adelantado vía una solicitud de pago
-        // (el proveedor no usa el portal). El crédito sigue el flujo normal de
-        // factura → pago.
+        // Las OCs de contado se pagan por adelantado vía solicitud(es) de pago
+        // (el proveedor no usa el portal). Si hay parcialidades definidas, se
+        // genera una solicitud por cada hito (% del total); si no, una sola por
+        // el total. El crédito sigue el flujo normal de factura → pago.
         if ($oc->tipo_pago === ModoPago::Contado) {
-            $this->solicitudDesdeOc->crear($oc, $userId);
+            $parcialidades = array_values(array_filter((array) ($payload['pagos'] ?? [])));
+            $metodoPago = (string) ($payload['metodo_pago'] ?? 'transferencia');
+
+            if (count($parcialidades) > 0) {
+                $this->solicitudDesdeOc->crearParcialidades($oc, $parcialidades, $userId, $metodoPago);
+            } else {
+                $this->solicitudDesdeOc->crear($oc, $userId, $metodoPago);
+            }
         }
     }
 }

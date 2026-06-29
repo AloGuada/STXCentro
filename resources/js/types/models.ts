@@ -1655,6 +1655,7 @@ export type CostosRequisicion = {
     obra?: { id: number; no: number | null; descripcion: string };
     detalles?: CostosRequisicionDetalle[];
     aprobaciones?: CostosAprobacionSolicitud[];
+    ocs?: CostosRequisicionOc[];
     ordenes_generadas?: Array<Pick<CostosOrdenCompra, 'id' | 'folio' | 'proveedor_id' | 'total' | 'estatus'> & { proveedor?: Pick<Proveedor, 'id' | 'razon_social'> }>;
     mejor_proveedor?: {
         id: number;
@@ -1705,6 +1706,25 @@ export type CostosRequisicionCotizacionPrecio = {
     observaciones: string | null;
     media_id: number | null;
     proveedor?: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosRequisicionOcPago = {
+    porcentaje: number;
+    concepto: string | null;
+};
+
+export type CostosRequisicionOc = {
+    id: number;
+    requisicion_id: number;
+    proveedor_id: number;
+    numero_oc: number;
+    modo_pago: ModoPago;
+    metodo_pago: 'transferencia' | 'cheque' | 'efectivo';
+    fecha_entrega: string | null;
+    notas: string | null;
+    pagos: CostosRequisicionOcPago[] | null;
     created_at: string;
     updated_at: string;
 };

@@ -180,6 +180,7 @@ class RequisicionController extends Controller
             'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial,estatus,activo',
             'detalles.selecciones.cotizacionPrecio',
             'detalles.selecciones.proveedor:id,razon_social,estatus',
+            'ocs',
             'aprobaciones.aprobador:id,name',
             'ordenesGeneradas:id,folio,proveedor_id,total,estatus,requisicion_id',
             'ordenesGeneradas.proveedor:id,razon_social',
@@ -645,6 +646,7 @@ class RequisicionController extends Controller
         $requisicion->load([
             'detalles.selecciones.cotizacionPrecio',
             'detalles.selecciones.proveedor',
+            'ocs',
         ]);
 
         foreach ($requisicion->detalles as $detalle) {
@@ -663,20 +665,39 @@ class RequisicionController extends Controller
 
         $todasSelecciones = $requisicion->detalles->flatMap->selecciones;
 
-        // Indexa el payload `ocs[]` por (proveedor_id, numero_oc) para
-        // resolver overrides (modo_pago, notas, fecha_entrega) por OC.
-        $ocsPayload = collect($request->input('ocs', []))
-            ->keyBy(fn ($oc) => $oc['proveedor_id'].'|'.$oc['numero_oc']);
+        // Los metadatos de cada OC (modo_pago, fecha, notas) se persistieron en
+        // el tab "Definir OC" (costos_requisicion_ocs). Se indexan por
+        // (proveedor_id, numero_oc) para que el generador los resuelva por OC.
+        $ocsPayload = $requisicion->ocs
+            ->keyBy(fn ($oc) => $oc->proveedor_id.'|'.$oc->numero_oc)
+            ->map(fn ($oc) => [
+                'proveedor_id' => $oc->proveedor_id,
+                'numero_oc' => $oc->numero_oc,
+                'modo_pago' => $oc->modo_pago->value,
+                'metodo_pago' => $oc->metodo_pago,
+                'fecha_entrega' => $oc->fecha_entrega?->format('Y-m-d'),
+                'notas' => $oc->notas,
+                'pagos' => $oc->pagos ?? [],
+            ]);
 
         $grupos = $todasSelecciones->groupBy(
             fn (RequisicionSeleccion $s) => $s->proveedor_id.'|'.((int) ($s->numero_oc ?: 1))
         );
 
         foreach ($grupos as $key => $selecciones) {
+            // Si faltara el metadato (no debería: las selecciones lo siembran),
+            // se aplica un default seguro en vez de bloquear la liberación.
             if (! $ocsPayload->has($key)) {
-                return back()->withErrors([
-                    'ocs' => "Falta capturar la OC para la combinación proveedor-OC# {$key}.",
-                ]);
+                $primera = $selecciones->first();
+                $ocsPayload[$key] = [
+                    'proveedor_id' => $primera->proveedor_id,
+                    'numero_oc' => (int) ($primera->numero_oc ?: 1),
+                    'modo_pago' => $primera->proveedor?->maneja_credito ? 'credito' : 'contado',
+                    'metodo_pago' => 'transferencia',
+                    'fecha_entrega' => now()->addDays(7)->format('Y-m-d'),
+                    'notas' => null,
+                    'pagos' => [],
+                ];
             }
 
             // Una OC no puede mezclar monedas: todas sus cotizaciones deben coincidir.

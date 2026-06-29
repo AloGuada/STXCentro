@@ -1,67 +1,58 @@
 import { router } from '@inertiajs/react';
-import { useState } from 'react';
-import type { OcOverride } from '@/components/costos/cotizacion-tree';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { CostosRequisicion } from '@/types/models';
 
 type Props = {
     requisicion: CostosRequisicion;
-    ocs: OcOverride[];
     open: boolean;
     onClose: () => void;
 };
 
 /**
- * Modal de liberación: confirma la conversión a OCs. El array `ocs[]` viene
- * pre-armado por <CotizacionTree> en el tab de Cotización (modo_pago, moneda,
- * envío y notas por (proveedor, numero_oc)). Compras solo confirma y dispara
- * la liberación.
+ * Modal de liberación: confirma la conversión a OCs. Los grupos (proveedor +
+ * numero_oc) salen de las selecciones; sus metadatos (modo de pago, fecha,
+ * notas) ya están persistidos desde el tab "Definir OC". Liberar no manda
+ * payload: solo confirma y el backend lee de costos_requisicion_ocs.
  */
-export function LiberarRequisicionModal({ requisicion, ocs, open, onClose }: Props) {
+export function LiberarRequisicionModal({ requisicion, open, onClose }: Props) {
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    if (!open) return null;
-
-    const contadoCount = ocs.filter((oc) => oc.modo_pago === 'contado').length;
-
-    // Una OC (grupo proveedor+numero_oc) no puede mezclar monedas de cotización.
-    const grupoConMonedasMezcladas = (() => {
-        const porGrupo = new Map<string, Set<string>>();
+    // Grupos OC y detección de monedas mezcladas a partir de las selecciones.
+    const { ocCount, contadoCount, monedasMezcladas } = useMemo(() => {
+        const monedasPorGrupo = new Map<string, Set<string>>();
         requisicion.detalles?.forEach((d) => {
             d.selecciones?.forEach((s) => {
                 const key = `${s.proveedor_id}|${s.numero_oc ?? 1}`;
-                const moneda = s.cotizacion_precio?.moneda ?? 'mxn';
-                if (!porGrupo.has(key)) porGrupo.set(key, new Set());
-                porGrupo.get(key)!.add(moneda);
+                if (!monedasPorGrupo.has(key)) monedasPorGrupo.set(key, new Set());
+                monedasPorGrupo.get(key)!.add(s.cotizacion_precio?.moneda ?? 'mxn');
             });
         });
-        return Array.from(porGrupo.values()).some((set) => set.size > 1);
-    })();
+        const contado = (requisicion.ocs ?? []).filter((oc) => oc.modo_pago === 'contado').length;
+        return {
+            ocCount: monedasPorGrupo.size,
+            contadoCount: contado,
+            monedasMezcladas: Array.from(monedasPorGrupo.values()).some((set) => set.size > 1),
+        };
+    }, [requisicion.detalles, requisicion.ocs]);
+
+    if (!open) return null;
 
     const submit = () => {
-        if (ocs.length === 0) {
-            setErrorMsg('Aún no hay OCs en el preview. Asigna cantidades en el tab Cotización.');
+        if (ocCount === 0) {
+            setErrorMsg('Aún no hay OCs. Asigna partidas a una OC en el tab "Definir OC".');
             return;
         }
-
-        if (grupoConMonedasMezcladas) {
-            setErrorMsg('Hay una OC con partidas en monedas distintas. Sepáralas por moneda (cambia el OC#) antes de liberar.');
+        if (monedasMezcladas) {
+            setErrorMsg('Hay una OC con partidas en monedas distintas. Sepáralas por moneda (otra OC) antes de liberar.');
             return;
         }
 
         setErrorMsg(null);
         setSubmitting(true);
 
-        router.post(`/admin/costos/requisiciones/${requisicion.id}/liberar`, {
-            ocs: ocs.map((oc) => ({
-                proveedor_id: oc.proveedor_id,
-                numero_oc: oc.numero_oc,
-                modo_pago: oc.modo_pago,
-                fecha_entrega: oc.fecha_entrega,
-                notas: oc.notas.trim() || null,
-            })),
-        }, {
+        router.post(`/admin/costos/requisiciones/${requisicion.id}/liberar`, {}, {
             preserveScroll: true,
             onError: (errors) => {
                 setSubmitting(false);
@@ -77,7 +68,7 @@ export function LiberarRequisicionModal({ requisicion, ocs, open, onClose }: Pro
             <div className="modal-box max-w-md">
                 <h3 className="mb-2 text-lg font-bold">Liberar requisición</h3>
                 <p className="mb-3 text-sm text-base-content/60">
-                    Se generarán <strong>{ocs.length}</strong> orden(es) de compra con los datos capturados en el preview de cotización.
+                    Se generarán <strong>{ocCount}</strong> orden(es) de compra con los datos definidos en el tab "Definir OC".
                     Se aplicará el impacto presupuestal y las OCs serán visibles en el portal de los proveedores.
                 </p>
 
@@ -95,8 +86,8 @@ export function LiberarRequisicionModal({ requisicion, ocs, open, onClose }: Pro
 
                 <div className="modal-action">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Cancelar</Button>
-                    <Button onClick={submit} disabled={submitting || ocs.length === 0}>
-                        {submitting ? 'Liberando...' : `Liberar y generar ${ocs.length} OC${ocs.length === 1 ? '' : 's'}`}
+                    <Button onClick={submit} disabled={submitting || ocCount === 0}>
+                        {submitting ? 'Liberando...' : `Liberar y generar ${ocCount} OC${ocCount === 1 ? '' : 's'}`}
                     </Button>
                 </div>
             </div>

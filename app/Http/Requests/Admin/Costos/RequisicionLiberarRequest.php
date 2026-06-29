@@ -12,27 +12,13 @@ class RequisicionLiberarRequest extends FormRequest
     }
 
     /**
+     * Los metadatos de las OCs se persisten en costos_requisicion_ocs (tab
+     * "Definir OC"); liberar no recibe payload, solo confirma y autoriza.
+     *
      * @return array<string, array<int, string>>
      */
     public function rules(): array
     {
-        return [
-            'ocs' => ['required', 'array', 'min:1'],
-            'ocs.*.proveedor_id' => ['required', 'integer', 'exists:proveedores,id'],
-            'ocs.*.numero_oc' => ['required', 'integer', 'min:1', 'max:50'],
-            'ocs.*.modo_pago' => ['required', 'in:contado,credito'],
-            'ocs.*.notas' => ['nullable', 'string', 'max:1000'],
-        ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    public function messages(): array
-    {
-        return [
-            'ocs.required' => 'No hay órdenes de compra para liberar.',
-            'ocs.*.modo_pago.required' => 'Captura el modo de pago de cada OC.',
-        ];
+        return [];
     }
 }

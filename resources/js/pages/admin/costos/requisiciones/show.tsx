@@ -1,9 +1,10 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { AlertTriangleIcon } from 'lucide-react';
 import { useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
-import type { OcOverride } from '@/components/costos/cotizacion-tree';
-import { CotizacionTree } from '@/components/costos/cotizacion-tree';
+import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
+import { OcBuilder } from '@/components/costos/oc-builder';
 import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
@@ -44,14 +45,14 @@ type ProveedorPorValidar = {
 
 type Props = {
     requisicion: CostosRequisicion;
-    proveedores: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial' | 'maneja_credito'>[];
+    proveedores: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial' | 'maneja_credito' | 'tipo_persona' | 'regimen_fiscal'>[];
     obraRubros: Array<{ id: number; label: string }>;
     aprobacionPendienteId: number | null;
     esUltimoNivel: boolean;
     proveedoresPorValidar: ProveedorPorValidar[];
 };
 
-type Tab = 'datos' | 'cotizacion' | 'aprobacion' | 'ocs';
+type Tab = 'datos' | 'cotizacion' | 'definir-oc' | 'aprobacion' | 'ocs';
 
 const fmtDate = (date: string | null) =>
     date ? new Date(date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
@@ -354,7 +355,6 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
     const [enviando, setEnviando] = useState(false);
     const [cancelando, setCancelando] = useState(false);
     const [liberando, setLiberando] = useState(false);
-    const [ocOverrides, setOcOverrides] = useState<OcOverride[]>([]);
     const [firmando, setFirmando] = useState<'aprobar' | 'rechazar' | null>(null);
     const [validando, setValidando] = useState(false);
 
@@ -443,7 +443,6 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
 
                 <LiberarRequisicionModal
                     requisicion={requisicion}
-                    ocs={ocOverrides}
                     open={liberando}
                     onClose={() => setLiberando(false)}
                 />
@@ -461,6 +460,11 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                     {can('costos.requisiciones.cotizar') && (
                         <button role="tab" className={`tab ${tab === 'cotizacion' ? 'tab-active' : ''}`} onClick={() => setTab('cotizacion')}>
                             Cotización
+                        </button>
+                    )}
+                    {can('costos.requisiciones.cotizar') && (
+                        <button role="tab" className={`tab ${tab === 'definir-oc' ? 'tab-active' : ''}`} onClick={() => setTab('definir-oc')}>
+                            Definir OC
                         </button>
                     )}
                     <button role="tab" className={`tab ${tab === 'aprobacion' ? 'tab-active' : ''}`} onClick={() => setTab('aprobacion')}>
@@ -550,12 +554,19 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                 )}
 
                 {tab === 'cotizacion' && can('costos.requisiciones.cotizar') && (
+                    <CotizacionMatriz
+                        requisicion={requisicion}
+                        proveedores={proveedores}
+                        editable={cotizable}
+                    />
+                )}
+
+                {tab === 'definir-oc' && can('costos.requisiciones.cotizar') && (
                     <>
-                        <CotizacionTree
+                        <OcBuilder
                             requisicion={requisicion}
                             proveedores={proveedores}
                             editable={cotizable}
-                            onPreviewChange={setOcOverrides}
                         />
                         {requisicion.estatus === 'aprobada' && can('costos.requisiciones.liberar') && (
                             <div className="mt-4 flex justify-end">
