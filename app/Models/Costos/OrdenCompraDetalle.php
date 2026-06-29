@@ -21,6 +21,7 @@ class OrdenCompraDetalle extends Model
     protected $fillable = [
         'orden_compra_id',
         'requisicion_detalle_id',
+        'producto_id',
         'obra_rubro_id',
         'uso_cfdi_id',
         'tipo_fiscal',
@@ -53,6 +54,11 @@ class OrdenCompraDetalle extends Model
     public function obraRubro(): BelongsTo
     {
         return $this->belongsTo(ObraRubro::class, 'obra_rubro_id');
+    }
+
+    public function producto(): BelongsTo
+    {
+        return $this->belongsTo(Producto::class, 'producto_id');
     }
 
     public function usoCfdi(): BelongsTo

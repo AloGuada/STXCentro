@@ -280,6 +280,12 @@ const navGroups: NavGroup[] = [
                         permission: 'costos.rubros.ver',
                     },
                     {
+                        title: 'Productos',
+                        href: '/admin/costos/productos',
+                        icon: Package,
+                        permission: 'costos.productos.ver',
+                    },
+                    {
                         title: 'Tipo Solicitudes',
                         href: '/admin/costos/tipo-solicitudes',
                         icon: File,

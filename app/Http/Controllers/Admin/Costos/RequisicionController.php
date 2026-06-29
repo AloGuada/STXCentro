@@ -74,6 +74,9 @@ class RequisicionController extends Controller
             'obras' => Obra::orderBy('descripcion')->get(['id', 'no', 'descripcion', 'estatus']),
             'obraRubros' => $this->obraRubrosOptions(),
             'usosCfdi' => $this->usosCfdiOptions(),
+            'productos' => \App\Models\Costos\Producto::where('activo', true)
+                ->orderBy('descripcion')
+                ->get(['id', 'codigo', 'descripcion', 'unidad']),
         ]);
     }
 
@@ -90,10 +93,13 @@ class RequisicionController extends Controller
             ]);
 
             foreach ($request->input('detalles', []) as $d) {
+                $producto = $this->resolverProducto($d, $request->user()->id);
+
                 $requisicion->detalles()->create([
-                    'descripcion' => $d['descripcion'],
-                    'codigo_producto' => $d['codigo_producto'] ?? null,
-                    'unidad' => $d['unidad'] ?? 'pza',
+                    'producto_id' => $producto->id,
+                    'descripcion' => $producto->descripcion,
+                    'codigo_producto' => $producto->codigo,
+                    'unidad' => $producto->unidad,
                     'cantidad' => $d['cantidad'],
                     'obra_rubro_id' => $d['obra_rubro_id'],
                     'uso_cfdi_id' => $d['uso_cfdi_id'],
@@ -109,6 +115,26 @@ class RequisicionController extends Controller
 
         return to_route('admin.costos.requisiciones.show', $requisicion)
             ->with('success', 'Requisición creada correctamente.');
+    }
+
+    /**
+     * Resuelve el producto del catálogo de una partida: usa el `producto_id`
+     * elegido o crea uno nuevo al vuelo con la descripción capturada.
+     *
+     * @param  array<string, mixed>  $d
+     */
+    private function resolverProducto(array $d, string $userId): \App\Models\Costos\Producto
+    {
+        if (! empty($d['producto_id'])) {
+            return \App\Models\Costos\Producto::findOrFail($d['producto_id']);
+        }
+
+        return \App\Models\Costos\Producto::create([
+            'descripcion' => $d['descripcion'],
+            'unidad' => $d['unidad'] ?? 'pza',
+            'codigo' => $d['codigo_producto'] ?? null,
+            'creado_por' => $userId,
+        ]);
     }
 
     /**

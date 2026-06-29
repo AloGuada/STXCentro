@@ -3,11 +3,13 @@ import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
+import { CreatableCombobox } from '@/components/ui/creatable-combobox';
 import AppLayout from '@/layouts/app-layout';
-import type { CostosUsoCfdi, Departamento, Obra, ObraRubroOption } from '@/types/models';
+import type { CostosProducto, CostosUsoCfdi, Departamento, Obra, ObraRubroOption } from '@/types/models';
 import type { BreadcrumbItem } from '@/types';
 
 type Detalle = {
+    producto_id: number | null;
     descripcion: string;
     unidad: string;
     cantidad: number;
@@ -35,12 +37,19 @@ type Props = {
     obras: Pick<Obra, 'id' | 'no' | 'descripcion' | 'estatus'>[];
     obraRubros: ObraRubroOption[];
     usosCfdi: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>[];
+    productos: Pick<CostosProducto, 'id' | 'codigo' | 'descripcion' | 'unidad'>[];
 };
 
-export default function RequisicionesCreate({ departamentos, obras, obraRubros, usosCfdi }: Props) {
+export default function RequisicionesCreate({ departamentos, obras, obraRubros, usosCfdi, productos }: Props) {
     const defaultUsoId = usosCfdi.find((u) => u.clave === 'G01')?.id ?? '';
 
+    const productoOptions = productos.map((p) => ({
+        value: String(p.id),
+        label: p.codigo ? `${p.codigo} · ${p.descripcion}` : p.descripcion,
+    }));
+
     const blankDetalle = (): Detalle => ({
+        producto_id: null,
         descripcion: '',
         unidad: 'pza',
         cantidad: 1,
@@ -80,6 +89,9 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
     const removeDetalle = (idx: number) => setData('detalles', data.detalles.filter((_, i) => i !== idx));
     const updateDetalle = (idx: number, field: keyof Detalle, value: string | number) => {
         setData('detalles', data.detalles.map((d, i) => (i === idx ? { ...d, [field]: value } : d)));
+    };
+    const setDetalleFields = (idx: number, partial: Partial<Detalle>) => {
+        setData('detalles', data.detalles.map((d, i) => (i === idx ? { ...d, ...partial } : d)));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -181,12 +193,36 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                             {data.detalles.map((d, i) => (
                                 <tr key={i}>
                                     <td>
-                                        <input
-                                            type="text"
-                                            className="input input-bordered input-sm w-full"
-                                            value={d.descripcion}
-                                            onChange={(e) => updateDetalle(i, 'descripcion', e.target.value)}
-                                        />
+                                        {d.descripcion ? (
+                                            <div className="flex items-start justify-between gap-1">
+                                                <span className="text-sm">
+                                                    {d.descripcion}
+                                                    {!d.producto_id && <span className="ml-1 text-[10px] text-primary">(nuevo)</span>}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-ghost btn-xs px-1"
+                                                    title="Cambiar producto"
+                                                    onClick={() => setDetalleFields(i, { producto_id: null, descripcion: '' })}
+                                                >
+                                                    <Trash2Icon className="size-3" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <CreatableCombobox
+                                                options={productoOptions}
+                                                placeholder="Buscar o crear producto..."
+                                                creatableLabel="Crear producto"
+                                                className="[&_input]:input-sm"
+                                                onSelect={(opt) => {
+                                                    const p = productos.find((x) => String(x.id) === opt.value);
+                                                    if (p) {
+                                                        setDetalleFields(i, { producto_id: p.id, descripcion: p.descripcion, unidad: p.unidad });
+                                                    }
+                                                }}
+                                                onCreate={(text) => setDetalleFields(i, { producto_id: null, descripcion: text })}
+                                            />
+                                        )}
                                         {errors[`detalles.${i}.descripcion` as keyof typeof errors] && (
                                             <p className="text-error text-xs mt-1">{errors[`detalles.${i}.descripcion` as keyof typeof errors]}</p>
                                         )}

@@ -1410,6 +1410,32 @@ export type CostosPermiso = {
     updated_at: string;
 };
 
+export type CostosProductoPrecio = {
+    id: number;
+    producto_id: number;
+    proveedor_id: number | null;
+    precio: number | string;
+    moneda: CostosTipoMoneda;
+    fecha: string;
+    requisicion_id: number | null;
+    proveedor?: Pick<Proveedor, 'id' | 'razon_social'>;
+    created_at: string;
+};
+
+export type CostosProducto = {
+    id: number;
+    codigo: string | null;
+    descripcion: string;
+    unidad: string;
+    activo: boolean;
+    creado_por: string | null;
+    precios?: CostosProductoPrecio[];
+    precios_count?: number;
+    creador?: Pick<Usuario, 'id' | 'name'>;
+    created_at: string;
+    updated_at: string;
+};
+
 export type CostosAprobacionDepartamento = {
     id: number;
     departamento_id: number;
@@ -1674,6 +1700,7 @@ export type CostosRequisicion = {
 export type CostosRequisicionDetalle = {
     id: number;
     requisicion_id: number;
+    producto_id: number | null;
     obra_rubro_id: number | null;
     uso_cfdi_id: number | null;
     tipo_fiscal: CostosTipoFiscalPartida;

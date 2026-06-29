@@ -21,6 +21,7 @@ class RequisicionDetalle extends Model
      */
     protected $fillable = [
         'requisicion_id',
+        'producto_id',
         'obra_rubro_id',
         'uso_cfdi_id',
         'tipo_fiscal',
@@ -45,6 +46,11 @@ class RequisicionDetalle extends Model
     public function requisicion(): BelongsTo
     {
         return $this->belongsTo(Requisicion::class, 'requisicion_id');
+    }
+
+    public function producto(): BelongsTo
+    {
+        return $this->belongsTo(Producto::class, 'producto_id');
     }
 
     public function obraRubro(): BelongsTo

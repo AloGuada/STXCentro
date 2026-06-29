@@ -25,6 +25,7 @@ class RequisicionStoreRequest extends FormRequest
             'justificacion' => ['nullable', 'string'],
             'fecha_requerida' => ['nullable', 'date'],
             'detalles' => ['required', 'array', 'min:1'],
+            'detalles.*.producto_id' => ['nullable', 'exists:costos_productos,id'],
             'detalles.*.descripcion' => ['required', 'string', 'max:255'],
             'detalles.*.unidad' => ['required', 'string', 'max:20'],
             'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],

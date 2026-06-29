@@ -293,6 +293,28 @@ test('no libera una requisición que saltó niveles si el apartado venció', fun
     expect(OrdenCompra::count())->toBe(0);
 });
 
+test('liberar propaga el producto del catálogo a la partida de la OC', function () {
+    $rubro = ObraRubro::factory()->create();
+    [$req, $detalle] = setupRequisicionAprobadaConRubro($this->depto, $rubro);
+    $producto = \App\Models\Costos\Producto::factory()->create();
+    $detalle->update(['producto_id' => $producto->id]);
+
+    $proveedor = Proveedor::factory()->create();
+    $precio = RequisicionCotizacionPrecio::factory()->create(['requisicion_detalle_id' => $detalle->id, 'proveedor_id' => $proveedor->id]);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $detalle->id, 'cotizacion_precio_id' => $precio->id,
+        'numero_oc' => 1, 'proveedor_id' => $proveedor->id, 'cantidad' => 10,
+    ]);
+    ocMeta($req->id, $proveedor->id, 1, 'credito');
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/liberar")
+        ->assertRedirect();
+
+    $ocDetalle = OrdenCompra::first()->detalles()->first();
+    expect($ocDetalle->producto_id)->toBe($producto->id);
+});
+
 test('liberar requiere permiso costos.requisiciones.liberar', function () {
     $rubro = ObraRubro::factory()->create();
     [$req, $detalle] = setupRequisicionAprobadaConRubro($this->depto, $rubro);

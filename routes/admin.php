@@ -36,6 +36,7 @@ use App\Http\Controllers\Admin\Costos\OrdenCompraController as CostosOrdenCompra
 use App\Http\Controllers\Admin\Costos\PagoController as CostosPagoController;
 use App\Http\Controllers\Admin\Costos\PermisoController as CostosPermisoController;
 use App\Http\Controllers\Admin\Costos\PresupuestoController as CostosPresupuestoController;
+use App\Http\Controllers\Admin\Costos\ProductoController as CostosProductoController;
 use App\Http\Controllers\Admin\Costos\RequisicionController as CostosRequisicionController;
 use App\Http\Controllers\Admin\Costos\RequisicionCotizacionController as CostosRequisicionCotizacionController;
 use App\Http\Controllers\Admin\Costos\RequisicionOcController as CostosRequisicionOcController;
@@ -192,6 +193,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('tipo-rubros', CostosTipoRubroController::class)->parameters(['tipo-rubros' => 'tipoRubro']);
         Route::resource('usos-cfdi', CostosUsoCfdiController::class)->parameters(['usos-cfdi' => 'usoCfdi'])->except(['show']);
         Route::resource('rubros', CostosRubroController::class)->parameters(['rubros' => 'rubro']);
+        Route::get('productos/buscar', [CostosProductoController::class, 'buscar'])->name('productos.buscar');
+        Route::resource('productos', CostosProductoController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])->parameters(['productos' => 'producto']);
         Route::resource('tipo-solicitudes', CostosTipoSolicitudController::class)->parameters(['tipo-solicitudes' => 'tipoSolicitud']);
         Route::resource('permisos', CostosPermisoController::class)->parameters(['permisos' => 'permiso']);
         Route::post('permisos/{permiso}/sync-departamentos', [CostosPermisoController::class, 'syncDepartamentos'])->name('permisos.sync-departamentos');
@@ -220,6 +223,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/liberar', [CostosRequisicionController::class, 'liberar'])->name('requisiciones.liberar');
         Route::post('requisiciones/{requisicion}/re-apartar', [CostosRequisicionController::class, 'reApartar'])->name('requisiciones.re-apartar');
         Route::post('requisiciones/detalles/{detalle}/clasificacion', [CostosRequisicionCotizacionController::class, 'clasificar'])->name('requisiciones.detalles.clasificar');
+        Route::patch('requisiciones/detalles/{detalle}/producto', [CostosRequisicionCotizacionController::class, 'actualizarProducto'])->name('requisiciones.detalles.producto');
         Route::post('requisiciones/cotizaciones', [CostosRequisicionCotizacionController::class, 'store'])->name('requisiciones.cotizaciones.store');
         Route::delete('requisiciones/cotizaciones/{precio}', [CostosRequisicionCotizacionController::class, 'destroy'])->name('requisiciones.cotizaciones.destroy');
         Route::delete('requisiciones/{requisicion}/proveedores/{proveedor}', [CostosRequisicionCotizacionController::class, 'destroyProveedor'])->name('requisiciones.proveedores.destroy');

@@ -170,8 +170,11 @@ export function CotizacionMatriz({
                             return (
                                 <tr key={d.id}>
                                     <td>
-                                        <div className="font-medium">{d.descripcion}</div>
-                                        <div className="text-[10px] text-base-content/50">{d.unidad}</div>
+                                        <ProductoCelda
+                                            key={`${d.id}-${d.descripcion}-${d.codigo_producto ?? ''}`}
+                                            detalle={d}
+                                            editable={editable}
+                                        />
                                     </td>
                                     <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
                                     <td>
@@ -218,6 +221,55 @@ export function CotizacionMatriz({
                     </tbody>
                 </table>
             </div>
+        </div>
+    );
+}
+
+function ProductoCelda({ detalle, editable }: { detalle: CostosRequisicionDetalle; editable: boolean }) {
+    const [descripcion, setDescripcion] = useState(detalle.descripcion);
+    const [codigo, setCodigo] = useState(detalle.codigo_producto ?? '');
+
+    // Sin producto del catálogo (partidas históricas) o no editable: solo lectura.
+    if (!detalle.producto_id || !editable) {
+        return (
+            <div>
+                <div className="font-medium">{detalle.descripcion}</div>
+                <div className="text-[10px] text-base-content/50">
+                    {detalle.codigo_producto ? `${detalle.codigo_producto} · ` : ''}{detalle.unidad}
+                </div>
+            </div>
+        );
+    }
+
+    const guardar = () => {
+        if (descripcion.trim() === '') return;
+        if (descripcion === detalle.descripcion && (codigo.trim() || null) === (detalle.codigo_producto ?? null)) return;
+        router.patch(
+            `/admin/costos/requisiciones/detalles/${detalle.id}/producto`,
+            { descripcion: descripcion.trim(), codigo: codigo.trim() || null },
+            { preserveScroll: true },
+        );
+    };
+
+    return (
+        <div className="space-y-1">
+            <input
+                type="text"
+                className="input input-bordered input-xs w-full font-medium"
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                onBlur={guardar}
+                title="Descripción del producto (catálogo)"
+            />
+            <input
+                type="text"
+                className="input input-bordered input-xs w-full"
+                value={codigo}
+                placeholder="Código del catálogo"
+                onChange={(e) => setCodigo(e.target.value)}
+                onBlur={guardar}
+            />
+            <div className="text-[10px] text-base-content/50">{detalle.unidad}</div>
         </div>
     );
 }

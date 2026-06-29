@@ -100,6 +100,7 @@ class OrdenCompraGenerator
             $ocDetalle = OrdenCompraDetalle::create([
                 'orden_compra_id' => $oc->id,
                 'requisicion_detalle_id' => $sel->requisicion_detalle_id,
+                'producto_id' => $detalle->producto_id,
                 'obra_rubro_id' => $detalle->obra_rubro_id,
                 'uso_cfdi_id' => $detalle->uso_cfdi_id,
                 'tipo_fiscal' => $detalle->tipo_fiscal,

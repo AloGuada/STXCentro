@@ -64,6 +64,51 @@ test('cualquier usuario con permiso crear puede crear una requisicion en borrado
     expect($req->detalles()->first()->obra_rubro_id)->toBe($rubroA->id);
 });
 
+test('crear requisicion liga la partida a un producto existente del catalogo', function () {
+    $obra = \App\Models\Obra::factory()->create();
+    $rubro = ObraRubro::factory()->create(['obra_id' => $obra->id]);
+    $uso = \App\Models\Costos\UsoCfdi::factory()->create();
+    $producto = \App\Models\Costos\Producto::factory()->create(['descripcion' => 'Cemento gris', 'unidad' => 'saco']);
+
+    $this->actingAs($this->user)
+        ->post('/admin/costos/requisiciones', [
+            'departamento_id' => $this->depto->id,
+            'obra_id' => $obra->id,
+            'detalles' => [
+                ['producto_id' => $producto->id, 'descripcion' => 'Cemento gris', 'unidad' => 'saco', 'cantidad' => 10, 'obra_rubro_id' => $rubro->id, 'uso_cfdi_id' => $uso->id],
+            ],
+        ])
+        ->assertRedirect();
+
+    $detalle = Requisicion::first()->detalles()->first();
+    expect($detalle->producto_id)->toBe($producto->id)
+        ->and($detalle->descripcion)->toBe('Cemento gris')
+        ->and($detalle->unidad)->toBe('saco');
+});
+
+test('crear requisicion con producto nuevo lo da de alta en el catalogo', function () {
+    $obra = \App\Models\Obra::factory()->create();
+    $rubro = ObraRubro::factory()->create(['obra_id' => $obra->id]);
+    $uso = \App\Models\Costos\UsoCfdi::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/costos/requisiciones', [
+            'departamento_id' => $this->depto->id,
+            'obra_id' => $obra->id,
+            'detalles' => [
+                ['producto_id' => null, 'descripcion' => 'Producto nuevo X', 'unidad' => 'pza', 'cantidad' => 3, 'obra_rubro_id' => $rubro->id, 'uso_cfdi_id' => $uso->id],
+            ],
+        ])
+        ->assertRedirect();
+
+    $producto = \App\Models\Costos\Producto::where('descripcion', 'Producto nuevo X')->first();
+    expect($producto)->not->toBeNull()
+        ->and($producto->creado_por)->toBe($this->user->id);
+
+    $detalle = Requisicion::first()->detalles()->first();
+    expect($detalle->producto_id)->toBe($producto->id);
+});
+
 test('crear requisicion sin rubro por partida falla', function () {
     $this->actingAs($this->user)
         ->post('/admin/costos/requisiciones', [

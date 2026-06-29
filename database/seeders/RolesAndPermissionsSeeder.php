@@ -76,6 +76,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.rubros.crear',
             'costos.rubros.editar',
             'costos.rubros.eliminar',
+            'costos.productos.ver',
+            'costos.productos.crear',
+            'costos.productos.editar',
+            'costos.productos.eliminar',
             'costos.tipo-solicitudes.ver',
             'costos.tipo-solicitudes.crear',
             'costos.tipo-solicitudes.editar',
@@ -453,6 +457,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.requisiciones.cotizar',
             'costos.requisiciones.liberar',
             'costos.requisiciones.cancelar',
+            'costos.productos.ver',
+            'costos.productos.crear',
+            'costos.productos.editar',
+            'costos.productos.eliminar',
         ]);
 
         // costos-almacen registra recepciones contra OC y ve facturas/OC relacionadas.
@@ -463,6 +471,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.devoluciones.ver',
             'costos.devoluciones.crear',
             'costos.devoluciones.cancelar',
+            'costos.productos.ver',
+            'costos.productos.crear',
+            'costos.productos.editar',
+            'costos.productos.eliminar',
         ]);
 
         // Contabilidad acepta facturas, crea pagos y los programa

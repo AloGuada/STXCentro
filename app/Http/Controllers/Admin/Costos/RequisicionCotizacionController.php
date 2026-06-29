@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin\Costos;
 use App\Enums\Costos\RequisicionEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\RequisicionCotizacionPrecioStoreRequest;
+use App\Models\Costos\Producto;
+use App\Models\Costos\ProductoPrecio;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
@@ -12,6 +14,7 @@ use App\Models\Costos\RequisicionSeleccion;
 use App\Models\Proveedor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -47,6 +50,8 @@ class RequisicionCotizacionController extends Controller
             ],
             $valores,
         );
+
+        $this->registrarHistoricoPrecio($detalle, $request->integer('proveedor_id'), $request->float('precio_unitario'), (string) $request->input('moneda', 'mxn'));
 
         $this->promoverACotizada($detalle->requisicion);
 
@@ -89,6 +94,64 @@ class RequisicionCotizacionController extends Controller
         $precio->delete();
 
         return back()->with('success', 'Precio eliminado.');
+    }
+
+    /**
+     * Compras edita el producto del catálogo (código/descripción) de una partida
+     * desde el tab de cotización; sincroniza el snapshot de la partida.
+     */
+    public function actualizarProducto(Request $request, RequisicionDetalle $detalle): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $detalle->load('requisicion');
+        $this->ensureEditable($detalle->requisicion->estatus);
+
+        if (! $detalle->producto_id) {
+            return back()->withErrors(['producto' => 'La partida no está ligada a un producto del catálogo.']);
+        }
+
+        $validated = $request->validate([
+            'codigo' => ['nullable', 'string', 'max:100', \Illuminate\Validation\Rule::unique('costos_productos', 'codigo')->ignore($detalle->producto_id)],
+            'descripcion' => ['required', 'string', 'max:255'],
+        ]);
+
+        $producto = Producto::findOrFail($detalle->producto_id);
+        $producto->update([
+            'codigo' => $validated['codigo'] ?: null,
+            'descripcion' => $validated['descripcion'],
+        ]);
+
+        $detalle->update([
+            'descripcion' => $producto->descripcion,
+            'codigo_producto' => $producto->codigo,
+        ]);
+
+        return back()->with('success', 'Producto actualizado.');
+    }
+
+    /**
+     * Registra el precio cotizado en el histórico del producto (uno por
+     * producto/proveedor/requisición). Alimenta el histórico desde la cotización.
+     */
+    private function registrarHistoricoPrecio(RequisicionDetalle $detalle, int $proveedorId, float $precio, string $moneda): void
+    {
+        if (! $detalle->producto_id || $precio <= 0) {
+            return;
+        }
+
+        ProductoPrecio::updateOrCreate(
+            [
+                'producto_id' => $detalle->producto_id,
+                'proveedor_id' => $proveedorId,
+                'requisicion_id' => $detalle->requisicion_id,
+            ],
+            [
+                'precio' => $precio,
+                'moneda' => $moneda,
+                'fecha' => Carbon::today(),
+            ],
+        );
     }
 
     /**
