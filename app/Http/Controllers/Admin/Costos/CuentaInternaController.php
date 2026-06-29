@@ -7,13 +7,15 @@ use App\Models\Usuario;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\Permission\Models\Role;
 
 class CuentaInternaController extends Controller
 {
-    private const COSTOS_ROLES = ['compras', 'almacen', 'contabilidad'];
+    private const COSTOS_ROLES = ['compras', 'costos', 'almacen', 'contabilidad'];
 
     public function index(): Response
     {
@@ -41,6 +43,34 @@ class CuentaInternaController extends Controller
             'todosUsuarios' => $todosUsuarios,
             'costosRoles' => self::COSTOS_ROLES,
         ]);
+    }
+
+    public function crearUsuario(Request $request): RedirectResponse
+    {
+        Gate::authorize('costos.cuentas-internas.editar');
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique(Usuario::class)],
+            'password' => ['required', 'string', 'min:8'],
+            'rol' => ['required', 'in:'.implode(',', self::COSTOS_ROLES)],
+        ], [
+            'name.required' => 'El nombre es obligatorio.',
+            'email.required' => 'El correo es obligatorio.',
+            'email.unique' => 'Este correo ya está registrado.',
+            'password.required' => 'La contraseña es obligatoria.',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+            'rol.required' => 'El rol es obligatorio.',
+        ]);
+
+        $usuario = Usuario::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+        ]);
+        $usuario->assignRole($validated['rol']);
+
+        return back()->with('success', "Usuario {$usuario->name} creado con rol {$validated['rol']}.");
     }
 
     public function store(Request $request): RedirectResponse

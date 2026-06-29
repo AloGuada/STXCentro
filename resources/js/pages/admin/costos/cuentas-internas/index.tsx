@@ -28,21 +28,31 @@ type Props = {
 
 const ROLE_LABELS: Record<string, string> = {
     compras: 'Compras',
+    costos: 'Costos',
     almacen: 'Almacén',
     contabilidad: 'Contabilidad',
 };
 
 const ROLE_COLORS: Record<string, string> = {
     compras: 'badge-primary',
+    costos: 'badge-secondary',
     almacen: 'badge-accent',
     contabilidad: 'badge-info',
 };
 
 export default function CuentasInternasIndex({ usuarios, todosUsuarios, costosRoles }: Props) {
     const [showModal, setShowModal] = useState(false);
+    const [showCrearModal, setShowCrearModal] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         usuario_id: '',
+        rol: '',
+    });
+
+    const crearForm = useForm({
+        name: '',
+        email: '',
+        password: '',
         rol: '',
     });
 
@@ -53,6 +63,17 @@ export default function CuentasInternasIndex({ usuarios, todosUsuarios, costosRo
             onSuccess: () => {
                 setShowModal(false);
                 reset();
+            },
+        });
+    };
+
+    const handleCrearSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        crearForm.post('/admin/costos/cuentas-internas/usuario', {
+            preserveScroll: true,
+            onSuccess: () => {
+                setShowCrearModal(false);
+                crearForm.reset();
             },
         });
     };
@@ -72,7 +93,10 @@ export default function CuentasInternasIndex({ usuarios, todosUsuarios, costosRo
             <div className="p-6">
                 <div className="mb-4 flex items-center justify-between">
                     <h1 className="text-2xl font-semibold">Cuentas Internas - Costos</h1>
-                    <Button onClick={() => setShowModal(true)}>Asignar Rol</Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setShowModal(true)}>Asignar Rol</Button>
+                        <Button onClick={() => setShowCrearModal(true)}>Crear Usuario</Button>
+                    </div>
                 </div>
 
                 {usuarios.length === 0 ? (
@@ -181,6 +205,89 @@ export default function CuentasInternasIndex({ usuarios, todosUsuarios, costosRo
                             </form>
                         </div>
                         <div className="modal-backdrop" onClick={() => { setShowModal(false); reset(); }}></div>
+                    </dialog>
+                )}
+
+                {/* Modal Crear Usuario */}
+                {showCrearModal && (
+                    <dialog className="modal modal-open">
+                        <div className="modal-box">
+                            <h3 className="font-bold text-lg mb-4">Crear Usuario de Costos</h3>
+                            <form onSubmit={handleCrearSubmit} className="space-y-4">
+                                <div className="form-control">
+                                    <label className="label" htmlFor="crear_name">
+                                        <span className="label-text">Nombre</span>
+                                    </label>
+                                    <input
+                                        id="crear_name"
+                                        type="text"
+                                        className="input input-bordered w-full"
+                                        value={crearForm.data.name}
+                                        onChange={(e) => crearForm.setData('name', e.target.value)}
+                                    />
+                                    {crearForm.errors.name && <span className="text-error text-sm mt-1">{crearForm.errors.name}</span>}
+                                </div>
+
+                                <div className="form-control">
+                                    <label className="label" htmlFor="crear_email">
+                                        <span className="label-text">Correo</span>
+                                    </label>
+                                    <input
+                                        id="crear_email"
+                                        type="email"
+                                        className="input input-bordered w-full"
+                                        value={crearForm.data.email}
+                                        onChange={(e) => crearForm.setData('email', e.target.value)}
+                                    />
+                                    {crearForm.errors.email && <span className="text-error text-sm mt-1">{crearForm.errors.email}</span>}
+                                </div>
+
+                                <div className="form-control">
+                                    <label className="label" htmlFor="crear_password">
+                                        <span className="label-text">Contraseña</span>
+                                    </label>
+                                    <input
+                                        id="crear_password"
+                                        type="password"
+                                        className="input input-bordered w-full"
+                                        value={crearForm.data.password}
+                                        onChange={(e) => crearForm.setData('password', e.target.value)}
+                                    />
+                                    {crearForm.errors.password && <span className="text-error text-sm mt-1">{crearForm.errors.password}</span>}
+                                </div>
+
+                                <div className="form-control">
+                                    <label className="label" htmlFor="crear_rol">
+                                        <span className="label-text">Rol</span>
+                                    </label>
+                                    <select
+                                        id="crear_rol"
+                                        className="select select-bordered w-full"
+                                        value={crearForm.data.rol}
+                                        onChange={(e) => crearForm.setData('rol', e.target.value)}
+                                    >
+                                        <option value="">Seleccionar rol...</option>
+                                        {costosRoles.map((r) => (
+                                            <option key={r} value={r}>
+                                                {ROLE_LABELS[r] ?? r}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {crearForm.errors.rol && <span className="text-error text-sm mt-1">{crearForm.errors.rol}</span>}
+                                </div>
+
+                                <div className="modal-action">
+                                    <Button type="button" variant="outline" onClick={() => { setShowCrearModal(false); crearForm.reset(); }}>
+                                        Cancelar
+                                    </Button>
+                                    <Button type="submit" disabled={crearForm.processing}>
+                                        {crearForm.processing && <Loader2Icon className="size-4 animate-spin" />}
+                                        Crear
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                        <div className="modal-backdrop" onClick={() => { setShowCrearModal(false); crearForm.reset(); }}></div>
                     </dialog>
                 )}
             </div>

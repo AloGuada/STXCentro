@@ -106,6 +106,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.pagos.editar',
             'costos.pagos.eliminar',
             'costos.ordenes-compra.ver',
+            'costos.ordenes-compra.ver-todas',
             'costos.ordenes-compra.crear',
             'costos.ordenes-compra.editar',
             'costos.ordenes-compra.eliminar',
@@ -383,8 +384,14 @@ class RolesAndPermissionsSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
-        // Renombrar roles de costos al namespace costos-* (idempotente)
-        foreach (['compras' => 'costos-compras', 'almacen' => 'costos-almacen'] as $viejo => $nuevo) {
+        // Consolidar a los 4 roles operativos de costos: compras, costos, almacen,
+        // contabilidad. Sustituyen a costos-compras, costos-almacen y admin-costos
+        // conservando las asignaciones (se renombra el registro). Idempotente.
+        foreach ([
+            'costos-compras' => 'compras',
+            'costos-almacen' => 'almacen',
+            'admin-costos' => 'costos',
+        ] as $viejo => $nuevo) {
             if (($role = Role::where('name', $viejo)->first()) && ! Role::where('name', $nuevo)->exists()) {
                 $role->update(['name' => $nuevo]);
             }
@@ -395,11 +402,11 @@ class RolesAndPermissionsSeeder extends Seeder
         $adminSti = Role::firstOrCreate(['name' => 'admin-sti', 'guard_name' => 'web']);
         $tecnicoSti = Role::firstOrCreate(['name' => 'tecnico-sti', 'guard_name' => 'web']);
         $adminIntranet = Role::firstOrCreate(['name' => 'admin-intranet', 'guard_name' => 'web']);
-        $adminCostos = Role::firstOrCreate(['name' => 'admin-costos', 'guard_name' => 'web']);
+        $costos = Role::firstOrCreate(['name' => 'costos', 'guard_name' => 'web']);
         $adminProduccion = Role::firstOrCreate(['name' => 'admin-produccion', 'guard_name' => 'web']);
         $adminInfra = Role::firstOrCreate(['name' => 'admin-infra', 'guard_name' => 'web']);
-        $compras = Role::firstOrCreate(['name' => 'costos-compras', 'guard_name' => 'web']);
-        $almacen = Role::firstOrCreate(['name' => 'costos-almacen', 'guard_name' => 'web']);
+        $compras = Role::firstOrCreate(['name' => 'compras', 'guard_name' => 'web']);
+        $almacen = Role::firstOrCreate(['name' => 'almacen', 'guard_name' => 'web']);
         $contabilidad = Role::firstOrCreate(['name' => 'contabilidad', 'guard_name' => 'web']);
         $adminCobranza = Role::firstOrCreate(['name' => 'admin-cobranza', 'guard_name' => 'web']);
         $adminRh = Role::firstOrCreate(['name' => 'admin-rh', 'guard_name' => 'web']);
@@ -433,8 +440,10 @@ class RolesAndPermissionsSeeder extends Seeder
         // Admin Intranet tiene todos los permisos de intranet
         $adminIntranet->givePermissionTo($intraPermissions);
 
-        // Admin Costos tiene todos los permisos de costos
-        $adminCostos->givePermissionTo($costosPermissions);
+        // El rol `costos` es el operativo de costos con acceso completo al módulo
+        // (catálogos, presupuesto, afectaciones, configuración de aprobaciones,
+        // facturas y notas de crédito). Sustituye a admin-costos.
+        $costos->givePermissionTo($costosPermissions);
 
         // Admin Produccion tiene todos los permisos de produccion
         $adminProduccion->givePermissionTo($prodPermissions);
@@ -442,10 +451,12 @@ class RolesAndPermissionsSeeder extends Seeder
         // Admin Infra tiene todos los permisos de infraestructura
         $adminInfra->givePermissionTo($infraPermissions);
 
-        // costos-compras gestiona OC y proveedores; ve facturas solo en lectura.
-        // La creación/cancelación de factura es responsabilidad de admin-costos.
+        // compras gestiona OC, proveedores y devoluciones; ve facturas en lectura.
+        // La creación/cancelación de factura es responsabilidad de costos.
+        // Como operativo del módulo, ve todas las requisiciones, OC y solicitudes.
         $compras->syncPermissions([
             'costos.ordenes-compra.ver',
+            'costos.ordenes-compra.ver-todas',
             'costos.ordenes-compra.crear',
             'costos.ordenes-compra.editar',
             'costos.ordenes-compra.eliminar',
@@ -460,15 +471,22 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.requisiciones.cotizar',
             'costos.requisiciones.liberar',
             'costos.requisiciones.cancelar',
+            'costos.devoluciones.ver',
+            'costos.devoluciones.crear',
+            'costos.devoluciones.cancelar',
             'costos.productos.ver',
             'costos.productos.crear',
             'costos.productos.editar',
             'costos.productos.eliminar',
+            'costos.solicitudes-pago.ver',
+            'costos.solicitudes-pago.ver-todas',
         ]);
 
-        // costos-almacen registra recepciones contra OC y ve facturas/OC relacionadas.
+        // almacen registra recepciones contra OC y gestiona devoluciones.
+        // Operativo del módulo: ve todas las requisiciones, OC y solicitudes.
         $almacen->syncPermissions([
             'costos.ordenes-compra.ver',
+            'costos.ordenes-compra.ver-todas',
             'costos.facturas.ver',
             'costos.entregas.crear',
             'costos.devoluciones.ver',
@@ -480,17 +498,26 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.productos.crear',
             'costos.productos.editar',
             'costos.productos.eliminar',
+            'costos.solicitudes-pago.ver',
+            'costos.solicitudes-pago.ver-todas',
         ]);
 
-        // Contabilidad acepta facturas, crea pagos y los programa
-        $contabilidad->givePermissionTo([
+        // contabilidad valida costos, crea/aprueba solicitudes de pago, programa
+        // pagos, gestiona anticipos, notas de crédito y complementos de pago.
+        // Operativo del módulo: ve todas las requisiciones, OC y solicitudes.
+        $contabilidad->syncPermissions([
             'costos.pagos.ver',
             'costos.pagos.programar',
             'costos.pagos.editar',
+            'costos.pagos.cancelar',
             'costos.facturas.ver',
             'costos.facturas.aceptar-contabilidad',
             'costos.solicitudes-pago.ver',
             'costos.solicitudes-pago.ver-todas',
+            'costos.solicitudes-pago.crear',
+            'costos.solicitudes-pago.editar',
+            'costos.solicitudes-pago.aprobar',
+            'costos.solicitudes.confirmar-costos',
             'costos.anticipos.ver',
             'costos.anticipos.crear',
             'costos.anticipos.aplicar',
@@ -498,6 +525,12 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.notas-credito.ver',
             'costos.notas-credito.crear',
             'costos.notas-credito.cancelar',
+            'costos.complementos.ver',
+            'costos.complementos.desbloquear',
+            'costos.requisiciones.ver',
+            'costos.requisiciones.ver-todas',
+            'costos.ordenes-compra.ver',
+            'costos.ordenes-compra.ver-todas',
         ]);
 
         // Admin Cobranza tiene todos los permisos de cobranza

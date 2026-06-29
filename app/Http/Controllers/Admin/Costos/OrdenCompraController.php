@@ -74,6 +74,12 @@ class OrdenCompraController extends Controller
                         ->orWhereHas('requisicion', fn ($r) => $r->where('obra_id', $obraId));
                 });
             })
+            // Los usuarios comunes solo ven las OC de sus propias requisiciones; los
+            // operativos del módulo (compras, costos, almacén, contabilidad) y el
+            // super-admin ven todas.
+            ->unless($request->user()->can('costos.ordenes-compra.ver-todas'), function ($q) use ($request) {
+                $q->whereHas('requisicion', fn ($r) => $r->where('solicitante_id', $request->user()->id));
+            })
             ->latest()
             ->paginate(15)
             ->withQueryString();

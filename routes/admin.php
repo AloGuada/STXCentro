@@ -299,6 +299,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Cuentas Internas
         Route::get('cuentas-internas', [CostosCuentaInternaController::class, 'index'])->name('cuentas-internas.index');
+        Route::post('cuentas-internas/usuario', [CostosCuentaInternaController::class, 'crearUsuario'])->name('cuentas-internas.crear-usuario');
         Route::post('cuentas-internas', [CostosCuentaInternaController::class, 'store'])->name('cuentas-internas.store');
         Route::delete('cuentas-internas/{usuario}/{rol}', [CostosCuentaInternaController::class, 'destroy'])->name('cuentas-internas.destroy');
 

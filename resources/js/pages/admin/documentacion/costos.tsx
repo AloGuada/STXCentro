@@ -82,7 +82,7 @@ const flujoSolicitudesPago: PasoFlujo[] = [
         numero: 5,
         titulo: 'Confirmación por Costos',
         descripcion:
-            'Un usuario con rol admin-costos confirma la solicitud aprobada. Si la solicitud es de tipo "Contado" (transferencia, cheque, efectivo), al confirmar se crea automáticamente el Pago con estado "Programado" usando la fecha de pago solicitada.',
+            'Un usuario con rol costos confirma la solicitud aprobada. Si la solicitud es de tipo "Contado" (transferencia, cheque, efectivo), al confirmar se crea automáticamente el Pago con estado "Programado" usando la fecha de pago solicitada.',
     },
     {
         numero: 6,
@@ -109,7 +109,7 @@ const flujoPagos: PasoFlujo[] = [
         numero: 3,
         titulo: 'Subir comprobante de pago',
         descripcion:
-            'Al realizarse la transferencia/cheque, admin-costos sube el comprobante desde la vista del pago. Se registra la fecha de pago realizada y opcionalmente notas. El pago pasa a estado "Pagado".',
+            'Al realizarse la transferencia/cheque, costos sube el comprobante desde la vista del pago. Se registra la fecha de pago realizada y opcionalmente notas. El pago pasa a estado "Pagado".',
     },
     {
         numero: 4,
@@ -136,7 +136,7 @@ const flujoPortalProveedores: PasoFlujo[] = [
         numero: 3,
         titulo: 'Aprobación por Costos',
         descripcion:
-            'Un usuario con rol admin-costos revisa la factura contra las entregas y la orden de compra. Si todo está en orden, aprueba la factura. Pasa a estado "Pendiente de Pago".',
+            'Un usuario con rol costos revisa la factura contra las entregas y la orden de compra. Si todo está en orden, aprueba la factura. Pasa a estado "Pendiente de Pago".',
     },
     {
         numero: 4,

@@ -28,7 +28,7 @@ class BadgeConfigSeeder extends Seeder
                 'operador' => '=',
                 'valor_estatus' => 'pendiente_aprobacion',
                 'condiciones_extra' => null,
-                'rol' => 'admin-costos',
+                'rol' => 'costos',
                 'nav_href' => '/admin/costos/facturas',
                 'filter_href' => '/admin/costos/facturas?estatus=pendiente_aprobacion',
             ],
