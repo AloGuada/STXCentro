@@ -65,6 +65,19 @@ test('el PDF de la OC se genera con requisición y uso CFDI', function () {
     expect($res->headers->get('content-type'))->toContain('pdf');
 });
 
+test('el show expone las solicitudes de pago ligadas a la OC', function () {
+    $oc = OrdenCompra::factory()->pendienteEntrega()->create();
+    \App\Models\Costos\SolicitudPago::factory()->create(['orden_compra_id' => $oc->id]);
+
+    $this->actingAs($this->user)
+        ->get("/admin/costos/ordenes-compra/{$oc->id}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/costos/ordenes-compra/show')
+            ->has('ordenCompra.solicitudes_pago', 1)
+        );
+});
+
 test('muestra formulario de creacion', function () {
     $this->actingAs($this->user)
         ->get('/admin/costos/ordenes-compra/create')

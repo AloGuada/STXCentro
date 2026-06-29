@@ -628,6 +628,20 @@ function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
                 <TreeFile label="Formato OC (PDF)" href={`${baseUrl}/pdf-oc`} onPreview={openPreview} />
             </TreeFolder>
 
+            {/* Solicitudes de pago (flujo de contado) */}
+            {(ordenCompra.solicitudes_pago?.length ?? 0) > 0 && (
+                <TreeFolder label="Solicitudes de pago">
+                    {ordenCompra.solicitudes_pago!.map((sol) => (
+                        <TreeFile
+                            key={sol.id}
+                            label={`Solicitud ${sol.folio} (PDF)`}
+                            href={`/admin/costos/solicitudes-pago/${sol.id}/pdf`}
+                            onPreview={openPreview}
+                        />
+                    ))}
+                </TreeFolder>
+            )}
+
             {/* Recepciones */}
             <TreeFolder label="Recepciones">
                 {(ordenCompra.entregas?.length ?? 0) === 0 ? (

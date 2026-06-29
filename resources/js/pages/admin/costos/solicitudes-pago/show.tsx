@@ -9,11 +9,14 @@ import type { BreadcrumbItem } from '@/types';
 import type { CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
-import { CheckCircleIcon } from 'lucide-react';
+import { CheckCircleIcon, FileTextIcon } from 'lucide-react';
 import { useState } from 'react';
+
+type DocumentoPrevio = { label: string; url: string };
 
 type Props = {
     solicitud: CostosSolicitudPago;
+    documentosPrevios?: DocumentoPrevio[];
 };
 
 const steps: { key: CostosSolicitudPagoEstatus; label: string }[] = [
@@ -30,7 +33,7 @@ function getStepIndex(estatus: CostosSolicitudPagoEstatus): number {
     return steps.findIndex((s) => s.key === estatus);
 }
 
-export default function SolicitudesPagoShow({ solicitud }: Props) {
+export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] }: Props) {
     const { can } = useCan();
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -249,6 +252,26 @@ export default function SolicitudesPagoShow({ solicitud }: Props) {
 
                     <input type="radio" name="solicitud_tabs" role="tab" className="tab" aria-label="Documentos" />
                     <div role="tabpanel" className="tab-content py-4">
+                        {documentosPrevios.length > 0 && (
+                            <div className="mb-6">
+                                <h3 className="mb-2 text-sm font-semibold text-base-content/70">Documentos previos</h3>
+                                <div className="space-y-2">
+                                    {documentosPrevios.map((doc) => (
+                                        <a
+                                            key={doc.url}
+                                            href={doc.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex items-center gap-2 rounded-lg border border-base-300 bg-base-200 p-3 text-sm transition hover:bg-base-300"
+                                        >
+                                            <FileTextIcon className="size-4 text-base-content/60" />
+                                            <span className="font-medium">{doc.label}</span>
+                                            <span className="ml-auto text-xs text-base-content/50">Ver PDF</span>
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         {solicitud.tipo_solicitud?.documentos && solicitud.tipo_solicitud.documentos.length > 0 ? (
                             <div className="space-y-4">
                                 {solicitud.tipo_solicitud.documentos.map((doc) => (

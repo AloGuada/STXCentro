@@ -222,12 +222,43 @@ class SolicitudPagoController extends Controller
             'pago',
             'confirmadorCostos',
             'confirmadorContabilidad',
+            'ordenCompra.requisicion:id,folio',
             'activities.causer',
         ]);
 
         return Inertia::render('admin/costos/solicitudes-pago/show', [
             'solicitud' => $solicitudPago,
+            'documentosPrevios' => $this->documentosPrevios($solicitudPago),
         ]);
+    }
+
+    /**
+     * PDFs de los documentos que originaron la solicitud (OC de contado y su
+     * requisición), para mostrarlos en el tab de Documentos.
+     *
+     * @return list<array{label: string, url: string}>
+     */
+    private function documentosPrevios(SolicitudPago $solicitudPago): array
+    {
+        $oc = $solicitudPago->ordenCompra;
+
+        if (! $oc) {
+            return [];
+        }
+
+        $documentos = [[
+            'label' => "Orden de Compra {$oc->folio}",
+            'url' => route('admin.costos.ordenes-compra.pdf-oc', $oc),
+        ]];
+
+        if ($oc->requisicion) {
+            $documentos[] = [
+                'label' => "Requisición {$oc->requisicion->folio} (comparativo)",
+                'url' => route('admin.costos.ordenes-compra.pdf-requisicion', $oc),
+            ];
+        }
+
+        return $documentos;
     }
 
     public function edit(SolicitudPago $solicitudPago): Response|RedirectResponse
