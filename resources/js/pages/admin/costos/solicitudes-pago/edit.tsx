@@ -72,6 +72,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
         tipo_moneda: string;
         fecha_pago_solicitada: string;
         detalles: DetalleForm[];
+        monto_total: string;
         _version: string;
     }>({
         departamento_id: String(solicitud.departamento_id),
@@ -81,6 +82,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
         tipo_pago: solicitud.tipo_pago,
         tipo_moneda: solicitud.tipo_moneda ?? 'mxn',
         fecha_pago_solicitada: solicitud.fecha_pago_solicitada ?? '',
+        monto_total: (solicitud.detalles?.length ?? 0) === 0 ? String(solicitud.monto_total ?? '') : '',
         _version: solicitud.updated_at,
         detalles: (solicitud.detalles ?? []).map((d) => {
             const matchedObraRubro = obraRubros.find((or) => or.id === d.obra_rubro_id);
@@ -302,6 +304,26 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                                         </Button>
                                     </div>
                                 </div>
+
+                                {data.detalles.length === 0 && (
+                                    <div className="rounded-lg border border-base-300 bg-base-200/40 p-3">
+                                        <p className="mb-2 text-sm text-base-content/60">
+                                            Sin desglose de rubros. Para obras que no lo requieren, captura el total del pago.
+                                        </p>
+                                        <FormField label="Total del pago" htmlFor="monto_total" error={errors.monto_total} required>
+                                            <Input
+                                                id="monto_total"
+                                                type="number"
+                                                step="0.01"
+                                                min="0.01"
+                                                placeholder="0.00"
+                                                className="w-48"
+                                                value={data.monto_total}
+                                                onChange={(e) => setData('monto_total', e.target.value)}
+                                            />
+                                        </FormField>
+                                    </div>
+                                )}
 
                                 {data.detalles.map((det, index) => {
                                     const subtotal = calcSubtotal(det);

@@ -30,8 +30,18 @@ class SolicitudPagoUpdateRequest extends FormRequest
             'detalles.*.concepto' => ['required', 'string', 'max:255'],
             'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],
             'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
+            'monto_total' => ['nullable', 'numeric', 'min:0.01'],
             '_version' => ['nullable', 'string'],
         ];
+    }
+
+    public function withValidator(\Illuminate\Contracts\Validation\Validator $validator): void
+    {
+        $validator->after(function (\Illuminate\Contracts\Validation\Validator $validator) {
+            if (empty($this->input('detalles', [])) && ! $this->filled('monto_total')) {
+                $validator->errors()->add('monto_total', 'Captura el desglose de rubros o el total del pago.');
+            }
+        });
     }
 
     /**

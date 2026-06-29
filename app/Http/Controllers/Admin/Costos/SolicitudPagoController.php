@@ -156,6 +156,11 @@ class SolicitudPagoController extends Controller
                 }
             }
 
+            // Obras sin desglose de rubros: el total se captura directo.
+            if (empty($request->input('detalles', []))) {
+                $montoTotal = round((float) $request->input('monto_total', 0), 2);
+            }
+
             $solicitud->update(['monto_total' => $montoTotal]);
 
             // Apartado temporal de presupuesto (5 días) en cada rubro de la
@@ -351,6 +356,11 @@ class SolicitudPagoController extends Controller
                         $warnings[] = "El centro de costos {$obraRubro->rubro?->codigo} excede el presupuesto disponible.";
                     }
                 }
+            }
+
+            // Obras sin desglose de rubros: el total se captura directo.
+            if (empty($request->input('detalles', []))) {
+                $montoTotal = round((float) $request->input('monto_total', 0), 2);
             }
 
             $solicitudPago->update(['monto_total' => $montoTotal]);

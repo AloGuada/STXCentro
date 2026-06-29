@@ -29,10 +29,22 @@ class SolicitudPagoStoreRequest extends FormRequest
             'detalles.*.concepto' => ['required', 'string', 'max:255'],
             'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],
             'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
+            'monto_total' => ['nullable', 'numeric', 'min:0.01'],
             'archivos' => ['nullable', 'array'],
             'archivos.*' => ['nullable', 'array'],
             'archivos.*.*' => ['file', 'max:10240'],
         ];
+    }
+
+    public function withValidator(\Illuminate\Contracts\Validation\Validator $validator): void
+    {
+        $validator->after(function (\Illuminate\Contracts\Validation\Validator $validator) {
+            // Las obras que no requieren desglose de rubros capturan el total
+            // directamente; sin desglose ni total, la solicitud quedaría en cero.
+            if (empty($this->input('detalles', [])) && ! $this->filled('monto_total')) {
+                $validator->errors()->add('monto_total', 'Captura el desglose de rubros o el total del pago.');
+            }
+        });
     }
 
     /**

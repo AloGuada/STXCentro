@@ -52,7 +52,7 @@ describe('admin costos solicitudes pago', function () {
         );
     });
 
-    test('solicitud can be stored without detalles', function () {
+    test('solicitud sin desglose usa el monto_total capturado', function () {
         $departamento = Departamento::factory()->create();
         $tipoSolicitud = TipoSolicitud::factory()->create(['rubros' => false]);
 
@@ -63,15 +63,30 @@ describe('admin costos solicitudes pago', function () {
                 'concepto' => 'Compra de materiales',
                 'tipo_pago' => 'transferencia',
                 'tipo_moneda' => 'mxn',
+                'monto_total' => 7500.50,
             ]);
 
         $solicitud = SolicitudPago::latest('id')->first();
         $response->assertRedirect(route('admin.costos.solicitudes-pago.show', $solicitud));
-        $this->assertDatabaseHas('costos_solicitudes_pago', [
-            'concepto' => 'Compra de materiales',
-            'solicitante_id' => $this->user->id,
-            'estatus' => 'pendiente_firma',
-        ]);
+        expect($solicitud->detalles)->toHaveCount(0)
+            ->and((float) $solicitud->monto_total)->toBe(7500.50);
+    });
+
+    test('solicitud sin desglose ni monto_total falla la validación', function () {
+        $departamento = Departamento::factory()->create();
+        $tipoSolicitud = TipoSolicitud::factory()->create(['rubros' => false]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.store'), [
+                'departamento_id' => $departamento->id,
+                'tipo_solicitud_id' => $tipoSolicitud->id,
+                'concepto' => 'Compra de materiales',
+                'tipo_pago' => 'transferencia',
+                'tipo_moneda' => 'mxn',
+            ])
+            ->assertSessionHasErrors('monto_total');
+
+        expect(SolicitudPago::count())->toBe(0);
     });
 
     test('solicitud can be stored with detalles', function () {
@@ -192,6 +207,7 @@ describe('admin costos solicitudes pago', function () {
                 'concepto' => 'Should not update',
                 'tipo_pago' => 'efectivo',
                 'tipo_moneda' => 'mxn',
+                'monto_total' => 1000,
             ]);
 
         $response->assertSessionHasErrors(['estatus']);
