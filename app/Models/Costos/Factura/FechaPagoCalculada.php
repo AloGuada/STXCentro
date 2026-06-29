@@ -28,19 +28,29 @@ final class FechaPagoCalculada
             return null;
         }
 
-        $dias = (int) ($this->factura->dias_credito ?? $this->factura->proveedor?->dias_credito_default ?? 0);
+        // Días de crédito: override de la factura, o el default del proveedor;
+        // si no hay (0/null), el término normal es 30 días.
+        $dias = (int) ($this->factura->dias_credito ?? ($this->factura->proveedor?->dias_credito_default ?: 30));
 
         $fecha = Carbon::parse($fechaBase)->addDays($dias);
 
-        return $fecha->dayOfWeek === Carbon::FRIDAY
-            ? $fecha
-            : $fecha->next(Carbon::FRIDAY);
+        // Ajuste a viernes con corte el miércoles: lunes-miércoles → viernes de
+        // esa misma semana; jueves en adelante (pasado el miércoles) → viernes
+        // de la semana siguiente.
+        $viernes = $fecha->copy()->startOfWeek(Carbon::MONDAY)->addDays(4);
+
+        if ($fecha->dayOfWeekIso > Carbon::WEDNESDAY) {
+            $viernes->addWeek();
+        }
+
+        return $viernes;
     }
 
     /**
      * Fecha base sobre la que se cuentan los días de crédito. Si el proveedor
      * exige respetar la fecha de la factura, siempre es la del CFDI; de lo
-     * contrario, la base configurada (factura, recepción o aprobación).
+     * contrario, se cuenta desde HOY (las bases por recepción/aprobación son
+     * overrides explícitos que casi no se usan).
      */
     private function fechaBase(): Carbon|string|null
     {
@@ -48,12 +58,10 @@ final class FechaPagoCalculada
             return $this->factura->fecha_factura;
         }
 
-        $base = $this->factura->base_dias_credito ?? BaseDiasCredito::Factura;
-
-        return match ($base) {
-            BaseDiasCredito::Factura => $this->factura->fecha_factura,
+        return match ($this->factura->base_dias_credito) {
             BaseDiasCredito::Recepcion => $this->factura->entregas()->latest('fecha_entrega')->value('fecha_entrega'),
             BaseDiasCredito::Aprobacion => $this->factura->aprobada_costos_at,
+            default => Carbon::today(),
         };
     }
 }

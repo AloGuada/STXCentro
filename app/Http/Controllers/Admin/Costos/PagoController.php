@@ -29,7 +29,7 @@ class PagoController extends Controller
     {
         $pagos = Pago::query()
             ->whereNull('pago_padre_id')
-            ->with('pagable')
+            ->with('pagable.proveedor')
             ->when($request->search, function ($query, $search) {
                 $query->where('folio', 'like', "%{$search}%");
             })

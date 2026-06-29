@@ -26,6 +26,11 @@ const columns: Column<CostosPago>[] = [
         },
     },
     {
+        key: 'proveedor',
+        label: 'Proveedor',
+        render: (row) => row.pagable?.proveedor?.nombre_comercial ?? row.pagable?.proveedor?.razon_social ?? '-',
+    },
+    {
         key: 'monto_pago',
         label: 'Monto',
         render: (row) => `$${Number(row.monto_pago).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,

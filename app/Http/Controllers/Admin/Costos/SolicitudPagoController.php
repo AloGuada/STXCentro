@@ -41,7 +41,9 @@ class SolicitudPagoController extends Controller
         Gate::authorize('costos.solicitudes-pago.ver');
 
         $solicitudes = SolicitudPago::query()
-            ->where('solicitante_id', auth()->id())
+            // Los usuarios comunes solo ven sus solicitudes; los operadores con
+            // `ver-todas` ven las de todos.
+            ->unless($request->user()->can('costos.solicitudes-pago.ver-todas'), fn ($q) => $q->where('solicitante_id', $request->user()->id))
             ->with(['departamento', 'proveedor', 'solicitante', 'media'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {

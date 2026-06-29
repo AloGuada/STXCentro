@@ -22,6 +22,29 @@ class Proveedor extends Authenticatable
 
     protected string $guard_name = 'proveedor';
 
+    protected static function booted(): void
+    {
+        static::creating(function (Proveedor $proveedor): void {
+            if (empty($proveedor->codigo)) {
+                $proveedor->codigo = static::generarCodigo();
+            }
+        });
+    }
+
+    /**
+     * Genera el siguiente folio secuencial con prefijo PROV (PROV0001, PROV0002...).
+     * Se calcula en PHP para mantenerse agnóstico del motor de base de datos.
+     */
+    public static function generarCodigo(): string
+    {
+        $maximo = static::where('codigo', 'like', 'PROV%')
+            ->pluck('codigo')
+            ->map(fn (string $codigo): int => (int) preg_replace('/\D/', '', $codigo))
+            ->max() ?? 0;
+
+        return 'PROV'.str_pad((string) ($maximo + 1), 4, '0', STR_PAD_LEFT);
+    }
+
     /**
      * @var list<string>
      */
