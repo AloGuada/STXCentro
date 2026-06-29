@@ -1,3 +1,4 @@
+import { SearchSelect } from '@/components/ui/search-select';
 import type { ObraRubroOption } from '@/types/models';
 
 type Props = {
@@ -10,8 +11,8 @@ type Props = {
 };
 
 /**
- * Selector de obra-rubro. Las opciones se pintan en rojo cuando el rubro
- * está sobregirado (disponible < 0) o no tiene presupuesto asignado.
+ * Selector buscable de obra-rubro. Las opciones se pintan en rojo cuando el
+ * rubro está sobregirado (disponible < 0) o no tiene presupuesto asignado.
  */
 export function RubroSelector({ value, options, onChange, rubroOnly = false, disabled = false }: Props) {
     const isAlerta = (r: ObraRubroOption) => r.sobregiro || r.presupuestado <= 0;
@@ -24,23 +25,16 @@ export function RubroSelector({ value, options, onChange, rubroOnly = false, dis
     };
 
     return (
-        <select
-            className="select select-bordered select-sm w-full"
-            value={value}
+        <SearchSelect
+            value={value === '' ? '' : String(value)}
+            onValueChange={(v) => onChange(v ? Number(v) : '')}
             disabled={disabled}
-            onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
-        >
-            <option value="">Selecciona centro de costos...</option>
-            {options.map((r) => (
-                <option
-                    key={r.id}
-                    value={r.id}
-                    style={isAlerta(r) ? { color: '#dc2626' } : undefined}
-                >
-                    {rubroOnly ? r.rubro_label : r.label}
-                    {sufijo(r)}
-                </option>
-            ))}
-        </select>
+            placeholder="Selecciona centro de costos..."
+            options={options.map((r) => ({
+                value: String(r.id),
+                label: `${rubroOnly ? r.rubro_label : r.label}${sufijo(r)}`,
+                danger: isAlerta(r),
+            }))}
+        />
     );
 }

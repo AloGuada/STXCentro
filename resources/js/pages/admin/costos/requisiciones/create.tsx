@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
 import { CreatableCombobox } from '@/components/ui/creatable-combobox';
+import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { CostosProducto, CostosUsoCfdi, Departamento, Obra, ObraRubroOption } from '@/types/models';
 import type { BreadcrumbItem } from '@/types';
@@ -135,18 +136,15 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                                 <span className="label-text text-xs">Incluir cerradas</span>
                             </label>
                         </div>
-                        <select
-                            className="select select-bordered w-full"
-                            value={data.obra_id}
-                            onChange={(e) => setObra(e.target.value ? Number(e.target.value) : '')}
-                        >
-                            <option value="">Selecciona una obra</option>
-                            {obrasVisibles.map((o) => (
-                                <option key={o.id} value={o.id}>
-                                    {o.no ? `OP-${o.no} · ` : ''}{o.descripcion}{o.estatus === 'cerrada' ? ' (Cerrada)' : ''}
-                                </option>
-                            ))}
-                        </select>
+                        <SearchSelect
+                            value={data.obra_id === '' ? '' : String(data.obra_id)}
+                            onValueChange={(v) => setObra(v ? Number(v) : '')}
+                            placeholder="Selecciona una obra"
+                            options={obrasVisibles.map((o) => ({
+                                value: String(o.id),
+                                label: `${o.no ? `OP-${o.no} · ` : ''}${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
+                            }))}
+                        />
                         {errors.obra_id && <p className="text-error text-sm mt-1">{errors.obra_id}</p>}
                         <p className="text-xs text-base-content/60 mt-1">Una requisición es para una sola obra. Las partidas eligen su centro de costos dentro de esta obra.</p>
                     </div>

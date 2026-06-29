@@ -1,6 +1,7 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosObraRubro, CostosTipoSolicitud, Departamento, Obra, Proveedor } from '@/types/models';
@@ -209,18 +210,19 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                     </select>
                                 </FormField>
 
-                                <FormField label="Proveedor" htmlFor="proveedor_id" error={errors.proveedor_id}>
-                                    <select
-                                        id="proveedor_id"
-                                        className="select select-bordered w-full"
+                                <FormField label="Beneficiario" htmlFor="proveedor_id" error={errors.proveedor_id}>
+                                    <SearchSelect
                                         value={data.proveedor_id}
-                                        onChange={(e) => setData('proveedor_id', e.target.value)}
-                                    >
-                                        <option value="">Sin proveedor</option>
-                                        {proveedores.map((p) => (
-                                            <option key={p.id} value={p.id}>{p.nombre_comercial || p.razon_social}</option>
-                                        ))}
-                                    </select>
+                                        onValueChange={(value) => setData('proveedor_id', value)}
+                                        placeholder="Buscar beneficiario..."
+                                        options={[
+                                            { value: '', label: 'Sin beneficiario' },
+                                            ...proveedores.map((p) => ({
+                                                value: String(p.id),
+                                                label: p.nombre_comercial || p.razon_social,
+                                            })),
+                                        ]}
+                                    />
                                 </FormField>
                             </div>
 

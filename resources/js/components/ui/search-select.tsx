@@ -1,9 +1,12 @@
-import { cn } from '@/lib/utils';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { cn } from '@/lib/utils';
 
 type Option = {
     value: string;
     label: string;
+    /** Pinta la opción en rojo (ej. centro de costo sobregirado / sin presupuesto). */
+    danger?: boolean;
 };
 
 type SearchSelectProps = {
@@ -12,6 +15,7 @@ type SearchSelectProps = {
     onValueChange: (value: string) => void;
     placeholder?: string;
     className?: string;
+    disabled?: boolean;
 };
 
 export function SearchSelect({
@@ -20,25 +24,54 @@ export function SearchSelect({
     onValueChange,
     placeholder = 'Buscar...',
     className,
+    disabled = false,
 }: SearchSelectProps) {
     const selected = options.find((o) => o.value === value);
     const [query, setQuery] = useState('');
     const [open, setOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
+    const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const dropdownRef = useRef<HTMLUListElement>(null);
 
     const filtered = options.filter((o) =>
         o.label.toLowerCase().includes(query.toLowerCase()),
     );
 
-    useEffect(() => {
+    // Posiciona el dropdown (portal) bajo el input para que no lo recorte ningún
+    // contenedor con overflow; se realinea al hacer scroll/resize.
+    const updateCoords = () => {
+        const rect = inputRef.current?.getBoundingClientRect();
+        if (rect) {
+            setCoords({ top: rect.bottom, left: rect.left, width: rect.width });
+        }
+    };
+
+    const openDropdown = () => {
+        setQuery('');
         setHighlightedIndex(0);
-    }, [query]);
+        setOpen(true);
+        updateCoords();
+    };
+
+    useEffect(() => {
+        if (!open) return;
+        const handler = () => updateCoords();
+        window.addEventListener('scroll', handler, true);
+        window.addEventListener('resize', handler);
+        return () => {
+            window.removeEventListener('scroll', handler, true);
+            window.removeEventListener('resize', handler);
+        };
+    }, [open]);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+            const target = e.target as Node;
+            const inWrapper = wrapperRef.current?.contains(target);
+            const inDropdown = dropdownRef.current?.contains(target);
+            if (!inWrapper && !inDropdown) {
                 setOpen(false);
                 setQuery('');
             }
@@ -55,9 +88,12 @@ export function SearchSelect({
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (disabled) {
+            return;
+        }
         if (!open) {
             if (e.key === 'ArrowDown' || e.key === 'Enter') {
-                setOpen(true);
+                openDropdown();
                 e.preventDefault();
             }
             return;
@@ -94,18 +130,22 @@ export function SearchSelect({
                 className="input input-bordered w-full"
                 placeholder={selected ? selected.label : placeholder}
                 value={open ? query : selected?.label ?? ''}
+                disabled={disabled}
                 onChange={(e) => {
                     setQuery(e.target.value);
+                    setHighlightedIndex(0);
                     setOpen(true);
+                    updateCoords();
                 }}
-                onFocus={() => {
-                    setQuery('');
-                    setOpen(true);
-                }}
+                onFocus={openDropdown}
                 onKeyDown={handleKeyDown}
             />
-            {open && filtered.length > 0 && (
-                <ul className="menu bg-base-100 border-base-300 absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded border shadow-lg">
+            {open && !disabled && filtered.length > 0 && coords && createPortal(
+                <ul
+                    ref={dropdownRef}
+                    className="menu bg-base-100 border-base-300 fixed z-[100] max-h-60 overflow-auto rounded border shadow-lg"
+                    style={{ top: coords.top, left: coords.left, width: coords.width }}
+                >
                     {filtered.map((option, idx) => (
                         <li key={option.value}>
                             <button
@@ -114,6 +154,7 @@ export function SearchSelect({
                                     'w-full text-left',
                                     idx === highlightedIndex && 'active',
                                     option.value === value && 'font-semibold',
+                                    option.danger && 'text-error',
                                 )}
                                 onMouseEnter={() => setHighlightedIndex(idx)}
                                 onClick={() => handleSelect(option)}
@@ -122,7 +163,8 @@ export function SearchSelect({
                             </button>
                         </li>
                     ))}
-                </ul>
+                </ul>,
+                document.body,
             )}
         </div>
     );
