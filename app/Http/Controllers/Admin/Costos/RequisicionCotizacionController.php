@@ -11,11 +11,13 @@ use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\RequisicionSeleccion;
+use App\Models\Media;
 use App\Models\Proveedor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Maneja la matriz de precio comparativo de la requisicion: por cada
@@ -176,6 +178,55 @@ class RequisicionCotizacionController extends Controller
             ->delete();
 
         return back()->with('success', 'Proveedor eliminado de la cotización.');
+    }
+
+    /**
+     * Sube un PDF como información extra de la cotización (ej. cotización del
+     * proveedor, fichas técnicas). Se adjunta a la requisición vía media.
+     */
+    public function subirDocumento(Request $request, Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $this->ensureEditable($requisicion->estatus);
+
+        $validated = $request->validate([
+            'documento' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'titulo' => ['nullable', 'string', 'max:255'],
+        ], [
+            'documento.required' => 'Selecciona un archivo PDF.',
+            'documento.mimes' => 'El archivo debe ser un PDF.',
+            'documento.max' => 'El archivo no debe superar 10 MB.',
+        ]);
+
+        $file = $request->file('documento');
+
+        $requisicion->media()->create([
+            'descripcion' => $validated['titulo'] ?: $file->getClientOriginalName(),
+            'nombre_original' => $file->getClientOriginalName(),
+            'path' => $file->store("costos/requisiciones/{$requisicion->id}", 'public'),
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
+        ]);
+
+        return back()->with('success', 'Documento de cotización agregado.');
+    }
+
+    public function eliminarDocumento(Requisicion $requisicion, Media $media): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $this->ensureEditable($requisicion->estatus);
+
+        abort_unless(
+            $media->mediable_type === $requisicion->getMorphClass() && $media->mediable_id === $requisicion->id,
+            404,
+        );
+
+        Storage::disk('public')->delete($media->path);
+        $media->delete();
+
+        return back()->with('success', 'Documento eliminado.');
     }
 
     private function ensureEditable(RequisicionEstatus $estatus): void

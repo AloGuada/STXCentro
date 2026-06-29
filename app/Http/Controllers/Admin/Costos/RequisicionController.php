@@ -213,6 +213,7 @@ class RequisicionController extends Controller
             'aprobaciones.aprobador:id,name',
             'ordenesGeneradas:id,folio,proveedor_id,total,estatus,requisicion_id',
             'ordenesGeneradas.proveedor:id,razon_social',
+            'media',
             'activities.causer',
         ]);
 

@@ -1692,6 +1692,7 @@ export type CostosRequisicion = {
     } | null;
     proveedores_cotizadores_count?: number;
     tiene_sobregiro?: boolean;
+    media?: Media[];
     activities?: CostosActivity[];
     created_at: string;
     updated_at: string;

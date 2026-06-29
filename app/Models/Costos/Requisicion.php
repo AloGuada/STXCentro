@@ -10,6 +10,7 @@ use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Concerns\HasStateMachine;
 use App\Models\Costos\Concerns\VerificaPresupuestoReservado;
 use App\Models\Departamento;
+use App\Models\Media;
 use App\Models\Obra;
 use App\Models\Usuario;
 use App\Services\Costos\BuscadorMejorProveedor;
@@ -125,6 +126,15 @@ class Requisicion extends Model implements Aprobable
     public function rubrosAfectados(): MorphMany
     {
         return $this->morphMany(RubroAfectado::class, 'entrada');
+    }
+
+    /**
+     * Archivos adjuntos a la requisición (ej. PDFs de cotización como
+     * información extra durante el cotizado).
+     */
+    public function media(): MorphMany
+    {
+        return $this->morphMany(Media::class, 'mediable');
     }
 
     public function activities(): MorphMany
