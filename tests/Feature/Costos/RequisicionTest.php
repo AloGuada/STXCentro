@@ -38,6 +38,51 @@ beforeEach(function () {
     $this->depto = Departamento::factory()->create();
 });
 
+test('al crear una requisición se adjuntan los PDF de cotización', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    $obra = \App\Models\Obra::factory()->create();
+    $rubro = ObraRubro::factory()->create(['obra_id' => $obra->id]);
+    $uso = \App\Models\Costos\UsoCfdi::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/costos/requisiciones', [
+            'departamento_id' => $this->depto->id,
+            'obra_id' => $obra->id,
+            'detalles' => [
+                ['descripcion' => 'Tornillos', 'unidad' => 'pza', 'cantidad' => 10, 'obra_rubro_id' => $rubro->id, 'uso_cfdi_id' => $uso->id],
+            ],
+            'documentos' => [
+                \Illuminate\Http\UploadedFile::fake()->create('cotiz-a.pdf', 100, 'application/pdf'),
+                \Illuminate\Http\UploadedFile::fake()->create('cotiz-b.pdf', 100, 'application/pdf'),
+            ],
+        ])
+        ->assertRedirect();
+
+    $req = Requisicion::first();
+    expect($req->media()->count())->toBe(2);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($req->media()->first()->path);
+});
+
+test('rechaza documentos que no son PDF al crear', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    $obra = \App\Models\Obra::factory()->create();
+    $rubro = ObraRubro::factory()->create(['obra_id' => $obra->id]);
+    $uso = \App\Models\Costos\UsoCfdi::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/costos/requisiciones', [
+            'departamento_id' => $this->depto->id,
+            'obra_id' => $obra->id,
+            'detalles' => [
+                ['descripcion' => 'Tornillos', 'unidad' => 'pza', 'cantidad' => 10, 'obra_rubro_id' => $rubro->id, 'uso_cfdi_id' => $uso->id],
+            ],
+            'documentos' => [\Illuminate\Http\UploadedFile::fake()->image('foto.jpg')],
+        ])
+        ->assertSessionHasErrors('documentos.0');
+
+    expect(Requisicion::count())->toBe(0);
+});
+
 test('cualquier usuario con permiso crear puede crear una requisicion en borrador', function () {
     $obra = \App\Models\Obra::factory()->create();
     $rubroA = ObraRubro::factory()->create(['obra_id' => $obra->id]);

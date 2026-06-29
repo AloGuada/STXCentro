@@ -116,6 +116,16 @@ class RequisicionController extends Controller
             return $requisicion;
         });
 
+        foreach ($request->file('documentos', []) as $file) {
+            $requisicion->media()->create([
+                'descripcion' => $file->getClientOriginalName(),
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $file->store("costos/requisiciones/{$requisicion->id}", 'public'),
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ]);
+        }
+
         return to_route('admin.costos.requisiciones.show', $requisicion)
             ->with('success', 'Requisición creada correctamente.');
     }

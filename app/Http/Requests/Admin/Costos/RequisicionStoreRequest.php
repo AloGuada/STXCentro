@@ -32,6 +32,8 @@ class RequisicionStoreRequest extends FormRequest
             'detalles.*.obra_rubro_id' => ['required', 'exists:costos_obra_rubros,id'],
             'detalles.*.uso_cfdi_id' => ['required', Rule::exists('costos_usos_cfdi', 'id')->where('activo', true)],
             'detalles.*.notas' => ['nullable', 'string'],
+            'documentos' => ['nullable', 'array'],
+            'documentos.*' => ['file', 'mimes:pdf', 'max:10240'],
         ];
     }
 
@@ -55,6 +57,8 @@ class RequisicionStoreRequest extends FormRequest
             'detalles.*.obra_rubro_id.required' => 'Cada partida requiere un centro de costos.',
             'detalles.*.uso_cfdi_id.required' => 'Cada partida requiere un uso de CFDI.',
             'detalles.*.uso_cfdi_id.exists' => 'El uso de CFDI seleccionado no es válido o está inactivo.',
+            'documentos.*.mimes' => 'Los documentos deben ser archivos PDF.',
+            'documentos.*.max' => 'Cada documento no debe superar 10 MB.',
         ];
     }
 }

@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import { PlusIcon, Trash2Icon } from 'lucide-react';
+import { FileTextIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ type FormData = {
     obra_id: number | '';
     justificacion: string;
     detalles: Detalle[];
+    documentos: File[];
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -64,7 +65,16 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
         obra_id: '',
         justificacion: '',
         detalles: [blankDetalle()],
+        documentos: [],
     });
+
+    const addDocumentos = (files: FileList | null) => {
+        if (!files || files.length === 0) {
+            return;
+        }
+        setData('documentos', [...data.documentos, ...Array.from(files)]);
+    };
+    const removeDocumento = (idx: number) => setData('documentos', data.documentos.filter((_, i) => i !== idx));
 
     // Por defecto se ocultan obras/adicionales cerrados; el checkbox los incluye
     // para casos excepcionales (el cargo sigue el flujo normal de aprobación).
@@ -97,7 +107,7 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/admin/costos/requisiciones');
+        post('/admin/costos/requisiciones', { forceFormData: true });
     };
 
     return (
@@ -295,6 +305,44 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                 </div>
 
                 {errors.detalles && <p className="text-error text-sm mt-2">{errors.detalles}</p>}
+
+                {/* Documentos de cotización (PDF) como información extra */}
+                <div className="mt-6 rounded-lg border border-base-300 p-3">
+                    <h3 className="mb-3 text-xs uppercase tracking-wider text-base-content/60">
+                        Documentos de cotización (PDF) · información extra (opcional)
+                    </h3>
+
+                    {data.documentos.length > 0 && (
+                        <div className="mb-3 space-y-2">
+                            {data.documentos.map((file, i) => (
+                                <div key={`${file.name}-${i}`} className="flex items-center gap-2 rounded border border-base-300 bg-base-200 p-2 text-sm">
+                                    <FileTextIcon className="size-4 text-base-content/60" />
+                                    <span className="font-medium">{file.name}</span>
+                                    <button
+                                        type="button"
+                                        className="btn btn-ghost btn-xs ml-auto text-error"
+                                        title="Quitar"
+                                        onClick={() => removeDocumento(i)}
+                                    >
+                                        <Trash2Icon className="size-3.5" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <input
+                        type="file"
+                        accept="application/pdf"
+                        multiple
+                        className="file-input file-input-bordered file-input-sm w-72"
+                        onChange={(e) => {
+                            addDocumentos(e.target.files);
+                            e.target.value = '';
+                        }}
+                    />
+                    {errors.documentos && <p className="text-error text-sm mt-2">{errors.documentos}</p>}
+                </div>
 
                 <div className="mt-6 flex justify-end gap-2">
                     <Button type="button" variant="outline" asChild>
