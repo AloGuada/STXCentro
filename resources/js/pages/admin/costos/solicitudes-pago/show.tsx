@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { FormattedDate } from '@/components/ui/formatted-date';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
+import type { BreadcrumbItem, SharedData } from '@/types';
 import type { CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CheckCircleIcon, FileTextIcon } from 'lucide-react';
 import { useState } from 'react';
 
@@ -61,6 +61,15 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
     const showConfirmarCostos = solicitud.estatus === 'aprobada' && !solicitud.confirmada_costos && can('costos.solicitudes.confirmar-costos');
     const showConfirmarContabilidad = solicitud.estatus === 'aprobada' && solicitud.confirmada_costos && !solicitud.confirmada_contabilidad && solicitud.tipo_pago === 'credito' && can('costos.facturas.aceptar-contabilidad');
 
+    // Operador del módulo cancela cualquiera; el solicitante cancela las suyas
+    // con su permiso. Solo en estados cancelables y sin pago asociado.
+    const { auth } = usePage<SharedData>().props;
+    const esPropia = String(auth.user?.id) === solicitud.solicitante_id;
+    const puedeCancelar =
+        !solicitud.pago &&
+        (solicitud.estatus === 'pendiente_firma' || solicitud.estatus === 'aprobada') &&
+        (can('costos.solicitudes-pago.editar') || (esPropia && can('costos.solicitudes-pago.cancelar-propia')));
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={solicitud.folio} />
@@ -94,7 +103,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                                 Confirmar Contabilidad
                             </Button>
                         )}
-                        {solicitud.estatus === 'aprobada' && !solicitud.pago && can('costos.solicitudes.confirmar-costos') && (
+                        {puedeCancelar && (
                             <Button variant="destructive" onClick={() => setShowCancelarModal(true)}>Cancelar</Button>
                         )}
                         {solicitud.pago && (

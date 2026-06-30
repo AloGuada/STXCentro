@@ -528,7 +528,14 @@ class SolicitudPagoController extends Controller
 
     public function cancelar(CancelarRequest $request, SolicitudPago $solicitudPago): RedirectResponse
     {
-        Gate::authorize('costos.solicitudes-pago.editar');
+        // Un operador del módulo puede cancelar cualquier solicitud; el
+        // solicitante puede cancelar las suyas si tiene el permiso para ello.
+        $esPropia = $solicitudPago->solicitante_id === $request->user()->id;
+        abort_unless(
+            $request->user()->can('costos.solicitudes-pago.editar')
+                || ($esPropia && $request->user()->can('costos.solicitudes-pago.cancelar-propia')),
+            403,
+        );
 
         if (! in_array($solicitudPago->estatus, [SolicitudPagoEstatus::PendienteFirma, SolicitudPagoEstatus::Aprobada], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar solicitudes pendientes o aprobadas.']);

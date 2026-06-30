@@ -97,6 +97,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.solicitudes-pago.crear',
             'costos.solicitudes-pago.editar',
             'costos.solicitudes-pago.eliminar',
+            'costos.solicitudes-pago.cancelar-propia',
             'costos.afectaciones.ver',
             'costos.afectaciones.crear',
             'costos.afectaciones.editar',
@@ -562,6 +563,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'intra.areas.ver',
             'intra.documentos.ver',
             'intra.secciones.ver',
+            // Puede crear solicitudes de pago y cancelar las suyas.
+            'costos.solicitudes-pago.ver',
+            'costos.solicitudes-pago.crear',
+            'costos.solicitudes-pago.cancelar-propia',
         ]);
 
         // Director General: administra carpetas + ve todo + toma notas
