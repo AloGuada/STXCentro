@@ -28,6 +28,7 @@ class FirmasPdfBuilder
         return Permiso::query()
             ->where('tipo_aprobacion', $tipoAprobacion)
             ->whereHas('aprobacionesDepartamento', fn ($q) => $q->where('departamento_id', $departamentoId))
+            ->with(['aprobacionesDepartamento' => fn ($q) => $q->where('departamento_id', $departamentoId)->with('aprobador:id,name')])
             ->orderBy('nivel')
             ->get()
             ->unique('nivel')
@@ -35,11 +36,19 @@ class FirmasPdfBuilder
             ->map(function (Permiso $permiso) use ($aprobacionesPorNivel) {
                 $aprobada = $aprobacionesPorNivel->get($permiso->nivel)->firstWhere('estatus', 'aprobada');
 
+                // Usuarios habilitados para firmar este nivel en el departamento.
+                $candidatos = $permiso->aprobacionesDepartamento
+                    ->map(fn ($ad) => $ad->aprobador?->name)
+                    ->filter()
+                    ->unique()
+                    ->values();
+
                 return (object) [
                     'permiso' => $permiso,
                     'aprobador' => $aprobada?->aprobador,
                     'aprobada' => $aprobada !== null,
                     'fecha' => $aprobada?->fecha_respuesta?->format('d/m/Y H:i'),
+                    'candidatos' => $candidatos,
                 ];
             })
             ->values();

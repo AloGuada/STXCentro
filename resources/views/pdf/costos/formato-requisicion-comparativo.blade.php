@@ -12,9 +12,9 @@
         .logo-cell img { max-width: 170px; }
         .company-cell { text-align: center; vertical-align: middle; }
         .company-name { font-size: 14px; font-weight: bold; }
-        .company-url { font-size: 10px; color: #0563C1; }
-        .company-dept { font-size: 10px; font-weight: bold; }
-        .code-cell { width: 120px; text-align: center; vertical-align: top; }
+        .company-address { font-size: 8.5px; line-height: 1.35; margin-top: 3px; }
+        .code-cell { width: 140px; text-align: center; vertical-align: top; }
+        .code-title { font-size: 11px; font-weight: bold; margin-bottom: 5px; }
         .code-box { border: 1px solid #000; padding: 4px 10px; font-size: 10px; font-weight: bold; display: inline-block; }
         .title { text-align: center; font-size: 13px; font-weight: bold; margin: 15px 0; }
         .info-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
@@ -96,10 +96,17 @@
             </td>
             <td class="company-cell">
                 <div class="company-name">TIM DEL MAYAB, S.A. DE C.V.</div>
-                <div class="company-url">www.steelex.com.mx</div>
-                <div class="company-dept">COSTOS</div>
+                <div class="company-address">
+                    Carretera Mérida KM1, Lote G1,G2,G3, Tablaje Catastral 16704<br>
+                    Kanasín, Yucatán C.P. 97370<br>
+                    Tel: 999-454-06-00<br>
+                    E-mail: facturacion.almacen@steelex.com.mx<br>
+                    R.F.C. TMA9405205F5<br>
+                    www.steelex.com.mx
+                </div>
             </td>
             <td class="code-cell">
+                <div class="code-title">COMPARATIVO DE COTIZACIONES</div>
                 <div class="code-box">
                     F-STX-COSTOS-CMP<br>REVISION:00
                 </div>
@@ -129,6 +136,7 @@
             <tr>
                 <th>Cantidad</th>
                 <th>Descripcion</th>
+                <th>Obra / Centro de costos</th>
                 @foreach($provList as $p)
                 <th>{{ $p->nombre_comercial ?: $p->razon_social }}@if($p->id === $mejorId) *@endif</th>
                 @endforeach
@@ -152,6 +160,14 @@
             <tr>
                 <td class="text-right">{{ number_format($d->cantidad, 2) }} {{ $d->unidad }}</td>
                 <td>{{ $d->descripcion }}</td>
+                <td>
+                    @if($d->obraRubro?->obra)
+                        {{ $d->obraRubro->obra->no ? 'OP-'.$d->obraRubro->obra->no.' ' : '' }}{{ $d->obraRubro->obra->descripcion }}
+                    @endif
+                    @if($d->obraRubro?->rubro)
+                        <br><span style="font-size: 8px; color: #666;">{{ $d->obraRubro->rubro->codigo }} - {{ $d->obraRubro->rubro->descripcion }}</span>
+                    @endif
+                </td>
                 @foreach($provList as $p)
                 @php
                     $cot = $d->cotizaciones->firstWhere('proveedor_id', $p->id);
@@ -197,22 +213,26 @@
         @endphp
         <tfoot>
             <tr class="total-row">
-                <td colspan="{{ 2 + $provList->count() }}" class="text-right">SUBTOTAL</td>
+                <td colspan="{{ 3 + $provList->count() }}" class="text-right">SUBTOTAL</td>
                 <td class="text-right">${{ number_format($subtotalComp, 2) }}</td>
             </tr>
             <tr class="total-row">
-                <td colspan="{{ 2 + $provList->count() }}" class="text-right">IVA (16%)</td>
+                <td colspan="{{ 3 + $provList->count() }}" class="text-right">IVA (16%)</td>
                 <td class="text-right">${{ number_format($ivaComp, 2) }}</td>
             </tr>
             <tr class="total-row">
-                <td colspan="{{ 2 + $provList->count() }}" class="text-right">TOTAL</td>
+                <td colspan="{{ 3 + $provList->count() }}" class="text-right">TOTAL</td>
                 <td class="text-right">${{ number_format($totalComp, 2) }}</td>
             </tr>
         </tfoot>
     </table>
 
     @if($mejorId)
-    <p style="font-size: 9px; color: #555; margin-bottom: 15px;">* Proveedor seleccionado: <strong>{{ $proveedores->get($mejorId)?->razon_social }}</strong> con total de ${{ number_format($mejorTotal, 2) }}</p>
+    <p style="font-size: 9px; color: #555; margin-bottom: 6px;">* Proveedor seleccionado: <strong>{{ $proveedores->get($mejorId)?->razon_social }}</strong> con total de ${{ number_format($mejorTotal, 2) }}</p>
+    @endif
+
+    @if($requisicion->justificacion)
+    <p style="font-size: 9px; margin-bottom: 15px;"><strong>Justificación:</strong> {{ $requisicion->justificacion }}</p>
     @endif
 
     @if($firmas->isNotEmpty())
