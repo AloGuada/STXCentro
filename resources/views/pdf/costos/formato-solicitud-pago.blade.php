@@ -344,12 +344,5 @@
         </tr>
     </table>
     @endif
-
-    {{-- Footer --}}
-    <div class="footer">
-        Merida- Peto Km1, Lote g1 g2 g3 Skypark, Tablaje Catastral 16704 | Kanasin, Yucatan, Mexico<br>
-        Tel: 999 454 06 00 al 0689
-        <div class="footer-code">F-STX-COSTOS-01<br>Revision: 00</div>
-    </div>
 </body>
 </html>

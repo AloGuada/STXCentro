@@ -26,6 +26,7 @@
         .comp-table .text-right { text-align: right; }
         .comp-table .mejor { background-color: #d4edda; font-weight: bold; }
         .comp-table .total-row td { font-weight: bold; background-color: #f0f0f0; }
+        .comp-table .letras-row td { font-size: 8.5px; font-style: italic; text-transform: uppercase; text-align: left; }
         .signatures-table { width: 100%; margin-top: 40px; }
         .signatures-table td { text-align: center; vertical-align: bottom; padding: 0 10px; }
         .sig-placeholder { height: 50px; }
@@ -224,6 +225,9 @@
                 <td colspan="{{ 3 + $provList->count() }}" class="text-right">TOTAL</td>
                 <td class="text-right">${{ number_format($totalComp, 2) }}</td>
             </tr>
+            <tr class="letras-row">
+                <td colspan="{{ 4 + $provList->count() }}">{{ \App\Support\NumeroALetras::convertir((float) $totalComp, 'mxn') }}</td>
+            </tr>
         </tfoot>
     </table>
 
@@ -251,10 +255,5 @@
         </tr>
     </table>
     @endif
-
-    <div class="footer">
-        Merida- Peto Km1, Lote g1 g2 g3 Skypark, Tablaje Catastral 16704 | Kanasin, Yucatan, Mexico<br>
-        Tel: 999 454 06 00 al 0689
-    </div>
 </body>
 </html>
