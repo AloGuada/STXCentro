@@ -12,9 +12,9 @@
         .logo-cell img { max-width: 170px; }
         .company-cell { text-align: center; vertical-align: middle; }
         .company-name { font-size: 14px; font-weight: bold; }
-        .company-url { font-size: 10px; color: #0563C1; }
-        .company-dept { font-size: 10px; font-weight: bold; }
-        .code-cell { width: 120px; text-align: center; vertical-align: top; }
+        .company-address { font-size: 8.5px; line-height: 1.35; margin-top: 3px; }
+        .code-cell { width: 140px; text-align: center; vertical-align: top; }
+        .code-title { font-size: 11px; font-weight: bold; margin-bottom: 5px; }
         .code-box { border: 1px solid #000; padding: 4px 10px; font-size: 10px; font-weight: bold; display: inline-block; }
         .title { text-align: center; font-size: 13px; font-weight: bold; margin: 15px 0; }
         .info-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
@@ -26,6 +26,18 @@
         .detalles-table .text-right { text-align: right; }
         .detalles-table .total-row td { font-weight: bold; background-color: #f0f0f0; }
         .notas { margin-top: 15px; padding: 8px; border: 1px solid #ccc; background: #fafafa; font-size: 10px; }
+        .resumen-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .resumen-table > tr > td, .resumen-table td.cond-cell, .resumen-table td.tot-cell { border: 1px solid #000; vertical-align: top; }
+        .cond-cell { width: 80%; padding: 8px 10px; font-size: 9px; }
+        .cond-cell .cond-title { font-weight: bold; font-size: 10px; margin-bottom: 5px; text-transform: uppercase; }
+        .cond-cell ol { margin: 0 0 0 16px; padding: 0; }
+        .cond-cell li { margin-bottom: 4px; line-height: 1.35; }
+        .tot-cell { width: 20%; padding: 0; }
+        .tot-inner { width: 100%; border-collapse: collapse; }
+        .tot-inner td { padding: 5px 8px; font-size: 10px; border-bottom: 1px solid #ccc; }
+        .tot-inner .tot-label { font-weight: bold; background-color: #f0f0f0; }
+        .tot-inner .tot-value { text-align: right; }
+        .tot-inner .tot-final td { font-weight: bold; font-size: 11px; border-bottom: none; background-color: #f0f0f0; }
         .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #555; padding: 10px 40px; }
     </style>
 </head>
@@ -41,10 +53,17 @@
             </td>
             <td class="company-cell">
                 <div class="company-name">TIM DEL MAYAB, S.A. DE C.V.</div>
-                <div class="company-url">www.steelex.com.mx</div>
-                <div class="company-dept">COSTOS</div>
+                <div class="company-address">
+                    Carretera Mérida KM1, Lote G1,G2,G3, Tablaje Catastral 16704<br>
+                    Kanasín, Yucatán C.P. 97370<br>
+                    Tel: 999-454-06-00<br>
+                    E-mail: facturacion.almacen@steelex.com.mx<br>
+                    R.F.C. TMA9405205F5<br>
+                    www.steelex.com.mx
+                </div>
             </td>
             <td class="code-cell">
+                <div class="code-title">ORDEN DE COMPRA</div>
                 <div class="code-box">
                     F-STX-COSTOS-OC<br>REVISION:00
                 </div>
@@ -95,6 +114,7 @@
             <tr>
                 <th>#</th>
                 <th>Descripcion</th>
+                <th>OP</th>
                 <th>Uso CFDI</th>
                 <th>Unidad</th>
                 <th>Cantidad</th>
@@ -107,6 +127,7 @@
             <tr>
                 <td class="text-right">{{ $i + 1 }}</td>
                 <td>{{ $d->descripcion }}</td>
+                <td>{{ $d->obraRubro?->obra?->no ? 'OP-'.$d->obraRubro->obra->no : '-' }}</td>
                 <td>{{ optional($d->usoCfdi)->clave ?? '-' }}</td>
                 <td>{{ $d->unidad }}</td>
                 <td class="text-right">{{ number_format($d->cantidad, 2) }}</td>
@@ -115,20 +136,6 @@
             </tr>
             @endforeach
         </tbody>
-        <tfoot>
-            <tr class="total-row">
-                <td colspan="6" class="text-right">SUBTOTAL</td>
-                <td class="text-right">${{ number_format($subtotal, 2) }}</td>
-            </tr>
-            <tr class="total-row">
-                <td colspan="6" class="text-right">IVA (16%)</td>
-                <td class="text-right">${{ number_format($iva, 2) }}</td>
-            </tr>
-            <tr class="total-row">
-                <td colspan="6" class="text-right">TOTAL</td>
-                <td class="text-right">${{ number_format($oc->total, 2) }}</td>
-            </tr>
-        </tfoot>
     </table>
 
     @if($oc->notas)
@@ -136,6 +143,35 @@
         <strong>Notas:</strong> {{ $oc->notas }}
     </div>
     @endif
+
+    <table class="resumen-table">
+        <tr>
+            <td class="cond-cell">
+                <div class="cond-title">Condiciones</div>
+                <ol>
+                    <li>EL MATERIAL SE ENTREGA CON CERTIFICADO DE CALIDAD.</li>
+                    <li>SE REQUIERE INVARIABLEMENTE LA FACTURA ORIGINAL Y DOS COPIAS PARA SU RECEPCIÓN EN EL HORARIO ESTABLECIDO DE 8:00 A 13:00 Y DE 14:00 A 16:00 HORAS.</li>
+                    <li>LA FACTURA ELECTRÓNICA DEBE SUBIRSE AL PORTAL STX.STEELEX.COM.MX/PORTAL EN ASOCIACIÓN A SU O.C. UNA VEZ EMITIDA.</li>
+                </ol>
+            </td>
+            <td class="tot-cell">
+                <table class="tot-inner">
+                    <tr>
+                        <td class="tot-label">SUBTOTAL</td>
+                        <td class="tot-value">${{ number_format($subtotal, 2) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="tot-label">IVA (16%)</td>
+                        <td class="tot-value">${{ number_format($iva, 2) }}</td>
+                    </tr>
+                    <tr class="tot-final">
+                        <td class="tot-label">TOTAL</td>
+                        <td class="tot-value">${{ number_format($oc->total, 2) }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 
     <div class="footer">
         Merida- Peto Km1, Lote g1 g2 g3 Skypark, Tablaje Catastral 16704 | Kanasin, Yucatan, Mexico<br>

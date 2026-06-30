@@ -401,7 +401,13 @@ class OrdenCompraController extends Controller
 
     public function pdfOc(Request $request, OrdenCompra $ordenCompra): HttpResponse
     {
-        $ordenCompra->load(['proveedor', 'departamento', 'detalles.usoCfdi:id,clave', 'requisicion:id,folio']);
+        $ordenCompra->load([
+            'proveedor',
+            'departamento',
+            'detalles.usoCfdi:id,clave',
+            'detalles.obraRubro.obra:id,no',
+            'requisicion:id,folio',
+        ]);
 
         $pdf = Pdf::loadView('pdf.costos.formato-orden-compra', [
             'oc' => $ordenCompra,
@@ -423,6 +429,8 @@ class OrdenCompraController extends Controller
             'solicitante',
             'departamento',
             'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
+            'detalles.obraRubro.obra:id,no,descripcion',
+            'detalles.obraRubro.rubro:id,codigo,descripcion',
         ]);
 
         // Columnas de firma: solo los niveles que aplican al tipo de documento
