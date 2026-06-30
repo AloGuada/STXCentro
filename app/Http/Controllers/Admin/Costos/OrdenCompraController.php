@@ -340,6 +340,7 @@ class OrdenCompraController extends Controller
             'media',
             'rubrosAfectados.obraRubro.rubro',
             'solicitudesPago:id,orden_compra_id,folio,estatus',
+            'solicitudesPago.pago.media',
             'activities.causer',
         ]);
 

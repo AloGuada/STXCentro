@@ -2047,7 +2047,7 @@ export type CostosOrdenCompra = {
     detalles?: CostosOrdenCompraDetalle[];
     facturas?: CostosFactura[];
     entregas?: CostosEntrega[];
-    solicitudes_pago?: Array<Pick<CostosSolicitudPago, 'id' | 'folio' | 'estatus'>>;
+    solicitudes_pago?: Array<Pick<CostosSolicitudPago, 'id' | 'folio' | 'estatus' | 'pago'>>;
     media?: Media[];
     rubros_afectados?: CostosRubroAfectado[];
     facturas_count?: number;

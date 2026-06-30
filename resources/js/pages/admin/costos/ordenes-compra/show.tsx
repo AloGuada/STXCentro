@@ -698,17 +698,19 @@ function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
                 )}
             </TreeFolder>
 
-            {/* Pagos */}
+            {/* Pagos (de facturas a crédito y del anticipo de contado vía solicitud) */}
             <TreeFolder label="Pagos">
                 {(() => {
-                    const pagos = ordenCompra.facturas?.flatMap((f) => f.pago ? [{ ...f.pago, facturaFolio: f.folio }] : []) ?? [];
+                    const pagosFactura = ordenCompra.facturas?.flatMap((f) => f.pago ? [{ ...f.pago, origen: `Factura ${f.folio}` }] : []) ?? [];
+                    const pagosSolicitud = ordenCompra.solicitudes_pago?.flatMap((s) => s.pago ? [{ ...s.pago, origen: `Solicitud ${s.folio}` }] : []) ?? [];
+                    const pagos = [...pagosSolicitud, ...pagosFactura];
                     if (pagos.length === 0) {
                         return <TreeFile label="Comprobante de pago" pending="Pendiente de pago" />;
                     }
                     return pagos.map((pago: any) => {
                         const comprobante = pago.media?.find((m: any) => m.descripcion === 'comprobante_pago');
                         return (
-                            <TreeFolder key={pago.id} label={`${pago.folio} — ${fmtMoney(pago.monto)}`}>
+                            <TreeFolder key={`${pago.origen}-${pago.id}`} label={`${pago.origen} · ${pago.folio} — ${fmtMoney(Number(pago.monto_pago ?? pago.monto ?? 0))}`}>
                                 {comprobante ? (
                                     <TreeAttachment label="Comprobante de pago" href={`/storage/${comprobante.path}`} onPreview={openPreview} />
                                 ) : (
