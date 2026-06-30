@@ -169,8 +169,8 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
             formData.append(`detalles[${i}][precio_unitario]`, det.precio_unitario);
         });
 
-        // Obras sin desglose de rubros: se manda el total capturado directo.
-        if (data.detalles.length === 0 && data.monto_total) {
+        // Tipos sin rubros: se manda el total capturado directo.
+        if (selectedTipo && !selectedTipo.rubros && data.monto_total) {
             formData.append('monto_total', data.monto_total);
         }
 
@@ -329,23 +329,7 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                 </div>
 
                                 {data.detalles.length === 0 && (
-                                    <div className="rounded-lg border border-base-300 bg-base-200/40 p-3">
-                                        <p className="mb-2 text-sm text-base-content/60">
-                                            Sin desglose de rubros. Para obras que no lo requieren, captura el total del pago.
-                                        </p>
-                                        <FormField label="Total del pago" htmlFor="monto_total" error={errors.monto_total} required>
-                                            <Input
-                                                id="monto_total"
-                                                type="number"
-                                                step="0.01"
-                                                min="0.01"
-                                                placeholder="0.00"
-                                                className="w-48"
-                                                value={data.monto_total}
-                                                onChange={(e) => setData('monto_total', e.target.value)}
-                                            />
-                                        </FormField>
-                                    </div>
+                                    <p className="text-sm text-base-content/60">No hay detalles agregados.</p>
                                 )}
 
                                 {data.detalles.map((det, index) => {
@@ -485,6 +469,27 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                         Total: ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Tipos sin rubros: se captura el total del pago directo */}
+                        {selectedTipo && !selectedTipo.rubros && (
+                            <div className="space-y-4">
+                                <div className="border-b border-base-300 pb-2">
+                                    <h2 className="text-lg font-medium">Total del pago</h2>
+                                </div>
+                                <FormField label="Monto total" htmlFor="monto_total" error={errors.monto_total} required>
+                                    <Input
+                                        id="monto_total"
+                                        type="number"
+                                        step="0.01"
+                                        min="0.01"
+                                        placeholder="0.00"
+                                        className="w-48"
+                                        value={data.monto_total}
+                                        onChange={(e) => setData('monto_total', e.target.value)}
+                                    />
+                                </FormField>
                             </div>
                         )}
 

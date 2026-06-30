@@ -38,8 +38,9 @@ class SolicitudPagoUpdateRequest extends FormRequest
     public function withValidator(\Illuminate\Contracts\Validation\Validator $validator): void
     {
         $validator->after(function (\Illuminate\Contracts\Validation\Validator $validator) {
-            if (empty($this->input('detalles', [])) && ! $this->filled('monto_total')) {
-                $validator->errors()->add('monto_total', 'Captura el desglose de rubros o el total del pago.');
+            $tipo = \App\Models\Costos\TipoSolicitud::find($this->input('tipo_solicitud_id'));
+            if ($tipo && ! $tipo->rubros && empty($this->input('detalles', [])) && ! $this->filled('monto_total')) {
+                $validator->errors()->add('monto_total', 'Captura el total del pago.');
             }
         });
     }

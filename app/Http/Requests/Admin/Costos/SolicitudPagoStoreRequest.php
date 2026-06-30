@@ -39,10 +39,11 @@ class SolicitudPagoStoreRequest extends FormRequest
     public function withValidator(\Illuminate\Contracts\Validation\Validator $validator): void
     {
         $validator->after(function (\Illuminate\Contracts\Validation\Validator $validator) {
-            // Las obras que no requieren desglose de rubros capturan el total
-            // directamente; sin desglose ni total, la solicitud quedaría en cero.
-            if (empty($this->input('detalles', [])) && ! $this->filled('monto_total')) {
-                $validator->errors()->add('monto_total', 'Captura el desglose de rubros o el total del pago.');
+            // Los tipos de solicitud sin rubros capturan el total directamente;
+            // sin él la solicitud quedaría en cero.
+            $tipo = \App\Models\Costos\TipoSolicitud::find($this->input('tipo_solicitud_id'));
+            if ($tipo && ! $tipo->rubros && empty($this->input('detalles', [])) && ! $this->filled('monto_total')) {
+                $validator->errors()->add('monto_total', 'Captura el total del pago.');
             }
         });
     }
