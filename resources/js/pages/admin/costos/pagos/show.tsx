@@ -39,28 +39,67 @@ function getStepIndex(estatus: CostosPagoEstatus, tipoPago: string): number {
 function ComprobanteUpload({ url, label }: { url: string; label: string }) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
+    const [file, setFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-    const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
+    const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const seleccionado = e.target.files?.[0];
+        if (!seleccionado) return;
+        setFile(seleccionado);
+        setPreviewUrl(URL.createObjectURL(seleccionado));
+    };
+
+    const cerrar = () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+        setFile(null);
+        if (inputRef.current) inputRef.current.value = '';
+    };
+
+    const confirmar = () => {
         if (!file) return;
         setUploading(true);
         router.post(url, { comprobante: file }, {
             forceFormData: true,
             preserveScroll: true,
-            onFinish: () => {
-                setUploading(false);
-                if (inputRef.current) inputRef.current.value = '';
-            },
+            onSuccess: () => cerrar(),
+            onFinish: () => setUploading(false),
         });
     };
 
     return (
         <div>
-            <input ref={inputRef} type="file" onChange={handleUpload} className="hidden" />
+            <input ref={inputRef} type="file" accept="application/pdf,image/*" onChange={handleSelect} className="hidden" />
             <Button onClick={() => inputRef.current?.click()} disabled={uploading} size="sm">
                 {uploading ? <Loader2Icon className="size-4 animate-spin" /> : <UploadIcon className="size-4" />}
                 {label}
             </Button>
+
+            {file && (
+                <dialog className="modal modal-open">
+                    <div className="modal-box max-w-3xl">
+                        <h3 className="text-lg font-bold">¿Está seguro de subir este comprobante de pago?</h3>
+                        <p className="mt-1 mb-3 text-sm text-base-content/60">{file.name}</p>
+
+                        {previewUrl && file.type === 'application/pdf' ? (
+                            <iframe src={previewUrl} title="Vista previa del comprobante" className="h-[60vh] w-full rounded border border-base-300" />
+                        ) : previewUrl && file.type.startsWith('image/') ? (
+                            <img src={previewUrl} alt="Vista previa del comprobante" className="mx-auto max-h-[60vh] rounded border border-base-300" />
+                        ) : (
+                            <p className="text-sm text-base-content/60">No hay vista previa disponible para este tipo de archivo.</p>
+                        )}
+
+                        <div className="modal-action">
+                            <Button variant="outline" onClick={cerrar} disabled={uploading}>Cancelar</Button>
+                            <Button onClick={confirmar} disabled={uploading}>
+                                {uploading && <Loader2Icon className="size-4 animate-spin" />}
+                                Sí, subir comprobante
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="modal-backdrop" onClick={cerrar}></div>
+                </dialog>
+            )}
         </div>
     );
 }
