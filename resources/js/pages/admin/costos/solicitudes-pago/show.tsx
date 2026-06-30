@@ -329,7 +329,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                                                 return (
                                                     <tr key={nivel} className={esTurnoActual ? 'bg-warning/10' : ''}>
                                                         <td>{nivel}</td>
-                                                        <td>{resultado ? resultado.aprobador?.name ?? 'Sin asignar' : 'Pendiente'}</td>
+                                                        <td>{resultado ? (resultado.aprobador?.name ?? 'Sin asignar') : ([...new Set(aprobacionesNivel.map((a) => a.aprobador?.name).filter(Boolean))].join(' / ') || 'Pendiente')}</td>
                                                         <td>
                                                             <span className={`badge ${resultado?.estatus === 'aprobada' ? 'badge-success' : resultado?.estatus === 'rechazada' ? 'badge-error' : 'badge-warning'}`}>
                                                                 {resultado?.estatus ?? 'pendiente'}

@@ -600,27 +600,37 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                             <p className="text-sm text-base-content/60">Aún no se ha enviado a aprobación.</p>
                         ) : (
                             <div className="space-y-2">
-                                {requisicion.aprobaciones
-                                    .slice()
-                                    .sort((a, b) => a.nivel - b.nivel)
-                                    .map((a) => (
-                                        <div key={a.id} className="flex items-center justify-between rounded border border-base-200 p-3">
-                                            <div>
-                                                <div className="text-sm font-medium">Nivel {a.nivel}: {a.aprobador?.name ?? '-'}</div>
-                                                {a.observaciones && (
-                                                    <div className="text-xs text-base-content/60 mt-1">{a.observaciones}</div>
-                                                )}
+                                {/* Un nivel puede tener varios aprobadores (la primera firma cierra el
+                                    nivel); se agrupa por nivel para no repetir filas. */}
+                                {[...new Set(requisicion.aprobaciones.map((a) => a.nivel))]
+                                    .sort((a, b) => a - b)
+                                    .map((nivel) => {
+                                        const delNivel = requisicion.aprobaciones!.filter((a) => a.nivel === nivel);
+                                        const resuelta = delNivel.find((a) => a.estatus === 'aprobada')
+                                            ?? delNivel.find((a) => a.estatus === 'rechazada');
+                                        const estatus = resuelta?.estatus ?? (delNivel.every((a) => a.estatus === 'cancelada') ? 'cancelada' : 'pendiente');
+                                        const candidatos = [...new Set(delNivel.map((a) => a.aprobador?.name).filter(Boolean))].join(' / ');
+                                        const quien = resuelta?.aprobador?.name ?? (candidatos || 'Sin asignar');
+
+                                        return (
+                                            <div key={nivel} className="flex items-center justify-between rounded border border-base-200 p-3">
+                                                <div>
+                                                    <div className="text-sm font-medium">Nivel {nivel}: {quien}</div>
+                                                    {resuelta?.observaciones && (
+                                                        <div className="text-xs text-base-content/60 mt-1">{resuelta.observaciones}</div>
+                                                    )}
+                                                </div>
+                                                <span className={`badge badge-sm ${
+                                                    estatus === 'aprobada' ? 'badge-success' :
+                                                    estatus === 'rechazada' ? 'badge-error' :
+                                                    estatus === 'cancelada' ? 'badge-neutral' :
+                                                    'badge-warning'
+                                                }`}>
+                                                    {estatus}
+                                                </span>
                                             </div>
-                                            <span className={`badge badge-sm ${
-                                                a.estatus === 'aprobada' ? 'badge-success' :
-                                                a.estatus === 'rechazada' ? 'badge-error' :
-                                                a.estatus === 'cancelada' ? 'badge-neutral' :
-                                                'badge-warning'
-                                            }`}>
-                                                {a.estatus}
-                                            </span>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                             </div>
                         )}
 
