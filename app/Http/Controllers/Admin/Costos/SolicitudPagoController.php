@@ -451,7 +451,7 @@ class SolicitudPagoController extends Controller
         return back()->with('success', 'Archivo eliminado correctamente.');
     }
 
-    public function generarPdf(SolicitudPago $solicitudPago): HttpResponse
+    public function generarPdf(Request $request, SolicitudPago $solicitudPago): HttpResponse
     {
         Gate::authorize('costos.solicitudes-pago.ver');
 
@@ -489,7 +489,11 @@ class SolicitudPagoController extends Controller
 
         $filename = "solicitud-pago-{$solicitudPago->folio}.pdf";
 
-        return $pdf->download($filename);
+        // Inline por defecto (para previsualizar en el modal de la OC); descarga
+        // solo si se pide explícitamente con ?download=1.
+        return $request->boolean('download')
+            ? $pdf->download($filename)
+            : $pdf->stream($filename);
     }
 
     public function uploadFirmado(SolicitudFirmadoRequest $request, SolicitudPago $solicitudPago): RedirectResponse
