@@ -708,7 +708,8 @@ function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
                         return <TreeFile label="Comprobante de pago" pending="Pendiente de pago" />;
                     }
                     return pagos.map((pago: any) => {
-                        const comprobante = pago.media?.find((m: any) => m.descripcion === 'comprobante_pago');
+                        // Pago.media es morphOne (objeto único), no un arreglo.
+                        const comprobante = pago.media && pago.media.descripcion === 'comprobante_pago' ? pago.media : null;
                         return (
                             <TreeFolder key={`${pago.origen}-${pago.id}`} label={`${pago.origen} · ${pago.folio} — ${fmtMoney(Number(pago.monto_pago ?? pago.monto ?? 0))}`}>
                                 {comprobante ? (

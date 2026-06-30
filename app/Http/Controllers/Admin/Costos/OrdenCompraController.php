@@ -334,7 +334,7 @@ class OrdenCompraController extends Controller
             'entregas.recibidoPor:id,name',
             'entregas.media',
             'facturas.media',
-            'facturas.pago',
+            'facturas.pago.media',
             'facturas.notasCredito.media',
             'facturas.entregas.media',
             'media',
