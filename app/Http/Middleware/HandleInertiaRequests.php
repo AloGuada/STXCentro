@@ -195,6 +195,19 @@ class HandleInertiaRequests extends Middleware
             }
         }
 
+        // Las facturas de OC de contado (pagadas por anticipo o solicitud de
+        // pago) son solo el comprobante fiscal de un pago ya realizado; no
+        // entran al flujo de aprobación/pago, así que no cuentan en las
+        // notificaciones.
+        if ($config->tabla === 'costos_facturas') {
+            $query->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('costos_ordenes_compra')
+                    ->whereColumn('costos_ordenes_compra.id', 'costos_facturas.orden_compra_id')
+                    ->where('costos_ordenes_compra.tipo_pago', 'contado');
+            });
+        }
+
         return $query->count();
     }
 

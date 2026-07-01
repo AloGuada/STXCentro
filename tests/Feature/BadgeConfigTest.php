@@ -121,6 +121,41 @@ test('middleware comparte badges para usuario con rol', function () {
     expect($badges['/admin/costos/facturas']['count'])->toBe(3);
 });
 
+test('las facturas de OC de contado no cuentan en el badge', function () {
+    $role = Role::firstOrCreate(['name' => 'costos', 'guard_name' => 'web']);
+    $this->user->assignRole($role);
+
+    BadgeConfig::factory()->create([
+        'tabla' => 'costos_facturas',
+        'campo_estatus' => 'estatus',
+        'operador' => '=',
+        'valor_estatus' => 'pendiente_aprobacion',
+        'rol' => 'costos',
+        'nav_href' => '/admin/costos/facturas',
+        'activo' => true,
+    ]);
+
+    $ocContado = OrdenCompra::factory()->create(['tipo_pago' => 'contado']);
+    Factura::factory()->create([
+        'orden_compra_id' => $ocContado->id,
+        'proveedor_id' => $ocContado->proveedor_id,
+        'estatus' => 'pendiente_aprobacion',
+    ]);
+
+    $ocCredito = OrdenCompra::factory()->create(['tipo_pago' => 'credito']);
+    Factura::factory()->create([
+        'orden_compra_id' => $ocCredito->id,
+        'proveedor_id' => $ocCredito->proveedor_id,
+        'estatus' => 'pendiente_aprobacion',
+    ]);
+
+    $response = $this->actingAs($this->user)->get('/admin/badge-configs');
+    $badges = $response->original->getData()['page']['props']['auth']['badges'];
+
+    // Solo cuenta la de crédito; la de contado se ignora.
+    expect($badges['/admin/costos/facturas']['count'])->toBe(1);
+});
+
 test('badge config inactiva no genera badge', function () {
     $role = Role::firstOrCreate(['name' => 'almacen', 'guard_name' => 'web']);
     $this->user->assignRole($role);
