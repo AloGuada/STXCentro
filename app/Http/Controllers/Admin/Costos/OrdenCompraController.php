@@ -321,6 +321,17 @@ class OrdenCompraController extends Controller
 
     public function show(OrdenCompra $ordenCompra, RetencionCalculator $retenciones): Response
     {
+        // Solo ve la OC quien puede ver todas, quien la creó, o el solicitante
+        // de la requisición que la originó (acceso de solo lectura por propiedad).
+        $ordenCompra->loadMissing('requisicion:id,solicitante_id');
+        $user = auth()->user();
+        abort_unless(
+            $user->can('costos.ordenes-compra.ver-todas')
+                || $ordenCompra->creado_por === $user->id
+                || $ordenCompra->requisicion?->solicitante_id === $user->id,
+            403,
+        );
+
         $ordenCompra->load([
             'proveedor.regimenFiscal:id,clave,descripcion',
             'obra',

@@ -227,9 +227,21 @@ class SolicitudPagoController extends Controller
             'pago',
             'confirmadorCostos',
             'confirmadorContabilidad',
-            'ordenCompra.requisicion:id,folio',
+            'ordenCompra.requisicion:id,folio,solicitante_id',
             'activities.causer',
         ]);
+
+        // Solo ve la solicitud quien puede ver todas, el solicitante, el
+        // solicitante de la requisición de la OC que la originó (contado), o un
+        // aprobador asignado en su cadena de firmas.
+        $user = auth()->user();
+        abort_unless(
+            $user->can('costos.solicitudes-pago.ver-todas')
+                || $solicitudPago->solicitante_id === $user->id
+                || $solicitudPago->ordenCompra?->requisicion?->solicitante_id === $user->id
+                || $solicitudPago->aprobaciones->contains('aprobador_id', $user->id),
+            403,
+        );
 
         return Inertia::render('admin/costos/solicitudes-pago/show', [
             'solicitud' => $solicitudPago,

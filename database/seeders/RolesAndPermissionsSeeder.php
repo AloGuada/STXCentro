@@ -567,6 +567,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.solicitudes-pago.ver',
             'costos.solicitudes-pago.crear',
             'costos.solicitudes-pago.cancelar-propia',
+            // Levanta sus propias requisiciones y da seguimiento (solo lectura)
+            // a ellas y a las OC / solicitudes de pago que derivan de ellas.
+            'costos.requisiciones.ver',
+            'costos.requisiciones.crear',
         ]);
 
         // Director General: administra carpetas + ve todo + toma notas

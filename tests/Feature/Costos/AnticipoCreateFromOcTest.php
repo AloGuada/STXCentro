@@ -38,8 +38,8 @@ test('GET create sin query params devuelve preset vacío', function () {
 });
 
 test('OC show expone link a anticipo create con proveedor y obra', function () {
-    Permission::firstOrCreate(['name' => 'costos.ordenes-compra.ver', 'guard_name' => 'web']);
-    $this->user->givePermissionTo('costos.ordenes-compra.ver');
+    Permission::firstOrCreate(['name' => 'costos.ordenes-compra.ver-todas', 'guard_name' => 'web']);
+    $this->user->givePermissionTo('costos.ordenes-compra.ver-todas');
 
     $oc = OrdenCompra::factory()->create();
 

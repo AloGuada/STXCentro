@@ -8,9 +8,11 @@ use App\Models\User;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
-    Permission::firstOrCreate(['name' => 'costos.solicitudes-pago.ver', 'guard_name' => 'web']);
+    foreach (['costos.solicitudes-pago.ver', 'costos.solicitudes-pago.ver-todas'] as $perm) {
+        Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
+    }
     $this->user = User::factory()->create();
-    $this->user->givePermissionTo('costos.solicitudes-pago.ver');
+    $this->user->givePermissionTo(['costos.solicitudes-pago.ver', 'costos.solicitudes-pago.ver-todas']);
     $this->depto = Departamento::factory()->create();
 });
 

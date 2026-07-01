@@ -209,6 +209,16 @@ class RequisicionController extends Controller
     {
         Gate::authorize('costos.requisiciones.ver');
 
+        // Solo ve la requisición quien puede ver todas, el solicitante, o un
+        // aprobador asignado en su cadena de firmas.
+        $user = auth()->user();
+        abort_unless(
+            $user->can('costos.requisiciones.ver-todas')
+                || $requisicion->solicitante_id === $user->id
+                || $requisicion->aprobaciones()->where('aprobador_id', $user->id)->exists(),
+            403,
+        );
+
         $requisicion->load([
             'solicitante:id,name',
             'departamento:id,descripcion',
@@ -223,6 +233,7 @@ class RequisicionController extends Controller
             'aprobaciones.aprobador:id,name',
             'ordenesGeneradas:id,folio,proveedor_id,total,estatus,requisicion_id',
             'ordenesGeneradas.proveedor:id,razon_social',
+            'ordenesGeneradas.solicitudesPago:id,orden_compra_id,folio,estatus,monto_total',
             'media',
             'activities.causer',
         ]);

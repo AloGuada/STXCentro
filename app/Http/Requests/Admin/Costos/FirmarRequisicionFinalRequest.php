@@ -8,7 +8,9 @@ class FirmarRequisicionFinalRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('costos.requisiciones.aprobar') ?? false;
+        // Aprobador = usuario asignado en costos_aprobacion_departamento
+        // (gate 'aprobador-costos'). Fuente única de "quién puede firmar".
+        return $this->user()?->can('aprobador-costos') ?? false;
     }
 
     /**

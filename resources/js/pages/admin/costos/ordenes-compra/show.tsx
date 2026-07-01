@@ -49,6 +49,9 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
     ];
 
     const { can } = useCan();
+    // El operador del módulo ve todo el detalle; el solicitante que llega por
+    // propiedad solo ve Datos y Documentos.
+    const esOperador = can('costos.ordenes-compra.ver-todas');
     const esContado = ordenCompra.tipo_pago === 'contado';
     const activeSteps = esContado ? CONTADO_STEPS : steps;
     const currentStep = esContado ? getContadoStep(ordenCompra) : getStepIndex(ordenCompra.estatus);
@@ -183,10 +186,16 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                 {/* Tabs */}
                 <div className="tabs tabs-bordered mb-6">
                     <button className={`tab ${activeTab === 'datos' ? 'tab-active' : ''}`} onClick={() => setActiveTab('datos')}>Datos</button>
-                    <button className={`tab ${activeTab === 'facturas' ? 'tab-active' : ''}`} onClick={() => setActiveTab('facturas')}>Facturas ({ordenCompra.facturas?.length ?? 0})</button>
-                    <button className={`tab ${activeTab === 'recepciones' ? 'tab-active' : ''}`} onClick={() => setActiveTab('recepciones')}>Recepciones ({totalRecepciones})</button>
+                    {esOperador && (
+                        <button className={`tab ${activeTab === 'facturas' ? 'tab-active' : ''}`} onClick={() => setActiveTab('facturas')}>Facturas ({ordenCompra.facturas?.length ?? 0})</button>
+                    )}
+                    {esOperador && (
+                        <button className={`tab ${activeTab === 'recepciones' ? 'tab-active' : ''}`} onClick={() => setActiveTab('recepciones')}>Recepciones ({totalRecepciones})</button>
+                    )}
                     <button className={`tab ${activeTab === 'documentos' ? 'tab-active' : ''}`} onClick={() => setActiveTab('documentos')}>Documentos</button>
-                    <button className={`tab ${activeTab === 'historial' ? 'tab-active' : ''}`} onClick={() => setActiveTab('historial')}>Historial ({ordenCompra.activities?.length ?? 0})</button>
+                    {esOperador && (
+                        <button className={`tab ${activeTab === 'historial' ? 'tab-active' : ''}`} onClick={() => setActiveTab('historial')}>Historial ({ordenCompra.activities?.length ?? 0})</button>
+                    )}
                 </div>
 
                 {activeTab === 'datos' && (

@@ -35,6 +35,9 @@ function getStepIndex(estatus: CostosSolicitudPagoEstatus): number {
 
 export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] }: Props) {
     const { can } = useCan();
+    // El operador del módulo ve el detalle completo; el solicitante que llega
+    // por propiedad solo ve Datos y Documentos.
+    const esOperador = can('costos.solicitudes-pago.ver-todas');
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -299,7 +302,10 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                         )}
                     </div>
 
+                    {esOperador && (
                     <input type="radio" name="solicitud_tabs" role="tab" className="tab" aria-label="Aprobaciones" />
+                    )}
+                    {esOperador && (
                     <div role="tabpanel" className="tab-content py-4">
                         {solicitud.aprobaciones && solicitud.aprobaciones.length > 0 ? (() => {
                             const niveles = [...new Set(solicitud.aprobaciones.map((a) => a.nivel))].sort((a, b) => a - b);
@@ -349,12 +355,15 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                             <p className="text-base-content/60">No hay aprobaciones registradas.</p>
                         )}
                     </div>
+                    )}
                 </div>
 
-                <div className="mt-8">
-                    <h2 className="text-lg font-medium mb-3">Historial</h2>
-                    <ActivityTimeline activities={solicitud.activities ?? []} />
-                </div>
+                {esOperador && (
+                    <div className="mt-8">
+                        <h2 className="text-lg font-medium mb-3">Historial</h2>
+                        <ActivityTimeline activities={solicitud.activities ?? []} />
+                    </div>
+                )}
 
                 <CancelarModal
                     open={showCancelarModal}

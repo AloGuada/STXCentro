@@ -21,6 +21,10 @@ beforeEach(function () {
     $this->aprobador->givePermissionTo(['costos.requisiciones.aprobar', 'costos.requisiciones.ver']);
 
     $this->depto = Departamento::factory()->create();
+
+    // Firmar-final exige el gate 'aprobador-costos': estar asignado como
+    // aprobador en costos_aprobacion_departamento.
+    \App\Models\Costos\AprobacionDepartamento::factory()->create(['aprobador_id' => $this->aprobador->id]);
 });
 
 /**
@@ -148,7 +152,10 @@ test('la lista de cotización incluye proveedores pendientes y excluye rechazado
     $activo = Proveedor::factory()->create(['razon_social' => 'Activo SA']);
     $rechazado = Proveedor::factory()->rechazado()->create(['razon_social' => 'Rechazado SA']);
 
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->cotizada()->create([
+        'departamento_id' => $this->depto->id,
+        'solicitante_id' => $this->aprobador->id,
+    ]);
 
     $this->actingAs($this->aprobador)
         ->get("/admin/costos/requisiciones/{$req->id}")

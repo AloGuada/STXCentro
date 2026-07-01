@@ -212,7 +212,6 @@ const navGroups: NavGroup[] = [
                 title: 'Mis Aprobaciones',
                 href: '/admin/costos/aprobaciones',
                 icon: ClipboardCheck,
-                permission: 'costos.aprobaciones.ver',
             },
             {
                 title: 'Afectaciones',
@@ -980,6 +979,11 @@ function SidebarContent({
                     // "Mis reportes": depende de tener al menos una carpeta con puede_escribir
                     if (i.href === '/admin/dg/mis-reportes') {
                         return dgPuedeSubir;
+                    }
+                    // "Mis Aprobaciones": solo para aprobadores (asignados en
+                    // costos_aprobacion_departamento), no por permiso de rol.
+                    if (i.href === '/admin/costos/aprobaciones') {
+                        return auth?.es_aprobador_costos ?? false;
                     }
                     // Ítem contenedor (submenú): se oculta si no quedó ningún hijo visible.
                     if (Array.isArray(i.children)) {

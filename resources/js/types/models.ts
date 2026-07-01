@@ -1683,7 +1683,7 @@ export type CostosRequisicion = {
     detalles?: CostosRequisicionDetalle[];
     aprobaciones?: CostosAprobacionSolicitud[];
     ocs?: CostosRequisicionOc[];
-    ordenes_generadas?: Array<Pick<CostosOrdenCompra, 'id' | 'folio' | 'proveedor_id' | 'total' | 'estatus'> & { proveedor?: Pick<Proveedor, 'id' | 'razon_social'> }>;
+    ordenes_generadas?: Array<Pick<CostosOrdenCompra, 'id' | 'folio' | 'proveedor_id' | 'total' | 'estatus'> & { proveedor?: Pick<Proveedor, 'id' | 'razon_social'>; solicitudes_pago?: Array<Pick<CostosSolicitudPago, 'id' | 'folio' | 'estatus' | 'monto_total'>> }>;
     mejor_proveedor?: {
         id: number;
         razon_social: string;
