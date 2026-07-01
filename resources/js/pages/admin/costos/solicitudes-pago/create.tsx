@@ -1,13 +1,33 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import {
+    AlertCircleIcon,
+    FileTextIcon,
+    Loader2Icon,
+    PlusIcon,
+    Trash2Icon,
+    UploadIcon,
+} from 'lucide-react';
+import {
+    Fragment,
+    type FormEvent,
+    useCallback,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosObraRubro, CostosTipoSolicitud, Departamento, Obra, Proveedor } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { AlertTriangleIcon, FileTextIcon, Loader2Icon, PlusIcon, Trash2Icon, UploadIcon } from 'lucide-react';
-import { type FormEvent, useCallback, useMemo, useRef, useState } from 'react';
+import type {
+    CostosObraRubro,
+    CostosTipoSolicitud,
+    Departamento,
+    Obra,
+    Proveedor,
+} from '@/types/models';
 
 function getMinViernes(): string {
     const now = new Date();
@@ -16,7 +36,7 @@ function getMinViernes(): string {
 
     // Calcular el viernes de esta semana
     const viernes = new Date(now);
-    viernes.setDate(now.getDate() + (5 - day + 7) % 7);
+    viernes.setDate(now.getDate() + ((5 - day + 7) % 7));
     viernes.setHours(0, 0, 0, 0);
 
     // Si ya pasó el miércoles a la 1pm (day>=3 && hour>=13, o day>3 sin ser viernes futuro),
@@ -58,8 +78,23 @@ type Props = {
     obraRubros: CostosObraRubro[];
 };
 
-export default function SolicitudesPagoCreate({ departamentos, proveedores, tipoSolicitudes, obras, obraRubros }: Props) {
-    const { data, setData, post, processing, errors } = useForm<{
+export default function SolicitudesPagoCreate({
+    departamentos,
+    proveedores,
+    tipoSolicitudes,
+    obras,
+    obraRubros,
+}: Props) {
+    const {
+        data,
+        setData,
+        post,
+        transform,
+        processing,
+        errors,
+        setError,
+        clearErrors,
+    } = useForm<{
         departamento_id: string;
         proveedor_id: string;
         tipo_solicitud_id: string;
@@ -88,32 +123,68 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
     const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
     const minViernes = useMemo(() => getMinViernes(), []);
 
-    const handleFechaChange = useCallback((value: string) => {
-        if (!value || esViernes(value)) {
-            setData('fecha_pago_solicitada', value);
-        }
-    }, [setData]);
+    const handleFechaChange = useCallback(
+        (value: string) => {
+            if (!value || esViernes(value)) {
+                setData('fecha_pago_solicitada', value);
+                clearErrors('fecha_pago_solicitada');
+            } else {
+                setError(
+                    'fecha_pago_solicitada',
+                    'La fecha de pago debe ser un viernes.',
+                );
+            }
+        },
+        [setData, setError, clearErrors],
+    );
 
     const selectedTipo = useMemo(
-        () => tipoSolicitudes.find((t) => t.id === Number(data.tipo_solicitud_id)),
+        () =>
+            tipoSolicitudes.find(
+                (t) => t.id === Number(data.tipo_solicitud_id),
+            ),
         [data.tipo_solicitud_id, tipoSolicitudes],
     );
 
     const addDetalle = () => {
-        setData('detalles', [...data.detalles, { obra_id: '', obra_rubro_id: '', concepto: '', cantidad: '1', precio_unitario: '0' }]);
+        setData('detalles', [
+            ...data.detalles,
+            {
+                obra_id: '',
+                obra_rubro_id: '',
+                concepto: '',
+                cantidad: '1',
+                precio_unitario: '0',
+            },
+        ]);
+        clearErrors('detalles');
     };
 
     const removeDetalle = (index: number) => {
-        setData('detalles', data.detalles.filter((_, i) => i !== index));
+        setData(
+            'detalles',
+            data.detalles.filter((_, i) => i !== index),
+        );
     };
 
-    const updateDetalle = (index: number, field: keyof DetalleForm, value: string) => {
+    const updateDetalle = (
+        index: number,
+        field: keyof DetalleForm,
+        value: string,
+    ) => {
         const updated = [...data.detalles];
         updated[index] = { ...updated[index], [field]: value };
         if (field === 'obra_id') {
             updated[index].obra_rubro_id = '';
         }
         setData('detalles', updated);
+        if (field === 'obra_rubro_id' && value) {
+            clearErrors(
+                `detalles.${index}.obra_rubro_id` as Parameters<
+                    typeof clearErrors
+                >[0],
+            );
+        }
     };
 
     const calcSubtotal = (d: DetalleForm) => {
@@ -129,17 +200,12 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
 
     const esCerrado = (or: CostosObraRubro) => or.obra?.estatus === 'cerrada';
 
-    const obrasVisibles = obras.filter((o) => incluirCerradas || o.estatus !== 'cerrada');
+    const obrasVisibles = obras.filter(
+        (o) => incluirCerradas || o.estatus !== 'cerrada',
+    );
 
-    const getDisponible = (obraRubroId: string) => {
-        const or = obraRubros.find((r) => r.id === Number(obraRubroId));
-        if (!or) {
-            return null;
-        }
-        return Number(or.presupuestado) - Number(or.acumulado);
-    };
-
-    const formatMoney = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    const formatMoney = (n: number) =>
+        n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
     const getRubroOptionLabel = (or: CostosObraRubro) => {
         const disp = Number(or.presupuestado) - Number(or.acumulado);
@@ -153,40 +219,94 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
 
-        const formData = new FormData();
-        formData.append('departamento_id', data.departamento_id);
-        formData.append('proveedor_id', data.proveedor_id);
-        formData.append('tipo_solicitud_id', data.tipo_solicitud_id);
-        formData.append('concepto', data.concepto);
-        formData.append('tipo_pago', data.tipo_pago);
-        formData.append('tipo_moneda', data.tipo_moneda);
-        formData.append('fecha_pago_solicitada', data.fecha_pago_solicitada);
+        clearErrors();
 
-        data.detalles.forEach((det, i) => {
-            formData.append(`detalles[${i}][obra_rubro_id]`, det.obra_rubro_id);
-            formData.append(`detalles[${i}][concepto]`, det.concepto);
-            formData.append(`detalles[${i}][cantidad]`, det.cantidad);
-            formData.append(`detalles[${i}][precio_unitario]`, det.precio_unitario);
-        });
+        const validationErrors: Record<string, string> = {};
 
-        // Tipos sin rubros: se manda el total capturado directo.
-        if (selectedTipo && !selectedTipo.rubros && data.monto_total) {
-            formData.append('monto_total', data.monto_total);
+        if (!data.fecha_pago_solicitada) {
+            validationErrors.fecha_pago_solicitada =
+                'Selecciona la fecha de pago solicitada (un viernes).';
         }
 
-        Object.entries(data.archivos).forEach(([docId, files]) => {
-            files.forEach((file, i) => {
-                formData.append(`archivos[${docId}][${i}]`, file);
+        if (selectedTipo?.rubros) {
+            if (data.detalles.length === 0) {
+                validationErrors.detalles =
+                    'Agrega al menos un detalle con su centro de costos.';
+            }
+            data.detalles.forEach((det, i) => {
+                if (!det.obra_rubro_id) {
+                    validationErrors[`detalles.${i}.obra_rubro_id`] =
+                        'El centro de costos es obligatorio.';
+                }
             });
+        } else if (selectedTipo) {
+            const monto = parseFloat(data.monto_total);
+            if (!data.monto_total || Number.isNaN(monto) || monto <= 0) {
+                validationErrors.monto_total =
+                    'El monto total debe ser mayor a 0.';
+            }
+        }
+
+        (selectedTipo?.documentos ?? []).forEach((doc) => {
+            const docKey = String(doc.id);
+            if ((data.archivos[docKey]?.length ?? 0) === 0) {
+                validationErrors[`archivos.${docKey}`] =
+                    `Adjunta el documento requerido: ${doc.titulo}.`;
+            }
         });
 
-        Object.entries(data.archivos_texto).forEach(([docId, textos]) => {
-            textos.forEach((texto, i) => {
-                formData.append(`archivos_texto[${docId}][${i}]`, texto);
+        if (Object.keys(validationErrors).length > 0) {
+            setError(validationErrors as Parameters<typeof setError>[0]);
+            return;
+        }
+
+        transform(() => {
+            const formData = new FormData();
+            formData.append('departamento_id', data.departamento_id);
+            formData.append('proveedor_id', data.proveedor_id);
+            formData.append('tipo_solicitud_id', data.tipo_solicitud_id);
+            formData.append('concepto', data.concepto);
+            formData.append('tipo_pago', data.tipo_pago);
+            formData.append('tipo_moneda', data.tipo_moneda);
+            formData.append(
+                'fecha_pago_solicitada',
+                data.fecha_pago_solicitada,
+            );
+
+            data.detalles.forEach((det, i) => {
+                formData.append(
+                    `detalles[${i}][obra_rubro_id]`,
+                    det.obra_rubro_id,
+                );
+                formData.append(`detalles[${i}][concepto]`, det.concepto);
+                formData.append(`detalles[${i}][cantidad]`, det.cantidad);
+                formData.append(
+                    `detalles[${i}][precio_unitario]`,
+                    det.precio_unitario,
+                );
             });
+
+            // Tipos sin rubros: se manda el total capturado directo.
+            if (selectedTipo && !selectedTipo.rubros && data.monto_total) {
+                formData.append('monto_total', data.monto_total);
+            }
+
+            Object.entries(data.archivos).forEach(([docId, files]) => {
+                files.forEach((file, i) => {
+                    formData.append(`archivos[${docId}][${i}]`, file);
+                });
+            });
+
+            Object.entries(data.archivos_texto).forEach(([docId, textos]) => {
+                textos.forEach((texto, i) => {
+                    formData.append(`archivos_texto[${docId}][${i}]`, texto);
+                });
+            });
+
+            return formData;
         });
 
-        router.post('/admin/costos/solicitudes-pago', formData);
+        post('/admin/costos/solicitudes-pago', { forceFormData: true });
     };
 
     return (
@@ -195,74 +315,144 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
 
             <div className="p-6">
                 <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Nueva Solicitud de Pago</h1>
+                    <h1 className="mb-6 text-2xl font-semibold">
+                        Nueva Solicitud de Pago
+                    </h1>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        {Object.keys(errors).length > 0 && (
+                            <div className="alert items-start alert-error">
+                                <AlertCircleIcon className="size-5 shrink-0" />
+                                <div>
+                                    <p className="font-medium">
+                                        No se pudo guardar la solicitud
+                                    </p>
+                                    <p className="text-sm">
+                                        Revisa y corrige los campos resaltados
+                                        en rojo antes de continuar.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Sección 1: Info Básica */}
                         <div className="space-y-4">
-                            <h2 className="text-lg font-medium border-b border-base-300 pb-2">Información Básica</h2>
+                            <h2 className="border-b border-base-300 pb-2 text-lg font-medium">
+                                Información Básica
+                            </h2>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField label="Departamento" htmlFor="departamento_id" error={errors.departamento_id} required>
+                                <FormField
+                                    label="Departamento"
+                                    htmlFor="departamento_id"
+                                    error={errors.departamento_id}
+                                    required
+                                >
                                     <select
                                         id="departamento_id"
-                                        className="select select-bordered w-full"
+                                        className={`select-bordered select w-full ${errors.departamento_id ? 'select-error' : ''}`}
                                         value={data.departamento_id}
-                                        onChange={(e) => setData('departamento_id', e.target.value)}
+                                        onChange={(e) =>
+                                            setData(
+                                                'departamento_id',
+                                                e.target.value,
+                                            )
+                                        }
                                     >
                                         <option value="">Seleccionar</option>
                                         {departamentos.map((d) => (
-                                            <option key={d.id} value={d.id}>{d.descripcion}</option>
+                                            <option key={d.id} value={d.id}>
+                                                {d.descripcion}
+                                            </option>
                                         ))}
                                     </select>
                                 </FormField>
 
-                                <FormField label="Beneficiario" htmlFor="proveedor_id" error={errors.proveedor_id}>
+                                <FormField
+                                    label="Beneficiario"
+                                    htmlFor="proveedor_id"
+                                    error={errors.proveedor_id}
+                                >
                                     <SearchSelect
                                         value={data.proveedor_id}
-                                        onValueChange={(value) => setData('proveedor_id', value)}
+                                        onValueChange={(value) =>
+                                            setData('proveedor_id', value)
+                                        }
                                         placeholder="Buscar beneficiario..."
                                         options={[
-                                            { value: '', label: 'Sin beneficiario' },
+                                            {
+                                                value: '',
+                                                label: 'Sin beneficiario',
+                                            },
                                             ...proveedores.map((p) => ({
                                                 value: String(p.id),
-                                                label: p.nombre_comercial || p.razon_social,
+                                                label:
+                                                    p.nombre_comercial ||
+                                                    p.razon_social,
                                             })),
                                         ]}
                                     />
                                 </FormField>
                             </div>
 
-                            <FormField label="Concepto" htmlFor="concepto" error={errors.concepto} required>
+                            <FormField
+                                label="Concepto"
+                                htmlFor="concepto"
+                                error={errors.concepto}
+                                required
+                            >
                                 <textarea
                                     id="concepto"
-                                    className="textarea textarea-bordered w-full"
+                                    className={`textarea-bordered textarea w-full ${errors.concepto ? 'textarea-error' : ''}`}
                                     value={data.concepto}
-                                    onChange={(e) => setData('concepto', e.target.value)}
+                                    onChange={(e) =>
+                                        setData('concepto', e.target.value)
+                                    }
                                     rows={2}
                                 />
                             </FormField>
 
                             <div className="grid grid-cols-3 gap-4">
-                                <FormField label="Tipo de Pago" htmlFor="tipo_pago" error={errors.tipo_pago} required>
+                                <FormField
+                                    label="Tipo de Pago"
+                                    htmlFor="tipo_pago"
+                                    error={errors.tipo_pago}
+                                    required
+                                >
                                     <select
                                         id="tipo_pago"
-                                        className="select select-bordered w-full"
+                                        className={`select-bordered select w-full ${errors.tipo_pago ? 'select-error' : ''}`}
                                         value={data.tipo_pago}
-                                        onChange={(e) => setData('tipo_pago', e.target.value)}
+                                        onChange={(e) =>
+                                            setData('tipo_pago', e.target.value)
+                                        }
                                     >
-                                        <option value="transferencia">Transferencia</option>
+                                        <option value="transferencia">
+                                            Transferencia
+                                        </option>
                                         <option value="cheque">Cheque</option>
-                                        <option value="efectivo">Efectivo</option>
+                                        <option value="efectivo">
+                                            Efectivo
+                                        </option>
                                     </select>
                                 </FormField>
 
-                                <FormField label="Moneda" htmlFor="tipo_moneda" error={errors.tipo_moneda} required>
+                                <FormField
+                                    label="Moneda"
+                                    htmlFor="tipo_moneda"
+                                    error={errors.tipo_moneda}
+                                    required
+                                >
                                     <select
                                         id="tipo_moneda"
-                                        className="select select-bordered w-full"
+                                        className={`select-bordered select w-full ${errors.tipo_moneda ? 'select-error' : ''}`}
                                         value={data.tipo_moneda}
-                                        onChange={(e) => setData('tipo_moneda', e.target.value)}
+                                        onChange={(e) =>
+                                            setData(
+                                                'tipo_moneda',
+                                                e.target.value,
+                                            )
+                                        }
                                     >
                                         <option value="mxn">MXN</option>
                                         <option value="usd">USD</option>
@@ -270,39 +460,65 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                     </select>
                                 </FormField>
 
-                                <FormField label="Fecha de Pago Solicitada" htmlFor="fecha_pago_solicitada" error={errors.fecha_pago_solicitada}>
+                                <FormField
+                                    label="Fecha de Pago Solicitada"
+                                    htmlFor="fecha_pago_solicitada"
+                                    error={errors.fecha_pago_solicitada}
+                                    required
+                                >
                                     <Input
                                         id="fecha_pago_solicitada"
                                         type="date"
                                         min={minViernes}
+                                        error={!!errors.fecha_pago_solicitada}
                                         value={data.fecha_pago_solicitada}
-                                        onChange={(e) => handleFechaChange(e.target.value)}
+                                        onChange={(e) =>
+                                            handleFechaChange(e.target.value)
+                                        }
                                     />
-                                    <p className="mt-1 text-[11px] text-base-content/50">Solo viernes. Corte: miércoles 1:00 PM</p>
+                                    <p className="mt-1 text-[11px] text-base-content/50">
+                                        Solo viernes. Corte: miércoles 1:00 PM
+                                    </p>
                                 </FormField>
                             </div>
                         </div>
 
                         {/* Sección 2: Tipo Solicitud */}
                         <div className="space-y-4">
-                            <h2 className="text-lg font-medium border-b border-base-300 pb-2">Tipo de Solicitud</h2>
+                            <h2 className="border-b border-base-300 pb-2 text-lg font-medium">
+                                Tipo de Solicitud
+                            </h2>
 
-                            <FormField label="Tipo de Solicitud" htmlFor="tipo_solicitud_id" error={errors.tipo_solicitud_id} required>
+                            <FormField
+                                label="Tipo de Solicitud"
+                                htmlFor="tipo_solicitud_id"
+                                error={errors.tipo_solicitud_id}
+                                required
+                            >
                                 <select
                                     id="tipo_solicitud_id"
-                                    className="select select-bordered w-full"
+                                    className={`select-bordered select w-full ${errors.tipo_solicitud_id ? 'select-error' : ''}`}
                                     value={data.tipo_solicitud_id}
-                                    onChange={(e) => setData('tipo_solicitud_id', e.target.value)}
+                                    onChange={(e) =>
+                                        setData(
+                                            'tipo_solicitud_id',
+                                            e.target.value,
+                                        )
+                                    }
                                 >
                                     <option value="">Seleccionar tipo</option>
                                     {tipoSolicitudes.map((ts) => (
-                                        <option key={ts.id} value={ts.id}>{ts.titulo}</option>
+                                        <option key={ts.id} value={ts.id}>
+                                            {ts.titulo}
+                                        </option>
                                     ))}
                                 </select>
                             </FormField>
 
                             {selectedTipo?.descripcion && (
-                                <p className="text-sm text-base-content/60">{selectedTipo.descripcion}</p>
+                                <p className="text-sm text-base-content/60">
+                                    {selectedTipo.descripcion}
+                                </p>
                             )}
                         </div>
 
@@ -310,163 +526,358 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                         {selectedTipo?.rubros && (
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between border-b border-base-300 pb-2">
-                                    <h2 className="text-lg font-medium">Detalles / Centros de Costos</h2>
+                                    <h2 className="text-lg font-medium">
+                                        Detalles / Centros de Costos
+                                    </h2>
                                     <div className="flex items-center gap-3">
                                         <label className="label cursor-pointer gap-2 py-0">
                                             <input
                                                 type="checkbox"
                                                 className="checkbox checkbox-xs"
                                                 checked={incluirCerradas}
-                                                onChange={(e) => setIncluirCerradas(e.target.checked)}
+                                                onChange={(e) =>
+                                                    setIncluirCerradas(
+                                                        e.target.checked,
+                                                    )
+                                                }
                                             />
-                                            <span className="label-text text-xs">Incluir cerradas</span>
+                                            <span className="label-text text-xs">
+                                                Incluir cerradas
+                                            </span>
                                         </label>
-                                        <Button type="button" variant="outline" onClick={addDetalle}>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={addDetalle}
+                                        >
                                             <PlusIcon className="size-4" />
                                             Agregar
                                         </Button>
                                     </div>
                                 </div>
 
-                                {data.detalles.length === 0 && (
-                                    <p className="text-sm text-base-content/60">No hay detalles agregados.</p>
+                                {errors.detalles && (
+                                    <p className="text-sm text-error">
+                                        {errors.detalles}
+                                    </p>
                                 )}
 
-                                {data.detalles.map((det, index) => {
-                                    const subtotal = calcSubtotal(det);
-                                    const disponible = getDisponible(det.obra_rubro_id);
-                                    const excede = disponible !== null && subtotal > disponible;
+                                {data.detalles.length === 0 ? (
+                                    <p
+                                        className={`text-sm ${errors.detalles ? 'text-error' : 'text-base-content/60'}`}
+                                    >
+                                        No hay detalles agregados.
+                                    </p>
+                                ) : (
+                                    <div className="overflow-x-auto rounded-lg border border-base-300">
+                                        <table className="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th className="w-8 text-center">
+                                                        #
+                                                    </th>
+                                                    <th className="min-w-[180px]">
+                                                        Obra
+                                                    </th>
+                                                    <th className="min-w-[220px]">
+                                                        Centro de Costos
+                                                    </th>
+                                                    <th className="min-w-[160px]">
+                                                        Concepto
+                                                    </th>
+                                                    <th className="w-24 text-right">
+                                                        Cantidad
+                                                    </th>
+                                                    <th className="w-32 text-right">
+                                                        P. Unitario
+                                                    </th>
+                                                    <th className="w-32 text-right">
+                                                        Subtotal
+                                                    </th>
+                                                    <th className="w-10"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {data.detalles.map(
+                                                    (det, index) => {
+                                                        const subtotal =
+                                                            calcSubtotal(det);
 
-                                    return (
-                                        <div key={index} className="rounded-lg border border-base-300 p-4 space-y-3">
-                                            <div className="flex items-start justify-between">
-                                                <h3 className="font-medium">Detalle {index + 1}</h3>
-                                                <button type="button" className="btn btn-ghost btn-sm text-error" onClick={() => removeDetalle(index)}>
-                                                    <Trash2Icon className="size-4" />
-                                                </button>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <FormField label="Obra" htmlFor={`det_obra_${index}`} required>
-                                                    <select
-                                                        id={`det_obra_${index}`}
-                                                        className="select select-bordered w-full"
-                                                        value={det.obra_id}
-                                                        onChange={(e) => updateDetalle(index, 'obra_id', e.target.value)}
+                                                        return (
+                                                            <Fragment
+                                                                key={index}
+                                                            >
+                                                                <tr className="align-top">
+                                                                    <td className="text-center text-base-content/50">
+                                                                        {index +
+                                                                            1}
+                                                                    </td>
+                                                                    <td>
+                                                                        <select
+                                                                            className="select-bordered select w-full select-sm"
+                                                                            value={
+                                                                                det.obra_id
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                updateDetalle(
+                                                                                    index,
+                                                                                    'obra_id',
+                                                                                    e
+                                                                                        .target
+                                                                                        .value,
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            <option value="">
+                                                                                Seleccionar
+                                                                                obra
+                                                                            </option>
+                                                                            {obrasVisibles.map(
+                                                                                (
+                                                                                    o,
+                                                                                ) => (
+                                                                                    <option
+                                                                                        key={
+                                                                                            o.id
+                                                                                        }
+                                                                                        value={
+                                                                                            o.id
+                                                                                        }
+                                                                                    >
+                                                                                        {
+                                                                                            o.no
+                                                                                        }{' '}
+                                                                                        -{' '}
+                                                                                        {
+                                                                                            o.descripcion
+                                                                                        }
+                                                                                        {o.estatus ===
+                                                                                        'cerrada'
+                                                                                            ? ' (Cerrada)'
+                                                                                            : ''}
+                                                                                    </option>
+                                                                                ),
+                                                                            )}
+                                                                        </select>
+                                                                    </td>
+                                                                    <td>
+                                                                        <select
+                                                                            className={`select-bordered select w-full select-sm ${errors[`detalles.${index}.obra_rubro_id` as keyof typeof errors] ? 'select-error' : ''}`}
+                                                                            value={
+                                                                                det.obra_rubro_id
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                updateDetalle(
+                                                                                    index,
+                                                                                    'obra_rubro_id',
+                                                                                    e
+                                                                                        .target
+                                                                                        .value,
+                                                                                )
+                                                                            }
+                                                                            disabled={
+                                                                                !det.obra_id
+                                                                            }
+                                                                        >
+                                                                            <option value="">
+                                                                                {det.obra_id
+                                                                                    ? 'Seleccionar centro de costos'
+                                                                                    : 'Seleccione obra primero'}
+                                                                            </option>
+                                                                            {obraRubros
+                                                                                .filter(
+                                                                                    (
+                                                                                        or,
+                                                                                    ) =>
+                                                                                        or.obra_id ===
+                                                                                            Number(
+                                                                                                det.obra_id,
+                                                                                            ) &&
+                                                                                        (incluirCerradas ||
+                                                                                            !esCerrado(
+                                                                                                or,
+                                                                                            )),
+                                                                                )
+                                                                                .map(
+                                                                                    (
+                                                                                        or,
+                                                                                    ) => (
+                                                                                        <option
+                                                                                            key={
+                                                                                                or.id
+                                                                                            }
+                                                                                            value={
+                                                                                                or.id
+                                                                                            }
+                                                                                        >
+                                                                                            {getRubroOptionLabel(
+                                                                                                or,
+                                                                                            )}
+                                                                                        </option>
+                                                                                    ),
+                                                                                )}
+                                                                        </select>
+                                                                        {errors[
+                                                                            `detalles.${index}.obra_rubro_id` as keyof typeof errors
+                                                                        ] && (
+                                                                            <p className="mt-1 text-xs text-error">
+                                                                                {
+                                                                                    errors[
+                                                                                        `detalles.${index}.obra_rubro_id` as keyof typeof errors
+                                                                                    ]
+                                                                                }
+                                                                            </p>
+                                                                        )}
+                                                                    </td>
+                                                                    <td>
+                                                                        <input
+                                                                            className={`input-bordered input input-sm w-full ${errors[`detalles.${index}.concepto` as keyof typeof errors] ? 'input-error' : ''}`}
+                                                                            value={
+                                                                                det.concepto
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                updateDetalle(
+                                                                                    index,
+                                                                                    'concepto',
+                                                                                    e
+                                                                                        .target
+                                                                                        .value,
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                        {errors[
+                                                                            `detalles.${index}.concepto` as keyof typeof errors
+                                                                        ] && (
+                                                                            <p className="mt-1 text-xs text-error">
+                                                                                {
+                                                                                    errors[
+                                                                                        `detalles.${index}.concepto` as keyof typeof errors
+                                                                                    ]
+                                                                                }
+                                                                            </p>
+                                                                        )}
+                                                                    </td>
+                                                                    <td>
+                                                                        <input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            min="0.01"
+                                                                            className={`input-bordered input input-sm w-full text-right ${errors[`detalles.${index}.cantidad` as keyof typeof errors] ? 'input-error' : ''}`}
+                                                                            value={
+                                                                                det.cantidad
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                updateDetalle(
+                                                                                    index,
+                                                                                    'cantidad',
+                                                                                    e
+                                                                                        .target
+                                                                                        .value,
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                        {errors[
+                                                                            `detalles.${index}.cantidad` as keyof typeof errors
+                                                                        ] && (
+                                                                            <p className="mt-1 text-xs text-error">
+                                                                                {
+                                                                                    errors[
+                                                                                        `detalles.${index}.cantidad` as keyof typeof errors
+                                                                                    ]
+                                                                                }
+                                                                            </p>
+                                                                        )}
+                                                                    </td>
+                                                                    <td>
+                                                                        <input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            min="0"
+                                                                            className={`input-bordered input input-sm w-full text-right ${errors[`detalles.${index}.precio_unitario` as keyof typeof errors] ? 'input-error' : ''}`}
+                                                                            value={
+                                                                                det.precio_unitario
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                updateDetalle(
+                                                                                    index,
+                                                                                    'precio_unitario',
+                                                                                    e
+                                                                                        .target
+                                                                                        .value,
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                        {errors[
+                                                                            `detalles.${index}.precio_unitario` as keyof typeof errors
+                                                                        ] && (
+                                                                            <p className="mt-1 text-xs text-error">
+                                                                                {
+                                                                                    errors[
+                                                                                        `detalles.${index}.precio_unitario` as keyof typeof errors
+                                                                                    ]
+                                                                                }
+                                                                            </p>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="text-right font-medium whitespace-nowrap">
+                                                                        $
+                                                                        {subtotal.toLocaleString(
+                                                                            'es-MX',
+                                                                            {
+                                                                                minimumFractionDigits: 2,
+                                                                            },
+                                                                        )}
+                                                                    </td>
+                                                                    <td>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn text-error btn-ghost btn-xs"
+                                                                            onClick={() =>
+                                                                                removeDetalle(
+                                                                                    index,
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            <Trash2Icon className="size-4" />
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            </Fragment>
+                                                        );
+                                                    },
+                                                )}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr>
+                                                    <td
+                                                        colSpan={6}
+                                                        className="text-right text-base font-semibold"
                                                     >
-                                                        <option value="">Seleccionar obra</option>
-                                                        {obrasVisibles.map((o) => (
-                                                            <option key={o.id} value={o.id}>{o.no} - {o.descripcion}{o.estatus === 'cerrada' ? ' (Cerrada)' : ''}</option>
-                                                        ))}
-                                                    </select>
-                                                </FormField>
-
-                                                <FormField label="Centro de Costos" htmlFor={`det_rubro_${index}`} error={errors[`detalles.${index}.obra_rubro_id` as keyof typeof errors]} required>
-                                                    <select
-                                                        id={`det_rubro_${index}`}
-                                                        className="select select-bordered w-full"
-                                                        value={det.obra_rubro_id}
-                                                        onChange={(e) => updateDetalle(index, 'obra_rubro_id', e.target.value)}
-                                                        disabled={!det.obra_id}
-                                                    >
-                                                        <option value="">{det.obra_id ? 'Seleccionar centro de costos' : 'Seleccione obra primero'}</option>
-                                                        {obraRubros
-                                                            .filter((or) => or.obra_id === Number(det.obra_id) && (incluirCerradas || !esCerrado(or)))
-                                                            .map((or) => (
-                                                                <option key={or.id} value={or.id}>
-                                                                    {getRubroOptionLabel(or)}
-                                                                </option>
-                                                            ))}
-                                                    </select>
-                                                </FormField>
-                                            </div>
-
-                                            {disponible !== null && (() => {
-                                                const or = obraRubros.find((r) => r.id === Number(det.obra_rubro_id));
-                                                const presupuestado = or ? Number(or.presupuestado) : 0;
-                                                const porcentajeUsado = presupuestado > 0 ? ((presupuestado - disponible) / presupuestado) * 100 : 0;
-                                                const sobregiro = disponible <= 0;
-
-                                                return (
-                                                    <div className={`rounded-lg px-3 py-2 text-xs ${sobregiro ? 'bg-error/10 border border-error/30' : excede ? 'bg-warning/10 border border-warning/30' : 'bg-base-200'}`}>
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <span className={sobregiro ? 'text-error font-semibold' : excede ? 'text-warning font-semibold' : 'text-base-content/70'}>
-                                                                {sobregiro ? (
-                                                                    <span className="inline-flex items-center gap-1">
-                                                                        <AlertTriangleIcon className="size-3" /> SOBREGIRO: -${formatMoney(Math.abs(disponible))}
-                                                                    </span>
-                                                                ) : (
-                                                                    <>Disponible: ${formatMoney(disponible)}</>
-                                                                )}
-                                                            </span>
-                                                            <span className="text-base-content/50">
-                                                                Presupuestado: ${formatMoney(presupuestado)}
-                                                            </span>
-                                                        </div>
-                                                        {presupuestado > 0 && (
-                                                            <div className="w-full bg-base-300 rounded-full h-1.5">
-                                                                <div
-                                                                    className={`h-1.5 rounded-full ${sobregiro ? 'bg-error' : porcentajeUsado > 80 ? 'bg-warning' : 'bg-success'}`}
-                                                                    style={{ width: `${Math.min(porcentajeUsado, 100)}%` }}
-                                                                />
-                                                            </div>
+                                                        Total
+                                                    </td>
+                                                    <td className="text-right text-base font-semibold whitespace-nowrap">
+                                                        $
+                                                        {total.toLocaleString(
+                                                            'es-MX',
+                                                            {
+                                                                minimumFractionDigits: 2,
+                                                            },
                                                         )}
-                                                        {excede && !sobregiro && (
-                                                            <p className="text-warning mt-1 inline-flex items-center gap-1">
-                                                                <AlertTriangleIcon className="size-3" /> El subtotal (${formatMoney(subtotal)}) excede el disponible
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })()}
-
-                                            <FormField label="Concepto" htmlFor={`det_concepto_${index}`} error={errors[`detalles.${index}.concepto` as keyof typeof errors]} required>
-                                                <Input
-                                                    id={`det_concepto_${index}`}
-                                                    value={det.concepto}
-                                                    onChange={(e) => updateDetalle(index, 'concepto', e.target.value)}
-                                                />
-                                            </FormField>
-
-                                            <div className="grid grid-cols-3 gap-4">
-                                                <FormField label="Cantidad" htmlFor={`det_cant_${index}`} error={errors[`detalles.${index}.cantidad` as keyof typeof errors]} required>
-                                                    <Input
-                                                        id={`det_cant_${index}`}
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0.01"
-                                                        value={det.cantidad}
-                                                        onChange={(e) => updateDetalle(index, 'cantidad', e.target.value)}
-                                                    />
-                                                </FormField>
-
-                                                <FormField label="Precio Unitario" htmlFor={`det_precio_${index}`} error={errors[`detalles.${index}.precio_unitario` as keyof typeof errors]} required>
-                                                    <Input
-                                                        id={`det_precio_${index}`}
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        value={det.precio_unitario}
-                                                        onChange={(e) => updateDetalle(index, 'precio_unitario', e.target.value)}
-                                                    />
-                                                </FormField>
-
-                                                <FormField label="Subtotal" htmlFor={`det_sub_${index}`}>
-                                                    <Input
-                                                        id={`det_sub_${index}`}
-                                                        readOnly
-                                                        value={`$${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`}
-                                                        className="bg-base-200"
-                                                    />
-                                                </FormField>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-
-                                {data.detalles.length > 0 && (
-                                    <div className="text-right text-lg font-semibold">
-                                        Total: ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                    </td>
+                                                    <td></td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
                                     </div>
                                 )}
                             </div>
@@ -476,9 +887,16 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                         {selectedTipo && !selectedTipo.rubros && (
                             <div className="space-y-4">
                                 <div className="border-b border-base-300 pb-2">
-                                    <h2 className="text-lg font-medium">Total del pago</h2>
+                                    <h2 className="text-lg font-medium">
+                                        Total del pago
+                                    </h2>
                                 </div>
-                                <FormField label="Monto total" htmlFor="monto_total" error={errors.monto_total} required>
+                                <FormField
+                                    label="Monto total"
+                                    htmlFor="monto_total"
+                                    error={errors.monto_total}
+                                    required
+                                >
                                     <Input
                                         id="monto_total"
                                         type="number"
@@ -486,131 +904,318 @@ export default function SolicitudesPagoCreate({ departamentos, proveedores, tipo
                                         min="0.01"
                                         placeholder="0.00"
                                         className="w-48"
+                                        error={!!errors.monto_total}
                                         value={data.monto_total}
-                                        onChange={(e) => setData('monto_total', e.target.value)}
+                                        onChange={(e) => {
+                                            setData(
+                                                'monto_total',
+                                                e.target.value,
+                                            );
+                                            if (parseFloat(e.target.value) > 0) {
+                                                clearErrors('monto_total');
+                                            }
+                                        }}
                                     />
                                 </FormField>
                             </div>
                         )}
 
                         {/* Sección 4: Documentos (condicional) */}
-                        {selectedTipo?.documentos && selectedTipo.documentos.length > 0 && (
-                            <div className="space-y-4">
-                                <h2 className="text-lg font-medium border-b border-base-300 pb-2">Documentos</h2>
-                                {selectedTipo.documentos.map((doc) => {
-                                    const docKey = String(doc.id);
-                                    const files = data.archivos[docKey] ?? [];
-                                    const canAdd = doc.multiple || files.length === 0;
+                        {selectedTipo?.documentos &&
+                            selectedTipo.documentos.length > 0 && (
+                                <div className="space-y-4">
+                                    <h2 className="border-b border-base-300 pb-2 text-lg font-medium">
+                                        Documentos
+                                    </h2>
+                                    {selectedTipo.documentos.map((doc) => {
+                                        const docKey = String(doc.id);
+                                        const files =
+                                            data.archivos[docKey] ?? [];
+                                        const canAdd =
+                                            doc.multiple || files.length === 0;
+                                        const docError =
+                                            errors[
+                                                `archivos.${docKey}` as keyof typeof errors
+                                            ];
 
-                                    return (
-                                        <div key={doc.id} className="rounded-lg border border-base-300 p-4">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div>
-                                                    <h4 className="font-medium">
-                                                        {doc.titulo}
-                                                        {doc.multiple && <span className="ml-2 badge badge-sm badge-ghost">Múltiple</span>}
-                                                    </h4>
-                                                    {doc.texto && <p className="text-xs text-base-content/60">{doc.texto}</p>}
-                                                </div>
-                                            </div>
-
-                                            {files.length > 0 && (
-                                                <div className="space-y-2 mb-3">
-                                                    {files.map((file, fileIdx) => (
-                                                        <div key={fileIdx} className="rounded bg-base-200 p-2 space-y-2">
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-2">
-                                                                    <FileTextIcon className="size-4 text-base-content/60" />
-                                                                    <span className="text-sm">{file.name}</span>
-                                                                </div>
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn btn-ghost btn-sm text-error"
-                                                                    onClick={() => {
-                                                                        const updatedArchivos = { ...data.archivos };
-                                                                        const updatedTextos = { ...data.archivos_texto };
-                                                                        const newFiles = [...files];
-                                                                        const newTextos = [...(data.archivos_texto[docKey] ?? [])];
-                                                                        newFiles.splice(fileIdx, 1);
-                                                                        newTextos.splice(fileIdx, 1);
-                                                                        if (newFiles.length === 0) {
-                                                                            delete updatedArchivos[docKey];
-                                                                            delete updatedTextos[docKey];
-                                                                        } else {
-                                                                            updatedArchivos[docKey] = newFiles;
-                                                                            updatedTextos[docKey] = newTextos;
-                                                                        }
-                                                                        setData({ ...data, archivos: updatedArchivos, archivos_texto: updatedTextos });
-                                                                    }}
-                                                                >
-                                                                    <Trash2Icon className="size-4" />
-                                                                </button>
-                                                            </div>
-                                                            {doc.texto_adicional && doc.texto && (
-                                                                <Input
-                                                                    placeholder={doc.texto}
-                                                                    value={data.archivos_texto[docKey]?.[fileIdx] ?? ''}
-                                                                    onChange={(e) => {
-                                                                        const updatedTextos = { ...data.archivos_texto };
-                                                                        const textos = [...(updatedTextos[docKey] ?? [])];
-                                                                        textos[fileIdx] = e.target.value;
-                                                                        updatedTextos[docKey] = textos;
-                                                                        setData('archivos_texto', updatedTextos);
-                                                                    }}
-                                                                />
+                                        return (
+                                            <div
+                                                key={doc.id}
+                                                className={`rounded-lg border p-4 ${docError ? 'border-error' : 'border-base-300'}`}
+                                            >
+                                                <div className="mb-3 flex items-center justify-between">
+                                                    <div>
+                                                        <h4 className="font-medium">
+                                                            {doc.titulo}
+                                                            <span className="ml-1 text-error">
+                                                                *
+                                                            </span>
+                                                            {doc.multiple && (
+                                                                <span className="ml-2 badge badge-ghost badge-sm">
+                                                                    Múltiple
+                                                                </span>
                                                             )}
-                                                        </div>
-                                                    ))}
+                                                        </h4>
+                                                        {doc.texto && (
+                                                            <p className="text-xs text-base-content/60">
+                                                                {doc.texto}
+                                                            </p>
+                                                        )}
+                                                        {docError && (
+                                                            <p className="mt-1 text-xs text-error">
+                                                                {docError}
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            )}
 
-                                            {canAdd && (
-                                                <div>
-                                                    <input
-                                                        ref={(el) => { fileInputRefs.current[docKey] = el; }}
-                                                        type="file"
-                                                        className="hidden"
-                                                        multiple={doc.multiple}
-                                                        onChange={(e) => {
-                                                            const files = e.target.files;
-                                                            if (files && files.length > 0) {
-                                                                const currentFiles = data.archivos[docKey] ?? [];
-                                                                const currentTextos = data.archivos_texto[docKey] ?? [];
-                                                                const newFiles = Array.from(files);
-                                                                setData({
-                                                                    ...data,
-                                                                    archivos: { ...data.archivos, [docKey]: [...currentFiles, ...newFiles] },
-                                                                    archivos_texto: { ...data.archivos_texto, [docKey]: [...currentTextos, ...newFiles.map(() => '')] },
-                                                                });
+                                                {files.length > 0 && (
+                                                    <div className="mb-3 space-y-2">
+                                                        {files.map(
+                                                            (file, fileIdx) => (
+                                                                <div
+                                                                    key={
+                                                                        fileIdx
+                                                                    }
+                                                                    className="space-y-2 rounded bg-base-200 p-2"
+                                                                >
+                                                                    <div className="flex items-center justify-between">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <FileTextIcon className="size-4 text-base-content/60" />
+                                                                            <span className="text-sm">
+                                                                                {
+                                                                                    file.name
+                                                                                }
+                                                                            </span>
+                                                                        </div>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn text-error btn-ghost btn-sm"
+                                                                            onClick={() => {
+                                                                                const updatedArchivos =
+                                                                                    {
+                                                                                        ...data.archivos,
+                                                                                    };
+                                                                                const updatedTextos =
+                                                                                    {
+                                                                                        ...data.archivos_texto,
+                                                                                    };
+                                                                                const newFiles =
+                                                                                    [
+                                                                                        ...files,
+                                                                                    ];
+                                                                                const newTextos =
+                                                                                    [
+                                                                                        ...(data
+                                                                                            .archivos_texto[
+                                                                                            docKey
+                                                                                        ] ??
+                                                                                            []),
+                                                                                    ];
+                                                                                newFiles.splice(
+                                                                                    fileIdx,
+                                                                                    1,
+                                                                                );
+                                                                                newTextos.splice(
+                                                                                    fileIdx,
+                                                                                    1,
+                                                                                );
+                                                                                if (
+                                                                                    newFiles.length ===
+                                                                                    0
+                                                                                ) {
+                                                                                    delete updatedArchivos[
+                                                                                        docKey
+                                                                                    ];
+                                                                                    delete updatedTextos[
+                                                                                        docKey
+                                                                                    ];
+                                                                                } else {
+                                                                                    updatedArchivos[
+                                                                                        docKey
+                                                                                    ] =
+                                                                                        newFiles;
+                                                                                    updatedTextos[
+                                                                                        docKey
+                                                                                    ] =
+                                                                                        newTextos;
+                                                                                }
+                                                                                setData(
+                                                                                    {
+                                                                                        ...data,
+                                                                                        archivos:
+                                                                                            updatedArchivos,
+                                                                                        archivos_texto:
+                                                                                            updatedTextos,
+                                                                                    },
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            <Trash2Icon className="size-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                    {doc.texto_adicional &&
+                                                                        doc.texto && (
+                                                                            <Input
+                                                                                placeholder={
+                                                                                    doc.texto
+                                                                                }
+                                                                                value={
+                                                                                    data
+                                                                                        .archivos_texto[
+                                                                                        docKey
+                                                                                    ]?.[
+                                                                                        fileIdx
+                                                                                    ] ??
+                                                                                    ''
+                                                                                }
+                                                                                onChange={(
+                                                                                    e,
+                                                                                ) => {
+                                                                                    const updatedTextos =
+                                                                                        {
+                                                                                            ...data.archivos_texto,
+                                                                                        };
+                                                                                    const textos =
+                                                                                        [
+                                                                                            ...(updatedTextos[
+                                                                                                docKey
+                                                                                            ] ??
+                                                                                                []),
+                                                                                        ];
+                                                                                    textos[
+                                                                                        fileIdx
+                                                                                    ] =
+                                                                                        e.target.value;
+                                                                                    updatedTextos[
+                                                                                        docKey
+                                                                                    ] =
+                                                                                        textos;
+                                                                                    setData(
+                                                                                        'archivos_texto',
+                                                                                        updatedTextos,
+                                                                                    );
+                                                                                }}
+                                                                            />
+                                                                        )}
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {canAdd && (
+                                                    <div>
+                                                        <input
+                                                            ref={(el) => {
+                                                                fileInputRefs.current[
+                                                                    docKey
+                                                                ] = el;
+                                                            }}
+                                                            type="file"
+                                                            className="hidden"
+                                                            multiple={
+                                                                doc.multiple
                                                             }
-                                                            if (fileInputRefs.current[docKey]) {
-                                                                fileInputRefs.current[docKey]!.value = '';
+                                                            onChange={(e) => {
+                                                                const files =
+                                                                    e.target
+                                                                        .files;
+                                                                if (
+                                                                    files &&
+                                                                    files.length >
+                                                                        0
+                                                                ) {
+                                                                    const currentFiles =
+                                                                        data
+                                                                            .archivos[
+                                                                            docKey
+                                                                        ] ?? [];
+                                                                    const currentTextos =
+                                                                        data
+                                                                            .archivos_texto[
+                                                                            docKey
+                                                                        ] ?? [];
+                                                                    const newFiles =
+                                                                        Array.from(
+                                                                            files,
+                                                                        );
+                                                                    setData({
+                                                                        ...data,
+                                                                        archivos:
+                                                                            {
+                                                                                ...data.archivos,
+                                                                                [docKey]:
+                                                                                    [
+                                                                                        ...currentFiles,
+                                                                                        ...newFiles,
+                                                                                    ],
+                                                                            },
+                                                                        archivos_texto:
+                                                                            {
+                                                                                ...data.archivos_texto,
+                                                                                [docKey]:
+                                                                                    [
+                                                                                        ...currentTextos,
+                                                                                        ...newFiles.map(
+                                                                                            () =>
+                                                                                                '',
+                                                                                        ),
+                                                                                    ],
+                                                                            },
+                                                                    });
+                                                                    clearErrors(
+                                                                        `archivos.${docKey}` as Parameters<
+                                                                            typeof clearErrors
+                                                                        >[0],
+                                                                    );
+                                                                }
+                                                                if (
+                                                                    fileInputRefs
+                                                                        .current[
+                                                                        docKey
+                                                                    ]
+                                                                ) {
+                                                                    fileInputRefs.current[
+                                                                        docKey
+                                                                    ]!.value =
+                                                                        '';
+                                                                }
+                                                            }}
+                                                        />
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                fileInputRefs.current[
+                                                                    docKey
+                                                                ]?.click()
                                                             }
-                                                        }}
-                                                    />
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => fileInputRefs.current[docKey]?.click()}
-                                                    >
-                                                        <UploadIcon className="size-4" />
-                                                        {files.length > 0 ? 'Agregar otro archivo' : 'Seleccionar archivo'}
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
+                                                        >
+                                                            <UploadIcon className="size-4" />
+                                                            {files.length > 0
+                                                                ? 'Agregar otro archivo'
+                                                                : 'Seleccionar archivo'}
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>
-                                <Link href="/admin/costos/solicitudes-pago">Cancelar</Link>
+                                <Link href="/admin/costos/solicitudes-pago">
+                                    Cancelar
+                                </Link>
                             </Button>
                             <Button type="submit" disabled={processing}>
-                                {processing && <Loader2Icon className="size-4 animate-spin" />}
+                                {processing && (
+                                    <Loader2Icon className="size-4 animate-spin" />
+                                )}
                                 Guardar
                             </Button>
                         </div>

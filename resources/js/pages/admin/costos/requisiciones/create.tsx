@@ -1,13 +1,24 @@
 import { Head, useForm } from '@inertiajs/react';
-import { FileTextIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import {
+    AlertCircleIcon,
+    FileTextIcon,
+    PlusIcon,
+    Trash2Icon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
 import { CreatableCombobox } from '@/components/ui/creatable-combobox';
 import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
-import type { CostosProducto, CostosUsoCfdi, Departamento, Obra, ObraRubroOption } from '@/types/models';
 import type { BreadcrumbItem } from '@/types';
+import type {
+    CostosProducto,
+    CostosUsoCfdi,
+    Departamento,
+    Obra,
+    ObraRubroOption,
+} from '@/types/models';
 
 type Detalle = {
     producto_id: number | null;
@@ -39,10 +50,19 @@ type Props = {
     obras: Pick<Obra, 'id' | 'no' | 'descripcion' | 'estatus'>[];
     obraRubros: ObraRubroOption[];
     usosCfdi: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>[];
-    productos: Pick<CostosProducto, 'id' | 'codigo' | 'descripcion' | 'unidad'>[];
+    productos: Pick<
+        CostosProducto,
+        'id' | 'codigo' | 'descripcion' | 'unidad'
+    >[];
 };
 
-export default function RequisicionesCreate({ departamentos, obras, obraRubros, usosCfdi, productos }: Props) {
+export default function RequisicionesCreate({
+    departamentos,
+    obras,
+    obraRubros,
+    usosCfdi,
+    productos,
+}: Props) {
     const defaultUsoId = usosCfdi.find((u) => u.clave === 'G01')?.id ?? '';
 
     const productoOptions = productos.map((p) => ({
@@ -60,7 +80,8 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
         notas: '',
     });
 
-    const { data, setData, post, processing, errors } = useForm<FormData>({
+    const { data, setData, post, processing, errors, setError, clearErrors } =
+        useForm<FormData>({
         departamento_id: '',
         obra_id: '',
         justificacion: '',
@@ -72,19 +93,36 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
         if (!files || files.length === 0) {
             return;
         }
-        setData('documentos', [...data.documentos, ...Array.from(files)]);
+        const soloPdf = Array.from(files).filter(
+            (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'),
+        );
+        if (soloPdf.length === 0) {
+            setError('documentos', 'Solo se permiten archivos PDF.');
+            return;
+        }
+        clearErrors('documentos');
+        setData('documentos', [...data.documentos, ...soloPdf]);
     };
-    const removeDocumento = (idx: number) => setData('documentos', data.documentos.filter((_, i) => i !== idx));
+    const removeDocumento = (idx: number) =>
+        setData(
+            'documentos',
+            data.documentos.filter((_, i) => i !== idx),
+        );
 
     // Por defecto se ocultan obras/adicionales cerrados; el checkbox los incluye
     // para casos excepcionales (el cargo sigue el flujo normal de aprobación).
     const [incluirCerradas, setIncluirCerradas] = useState(false);
 
-    const obrasVisibles = obras.filter((o) => incluirCerradas || o.estatus !== 'cerrada');
+    const obrasVisibles = obras.filter(
+        (o) => incluirCerradas || o.estatus !== 'cerrada',
+    );
 
     // Rubros (centros de costo) de la obra elegida. La requisición es de una sola obra.
     const rubrosDeObra = data.obra_id
-        ? obraRubros.filter((r) => r.obra_id === data.obra_id && (incluirCerradas || !r.cerrado))
+        ? obraRubros.filter(
+              (r) =>
+                  r.obra_id === data.obra_id && (incluirCerradas || !r.cerrado),
+          )
         : [];
 
     const setObra = (value: number | '') => {
@@ -96,13 +134,30 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
         }));
     };
 
-    const addDetalle = () => setData('detalles', [...data.detalles, blankDetalle()]);
-    const removeDetalle = (idx: number) => setData('detalles', data.detalles.filter((_, i) => i !== idx));
-    const updateDetalle = (idx: number, field: keyof Detalle, value: string | number) => {
-        setData('detalles', data.detalles.map((d, i) => (i === idx ? { ...d, [field]: value } : d)));
+    const addDetalle = () =>
+        setData('detalles', [...data.detalles, blankDetalle()]);
+    const removeDetalle = (idx: number) =>
+        setData(
+            'detalles',
+            data.detalles.filter((_, i) => i !== idx),
+        );
+    const updateDetalle = (
+        idx: number,
+        field: keyof Detalle,
+        value: string | number,
+    ) => {
+        setData(
+            'detalles',
+            data.detalles.map((d, i) =>
+                i === idx ? { ...d, [field]: value } : d,
+            ),
+        );
     };
     const setDetalleFields = (idx: number, partial: Partial<Detalle>) => {
-        setData('detalles', data.detalles.map((d, i) => (i === idx ? { ...d, ...partial } : d)));
+        setData(
+            'detalles',
+            data.detalles.map((d, i) => (i === idx ? { ...d, ...partial } : d)),
+        );
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -115,39 +170,79 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
             <Head title="Nueva requisición" />
 
             <form onSubmit={handleSubmit} className="p-6">
-                <h1 className="mb-4 text-2xl font-semibold">Nueva requisición</h1>
+                <h1 className="mb-4 text-2xl font-semibold">
+                    Nueva requisición
+                </h1>
+
+                {Object.keys(errors).length > 0 && (
+                    <div className="mb-4 alert items-start alert-error">
+                        <AlertCircleIcon className="size-5 shrink-0" />
+                        <div>
+                            <p className="font-medium">
+                                No se pudo guardar la requisición
+                            </p>
+                            <p className="text-sm">
+                                Revisa y corrige los campos resaltados en rojo
+                                antes de continuar.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
-                        <label className="label label-text">Departamento *</label>
+                        <label className="label-text label">
+                            Departamento *
+                        </label>
                         <select
-                            className="select select-bordered w-full"
+                            className={`select-bordered select w-full ${errors.departamento_id ? 'select-error' : ''}`}
                             value={data.departamento_id}
-                            onChange={(e) => setData('departamento_id', e.target.value ? Number(e.target.value) : '')}
+                            onChange={(e) =>
+                                setData(
+                                    'departamento_id',
+                                    e.target.value
+                                        ? Number(e.target.value)
+                                        : '',
+                                )
+                            }
                         >
                             <option value="">Selecciona un departamento</option>
                             {departamentos.map((d) => (
-                                <option key={d.id} value={d.id}>{d.descripcion}</option>
+                                <option key={d.id} value={d.id}>
+                                    {d.descripcion}
+                                </option>
                             ))}
                         </select>
-                        {errors.departamento_id && <p className="text-error text-sm mt-1">{errors.departamento_id}</p>}
+                        {errors.departamento_id && (
+                            <p className="mt-1 text-sm text-error">
+                                {errors.departamento_id}
+                            </p>
+                        )}
                     </div>
 
                     <div>
                         <div className="flex items-center justify-between">
-                            <label className="label label-text">Obra / Proyecto *</label>
+                            <label className="label-text label">
+                                Obra / Proyecto *
+                            </label>
                             <label className="label cursor-pointer gap-2 py-0">
                                 <input
                                     type="checkbox"
                                     className="checkbox checkbox-xs"
                                     checked={incluirCerradas}
-                                    onChange={(e) => setIncluirCerradas(e.target.checked)}
+                                    onChange={(e) =>
+                                        setIncluirCerradas(e.target.checked)
+                                    }
                                 />
-                                <span className="label-text text-xs">Incluir cerradas</span>
+                                <span className="label-text text-xs">
+                                    Incluir cerradas
+                                </span>
                             </label>
                         </div>
                         <SearchSelect
-                            value={data.obra_id === '' ? '' : String(data.obra_id)}
+                            value={
+                                data.obra_id === '' ? '' : String(data.obra_id)
+                            }
                             onValueChange={(v) => setObra(v ? Number(v) : '')}
                             placeholder="Selecciona una obra"
                             options={obrasVisibles.map((o) => ({
@@ -155,17 +250,28 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                                 label: `${o.no ? `OP-${o.no} · ` : ''}${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
                             }))}
                         />
-                        {errors.obra_id && <p className="text-error text-sm mt-1">{errors.obra_id}</p>}
-                        <p className="text-xs text-base-content/60 mt-1">Una requisición es para una sola obra. Las partidas eligen su centro de costos dentro de esta obra.</p>
+                        {errors.obra_id && (
+                            <p className="mt-1 text-sm text-error">
+                                {errors.obra_id}
+                            </p>
+                        )}
+                        <p className="mt-1 text-xs text-base-content/60">
+                            Una requisición es para una sola obra. Las partidas
+                            eligen su centro de costos dentro de esta obra.
+                        </p>
                     </div>
 
                     <div className="md:col-span-2">
-                        <label className="label label-text">Justificación</label>
+                        <label className="label-text label">
+                            Justificación
+                        </label>
                         <textarea
-                            className="textarea textarea-bordered w-full"
+                            className="textarea-bordered textarea w-full"
                             rows={3}
                             value={data.justificacion}
-                            onChange={(e) => setData('justificacion', e.target.value)}
+                            onChange={(e) =>
+                                setData('justificacion', e.target.value)
+                            }
                             placeholder="Por qué se necesita y cuál es el impacto esperado"
                         />
                     </div>
@@ -173,14 +279,21 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
 
                 <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-lg font-medium">Partidas</h2>
-                    <Button type="button" variant="outline" onClick={addDetalle}>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addDetalle}
+                    >
                         <PlusIcon className="size-3.5" /> Agregar partida
                     </Button>
                 </div>
 
                 {!data.obra_id && (
-                    <div className="alert alert-info mb-3">
-                        <span>Selecciona primero la obra para poder asignar el centro de costos de cada partida.</span>
+                    <div className="mb-3 alert alert-info">
+                        <span>
+                            Selecciona primero la obra para poder asignar el
+                            centro de costos de cada partida.
+                        </span>
                     </div>
                 )}
 
@@ -191,7 +304,9 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                                 <th>Descripción *</th>
                                 <th className="w-24">Unidad</th>
                                 <th className="w-28 text-right">Cantidad *</th>
-                                <th className="min-w-[200px]">Centro de Costo *</th>
+                                <th className="min-w-[200px]">
+                                    Centro de Costo *
+                                </th>
                                 <th className="min-w-[180px]">Uso CFDI *</th>
                                 <th>Notas</th>
                                 <th className="w-12"></th>
@@ -205,13 +320,22 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                                             <div className="flex items-start justify-between gap-1">
                                                 <span className="text-sm">
                                                     {d.descripcion}
-                                                    {!d.producto_id && <span className="ml-1 text-[10px] text-primary">(nuevo)</span>}
+                                                    {!d.producto_id && (
+                                                        <span className="ml-1 text-[10px] text-primary">
+                                                            (nuevo)
+                                                        </span>
+                                                    )}
                                                 </span>
                                                 <button
                                                     type="button"
-                                                    className="btn btn-ghost btn-xs px-1"
+                                                    className="btn px-1 btn-ghost btn-xs"
                                                     title="Cambiar producto"
-                                                    onClick={() => setDetalleFields(i, { producto_id: null, descripcion: '' })}
+                                                    onClick={() =>
+                                                        setDetalleFields(i, {
+                                                            producto_id: null,
+                                                            descripcion: '',
+                                                        })
+                                                    }
                                                 >
                                                     <Trash2Icon className="size-3" />
                                                 </button>
@@ -223,34 +347,79 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                                                 creatableLabel="Crear producto"
                                                 className="[&_input]:input-sm"
                                                 onSelect={(opt) => {
-                                                    const p = productos.find((x) => String(x.id) === opt.value);
+                                                    const p = productos.find(
+                                                        (x) =>
+                                                            String(x.id) ===
+                                                            opt.value,
+                                                    );
                                                     if (p) {
-                                                        setDetalleFields(i, { producto_id: p.id, descripcion: p.descripcion, unidad: p.unidad });
+                                                        setDetalleFields(i, {
+                                                            producto_id: p.id,
+                                                            descripcion:
+                                                                p.descripcion,
+                                                            unidad: p.unidad,
+                                                        });
                                                     }
                                                 }}
-                                                onCreate={(text) => setDetalleFields(i, { producto_id: null, descripcion: text })}
+                                                onCreate={(text) =>
+                                                    setDetalleFields(i, {
+                                                        producto_id: null,
+                                                        descripcion: text,
+                                                    })
+                                                }
                                             />
                                         )}
-                                        {errors[`detalles.${i}.descripcion` as keyof typeof errors] && (
-                                            <p className="text-error text-xs mt-1">{errors[`detalles.${i}.descripcion` as keyof typeof errors]}</p>
+                                        {errors[
+                                            `detalles.${i}.descripcion` as keyof typeof errors
+                                        ] && (
+                                            <p className="mt-1 text-xs text-error">
+                                                {
+                                                    errors[
+                                                        `detalles.${i}.descripcion` as keyof typeof errors
+                                                    ]
+                                                }
+                                            </p>
                                         )}
                                     </td>
                                     <td>
                                         <input
                                             type="text"
-                                            className="input input-bordered input-sm w-full"
+                                            className="input-bordered input input-sm w-full"
                                             value={d.unidad}
-                                            onChange={(e) => updateDetalle(i, 'unidad', e.target.value)}
+                                            onChange={(e) =>
+                                                updateDetalle(
+                                                    i,
+                                                    'unidad',
+                                                    e.target.value,
+                                                )
+                                            }
                                         />
                                     </td>
                                     <td>
                                         <input
                                             type="number"
                                             step="0.01"
-                                            className="input input-bordered input-sm w-full text-right"
+                                            className={`input-bordered input input-sm w-full text-right ${errors[`detalles.${i}.cantidad` as keyof typeof errors] ? 'input-error' : ''}`}
                                             value={d.cantidad}
-                                            onChange={(e) => updateDetalle(i, 'cantidad', Number(e.target.value))}
+                                            onChange={(e) =>
+                                                updateDetalle(
+                                                    i,
+                                                    'cantidad',
+                                                    Number(e.target.value),
+                                                )
+                                            }
                                         />
+                                        {errors[
+                                            `detalles.${i}.cantidad` as keyof typeof errors
+                                        ] && (
+                                            <p className="mt-1 text-xs text-error">
+                                                {
+                                                    errors[
+                                                        `detalles.${i}.cantidad` as keyof typeof errors
+                                                    ]
+                                                }
+                                            </p>
+                                        )}
                                     </td>
                                     <td>
                                         <RubroSelector
@@ -258,33 +427,73 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                                             options={rubrosDeObra}
                                             rubroOnly
                                             disabled={!data.obra_id}
-                                            onChange={(value) => updateDetalle(i, 'obra_rubro_id', value)}
+                                            onChange={(value) =>
+                                                updateDetalle(
+                                                    i,
+                                                    'obra_rubro_id',
+                                                    value,
+                                                )
+                                            }
                                         />
-                                        {errors[`detalles.${i}.obra_rubro_id` as keyof typeof errors] && (
-                                            <p className="text-error text-xs mt-1">{errors[`detalles.${i}.obra_rubro_id` as keyof typeof errors]}</p>
+                                        {errors[
+                                            `detalles.${i}.obra_rubro_id` as keyof typeof errors
+                                        ] && (
+                                            <p className="mt-1 text-xs text-error">
+                                                {
+                                                    errors[
+                                                        `detalles.${i}.obra_rubro_id` as keyof typeof errors
+                                                    ]
+                                                }
+                                            </p>
                                         )}
                                     </td>
                                     <td>
                                         <select
-                                            className="select select-bordered select-sm w-full"
+                                            className={`select-bordered select w-full select-sm ${errors[`detalles.${i}.uso_cfdi_id` as keyof typeof errors] ? 'select-error' : ''}`}
                                             value={d.uso_cfdi_id}
-                                            onChange={(e) => updateDetalle(i, 'uso_cfdi_id', e.target.value ? Number(e.target.value) : '')}
+                                            onChange={(e) =>
+                                                updateDetalle(
+                                                    i,
+                                                    'uso_cfdi_id',
+                                                    e.target.value
+                                                        ? Number(e.target.value)
+                                                        : '',
+                                                )
+                                            }
                                         >
-                                            <option value="">Selecciona...</option>
+                                            <option value="">
+                                                Selecciona...
+                                            </option>
                                             {usosCfdi.map((u) => (
-                                                <option key={u.id} value={u.id}>{u.clave} - {u.descripcion}</option>
+                                                <option key={u.id} value={u.id}>
+                                                    {u.clave} - {u.descripcion}
+                                                </option>
                                             ))}
                                         </select>
-                                        {errors[`detalles.${i}.uso_cfdi_id` as keyof typeof errors] && (
-                                            <p className="text-error text-xs mt-1">{errors[`detalles.${i}.uso_cfdi_id` as keyof typeof errors]}</p>
+                                        {errors[
+                                            `detalles.${i}.uso_cfdi_id` as keyof typeof errors
+                                        ] && (
+                                            <p className="mt-1 text-xs text-error">
+                                                {
+                                                    errors[
+                                                        `detalles.${i}.uso_cfdi_id` as keyof typeof errors
+                                                    ]
+                                                }
+                                            </p>
                                         )}
                                     </td>
                                     <td>
                                         <input
                                             type="text"
-                                            className="input input-bordered input-sm w-full"
+                                            className="input-bordered input input-sm w-full"
                                             value={d.notas}
-                                            onChange={(e) => updateDetalle(i, 'notas', e.target.value)}
+                                            onChange={(e) =>
+                                                updateDetalle(
+                                                    i,
+                                                    'notas',
+                                                    e.target.value,
+                                                )
+                                            }
                                         />
                                     </td>
                                     <td>
@@ -292,7 +501,7 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                                             <button
                                                 type="button"
                                                 onClick={() => removeDetalle(i)}
-                                                className="btn btn-ghost btn-sm text-error"
+                                                className="btn text-error btn-ghost btn-sm"
                                             >
                                                 <Trash2Icon className="size-3.5" />
                                             </button>
@@ -304,23 +513,30 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                     </table>
                 </div>
 
-                {errors.detalles && <p className="text-error text-sm mt-2">{errors.detalles}</p>}
+                {errors.detalles && (
+                    <p className="mt-2 text-sm text-error">{errors.detalles}</p>
+                )}
 
-                {/* Documentos de cotización (PDF) como información extra */}
+                {/* Documentos adicionales (solo PDF), opcionales */}
                 <div className="mt-6 rounded-lg border border-base-300 p-3">
-                    <h3 className="mb-3 text-xs uppercase tracking-wider text-base-content/60">
-                        Documentos de cotización (PDF) · información extra (opcional)
+                    <h3 className="mb-3 text-xs tracking-wider text-base-content/60 uppercase">
+                        Documentos adicionales (solo PDF) · opcional
                     </h3>
 
                     {data.documentos.length > 0 && (
                         <div className="mb-3 space-y-2">
                             {data.documentos.map((file, i) => (
-                                <div key={`${file.name}-${i}`} className="flex items-center gap-2 rounded border border-base-300 bg-base-200 p-2 text-sm">
+                                <div
+                                    key={`${file.name}-${i}`}
+                                    className="flex items-center gap-2 rounded border border-base-300 bg-base-200 p-2 text-sm"
+                                >
                                     <FileTextIcon className="size-4 text-base-content/60" />
-                                    <span className="font-medium">{file.name}</span>
+                                    <span className="font-medium">
+                                        {file.name}
+                                    </span>
                                     <button
                                         type="button"
-                                        className="btn btn-ghost btn-xs ml-auto text-error"
+                                        className="btn ml-auto text-error btn-ghost btn-xs"
                                         title="Quitar"
                                         onClick={() => removeDocumento(i)}
                                     >
@@ -335,13 +551,17 @@ export default function RequisicionesCreate({ departamentos, obras, obraRubros, 
                         type="file"
                         accept="application/pdf"
                         multiple
-                        className="file-input file-input-bordered file-input-sm w-72"
+                        className="file-input-bordered file-input w-72 file-input-sm"
                         onChange={(e) => {
                             addDocumentos(e.target.files);
                             e.target.value = '';
                         }}
                     />
-                    {errors.documentos && <p className="text-error text-sm mt-2">{errors.documentos}</p>}
+                    {errors.documentos && (
+                        <p className="mt-2 text-sm text-error">
+                            {errors.documentos}
+                        </p>
+                    )}
                 </div>
 
                 <div className="mt-6 flex justify-end gap-2">
