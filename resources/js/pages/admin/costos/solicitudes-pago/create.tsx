@@ -613,82 +613,55 @@ export default function SolicitudesPagoCreate({
                                                                             1}
                                                                     </td>
                                                                     <td>
-                                                                        <select
-                                                                            className="select-bordered select w-full select-sm"
+                                                                        <SearchSelect
                                                                             value={
                                                                                 det.obra_id
                                                                             }
-                                                                            onChange={(
-                                                                                e,
+                                                                            onValueChange={(
+                                                                                v,
                                                                             ) =>
                                                                                 updateDetalle(
                                                                                     index,
                                                                                     'obra_id',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
+                                                                                    v,
                                                                                 )
                                                                             }
-                                                                        >
-                                                                            <option value="">
-                                                                                Seleccionar
-                                                                                obra
-                                                                            </option>
-                                                                            {obrasVisibles.map(
+                                                                            placeholder="Buscar obra..."
+                                                                            options={obrasVisibles.map(
                                                                                 (
                                                                                     o,
-                                                                                ) => (
-                                                                                    <option
-                                                                                        key={
-                                                                                            o.id
-                                                                                        }
-                                                                                        value={
-                                                                                            o.id
-                                                                                        }
-                                                                                    >
-                                                                                        {
-                                                                                            o.no
-                                                                                        }{' '}
-                                                                                        -{' '}
-                                                                                        {
-                                                                                            o.descripcion
-                                                                                        }
-                                                                                        {o.estatus ===
-                                                                                        'cerrada'
-                                                                                            ? ' (Cerrada)'
-                                                                                            : ''}
-                                                                                    </option>
-                                                                                ),
+                                                                                ) => ({
+                                                                                    value: String(
+                                                                                        o.id,
+                                                                                    ),
+                                                                                    label: `${o.no} - ${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
+                                                                                }),
                                                                             )}
-                                                                        </select>
+                                                                        />
                                                                     </td>
                                                                     <td>
-                                                                        <select
-                                                                            className={`select-bordered select w-full select-sm ${errors[`detalles.${index}.obra_rubro_id` as keyof typeof errors] ? 'select-error' : ''}`}
+                                                                        <SearchSelect
                                                                             value={
                                                                                 det.obra_rubro_id
                                                                             }
-                                                                            onChange={(
-                                                                                e,
+                                                                            onValueChange={(
+                                                                                v,
                                                                             ) =>
                                                                                 updateDetalle(
                                                                                     index,
                                                                                     'obra_rubro_id',
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
+                                                                                    v,
                                                                                 )
+                                                                            }
+                                                                            placeholder={
+                                                                                det.obra_id
+                                                                                    ? 'Buscar centro de costos...'
+                                                                                    : 'Seleccione obra primero'
                                                                             }
                                                                             disabled={
                                                                                 !det.obra_id
                                                                             }
-                                                                        >
-                                                                            <option value="">
-                                                                                {det.obra_id
-                                                                                    ? 'Seleccionar centro de costos'
-                                                                                    : 'Seleccione obra primero'}
-                                                                            </option>
-                                                                            {obraRubros
+                                                                            options={obraRubros
                                                                                 .filter(
                                                                                     (
                                                                                         or,
@@ -705,22 +678,24 @@ export default function SolicitudesPagoCreate({
                                                                                 .map(
                                                                                     (
                                                                                         or,
-                                                                                    ) => (
-                                                                                        <option
-                                                                                            key={
-                                                                                                or.id
-                                                                                            }
-                                                                                            value={
-                                                                                                or.id
-                                                                                            }
-                                                                                        >
-                                                                                            {getRubroOptionLabel(
-                                                                                                or,
-                                                                                            )}
-                                                                                        </option>
-                                                                                    ),
+                                                                                    ) => ({
+                                                                                        value: String(
+                                                                                            or.id,
+                                                                                        ),
+                                                                                        label: getRubroOptionLabel(
+                                                                                            or,
+                                                                                        ),
+                                                                                        danger:
+                                                                                            Number(
+                                                                                                or.presupuestado,
+                                                                                            ) -
+                                                                                                Number(
+                                                                                                    or.acumulado,
+                                                                                                ) <=
+                                                                                            0,
+                                                                                    }),
                                                                                 )}
-                                                                        </select>
+                                                                        />
                                                                         {errors[
                                                                             `detalles.${index}.obra_rubro_id` as keyof typeof errors
                                                                         ] && (
@@ -911,7 +886,9 @@ export default function SolicitudesPagoCreate({
                                                 'monto_total',
                                                 e.target.value,
                                             );
-                                            if (parseFloat(e.target.value) > 0) {
+                                            if (
+                                                parseFloat(e.target.value) > 0
+                                            ) {
                                                 clearErrors('monto_total');
                                             }
                                         }}
