@@ -312,6 +312,8 @@ test('enviar a aprobacion genera cadena por niveles del departamento', function 
         'cantidad' => 5,
     ]);
 
+    $req->ocs()->create(['proveedor_id' => $precio->proveedor_id, 'numero_oc' => 1]);
+
     // Configurar 2 niveles de aprobacion para tipo_aprobacion='requisicion'
     $permiso1 = Permiso::create([
         'descripcion' => 'Costos',
@@ -371,6 +373,30 @@ test('no puede enviar a aprobacion sin selecciones completas', function () {
     $this->actingAs($this->compras)
         ->post("/admin/costos/requisiciones/{$req->id}/enviar-aprobacion")
         ->assertSessionHasErrors(['selecciones']);
+});
+
+test('no puede enviar a aprobacion sin una OC definida', function () {
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $detalle = RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'cantidad' => 5,
+    ]);
+    $precio = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+    ]);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+        'cotizacion_precio_id' => $precio->id,
+        'proveedor_id' => $precio->proveedor_id,
+        'cantidad' => 5,
+    ]);
+
+    // Selecciones completas pero sin definir ninguna OC.
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/enviar-aprobacion")
+        ->assertSessionHasErrors(['ocs']);
+
+    expect($req->fresh()->estatus->value)->toBe('cotizada');
 });
 
 test('no puede enviar a aprobacion si una partida no tiene rubro asignado', function () {

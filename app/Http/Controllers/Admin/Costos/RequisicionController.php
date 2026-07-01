@@ -651,6 +651,12 @@ class RequisicionController extends Controller
             }
         }
 
+        if ($requisicion->ocs()->doesntExist()) {
+            return back()->withErrors([
+                'ocs' => 'Debes definir al menos una orden de compra antes de enviar a aprobación.',
+            ]);
+        }
+
         DB::transaction(function () use ($request, $requisicion) {
             $requisicion->transitionTo(RequisicionEstatus::PendienteAprobacion);
 

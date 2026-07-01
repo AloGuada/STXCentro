@@ -119,6 +119,58 @@ function FirmarRequisicionModal({ aprobacionId, tipo, onClose }: { aprobacionId:
     );
 }
 
+function EnviarAprobacionModal({ requisicionId, tieneOc, onClose }: { requisicionId: number; tieneOc: boolean; onClose: () => void }) {
+    const { post, processing } = useForm({});
+
+    const handleEnviar = () => {
+        post(`/admin/costos/requisiciones/${requisicionId}/enviar-aprobacion`, {
+            preserveScroll: true,
+            onSuccess: () => onClose(),
+        });
+    };
+
+    return (
+        <dialog className="modal modal-open">
+            <div className="modal-box">
+                {tieneOc ? (
+                    <>
+                        <h2 className="text-xl font-bold">Enviar a aprobación</h2>
+                        <p className="mt-3 text-sm text-base-content/70">
+                            ¿Todo está correcto? Al aceptar, la requisición se enviará a aprobación,
+                            se crearán las firmas pendientes y se bloquearán las ediciones.
+                        </p>
+                        <div className="modal-action">
+                            <button type="button" className="btn" onClick={onClose} disabled={processing}>
+                                Cancelar
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={handleEnviar} disabled={processing}>
+                                {processing ? 'Enviando...' : 'Aceptar'}
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <h2 className="flex items-center gap-2 text-xl font-bold text-error">
+                            <AlertTriangleIcon className="size-5" /> Falta definir la orden de compra
+                        </h2>
+                        <p className="mt-3 text-sm text-base-content/70">
+                            No hay ninguna orden de compra definida para esta requisición. Ve a la
+                            pestaña <strong>Definir OC</strong> y define al menos una OC antes de
+                            enviarla a aprobación.
+                        </p>
+                        <div className="modal-action">
+                            <button type="button" className="btn" onClick={onClose}>
+                                Entendido
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+            <div className="modal-backdrop" onClick={onClose} />
+        </dialog>
+    );
+}
+
 type Decision = {
     accion: 'activar' | 'rechazar';
     // requisicion_detalle_id -> cotizacion_precio_id seleccionada como reemplazo
@@ -352,7 +404,7 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
 
     const { can } = useCan();
     const [tab, setTab] = useState<Tab>('datos');
-    const [enviando, setEnviando] = useState(false);
+    const [enviarAprobacion, setEnviarAprobacion] = useState(false);
     const [cancelando, setCancelando] = useState(false);
     const [liberando, setLiberando] = useState(false);
     const [firmando, setFirmando] = useState<'aprobar' | 'rechazar' | null>(null);
@@ -362,17 +414,7 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
 
     const editable = ['borrador', 'rechazada'].includes(requisicion.estatus);
     const cotizable = ['borrador', 'cotizada', 'rechazada', 'aprobada'].includes(requisicion.estatus);
-
-    const handleEnviarAprobacion = () => {
-        if (!confirm('¿Enviar la requisición a aprobación? Esta acción crea las firmas pendientes y bloquea ediciones.')) {
-            return;
-        }
-        setEnviando(true);
-        router.post(`/admin/costos/requisiciones/${requisicion.id}/enviar-aprobacion`, {}, {
-            preserveScroll: true,
-            onFinish: () => setEnviando(false),
-        });
-    };
+    const tieneOcDefinida = (requisicion.ocs?.length ?? 0) > 0;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -420,8 +462,8 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                         )}
 
                         {requisicion.estatus === 'cotizada' && can('costos.requisiciones.cotizar') && (
-                            <Button onClick={handleEnviarAprobacion} disabled={enviando}>
-                                {enviando ? 'Enviando...' : 'Enviar a aprobación'}
+                            <Button onClick={() => setEnviarAprobacion(true)}>
+                                Enviar a aprobación
                             </Button>
                         )}
 
@@ -656,6 +698,14 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                         requisicionId={requisicion.id}
                         proveedores={proveedoresPorValidar}
                         onClose={() => setValidando(false)}
+                    />
+                )}
+
+                {enviarAprobacion && (
+                    <EnviarAprobacionModal
+                        requisicionId={requisicion.id}
+                        tieneOc={tieneOcDefinida}
+                        onClose={() => setEnviarAprobacion(false)}
                     />
                 )}
 
