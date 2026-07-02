@@ -1,11 +1,13 @@
 <?php
 
+use App\Models\Costos\Documento;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Permiso;
 use App\Models\Costos\Producto;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\SolicitudPago;
+use App\Models\Costos\TipoSolicitud;
 use App\Models\Departamento;
 
 test('limpiar-flujo borra el transaccional, conserva catálogos y resetea el acumulado', function () {
@@ -13,6 +15,9 @@ test('limpiar-flujo borra el transaccional, conserva catálogos y resetea el acu
     $rubro = ObraRubro::factory()->create(['acumulado' => 500]);
     $producto = Producto::factory()->create();
     $permiso = Permiso::create(['descripcion' => 'N1', 'nivel' => 1, 'tipo_aprobacion' => 'requisicion']);
+
+    $tipo = TipoSolicitud::factory()->create();
+    $doc = $tipo->documentos()->create(['titulo' => 'Factura', 'multiple' => false]);
 
     $req = Requisicion::factory()->create(['departamento_id' => $depto->id]);
     RequisicionDetalle::factory()->create(['requisicion_id' => $req->id]);
@@ -29,5 +34,8 @@ test('limpiar-flujo borra el transaccional, conserva catálogos y resetea el acu
     expect(Producto::find($producto->id))->not->toBeNull()
         ->and(Permiso::find($permiso->id))->not->toBeNull()
         ->and(ObraRubro::find($rubro->id))->not->toBeNull()
-        ->and((float) ObraRubro::find($rubro->id)->acumulado)->toBe(0.0);
+        ->and((float) ObraRubro::find($rubro->id)->acumulado)->toBe(0.0)
+        // Los documentos configurados del tipo son config, no flujo: sobreviven.
+        ->and(TipoSolicitud::find($tipo->id))->not->toBeNull()
+        ->and(Documento::find($doc->id))->not->toBeNull();
 });

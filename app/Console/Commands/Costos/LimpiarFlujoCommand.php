@@ -8,10 +8,11 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Borra TODO el flujo transaccional de Costos (requisiciones, solicitudes de
- * pago, OCs, entregas, facturas, notas de crédito, pagos, anticipos,
- * afectaciones, aprobaciones, cancelaciones, documentos e histórico de precios)
+ * pago con sus archivos, OCs, entregas, facturas, notas de crédito, pagos,
+ * anticipos, afectaciones, aprobaciones, cancelaciones e histórico de precios)
  * y resetea el acumulado de los centros de costos. NO toca catálogos ni config
- * (rubros, productos, proveedores, usos CFDI, tipos, permisos, configuración).
+ * (rubros, productos, proveedores, usos CFDI, tipos y sus documentos
+ * configurados, permisos, configuración).
  */
 class LimpiarFlujoCommand extends Command
 {
@@ -48,11 +49,10 @@ class LimpiarFlujoCommand extends Command
         'costos_pagos',
         'costos_ordenes_compra_detalle',
         'costos_ordenes_compra',
-        // Aprobaciones / cancelaciones (polimórficas) y documentos
+        // Aprobaciones / cancelaciones (polimórficas)
         'costos_aprobaciones',
         'costos_aprobaciones_solicitud',
         'costos_cancelaciones',
-        'costos_documentos',
         // Presupuesto: afectaciones e histórico de precios
         'costos_afectaciones_detalle',
         'costos_afectaciones_historial',
