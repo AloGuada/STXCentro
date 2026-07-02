@@ -2,8 +2,11 @@
 
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
+use App\Models\Costos\OmitirRubro;
 use App\Models\Costos\Permiso;
 use App\Models\Costos\Requisicion;
+use App\Models\Costos\RequisicionDetalle;
+use App\Models\Costos\Rubro;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Departamento;
 use App\Models\User;
@@ -21,12 +24,12 @@ function configurarNivel(Departamento $depto, string $tipo, int $nivel, bool $om
         'descripcion' => "Nivel {$nivel} {$tipo}",
         'nivel' => $nivel,
         'tipo_aprobacion' => $tipo,
-        'omitir_si_presupuesto_reservado' => $omitir,
     ]);
     AprobacionDepartamento::create([
         'departamento_id' => $depto->id,
         'permiso_id' => $permiso->id,
         'aprobador_id' => User::factory()->create()->id,
+        'omitir_si_presupuesto_reservado' => $omitir,
     ]);
 }
 
@@ -101,6 +104,66 @@ test('NO salta el nivel marcado si no hay presupuesto reservado', function () {
     // sin apartado → no reservado
 
     expect($this->service->crearCadenaAprobaciones($req))->toBe(2);
+});
+
+/**
+ * Configura un nivel saltable (omitir=true) restringido a los rubros dados, y
+ * devuelve el Permiso. Con $rubrosPermitidos vacío, aplica a todos los centros.
+ *
+ * @param  list<int>  $rubrosPermitidos
+ */
+function nivelSaltableConRubros(Departamento $depto, array $rubrosPermitidos = []): Permiso
+{
+    $permiso = Permiso::create(['descripcion' => 'N1', 'nivel' => 1, 'tipo_aprobacion' => 'requisicion']);
+    AprobacionDepartamento::create([
+        'departamento_id' => $depto->id,
+        'permiso_id' => $permiso->id,
+        'aprobador_id' => User::factory()->create()->id,
+        'omitir_si_presupuesto_reservado' => true,
+    ]);
+    foreach ($rubrosPermitidos as $rubroId) {
+        OmitirRubro::create(['departamento_id' => $depto->id, 'permiso_id' => $permiso->id, 'rubro_id' => $rubroId]);
+    }
+
+    return $permiso;
+}
+
+function reqConRubro(Departamento $depto, int $rubroId): Requisicion
+{
+    $obraRubro = ObraRubro::factory()->create(['rubro_id' => $rubroId]);
+    $req = Requisicion::factory()->create(['departamento_id' => $depto->id]);
+    RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'obra_rubro_id' => $obraRubro->id]);
+    apartarPresupuesto($req); // deja presupuesto reservado
+
+    return $req->fresh();
+}
+
+test('salta el nivel cuando los centros del documento están dentro de la lista permitida', function () {
+    $rubro = Rubro::factory()->create();
+    nivelSaltableConRubros($this->depto, [$rubro->id]);
+
+    $req = reqConRubro($this->depto, $rubro->id);
+
+    expect($this->service->crearCadenaAprobaciones($req))->toBe(0);
+});
+
+test('NO salta el nivel si el documento toca un centro fuera de la lista permitida', function () {
+    $permitido = Rubro::factory()->create();
+    $fuera = Rubro::factory()->create();
+    nivelSaltableConRubros($this->depto, [$permitido->id]);
+
+    $req = reqConRubro($this->depto, $fuera->id);
+
+    // El centro no está permitido → no se salta → crea la firma del nivel.
+    expect($this->service->crearCadenaAprobaciones($req))->toBe(1);
+});
+
+test('lista de rubros vacía salta para cualquier centro de costo', function () {
+    nivelSaltableConRubros($this->depto, []); // sin rubros = todos
+
+    $req = reqConRubro($this->depto, Rubro::factory()->create()->id);
+
+    expect($this->service->crearCadenaAprobaciones($req))->toBe(0);
 });
 
 test('si todos los niveles se saltan, no crea ninguna aprobacion (auto aprobable)', function () {

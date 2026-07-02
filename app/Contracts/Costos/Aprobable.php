@@ -32,6 +32,14 @@ interface Aprobable
     public function tienePresupuestoReservado(): bool;
 
     /**
+     * IDs de los centros de costo (rubros) que toca el documento. La cadena de
+     * aprobaciones lo usa para restringir el salto de niveles a ciertos centros.
+     *
+     * @return list<int>
+     */
+    public function centrosDeCostoIds(): array;
+
+    /**
      * Hook disparado cuando todas las aprobaciones se cubrieron en orden.
      */
     public function onAprobacionCompleta(?string $userId = null): void;

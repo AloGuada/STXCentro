@@ -22,4 +22,23 @@ trait VerificaPresupuestoReservado
             ->whereDate('apartado_hasta', '>=', Carbon::today())
             ->exists();
     }
+
+    /**
+     * IDs de los centros de costo (rubros) que toca el documento, vía sus
+     * partidas → obra_rubro → rubro.
+     *
+     * @return list<int>
+     */
+    public function centrosDeCostoIds(): array
+    {
+        return $this->detalles()
+            ->with('obraRubro:id,rubro_id')
+            ->get()
+            ->pluck('obraRubro.rubro_id')
+            ->filter()
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
 }

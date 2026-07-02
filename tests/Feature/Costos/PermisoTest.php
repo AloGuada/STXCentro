@@ -62,6 +62,9 @@ describe('admin costos permisos', function () {
             ->has('departamentos')
             ->has('usuarios')
             ->has('asignaciones')
+            ->has('omitir')
+            ->has('rubros')
+            ->has('rubrosPermitidos')
         );
     });
 
@@ -197,6 +200,77 @@ describe('admin costos permisos', function () {
             'permiso_id' => $permiso->id,
             'departamento_id' => $departamento->id,
             'aprobador_id' => $aprobadorB->id,
+        ]);
+    });
+
+    test('syncDepartamentos guarda el flag omitir si presupuesto reservado por departamento', function () {
+        $permiso = Permiso::factory()->create();
+        $departamento = Departamento::factory()->create();
+        $aprobador = User::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.permisos.sync-departamentos', $permiso), [
+                'asignaciones' => [
+                    ['departamento_id' => $departamento->id, 'aprobador_ids' => [$aprobador->id], 'omitir_si_presupuesto_reservado' => true],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('costos_aprobacion_departamento', [
+            'permiso_id' => $permiso->id,
+            'departamento_id' => $departamento->id,
+            'aprobador_id' => $aprobador->id,
+            'omitir_si_presupuesto_reservado' => true,
+        ]);
+    });
+
+    test('syncDepartamentos guarda los centros de costo permitidos cuando el salto está activo', function () {
+        $permiso = Permiso::factory()->create();
+        $departamento = Departamento::factory()->create();
+        $aprobador = User::factory()->create();
+        $rubro = \App\Models\Costos\Rubro::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.permisos.sync-departamentos', $permiso), [
+                'asignaciones' => [
+                    [
+                        'departamento_id' => $departamento->id,
+                        'aprobador_ids' => [$aprobador->id],
+                        'omitir_si_presupuesto_reservado' => true,
+                        'rubro_ids' => [$rubro->id],
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('costos_omitir_rubros', [
+            'permiso_id' => $permiso->id,
+            'departamento_id' => $departamento->id,
+            'rubro_id' => $rubro->id,
+        ]);
+    });
+
+    test('syncDepartamentos no guarda centros permitidos si el salto está desactivado', function () {
+        $permiso = Permiso::factory()->create();
+        $departamento = Departamento::factory()->create();
+        $aprobador = User::factory()->create();
+        $rubro = \App\Models\Costos\Rubro::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.permisos.sync-departamentos', $permiso), [
+                'asignaciones' => [
+                    [
+                        'departamento_id' => $departamento->id,
+                        'aprobador_ids' => [$aprobador->id],
+                        'omitir_si_presupuesto_reservado' => false,
+                        'rubro_ids' => [$rubro->id],
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('costos_omitir_rubros', [
+            'permiso_id' => $permiso->id,
         ]);
     });
 

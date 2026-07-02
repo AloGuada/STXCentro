@@ -5,6 +5,7 @@ namespace App\Services\Costos;
 use App\Contracts\Costos\Aprobable;
 use App\Enums\Costos\AprobacionEstatus;
 use App\Models\Costos\AprobacionDepartamento;
+use App\Models\Costos\OmitirRubro;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -26,15 +27,35 @@ class ApprovalChainService
     {
         $cadena = $this->cadenaDepartamento($aprobable);
 
-        // Un nivel marcado `omitir_si_presupuesto_reservado` se salta cuando el
-        // documento tiene presupuesto reservado vigente (apartado sin vencer).
-        // Se evalúa por nivel, de forma independiente.
+        // Una asignación (departamento + nivel) marcada
+        // `omitir_si_presupuesto_reservado` se salta cuando el documento tiene
+        // presupuesto reservado vigente (apartado sin vencer). Se evalúa por
+        // nivel, de forma independiente y por departamento.
         $reservado = $aprobable->tienePresupuestoReservado();
+
+        // Centros de costo del documento y, por nivel, los rubros permitidos
+        // para saltar. Lista vacía = aplica a todos; con lista, solo se salta
+        // cuando TODOS los centros del documento están dentro de ella.
+        $centrosDoc = $reservado ? $aprobable->centrosDeCostoIds() : [];
+        $rubrosPermitidos = $reservado
+            ? OmitirRubro::query()
+                ->where('departamento_id', $aprobable->departamento_id)
+                ->get()
+                ->groupBy('permiso_id')
+                ->map(fn ($grupo) => $grupo->pluck('rubro_id')->map(fn ($id): int => (int) $id)->all())
+            : collect();
 
         $creados = 0;
         foreach ($cadena as $asignacion) {
-            if ($reservado && $asignacion->permiso->omitir_si_presupuesto_reservado) {
-                continue;
+            if ($reservado && $asignacion->omitir_si_presupuesto_reservado) {
+                $permitidos = $rubrosPermitidos->get($asignacion->permiso_id, []);
+                // Sin lista → aplica a todos. Con lista → solo si el documento
+                // no toca ningún centro fuera de ella.
+                $aplicaSalto = empty($permitidos) || empty(array_diff($centrosDoc, $permitidos));
+
+                if ($aplicaSalto) {
+                    continue;
+                }
             }
 
             $aprobable->cadenaAprobacion()->create([

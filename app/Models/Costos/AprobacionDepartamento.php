@@ -24,7 +24,18 @@ class AprobacionDepartamento extends Model
         'departamento_id',
         'permiso_id',
         'aprobador_id',
+        'omitir_si_presupuesto_reservado',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'omitir_si_presupuesto_reservado' => 'boolean',
+        ];
+    }
 
     public function departamento(): BelongsTo
     {
