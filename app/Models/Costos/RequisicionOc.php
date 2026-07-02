@@ -40,8 +40,8 @@ class RequisicionOc extends Model
         return [
             'numero_oc' => 'integer',
             'modo_pago' => ModoPago::class,
-            'fecha_entrega' => 'date',
-            'fecha_pago' => 'date',
+            'fecha_entrega' => 'date:Y-m-d',
+            'fecha_pago' => 'date:Y-m-d',
             'pagos' => 'array',
         ];
     }

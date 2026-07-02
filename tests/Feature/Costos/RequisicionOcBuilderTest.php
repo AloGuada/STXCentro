@@ -93,6 +93,27 @@ test('ocs.store actualiza modo de pago, fecha y notas', function () {
         ->and(RequisicionOc::first()->modo_pago->value)->toBe('credito');
 });
 
+test('las fechas de la OC se serializan como Y-m-d para los inputs date', function () {
+    [$req, , $proveedor] = reqConCotizacion($this->depto);
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/ocs", [
+            'proveedor_id' => $proveedor->id,
+            'numero_oc' => 1,
+            'modo_pago' => 'contado',
+            'metodo_pago' => 'transferencia',
+            'fecha_entrega' => '2026-07-15',
+            'fecha_pago' => '2026-07-20',
+        ])
+        ->assertRedirect();
+
+    $serializado = RequisicionOc::first()->toArray();
+
+    // Sin hora: un <input type="date"> las muestra tal cual (no en blanco).
+    expect($serializado['fecha_entrega'])->toBe('2026-07-15')
+        ->and($serializado['fecha_pago'])->toBe('2026-07-20');
+});
+
 test('ocs.store guarda parcialidades en contado', function () {
     [$req, , $proveedor] = reqConCotizacion($this->depto);
 
