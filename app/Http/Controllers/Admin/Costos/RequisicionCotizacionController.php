@@ -61,6 +61,27 @@ class RequisicionCotizacionController extends Controller
     }
 
     /**
+     * Días de envío por proveedor: se aplica a todas las cotizaciones de ese
+     * proveedor en la requisición (el tiempo de entrega es uno por proveedor).
+     */
+    public function tiempoEntrega(Request $request, Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+        $this->ensureEditable($requisicion->estatus);
+
+        $validated = $request->validate([
+            'proveedor_id' => ['required', 'integer', 'exists:proveedores,id'],
+            'tiempo_entrega_dias' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        RequisicionCotizacionPrecio::whereHas('detalle', fn ($q) => $q->where('requisicion_id', $requisicion->id))
+            ->where('proveedor_id', $validated['proveedor_id'])
+            ->update(['tiempo_entrega_dias' => $validated['tiempo_entrega_dias']]);
+
+        return back()->with('success', 'Días de envío actualizados.');
+    }
+
+    /**
      * Clasificación fiscal de la partida (tipo_fiscal), que Compras captura en
      * el tab de cotización. El código de producto NO va aquí: es por línea y
      * por proveedor, se guarda en cada cotización.

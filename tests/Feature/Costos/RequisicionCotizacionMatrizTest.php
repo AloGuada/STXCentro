@@ -50,6 +50,29 @@ test('guardar solo precio y moneda no pisa código ni observaciones existentes',
         ->and($cot->observaciones)->toBe('entrega en obra');
 });
 
+test('los días de envío se aplican a todas las cotizaciones del proveedor', function () {
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
+    $d1 = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
+    $d2 = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 3]);
+    $prov = Proveedor::factory()->create();
+    $otro = Proveedor::factory()->create();
+
+    $cot1 = RequisicionCotizacionPrecio::create(['requisicion_detalle_id' => $d1->id, 'proveedor_id' => $prov->id, 'precio_unitario' => 100, 'moneda' => 'mxn']);
+    $cot2 = RequisicionCotizacionPrecio::create(['requisicion_detalle_id' => $d2->id, 'proveedor_id' => $prov->id, 'precio_unitario' => 50, 'moneda' => 'mxn']);
+    $cotOtro = RequisicionCotizacionPrecio::create(['requisicion_detalle_id' => $d1->id, 'proveedor_id' => $otro->id, 'precio_unitario' => 110, 'moneda' => 'mxn']);
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/cotizaciones/tiempo-entrega", [
+            'proveedor_id' => $prov->id,
+            'tiempo_entrega_dias' => 10,
+        ])
+        ->assertRedirect();
+
+    expect($cot1->fresh()->tiempo_entrega_dias)->toBe(10)
+        ->and($cot2->fresh()->tiempo_entrega_dias)->toBe(10)
+        ->and($cotOtro->fresh()->tiempo_entrega_dias)->toBeNull();
+});
+
 test('quitar un proveedor borra sus cotizaciones y selecciones sin tocar a los demás', function () {
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 10]);

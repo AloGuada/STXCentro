@@ -32,7 +32,10 @@ export function CotizacionMatriz({
     proveedores: ProveedorMin[];
     editable: boolean;
 }) {
-    const detalles = useMemo(() => requisicion.detalles ?? [], [requisicion.detalles]);
+    const detalles = useMemo(
+        () => requisicion.detalles ?? [],
+        [requisicion.detalles],
+    );
 
     const proveedoresMap = useMemo(() => {
         const m = new Map<number, ProveedorMin>();
@@ -43,7 +46,9 @@ export function CotizacionMatriz({
     // Columnas persistidas: proveedores con al menos una cotización capturada.
     const persistedIds = useMemo(() => {
         const s = new Set<number>();
-        detalles.forEach((d) => d.cotizaciones?.forEach((c) => s.add(c.proveedor_id)));
+        detalles.forEach((d) =>
+            d.cotizaciones?.forEach((c) => s.add(c.proveedor_id)),
+        );
         return Array.from(s);
     }, [detalles]);
 
@@ -53,13 +58,17 @@ export function CotizacionMatriz({
     const columnIds = useMemo(() => {
         const all = Array.from(new Set([...persistedIds, ...extraIds]));
         return all.sort((a, b) =>
-            (proveedoresMap.get(a)?.razon_social ?? '').localeCompare(proveedoresMap.get(b)?.razon_social ?? ''),
+            (proveedoresMap.get(a)?.razon_social ?? '').localeCompare(
+                proveedoresMap.get(b)?.razon_social ?? '',
+            ),
         );
     }, [persistedIds, extraIds, proveedoresMap]);
 
     const [agregando, setAgregando] = useState(false);
 
-    const disponiblesParaAgregar = proveedores.filter((p) => !columnIds.includes(p.id));
+    const disponiblesParaAgregar = proveedores.filter(
+        (p) => !columnIds.includes(p.id),
+    );
 
     const quitarProveedor = (proveedorId: number) => {
         // Columna solo local (sin precios persistidos): basta quitarla del estado.
@@ -67,17 +76,28 @@ export function CotizacionMatriz({
             setExtraIds((prev) => prev.filter((id) => id !== proveedorId));
             return;
         }
-        const nombre = proveedoresMap.get(proveedorId)?.razon_social ?? 'este proveedor';
-        if (!confirm(`¿Quitar a ${nombre} de la cotización? Se borrarán sus precios y selecciones.`)) {
+        const nombre =
+            proveedoresMap.get(proveedorId)?.razon_social ?? 'este proveedor';
+        if (
+            !confirm(
+                `¿Quitar a ${nombre} de la cotización? Se borrarán sus precios y selecciones.`,
+            )
+        ) {
             return;
         }
         setExtraIds((prev) => prev.filter((id) => id !== proveedorId));
-        router.delete(`/admin/costos/requisiciones/${requisicion.id}/proveedores/${proveedorId}`, {
-            preserveScroll: true,
-        });
+        router.delete(
+            `/admin/costos/requisiciones/${requisicion.id}/proveedores/${proveedorId}`,
+            {
+                preserveScroll: true,
+            },
+        );
     };
 
-    const cotizacionDe = (d: CostosRequisicionDetalle, proveedorId: number): CostosRequisicionCotizacionPrecio | undefined =>
+    const cotizacionDe = (
+        d: CostosRequisicionDetalle,
+        proveedorId: number,
+    ): CostosRequisicionCotizacionPrecio | undefined =>
         d.cotizaciones?.find((c) => c.proveedor_id === proveedorId);
 
     // Total por proveedor (PU × cantidad) para el renglón comparativo final.
@@ -86,150 +106,256 @@ export function CotizacionMatriz({
     detalles.forEach((d) => {
         columnIds.forEach((pid) => {
             const c = cotizacionDe(d, pid);
-            if (c) totalesPorProveedor[pid] += Number(c.precio_unitario) * Number(d.cantidad);
+            if (c)
+                totalesPorProveedor[pid] +=
+                    Number(c.precio_unitario) * Number(d.cantidad);
         });
     });
-    const totalMin = Math.min(...Object.values(totalesPorProveedor).filter((v) => v > 0));
+    const totalMin = Math.min(
+        ...Object.values(totalesPorProveedor).filter((v) => v > 0),
+    );
+
+    // Días de envío por proveedor: se toma el máximo de sus cotizaciones (el
+    // envío tarda lo que la partida más lenta).
+    const diasPorProveedor = new Map<number, number | null>();
+    columnIds.forEach((pid) => {
+        const valores = detalles
+            .map((d) => cotizacionDe(d, pid)?.tiempo_entrega_dias)
+            .filter((v): v is number => v != null);
+        diasPorProveedor.set(
+            pid,
+            valores.length > 0 ? Math.max(...valores) : null,
+        );
+    });
 
     return (
         <div className="space-y-3">
-        <div className="rounded-lg border border-base-300 p-3">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-xs uppercase tracking-wider text-base-content/60">
-                    Cotización · partidas × proveedores
-                </h3>
-                {editable && (
-                    agregando ? (
-                        <div className="flex items-center gap-2">
-                            <select
-                                className="select select-bordered select-xs w-56"
-                                defaultValue=""
-                                onChange={(e) => {
-                                    const id = Number(e.target.value);
-                                    if (id) {
-                                        setExtraIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-                                        setAgregando(false);
-                                    }
-                                }}
+            <div className="rounded-lg border border-base-300 p-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-xs tracking-wider text-base-content/60 uppercase">
+                        Cotización · partidas × proveedores
+                    </h3>
+                    {editable &&
+                        (agregando ? (
+                            <div className="flex items-center gap-2">
+                                <select
+                                    className="select-bordered select w-56 select-xs"
+                                    defaultValue=""
+                                    onChange={(e) => {
+                                        const id = Number(e.target.value);
+                                        if (id) {
+                                            setExtraIds((prev) =>
+                                                prev.includes(id)
+                                                    ? prev
+                                                    : [...prev, id],
+                                            );
+                                            setAgregando(false);
+                                        }
+                                    }}
+                                >
+                                    <option value="">
+                                        Selecciona proveedor...
+                                    </option>
+                                    {disponiblesParaAgregar.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.razon_social}
+                                        </option>
+                                    ))}
+                                </select>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setAgregando(false)}
+                                >
+                                    Cancelar
+                                </Button>
+                            </div>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                onClick={() => setAgregando(true)}
+                                disabled={disponiblesParaAgregar.length === 0}
                             >
-                                <option value="">Selecciona proveedor...</option>
-                                {disponiblesParaAgregar.map((p) => (
-                                    <option key={p.id} value={p.id}>{p.razon_social}</option>
-                                ))}
-                            </select>
-                            <Button variant="outline" onClick={() => setAgregando(false)}>Cancelar</Button>
-                        </div>
-                    ) : (
-                        <Button
-                            variant="outline"
-                            onClick={() => setAgregando(true)}
-                            disabled={disponiblesParaAgregar.length === 0}
-                        >
-                            <PlusIcon className="size-3" /> Agregar proveedor
-                        </Button>
-                    )
-                )}
-            </div>
+                                <PlusIcon className="size-3" /> Agregar
+                                proveedor
+                            </Button>
+                        ))}
+                </div>
 
-            <div className="overflow-x-auto">
-                <table className="table table-xs">
-                    <thead>
-                        <tr>
-                            <th className="min-w-48">Partida</th>
-                            <th className="text-right">Req.</th>
-                            <th className="min-w-36">Tipo fiscal</th>
-                            {columnIds.map((pid) => (
-                                <th key={pid} className="text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <span className="truncate" title={proveedoresMap.get(pid)?.razon_social}>
-                                            {proveedoresMap.get(pid)?.razon_social ?? `#${pid}`}
-                                        </span>
-                                        {editable && (
-                                            <button
-                                                type="button"
-                                                className="btn btn-ghost btn-xs px-1 text-error"
-                                                title="Quitar proveedor"
-                                                onClick={() => quitarProveedor(pid)}
+                <div className="overflow-x-auto">
+                    <table className="table table-xs [&_td]:align-top">
+                        <thead>
+                            <tr>
+                                <th className="min-w-48">Partida</th>
+                                <th className="min-w-28">Código</th>
+                                <th className="text-right">Req.</th>
+                                <th className="min-w-36">Tipo fiscal</th>
+                                {columnIds.map((pid) => (
+                                    <th key={pid} className="text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <span
+                                                className="truncate"
+                                                title={
+                                                    proveedoresMap.get(pid)
+                                                        ?.razon_social
+                                                }
                                             >
-                                                <XIcon className="size-3" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </th>
-                            ))}
-                            {columnIds.length === 0 && (
-                                <th className="text-base-content/40">Agrega un proveedor para cotizar</th>
-                            )}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {detalles.map((d) => {
-                            const precios = columnIds
-                                .map((pid) => Number(cotizacionDe(d, pid)?.precio_unitario ?? 0))
-                                .filter((n) => n > 0);
-                            const min = precios.length > 0 ? Math.min(...precios) : 0;
-                            return (
-                                <tr key={d.id}>
-                                    <td>
+                                                {proveedoresMap.get(pid)
+                                                    ?.razon_social ?? `#${pid}`}
+                                            </span>
+                                            {editable && (
+                                                <button
+                                                    type="button"
+                                                    className="btn px-1 text-error btn-ghost btn-xs"
+                                                    title="Quitar proveedor"
+                                                    onClick={() =>
+                                                        quitarProveedor(pid)
+                                                    }
+                                                >
+                                                    <XIcon className="size-3" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </th>
+                                ))}
+                                {columnIds.length === 0 && (
+                                    <th className="text-base-content/40">
+                                        Agrega un proveedor para cotizar
+                                    </th>
+                                )}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {detalles.map((d) => {
+                                const precios = columnIds
+                                    .map((pid) =>
+                                        Number(
+                                            cotizacionDe(d, pid)
+                                                ?.precio_unitario ?? 0,
+                                        ),
+                                    )
+                                    .filter((n) => n > 0);
+                                const min =
+                                    precios.length > 0
+                                        ? Math.min(...precios)
+                                        : 0;
+                                return (
+                                    <tr key={d.id}>
                                         <ProductoCelda
                                             key={`${d.id}-${d.descripcion}-${d.codigo_producto ?? ''}`}
                                             detalle={d}
                                             editable={editable}
                                         />
+                                        <td className="text-right">
+                                            {Number(d.cantidad).toLocaleString(
+                                                'es-MX',
+                                            )}
+                                        </td>
+                                        <td>
+                                            <TipoFiscalSelect
+                                                detalle={d}
+                                                editable={editable}
+                                            />
+                                        </td>
+                                        {columnIds.map((pid) => {
+                                            const cot = cotizacionDe(d, pid);
+                                            return (
+                                                <td
+                                                    key={pid}
+                                                    className="text-right"
+                                                >
+                                                    <CeldaCotizacion
+                                                        key={`${cot?.id ?? 'new'}-${cot?.precio_unitario ?? ''}-${cot?.moneda ?? ''}`}
+                                                        requisicionDetalleId={
+                                                            d.id
+                                                        }
+                                                        proveedorId={pid}
+                                                        cotizacion={cot}
+                                                        esMejor={
+                                                            Number(
+                                                                cot?.precio_unitario ??
+                                                                    0,
+                                                            ) > 0 &&
+                                                            Number(
+                                                                cot?.precio_unitario,
+                                                            ) === min
+                                                        }
+                                                        editable={editable}
+                                                    />
+                                                </td>
+                                            );
+                                        })}
+                                        {columnIds.length === 0 && <td />}
+                                    </tr>
+                                );
+                            })}
+                            {columnIds.length > 0 && (
+                                <tr className="bg-base-200/50">
+                                    <td className="font-semibold">
+                                        Total si todo a uno
                                     </td>
-                                    <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
-                                    <td>
-                                        <TipoFiscalSelect detalle={d} editable={editable} />
-                                    </td>
+                                    <td />
+                                    <td />
+                                    <td />
                                     {columnIds.map((pid) => {
-                                        const cot = cotizacionDe(d, pid);
+                                        const t = totalesPorProveedor[pid];
+                                        const isMin = t > 0 && t === totalMin;
                                         return (
-                                            <td key={pid} className="text-right align-top">
-                                                <CeldaCotizacion
-                                                    key={`${cot?.id ?? 'new'}-${cot?.precio_unitario ?? ''}-${cot?.moneda ?? ''}`}
-                                                    requisicionDetalleId={d.id}
-                                                    proveedorId={pid}
-                                                    cotizacion={cot}
-                                                    esMejor={Number(cot?.precio_unitario ?? 0) > 0 && Number(cot?.precio_unitario) === min}
-                                                    editable={editable}
-                                                />
+                                            <td
+                                                key={pid}
+                                                className={`text-right font-semibold ${isMin ? 'bg-success/10 text-success' : ''}`}
+                                            >
+                                                {fmt(t)}
                                             </td>
                                         );
                                     })}
-                                    {columnIds.length === 0 && <td />}
                                 </tr>
-                            );
-                        })}
+                            )}
+                        </tbody>
                         {columnIds.length > 0 && (
-                            <tr className="bg-base-200/50">
-                                <td className="font-semibold">Total si todo a uno</td>
-                                <td />
-                                <td />
-                                {columnIds.map((pid) => {
-                                    const t = totalesPorProveedor[pid];
-                                    const isMin = t > 0 && t === totalMin;
-                                    return (
-                                        <td
-                                            key={pid}
-                                            className={`text-right font-semibold ${isMin ? 'bg-success/10 text-success' : ''}`}
-                                        >
-                                            {fmt(t)}
+                            <tfoot>
+                                <tr>
+                                    <td
+                                        colSpan={4}
+                                        className="text-xs font-medium text-base-content/60"
+                                    >
+                                        Días de envío
+                                    </td>
+                                    {columnIds.map((pid) => (
+                                        <td key={pid} className="text-right">
+                                            <DiasEntregaCelda
+                                                key={`${pid}-${diasPorProveedor.get(pid) ?? ''}`}
+                                                requisicionId={requisicion.id}
+                                                proveedorId={pid}
+                                                dias={
+                                                    diasPorProveedor.get(pid) ??
+                                                    null
+                                                }
+                                                editable={editable}
+                                            />
                                         </td>
-                                    );
-                                })}
-                            </tr>
+                                    ))}
+                                </tr>
+                            </tfoot>
                         )}
-                    </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
-        </div>
 
-        <DocumentosCotizacion requisicion={requisicion} editable={editable} />
+            <DocumentosCotizacion
+                requisicion={requisicion}
+                editable={editable}
+            />
         </div>
     );
 }
 
-function DocumentosCotizacion({ requisicion, editable }: { requisicion: CostosRequisicion; editable: boolean }) {
+function DocumentosCotizacion({
+    requisicion,
+    editable,
+}: {
+    requisicion: CostosRequisicion;
+    editable: boolean;
+}) {
     const [archivo, setArchivo] = useState<File | null>(null);
     const [titulo, setTitulo] = useState('');
     const [subiendo, setSubiendo] = useState(false);
@@ -261,30 +387,43 @@ function DocumentosCotizacion({ requisicion, editable }: { requisicion: CostosRe
 
     const eliminar = (id: number) => {
         if (confirm('¿Eliminar este documento?')) {
-            router.delete(`/admin/costos/requisiciones/${requisicion.id}/documentos/${id}`, { preserveScroll: true });
+            router.delete(
+                `/admin/costos/requisiciones/${requisicion.id}/documentos/${id}`,
+                { preserveScroll: true },
+            );
         }
     };
 
     return (
         <div className="rounded-lg border border-base-300 p-3">
-            <h3 className="mb-3 text-xs uppercase tracking-wider text-base-content/60">
+            <h3 className="mb-3 text-xs tracking-wider text-base-content/60 uppercase">
                 Documentos de cotización (PDF) · información extra
             </h3>
 
             {documentos.length === 0 ? (
-                <p className="mb-3 text-sm text-base-content/50">Aún no hay documentos adjuntos.</p>
+                <p className="mb-3 text-sm text-base-content/50">
+                    Aún no hay documentos adjuntos.
+                </p>
             ) : (
                 <div className="mb-3 space-y-2">
                     {documentos.map((doc) => (
-                        <div key={doc.id} className="flex items-center gap-2 rounded border border-base-300 bg-base-200 p-2 text-sm">
+                        <div
+                            key={doc.id}
+                            className="flex items-center gap-2 rounded border border-base-300 bg-base-200 p-2 text-sm"
+                        >
                             <FileTextIcon className="size-4 text-base-content/60" />
-                            <a href={`/storage/${doc.path}`} target="_blank" rel="noreferrer" className="font-medium hover:underline">
+                            <a
+                                href={`/storage/${doc.path}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-medium hover:underline"
+                            >
                                 {doc.descripcion || doc.nombre_original}
                             </a>
                             {editable && (
                                 <button
                                     type="button"
-                                    className="btn btn-ghost btn-xs ml-auto text-error"
+                                    className="btn ml-auto text-error btn-ghost btn-xs"
                                     title="Eliminar"
                                     onClick={() => eliminar(doc.id)}
                                 >
@@ -300,7 +439,7 @@ function DocumentosCotizacion({ requisicion, editable }: { requisicion: CostosRe
                 <div className="flex flex-wrap items-end gap-2">
                     <input
                         type="text"
-                        className="input input-bordered input-sm w-56"
+                        className="input-bordered input input-sm w-56"
                         placeholder="Título (opcional)"
                         value={titulo}
                         onChange={(e) => setTitulo(e.target.value)}
@@ -309,8 +448,10 @@ function DocumentosCotizacion({ requisicion, editable }: { requisicion: CostosRe
                         ref={inputRef}
                         type="file"
                         accept="application/pdf"
-                        className="file-input file-input-bordered file-input-sm w-64"
-                        onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+                        className="file-input-bordered file-input w-64 file-input-sm"
+                        onChange={(e) =>
+                            setArchivo(e.target.files?.[0] ?? null)
+                        }
                     />
                     <Button onClick={subir} disabled={!archivo || subiendo}>
                         <PlusIcon className="size-3" /> Agregar documento
@@ -321,25 +462,40 @@ function DocumentosCotizacion({ requisicion, editable }: { requisicion: CostosRe
     );
 }
 
-function ProductoCelda({ detalle, editable }: { detalle: CostosRequisicionDetalle; editable: boolean }) {
+function ProductoCelda({
+    detalle,
+    editable,
+}: {
+    detalle: CostosRequisicionDetalle;
+    editable: boolean;
+}) {
     const [descripcion, setDescripcion] = useState(detalle.descripcion);
     const [codigo, setCodigo] = useState(detalle.codigo_producto ?? '');
 
     // Sin producto del catálogo (partidas históricas) o no editable: solo lectura.
     if (!detalle.producto_id || !editable) {
         return (
-            <div>
-                <div className="font-medium">{detalle.descripcion}</div>
-                <div className="text-[10px] text-base-content/50">
-                    {detalle.codigo_producto ? `${detalle.codigo_producto} · ` : ''}{detalle.unidad}
-                </div>
-            </div>
+            <>
+                <td>
+                    <div className="font-medium">{detalle.descripcion}</div>
+                    <div className="text-[10px] text-base-content/50">
+                        {detalle.unidad}
+                    </div>
+                </td>
+                <td className="text-[10px] text-base-content/50">
+                    {detalle.codigo_producto ?? '—'}
+                </td>
+            </>
         );
     }
 
     const guardar = () => {
         if (descripcion.trim() === '') return;
-        if (descripcion === detalle.descripcion && (codigo.trim() || null) === (detalle.codigo_producto ?? null)) return;
+        if (
+            descripcion === detalle.descripcion &&
+            (codigo.trim() || null) === (detalle.codigo_producto ?? null)
+        )
+            return;
         router.patch(
             `/admin/costos/requisiciones/detalles/${detalle.id}/producto`,
             { descripcion: descripcion.trim(), codigo: codigo.trim() || null },
@@ -348,24 +504,77 @@ function ProductoCelda({ detalle, editable }: { detalle: CostosRequisicionDetall
     };
 
     return (
-        <div className="space-y-1">
+        <>
+            <td>
+                <input
+                    type="text"
+                    className="input-bordered input input-xs w-full font-medium"
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                    onBlur={guardar}
+                    title="Descripción del producto (catálogo)"
+                />
+                <div className="mt-1 text-[10px] text-base-content/50">
+                    {detalle.unidad}
+                </div>
+            </td>
+            <td>
+                <input
+                    type="text"
+                    className="input-bordered input input-xs w-full"
+                    value={codigo}
+                    placeholder="Código"
+                    onChange={(e) => setCodigo(e.target.value)}
+                    onBlur={guardar}
+                />
+            </td>
+        </>
+    );
+}
+
+function DiasEntregaCelda({
+    requisicionId,
+    proveedorId,
+    dias,
+    editable,
+}: {
+    requisicionId: number;
+    proveedorId: number;
+    dias: number | null;
+    editable: boolean;
+}) {
+    const [valor, setValor] = useState(dias != null ? String(dias) : '');
+
+    if (!editable) {
+        return (
+            <span className="text-xs text-base-content/70">
+                {dias != null ? `${dias} días` : '—'}
+            </span>
+        );
+    }
+
+    const guardar = () => {
+        const n = valor.trim() === '' ? null : Number(valor);
+        if (n === dias) return;
+        router.post(
+            `/admin/costos/requisiciones/${requisicionId}/cotizaciones/tiempo-entrega`,
+            { proveedor_id: proveedorId, tiempo_entrega_dias: n },
+            { preserveScroll: true },
+        );
+    };
+
+    return (
+        <div className="flex items-center justify-end gap-1">
             <input
-                type="text"
-                className="input input-bordered input-xs w-full font-medium"
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                onBlur={guardar}
-                title="Descripción del producto (catálogo)"
-            />
-            <input
-                type="text"
-                className="input input-bordered input-xs w-full"
-                value={codigo}
-                placeholder="Código del catálogo"
-                onChange={(e) => setCodigo(e.target.value)}
+                type="number"
+                min={0}
+                className="input-bordered input input-xs w-14 text-right"
+                value={valor}
+                placeholder="—"
+                onChange={(e) => setValor(e.target.value)}
                 onBlur={guardar}
             />
-            <div className="text-[10px] text-base-content/50">{detalle.unidad}</div>
+            <span className="text-[10px] text-base-content/50">días</span>
         </div>
     );
 }
@@ -377,11 +586,13 @@ function TipoFiscalSelect({
     detalle: CostosRequisicionDetalle;
     editable: boolean;
 }) {
-    const [tipoFiscal, setTipoFiscal] = useState<CostosTipoFiscalPartida>(detalle.tipo_fiscal ?? 'mercancia');
+    const [tipoFiscal, setTipoFiscal] = useState<CostosTipoFiscalPartida>(
+        detalle.tipo_fiscal ?? 'mercancia',
+    );
 
     return (
         <select
-            className="select select-bordered select-xs w-full"
+            className="select-bordered select w-full select-xs"
             value={tipoFiscal}
             disabled={!editable}
             onChange={(e) => {
@@ -417,8 +628,12 @@ function CeldaCotizacion({
 }) {
     // El estado inicial viene de las props; el componente se remonta (via `key`
     // en el padre) cuando el server devuelve el registro persistido.
-    const [precio, setPrecio] = useState(cotizacion ? String(cotizacion.precio_unitario) : '');
-    const [moneda, setMoneda] = useState<CostosTipoMoneda>(cotizacion?.moneda ?? 'mxn');
+    const [precio, setPrecio] = useState(
+        cotizacion ? String(cotizacion.precio_unitario) : '',
+    );
+    const [moneda, setMoneda] = useState<CostosTipoMoneda>(
+        cotizacion?.moneda ?? 'mxn',
+    );
 
     const guardar = (monedaOverride?: CostosTipoMoneda) => {
         const p = Number(precio);
@@ -427,13 +642,20 @@ function CeldaCotizacion({
         // Precio vacío o 0: si existía cotización, eliminarla.
         if (!Number.isFinite(p) || p <= 0) {
             if (cotizacion) {
-                router.delete(`/admin/costos/requisiciones/cotizaciones/${cotizacion.id}`, { preserveScroll: true });
+                router.delete(
+                    `/admin/costos/requisiciones/cotizaciones/${cotizacion.id}`,
+                    { preserveScroll: true },
+                );
             }
             return;
         }
 
         // Sin cambios respecto a lo persistido.
-        if (cotizacion && p === Number(cotizacion.precio_unitario) && m === (cotizacion.moneda ?? 'mxn')) {
+        if (
+            cotizacion &&
+            p === Number(cotizacion.precio_unitario) &&
+            m === (cotizacion.moneda ?? 'mxn')
+        ) {
             return;
         }
 
@@ -455,7 +677,7 @@ function CeldaCotizacion({
                 type="number"
                 step="0.01"
                 min={0}
-                className={`input input-bordered input-xs w-24 text-right font-semibold ${esMejor ? 'border-success text-success' : ''}`}
+                className={`input-bordered input input-xs w-24 text-right font-semibold ${esMejor ? 'border-success text-success' : ''}`}
                 value={precio}
                 disabled={!editable}
                 placeholder="—"
@@ -463,7 +685,7 @@ function CeldaCotizacion({
                 onBlur={() => guardar()}
             />
             <select
-                className="select select-bordered select-xs w-16"
+                className="select-bordered select w-16 select-xs"
                 value={moneda}
                 disabled={!editable}
                 onChange={(e) => {

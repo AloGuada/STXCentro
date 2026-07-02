@@ -227,6 +227,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/documentos', [CostosRequisicionCotizacionController::class, 'subirDocumento'])->name('requisiciones.documentos.store');
         Route::delete('requisiciones/{requisicion}/documentos/{media}', [CostosRequisicionCotizacionController::class, 'eliminarDocumento'])->name('requisiciones.documentos.destroy');
         Route::post('requisiciones/cotizaciones', [CostosRequisicionCotizacionController::class, 'store'])->name('requisiciones.cotizaciones.store');
+        Route::post('requisiciones/{requisicion}/cotizaciones/tiempo-entrega', [CostosRequisicionCotizacionController::class, 'tiempoEntrega'])->name('requisiciones.cotizaciones.tiempo-entrega');
         Route::delete('requisiciones/cotizaciones/{precio}', [CostosRequisicionCotizacionController::class, 'destroy'])->name('requisiciones.cotizaciones.destroy');
         Route::delete('requisiciones/{requisicion}/proveedores/{proveedor}', [CostosRequisicionCotizacionController::class, 'destroyProveedor'])->name('requisiciones.proveedores.destroy');
         Route::post('requisiciones/selecciones', [CostosRequisicionSeleccionController::class, 'store'])->name('requisiciones.selecciones.store');
