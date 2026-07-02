@@ -858,42 +858,58 @@ export default function SolicitudesPagoCreate({
                             </div>
                         )}
 
-                        {/* Tipos sin rubros: se captura el total del pago directo */}
-                        {selectedTipo && !selectedTipo.rubros && (
+                        {/* Total del pago: capturado directo (sin rubros) o
+                            calculado desde los detalles (con rubros). */}
+                        {selectedTipo && (
                             <div className="space-y-4">
                                 <div className="border-b border-base-300 pb-2">
                                     <h2 className="text-lg font-medium">
                                         Total del pago
                                     </h2>
                                 </div>
-                                <FormField
-                                    label="Monto total"
-                                    htmlFor="monto_total"
-                                    error={errors.monto_total}
-                                    required
-                                >
-                                    <Input
-                                        id="monto_total"
-                                        type="number"
-                                        step="0.01"
-                                        min="0.01"
-                                        placeholder="0.00"
-                                        className="w-48"
-                                        error={!!errors.monto_total}
-                                        value={data.monto_total}
-                                        onChange={(e) => {
-                                            setData(
-                                                'monto_total',
-                                                e.target.value,
-                                            );
-                                            if (
-                                                parseFloat(e.target.value) > 0
-                                            ) {
-                                                clearErrors('monto_total');
-                                            }
-                                        }}
-                                    />
-                                </FormField>
+                                {selectedTipo.rubros ? (
+                                    <FormField
+                                        label="Monto total"
+                                        htmlFor="monto_total"
+                                    >
+                                        <Input
+                                            id="monto_total"
+                                            readOnly
+                                            className="w-48 bg-base-200"
+                                            value={`$${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`}
+                                        />
+                                    </FormField>
+                                ) : (
+                                    <FormField
+                                        label="Monto total"
+                                        htmlFor="monto_total"
+                                        error={errors.monto_total}
+                                        required
+                                    >
+                                        <Input
+                                            id="monto_total"
+                                            type="number"
+                                            step="0.01"
+                                            min="0.01"
+                                            placeholder="0.00"
+                                            className="w-48"
+                                            error={!!errors.monto_total}
+                                            value={data.monto_total}
+                                            onChange={(e) => {
+                                                setData(
+                                                    'monto_total',
+                                                    e.target.value,
+                                                );
+                                                if (
+                                                    parseFloat(e.target.value) >
+                                                    0
+                                                ) {
+                                                    clearErrors('monto_total');
+                                                }
+                                            }}
+                                        />
+                                    </FormField>
+                                )}
                             </div>
                         )}
 
