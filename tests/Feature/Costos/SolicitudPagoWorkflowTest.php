@@ -40,6 +40,21 @@ describe('admin costos solicitud pago workflow', function () {
         expect($solicitud->aprobaciones)->toHaveCount(1);
     });
 
+    test('generar pdf con detalles muestra op de obra y centro de costos', function () {
+        $obraRubro = ObraRubro::factory()->create();
+        $solicitud = SolicitudPago::factory()->create(['estatus' => 'borrador']);
+        SolicitudPagoDetalle::factory()->create([
+            'solicitud_id' => $solicitud->id,
+            'obra_rubro_id' => $obraRubro->id,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.costos.solicitudes-pago.pdf', $solicitud));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    });
+
     test('generar pdf creates aprobaciones from cadena departamento', function () {
         $departamento = Departamento::factory()->create();
         $permiso1 = Permiso::factory()->create(['nivel' => 1, 'descripcion' => 'Jefe Depto']);

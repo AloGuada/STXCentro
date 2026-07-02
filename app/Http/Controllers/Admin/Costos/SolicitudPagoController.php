@@ -474,6 +474,7 @@ class SolicitudPagoController extends Controller
             'proveedor',
             'tipoSolicitud',
             'detalles.obraRubro.rubro',
+            'detalles.obraRubro.obra',
         ]);
 
         // Cambiar estatus a pendiente_firma

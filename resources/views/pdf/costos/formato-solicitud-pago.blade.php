@@ -230,11 +230,11 @@
         <tr>
             <td class="label">Departamento</td>
             <td>{{ $solicitud->departamento?->descripcion ?? '-' }}</td>
-            <td class="label">Solicitante</td>
+            <td class="label">Elaboró</td>
             <td>{{ $solicitud->solicitante?->name ?? '-' }}</td>
         </tr>
         <tr>
-            <td class="label">Proveedor</td>
+            <td class="label">Beneficiario</td>
             <td colspan="3">{{ $solicitud->proveedor?->razon_social ?? 'Sin proveedor' }}</td>
         </tr>
         <tr>
@@ -278,8 +278,8 @@
     <table class="detalles-table">
         <thead>
             <tr>
+                <th>OP Obra</th>
                 <th>Centro de Costos</th>
-                <th>Concepto</th>
                 <th>Cantidad</th>
                 <th>P. Unitario</th>
                 <th>Subtotal</th>
@@ -288,13 +288,8 @@
         <tbody>
             @foreach($solicitud->detalles as $detalle)
             <tr>
-                <td>
-                    {{ $detalle->obraRubro?->rubro?->codigo ?? '-' }}
-                    @if($detalle->obraRubro?->rubro?->descripcion)
-                        - {{ $detalle->obraRubro->rubro->descripcion }}
-                    @endif
-                </td>
-                <td>{{ $detalle->concepto }}</td>
+                <td>{{ $detalle->obraRubro?->obra?->no ? 'OP-'.$detalle->obraRubro->obra->no : '-' }}</td>
+                <td>{{ $detalle->obraRubro?->rubro?->descripcion ?? '-' }}</td>
                 <td class="text-right">{{ number_format($detalle->cantidad, 2) }}</td>
                 <td class="text-right">${{ number_format($detalle->precio_unitario, 2) }}</td>
                 <td class="text-right">${{ number_format($detalle->subtotal, 2) }}</td>
