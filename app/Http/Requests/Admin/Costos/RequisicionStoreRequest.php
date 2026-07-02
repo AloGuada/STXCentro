@@ -21,7 +21,9 @@ class RequisicionStoreRequest extends FormRequest
     {
         return [
             'departamento_id' => ['required', 'exists:departamentos,id'],
-            'obra_id' => ['required', 'exists:obras,id'],
+            // Sin obra = requisición multiobra: cada partida define su obra vía
+            // el centro de costos (obra_rubro), sin candado de obra única.
+            'obra_id' => ['nullable', 'exists:obras,id'],
             'justificacion' => ['nullable', 'string'],
             'fecha_requerida' => ['nullable', 'date'],
             'detalles' => ['required', 'array', 'min:1'],
@@ -40,7 +42,11 @@ class RequisicionStoreRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            ObraRubro::validarPertenenciaObra($validator, (int) $this->integer('obra_id'), (array) $this->input('detalles', []));
+            // Solo se valida la pertenencia a la obra cuando la requisición es
+            // de una sola obra (multiobra no tiene obra de cabecera).
+            if ($this->filled('obra_id')) {
+                ObraRubro::validarPertenenciaObra($validator, (int) $this->integer('obra_id'), (array) $this->input('detalles', []));
+            }
         });
     }
 

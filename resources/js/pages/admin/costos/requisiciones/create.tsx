@@ -82,19 +82,21 @@ export default function RequisicionesCreate({
 
     const { data, setData, post, processing, errors, setError, clearErrors } =
         useForm<FormData>({
-        departamento_id: '',
-        obra_id: '',
-        justificacion: '',
-        detalles: [blankDetalle()],
-        documentos: [],
-    });
+            departamento_id: '',
+            obra_id: '',
+            justificacion: '',
+            detalles: [blankDetalle()],
+            documentos: [],
+        });
 
     const addDocumentos = (files: FileList | null) => {
         if (!files || files.length === 0) {
             return;
         }
         const soloPdf = Array.from(files).filter(
-            (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'),
+            (f) =>
+                f.type === 'application/pdf' ||
+                f.name.toLowerCase().endsWith('.pdf'),
         );
         if (soloPdf.length === 0) {
             setError('documentos', 'Solo se permiten archivos PDF.');
@@ -117,7 +119,12 @@ export default function RequisicionesCreate({
         (o) => incluirCerradas || o.estatus !== 'cerrada',
     );
 
-    // Rubros (centros de costo) de la obra elegida. La requisición es de una sola obra.
+    // Multiobra: por defecto la requisición es de una sola obra (candado de
+    // pertenencia). Al activarlo, cada partida elige su centro de costos de
+    // cualquier obra (el obra_rubro ya encierra la obra).
+    const [multiobra, setMultiobra] = useState(false);
+
+    // Rubros (centros de costo) de la obra elegida (modo una sola obra).
     const rubrosDeObra = data.obra_id
         ? obraRubros.filter(
               (r) =>
@@ -125,11 +132,26 @@ export default function RequisicionesCreate({
           )
         : [];
 
+    // Opciones del selector de centro de costos según el modo.
+    const rubrosDisponibles = multiobra
+        ? obraRubros.filter((r) => incluirCerradas || !r.cerrado)
+        : rubrosDeObra;
+
     const setObra = (value: number | '') => {
         // Cambiar la obra invalida los rubros elegidos (pertenecen a otra obra).
         setData((prev) => ({
             ...prev,
             obra_id: value,
+            detalles: prev.detalles.map((d) => ({ ...d, obra_rubro_id: '' })),
+        }));
+    };
+
+    const toggleMultiobra = (on: boolean) => {
+        setMultiobra(on);
+        // Al cambiar de modo se invalidan los rubros (cambia el universo válido).
+        setData((prev) => ({
+            ...prev,
+            obra_id: on ? '' : prev.obra_id,
             detalles: prev.detalles.map((d) => ({ ...d, obra_rubro_id: '' })),
         }));
     };
@@ -223,42 +245,70 @@ export default function RequisicionesCreate({
                     <div>
                         <div className="flex items-center justify-between">
                             <label className="label-text label">
-                                Obra / Proyecto *
+                                Obra / Proyecto {!multiobra && '*'}
                             </label>
-                            <label className="label cursor-pointer gap-2 py-0">
-                                <input
-                                    type="checkbox"
-                                    className="checkbox checkbox-xs"
-                                    checked={incluirCerradas}
-                                    onChange={(e) =>
-                                        setIncluirCerradas(e.target.checked)
-                                    }
-                                />
-                                <span className="label-text text-xs">
-                                    Incluir cerradas
-                                </span>
-                            </label>
+                            <div className="flex items-center gap-3">
+                                <label className="label cursor-pointer gap-2 py-0">
+                                    <input
+                                        type="checkbox"
+                                        className="checkbox checkbox-xs"
+                                        checked={multiobra}
+                                        onChange={(e) =>
+                                            toggleMultiobra(e.target.checked)
+                                        }
+                                    />
+                                    <span className="label-text text-xs">
+                                        Multiobra
+                                    </span>
+                                </label>
+                                <label className="label cursor-pointer gap-2 py-0">
+                                    <input
+                                        type="checkbox"
+                                        className="checkbox checkbox-xs"
+                                        checked={incluirCerradas}
+                                        onChange={(e) =>
+                                            setIncluirCerradas(e.target.checked)
+                                        }
+                                    />
+                                    <span className="label-text text-xs">
+                                        Incluir cerradas
+                                    </span>
+                                </label>
+                            </div>
                         </div>
-                        <SearchSelect
-                            value={
-                                data.obra_id === '' ? '' : String(data.obra_id)
-                            }
-                            onValueChange={(v) => setObra(v ? Number(v) : '')}
-                            placeholder="Selecciona una obra"
-                            options={obrasVisibles.map((o) => ({
-                                value: String(o.id),
-                                label: `${o.no ? `OP-${o.no} · ` : ''}${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
-                            }))}
-                        />
-                        {errors.obra_id && (
-                            <p className="mt-1 text-sm text-error">
-                                {errors.obra_id}
+                        {multiobra ? (
+                            <p className="text-sm text-base-content/60">
+                                Requisición multiobra: cada partida elige su
+                                centro de costos (con su obra) en la tabla.
                             </p>
+                        ) : (
+                            <>
+                                <SearchSelect
+                                    value={
+                                        data.obra_id === ''
+                                            ? ''
+                                            : String(data.obra_id)
+                                    }
+                                    onValueChange={(v) =>
+                                        setObra(v ? Number(v) : '')
+                                    }
+                                    placeholder="Selecciona una obra"
+                                    options={obrasVisibles.map((o) => ({
+                                        value: String(o.id),
+                                        label: `${o.no ? `OP-${o.no} · ` : ''}${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
+                                    }))}
+                                />
+                                {errors.obra_id && (
+                                    <p className="mt-1 text-sm text-error">
+                                        {errors.obra_id}
+                                    </p>
+                                )}
+                                <p className="mt-1 text-xs text-base-content/60">
+                                    Las partidas eligen su centro de costos
+                                    dentro de esta obra.
+                                </p>
+                            </>
                         )}
-                        <p className="mt-1 text-xs text-base-content/60">
-                            Una requisición es para una sola obra. Las partidas
-                            eligen su centro de costos dentro de esta obra.
-                        </p>
                     </div>
 
                     <div className="md:col-span-2">
@@ -288,7 +338,7 @@ export default function RequisicionesCreate({
                     </Button>
                 </div>
 
-                {!data.obra_id && (
+                {!multiobra && !data.obra_id && (
                     <div className="mb-3 alert alert-info">
                         <span>
                             Selecciona primero la obra para poder asignar el
@@ -424,9 +474,11 @@ export default function RequisicionesCreate({
                                     <td>
                                         <RubroSelector
                                             value={d.obra_rubro_id}
-                                            options={rubrosDeObra}
-                                            rubroOnly
-                                            disabled={!data.obra_id}
+                                            options={rubrosDisponibles}
+                                            rubroOnly={!multiobra}
+                                            disabled={
+                                                !multiobra && !data.obra_id
+                                            }
                                             onChange={(value) =>
                                                 updateDetalle(
                                                     i,

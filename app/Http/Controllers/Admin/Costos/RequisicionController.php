@@ -89,7 +89,7 @@ class RequisicionController extends Controller
             $requisicion = Requisicion::create([
                 'solicitante_id' => $request->user()->id,
                 'departamento_id' => $request->integer('departamento_id'),
-                'obra_id' => $request->integer('obra_id'),
+                'obra_id' => $request->integer('obra_id') ?: null,
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
                 'estatus' => RequisicionEstatus::Borrador->value,
@@ -513,7 +513,7 @@ class RequisicionController extends Controller
         DB::transaction(function () use ($request, $requisicion) {
             $requisicion->update([
                 'departamento_id' => $request->integer('departamento_id'),
-                'obra_id' => $request->integer('obra_id'),
+                'obra_id' => $request->integer('obra_id') ?: null,
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
             ]);

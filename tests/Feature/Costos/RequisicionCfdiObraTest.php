@@ -26,18 +26,19 @@ beforeEach(function () {
     $this->uso = UsoCfdi::factory()->create(['clave' => 'G01']);
 });
 
-test('crear requisición exige obra y uso de CFDI por partida', function () {
+test('crear requisición exige uso de CFDI por partida; la obra es opcional (multiobra)', function () {
     $rubro = ObraRubro::factory()->create(['obra_id' => $this->obra->id]);
 
     $this->actingAs($this->user)
         ->post('/admin/costos/requisiciones', [
             'departamento_id' => $this->depto->id,
-            // sin obra_id
+            // sin obra_id → permitido (multiobra)
             'detalles' => [
                 ['descripcion' => 'Acero', 'unidad' => 'kg', 'cantidad' => 10, 'obra_rubro_id' => $rubro->id],
             ],
         ])
-        ->assertSessionHasErrors(['obra_id', 'detalles.0.uso_cfdi_id']);
+        ->assertSessionHasErrors(['detalles.0.uso_cfdi_id'])
+        ->assertSessionDoesntHaveErrors(['obra_id']);
 });
 
 test('rechaza un uso de CFDI inactivo', function () {

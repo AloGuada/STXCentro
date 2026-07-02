@@ -165,6 +165,47 @@ test('crear requisicion sin rubro por partida falla', function () {
         ->assertSessionHasErrors(['detalles.0.obra_rubro_id']);
 });
 
+test('crea requisicion multiobra (sin obra de cabecera) con partidas de distintas obras', function () {
+    $obraA = \App\Models\Obra::factory()->create();
+    $obraB = \App\Models\Obra::factory()->create();
+    $rubroA = ObraRubro::factory()->create(['obra_id' => $obraA->id]);
+    $rubroB = ObraRubro::factory()->create(['obra_id' => $obraB->id]);
+    $uso = \App\Models\Costos\UsoCfdi::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/costos/requisiciones', [
+            'departamento_id' => $this->depto->id,
+            // sin obra_id → multiobra
+            'detalles' => [
+                ['descripcion' => 'A', 'unidad' => 'pza', 'cantidad' => 1, 'obra_rubro_id' => $rubroA->id, 'uso_cfdi_id' => $uso->id],
+                ['descripcion' => 'B', 'unidad' => 'pza', 'cantidad' => 2, 'obra_rubro_id' => $rubroB->id, 'uso_cfdi_id' => $uso->id],
+            ],
+        ])
+        ->assertRedirect();
+
+    $req = Requisicion::first();
+    expect($req)->not->toBeNull()
+        ->and($req->obra_id)->toBeNull()
+        ->and($req->detalles()->count())->toBe(2);
+});
+
+test('requisicion de una sola obra sigue validando la pertenencia del centro de costos', function () {
+    $obraA = \App\Models\Obra::factory()->create();
+    $obraB = \App\Models\Obra::factory()->create();
+    $rubroB = ObraRubro::factory()->create(['obra_id' => $obraB->id]); // de OTRA obra
+    $uso = \App\Models\Costos\UsoCfdi::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/costos/requisiciones', [
+            'departamento_id' => $this->depto->id,
+            'obra_id' => $obraA->id, // obra A pero rubro de B → debe fallar
+            'detalles' => [
+                ['descripcion' => 'X', 'unidad' => 'pza', 'cantidad' => 1, 'obra_rubro_id' => $rubroB->id, 'uso_cfdi_id' => $uso->id],
+            ],
+        ])
+        ->assertSessionHasErrors(['detalles.0.obra_rubro_id']);
+});
+
 test('compras captura precio cotizado y la requisicion pasa a cotizada', function () {
     $req = Requisicion::factory()->create([
         'departamento_id' => $this->depto->id,
