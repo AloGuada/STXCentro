@@ -147,43 +147,11 @@ export default function SolicitudesPagoCreate({
         [data.tipo_solicitud_id, tipoSolicitudes],
     );
 
-    // Multiobra: por defecto la solicitud es de una sola obra (elegida arriba);
-    // al activar multiobra, cada renglón elige su propia obra.
-    const [multiobra, setMultiobra] = useState(false);
-    const [obraGeneral, setObraGeneral] = useState('');
-
-    const cambiarObraGeneral = (obraId: string) => {
-        setObraGeneral(obraId);
-        setData(
-            'detalles',
-            data.detalles.map((d) => ({
-                ...d,
-                obra_id: obraId,
-                obra_rubro_id: '',
-            })),
-        );
-    };
-
-    const toggleMultiobra = (on: boolean) => {
-        setMultiobra(on);
-        if (!on) {
-            // Volver a obra única: todos los renglones heredan la obra general.
-            setData(
-                'detalles',
-                data.detalles.map((d) =>
-                    d.obra_id === obraGeneral
-                        ? d
-                        : { ...d, obra_id: obraGeneral, obra_rubro_id: '' },
-                ),
-            );
-        }
-    };
-
     const addDetalle = () => {
         setData('detalles', [
             ...data.detalles,
             {
-                obra_id: multiobra ? '' : obraGeneral,
+                obra_id: '',
                 obra_rubro_id: '',
                 concepto: '',
                 cantidad: '1',
@@ -578,21 +546,6 @@ export default function SolicitudesPagoCreate({
                                             <input
                                                 type="checkbox"
                                                 className="checkbox checkbox-xs"
-                                                checked={multiobra}
-                                                onChange={(e) =>
-                                                    toggleMultiobra(
-                                                        e.target.checked,
-                                                    )
-                                                }
-                                            />
-                                            <span className="label-text text-xs">
-                                                Multiobra
-                                            </span>
-                                        </label>
-                                        <label className="label cursor-pointer gap-2 py-0">
-                                            <input
-                                                type="checkbox"
-                                                className="checkbox checkbox-xs"
                                                 checked={incluirCerradas}
                                                 onChange={(e) =>
                                                     setIncluirCerradas(
@@ -615,23 +568,6 @@ export default function SolicitudesPagoCreate({
                                     </div>
                                 </div>
 
-                                {!multiobra && (
-                                    <div className="w-80">
-                                        <label className="label-text text-xs">
-                                            Obra
-                                        </label>
-                                        <SearchSelect
-                                            value={obraGeneral}
-                                            onValueChange={cambiarObraGeneral}
-                                            placeholder="Buscar obra..."
-                                            options={obrasVisibles.map((o) => ({
-                                                value: String(o.id),
-                                                label: `${o.no} - ${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
-                                            }))}
-                                        />
-                                    </div>
-                                )}
-
                                 {errors.detalles && (
                                     <p className="text-sm text-error">
                                         {errors.detalles}
@@ -652,11 +588,9 @@ export default function SolicitudesPagoCreate({
                                                     <th className="w-8 text-center">
                                                         #
                                                     </th>
-                                                    {multiobra && (
-                                                        <th className="min-w-[180px]">
-                                                            Obra
-                                                        </th>
-                                                    )}
+                                                    <th className="min-w-[180px]">
+                                                        Obra
+                                                    </th>
                                                     <th className="min-w-[220px]">
                                                         Centro de Costos
                                                     </th>
@@ -690,35 +624,33 @@ export default function SolicitudesPagoCreate({
                                                                         {index +
                                                                             1}
                                                                     </td>
-                                                                    {multiobra && (
-                                                                        <td>
-                                                                            <SearchSelect
-                                                                                value={
-                                                                                    det.obra_id
-                                                                                }
-                                                                                onValueChange={(
+                                                                    <td>
+                                                                        <SearchSelect
+                                                                            value={
+                                                                                det.obra_id
+                                                                            }
+                                                                            onValueChange={(
+                                                                                v,
+                                                                            ) =>
+                                                                                updateDetalle(
+                                                                                    index,
+                                                                                    'obra_id',
                                                                                     v,
-                                                                                ) =>
-                                                                                    updateDetalle(
-                                                                                        index,
-                                                                                        'obra_id',
-                                                                                        v,
-                                                                                    )
-                                                                                }
-                                                                                placeholder="Buscar obra..."
-                                                                                options={obrasVisibles.map(
-                                                                                    (
-                                                                                        o,
-                                                                                    ) => ({
-                                                                                        value: String(
-                                                                                            o.id,
-                                                                                        ),
-                                                                                        label: `${o.no} - ${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
-                                                                                    }),
-                                                                                )}
-                                                                            />
-                                                                        </td>
-                                                                    )}
+                                                                                )
+                                                                            }
+                                                                            placeholder="Buscar obra..."
+                                                                            options={obrasVisibles.map(
+                                                                                (
+                                                                                    o,
+                                                                                ) => ({
+                                                                                    value: String(
+                                                                                        o.id,
+                                                                                    ),
+                                                                                    label: `${o.no} - ${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
+                                                                                }),
+                                                                            )}
+                                                                        />
+                                                                    </td>
                                                                     <td>
                                                                         <SearchSelect
                                                                             value={
@@ -915,9 +847,7 @@ export default function SolicitudesPagoCreate({
                                             <tfoot>
                                                 <tr>
                                                     <td
-                                                        colSpan={
-                                                            multiobra ? 6 : 5
-                                                        }
+                                                        colSpan={6}
                                                         className="text-right text-base font-semibold"
                                                     >
                                                         Total
