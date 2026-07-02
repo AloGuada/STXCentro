@@ -119,6 +119,37 @@ describe('admin costos solicitudes pago', function () {
         expect((float) $solicitud->monto_total)->toBe(1505.00);
     });
 
+    test('el monto_total capturado manda sobre la suma de los detalles', function () {
+        $departamento = Departamento::factory()->create();
+        $tipoSolicitud = TipoSolicitud::factory()->create(['rubros' => true]);
+        $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.store'), [
+                'departamento_id' => $departamento->id,
+                'tipo_solicitud_id' => $tipoSolicitud->id,
+                'concepto' => 'Compra materiales',
+                'tipo_pago' => 'cheque',
+                'tipo_moneda' => 'mxn',
+                'monto_total' => 2000, // distinto de la suma (1505)
+                'detalles' => [
+                    [
+                        'obra_rubro_id' => $obraRubro->id,
+                        'concepto' => 'Acero',
+                        'cantidad' => 10,
+                        'precio_unitario' => 150.50,
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $solicitud = SolicitudPago::latest('id')->first();
+        // El total editado manda; el detalle se conserva para el apartado.
+        expect((float) $solicitud->monto_total)->toBe(2000.00)
+            ->and($solicitud->detalles)->toHaveCount(1)
+            ->and((float) $solicitud->detalles->first()->subtotal)->toBe(1505.00);
+    });
+
     test('folio is auto-generated', function () {
         $solicitud = SolicitudPago::factory()->create();
 
@@ -126,7 +157,7 @@ describe('admin costos solicitudes pago', function () {
     });
 
     test('show page can be rendered', function () {
-        $solicitud = SolicitudPago::factory()->aprobada()->create();
+        $solicitud = SolicitudPago::factory()->aprobada()->create(['solicitante_id' => $this->user->id]);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.costos.solicitudes-pago.show', $solicitud));

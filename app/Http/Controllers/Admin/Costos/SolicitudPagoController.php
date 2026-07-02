@@ -156,9 +156,10 @@ class SolicitudPagoController extends Controller
                 }
             }
 
-            // Obras sin desglose de rubros: el total se captura directo.
-            if (empty($request->input('detalles', []))) {
-                $montoTotal = round((float) $request->input('monto_total', 0), 2);
+            // El total del pago es editable: si se captura, manda sobre la suma
+            // de los detalles (que solo reparten el apartado por centro de costo).
+            if ($request->filled('monto_total')) {
+                $montoTotal = round((float) $request->input('monto_total'), 2);
             }
 
             $solicitud->update(['monto_total' => $montoTotal]);

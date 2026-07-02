@@ -11,6 +11,7 @@ import {
     Fragment,
     type FormEvent,
     useCallback,
+    useEffect,
     useMemo,
     useRef,
     useState,
@@ -146,11 +147,43 @@ export default function SolicitudesPagoCreate({
         [data.tipo_solicitud_id, tipoSolicitudes],
     );
 
+    // Multiobra: por defecto la solicitud es de una sola obra (elegida arriba);
+    // al activar multiobra, cada renglón elige su propia obra.
+    const [multiobra, setMultiobra] = useState(false);
+    const [obraGeneral, setObraGeneral] = useState('');
+
+    const cambiarObraGeneral = (obraId: string) => {
+        setObraGeneral(obraId);
+        setData(
+            'detalles',
+            data.detalles.map((d) => ({
+                ...d,
+                obra_id: obraId,
+                obra_rubro_id: '',
+            })),
+        );
+    };
+
+    const toggleMultiobra = (on: boolean) => {
+        setMultiobra(on);
+        if (!on) {
+            // Volver a obra única: todos los renglones heredan la obra general.
+            setData(
+                'detalles',
+                data.detalles.map((d) =>
+                    d.obra_id === obraGeneral
+                        ? d
+                        : { ...d, obra_id: obraGeneral, obra_rubro_id: '' },
+                ),
+            );
+        }
+    };
+
     const addDetalle = () => {
         setData('detalles', [
             ...data.detalles,
             {
-                obra_id: '',
+                obra_id: multiobra ? '' : obraGeneral,
                 obra_rubro_id: '',
                 concepto: '',
                 cantidad: '1',
@@ -194,6 +227,16 @@ export default function SolicitudesPagoCreate({
     };
 
     const total = data.detalles.reduce((sum, d) => sum + calcSubtotal(d), 0);
+
+    // El total del pago es editable. Mientras no se edite a mano, se mantiene
+    // sincronizado con la suma de los detalles; al editarlo, se respeta el valor.
+    const [montoManual, setMontoManual] = useState(false);
+
+    useEffect(() => {
+        if (selectedTipo?.rubros && !montoManual) {
+            setData('monto_total', total > 0 ? total.toFixed(2) : '');
+        }
+    }, [total, selectedTipo?.rubros, montoManual, setData]);
 
     // Por defecto se ocultan obras/adicionales cerrados; el checkbox los incluye.
     const [incluirCerradas, setIncluirCerradas] = useState(false);
@@ -286,8 +329,9 @@ export default function SolicitudesPagoCreate({
                 );
             });
 
-            // Tipos sin rubros: se manda el total capturado directo.
-            if (selectedTipo && !selectedTipo.rubros && data.monto_total) {
+            // El total del pago es editable en ambos flujos; si se capturó, se
+            // envía (manda sobre la suma de detalles en el backend).
+            if (data.monto_total) {
                 formData.append('monto_total', data.monto_total);
             }
 
@@ -534,6 +578,21 @@ export default function SolicitudesPagoCreate({
                                             <input
                                                 type="checkbox"
                                                 className="checkbox checkbox-xs"
+                                                checked={multiobra}
+                                                onChange={(e) =>
+                                                    toggleMultiobra(
+                                                        e.target.checked,
+                                                    )
+                                                }
+                                            />
+                                            <span className="label-text text-xs">
+                                                Multiobra
+                                            </span>
+                                        </label>
+                                        <label className="label cursor-pointer gap-2 py-0">
+                                            <input
+                                                type="checkbox"
+                                                className="checkbox checkbox-xs"
                                                 checked={incluirCerradas}
                                                 onChange={(e) =>
                                                     setIncluirCerradas(
@@ -556,6 +615,23 @@ export default function SolicitudesPagoCreate({
                                     </div>
                                 </div>
 
+                                {!multiobra && (
+                                    <div className="w-80">
+                                        <label className="label-text text-xs">
+                                            Obra
+                                        </label>
+                                        <SearchSelect
+                                            value={obraGeneral}
+                                            onValueChange={cambiarObraGeneral}
+                                            placeholder="Buscar obra..."
+                                            options={obrasVisibles.map((o) => ({
+                                                value: String(o.id),
+                                                label: `${o.no} - ${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
+                                            }))}
+                                        />
+                                    </div>
+                                )}
+
                                 {errors.detalles && (
                                     <p className="text-sm text-error">
                                         {errors.detalles}
@@ -576,9 +652,11 @@ export default function SolicitudesPagoCreate({
                                                     <th className="w-8 text-center">
                                                         #
                                                     </th>
-                                                    <th className="min-w-[180px]">
-                                                        Obra
-                                                    </th>
+                                                    {multiobra && (
+                                                        <th className="min-w-[180px]">
+                                                            Obra
+                                                        </th>
+                                                    )}
                                                     <th className="min-w-[220px]">
                                                         Centro de Costos
                                                     </th>
@@ -612,33 +690,35 @@ export default function SolicitudesPagoCreate({
                                                                         {index +
                                                                             1}
                                                                     </td>
-                                                                    <td>
-                                                                        <SearchSelect
-                                                                            value={
-                                                                                det.obra_id
-                                                                            }
-                                                                            onValueChange={(
-                                                                                v,
-                                                                            ) =>
-                                                                                updateDetalle(
-                                                                                    index,
-                                                                                    'obra_id',
+                                                                    {multiobra && (
+                                                                        <td>
+                                                                            <SearchSelect
+                                                                                value={
+                                                                                    det.obra_id
+                                                                                }
+                                                                                onValueChange={(
                                                                                     v,
-                                                                                )
-                                                                            }
-                                                                            placeholder="Buscar obra..."
-                                                                            options={obrasVisibles.map(
-                                                                                (
-                                                                                    o,
-                                                                                ) => ({
-                                                                                    value: String(
-                                                                                        o.id,
-                                                                                    ),
-                                                                                    label: `${o.no} - ${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
-                                                                                }),
-                                                                            )}
-                                                                        />
-                                                                    </td>
+                                                                                ) =>
+                                                                                    updateDetalle(
+                                                                                        index,
+                                                                                        'obra_id',
+                                                                                        v,
+                                                                                    )
+                                                                                }
+                                                                                placeholder="Buscar obra..."
+                                                                                options={obrasVisibles.map(
+                                                                                    (
+                                                                                        o,
+                                                                                    ) => ({
+                                                                                        value: String(
+                                                                                            o.id,
+                                                                                        ),
+                                                                                        label: `${o.no} - ${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
+                                                                                    }),
+                                                                                )}
+                                                                            />
+                                                                        </td>
+                                                                    )}
                                                                     <td>
                                                                         <SearchSelect
                                                                             value={
@@ -835,7 +915,9 @@ export default function SolicitudesPagoCreate({
                                             <tfoot>
                                                 <tr>
                                                     <td
-                                                        colSpan={6}
+                                                        colSpan={
+                                                            multiobra ? 6 : 5
+                                                        }
                                                         className="text-right text-base font-semibold"
                                                     >
                                                         Total
@@ -867,49 +949,62 @@ export default function SolicitudesPagoCreate({
                                         Total del pago
                                     </h2>
                                 </div>
-                                {selectedTipo.rubros ? (
-                                    <FormField
-                                        label="Monto total"
-                                        htmlFor="monto_total"
-                                    >
-                                        <Input
-                                            id="monto_total"
-                                            readOnly
-                                            className="w-48 bg-base-200"
-                                            value={`$${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`}
-                                        />
-                                    </FormField>
-                                ) : (
-                                    <FormField
-                                        label="Monto total"
-                                        htmlFor="monto_total"
-                                        error={errors.monto_total}
-                                        required
-                                    >
-                                        <Input
-                                            id="monto_total"
-                                            type="number"
-                                            step="0.01"
-                                            min="0.01"
-                                            placeholder="0.00"
-                                            className="w-48"
-                                            error={!!errors.monto_total}
-                                            value={data.monto_total}
-                                            onChange={(e) => {
-                                                setData(
-                                                    'monto_total',
-                                                    e.target.value,
-                                                );
-                                                if (
-                                                    parseFloat(e.target.value) >
-                                                    0
-                                                ) {
-                                                    clearErrors('monto_total');
-                                                }
-                                            }}
-                                        />
-                                    </FormField>
-                                )}
+                                <FormField
+                                    label="Monto total"
+                                    htmlFor="monto_total"
+                                    error={errors.monto_total}
+                                    required
+                                >
+                                    <Input
+                                        id="monto_total"
+                                        type="number"
+                                        step="0.01"
+                                        min="0.01"
+                                        placeholder="0.00"
+                                        className="w-48"
+                                        error={!!errors.monto_total}
+                                        value={data.monto_total}
+                                        onChange={(e) => {
+                                            setMontoManual(true);
+                                            setData(
+                                                'monto_total',
+                                                e.target.value,
+                                            );
+                                            if (
+                                                parseFloat(e.target.value) > 0
+                                            ) {
+                                                clearErrors('monto_total');
+                                            }
+                                        }}
+                                    />
+                                    {selectedTipo.rubros && (
+                                        <p className="mt-1 text-xs text-base-content/50">
+                                            Suma de detalles: $
+                                            {total.toLocaleString('es-MX', {
+                                                minimumFractionDigits: 2,
+                                            })}
+                                            {montoManual && (
+                                                <button
+                                                    type="button"
+                                                    className="ml-2 link link-primary"
+                                                    onClick={() => {
+                                                        setMontoManual(false);
+                                                        setData(
+                                                            'monto_total',
+                                                            total > 0
+                                                                ? total.toFixed(
+                                                                      2,
+                                                                  )
+                                                                : '',
+                                                        );
+                                                    }}
+                                                >
+                                                    Usar suma
+                                                </button>
+                                            )}
+                                        </p>
+                                    )}
+                                </FormField>
                             </div>
                         )}
 
