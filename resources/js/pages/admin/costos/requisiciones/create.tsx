@@ -25,6 +25,7 @@ type Detalle = {
     descripcion: string;
     unidad: string;
     cantidad: number;
+    obra_id: number | '';
     obra_rubro_id: number | '';
     uso_cfdi_id: number | '';
     notas: string;
@@ -75,6 +76,7 @@ export default function RequisicionesCreate({
         descripcion: '',
         unidad: 'pza',
         cantidad: 1,
+        obra_id: '',
         obra_rubro_id: '',
         uso_cfdi_id: defaultUsoId,
         notas: '',
@@ -124,18 +126,14 @@ export default function RequisicionesCreate({
     // cualquier obra (el obra_rubro ya encierra la obra).
     const [multiobra, setMultiobra] = useState(false);
 
-    // Rubros (centros de costo) de la obra elegida (modo una sola obra).
-    const rubrosDeObra = data.obra_id
-        ? obraRubros.filter(
-              (r) =>
-                  r.obra_id === data.obra_id && (incluirCerradas || !r.cerrado),
-          )
-        : [];
-
-    // Opciones del selector de centro de costos según el modo.
-    const rubrosDisponibles = multiobra
-        ? obraRubros.filter((r) => incluirCerradas || !r.cerrado)
-        : rubrosDeObra;
+    // Centros de costo de una obra dada (respetando el filtro de cerradas).
+    const rubrosDe = (obraId: number | '') =>
+        obraId
+            ? obraRubros.filter(
+                  (r) =>
+                      r.obra_id === obraId && (incluirCerradas || !r.cerrado),
+              )
+            : [];
 
     const setObra = (value: number | '') => {
         // Cambiar la obra invalida los rubros elegidos (pertenecen a otra obra).
@@ -148,11 +146,15 @@ export default function RequisicionesCreate({
 
     const toggleMultiobra = (on: boolean) => {
         setMultiobra(on);
-        // Al cambiar de modo se invalidan los rubros (cambia el universo válido).
+        // Al cambiar de modo se invalidan obra/rubro por renglón.
         setData((prev) => ({
             ...prev,
             obra_id: on ? '' : prev.obra_id,
-            detalles: prev.detalles.map((d) => ({ ...d, obra_rubro_id: '' })),
+            detalles: prev.detalles.map((d) => ({
+                ...d,
+                obra_id: '',
+                obra_rubro_id: '',
+            })),
         }));
     };
 
@@ -171,7 +173,16 @@ export default function RequisicionesCreate({
         setData(
             'detalles',
             data.detalles.map((d, i) =>
-                i === idx ? { ...d, [field]: value } : d,
+                i === idx
+                    ? {
+                          ...d,
+                          [field]: value,
+                          // Cambiar la obra del renglón invalida su centro de costos.
+                          ...(field === 'obra_id'
+                              ? { obra_rubro_id: '' as const }
+                              : {}),
+                      }
+                    : d,
             ),
         );
     };
@@ -354,6 +365,9 @@ export default function RequisicionesCreate({
                                 <th>Descripción *</th>
                                 <th className="w-24">Unidad</th>
                                 <th className="w-28 text-right">Cantidad *</th>
+                                {multiobra && (
+                                    <th className="min-w-[180px]">Obra *</th>
+                                )}
                                 <th className="min-w-[200px]">
                                     Centro de Costo *
                                 </th>
@@ -471,13 +485,44 @@ export default function RequisicionesCreate({
                                             </p>
                                         )}
                                     </td>
+                                    {multiobra && (
+                                        <td>
+                                            <SearchSelect
+                                                value={
+                                                    d.obra_id === ''
+                                                        ? ''
+                                                        : String(d.obra_id)
+                                                }
+                                                onValueChange={(v) =>
+                                                    updateDetalle(
+                                                        i,
+                                                        'obra_id',
+                                                        v ? Number(v) : '',
+                                                    )
+                                                }
+                                                placeholder="Buscar obra..."
+                                                options={obrasVisibles.map(
+                                                    (o) => ({
+                                                        value: String(o.id),
+                                                        label: `${o.no ? `OP-${o.no} · ` : ''}${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
+                                                    }),
+                                                )}
+                                            />
+                                        </td>
+                                    )}
                                     <td>
                                         <RubroSelector
                                             value={d.obra_rubro_id}
-                                            options={rubrosDisponibles}
-                                            rubroOnly={!multiobra}
+                                            options={rubrosDe(
+                                                multiobra
+                                                    ? d.obra_id
+                                                    : data.obra_id,
+                                            )}
+                                            rubroOnly
                                             disabled={
-                                                !multiobra && !data.obra_id
+                                                !(multiobra
+                                                    ? d.obra_id
+                                                    : data.obra_id)
                                             }
                                             onChange={(value) =>
                                                 updateDetalle(

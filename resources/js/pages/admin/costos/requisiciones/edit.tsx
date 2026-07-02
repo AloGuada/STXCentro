@@ -3,6 +3,7 @@ import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
+import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type {
@@ -18,6 +19,7 @@ type Detalle = {
     descripcion: string;
     unidad: string;
     cantidad: number;
+    obra_id: number | '';
     obra_rubro_id: number | '';
     uso_cfdi_id: number | '';
     notas: string;
@@ -71,6 +73,8 @@ export default function RequisicionesEdit({
             descripcion: d.descripcion,
             unidad: d.unidad,
             cantidad: Number(d.cantidad),
+            obra_id:
+                obraRubros.find((r) => r.id === d.obra_rubro_id)?.obra_id ?? '',
             obra_rubro_id: d.obra_rubro_id ?? '',
             uso_cfdi_id: d.uso_cfdi_id ?? '',
             notas: d.notas ?? '',
@@ -84,15 +88,13 @@ export default function RequisicionesEdit({
     const obrasVisibles = obras.filter(
         (o) => incluirCerradas || o.estatus !== 'cerrada',
     );
-    const rubrosDeObra = data.obra_id
-        ? obraRubros.filter(
-              (r) =>
-                  r.obra_id === data.obra_id && (incluirCerradas || !r.cerrado),
-          )
-        : [];
-    const rubrosDisponibles = multiobra
-        ? obraRubros.filter((r) => incluirCerradas || !r.cerrado)
-        : rubrosDeObra;
+    const rubrosDe = (obraId: number | '') =>
+        obraId
+            ? obraRubros.filter(
+                  (r) =>
+                      r.obra_id === obraId && (incluirCerradas || !r.cerrado),
+              )
+            : [];
 
     const setObra = (value: number | '') => {
         setData((prev) => ({
@@ -107,7 +109,11 @@ export default function RequisicionesEdit({
         setData((prev) => ({
             ...prev,
             obra_id: on ? '' : prev.obra_id,
-            detalles: prev.detalles.map((d) => ({ ...d, obra_rubro_id: '' })),
+            detalles: prev.detalles.map((d) => ({
+                ...d,
+                obra_id: '',
+                obra_rubro_id: '',
+            })),
         }));
     };
 
@@ -118,6 +124,7 @@ export default function RequisicionesEdit({
                 descripcion: '',
                 unidad: 'pza',
                 cantidad: 1,
+                obra_id: '',
                 obra_rubro_id: '',
                 uso_cfdi_id: defaultUsoId,
                 notas: '',
@@ -138,7 +145,15 @@ export default function RequisicionesEdit({
         setData(
             'detalles',
             data.detalles.map((d, i) =>
-                i === idx ? { ...d, [field]: value } : d,
+                i === idx
+                    ? {
+                          ...d,
+                          [field]: value,
+                          ...(field === 'obra_id'
+                              ? { obra_rubro_id: '' as const }
+                              : {}),
+                      }
+                    : d,
             ),
         );
     };
@@ -296,6 +311,9 @@ export default function RequisicionesEdit({
                                 <th>Descripción *</th>
                                 <th className="w-24">Unidad</th>
                                 <th className="w-28 text-right">Cantidad *</th>
+                                {multiobra && (
+                                    <th className="min-w-[180px]">Obra *</th>
+                                )}
                                 <th className="min-w-[200px]">
                                     Centro de Costo *
                                 </th>
@@ -350,13 +368,44 @@ export default function RequisicionesEdit({
                                             }
                                         />
                                     </td>
+                                    {multiobra && (
+                                        <td>
+                                            <SearchSelect
+                                                value={
+                                                    d.obra_id === ''
+                                                        ? ''
+                                                        : String(d.obra_id)
+                                                }
+                                                onValueChange={(v) =>
+                                                    updateDetalle(
+                                                        i,
+                                                        'obra_id',
+                                                        v ? Number(v) : '',
+                                                    )
+                                                }
+                                                placeholder="Buscar obra..."
+                                                options={obrasVisibles.map(
+                                                    (o) => ({
+                                                        value: String(o.id),
+                                                        label: `${o.no ? `OP-${o.no} · ` : ''}${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
+                                                    }),
+                                                )}
+                                            />
+                                        </td>
+                                    )}
                                     <td>
                                         <RubroSelector
                                             value={d.obra_rubro_id}
-                                            options={rubrosDisponibles}
-                                            rubroOnly={!multiobra}
+                                            options={rubrosDe(
+                                                multiobra
+                                                    ? d.obra_id
+                                                    : data.obra_id,
+                                            )}
+                                            rubroOnly
                                             disabled={
-                                                !multiobra && !data.obra_id
+                                                !(multiobra
+                                                    ? d.obra_id
+                                                    : data.obra_id)
                                             }
                                             onChange={(value) =>
                                                 updateDetalle(
