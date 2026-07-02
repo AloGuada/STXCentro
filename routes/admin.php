@@ -307,6 +307,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('cuentas-internas/{usuario}/{rol}', [CostosCuentaInternaController::class, 'destroy'])->name('cuentas-internas.destroy');
 
         Route::post('obra-rubros', [CostosObraRubroController::class, 'store'])->name('obra-rubros.store');
+        Route::post('obra-rubros/todos', [CostosObraRubroController::class, 'storeAll'])->name('obra-rubros.store-all');
         Route::put('obra-rubros/{obraRubro}', [CostosObraRubroController::class, 'update'])->name('obra-rubros.update');
         Route::delete('obra-rubros/{obraRubro}', [CostosObraRubroController::class, 'destroy'])->name('obra-rubros.destroy');
     });

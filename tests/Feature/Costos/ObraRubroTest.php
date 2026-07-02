@@ -117,6 +117,51 @@ describe('admin costos obra rubros', function () {
         ]);
     });
 
+    test('store all asigna los rubros faltantes del ambito de la obra con presupuesto cero', function () {
+        $obra = Obra::factory()->create();
+        Rubro::factory()->count(3)->create(['ambito' => 'obra']);
+        $rubroPlanta = Rubro::factory()->planta()->create();
+
+        // Deja la obra sin ningun rubro asignado para partir de cero.
+        $obra->obraRubros()->delete();
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.obra-rubros.store-all'), [
+                'obra_id' => $obra->id,
+            ]);
+
+        $response->assertRedirect();
+
+        $obraRubros = $obra->obraRubros()->get();
+        expect($obraRubros)->toHaveCount(3);
+        expect($obraRubros->pluck('presupuestado')->unique()->all())->toBe(['0.00']);
+        $this->assertDatabaseMissing('costos_obra_rubros', [
+            'obra_id' => $obra->id,
+            'rubro_id' => $rubroPlanta->id,
+        ]);
+    });
+
+    test('store all no duplica los rubros ya asignados', function () {
+        $obra = Obra::factory()->create();
+        $existente = Rubro::factory()->create(['ambito' => 'obra']);
+        Rubro::factory()->count(2)->create(['ambito' => 'obra']);
+
+        // Parte de cero y deja un unico rubro ya asignado.
+        $obra->obraRubros()->delete();
+        $obra->obraRubros()->create(['rubro_id' => $existente->id, 'presupuestado' => 5000]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.obra-rubros.store-all'), ['obra_id' => $obra->id])
+            ->assertRedirect();
+
+        expect($obra->obraRubros()->count())->toBe(3);
+        $this->assertDatabaseHas('costos_obra_rubros', [
+            'obra_id' => $obra->id,
+            'rubro_id' => $existente->id,
+            'presupuestado' => 5000.00,
+        ]);
+    });
+
     test('validation requires obra_id, rubro_id and presupuestado', function () {
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.obra-rubros.store'), []);

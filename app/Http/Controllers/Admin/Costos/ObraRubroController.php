@@ -33,6 +33,34 @@ class ObraRubroController extends Controller
         return back();
     }
 
+    public function storeAll(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'obra_id' => ['required', 'exists:obras,id'],
+        ]);
+
+        $obra = Obra::findOrFail($validated['obra_id']);
+
+        $asignados = ObraRubro::query()
+            ->where('obra_id', $obra->id)
+            ->pluck('rubro_id');
+
+        $rubros = Rubro::query()
+            ->where('ambito', $obra->es_planta ? 'planta' : 'obra')
+            ->whereNotIn('id', $asignados)
+            ->get();
+
+        foreach ($rubros as $rubro) {
+            ObraRubro::create([
+                'obra_id' => $obra->id,
+                'rubro_id' => $rubro->id,
+                'presupuestado' => 0,
+            ]);
+        }
+
+        return back();
+    }
+
     public function update(Request $request, ObraRubro $obraRubro): RedirectResponse
     {
         $validated = $request->validate([

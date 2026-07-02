@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeftIcon, CheckIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, ListPlusIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
     const [newRubroId, setNewRubroId] = useState('');
     const [newPresupuestado, setNewPresupuestado] = useState('');
     const [addingRubro, setAddingRubro] = useState(false);
+    const [addingAll, setAddingAll] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editingField, setEditingField] = useState<'presupuestado' | 'acumulado'>('presupuestado');
     const [editValue, setEditValue] = useState('');
@@ -60,6 +61,17 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
                 setNewPresupuestado('');
             },
             onFinish: () => setAddingRubro(false),
+        });
+    };
+
+    const handleAddAll = () => {
+        setAddingAll(true);
+        router.post('/admin/costos/obra-rubros/todos', {
+            obra_id: obra.id,
+        }, {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => setAddingAll(false),
         });
     };
 
@@ -224,32 +236,38 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
 
                 {/* Agregar centro de costos */}
                 {availableRubros.length > 0 ? (
-                    <form onSubmit={handleAddObraRubro} className="flex items-end gap-4">
-                        <FormField label="Centro de Costos" htmlFor="new_rubro_id" className="flex-1">
-                            <Select id="new_rubro_id" value={newRubroId} onValueChange={setNewRubroId}>
-                                <option value="">Seleccionar centro de costos</option>
-                                {availableRubros.map((r) => (
-                                    <option key={r.id} value={r.id}>
-                                        {r.codigo} - {r.descripcion} ({r.tipo_rubro?.descripcion})
-                                    </option>
-                                ))}
-                            </Select>
-                        </FormField>
-                        <FormField label="Presupuestado" htmlFor="new_presupuestado" className="w-48">
-                            <Input
-                                id="new_presupuestado"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={newPresupuestado}
-                                onChange={(e) => setNewPresupuestado(e.target.value)}
-                            />
-                        </FormField>
-                        <Button type="submit" disabled={addingRubro || !newRubroId || !newPresupuestado}>
-                            {addingRubro ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
-                            Agregar
+                    <div className="space-y-3">
+                        <form onSubmit={handleAddObraRubro} className="flex items-end gap-4">
+                            <FormField label="Centro de Costos" htmlFor="new_rubro_id" className="flex-1">
+                                <Select id="new_rubro_id" value={newRubroId} onValueChange={setNewRubroId}>
+                                    <option value="">Seleccionar centro de costos</option>
+                                    {availableRubros.map((r) => (
+                                        <option key={r.id} value={r.id}>
+                                            {r.codigo} - {r.descripcion} ({r.tipo_rubro?.descripcion})
+                                        </option>
+                                    ))}
+                                </Select>
+                            </FormField>
+                            <FormField label="Presupuestado" htmlFor="new_presupuestado" className="w-48">
+                                <Input
+                                    id="new_presupuestado"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={newPresupuestado}
+                                    onChange={(e) => setNewPresupuestado(e.target.value)}
+                                />
+                            </FormField>
+                            <Button type="submit" disabled={addingRubro || !newRubroId || !newPresupuestado}>
+                                {addingRubro ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
+                                Agregar
+                            </Button>
+                        </form>
+                        <Button type="button" variant="outline" disabled={addingAll} onClick={handleAddAll}>
+                            {addingAll ? <Loader2Icon className="size-4 animate-spin" /> : <ListPlusIcon className="size-4" />}
+                            Agregar todos los centros de costos ({availableRubros.length})
                         </Button>
-                    </form>
+                    </div>
                 ) : (
                     <p className="text-sm text-base-content/60">Todos los centros de costos ya estan asignados a esta obra.</p>
                 )}
