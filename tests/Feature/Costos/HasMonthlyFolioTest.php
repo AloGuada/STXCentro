@@ -13,12 +13,12 @@ test('genera folio con prefijo mensual y secuencia que reinicia cada mes', funct
     $primera = OrdenCompra::factory()->create();
     $segunda = OrdenCompra::factory()->create();
 
-    expect($primera->folio)->toBe('OC-20260401');
-    expect($segunda->folio)->toBe('OC-20260402');
+    expect($primera->folio)->toBe('OC-260401');
+    expect($segunda->folio)->toBe('OC-260402');
 
     Carbon::setTestNow('2026-05-03');
     $otraMes = OrdenCompra::factory()->create();
-    expect($otraMes->folio)->toBe('OC-20260501');
+    expect($otraMes->folio)->toBe('OC-260501');
 
     Carbon::setTestNow();
 });
@@ -38,11 +38,11 @@ test('cada modelo con el trait usa su propio prefijo', function () {
     $solicitud = SolicitudPago::factory()->create();
     $afectacion = AfectacionPresupuestal::factory()->create();
 
-    expect($oc->folio)->toStartWith('OC-202604');
-    expect($factura->folio)->toStartWith('FA-202604');
-    expect($pago->folio)->toStartWith('PG-202604');
-    expect($solicitud->folio)->toStartWith('SP-202604');
-    expect($afectacion->folio)->toStartWith('AF-202604');
+    expect($oc->folio)->toStartWith('OC-2604');
+    expect($factura->folio)->toStartWith('FA-2604');
+    expect($pago->folio)->toStartWith('PG-2604');
+    expect($solicitud->folio)->toStartWith('SP-2604');
+    expect($afectacion->folio)->toStartWith('AF-2604');
 
     Carbon::setTestNow();
 });

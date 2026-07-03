@@ -60,7 +60,7 @@ describe('admin rh requisiciones', function () {
             ]);
 
         $req = Requisicion::first();
-        expect($req->folio)->toStartWith('REQ-'.date('Y').'-');
+        expect($req->folio)->toStartWith('REQ-'.date('y').'-');
     });
 
     test('show page can be rendered', function () {

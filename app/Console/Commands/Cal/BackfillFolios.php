@@ -69,16 +69,16 @@ class BackfillFolios extends Command
         }
 
         $this->line("  {$sinFolio->count()} reportes sin folio para procesar.");
-        $contadores = []; // ['IVYYYYMM' => max_actual]
+        $contadores = []; // ['IVYYMM' => max_actual]
         $aplicados = 0;
 
         foreach ($sinFolio as $r) {
             $fecha = $r->created_at ?? Carbon::now();
-            $prefix = sprintf('IV%s%s', $fecha->format('Y'), $fecha->format('m'));
+            $prefix = sprintf('IV%s%s', $fecha->format('y'), $fecha->format('m'));
 
             if (! isset($contadores[$prefix])) {
-                // Comparacion numerica del sufijo (no lexicografica) — IV20260399
-                // ordenado por string es mayor que IV202603100, lo cual nos haria
+                // Comparacion numerica del sufijo (no lexicografica) — IV260399
+                // ordenado por string es mayor que IV2603100, lo cual nos haria
                 // chocar con folios de 3+ digitos pre-existentes.
                 $folios = Reporte::where('folio', 'like', $prefix.'%')
                     ->where('es_plantilla', false)

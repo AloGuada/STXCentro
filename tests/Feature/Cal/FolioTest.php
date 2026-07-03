@@ -16,7 +16,7 @@ test('reporte no-plantilla autogenera folio si viene null', function () {
     ]);
 
     expect($reporte->folio)->not->toBeNull();
-    expect($reporte->folio)->toMatch('/^IV\d{6}\d{2,}$/');
+    expect($reporte->folio)->toMatch('/^IV\d{4}\d{2,}$/');
 });
 
 test('plantilla NO recibe folio (queda null)', function () {
@@ -42,9 +42,9 @@ test('folio incrementa correctamente para multiples reportes del mismo mes', fun
     $r2 = Reporte::factory()->create(['plano_id' => $this->plano->id, 'es_plantilla' => false, 'created_at' => '2026-04-15 11:00:00']);
     $r3 = Reporte::factory()->create(['plano_id' => $this->plano->id, 'es_plantilla' => false, 'created_at' => '2026-04-15 12:00:00']);
 
-    expect($r1->folio)->toBe('IV20260401');
-    expect($r2->folio)->toBe('IV20260402');
-    expect($r3->folio)->toBe('IV20260403');
+    expect($r1->folio)->toBe('IV260401');
+    expect($r2->folio)->toBe('IV260402');
+    expect($r3->folio)->toBe('IV260403');
 });
 
 test('folio se segmenta por mes', function () {
@@ -52,42 +52,42 @@ test('folio se segmenta por mes', function () {
     $abril2 = Reporte::factory()->create(['plano_id' => $this->plano->id, 'es_plantilla' => false, 'created_at' => '2026-04-20 10:00:00']);
     $mayo = Reporte::factory()->create(['plano_id' => $this->plano->id, 'es_plantilla' => false, 'created_at' => '2026-05-01 10:00:00']);
 
-    expect($abril2->folio)->toBe('IV20260402');
-    expect($mayo->folio)->toBe('IV20260501');
+    expect($abril2->folio)->toBe('IV260402');
+    expect($mayo->folio)->toBe('IV260501');
 });
 
 test('siguienteFolio retoma desde el max existente del mes', function () {
     Reporte::factory()->create([
         'plano_id' => $this->plano->id,
         'es_plantilla' => false,
-        'folio' => 'IV20260315',
+        'folio' => 'IV260315',
         'created_at' => '2026-03-12 10:00:00',
     ]);
 
     $siguiente = Reporte::siguienteFolio(now()->parse('2026-03-15'));
 
-    expect($siguiente)->toBe('IV20260316');
+    expect($siguiente)->toBe('IV260316');
 });
 
 test('siguienteFolio compara sufijo numericamente, no lexicograficamente', function () {
-    // Caso real: el bug del orden lexicografico haria que 'IV20260399' >
-    // 'IV202603105' por comparacion de chars, asignando un folio que ya existe.
+    // Caso real: el bug del orden lexicografico haria que 'IV260399' >
+    // 'IV2603105' por comparacion de chars, asignando un folio que ya existe.
     Reporte::factory()->create([
         'plano_id' => $this->plano->id,
         'es_plantilla' => false,
-        'folio' => 'IV20260399',
+        'folio' => 'IV260399',
         'created_at' => '2026-03-15 10:00:00',
     ]);
     Reporte::factory()->create([
         'plano_id' => $this->plano->id,
         'es_plantilla' => false,
-        'folio' => 'IV202603105',
+        'folio' => 'IV2603105',
         'created_at' => '2026-03-15 12:00:00',
     ]);
 
     $siguiente = Reporte::siguienteFolio(now()->parse('2026-03-20'));
 
-    expect($siguiente)->toBe('IV202603106');
+    expect($siguiente)->toBe('IV2603106');
 });
 
 test('copiar reporte regenera folio en lugar de duplicarlo', function () {
@@ -106,7 +106,7 @@ test('copiar reporte regenera folio en lugar de duplicarlo', function () {
     $copia = Reporte::find($response->json('id'));
 
     expect($copia->folio)->not->toBe($original->folio);
-    expect($copia->folio)->toMatch('/^IV\d{6}\d{2,}$/');
+    expect($copia->folio)->toMatch('/^IV\d{4}\d{2,}$/');
 });
 
 test('constraint unique impide folios duplicados', function () {

@@ -33,17 +33,17 @@ class Reporte extends Model
 
     /**
      * Siguiente folio disponible para el mes de la fecha dada. Formato
-     * IV{YYYY}{MM}{NN+} donde NN es el incremental del mes (puede pasar de 99
+     * IV{YY}{MM}{NN+} donde NN es el incremental del mes (puede pasar de 99
      * cuando hay alta actividad, queda como 100, 101, ...).
      *
      * Importante: NO usa orderByDesc('folio') porque el orden lexicografico
-     * miente cuando hay folios de longitud distinta — 'IV20260399' >
-     * 'IV202603100' lexicograficamente. Cargamos todos los folios del mes
+     * miente cuando hay folios de longitud distinta — 'IV260399' >
+     * 'IV2603100' lexicograficamente. Cargamos todos los folios del mes
      * y comparamos numericamente el sufijo en PHP.
      */
     public static function siguienteFolio(CarbonInterface $fecha): string
     {
-        $prefix = sprintf('IV%s%s', $fecha->format('Y'), $fecha->format('m'));
+        $prefix = sprintf('IV%s%s', $fecha->format('y'), $fecha->format('m'));
         $prefixLen = strlen($prefix);
 
         $folios = static::where('folio', 'like', $prefix.'%')

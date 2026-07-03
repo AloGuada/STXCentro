@@ -51,7 +51,7 @@ describe('admin rh permisos ausencia', function () {
             ]);
 
         $permiso = PermisoAusencia::first();
-        expect($permiso->folio)->toStartWith('PA-'.date('Y').'-');
+        expect($permiso->folio)->toStartWith('PA-'.date('y').'-');
     });
 
     test('permiso ausencia can be updated', function () {

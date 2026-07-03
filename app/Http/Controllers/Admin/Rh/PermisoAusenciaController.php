@@ -51,7 +51,7 @@ class PermisoAusenciaController extends Controller
 
         DB::transaction(function () use ($request) {
             $count = PermisoAusencia::whereYear('created_at', date('Y'))->lockForUpdate()->count();
-            $folio = 'PA-'.date('Y').'-'.str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
+            $folio = 'PA-'.date('y').'-'.str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
 
             PermisoAusencia::create(array_merge($request->validated(), [
                 'folio' => $folio,

@@ -53,7 +53,7 @@ class RequisicionController extends Controller
 
         DB::transaction(function () use ($request) {
             $count = Requisicion::whereYear('created_at', date('Y'))->lockForUpdate()->count();
-            $folio = 'REQ-'.date('Y').'-'.str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
+            $folio = 'REQ-'.date('y').'-'.str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
 
             Requisicion::create(array_merge($request->validated(), [
                 'folio' => $folio,

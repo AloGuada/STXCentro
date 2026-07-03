@@ -5,7 +5,7 @@ namespace App\Models\Concerns;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Generates a monthly folio on creation: {PREFIX}-YYYYMM## (e.g. OC-20260401).
+ * Generates a monthly folio on creation: {PREFIX}-YYMM## (e.g. OC-260401).
  * Sequence resets each month. Model must declare `protected static string $folioPrefix`.
  */
 trait HasMonthlyFolio
@@ -21,7 +21,7 @@ trait HasMonthlyFolio
 
     public function generateMonthlyFolio(): string
     {
-        $prefix = sprintf('%s-%s', static::$folioPrefix, now()->format('Ym'));
+        $prefix = sprintf('%s-%s', static::$folioPrefix, now()->format('ym'));
 
         $last = DB::table($this->getTable())
             ->where('folio', 'like', "{$prefix}%")
