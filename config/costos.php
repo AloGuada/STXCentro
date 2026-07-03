@@ -98,4 +98,16 @@ return [
     */
     'epsilon_monto' => (float) env('COSTOS_EPSILON_MONTO', 0.01),
     'epsilon_cantidad' => (float) env('COSTOS_EPSILON_CANTIDAD', 0.001),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Mínimo de empresas cotizantes por partida
+    |--------------------------------------------------------------------------
+    |
+    | Número mínimo de empresas (proveedores) que deben haber cotizado cada
+    | partida de una requisición antes de poder enviarla a aprobación. Regla
+    | de compras: toda cotización debe tener al menos 3 empresas comparadas.
+    |
+    */
+    'min_empresas_cotizacion' => (int) env('COSTOS_MIN_EMPRESAS_COTIZACION', 3),
 ];

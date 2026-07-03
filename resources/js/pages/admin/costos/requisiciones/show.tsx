@@ -119,7 +119,21 @@ function FirmarRequisicionModal({ aprobacionId, tipo, onClose }: { aprobacionId:
     );
 }
 
-function EnviarAprobacionModal({ requisicionId, tieneOc, onClose }: { requisicionId: number; tieneOc: boolean; onClose: () => void }) {
+function EnviarAprobacionModal({
+    requisicionId,
+    tieneOc,
+    cotizacionCompleta,
+    partidasSinCotizar,
+    minEmpresas,
+    onClose,
+}: {
+    requisicionId: number;
+    tieneOc: boolean;
+    cotizacionCompleta: boolean;
+    partidasSinCotizar: string[];
+    minEmpresas: number;
+    onClose: () => void;
+}) {
     const { post, processing } = useForm({});
 
     const handleEnviar = () => {
@@ -132,23 +146,7 @@ function EnviarAprobacionModal({ requisicionId, tieneOc, onClose }: { requisicio
     return (
         <dialog className="modal modal-open">
             <div className="modal-box">
-                {tieneOc ? (
-                    <>
-                        <h2 className="text-xl font-bold">Enviar a aprobación</h2>
-                        <p className="mt-3 text-sm text-base-content/70">
-                            ¿Todo está correcto? Al aceptar, la requisición se enviará a aprobación,
-                            se crearán las firmas pendientes y se bloquearán las ediciones.
-                        </p>
-                        <div className="modal-action">
-                            <button type="button" className="btn" onClick={onClose} disabled={processing}>
-                                Cancelar
-                            </button>
-                            <button type="button" className="btn btn-primary" onClick={handleEnviar} disabled={processing}>
-                                {processing ? 'Enviando...' : 'Aceptar'}
-                            </button>
-                        </div>
-                    </>
-                ) : (
+                {!tieneOc ? (
                     <>
                         <h2 className="flex items-center gap-2 text-xl font-bold text-error">
                             <AlertTriangleIcon className="size-5" /> Falta definir la orden de compra
@@ -161,6 +159,43 @@ function EnviarAprobacionModal({ requisicionId, tieneOc, onClose }: { requisicio
                         <div className="modal-action">
                             <button type="button" className="btn" onClick={onClose}>
                                 Entendido
+                            </button>
+                        </div>
+                    </>
+                ) : !cotizacionCompleta ? (
+                    <>
+                        <h2 className="flex items-center gap-2 text-xl font-bold text-error">
+                            <AlertTriangleIcon className="size-5" /> Cotización incompleta
+                        </h2>
+                        <p className="mt-3 text-sm text-base-content/70">
+                            Toda cotización debe comparar al menos <strong>{minEmpresas} empresas</strong>.
+                            Ve a la pestaña <strong>Cotización</strong> y agrega proveedores a las
+                            siguientes partidas:
+                        </p>
+                        <ul className="mt-2 list-inside list-disc text-sm text-error">
+                            {partidasSinCotizar.map((descripcion, idx) => (
+                                <li key={idx}>{descripcion}</li>
+                            ))}
+                        </ul>
+                        <div className="modal-action">
+                            <button type="button" className="btn" onClick={onClose}>
+                                Entendido
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <h2 className="text-xl font-bold">Enviar a aprobación</h2>
+                        <p className="mt-3 text-sm text-base-content/70">
+                            ¿Todo está correcto? Al aceptar, la requisición se enviará a aprobación,
+                            se crearán las firmas pendientes y se bloquearán las ediciones.
+                        </p>
+                        <div className="modal-action">
+                            <button type="button" className="btn" onClick={onClose} disabled={processing}>
+                                Cancelar
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={handleEnviar} disabled={processing}>
+                                {processing ? 'Enviando...' : 'Aceptar'}
                             </button>
                         </div>
                     </>
@@ -415,6 +450,12 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
     const editable = ['borrador', 'rechazada'].includes(requisicion.estatus);
     const cotizable = ['borrador', 'cotizada', 'rechazada', 'aprobada'].includes(requisicion.estatus);
     const tieneOcDefinida = (requisicion.ocs?.length ?? 0) > 0;
+
+    const MIN_EMPRESAS_COTIZACION = 3;
+    const partidasSinCotizar = (requisicion.detalles ?? [])
+        .filter((d) => new Set((d.cotizaciones ?? []).map((c) => c.proveedor_id)).size < MIN_EMPRESAS_COTIZACION)
+        .map((d) => d.descripcion);
+    const cotizacionCompleta = partidasSinCotizar.length === 0;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -705,6 +746,9 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                     <EnviarAprobacionModal
                         requisicionId={requisicion.id}
                         tieneOc={tieneOcDefinida}
+                        cotizacionCompleta={cotizacionCompleta}
+                        partidasSinCotizar={partidasSinCotizar}
+                        minEmpresas={MIN_EMPRESAS_COTIZACION}
                         onClose={() => setEnviarAprobacion(false)}
                     />
                 )}

@@ -346,6 +346,10 @@ test('enviar a aprobacion genera cadena por niveles del departamento', function 
     $precio = RequisicionCotizacionPrecio::factory()->create([
         'requisicion_detalle_id' => $detalle->id,
     ]);
+    // Regla de compras: mínimo 3 empresas cotizantes por partida.
+    RequisicionCotizacionPrecio::factory()->count(2)->create([
+        'requisicion_detalle_id' => $detalle->id,
+    ]);
     RequisicionSeleccion::factory()->create([
         'requisicion_detalle_id' => $detalle->id,
         'cotizacion_precio_id' => $precio->id,
@@ -406,14 +410,43 @@ test('enviar a aprobacion genera cadena por niveles del departamento', function 
 
 test('no puede enviar a aprobacion sin selecciones completas', function () {
     $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
-    RequisicionDetalle::factory()->create([
+    $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 5,
+    ]);
+    // 3 empresas cotizantes (pasa la regla) pero sin ninguna selección.
+    RequisicionCotizacionPrecio::factory()->count(3)->create([
+        'requisicion_detalle_id' => $detalle->id,
     ]);
 
     $this->actingAs($this->compras)
         ->post("/admin/costos/requisiciones/{$req->id}/enviar-aprobacion")
         ->assertSessionHasErrors(['selecciones']);
+});
+
+test('no puede enviar a aprobacion si una partida tiene menos de 3 empresas cotizadas', function () {
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $detalle = RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'cantidad' => 5,
+    ]);
+    // Solo 2 empresas cotizantes: no alcanza el mínimo de 3.
+    $precios = RequisicionCotizacionPrecio::factory()->count(2)->create([
+        'requisicion_detalle_id' => $detalle->id,
+    ]);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+        'cotizacion_precio_id' => $precios->first()->id,
+        'proveedor_id' => $precios->first()->proveedor_id,
+        'cantidad' => 5,
+    ]);
+    $req->ocs()->create(['proveedor_id' => $precios->first()->proveedor_id, 'numero_oc' => 1]);
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/enviar-aprobacion")
+        ->assertSessionHasErrors(['cotizaciones']);
+
+    expect($req->fresh()->estatus->value)->toBe('cotizada');
 });
 
 test('no puede enviar a aprobacion sin una OC definida', function () {
@@ -423,6 +456,9 @@ test('no puede enviar a aprobacion sin una OC definida', function () {
         'cantidad' => 5,
     ]);
     $precio = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+    ]);
+    RequisicionCotizacionPrecio::factory()->count(2)->create([
         'requisicion_detalle_id' => $detalle->id,
     ]);
     RequisicionSeleccion::factory()->create([

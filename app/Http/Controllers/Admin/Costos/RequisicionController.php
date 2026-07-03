@@ -606,7 +606,9 @@ class RequisicionController extends Controller
             return back()->withErrors(['estatus' => 'La requisición debe estar cotizada para enviarse a aprobación.']);
         }
 
-        $requisicion->load('detalles.selecciones.cotizacionPrecio');
+        $requisicion->load(['detalles.selecciones.cotizacionPrecio', 'detalles.cotizaciones']);
+
+        $minEmpresas = (int) config('costos.min_empresas_cotizacion', 3);
 
         foreach ($requisicion->detalles as $detalle) {
             if (empty($detalle->uso_cfdi_id)) {
@@ -618,6 +620,14 @@ class RequisicionController extends Controller
             if (empty($detalle->obra_rubro_id)) {
                 return back()->withErrors([
                     'detalles' => "La partida \"{$detalle->descripcion}\" no tiene centro de costos asignado.",
+                ]);
+            }
+
+            $empresasCotizadas = $detalle->cotizaciones->pluck('proveedor_id')->unique()->count();
+
+            if ($empresasCotizadas < $minEmpresas) {
+                return back()->withErrors([
+                    'cotizaciones' => "La partida \"{$detalle->descripcion}\" debe tener cotización de al menos {$minEmpresas} empresas (tiene {$empresasCotizadas}).",
                 ]);
             }
 
