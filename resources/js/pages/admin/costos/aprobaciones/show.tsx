@@ -169,7 +169,7 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
                                     <p className="font-medium">{solicitud.departamento?.descripcion ?? '-'}</p>
                                 </div>
                                 <div>
-                                    <span className="text-sm text-base-content/60">Proveedor</span>
+                                    <span className="text-sm text-base-content/60">Beneficiario</span>
                                     <p className="font-medium">{solicitud.proveedor?.razon_social ?? 'Sin proveedor'}</p>
                                 </div>
                                 <div>
@@ -177,7 +177,7 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
                                     <p className="font-medium">{solicitud.tipo_solicitud?.titulo ?? '-'}</p>
                                 </div>
                                 <div>
-                                    <span className="text-sm text-base-content/60">Solicitante</span>
+                                    <span className="text-sm text-base-content/60">Elaboró</span>
                                     <p className="font-medium">{solicitud.solicitante?.name ?? '-'}</p>
                                 </div>
                             </div>
@@ -272,7 +272,7 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
                                         <tfoot>
                                             <tr>
                                                 <td colSpan={5} className="text-right font-bold">Total</td>
-                                                <td className="text-right font-bold">${Number(solicitud.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                                <td className="text-right font-bold">${solicitud.detalles.reduce((acc, d) => acc + Number(d.subtotal), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                                                 <td />
                                             </tr>
                                         </tfoot>
