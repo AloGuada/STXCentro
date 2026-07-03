@@ -40,7 +40,7 @@ describe('admin costos solicitud pago workflow', function () {
         expect($solicitud->aprobaciones)->toHaveCount(1);
     });
 
-    test('generar pdf con detalles muestra op de obra y centro de costos', function () {
+    test('generar pdf con detalles muestra obra y centro de costos', function () {
         $obraRubro = ObraRubro::factory()->create();
         $solicitud = SolicitudPago::factory()->create(['estatus' => 'borrador']);
         SolicitudPagoDetalle::factory()->create([

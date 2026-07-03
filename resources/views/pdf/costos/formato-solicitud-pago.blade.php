@@ -86,6 +86,11 @@
             background-color: #f0f0f0;
             width: 25%;
         }
+        .info-table .letras {
+            font-style: italic;
+            text-transform: uppercase;
+            font-size: 9px;
+        }
 
         /* Detalles table */
         .detalles-table {
@@ -235,19 +240,23 @@
         </tr>
         <tr>
             <td class="label">Beneficiario</td>
-            <td colspan="3">{{ $solicitud->proveedor?->razon_social ?? 'Sin proveedor' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Tipo Solicitud</td>
-            <td>{{ $solicitud->tipoSolicitud?->titulo ?? '-' }}</td>
-            <td class="label">Método de pago</td>
-            <td style="text-transform: capitalize;">{{ $solicitud->tipo_pago }}</td>
+            <td colspan="3"><strong>{{ $solicitud->proveedor?->razon_social ?? 'Sin proveedor' }}</strong></td>
         </tr>
         <tr>
             <td class="label">Fecha de pago</td>
             <td>{{ $solicitud->fecha_pago_solicitada?->format('d/m/Y') ?? '-' }}</td>
+            <td class="label">Método de pago</td>
+            <td style="text-transform: capitalize;">{{ $solicitud->tipo_pago }}</td>
+        </tr>
+        <tr>
+            <td class="label">Total a pagar</td>
+            <td><strong>${{ number_format($solicitud->monto_total, 2) }}</strong></td>
             <td class="label">Moneda</td>
             <td>{{ strtoupper($solicitud->tipo_moneda ?? 'mxn') }}</td>
+        </tr>
+        <tr>
+            <td class="label">Cantidad en letra</td>
+            <td colspan="3" class="letras">{{ \App\Support\NumeroALetras::convertir((float) $solicitud->monto_total, $solicitud->tipo_moneda ?? 'mxn') }}</td>
         </tr>
         <tr>
             <td class="label">Concepto</td>
@@ -275,10 +284,11 @@
 
     {{-- Detalles --}}
     @if($solicitud->detalles && $solicitud->detalles->count() > 0)
+    @php $cargadoCostos = (float) $solicitud->detalles->sum('subtotal'); @endphp
     <table class="detalles-table">
         <thead>
             <tr>
-                <th>OP Obra</th>
+                <th>Obra</th>
                 <th>Centro de Costos</th>
                 <th>Cantidad</th>
                 <th>P. Unitario</th>
@@ -287,8 +297,9 @@
         </thead>
         <tbody>
             @foreach($solicitud->detalles as $detalle)
+            @php $obra = $detalle->obraRubro?->obra; @endphp
             <tr>
-                <td>{{ $detalle->obraRubro?->obra?->no ? 'OP-'.$detalle->obraRubro->obra->no : '-' }}</td>
+                <td>{{ $obra ? trim(($obra->no ? $obra->no.' - ' : '').$obra->descripcion) : '-' }}</td>
                 <td>{{ $detalle->obraRubro?->rubro?->descripcion ?? '-' }}</td>
                 <td class="text-right">{{ number_format($detalle->cantidad, 2) }}</td>
                 <td class="text-right">${{ number_format($detalle->precio_unitario, 2) }}</td>
@@ -298,11 +309,8 @@
         </tbody>
         <tfoot>
             <tr class="total-row">
-                <td colspan="4" class="text-right">TOTAL</td>
-                <td class="text-right">${{ number_format($solicitud->monto_total, 2) }}</td>
-            </tr>
-            <tr class="letras-row">
-                <td colspan="5">{{ \App\Support\NumeroALetras::convertir((float) $solicitud->monto_total, $solicitud->tipo_moneda ?? 'mxn') }}</td>
+                <td colspan="4" class="text-right">CARGADO A COSTOS</td>
+                <td class="text-right">${{ number_format($cargadoCostos, 2) }}</td>
             </tr>
         </tfoot>
     </table>
