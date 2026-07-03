@@ -35,6 +35,7 @@ export default function CambiarPasswordModal({ onClose }: Props) {
             {
                 preserveScroll: true,
                 preserveState: true,
+                errorBag: 'updatePassword',
                 onSuccess: () => {
                     setExito(true);
                     setCurrent('');
