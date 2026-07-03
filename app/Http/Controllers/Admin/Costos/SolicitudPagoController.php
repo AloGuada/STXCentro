@@ -22,7 +22,9 @@ use App\Models\Proveedor;
 use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
 use App\Services\Costos\FirmasPdfBuilder;
+use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,13 +36,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class SolicitudPagoController extends Controller
 {
+    use OrdenaColumnas;
+
     public function __construct(private readonly ApartadoPresupuestal $apartado) {}
 
     public function index(Request $request): Response
     {
         Gate::authorize('costos.solicitudes-pago.ver');
 
-        $solicitudes = SolicitudPago::query()
+        $query = SolicitudPago::query()
             // Los usuarios comunes solo ven sus solicitudes; los operadores con
             // `ver-todas` ven las de todos.
             ->unless($request->user()->can('costos.solicitudes-pago.ver-todas'), fn ($q) => $q->where('solicitante_id', $request->user()->id))
@@ -51,14 +55,27 @@ class SolicitudPagoController extends Controller
                         ->orWhere('concepto', 'like', "%{$search}%");
                 });
             })
-            ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
+            ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e));
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'folio' => 'folio',
+            'concepto' => 'concepto',
+            'monto_total' => 'monto_total',
+            'estatus' => 'estatus',
+            'fecha_pago_solicitada' => 'fecha_pago_solicitada',
+            'solicitante' => fn (Builder $q, string $dir) => $q->orderBy(
+                \App\Models\Usuario::select('name')->whereColumn('usuarios.id', 'costos_solicitudes_pago.solicitante_id'), $dir),
+            'proveedor' => fn (Builder $q, string $dir) => $q->orderBy(
+                Proveedor::select('razon_social')->whereColumn('proveedores.id', 'costos_solicitudes_pago.proveedor_id'), $dir),
+        ], 'created_at', 'desc');
+
+        $solicitudes = $query->paginate(15)->withQueryString();
 
         return Inertia::render('admin/costos/solicitudes-pago/index', [
             'solicitudes' => $solicitudes,
             'filters' => $request->only('search', 'estatus'),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 

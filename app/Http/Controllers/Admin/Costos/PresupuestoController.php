@@ -8,6 +8,7 @@ use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Rubro;
 use App\Models\Costos\TipoRubro;
 use App\Models\Obra;
+use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,21 +19,31 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class PresupuestoController extends Controller
 {
+    use OrdenaColumnas;
+
     public function index(Request $request): Response
     {
         $umbral = (int) config('costos.umbral_alerta_porcentaje', 90);
 
-        $obras = Obra::query()
+        $query = Obra::query()
             ->sinPlanta()
             ->withSum('obraRubros', 'presupuestado')
             ->withSum('obraRubros', 'acumulado')
             ->withCount('obraRubros')
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
                 ->orWhere('descripcion', 'like', "%{$s}%")
-            ))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
+            ));
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'no' => 'no',
+            'descripcion' => 'descripcion',
+            'estatus' => 'estatus',
+            'obra_rubros_count' => 'obra_rubros_count',
+            'obra_rubros_sum_presupuestado' => 'obra_rubros_sum_presupuestado',
+            'obra_rubros_sum_acumulado' => 'obra_rubros_sum_acumulado',
+        ], 'created_at', 'desc');
+
+        $obras = $query->paginate(15)->withQueryString();
 
         $planta = Obra::query()
             ->where('es_planta', true)
@@ -67,6 +78,8 @@ class PresupuestoController extends Controller
                 'umbral_alerta' => $umbral,
                 'bloquear_sobregiro' => (bool) config('costos.bloquear_sobregiro', false),
             ],
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 

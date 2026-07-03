@@ -37,11 +37,12 @@ function avanceBarColor(pct: number, umbral: number): string {
 
 function makeColumns(umbral: number): Column<ObraWithSums>[] {
     return [
-        { key: 'no', label: 'No.' },
-        { key: 'descripcion', label: 'Descripcion' },
+        { key: 'no', label: 'No.', sortable: true },
+        { key: 'descripcion', label: 'Descripcion', sortable: true },
         {
             key: 'estatus',
             label: 'Estatus',
+            sortable: true,
             render: (o) => (
                 <span className={`badge badge-sm ${ESTATUS_COLORS[o.estatus]}`}>
                     {OBRA_ESTATUS_LABELS[o.estatus]}
@@ -51,16 +52,19 @@ function makeColumns(umbral: number): Column<ObraWithSums>[] {
         {
             key: 'obra_rubros_count',
             label: 'Centros de Costos',
+            sortable: true,
             render: (o) => o.obra_rubros_count,
         },
         {
             key: 'obra_rubros_sum_presupuestado',
             label: 'Presupuestado',
+            sortable: true,
             render: (o) => <span className="font-mono text-sm">{fmt(o.obra_rubros_sum_presupuestado ?? 0)}</span>,
         },
         {
             key: 'obra_rubros_sum_acumulado',
             label: 'Acumulado',
+            sortable: true,
             render: (o) => <span className="font-mono text-sm">{fmt(o.obra_rubros_sum_acumulado ?? 0)}</span>,
         },
         {
@@ -123,6 +127,8 @@ type Props = {
     statsPlanta: StatsPlanta | null;
     filters: { search?: string };
     stats: Stats;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
 function DefinirPlantaDialog({ onClose }: { onClose: () => void }) {
@@ -234,7 +240,7 @@ function PlantaSection({ planta, statsPlanta }: { planta: ObraWithSums | null; s
     );
 }
 
-export default function PresupuestosIndex({ obras, planta, statsPlanta, filters, stats }: Props) {
+export default function PresupuestosIndex({ obras, planta, statsPlanta, filters, stats, sortBy, sortDir }: Props) {
     const columns = makeColumns(stats.umbral_alerta);
     const totalDisponible = stats.total_presupuestado - stats.total_acumulado;
     const pctGlobal = stats.total_presupuestado > 0
@@ -298,6 +304,8 @@ export default function PresupuestosIndex({ obras, planta, statsPlanta, filters,
                     searchPlaceholder="Buscar por numero o descripcion..."
                     emptyMessage="No hay obras registradas"
                     getRowHref={(o) => `/admin/costos/presupuestos/${o.id}/edit`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

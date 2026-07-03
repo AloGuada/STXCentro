@@ -12,30 +12,35 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const columns: Column<CostosAfectacionPresupuestal>[] = [
-    { key: 'folio', label: 'Folio' },
+    { key: 'folio', label: 'Folio', sortable: true },
     {
         key: 'fecha',
         label: 'Fecha',
+        sortable: true,
         render: (row) => new Date(row.fecha).toLocaleDateString(),
     },
     {
         key: 'departamento',
         label: 'Departamento',
+        sortable: true,
         render: (row) => row.departamento?.descripcion ?? '-',
     },
     {
         key: 'tipo_origen',
         label: 'Tipo Origen',
+        sortable: true,
         render: (row) => <span className="capitalize">{row.tipo_origen.replace(/_/g, ' ')}</span>,
     },
     {
         key: 'monto_total',
         label: 'Total',
+        sortable: true,
         render: (row) => `$${Number(row.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
     },
     {
         key: 'estatus',
         label: 'Estatus',
+        sortable: true,
         render: (row) => (
             <span className={`badge ${AFECTACION_ESTATUS_COLORS[row.estatus]}`}>
                 {AFECTACION_ESTATUS_LABELS[row.estatus]}
@@ -55,9 +60,11 @@ const estatusOptions: { value: string; label: string }[] = [
 type Props = {
     afectaciones: PaginatedData<CostosAfectacionPresupuestal>;
     filters: { search?: string; estatus?: string };
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function AfectacionesIndex({ afectaciones, filters }: Props) {
+export default function AfectacionesIndex({ afectaciones, filters, sortBy, sortDir }: Props) {
     const handleEstatusChange = (estatus: string) => {
         router.get('/admin/costos/afectaciones', { ...filters, estatus: estatus || undefined }, { preserveState: true });
     };
@@ -92,6 +99,8 @@ export default function AfectacionesIndex({ afectaciones, filters }: Props) {
                         ? `/admin/costos/afectaciones/${row.id}/edit`
                         : `/admin/costos/afectaciones/${row.id}`
                     }
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

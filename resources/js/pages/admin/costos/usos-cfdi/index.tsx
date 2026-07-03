@@ -11,11 +11,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const columns: Column<CostosUsoCfdi>[] = [
-    { key: 'clave', label: 'Clave' },
-    { key: 'descripcion', label: 'Descripción' },
+    { key: 'clave', label: 'Clave', sortable: true },
+    { key: 'descripcion', label: 'Descripción', sortable: true },
     {
         key: 'activo',
         label: 'Estatus',
+        sortable: true,
         render: (u) => (
             <span className={`badge badge-sm ${u.activo ? 'badge-success' : 'badge-ghost'}`}>
                 {u.activo ? 'Activo' : 'Inactivo'}
@@ -25,6 +26,7 @@ const columns: Column<CostosUsoCfdi>[] = [
     {
         key: 'requisicion_detalles_count',
         label: 'Partidas',
+        sortable: true,
         render: (u) => u.requisicion_detalles_count ?? 0,
     },
 ];
@@ -32,9 +34,11 @@ const columns: Column<CostosUsoCfdi>[] = [
 type Props = {
     usosCfdi: PaginatedData<CostosUsoCfdi>;
     filters: { search?: string };
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function UsosCfdiIndex({ usosCfdi, filters }: Props) {
+export default function UsosCfdiIndex({ usosCfdi, filters, sortBy, sortDir }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Usos CFDI" />
@@ -50,6 +54,8 @@ export default function UsosCfdiIndex({ usosCfdi, filters }: Props) {
                     createLabel="Nuevo Uso CFDI"
                     emptyMessage="No hay usos de CFDI registrados"
                     getRowHref={(u) => `/admin/costos/usos-cfdi/${u.id}/edit`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

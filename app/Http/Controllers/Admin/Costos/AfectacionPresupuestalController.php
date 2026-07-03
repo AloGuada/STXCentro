@@ -13,7 +13,9 @@ use App\Models\Costos\ObraRubro;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
+use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,9 +25,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class AfectacionPresupuestalController extends Controller
 {
+    use OrdenaColumnas;
+
     public function index(Request $request): Response
     {
-        $afectaciones = AfectacionPresupuestal::query()
+        $query = AfectacionPresupuestal::query()
             ->with(['departamento', 'proveedor', 'creadoPor'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -33,14 +37,25 @@ class AfectacionPresupuestalController extends Controller
                         ->orWhere('descripcion', 'like', "%{$search}%");
                 });
             })
-            ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
+            ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e));
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'folio' => 'folio',
+            'fecha' => 'fecha',
+            'tipo_origen' => 'tipo_origen',
+            'monto_total' => 'monto_total',
+            'estatus' => 'estatus',
+            'departamento' => fn (Builder $q, string $dir) => $q->orderBy(
+                Departamento::select('descripcion')->whereColumn('departamentos.id', 'costos_afectaciones_presupuestales.departamento_id'), $dir),
+        ], 'created_at', 'desc');
+
+        $afectaciones = $query->paginate(15)->withQueryString();
 
         return Inertia::render('admin/costos/afectaciones/index', [
             'afectaciones' => $afectaciones,
             'filters' => $request->only('search', 'estatus'),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 

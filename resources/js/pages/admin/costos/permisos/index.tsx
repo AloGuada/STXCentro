@@ -11,11 +11,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const columns: Column<CostosPermiso>[] = [
-    { key: 'descripcion', label: 'Descripcion' },
-    { key: 'nivel', label: 'Nivel' },
+    { key: 'descripcion', label: 'Descripcion', sortable: true },
+    { key: 'nivel', label: 'Nivel', sortable: true },
     {
         key: 'tipo_aprobacion',
         label: 'Tipo',
+        sortable: true,
         render: (p) => (
             <span className={`badge badge-sm ${p.tipo_aprobacion === 'requisicion' ? 'badge-info' : 'badge-ghost'}`}>
                 {p.tipo_aprobacion === 'requisicion' ? 'Requisición' : 'Solicitud de pago'}
@@ -27,9 +28,11 @@ const columns: Column<CostosPermiso>[] = [
 type Props = {
     permisos: PaginatedData<CostosPermiso>;
     filters: { search?: string };
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function PermisosIndex({ permisos, filters }: Props) {
+export default function PermisosIndex({ permisos, filters, sortBy, sortDir }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Niveles Aprobacion" />
@@ -45,6 +48,8 @@ export default function PermisosIndex({ permisos, filters }: Props) {
                     createLabel="Nuevo Nivel"
                     emptyMessage="No hay niveles de aprobacion configurados"
                     getRowHref={(row) => `/admin/costos/permisos/${row.id}`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

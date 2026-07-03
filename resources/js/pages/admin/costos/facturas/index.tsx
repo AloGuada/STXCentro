@@ -16,10 +16,11 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const columns: Column<CostosFactura>[] = [
-    { key: 'folio', label: 'Folio' },
+    { key: 'folio', label: 'Folio', sortable: true },
     {
         key: 'orden_compra',
         label: 'OC',
+        sortable: true,
         render: (row) => row.orden_compra?.folio ?? '-',
     },
     {
@@ -45,22 +46,26 @@ const columns: Column<CostosFactura>[] = [
     {
         key: 'proveedor',
         label: 'Proveedor',
+        sortable: true,
         render: (row) => row.proveedor?.razon_social ?? '-',
     },
 
     {
         key: 'fecha_factura',
         label: 'Fecha',
+        sortable: true,
         render: (row) => row.fecha_factura ? new Date(row.fecha_factura).toLocaleDateString() : '-',
     },
     {
         key: 'total',
         label: 'Total',
+        sortable: true,
         render: (row) => `$${Number(row.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
     },
     {
         key: 'estatus',
         label: 'Estatus',
+        sortable: true,
         render: (row) => (
             <span className={`badge ${FACTURA_ESTATUS_COLORS[row.estatus]}`}>
                 {FACTURA_ESTATUS_LABELS[row.estatus]}
@@ -104,9 +109,11 @@ type Props = {
     facturas: PaginatedData<CostosFactura>;
     filters: { search?: string; estatus?: string };
     proveedores: Pick<Proveedor, 'id' | 'razon_social'>[];
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function FacturasIndex({ facturas, filters, proveedores }: Props) {
+export default function FacturasIndex({ facturas, filters, proveedores, sortBy, sortDir }: Props) {
     const { can } = useCan();
     const currentYear = new Date().getFullYear();
     const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -292,6 +299,8 @@ export default function FacturasIndex({ facturas, filters, proveedores }: Props)
                     searchPlaceholder="Buscar por folio o proveedor..."
                     emptyMessage="No hay facturas"
                     getRowHref={(row) => `/admin/costos/facturas/${row.id}`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

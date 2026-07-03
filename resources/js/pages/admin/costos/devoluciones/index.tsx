@@ -17,6 +17,7 @@ const columns: Column<CostosDevolucion>[] = [
     {
         key: 'folio',
         label: 'Folio',
+        sortable: true,
         render: (r) => (
             <div>
                 <span className="font-mono text-xs font-medium">{r.folio}</span>
@@ -48,6 +49,7 @@ const columns: Column<CostosDevolucion>[] = [
     {
         key: 'cantidad',
         label: 'Cantidad',
+        sortable: true,
         render: (r) => (
             <span className="font-medium">
                 {Number(r.cantidad).toLocaleString('es-MX')} {r.entrega_detalle?.orden_compra_detalle?.unidad ?? ''}
@@ -57,11 +59,13 @@ const columns: Column<CostosDevolucion>[] = [
     {
         key: 'motivo',
         label: 'Motivo',
+        sortable: true,
         render: (r) => <span className="text-xs text-base-content/60 line-clamp-2">{r.motivo}</span>,
     },
     {
         key: 'estatus',
         label: 'Estatus',
+        sortable: true,
         render: (r) => (
             <span className={`badge badge-sm ${DEVOLUCION_ESTATUS_COLORS[r.estatus]}`}>
                 {DEVOLUCION_ESTATUS_LABELS[r.estatus]}
@@ -73,9 +77,11 @@ const columns: Column<CostosDevolucion>[] = [
 type Props = {
     devoluciones: PaginatedData<CostosDevolucion>;
     filters: { search?: string; estatus?: string };
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function DevolucionesIndex({ devoluciones, filters }: Props) {
+export default function DevolucionesIndex({ devoluciones, filters, sortBy, sortDir }: Props) {
     const handleEstatus = (estatus: string) => {
         router.get('/admin/costos/devoluciones', { ...filters, estatus: estatus || undefined }, { preserveState: true });
     };
@@ -108,6 +114,8 @@ export default function DevolucionesIndex({ devoluciones, filters }: Props) {
                     createLabel="Nueva devolución"
                     emptyMessage="No hay devoluciones registradas"
                     getRowHref={(r) => `/admin/costos/devoluciones/${r.id}`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

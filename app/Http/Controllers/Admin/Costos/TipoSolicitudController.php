@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\Costos\TipoSolicitudStoreRequest;
 use App\Http\Requests\Admin\Costos\TipoSolicitudUpdateRequest;
 use App\Models\Costos\Documento;
 use App\Models\Costos\TipoSolicitud;
+use App\Support\OrdenaColumnas;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,18 +16,28 @@ use Inertia\Response;
 
 class TipoSolicitudController extends Controller
 {
+    use OrdenaColumnas;
+
     public function index(Request $request): Response
     {
-        $tipoSolicitudes = TipoSolicitud::query()
+        $query = TipoSolicitud::query()
             ->withCount('documentos')
-            ->when($request->search, fn ($q, $s) => $q->where('titulo', 'like', "%{$s}%"))
-            ->orderBy('titulo')
-            ->paginate(15)
-            ->withQueryString();
+            ->when($request->search, fn ($q, $s) => $q->where('titulo', 'like', "%{$s}%"));
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'titulo' => 'titulo',
+            'rubros' => 'rubros',
+            'documentos_count' => 'documentos_count',
+            'created_at' => 'created_at',
+        ], 'titulo', 'asc');
+
+        $tipoSolicitudes = $query->paginate(15)->withQueryString();
 
         return Inertia::render('admin/costos/tipo-solicitudes/index', [
             'tipoSolicitudes' => $tipoSolicitudes,
             'filters' => $request->only('search'),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 

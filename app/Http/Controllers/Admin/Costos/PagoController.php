@@ -12,6 +12,7 @@ use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
 use App\Models\Costos\Pago;
 use App\Services\Costos\PagoProcessor;
+use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,9 +26,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class PagoController extends Controller
 {
+    use OrdenaColumnas;
+
     public function index(Request $request): Response
     {
-        $pagos = Pago::query()
+        $query = Pago::query()
             ->whereNull('pago_padre_id')
             ->with('pagable.proveedor')
             ->when($request->search, function ($query, $search) {
@@ -38,14 +41,25 @@ class PagoController extends Controller
             ->when($request->orden_compra_id, function ($q, $ocId) {
                 $q->where('pagable_type', Factura::class)
                     ->whereIn('pagable_id', Factura::where('orden_compra_id', $ocId)->select('id'));
-            })
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
+            });
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'folio' => 'folio',
+            'monto_pago' => 'monto_pago',
+            'moneda' => 'moneda',
+            'tipo_pago' => 'tipo_pago',
+            'estatus' => 'estatus',
+            'fecha_pago_programada' => 'fecha_pago_programada',
+            'fecha_pago_realizada' => 'fecha_pago_realizada',
+        ], 'created_at', 'desc');
+
+        $pagos = $query->paginate(15)->withQueryString();
 
         return Inertia::render('admin/costos/pagos/index', [
             'pagos' => $pagos,
             'filters' => $request->only('search', 'estatus', 'tipo_pago', 'orden_compra_id'),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 

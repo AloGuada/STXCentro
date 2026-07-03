@@ -11,11 +11,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const columns: Column<CostosRubro>[] = [
-    { key: 'codigo', label: 'Código' },
-    { key: 'descripcion', label: 'Descripción' },
+    { key: 'codigo', label: 'Código', sortable: true },
+    { key: 'descripcion', label: 'Descripción', sortable: true },
     {
         key: 'ambito',
         label: 'Ámbito',
+        sortable: true,
         render: (r) => (
             <span className={`badge badge-sm ${r.ambito === 'planta' ? 'badge-info' : 'badge-ghost'}`}>
                 {r.ambito === 'planta' ? 'Planta' : 'Obras'}
@@ -25,11 +26,13 @@ const columns: Column<CostosRubro>[] = [
     {
         key: 'tipo_rubro',
         label: 'Tipo de Centro de Costos',
+        sortable: true,
         render: (r) => r.tipo_rubro?.descripcion ?? '-',
     },
     {
         key: 'departamento',
         label: 'Departamento',
+        sortable: true,
         render: (r) => r.departamento?.descripcion ?? '-',
     },
 ];
@@ -37,9 +40,11 @@ const columns: Column<CostosRubro>[] = [
 type Props = {
     rubros: PaginatedData<CostosRubro>;
     filters: { search?: string };
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function RubrosIndex({ rubros, filters }: Props) {
+export default function RubrosIndex({ rubros, filters, sortBy, sortDir }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Centros de Costos" />
@@ -55,6 +60,8 @@ export default function RubrosIndex({ rubros, filters }: Props) {
                     createLabel="Nuevo Centro de Costos"
                     emptyMessage="No hay centros de costos registrados"
                     getRowHref={(r) => `/admin/costos/rubros/${r.id}/edit`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

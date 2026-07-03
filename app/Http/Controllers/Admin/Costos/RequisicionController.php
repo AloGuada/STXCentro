@@ -25,6 +25,8 @@ use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
 use App\Services\Costos\AprobacionService;
 use App\Services\Costos\OrdenCompraGenerator;
+use App\Support\OrdenaColumnas;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,13 +37,15 @@ use Inertia\Response;
 
 class RequisicionController extends Controller
 {
+    use OrdenaColumnas;
+
     public function __construct(private readonly ApartadoPresupuestal $apartado) {}
 
     public function index(Request $request): Response
     {
         Gate::authorize('costos.requisiciones.ver');
 
-        $requisiciones = Requisicion::query()
+        $query = Requisicion::query()
             ->with([
                 'solicitante:id,name',
                 'departamento:id,descripcion',
@@ -54,10 +58,17 @@ class RequisicionController extends Controller
             ->unless($request->user()->can('costos.requisiciones.ver-todas'), fn ($q) => $q->where('solicitante_id', $request->user()->id))
             ->when($request->search, fn ($q, $s) => $q->where('folio', 'like', "%{$s}%"))
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
-            ->when($request->departamento_id, fn ($q, $d) => $q->where('departamento_id', $d))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
+            ->when($request->departamento_id, fn ($q, $d) => $q->where('departamento_id', $d));
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'folio' => 'folio',
+            'fecha_requerida' => 'fecha_requerida',
+            'estatus' => 'estatus',
+            'solicitante' => fn (Builder $q, string $dir) => $q->orderBy(
+                \App\Models\Usuario::select('name')->whereColumn('usuarios.id', 'costos_requisiciones.solicitante_id'), $dir),
+        ], 'created_at', 'desc');
+
+        $requisiciones = $query->paginate(15)->withQueryString();
 
         $requisiciones->getCollection()->each(fn ($r) => $r->append(['mejor_proveedor', 'proveedores_cotizadores_count']));
 
@@ -65,6 +76,8 @@ class RequisicionController extends Controller
             'requisiciones' => $requisiciones,
             'filters' => $request->only('search', 'estatus', 'departamento_id'),
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 

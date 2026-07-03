@@ -11,6 +11,8 @@ use App\Models\Costos\Anticipo;
 use App\Models\Costos\Factura;
 use App\Models\Obra;
 use App\Models\Proveedor;
+use App\Support\OrdenaColumnas;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,11 +22,13 @@ use Inertia\Response;
 
 class AnticipoController extends Controller
 {
+    use OrdenaColumnas;
+
     public function index(Request $request): Response
     {
         Gate::authorize('costos.anticipos.ver');
 
-        $anticipos = Anticipo::query()
+        $query = Anticipo::query()
             ->with(['proveedor:id,razon_social,nombre_comercial', 'obra:id,descripcion'])
             ->when($request->search, fn ($q, $s) => $q->where(function ($qq) use ($s) {
                 $qq->where('folio', 'like', "%{$s}%")
@@ -32,10 +36,20 @@ class AnticipoController extends Controller
                     ->orWhereHas('proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$s}%"));
             }))
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
-            ->when($request->proveedor_id, fn ($q, $p) => $q->where('proveedor_id', $p))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
+            ->when($request->proveedor_id, fn ($q, $p) => $q->where('proveedor_id', $p));
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'folio' => 'folio',
+            'monto' => 'monto',
+            'saldo_disponible' => 'saldo_disponible',
+            'moneda' => 'moneda',
+            'estatus' => 'estatus',
+            'fecha' => 'fecha',
+            'proveedor' => fn (Builder $q, string $dir) => $q->orderBy(
+                Proveedor::select('razon_social')->whereColumn('proveedores.id', 'costos_anticipos.proveedor_id'), $dir),
+        ], 'created_at', 'desc');
+
+        $anticipos = $query->paginate(15)->withQueryString();
 
         return Inertia::render('admin/costos/anticipos/index', [
             'anticipos' => $anticipos,
@@ -43,6 +57,8 @@ class AnticipoController extends Controller
             'proveedores' => Proveedor::where('activo', true)
                 ->orderBy('razon_social')
                 ->get(['id', 'razon_social']),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 

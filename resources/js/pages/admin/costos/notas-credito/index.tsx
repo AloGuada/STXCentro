@@ -18,6 +18,7 @@ const columns: Column<CostosNotaCredito>[] = [
     {
         key: 'folio',
         label: 'Folio',
+        sortable: true,
         render: (r) => (
             <div>
                 <span className="font-mono text-xs font-medium">{r.folio}</span>
@@ -28,6 +29,7 @@ const columns: Column<CostosNotaCredito>[] = [
     {
         key: 'factura',
         label: 'Factura',
+        sortable: true,
         render: (r) => (
             <div>
                 <span className="font-mono text-xs">{r.factura?.folio ?? `#${r.factura_id}`}</span>
@@ -38,16 +40,19 @@ const columns: Column<CostosNotaCredito>[] = [
     {
         key: 'concepto',
         label: 'Concepto',
+        sortable: true,
         render: (r) => <span className="text-xs text-base-content/60">{r.concepto}</span>,
     },
     {
         key: 'monto',
         label: 'Monto',
+        sortable: true,
         render: (r) => <span className="font-medium">{formatMoney(r.monto)}</span>,
     },
     {
         key: 'uuid_fiscal',
         label: 'UUID',
+        sortable: true,
         render: (r) => (
             <span className="font-mono text-[10px] text-base-content/60">
                 {r.uuid_fiscal ? `${r.uuid_fiscal.slice(0, 8)}...` : '-'}
@@ -57,6 +62,7 @@ const columns: Column<CostosNotaCredito>[] = [
     {
         key: 'estatus',
         label: 'Estatus',
+        sortable: true,
         render: (r) => (
             <span className={`badge badge-sm ${NOTA_CREDITO_ESTATUS_COLORS[r.estatus]}`}>
                 {NOTA_CREDITO_ESTATUS_LABELS[r.estatus]}
@@ -68,9 +74,11 @@ const columns: Column<CostosNotaCredito>[] = [
 type Props = {
     notas: PaginatedData<CostosNotaCredito>;
     filters: { search?: string; estatus?: string; factura_id?: number };
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function NotasCreditoIndex({ notas, filters }: Props) {
+export default function NotasCreditoIndex({ notas, filters, sortBy, sortDir }: Props) {
     const handleEstatus = (estatus: string) => {
         router.get('/admin/costos/notas-credito', { ...filters, estatus: estatus || undefined }, { preserveState: true });
     };
@@ -101,6 +109,8 @@ export default function NotasCreditoIndex({ notas, filters }: Props) {
                     searchPlaceholder="Buscar por folio, UUID o concepto..."
                     emptyMessage="No hay notas de crédito registradas"
                     getRowHref={(r) => `/admin/costos/notas-credito/${r.id}`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

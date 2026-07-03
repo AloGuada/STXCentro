@@ -11,15 +11,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const columns: Column<CostosTipoRubro>[] = [
-    { key: 'descripcion', label: 'Descripción' },
+    { key: 'descripcion', label: 'Descripción', sortable: true },
     {
         key: 'rubros_count',
         label: 'Centros de Costos',
+        sortable: true,
         render: (tr) => tr.rubros_count ?? 0,
     },
     {
         key: 'created_at',
         label: 'Creado',
+        sortable: true,
         render: (tr) => new Date(tr.created_at).toLocaleDateString(),
     },
 ];
@@ -27,9 +29,11 @@ const columns: Column<CostosTipoRubro>[] = [
 type Props = {
     tipoRubros: PaginatedData<CostosTipoRubro>;
     filters: { search?: string };
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function TipoRubrosIndex({ tipoRubros, filters }: Props) {
+export default function TipoRubrosIndex({ tipoRubros, filters, sortBy, sortDir }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Tipos de Centro de Costos" />
@@ -45,6 +49,8 @@ export default function TipoRubrosIndex({ tipoRubros, filters }: Props) {
                     createLabel="Nuevo Tipo"
                     emptyMessage="No hay tipos de centro de costos registrados"
                     getRowHref={(tr) => `/admin/costos/tipo-rubros/${tr.id}/edit`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

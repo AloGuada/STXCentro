@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\UsoCfdiStoreRequest;
 use App\Http\Requests\Admin\Costos\UsoCfdiUpdateRequest;
 use App\Models\Costos\UsoCfdi;
+use App\Support\OrdenaColumnas;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -14,21 +15,31 @@ use Inertia\Response;
 
 class UsoCfdiController extends Controller
 {
+    use OrdenaColumnas;
+
     public function index(Request $request): Response
     {
         Gate::authorize('costos.usos-cfdi.ver');
 
-        $usosCfdi = UsoCfdi::query()
+        $query = UsoCfdi::query()
             ->withCount('requisicionDetalles')
             ->when($request->search, fn ($q, $s) => $q->where('clave', 'like', "%{$s}%")
-                ->orWhere('descripcion', 'like', "%{$s}%"))
-            ->orderBy('clave')
-            ->paginate(15)
-            ->withQueryString();
+                ->orWhere('descripcion', 'like', "%{$s}%"));
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'clave' => 'clave',
+            'descripcion' => 'descripcion',
+            'activo' => 'activo',
+            'requisicion_detalles_count' => 'requisicion_detalles_count',
+        ], 'clave', 'asc');
+
+        $usosCfdi = $query->paginate(15)->withQueryString();
 
         return Inertia::render('admin/costos/usos-cfdi/index', [
             'usosCfdi' => $usosCfdi,
             'filters' => $request->only('search'),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 

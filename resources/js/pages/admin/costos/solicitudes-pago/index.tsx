@@ -27,6 +27,7 @@ const columns: Column<CostosSolicitudPago>[] = [
     {
         key: 'folio',
         label: 'Folio',
+        sortable: true,
         render: (row) => (
             <div>
                 <span className="font-mono text-xs font-medium">{row.folio}</span>
@@ -37,6 +38,7 @@ const columns: Column<CostosSolicitudPago>[] = [
     {
         key: 'solicitante',
         label: 'Solicitante',
+        sortable: true,
         render: (row) => (
             <div>
                 <div className="text-sm">{row.solicitante?.name ?? '-'}</div>
@@ -47,6 +49,7 @@ const columns: Column<CostosSolicitudPago>[] = [
     {
         key: 'proveedor',
         label: 'Proveedor',
+        sortable: true,
         render: (row) =>
             row.proveedor ? (
                 <div>
@@ -60,11 +63,13 @@ const columns: Column<CostosSolicitudPago>[] = [
     {
         key: 'concepto',
         label: 'Concepto',
+        sortable: true,
         render: (row) => <span className="text-xs text-base-content/60">{row.concepto}</span>,
     },
     {
         key: 'monto_total',
         label: 'Total',
+        sortable: true,
         render: (row) => (
             <span className="font-medium">${Number(row.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
         ),
@@ -72,6 +77,7 @@ const columns: Column<CostosSolicitudPago>[] = [
     {
         key: 'estatus',
         label: 'Estatus',
+        sortable: true,
         render: (row) => (
             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${ESTATUS_BADGE[row.estatus] ?? ''}`}>
                 {SOLICITUD_PAGO_ESTATUS_LABELS[row.estatus]}
@@ -81,6 +87,7 @@ const columns: Column<CostosSolicitudPago>[] = [
     {
         key: 'fecha_pago_solicitada',
         label: 'Fecha Pago',
+        sortable: true,
         render: (row) => <span className="text-xs text-base-content/60">{fmtDate(row.fecha_pago_solicitada)}</span>,
     },
     {
@@ -141,9 +148,11 @@ const estatusOptions: { value: string; label: string }[] = [
 type Props = {
     solicitudes: PaginatedData<CostosSolicitudPago>;
     filters: { search?: string; estatus?: string };
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function SolicitudesPagoIndex({ solicitudes, filters }: Props) {
+export default function SolicitudesPagoIndex({ solicitudes, filters, sortBy, sortDir }: Props) {
     const handleEstatusChange = (estatus: string) => {
         router.get('/admin/costos/solicitudes-pago', { ...filters, estatus: estatus || undefined }, { preserveState: true });
     };
@@ -178,6 +187,8 @@ export default function SolicitudesPagoIndex({ solicitudes, filters }: Props) {
                         ? `/admin/costos/solicitudes-pago/${row.id}/edit`
                         : `/admin/costos/solicitudes-pago/${row.id}`
                     }
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

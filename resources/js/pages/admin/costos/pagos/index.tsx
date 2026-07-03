@@ -14,7 +14,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const columns: Column<CostosPago>[] = [
-    { key: 'folio', label: 'Folio' },
+    { key: 'folio', label: 'Folio', sortable: true },
     {
         key: 'pagable',
         label: 'Origen',
@@ -33,21 +33,25 @@ const columns: Column<CostosPago>[] = [
     {
         key: 'monto_pago',
         label: 'Monto',
+        sortable: true,
         render: (row) => `$${Number(row.monto_pago).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
     },
     {
         key: 'moneda',
         label: 'Moneda',
+        sortable: true,
         render: (row) => TIPO_MONEDA_LABELS[row.moneda as keyof typeof TIPO_MONEDA_LABELS] ?? row.moneda.toUpperCase(),
     },
     {
         key: 'tipo_pago',
         label: 'Tipo',
+        sortable: true,
         render: (row) => PAGO_TIPO_PAGO_LABELS[row.tipo_pago],
     },
     {
         key: 'estatus',
         label: 'Estatus',
+        sortable: true,
         render: (row) => (
             <span className={`badge ${PAGO_ESTATUS_COLORS[row.estatus]}`}>
                 {PAGO_ESTATUS_LABELS[row.estatus]}
@@ -57,11 +61,13 @@ const columns: Column<CostosPago>[] = [
     {
         key: 'fecha_pago_programada',
         label: 'F. Programada',
+        sortable: true,
         render: (row) => row.fecha_pago_programada ? new Date(row.fecha_pago_programada).toLocaleDateString() : '-',
     },
     {
         key: 'fecha_pago_realizada',
         label: 'F. Realizada',
+        sortable: true,
         render: (row) => row.fecha_pago_realizada ? new Date(row.fecha_pago_realizada).toLocaleDateString() : '-',
     },
 ];
@@ -82,9 +88,11 @@ const tipoPagoOptions = [
 type Props = {
     pagos: PaginatedData<CostosPago>;
     filters: { search?: string; estatus?: string; tipo_pago?: string };
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function PagosIndex({ pagos, filters }: Props) {
+export default function PagosIndex({ pagos, filters, sortBy, sortDir }: Props) {
     const today = new Date();
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const toDateInput = (d: Date) => d.toISOString().split('T')[0];
@@ -166,6 +174,8 @@ export default function PagosIndex({ pagos, filters }: Props) {
                     searchPlaceholder="Buscar por folio..."
                     emptyMessage="No hay pagos registrados"
                     getRowHref={(row) => `/admin/costos/pagos/${row.id}`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Http\Requests\Admin\Costos\DevolucionStoreRequest;
 use App\Models\Costos\Devolucion;
 use App\Models\Costos\EntregaDetalle;
+use App\Support\OrdenaColumnas;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,11 +23,13 @@ use Inertia\Response;
 
 class DevolucionController extends Controller
 {
+    use OrdenaColumnas;
+
     public function index(Request $request): Response
     {
         Gate::authorize('costos.devoluciones.ver');
 
-        $devoluciones = Devolucion::query()
+        $query = Devolucion::query()
             ->with([
                 'entregaDetalle.entrega:id,orden_compra_id,fecha_entrega',
                 'entregaDetalle.ordenCompraDetalle:id,orden_compra_id,descripcion,unidad',
@@ -38,14 +41,22 @@ class DevolucionController extends Controller
                 $qq->where('folio', 'like', "%{$s}%")
                     ->orWhere('motivo', 'like', "%{$s}%");
             }))
-            ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
+            ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e));
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'folio' => 'folio',
+            'cantidad' => 'cantidad',
+            'motivo' => 'motivo',
+            'estatus' => 'estatus',
+        ], 'created_at', 'desc');
+
+        $devoluciones = $query->paginate(15)->withQueryString();
 
         return Inertia::render('admin/costos/devoluciones/index', [
             'devoluciones' => $devoluciones,
             'filters' => $request->only('search', 'estatus'),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 

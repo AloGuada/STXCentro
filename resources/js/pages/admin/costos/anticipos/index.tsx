@@ -18,6 +18,7 @@ const columns: Column<CostosAnticipo>[] = [
     {
         key: 'folio',
         label: 'Folio',
+        sortable: true,
         render: (r) => (
             <div>
                 <span className="font-mono text-xs font-medium">{r.folio}</span>
@@ -28,26 +29,31 @@ const columns: Column<CostosAnticipo>[] = [
     {
         key: 'proveedor',
         label: 'Proveedor',
+        sortable: true,
         render: (r) => <span className="text-sm">{r.proveedor?.razon_social ?? '-'}</span>,
     },
     {
         key: 'monto',
         label: 'Monto',
+        sortable: true,
         render: (r) => <span className="font-medium">{formatMoney(r.monto)}</span>,
     },
     {
         key: 'saldo_disponible',
         label: 'Saldo disponible',
+        sortable: true,
         render: (r) => <span className="font-medium text-success">{formatMoney(r.saldo_disponible)}</span>,
     },
     {
         key: 'moneda',
         label: 'Moneda',
+        sortable: true,
         render: (r) => <span className="text-xs uppercase">{r.moneda}</span>,
     },
     {
         key: 'estatus',
         label: 'Estatus',
+        sortable: true,
         render: (r) => (
             <span className={`badge badge-sm ${ANTICIPO_ESTATUS_COLORS[r.estatus]}`}>
                 {ANTICIPO_ESTATUS_LABELS[r.estatus]}
@@ -60,9 +66,11 @@ type Props = {
     anticipos: PaginatedData<CostosAnticipo>;
     filters: { search?: string; estatus?: string; proveedor_id?: number };
     proveedores: Pick<Proveedor, 'id' | 'razon_social'>[];
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function AnticiposIndex({ anticipos, filters, proveedores }: Props) {
+export default function AnticiposIndex({ anticipos, filters, proveedores, sortBy, sortDir }: Props) {
     const handleEstatus = (estatus: string) => {
         router.get('/admin/costos/anticipos', { ...filters, estatus: estatus || undefined }, { preserveState: true });
     };
@@ -110,6 +118,8 @@ export default function AnticiposIndex({ anticipos, filters, proveedores }: Prop
                     createLabel="Nuevo anticipo"
                     emptyMessage="No hay anticipos registrados"
                     getRowHref={(r) => `/admin/costos/anticipos/${r.id}`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

@@ -20,6 +20,7 @@ const columns: Column<CostosRequisicion>[] = [
     {
         key: 'folio',
         label: 'Folio',
+        sortable: true,
         render: (row) => (
             <div>
                 <span className="font-mono text-xs font-medium">{row.folio}</span>
@@ -30,6 +31,7 @@ const columns: Column<CostosRequisicion>[] = [
     {
         key: 'solicitante',
         label: 'Solicitante',
+        sortable: true,
         render: (row) => (
             <div>
                 <div className="text-sm">{row.solicitante?.name ?? '-'}</div>
@@ -40,6 +42,7 @@ const columns: Column<CostosRequisicion>[] = [
     {
         key: 'fecha_requerida',
         label: 'Fecha requerida',
+        sortable: true,
         render: (row) => <span className="text-xs text-base-content/60">{fmtDate(row.fecha_requerida)}</span>,
     },
     {
@@ -72,6 +75,7 @@ const columns: Column<CostosRequisicion>[] = [
     {
         key: 'estatus',
         label: 'Estatus',
+        sortable: true,
         render: (row) => (
             <span className={`badge badge-sm ${REQUISICION_ESTATUS_COLORS[row.estatus]}`}>
                 {REQUISICION_ESTATUS_LABELS[row.estatus]}
@@ -84,9 +88,11 @@ type Props = {
     requisiciones: PaginatedData<CostosRequisicion>;
     filters: { search?: string; estatus?: string; departamento_id?: number };
     departamentos: Pick<Departamento, 'id' | 'descripcion'>[];
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function RequisicionesIndex({ requisiciones, filters, departamentos }: Props) {
+export default function RequisicionesIndex({ requisiciones, filters, departamentos, sortBy, sortDir }: Props) {
     const handleEstatusChange = (estatus: string) => {
         router.get('/admin/costos/requisiciones', { ...filters, estatus: estatus || undefined }, { preserveState: true });
     };
@@ -134,6 +140,8 @@ export default function RequisicionesIndex({ requisiciones, filters, departament
                     createLabel="Nueva requisición"
                     emptyMessage="No hay requisiciones"
                     getRowHref={(row) => `/admin/costos/requisiciones/${row.id}`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

@@ -11,6 +11,7 @@ use App\Models\Costos\Permiso;
 use App\Models\Costos\Rubro;
 use App\Models\Departamento;
 use App\Models\Usuario;
+use App\Support\OrdenaColumnas;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,19 +20,28 @@ use Spatie\Permission\Models\Permission;
 
 class PermisoController extends Controller
 {
+    use OrdenaColumnas;
+
     public function index(Request $request): Response
     {
-        $permisos = Permiso::query()
+        $query = Permiso::query()
             ->when($request->search, function ($query, $search) {
                 $query->where('descripcion', 'like', "%{$search}%");
-            })
-            ->orderBy('nivel')
-            ->paginate(15)
-            ->withQueryString();
+            });
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'descripcion' => 'descripcion',
+            'nivel' => 'nivel',
+            'tipo_aprobacion' => 'tipo_aprobacion',
+        ], 'nivel');
+
+        $permisos = $query->paginate(15)->withQueryString();
 
         return Inertia::render('admin/costos/permisos/index', [
             'permisos' => $permisos,
             'filters' => $request->only('search'),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 

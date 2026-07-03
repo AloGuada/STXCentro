@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Admin\Costos;
 use App\Enums\Costos\NotaCreditoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
+use App\Models\Costos\Factura;
 use App\Models\Costos\NotaCredito;
+use App\Support\OrdenaColumnas;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,11 +20,13 @@ use Inertia\Response;
 // (PortalNotaCreditoController). Admin solo lee y cancela.
 class NotaCreditoController extends Controller
 {
+    use OrdenaColumnas;
+
     public function index(Request $request): Response
     {
         Gate::authorize('costos.notas-credito.ver');
 
-        $notas = NotaCredito::query()
+        $query = NotaCredito::query()
             ->with(['factura:id,folio,proveedor_id', 'factura.proveedor:id,razon_social', 'creador:id,name'])
             ->when($request->search, fn ($q, $s) => $q->where(function ($qq) use ($s) {
                 $qq->where('folio', 'like', "%{$s}%")
@@ -29,14 +34,25 @@ class NotaCreditoController extends Controller
                     ->orWhere('concepto', 'like', "%{$s}%");
             }))
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
-            ->when($request->factura_id, fn ($q, $f) => $q->where('factura_id', $f))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
+            ->when($request->factura_id, fn ($q, $f) => $q->where('factura_id', $f));
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'folio' => 'folio',
+            'concepto' => 'concepto',
+            'monto' => 'monto',
+            'uuid_fiscal' => 'uuid_fiscal',
+            'estatus' => 'estatus',
+            'factura' => fn (Builder $q, string $dir) => $q->orderBy(
+                Factura::select('folio')->whereColumn('costos_facturas.id', 'costos_notas_credito.factura_id'), $dir),
+        ], 'created_at', 'desc');
+
+        $notas = $query->paginate(15)->withQueryString();
 
         return Inertia::render('admin/costos/notas-credito/index', [
             'notas' => $notas,
             'filters' => $request->only('search', 'estatus', 'factura_id'),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 

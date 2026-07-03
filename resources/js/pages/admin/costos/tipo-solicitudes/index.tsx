@@ -11,10 +11,11 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const columns: Column<CostosTipoSolicitud>[] = [
-    { key: 'titulo', label: 'Título' },
+    { key: 'titulo', label: 'Título', sortable: true },
     {
         key: 'rubros',
         label: 'Centros de Costos',
+        sortable: true,
         render: (ts) => (
             <span className={`badge badge-sm ${ts.rubros ? 'badge-success' : 'badge-ghost'}`}>
                 {ts.rubros ? 'Sí' : 'No'}
@@ -24,11 +25,13 @@ const columns: Column<CostosTipoSolicitud>[] = [
     {
         key: 'documentos_count',
         label: 'Documentos',
+        sortable: true,
         render: (ts) => ts.documentos_count ?? 0,
     },
     {
         key: 'created_at',
         label: 'Creado',
+        sortable: true,
         render: (ts) => new Date(ts.created_at).toLocaleDateString(),
     },
 ];
@@ -36,9 +39,11 @@ const columns: Column<CostosTipoSolicitud>[] = [
 type Props = {
     tipoSolicitudes: PaginatedData<CostosTipoSolicitud>;
     filters: { search?: string };
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 };
 
-export default function TipoSolicitudesIndex({ tipoSolicitudes, filters }: Props) {
+export default function TipoSolicitudesIndex({ tipoSolicitudes, filters, sortBy, sortDir }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Tipo Solicitudes" />
@@ -54,6 +59,8 @@ export default function TipoSolicitudesIndex({ tipoSolicitudes, filters }: Props
                     createLabel="Nuevo Tipo Solicitud"
                     emptyMessage="No hay tipos de solicitud registrados"
                     getRowHref={(ts) => `/admin/costos/tipo-solicitudes/${ts.id}/edit`}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
                 />
             </div>
         </AppLayout>

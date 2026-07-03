@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeftIcon, CheckIcon, ListPlusIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { ArrowDownIcon, ArrowLeftIcon, ArrowUpDownIcon, ArrowUpIcon, CheckIcon, ListPlusIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,7 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
     const [editingField, setEditingField] = useState<'presupuestado' | 'acumulado'>('presupuestado');
     const [editValue, setEditValue] = useState('');
     const [updatingId, setUpdatingId] = useState<number | null>(null);
+    const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -155,6 +156,47 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
     const totalAcumulado = currentRubros.reduce((sum, or) => sum + Number(or.acumulado), 0);
     const totalDisponible = totalPresupuestado - totalAcumulado;
 
+    const sortValue = (or: CostosObraRubro, key: string): string | number => {
+        switch (key) {
+            case 'codigo': return or.rubro?.codigo ?? '';
+            case 'descripcion': return or.rubro?.descripcion ?? '';
+            case 'tipo': return or.rubro?.tipo_rubro?.descripcion ?? '';
+            case 'presupuestado': return Number(or.presupuestado);
+            case 'acumulado': return Number(or.acumulado);
+            case 'disponible': return Number(or.presupuestado) - Number(or.acumulado);
+            default: return '';
+        }
+    };
+
+    const sortedRubros = [...currentRubros];
+    if (sort) {
+        sortedRubros.sort((a, b) => {
+            const va = sortValue(a, sort.key);
+            const vb = sortValue(b, sort.key);
+            const cmp = typeof va === 'number' && typeof vb === 'number'
+                ? va - vb
+                : String(va).localeCompare(String(vb), 'es', { numeric: true });
+            return sort.dir === 'asc' ? cmp : -cmp;
+        });
+    }
+
+    const toggleSort = (key: string) => {
+        setSort((prev) => (prev?.key === key
+            ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+            : { key, dir: 'asc' }));
+    };
+
+    const SortHeader = ({ column, label, className }: { column: string; label: string; className?: string }) => (
+        <th className={className}>
+            <button type="button" className="inline-flex items-center gap-1 hover:text-primary" onClick={() => toggleSort(column)}>
+                {label}
+                {sort?.key === column
+                    ? (sort.dir === 'asc' ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />)
+                    : <ArrowUpDownIcon className="size-3 opacity-30" />}
+            </button>
+        </th>
+    );
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Presupuesto - ${obra.no}`} />
@@ -184,17 +226,17 @@ export default function PresupuestosEdit({ obra, rubros }: Props) {
                         <table className="table w-full">
                             <thead>
                                 <tr>
-                                    <th>Codigo</th>
-                                    <th>Centro de Costos</th>
-                                    <th>Tipo</th>
-                                    <th className="text-right">Presupuestado</th>
-                                    <th className="text-right">Acumulado</th>
-                                    <th className="text-right">Disponible</th>
+                                    <SortHeader column="codigo" label="Codigo" />
+                                    <SortHeader column="descripcion" label="Centro de Costos" />
+                                    <SortHeader column="tipo" label="Tipo" />
+                                    <SortHeader column="presupuestado" label="Presupuestado" className="text-right" />
+                                    <SortHeader column="acumulado" label="Acumulado" className="text-right" />
+                                    <SortHeader column="disponible" label="Disponible" className="text-right" />
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {currentRubros.map((or) => (
+                                {sortedRubros.map((or) => (
                                     <tr key={or.id}>
                                         <td className="font-mono text-sm">{or.rubro?.codigo}</td>
                                         <td>{or.rubro?.descripcion}</td>

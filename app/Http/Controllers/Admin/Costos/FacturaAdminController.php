@@ -16,7 +16,9 @@ use App\Models\Costos\FacturaDetalle;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\Pago;
 use App\Models\Proveedor;
+use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -30,9 +32,11 @@ use setasign\Fpdi\Fpdi;
 
 class FacturaAdminController extends Controller
 {
+    use OrdenaColumnas;
+
     public function index(Request $request): Response
     {
-        $facturas = Factura::query()
+        $query = Factura::query()
             ->with(['proveedor:id,razon_social,nombre_comercial', 'ordenCompra:id,folio', 'mediaPdf'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -41,15 +45,27 @@ class FacturaAdminController extends Controller
                 });
             })
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
-            ->when($request->orden_compra_id, fn ($q, $id) => $q->where('orden_compra_id', $id))
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
+            ->when($request->orden_compra_id, fn ($q, $id) => $q->where('orden_compra_id', $id));
+
+        $orden = $this->aplicarOrden($query, $request, [
+            'folio' => 'folio',
+            'orden_compra' => fn (Builder $q, string $dir) => $q->orderBy(
+                OrdenCompra::select('folio')->whereColumn('costos_ordenes_compra.id', 'costos_facturas.orden_compra_id'), $dir),
+            'proveedor' => fn (Builder $q, string $dir) => $q->orderBy(
+                Proveedor::select('razon_social')->whereColumn('proveedores.id', 'costos_facturas.proveedor_id'), $dir),
+            'fecha_factura' => 'fecha_factura',
+            'total' => 'total',
+            'estatus' => 'estatus',
+        ], 'created_at', 'desc');
+
+        $facturas = $query->paginate(15)->withQueryString();
 
         return Inertia::render('admin/costos/facturas/index', [
             'facturas' => $facturas,
             'filters' => $request->only('search', 'estatus', 'orden_compra_id'),
             'proveedores' => Proveedor::query()->orderBy('razon_social')->get(['id', 'razon_social']),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
         ]);
     }
 
