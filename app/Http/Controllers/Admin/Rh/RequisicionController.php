@@ -52,7 +52,9 @@ class RequisicionController extends Controller
         $this->authorize('rh.requisiciones.crear');
 
         DB::transaction(function () use ($request) {
-            $count = Requisicion::whereYear('created_at', date('Y'))->lockForUpdate()->count();
+            // Se bloquean las filas del año (SELECT ... FOR UPDATE) y se cuentan en
+            // PHP; Postgres no permite FOR UPDATE sobre una consulta con agregado.
+            $count = Requisicion::whereYear('created_at', date('Y'))->lockForUpdate()->get(['id'])->count();
             $folio = 'REQ-'.date('y').'-'.str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
 
             Requisicion::create(array_merge($request->validated(), [
