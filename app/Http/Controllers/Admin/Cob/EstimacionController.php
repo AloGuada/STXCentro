@@ -52,9 +52,13 @@ class EstimacionController extends Controller
 
         DB::transaction(function () use ($request, $proyecto, $obraId, $partidaIds): void {
             // Consecutivo autoritativo del proyecto (abarca todas sus obras). Se
-            // calcula con lock dentro de la transacción para evitar duplicados en
+            // bloquea la fila del proyecto dentro de la transacción para serializar
             // creaciones concurrentes; el valor enviado por el cliente se ignora.
-            $siguienteNumero = ($proyecto->estimaciones()->lockForUpdate()->max('numero_estimacion') ?? 0) + 1;
+            // Nota: PostgreSQL no permite FOR UPDATE sobre una consulta con
+            // agregado (max), por eso se bloquea el proyecto y luego se agrega.
+            Proyecto::whereKey($proyecto->getKey())->lockForUpdate()->first();
+
+            $siguienteNumero = ($proyecto->estimaciones()->max('numero_estimacion') ?? 0) + 1;
 
             $estimacion = $proyecto->estimaciones()->create([
                 ...$request->safe()->only([
