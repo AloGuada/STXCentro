@@ -76,6 +76,7 @@ class Proveedor extends Authenticatable
         'titular_cuenta',
         'numero_cuenta',
         'clabe',
+        'tarjeta',
         'moneda_cuenta',
         'estatus',
         'validado_por',
@@ -193,21 +194,12 @@ class Proveedor extends Authenticatable
     }
 
     /**
-     * CLABE obligatoria cuando el banco es distinto de Banorte (ahí basta el
-     * número de cuenta interno).
+     * Al menos uno de los medios de depósito (CLABE, tarjeta o número de
+     * cuenta) debe estar capturado para poder pagar al proveedor.
      */
-    public function requiereClabe(): bool
+    public function tieneMedioDeposito(): bool
     {
-        return ! self::esBanorte($this->banco);
-    }
-
-    public static function esBanorte(?string $banco): bool
-    {
-        if (! $banco) {
-            return false;
-        }
-
-        return str_contains(Str::lower(Str::ascii($banco)), 'banorte');
+        return filled($this->clabe) || filled($this->tarjeta) || filled($this->numero_cuenta);
     }
 
     /**

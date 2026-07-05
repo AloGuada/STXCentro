@@ -348,6 +348,7 @@ class RequisicionController extends Controller
                 'titular_cuenta' => $prov->titular_cuenta,
                 'numero_cuenta' => $prov->numero_cuenta,
                 'clabe' => $prov->clabe,
+                'tarjeta' => $prov->tarjeta,
                 'moneda_cuenta' => $prov->moneda_cuenta,
                 'constancia_url' => $url('constancia_fiscal'),
                 'caratula_url' => $url('caratula_bancaria'),

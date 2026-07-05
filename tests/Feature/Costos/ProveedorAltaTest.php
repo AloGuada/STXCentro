@@ -67,23 +67,42 @@ test('régimen, constancia y carátula son obligatorios', function () {
     expect(Proveedor::count())->toBe(0);
 });
 
-test('CLABE es obligatoria si el banco no es Banorte', function () {
-    $this->actingAs($this->compras)
-        ->post('/admin/proveedores', payloadProveedor(['banco' => 'BBVA', 'clabe' => null]))
-        ->assertSessionHasErrors(['clabe']);
-});
-
-test('para Banorte basta el número de cuenta', function () {
+test('requiere al menos un medio de depósito', function () {
     $this->actingAs($this->compras)
         ->post('/admin/proveedores', payloadProveedor([
-            'banco' => 'Banorte',
             'clabe' => null,
+            'tarjeta' => null,
+            'numero_cuenta' => null,
+        ]))
+        ->assertSessionHasErrors(['clabe']);
+
+    expect(Proveedor::count())->toBe(0);
+});
+
+test('basta el número de cuenta como medio de depósito', function () {
+    $this->actingAs($this->compras)
+        ->post('/admin/proveedores', payloadProveedor([
+            'clabe' => null,
+            'tarjeta' => null,
             'numero_cuenta' => '1234567890',
         ]))
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
-    expect(Proveedor::where('banco', 'Banorte')->exists())->toBeTrue();
+    expect(Proveedor::first()->numero_cuenta)->toBe('1234567890');
+});
+
+test('basta la tarjeta como medio de depósito', function () {
+    $this->actingAs($this->compras)
+        ->post('/admin/proveedores', payloadProveedor([
+            'clabe' => null,
+            'numero_cuenta' => null,
+            'tarjeta' => '4152313412341234',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(Proveedor::first()->tarjeta)->toBe('4152313412341234');
 });
 
 test('el titular debe coincidir con la razón social', function () {

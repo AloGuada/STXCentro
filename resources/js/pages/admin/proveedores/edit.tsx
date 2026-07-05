@@ -22,8 +22,6 @@ type Props = {
     regimenes: Pick<RegimenFiscal, 'id' | 'clave' | 'descripcion'>[];
 };
 
-const esBanorte = (banco: string) => banco.toLowerCase().includes('banorte');
-
 export default function ProveedoresEdit({ proveedor, documentos, tienePassword, regimenes }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -51,6 +49,7 @@ export default function ProveedoresEdit({ proveedor, documentos, tienePassword, 
         titular_cuenta: string;
         numero_cuenta: string;
         clabe: string;
+        tarjeta: string;
         moneda_cuenta: string;
         constancia: File | null;
         caratula: File | null;
@@ -82,6 +81,7 @@ export default function ProveedoresEdit({ proveedor, documentos, tienePassword, 
         titular_cuenta: proveedor.titular_cuenta ?? '',
         numero_cuenta: proveedor.numero_cuenta ?? '',
         clabe: proveedor.clabe ?? '',
+        tarjeta: proveedor.tarjeta ?? '',
         moneda_cuenta: proveedor.moneda_cuenta ?? 'MXN',
         constancia: null,
         caratula: null,
@@ -94,8 +94,6 @@ export default function ProveedoresEdit({ proveedor, documentos, tienePassword, 
         dias_credito_default: String(proveedor.dias_credito_default),
         tipo_proveedor: proveedor.tipo_proveedor ?? '',
     });
-
-    const banorte = esBanorte(data.banco);
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -218,20 +216,26 @@ export default function ProveedoresEdit({ proveedor, documentos, tienePassword, 
                             </FormField>
                         </div>
                         <div className="grid grid-cols-3 gap-4">
-                            <FormField label="Número de Cuenta" htmlFor="numero_cuenta" error={errors.numero_cuenta} required={banorte}>
-                                <Input id="numero_cuenta" value={data.numero_cuenta} onChange={(e) => setData('numero_cuenta', e.target.value)} />
-                            </FormField>
-                            <FormField label="CLABE" htmlFor="clabe" error={errors.clabe} required={!banorte}>
+                            <FormField label="CLABE" htmlFor="clabe" error={errors.clabe}>
                                 <Input id="clabe" value={data.clabe} onChange={(e) => setData('clabe', e.target.value)} placeholder="18 dígitos" />
                             </FormField>
-                            <FormField label="Moneda" htmlFor="moneda_cuenta" error={errors.moneda_cuenta} required>
-                                <Select id="moneda_cuenta" value={data.moneda_cuenta} onValueChange={(value) => setData('moneda_cuenta', value)}>
-                                    <option value="MXN">MXN</option>
-                                    <option value="USD">USD</option>
-                                    <option value="EUR">EUR</option>
-                                </Select>
+                            <FormField label="Tarjeta" htmlFor="tarjeta" error={errors.tarjeta}>
+                                <Input id="tarjeta" value={data.tarjeta} onChange={(e) => setData('tarjeta', e.target.value)} placeholder="Número de tarjeta" />
+                            </FormField>
+                            <FormField label="Número de Cuenta" htmlFor="numero_cuenta" error={errors.numero_cuenta}>
+                                <Input id="numero_cuenta" value={data.numero_cuenta} onChange={(e) => setData('numero_cuenta', e.target.value)} />
                             </FormField>
                         </div>
+                        <FormField label="Moneda" htmlFor="moneda_cuenta" error={errors.moneda_cuenta} required>
+                            <Select id="moneda_cuenta" value={data.moneda_cuenta} onValueChange={(value) => setData('moneda_cuenta', value)}>
+                                <option value="MXN">MXN</option>
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                            </Select>
+                        </FormField>
+                        <p className="text-xs text-base-content/60">
+                            Capture al menos un medio de depósito: CLABE, tarjeta o número de cuenta.
+                        </p>
                         <FormField label="Carátula Bancaria" htmlFor="caratula" error={errors.caratula}>
                             <DocumentoField id="caratula" actual={documentos.caratula} archivo={data.caratula} onChange={(file) => setData('caratula', file)} />
                         </FormField>

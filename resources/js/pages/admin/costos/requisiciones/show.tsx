@@ -37,6 +37,7 @@ type ProveedorPorValidar = {
     titular_cuenta: string | null;
     numero_cuenta: string | null;
     clabe: string | null;
+    tarjeta: string | null;
     moneda_cuenta: string | null;
     constancia_url: string | null;
     caratula_url: string | null;
@@ -330,8 +331,8 @@ function ValidacionProveedoresModal({
                                             {p.titular_cuenta ?? '-'}
                                         </div>
                                         <div>
-                                            <span className="text-base-content/60">CLABE/Cuenta: </span>
-                                            {p.clabe || p.numero_cuenta || '-'}
+                                            <span className="text-base-content/60">CLABE/Tarjeta/Cuenta: </span>
+                                            {p.clabe || p.tarjeta || p.numero_cuenta || '-'}
                                         </div>
                                         <div className="flex gap-3">
                                             {p.constancia_url && (

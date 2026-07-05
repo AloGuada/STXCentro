@@ -979,6 +979,7 @@ export type Proveedor = {
     titular_cuenta: string | null;
     numero_cuenta: string | null;
     clabe: string | null;
+    tarjeta: string | null;
     moneda_cuenta: string | null;
     tiene_acceso_portal: boolean;
     maneja_credito: boolean;

@@ -40,6 +40,7 @@ class ProveedorUpdateRequest extends FormRequest
             'titular_cuenta' => ['required', 'string', 'max:255'],
             'numero_cuenta' => ['nullable', 'string', 'max:50'],
             'clabe' => ['nullable', 'string', 'digits:18'],
+            'tarjeta' => ['nullable', 'string', 'max:30'],
             'moneda_cuenta' => ['required', 'in:MXN,USD,EUR'],
 
             // Adjuntos: opcionales en edición (se conservan los existentes)
@@ -60,14 +61,8 @@ class ProveedorUpdateRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            $banco = $this->input('banco');
-
-            if (Proveedor::esBanorte($banco)) {
-                if (! $this->filled('numero_cuenta')) {
-                    $validator->errors()->add('numero_cuenta', 'Para Banorte debe capturar el número de cuenta.');
-                }
-            } elseif (! $this->filled('clabe')) {
-                $validator->errors()->add('clabe', 'La CLABE es obligatoria para bancos distintos de Banorte.');
+            if (! $this->filled('clabe') && ! $this->filled('tarjeta') && ! $this->filled('numero_cuenta')) {
+                $validator->errors()->add('clabe', 'Capture al menos un medio de depósito: CLABE, tarjeta o número de cuenta.');
             }
 
             if (! Proveedor::titularCoincide($this->input('titular_cuenta'), $this->input('razon_social'))) {
