@@ -44,7 +44,7 @@ class OrdenesCompraExport implements FromCollection, ShouldAutoSize, WithHeading
             'Folio OC',
             'Estatus',
             'Proveedor',
-            'Obra',
+            'Presupuesto',
             'Tipo de pago',
             'Total OC',
             'Producto',
@@ -76,33 +76,27 @@ class OrdenesCompraExport implements FromCollection, ShouldAutoSize, WithHeading
         $search = $this->filtros['search'] ?? null;
         $estatus = $this->filtros['estatus'] ?? null;
         $proveedorId = $this->filtros['proveedor_id'] ?? null;
-        $obraId = $this->filtros['obra_id'] ?? null;
+        $presupuestoId = $this->filtros['presupuesto_id'] ?? null;
         $tipoPago = $this->filtros['tipo_pago'] ?? null;
 
         $ordenes = OrdenCompra::query()
             ->with([
                 'proveedor:id,razon_social,nombre_comercial',
-                'obra:id,no,descripcion',
-                'requisicion:id,obra_id',
-                'requisicion.obra:id,no,descripcion',
-                'detalles:id,orden_compra_id,descripcion,unidad,cantidad,precio_unitario,subtotal',
+                'detalles:id,orden_compra_id,obra_rubro_id,descripcion,unidad,cantidad,precio_unitario,subtotal',
+                'detalles.obraRubro.presupuesto.presupuestable',
             ])
             ->when($search, function ($query, $s) {
                 $query->where(function ($q) use ($s) {
                     $q->where('folio', 'like', "%{$s}%")
                         ->orWhereHas('proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$s}%"))
-                        ->orWhereHas('obra', fn ($o) => $o->where('descripcion', 'like', "%{$s}%")->orWhere('no', 'like', "%{$s}%"))
                         ->orWhereHas('detalles', fn ($d) => $d->where('descripcion', 'like', "%{$s}%"));
                 });
             })
             ->when($estatus, fn ($q, $e) => $q->where('estatus', $e))
             ->when($proveedorId, fn ($q, $id) => $q->where('proveedor_id', $id))
             ->when($tipoPago, fn ($q, $tp) => $q->where('tipo_pago', $tp))
-            ->when($obraId, function ($q, $id) {
-                $q->where(function ($w) use ($id) {
-                    $w->where('obra_id', $id)
-                        ->orWhereHas('requisicion', fn ($r) => $r->where('obra_id', $id));
-                });
+            ->when($presupuestoId, function ($q, $id) {
+                $q->whereHas('detalles.obraRubro', fn ($or) => $or->where('presupuesto_id', $id));
             })
             ->latest()
             ->get();
@@ -110,14 +104,11 @@ class OrdenesCompraExport implements FromCollection, ShouldAutoSize, WithHeading
         $filas = new Collection;
 
         foreach ($ordenes as $oc) {
-            $obra = $oc->obra ?? $oc->requisicion?->obra;
-            $obraLabel = $obra ? "OP-{$obra->no}".($obra->descripcion ? " · {$obra->descripcion}" : '') : 'Sin obra';
-
             $base = [
                 'folio' => $oc->folio,
                 'estatus' => $oc->estatus->label(),
                 'proveedor' => $oc->proveedor?->razon_social ?? '—',
-                'obra' => $obraLabel,
+                'obra' => $oc->presupuesto_label,
                 'tipo_pago' => $oc->tipo_pago?->label() ?? '—',
                 'total' => (float) $oc->total,
             ];

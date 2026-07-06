@@ -12,6 +12,7 @@ use App\Http\Requests\Admin\Costos\OrdenCompraStoreRequest;
 use App\Models\Costos\Factura;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
+use App\Models\Costos\Presupuesto;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
@@ -37,10 +38,8 @@ class OrdenCompraController extends Controller
             ->with([
                 'proveedor:id,razon_social,nombre_comercial',
                 'departamento:id,descripcion',
-                'obra:id,no,descripcion',
-                'requisicion:id,obra_id',
-                'requisicion.obra:id,no,descripcion',
-                'detalles:id,orden_compra_id,descripcion,unidad,cantidad,precio_unitario,subtotal',
+                'detalles:id,orden_compra_id,obra_rubro_id,descripcion,unidad,cantidad,precio_unitario,subtotal',
+                'detalles.obraRubro.presupuesto.presupuestable',
                 'entregas.detalles.devoluciones',
                 'facturas.pago',
                 'solicitudesPago:id,orden_compra_id,folio,estatus',
@@ -60,19 +59,15 @@ class OrdenCompraController extends Controller
                 $query->where(function ($q) use ($search) {
                     $q->where('folio', 'like', "%{$search}%")
                         ->orWhereHas('proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$search}%"))
-                        ->orWhereHas('obra', fn ($o) => $o->where('descripcion', 'like', "%{$search}%")->orWhere('no', 'like', "%{$search}%"))
                         ->orWhereHas('detalles', fn ($d) => $d->where('descripcion', 'like', "%{$search}%"));
                 });
             })
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
             ->when($request->proveedor_id, fn ($q, $id) => $q->where('proveedor_id', $id))
             ->when($request->tipo_pago, fn ($q, $tp) => $q->where('tipo_pago', $tp))
-            ->when($request->obra_id, function ($q, $obraId) {
-                // La obra puede venir directa en la OC o heredarse de la requisición.
-                $q->where(function ($w) use ($obraId) {
-                    $w->where('obra_id', $obraId)
-                        ->orWhereHas('requisicion', fn ($r) => $r->where('obra_id', $obraId));
-                });
+            ->when($request->presupuesto_id, function ($q, $presupuestoId) {
+                // La OC carga a un presupuesto vía el centro de costos de sus detalles.
+                $q->whereHas('detalles.obraRubro', fn ($or) => $or->where('presupuesto_id', $presupuestoId));
             })
             // Los usuarios comunes solo ven las OC de sus propias requisiciones; los
             // operativos del módulo (compras, costos, almacén, contabilidad) y el
@@ -84,13 +79,13 @@ class OrdenCompraController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $ordenes->getCollection()->each->append('pagada_anticipo_contado');
+        $ordenes->getCollection()->each->append(['pagada_anticipo_contado', 'presupuesto_label']);
 
         return Inertia::render('admin/costos/ordenes-compra/index', [
             'ordenes' => $ordenes,
-            'filters' => $request->only('search', 'estatus', 'proveedor_id', 'obra_id', 'tipo_pago'),
+            'filters' => $request->only('search', 'estatus', 'proveedor_id', 'presupuesto_id', 'tipo_pago'),
             'proveedoresFiltro' => $this->proveedoresConOrdenes(),
-            'obrasFiltro' => $this->obrasConOrdenes(),
+            'presupuestosFiltro' => $this->presupuestosConOrdenes(),
         ]);
     }
 
@@ -205,7 +200,7 @@ class OrdenCompraController extends Controller
      */
     public function exportar(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
-        $filtros = $request->only('search', 'estatus', 'proveedor_id', 'obra_id', 'tipo_pago');
+        $filtros = $request->only('search', 'estatus', 'proveedor_id', 'presupuesto_id', 'tipo_pago');
 
         return Excel::download(
             new OrdenesCompraExport($filtros),
@@ -228,26 +223,25 @@ class OrdenCompraController extends Controller
     }
 
     /**
-     * Obras referenciadas por alguna orden de compra (directa o vía requisición).
+     * Presupuestos referenciados por alguna orden de compra (vía sus detalles),
+     * para el filtro del índice.
      *
-     * @return \Illuminate\Support\Collection<int, Obra>
+     * @return \Illuminate\Support\Collection<int, array{id: int, label: string}>
      */
-    private function obrasConOrdenes(): \Illuminate\Support\Collection
+    private function presupuestosConOrdenes(): \Illuminate\Support\Collection
     {
-        $directas = OrdenCompra::query()->whereNotNull('obra_id')->distinct()->pluck('obra_id');
-
-        $viaRequisicion = OrdenCompra::query()
-            ->whereNotNull('requisicion_id')
-            ->join('costos_requisiciones', 'costos_requisiciones.id', '=', 'costos_ordenes_compra.requisicion_id')
-            ->whereNotNull('costos_requisiciones.obra_id')
+        $ids = DB::table('costos_ordenes_compra_detalle as ocd')
+            ->join('costos_obra_rubros as orub', 'orub.id', '=', 'ocd.obra_rubro_id')
+            ->whereNotNull('orub.presupuesto_id')
             ->distinct()
-            ->pluck('costos_requisiciones.obra_id');
+            ->pluck('orub.presupuesto_id');
 
-        $ids = $directas->merge($viaRequisicion)->unique();
-
-        return Obra::whereIn('id', $ids)
-            ->orderBy('no')
-            ->get(['id', 'no', 'descripcion']);
+        return Presupuesto::with('presupuestable')
+            ->whereIn('id', $ids)
+            ->get()
+            ->map(fn (Presupuesto $p) => ['id' => $p->id, 'label' => $p->nombreMostrar()])
+            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
     }
 
     public function create(): Response

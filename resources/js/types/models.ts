@@ -2081,6 +2081,7 @@ export type CostosOrdenCompra = {
     pago_vencido?: boolean;
     tiene_devolucion?: boolean;
     pagada_anticipo_contado?: boolean;
+    presupuesto_label?: string;
     detalles_count?: number;
     requisicion_id: number | null;
     requisicion?: { id: number; obra?: Pick<Obra, 'id' | 'no' | 'descripcion'> };

@@ -2,7 +2,7 @@ import { CONTADO_STEPS, getContadoStep } from '@/components/costos/oc-contado';
 import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosFactura, CostosOcEtapaProceso, CostosOrdenCompra, ModoPago, Obra, PaginatedData, Proveedor } from '@/types/models';
+import type { CostosFactura, CostosOcEtapaProceso, CostosOrdenCompra, ModoPago, PaginatedData, Proveedor } from '@/types/models';
 import { MODO_PAGO_LABELS, OC_ETAPA_BADGE, OC_ETAPA_LABELS } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
 import { ChevronDownIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, PlusIcon, SearchIcon } from 'lucide-react';
@@ -26,9 +26,9 @@ const estatusOptions = [
 
 type Props = {
     ordenes: PaginatedData<CostosOrdenCompra>;
-    filters: { search?: string; estatus?: string; proveedor_id?: string; obra_id?: string; tipo_pago?: string };
+    filters: { search?: string; estatus?: string; proveedor_id?: string; presupuesto_id?: string; tipo_pago?: string };
     proveedoresFiltro: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>[];
-    obrasFiltro: Pick<Obra, 'id' | 'no' | 'descripcion'>[];
+    presupuestosFiltro: { id: number; label: string }[];
 };
 
 const tipoPagoOptions = [
@@ -52,11 +52,9 @@ const pagosTotal = (oc: CostosOrdenCompra) =>
 const pagosPagadosCount = (oc: CostosOrdenCompra) =>
     facturasActivas(oc).filter((f) => f.pago?.estatus === 'pagado').length;
 
-function obraFolio(oc: CostosOrdenCompra): string {
-    // La OC manual puede traer obra_id directo; la generada hereda la obra de la requisición.
-    const obra = oc.obra ?? oc.requisicion?.obra;
-    if (!obra) return 'Sin obra';
-    return `OP-${obra.no}${obra.descripcion ? ` · ${obra.descripcion}` : ''}`;
+function presupuestoLabel(oc: CostosOrdenCompra): string {
+    // La OC carga a un presupuesto vía el centro de costos de sus detalles.
+    return oc.presupuesto_label ?? 'Sin presupuesto';
 }
 
 function recepcionSubtitle(oc: CostosOrdenCompra): string {
@@ -205,7 +203,7 @@ function AlertasCell({ oc }: { oc: CostosOrdenCompra }) {
     );
 }
 
-export default function OrdenesCompraIndex({ ordenes, filters, proveedoresFiltro, obrasFiltro }: Props) {
+export default function OrdenesCompraIndex({ ordenes, filters, proveedoresFiltro, presupuestosFiltro }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
@@ -237,9 +235,9 @@ export default function OrdenesCompraIndex({ ordenes, filters, proveedoresFiltro
         { value: '', label: 'Todos los proveedores' },
         ...proveedoresFiltro.map((p) => ({ value: String(p.id), label: p.razon_social })),
     ];
-    const obraOptions = [
-        { value: '', label: 'Todas las obras' },
-        ...obrasFiltro.map((o) => ({ value: String(o.id), label: `OP-${o.no} · ${o.descripcion}` })),
+    const presupuestoOptions = [
+        { value: '', label: 'Todos los presupuestos' },
+        ...presupuestosFiltro.map((p) => ({ value: String(p.id), label: p.label })),
     ];
 
     const exportUrl = (() => {
@@ -298,10 +296,10 @@ export default function OrdenesCompraIndex({ ordenes, filters, proveedoresFiltro
                     />
 
                     <SearchSelect
-                        options={obraOptions}
-                        value={filters.obra_id ?? ''}
-                        onValueChange={(v) => applyFilter({ obra_id: v || undefined })}
-                        placeholder="Obra..."
+                        options={presupuestoOptions}
+                        value={filters.presupuesto_id ?? ''}
+                        onValueChange={(v) => applyFilter({ presupuesto_id: v || undefined })}
+                        placeholder="Presupuesto..."
                         className="w-full lg:w-64"
                     />
 
@@ -349,7 +347,7 @@ export default function OrdenesCompraIndex({ ordenes, filters, proveedoresFiltro
                                             ${money(oc.total)} MXN
                                         </div>
                                         <div className="text-base-content/50 text-xs mt-0.5">
-                                            {obraFolio(oc)}
+                                            {presupuestoLabel(oc)}
                                         </div>
                                         <div className="mt-1.5">
                                             <TipoPagoBadge tipo={oc.tipo_pago} />
@@ -394,7 +392,7 @@ export default function OrdenesCompraIndex({ ordenes, filters, proveedoresFiltro
                             <tr className="text-left text-sm">
                                 <th className="p-3 xl:p-5 font-semibold">OC</th>
                                 <th className="p-3 xl:p-5 font-semibold">Proveedor</th>
-                                <th className="p-3 xl:p-5 font-semibold">Obra</th>
+                                <th className="p-3 xl:p-5 font-semibold">Presupuesto</th>
                                 <th className="p-3 xl:p-5 font-semibold">En proceso</th>
                                 <th className="p-3 xl:p-5 font-semibold">
                                     Recepción <span className="font-normal text-base-content/40 normal-case">(% del monto)</span>
@@ -450,7 +448,7 @@ export default function OrdenesCompraIndex({ ordenes, filters, proveedoresFiltro
                                             <div className="text-sm">{oc.proveedor?.razon_social ?? '—'}</div>
                                         </td>
                                         <td className="p-3 xl:p-5">
-                                            <div className="text-sm">{obraFolio(oc)}</div>
+                                            <div className="text-sm">{presupuestoLabel(oc)}</div>
                                         </td>
                                         <td className="p-3 xl:p-5">
                                             <EtapaCell oc={oc} />

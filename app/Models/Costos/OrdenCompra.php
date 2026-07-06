@@ -121,6 +121,25 @@ class OrdenCompra extends Model
         return $this->hasMany(OrdenCompraDetalle::class, 'orden_compra_id');
     }
 
+    /**
+     * Etiqueta del/los presupuesto(s) (centros de costo) a los que carga la OC,
+     * derivada de sus detalles. Requiere `detalles.obraRubro.presupuesto`.
+     */
+    public function getPresupuestoLabelAttribute(): string
+    {
+        $nombres = $this->detalles
+            ->map(fn (OrdenCompraDetalle $d) => $d->obraRubro?->presupuesto?->nombreMostrar())
+            ->filter()
+            ->unique()
+            ->values();
+
+        return match ($nombres->count()) {
+            0 => 'Sin presupuesto',
+            1 => (string) $nombres->first(),
+            default => 'Varios presupuestos',
+        };
+    }
+
     public function facturas(): HasMany
     {
         return $this->hasMany(Factura::class, 'orden_compra_id');
