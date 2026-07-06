@@ -55,9 +55,9 @@ it('una estimación global (sin obra) pagada en la semana suma al cobrado y al s
         );
 });
 
-it('calcula detonaciones (Σ partidas ×1.16) y cobros de la semana', function () {
+it('calcula detonaciones (Σ partidas con IVA, sin IVA = ÷1.16) y cobros de la semana', function () {
     $dentro = diaDeSemana($this->anio, $this->semana);
-    $obra = obraConPartidas($dentro, [1000, 500]); // sin IVA 1500, con IVA 1740
+    $obra = obraConPartidas($dentro, [1000, 500]); // con IVA 1500, sin IVA 1293.10
 
     Estimacion::factory()->create([
         'obra_id' => $obra->id,
@@ -72,28 +72,28 @@ it('calcula detonaciones (Σ partidas ×1.16) y cobros de la semana', function (
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('admin/cob/reportes/show')
-            ->where('reporte.total_detonaciones_sin_iva', 1500)
-            ->where('reporte.total_detonaciones_con_iva', 1740)
+            ->where('reporte.total_detonaciones_sin_iva', 1293.1) // 1500 / 1.16
+            ->where('reporte.total_detonaciones_con_iva', 1500)
             ->where('reporte.total_cobrado_sin_iva', 2000)
             ->where('reporte.total_cobrado_con_iva', 2320)
             ->where('reporte.saldo_anterior_sin_iva', 0)
-            // 0 + 1500 - 2000 = -500
-            ->where('reporte.saldo_nuevo_sin_iva', -500)
+            // 0 + 1293.10 - 2000 = -706.90
+            ->where('reporte.saldo_nuevo_sin_iva', -706.9)
             ->has('reporte.detonaciones', 1)
             ->has('reporte.cobros', 1)
         );
 });
 
 it('el saldo anterior acumula los movimientos de semanas previas', function () {
-    // Obra detonada en la semana 8 (antes de la 10).
+    // Obra detonada en la semana 8 (antes de la 10). Monto con IVA 1000 → sin IVA 862.07.
     obraConPartidas(diaDeSemana($this->anio, 8), [1000]);
 
     $this->actingAs($this->user)
         ->get(route('admin.cob.reportes.show', ['anio' => $this->anio, 'semana' => $this->semana]))
         ->assertInertia(fn ($page) => $page
-            ->where('reporte.saldo_anterior_sin_iva', 1000)
+            ->where('reporte.saldo_anterior_sin_iva', 862.07) // 1000 / 1.16
             ->where('reporte.total_detonaciones_sin_iva', 0)
-            ->where('reporte.saldo_nuevo_sin_iva', 1000)
+            ->where('reporte.saldo_nuevo_sin_iva', 862.07)
         );
 });
 

@@ -17,7 +17,7 @@ use Illuminate\Support\Collection;
  */
 class ReporteCobranzaService
 {
-    /** IVA fijo aplicado al monto de partidas de una obra detonada. */
+    /** IVA fijo ya contenido en el monto de partidas de una obra detonada. */
     private const TASA_IVA = 0.16;
 
     /** Última semana ISO a reportar del año (la actual si es el año en curso). */
@@ -49,7 +49,7 @@ class ReporteCobranzaService
      */
     public function saldoHasta(Carbon $t): array
     {
-        $detSin = (float) Partida::query()
+        $detCon = (float) Partida::query()
             ->whereHas('obra', fn ($q) => $q->sinPlanta()->where('created_at', '<=', $t))
             ->sum('monto');
 
@@ -64,8 +64,8 @@ class ReporteCobranzaService
             ->sum('monto_total');
 
         return [
-            'sin' => round($detSin - $cobSin, 2),
-            'con' => round($detSin * (1 + self::TASA_IVA) - $cobCon, 2),
+            'sin' => round($detCon / (1 + self::TASA_IVA) - $cobSin, 2),
+            'con' => round($detCon - $cobCon, 2),
         ];
     }
 
@@ -83,14 +83,14 @@ class ReporteCobranzaService
             ->orderBy('no')
             ->get()
             ->map(function (Obra $obra): array {
-                $sin = (float) ($obra->partidas_monto ?? 0);
+                $con = (float) ($obra->partidas_monto ?? 0);
 
                 return [
                     'obra_id' => $obra->id,
                     'obra_no' => $obra->no,
                     'descripcion' => $obra->descripcion,
-                    'monto_sin_iva' => round($sin, 2),
-                    'monto_con_iva' => round($sin * (1 + self::TASA_IVA), 2),
+                    'monto_sin_iva' => round($con / (1 + self::TASA_IVA), 2),
+                    'monto_con_iva' => round($con, 2),
                 ];
             });
     }
@@ -194,8 +194,9 @@ class ReporteCobranzaService
             [$inicio, $fin] = $this->rangoSemana($anio, $semana);
 
             $cobSemana = $cobPorSemana->get($semana);
-            $detSin = round((float) ($detPorSemana->get($semana) ?? 0), 2);
-            $detCon = round($detSin * (1 + self::TASA_IVA), 2);
+            $detConRaw = (float) ($detPorSemana->get($semana) ?? 0);
+            $detCon = round($detConRaw, 2);
+            $detSin = round($detConRaw / (1 + self::TASA_IVA), 2);
             $cobSin = round((float) ($cobSemana?->sum('monto_estimado') ?? 0), 2);
             $cobCon = round((float) ($cobSemana?->sum('monto_total') ?? 0), 2);
 
