@@ -1398,6 +1398,7 @@ export type CostosObraRubro = {
     acumulado: number;
     rubro?: CostosRubro;
     obra?: Obra;
+    presupuesto?: CostosPresupuesto;
     created_at: string;
     updated_at: string;
 };
@@ -1412,8 +1413,17 @@ export type CostosPresupuesto = {
     presupuestable_id: number;
     nombre_interno: string | null;
     estatus: CostosPresupuestoEstatus;
+    nombre_mostrar?: string;
+    presupuestable?: { id: number; no?: string | null; descripcion?: string | null; estatus?: string };
     created_at: string;
     updated_at: string;
+};
+
+/** Opción de presupuesto para el selector de cabecera de requisición. */
+export type PresupuestoOption = {
+    id: number;
+    label: string;
+    cerrado: boolean;
 };
 
 /** Fila de presupuesto presentada por PresupuestoController (index/edit). */
@@ -1674,8 +1684,8 @@ export const MODO_PAGO_LABELS: Record<ModoPago, string> = {
 
 export type ObraRubroOption = {
     id: number;
-    obra_id: number;
-    obra_label: string;
+    presupuesto_id: number;
+    presupuesto_label: string;
     rubro_label: string;
     label: string;
     presupuestado: number;
@@ -1701,6 +1711,7 @@ export type CostosRequisicion = {
     solicitante_id: string;
     departamento_id: number;
     obra_id: number | null;
+    presupuesto_id: number | null;
     justificacion: string | null;
     fecha_requerida: string | null;
     estatus: CostosRequisicionEstatus;
@@ -1711,6 +1722,7 @@ export type CostosRequisicion = {
     solicitante?: Pick<Usuario, 'id' | 'name'>;
     departamento?: Pick<Departamento, 'id' | 'descripcion'>;
     obra?: { id: number; no: number | null; descripcion: string };
+    presupuesto?: CostosPresupuesto;
     detalles?: CostosRequisicionDetalle[];
     aprobaciones?: CostosAprobacionSolicitud[];
     ocs?: CostosRequisicionOc[];
@@ -1747,6 +1759,7 @@ export type CostosRequisicionDetalle = {
         presupuestado: number | string;
         acumulado: number | string;
         obra?: { id: number; descripcion: string };
+        presupuesto?: CostosPresupuesto;
         rubro?: { id: number; codigo: string; descripcion: string };
     };
     cotizaciones?: CostosRequisicionCotizacionPrecio[];

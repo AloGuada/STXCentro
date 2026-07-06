@@ -471,13 +471,13 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                                 {REQUISICION_ESTATUS_LABELS[requisicion.estatus]}
                             </span>
                             {requisicion.sobre_obra_cerrada && (
-                                <span className="badge badge-warning gap-1" title="Carga sobre obra/adicional cerrado">
-                                    ⚠ Obra cerrada
+                                <span className="badge badge-warning gap-1" title="Carga sobre presupuesto cerrado">
+                                    ⚠ Presupuesto cerrado
                                 </span>
                             )}
                             <span className="text-sm text-base-content/60">
                                 {requisicion.solicitante?.name} · {requisicion.departamento?.descripcion}
-                                {requisicion.obra && ` · ${requisicion.obra.no ? `OP-${requisicion.obra.no} ` : ''}${requisicion.obra.descripcion}`}
+                                {requisicion.presupuesto && ` · ${requisicion.presupuesto.nombre_mostrar ?? ''}`}
                                 {' · '}{fmtDate(requisicion.created_at)}
                             </span>
                         </div>
@@ -601,10 +601,7 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                                                     {d.obra_rubro ? (
                                                         <div className="space-y-0.5">
                                                             <div className="font-medium">
-                                                                {d.obra_rubro.obra?.no && (
-                                                                    <span className="badge badge-ghost badge-xs mr-1 font-mono">OP-{d.obra_rubro.obra.no}</span>
-                                                                )}
-                                                                {d.obra_rubro.obra?.descripcion ?? '-'}
+                                                                {d.obra_rubro.presupuesto?.nombre_mostrar ?? '-'}
                                                             </div>
                                                             <div className="text-base-content/60">
                                                                 {d.obra_rubro.rubro?.codigo} · {d.obra_rubro.rubro?.descripcion}

@@ -144,7 +144,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
     };
 
     const [incluirCerradas, setIncluirCerradas] = useState(false);
-    const esCerrado = (or: CostosObraRubro) => or.obra?.estatus === 'cerrada';
+    const esCerrado = (or: CostosObraRubro) => or.presupuesto?.estatus === 'cerrado';
     const obrasVisibles = obras.filter((o) => incluirCerradas || o.estatus !== 'cerrada');
 
     const formatMoney = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });

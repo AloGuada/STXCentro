@@ -10,8 +10,8 @@ import type {
     CostosRequisicion,
     CostosUsoCfdi,
     Departamento,
-    Obra,
     ObraRubroOption,
+    PresupuestoOption,
 } from '@/types/models';
 
 type Detalle = {
@@ -19,7 +19,7 @@ type Detalle = {
     descripcion: string;
     unidad: string;
     cantidad: number;
-    obra_id: number | '';
+    presupuesto_id: number | '';
     obra_rubro_id: number | '';
     uso_cfdi_id: number | '';
     notas: string;
@@ -27,7 +27,7 @@ type Detalle = {
 
 type FormData = {
     departamento_id: number;
-    obra_id: number | '';
+    presupuesto_id: number | '';
     justificacion: string;
     detalles: Detalle[];
     _version: string;
@@ -36,7 +36,7 @@ type FormData = {
 type Props = {
     requisicion: CostosRequisicion;
     departamentos: Pick<Departamento, 'id' | 'descripcion'>[];
-    obras: Pick<Obra, 'id' | 'no' | 'descripcion' | 'estatus'>[];
+    presupuestos: PresupuestoOption[];
     obraRubros: ObraRubroOption[];
     usosCfdi: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>[];
 };
@@ -44,7 +44,7 @@ type Props = {
 export default function RequisicionesEdit({
     requisicion,
     departamentos,
-    obras,
+    presupuestos,
     obraRubros,
     usosCfdi,
 }: Props) {
@@ -66,15 +66,16 @@ export default function RequisicionesEdit({
 
     const { data, setData, put, processing, errors } = useForm<FormData>({
         departamento_id: requisicion.departamento_id,
-        obra_id: requisicion.obra_id ?? '',
+        presupuesto_id: requisicion.presupuesto_id ?? '',
         justificacion: requisicion.justificacion ?? '',
         detalles: (requisicion.detalles ?? []).map((d) => ({
             id: d.id,
             descripcion: d.descripcion,
             unidad: d.unidad,
             cantidad: Number(d.cantidad),
-            obra_id:
-                obraRubros.find((r) => r.id === d.obra_rubro_id)?.obra_id ?? '',
+            presupuesto_id:
+                obraRubros.find((r) => r.id === d.obra_rubro_id)
+                    ?.presupuesto_id ?? '',
             obra_rubro_id: d.obra_rubro_id ?? '',
             uso_cfdi_id: d.uso_cfdi_id ?? '',
             notas: d.notas ?? '',
@@ -83,35 +84,38 @@ export default function RequisicionesEdit({
     });
 
     const [incluirCerradas, setIncluirCerradas] = useState(false);
-    // Multiobra: se infiere de la requisición cargada (sin obra = multiobra).
-    const [multiobra, setMultiobra] = useState(!requisicion.obra_id);
-    const obrasVisibles = obras.filter(
-        (o) => incluirCerradas || o.estatus !== 'cerrada',
+    // Multipresupuesto: se infiere de la requisición cargada (sin presupuesto = multi).
+    const [multipresupuesto, setMultipresupuesto] = useState(
+        !requisicion.presupuesto_id,
     );
-    const rubrosDe = (obraId: number | '') =>
-        obraId
+    const presupuestosVisibles = presupuestos.filter(
+        (p) => incluirCerradas || !p.cerrado,
+    );
+    const rubrosDe = (presupuestoId: number | '') =>
+        presupuestoId
             ? obraRubros.filter(
                   (r) =>
-                      r.obra_id === obraId && (incluirCerradas || !r.cerrado),
+                      r.presupuesto_id === presupuestoId &&
+                      (incluirCerradas || !r.cerrado),
               )
             : [];
 
-    const setObra = (value: number | '') => {
+    const setPresupuesto = (value: number | '') => {
         setData((prev) => ({
             ...prev,
-            obra_id: value,
+            presupuesto_id: value,
             detalles: prev.detalles.map((d) => ({ ...d, obra_rubro_id: '' })),
         }));
     };
 
-    const toggleMultiobra = (on: boolean) => {
-        setMultiobra(on);
+    const toggleMultipresupuesto = (on: boolean) => {
+        setMultipresupuesto(on);
         setData((prev) => ({
             ...prev,
-            obra_id: on ? '' : prev.obra_id,
+            presupuesto_id: on ? '' : prev.presupuesto_id,
             detalles: prev.detalles.map((d) => ({
                 ...d,
-                obra_id: '',
+                presupuesto_id: '',
                 obra_rubro_id: '',
             })),
         }));
@@ -124,7 +128,7 @@ export default function RequisicionesEdit({
                 descripcion: '',
                 unidad: 'pza',
                 cantidad: 1,
-                obra_id: '',
+                presupuesto_id: '',
                 obra_rubro_id: '',
                 uso_cfdi_id: defaultUsoId,
                 notas: '',
@@ -149,7 +153,7 @@ export default function RequisicionesEdit({
                     ? {
                           ...d,
                           [field]: value,
-                          ...(field === 'obra_id'
+                          ...(field === 'presupuesto_id'
                               ? { obra_rubro_id: '' as const }
                               : {}),
                       }
@@ -198,20 +202,22 @@ export default function RequisicionesEdit({
                     <div>
                         <div className="flex items-center justify-between">
                             <label className="label-text label">
-                                Obra / Proyecto {!multiobra && '*'}
+                                Presupuesto {!multipresupuesto && '*'}
                             </label>
                             <div className="flex items-center gap-3">
                                 <label className="label cursor-pointer gap-2 py-0">
                                     <input
                                         type="checkbox"
                                         className="checkbox checkbox-xs"
-                                        checked={multiobra}
+                                        checked={multipresupuesto}
                                         onChange={(e) =>
-                                            toggleMultiobra(e.target.checked)
+                                            toggleMultipresupuesto(
+                                                e.target.checked,
+                                            )
                                         }
                                     />
                                     <span className="label-text text-xs">
-                                        Multiobra
+                                        Multipresupuesto
                                     </span>
                                 </label>
                                 <label className="label cursor-pointer gap-2 py-0">
@@ -224,23 +230,23 @@ export default function RequisicionesEdit({
                                         }
                                     />
                                     <span className="label-text text-xs">
-                                        Incluir cerradas
+                                        Incluir cerrados
                                     </span>
                                 </label>
                             </div>
                         </div>
-                        {multiobra ? (
+                        {multipresupuesto ? (
                             <p className="text-sm text-base-content/60">
-                                Requisición multiobra: cada partida elige su
-                                centro de costos (con su obra).
+                                Requisición multipresupuesto: cada partida elige
+                                su centro de costos (con su presupuesto).
                             </p>
                         ) : (
                             <>
                                 <select
                                     className="select-bordered select w-full"
-                                    value={data.obra_id}
+                                    value={data.presupuesto_id}
                                     onChange={(e) =>
-                                        setObra(
+                                        setPresupuesto(
                                             e.target.value
                                                 ? Number(e.target.value)
                                                 : '',
@@ -248,21 +254,18 @@ export default function RequisicionesEdit({
                                     }
                                 >
                                     <option value="">
-                                        Selecciona una obra
+                                        Selecciona un presupuesto
                                     </option>
-                                    {obrasVisibles.map((o) => (
-                                        <option key={o.id} value={o.id}>
-                                            {o.no ? `OP-${o.no} · ` : ''}
-                                            {o.descripcion}
-                                            {o.estatus === 'cerrada'
-                                                ? ' (Cerrada)'
-                                                : ''}
+                                    {presupuestosVisibles.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.label}
+                                            {p.cerrado ? ' (Cerrado)' : ''}
                                         </option>
                                     ))}
                                 </select>
-                                {errors.obra_id && (
+                                {errors.presupuesto_id && (
                                     <p className="mt-1 text-sm text-error">
-                                        {errors.obra_id}
+                                        {errors.presupuesto_id}
                                     </p>
                                 )}
                             </>
@@ -295,11 +298,11 @@ export default function RequisicionesEdit({
                     </Button>
                 </div>
 
-                {!multiobra && !data.obra_id && (
+                {!multipresupuesto && !data.presupuesto_id && (
                     <div className="mb-3 alert alert-info">
                         <span>
-                            Selecciona primero la obra para asignar el centro de
-                            costos de cada partida.
+                            Selecciona primero el presupuesto para asignar el
+                            centro de costos de cada partida.
                         </span>
                     </div>
                 )}
@@ -311,8 +314,10 @@ export default function RequisicionesEdit({
                                 <th>Descripción *</th>
                                 <th className="w-24">Unidad</th>
                                 <th className="w-28 text-right">Cantidad *</th>
-                                {multiobra && (
-                                    <th className="min-w-[180px]">Obra *</th>
+                                {multipresupuesto && (
+                                    <th className="min-w-[180px]">
+                                        Presupuesto *
+                                    </th>
                                 )}
                                 <th className="min-w-[200px]">
                                     Centro de Costo *
@@ -368,26 +373,28 @@ export default function RequisicionesEdit({
                                             }
                                         />
                                     </td>
-                                    {multiobra && (
+                                    {multipresupuesto && (
                                         <td>
                                             <SearchSelect
                                                 value={
-                                                    d.obra_id === ''
+                                                    d.presupuesto_id === ''
                                                         ? ''
-                                                        : String(d.obra_id)
+                                                        : String(
+                                                              d.presupuesto_id,
+                                                          )
                                                 }
                                                 onValueChange={(v) =>
                                                     updateDetalle(
                                                         i,
-                                                        'obra_id',
+                                                        'presupuesto_id',
                                                         v ? Number(v) : '',
                                                     )
                                                 }
-                                                placeholder="Buscar obra..."
-                                                options={obrasVisibles.map(
-                                                    (o) => ({
-                                                        value: String(o.id),
-                                                        label: `${o.no ? `OP-${o.no} · ` : ''}${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
+                                                placeholder="Buscar presupuesto..."
+                                                options={presupuestosVisibles.map(
+                                                    (p) => ({
+                                                        value: String(p.id),
+                                                        label: `${p.label}${p.cerrado ? ' (Cerrado)' : ''}`,
                                                     }),
                                                 )}
                                             />
@@ -397,15 +404,15 @@ export default function RequisicionesEdit({
                                         <RubroSelector
                                             value={d.obra_rubro_id}
                                             options={rubrosDe(
-                                                multiobra
-                                                    ? d.obra_id
-                                                    : data.obra_id,
+                                                multipresupuesto
+                                                    ? d.presupuesto_id
+                                                    : data.presupuesto_id,
                                             )}
                                             rubroOnly
                                             disabled={
-                                                !(multiobra
-                                                    ? d.obra_id
-                                                    : data.obra_id)
+                                                !(multipresupuesto
+                                                    ? d.presupuesto_id
+                                                    : data.presupuesto_id)
                                             }
                                             onChange={(value) =>
                                                 updateDetalle(

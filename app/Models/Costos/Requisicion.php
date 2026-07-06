@@ -46,6 +46,7 @@ class Requisicion extends Model implements Aprobable
         'solicitante_id',
         'departamento_id',
         'obra_id',
+        'presupuesto_id',
         'justificacion',
         'fecha_requerida',
         'estatus',
@@ -78,9 +79,21 @@ class Requisicion extends Model implements Aprobable
         return $this->belongsTo(Departamento::class);
     }
 
+    /**
+     * @deprecated Se conserva durante la transición. Usar presupuesto().
+     */
     public function obra(): BelongsTo
     {
         return $this->belongsTo(Obra::class);
+    }
+
+    /**
+     * Presupuesto (proyecto/obra/partida) al que se carga la requisición.
+     * Nulo cuando es multipresupuesto (cada partida define el suyo por rubro).
+     */
+    public function presupuesto(): BelongsTo
+    {
+        return $this->belongsTo(Presupuesto::class, 'presupuesto_id');
     }
 
     public function detalles(): HasMany

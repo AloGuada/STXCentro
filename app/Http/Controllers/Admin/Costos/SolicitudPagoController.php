@@ -94,7 +94,7 @@ class SolicitudPagoController extends Controller
             'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
             'obraRubros' => ObraRubro::with([
                 'rubro',
-                'obra:id,estatus',
+                'presupuesto:id,estatus',
             ])->get(),
         ]);
     }
@@ -127,7 +127,7 @@ class SolicitudPagoController extends Controller
             foreach ($request->input('detalles', []) as $detalle) {
                 $subtotal = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
 
-                $obraRubro = ObraRubro::with(['rubro:id,codigo', 'obra:id,estatus'])
+                $obraRubro = ObraRubro::with(['rubro:id,codigo', 'presupuesto:id,estatus'])
                     ->find($detalle['obra_rubro_id']);
 
                 $solicitud->detalles()->create([
@@ -318,7 +318,7 @@ class SolicitudPagoController extends Controller
             'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
             'obraRubros' => ObraRubro::with([
                 'rubro',
-                'obra:id,estatus',
+                'presupuesto:id,estatus',
             ])->get(),
         ]);
     }
@@ -353,7 +353,7 @@ class SolicitudPagoController extends Controller
             foreach ($request->input('detalles', []) as $detalle) {
                 $subtotal = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
 
-                $obraRubro = ObraRubro::with(['rubro:id,codigo', 'obra:id,estatus'])
+                $obraRubro = ObraRubro::with(['rubro:id,codigo', 'presupuesto:id,estatus'])
                     ->find($detalle['obra_rubro_id']);
                 $sobreObraCerrada = $obraRubro?->estaCerrado() ?? false;
 

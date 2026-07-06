@@ -13,13 +13,13 @@ use App\Http\Requests\Admin\Costos\RequisicionStoreRequest;
 use App\Http\Requests\Admin\Costos\RequisicionUpdateRequest;
 use App\Models\Costos\Aprobacion;
 use App\Models\Costos\ObraRubro;
+use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\RequisicionSeleccion;
 use App\Models\Costos\UsoCfdi;
 use App\Models\Departamento;
-use App\Models\Obra;
 use App\Models\Proveedor;
 use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
@@ -87,7 +87,7 @@ class RequisicionController extends Controller
 
         return Inertia::render('admin/costos/requisiciones/create', [
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
-            'obras' => Obra::orderBy('descripcion')->get(['id', 'no', 'descripcion', 'estatus']),
+            'presupuestos' => $this->presupuestosOptions(),
             'obraRubros' => $this->obraRubrosOptions(),
             'usosCfdi' => $this->usosCfdiOptions(),
             'productos' => \App\Models\Costos\Producto::where('activo', true)
@@ -102,7 +102,7 @@ class RequisicionController extends Controller
             $requisicion = Requisicion::create([
                 'solicitante_id' => $request->user()->id,
                 'departamento_id' => $request->integer('departamento_id'),
-                'obra_id' => $request->integer('obra_id') ?: null,
+                'presupuesto_id' => $request->integer('presupuesto_id') ?: null,
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
                 'estatus' => RequisicionEstatus::Borrador->value,
@@ -178,7 +178,7 @@ class RequisicionController extends Controller
             $nueva = Requisicion::create([
                 'solicitante_id' => request()->user()->id,
                 'departamento_id' => $requisicion->departamento_id,
-                'obra_id' => $requisicion->obra_id,
+                'presupuesto_id' => $requisicion->presupuesto_id,
                 'justificacion' => $requisicion->justificacion,
                 'fecha_requerida' => $requisicion->fecha_requerida,
                 'estatus' => RequisicionEstatus::Borrador->value,
@@ -235,8 +235,8 @@ class RequisicionController extends Controller
         $requisicion->load([
             'solicitante:id,name',
             'departamento:id,descripcion',
-            'obra:id,no,descripcion',
-            'detalles.obraRubro.obra:id,no,descripcion',
+            'presupuesto.presupuestable',
+            'detalles.obraRubro.presupuesto.presupuestable',
             'detalles.obraRubro.rubro:id,codigo,descripcion',
             'detalles.usoCfdi:id,clave,descripcion',
             'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial,estatus,activo',
@@ -250,6 +250,9 @@ class RequisicionController extends Controller
             'media',
             'activities.causer',
         ]);
+
+        $requisicion->presupuesto?->append('nombre_mostrar');
+        $requisicion->detalles->each(fn (RequisicionDetalle $d) => $d->obraRubro?->presupuesto?->append('nombre_mostrar'));
 
         $aprobacionPendienteId = $this->aprobacionPendienteParaUsuario($requisicion);
         $esUltimoNivel = $this->esUltimoNivel($requisicion, $aprobacionPendienteId);
@@ -510,7 +513,7 @@ class RequisicionController extends Controller
         return Inertia::render('admin/costos/requisiciones/edit', [
             'requisicion' => $requisicion,
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
-            'obras' => Obra::orderBy('descripcion')->get(['id', 'no', 'descripcion', 'estatus']),
+            'presupuestos' => $this->presupuestosOptions(),
             'obraRubros' => $this->obraRubrosOptions(),
             'usosCfdi' => $this->usosCfdiOptions(),
         ]);
@@ -527,7 +530,7 @@ class RequisicionController extends Controller
         DB::transaction(function () use ($request, $requisicion) {
             $requisicion->update([
                 'departamento_id' => $request->integer('departamento_id'),
-                'obra_id' => $request->integer('obra_id') ?: null,
+                'presupuesto_id' => $request->integer('presupuesto_id') ?: null,
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
             ]);
@@ -873,7 +876,7 @@ class RequisicionController extends Controller
     {
         $rubroIds = $requisicion->detalles()->pluck('obra_rubro_id')->filter()->unique();
 
-        $cerrada = ObraRubro::with(['obra:id,estatus'])
+        $cerrada = ObraRubro::with(['presupuesto:id,estatus'])
             ->whereIn('id', $rubroIds)
             ->get()
             ->contains(fn (ObraRubro $or) => $or->estaCerrado());
@@ -884,27 +887,25 @@ class RequisicionController extends Controller
     private function obraRubrosOptions(): \Illuminate\Support\Collection
     {
         return ObraRubro::with([
-            'obra:id,no,descripcion,estatus',
+            'presupuesto.presupuestable',
             'rubro:id,codigo,descripcion',
         ])
             ->get()
-            ->map(function ($or) {
+            ->map(function (ObraRubro $or) {
                 $disponible = $or->disponible;
-                $obraDesc = $or->obra?->descripcion ?? '-';
-                $opPrefix = $or->obra?->no ? 'OP-'.$or->obra->no.' · ' : '';
+                $presupuestoLabel = $or->presupuesto?->nombreMostrar() ?? '-';
 
                 return [
                     'id' => $or->id,
-                    'obra_id' => $or->obra_id,
-                    'obra_label' => trim($opPrefix.$obraDesc),
+                    'presupuesto_id' => $or->presupuesto_id,
+                    'presupuesto_label' => $presupuestoLabel,
                     'rubro_label' => trim(sprintf('%s %s', $or->rubro?->codigo ?? '', $or->rubro?->descripcion ?? '-')),
-                    'label' => sprintf(
-                        '%s%s · %s %s',
-                        $opPrefix,
-                        $obraDesc,
+                    'label' => trim(sprintf(
+                        '%s · %s %s',
+                        $presupuestoLabel,
                         $or->rubro?->codigo ?? '',
                         $or->rubro?->descripcion ?? '-',
-                    ),
+                    )),
                     'presupuestado' => (float) $or->presupuestado,
                     'acumulado' => (float) $or->acumulado,
                     'disponible' => $disponible,
@@ -912,6 +913,24 @@ class RequisicionController extends Controller
                     'cerrado' => $or->estaCerrado(),
                 ];
             })
+            ->values();
+    }
+
+    /**
+     * Presupuestos (proyecto/obra/partida) para el selector de cabecera.
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function presupuestosOptions(): \Illuminate\Support\Collection
+    {
+        return Presupuesto::with('presupuestable')
+            ->get()
+            ->map(fn (Presupuesto $p) => [
+                'id' => $p->id,
+                'label' => $p->nombreMostrar(),
+                'cerrado' => $p->estaCerrado(),
+            ])
+            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
     }
 

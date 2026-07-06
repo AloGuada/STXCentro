@@ -71,6 +71,11 @@ class Presupuesto extends Model
         return $presupuestable->no ?? $presupuestable->descripcion ?? '—';
     }
 
+    public function getNombreMostrarAttribute(): string
+    {
+        return $this->nombreMostrar();
+    }
+
     /**
      * El presupuesto está cerrado para efectos de gasto según su propio estatus
      * (independiente del estado del presupuestable en cobranza).

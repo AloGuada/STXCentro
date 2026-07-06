@@ -18,7 +18,7 @@ export function RubroSelector({ value, options, onChange, rubroOnly = false, dis
     const isAlerta = (r: ObraRubroOption) => r.sobregiro || r.presupuestado <= 0;
     const sufijo = (r: ObraRubroOption) => {
         const partes: string[] = [];
-        if (r.cerrado) partes.push('⚠ cerrada');
+        if (r.cerrado) partes.push('⚠ cerrado');
         if (r.sobregiro) partes.push('⚠ sobregiro');
         else if (r.presupuestado <= 0) partes.push('⚠ sin presupuesto');
         return partes.length ? ' · ' + partes.join(' · ') : '';

@@ -209,7 +209,7 @@ export default function SolicitudesPagoCreate({
     // Por defecto se ocultan obras/adicionales cerrados; el checkbox los incluye.
     const [incluirCerradas, setIncluirCerradas] = useState(false);
 
-    const esCerrado = (or: CostosObraRubro) => or.obra?.estatus === 'cerrada';
+    const esCerrado = (or: CostosObraRubro) => or.presupuesto?.estatus === 'cerrado';
 
     const obrasVisibles = obras.filter(
         (o) => incluirCerradas || o.estatus !== 'cerrada',

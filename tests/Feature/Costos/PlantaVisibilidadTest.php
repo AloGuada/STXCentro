@@ -79,14 +79,18 @@ describe('visibilidad del proyecto de planta fuera de costos', function () {
         );
     });
 
-    test('si aparece en los selectores de requisiciones de costos', function () {
+    test('sus presupuestos si aparecen en los selectores de requisiciones de costos', function () {
         Permission::firstOrCreate(['name' => 'costos.requisiciones.crear', 'guard_name' => 'web']);
         $this->user->givePermissionTo('costos.requisiciones.crear');
+
+        // El presupuesto de planta y el de la obra normal deben ser seleccionables.
+        \App\Models\Costos\Presupuesto::factory()->paraObra($this->planta)->create();
+        \App\Models\Costos\Presupuesto::factory()->paraObra($this->obra)->create();
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.costos.requisiciones.create'));
 
         $response->assertOk();
-        $response->assertInertia(fn ($page) => $page->has('obras', 2));
+        $response->assertInertia(fn ($page) => $page->has('presupuestos', 2));
     });
 });

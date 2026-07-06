@@ -2,6 +2,7 @@
 
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
+use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
@@ -23,6 +24,7 @@ beforeEach(function () {
 
     $this->depto = Departamento::factory()->create();
     $this->obra = Obra::factory()->create();
+    $this->presupuesto = Presupuesto::factory()->paraObra($this->obra)->create();
     $this->uso = UsoCfdi::factory()->create(['clave' => 'G01']);
 });
 
@@ -56,27 +58,27 @@ test('rechaza un uso de CFDI inactivo', function () {
         ->assertSessionHasErrors(['detalles.0.uso_cfdi_id']);
 });
 
-test('rechaza una partida cuyo rubro no pertenece a la obra elegida', function () {
-    $rubroOtraObra = ObraRubro::factory()->create(); // obra distinta
+test('rechaza una partida cuyo rubro no pertenece al presupuesto elegido', function () {
+    $rubroOtroPresupuesto = ObraRubro::factory()->create(); // presupuesto distinto
 
     $this->actingAs($this->user)
         ->post('/admin/costos/requisiciones', [
             'departamento_id' => $this->depto->id,
-            'obra_id' => $this->obra->id,
+            'presupuesto_id' => $this->presupuesto->id,
             'detalles' => [
-                ['descripcion' => 'Acero', 'unidad' => 'kg', 'cantidad' => 10, 'obra_rubro_id' => $rubroOtraObra->id, 'uso_cfdi_id' => $this->uso->id],
+                ['descripcion' => 'Acero', 'unidad' => 'kg', 'cantidad' => 10, 'obra_rubro_id' => $rubroOtroPresupuesto->id, 'uso_cfdi_id' => $this->uso->id],
             ],
         ])
         ->assertSessionHasErrors(['detalles.0.obra_rubro_id']);
 });
 
-test('crea la requisición con obra, código de producto y uso de CFDI por partida', function () {
-    $rubro = ObraRubro::factory()->create(['obra_id' => $this->obra->id]);
+test('crea la requisición con presupuesto, código de producto y uso de CFDI por partida', function () {
+    $rubro = ObraRubro::factory()->create(['presupuesto_id' => $this->presupuesto->id]);
 
     $this->actingAs($this->user)
         ->post('/admin/costos/requisiciones', [
             'departamento_id' => $this->depto->id,
-            'obra_id' => $this->obra->id,
+            'presupuesto_id' => $this->presupuesto->id,
             'detalles' => [
                 ['descripcion' => 'Acero', 'codigo_producto' => 'ACE-001', 'unidad' => 'kg', 'cantidad' => 10, 'obra_rubro_id' => $rubro->id, 'uso_cfdi_id' => $this->uso->id],
             ],
@@ -87,7 +89,7 @@ test('crea la requisición con obra, código de producto y uso de CFDI por parti
     $detalle = RequisicionDetalle::first();
     expect($detalle->codigo_producto)->toBe('ACE-001');
     expect($detalle->uso_cfdi_id)->toBe($this->uso->id);
-    expect(Requisicion::first()->obra_id)->toBe($this->obra->id);
+    expect(Requisicion::first()->presupuesto_id)->toBe($this->presupuesto->id);
 });
 
 test('liberar bloquea si una partida no tiene uso de CFDI', function () {

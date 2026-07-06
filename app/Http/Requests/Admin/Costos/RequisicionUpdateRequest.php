@@ -21,8 +21,8 @@ class RequisicionUpdateRequest extends FormRequest
     {
         return [
             'departamento_id' => ['required', 'exists:departamentos,id'],
-            // Sin obra = requisición multiobra (cada partida define su obra).
-            'obra_id' => ['nullable', 'exists:obras,id'],
+            // Sin presupuesto = requisición multipresupuesto (cada partida define el suyo).
+            'presupuesto_id' => ['nullable', 'exists:costos_presupuestos,id'],
             'justificacion' => ['nullable', 'string'],
             'fecha_requerida' => ['nullable', 'date'],
             'detalles' => ['required', 'array', 'min:1'],
@@ -40,8 +40,8 @@ class RequisicionUpdateRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            if ($this->filled('obra_id')) {
-                ObraRubro::validarPertenenciaObra($validator, (int) $this->integer('obra_id'), (array) $this->input('detalles', []));
+            if ($this->filled('presupuesto_id')) {
+                ObraRubro::validarPertenenciaPresupuesto($validator, (int) $this->integer('presupuesto_id'), (array) $this->input('detalles', []));
             }
         });
     }
@@ -52,7 +52,7 @@ class RequisicionUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'obra_id.required' => 'Debe seleccionar la obra de la requisición.',
+            'presupuesto_id.required' => 'Debe seleccionar el presupuesto de la requisición.',
             'detalles.*.obra_rubro_id.required' => 'Cada partida requiere un centro de costos.',
             'detalles.*.uso_cfdi_id.required' => 'Cada partida requiere un uso de CFDI.',
             'detalles.*.uso_cfdi_id.exists' => 'El uso de CFDI seleccionado no es válido o está inactivo.',

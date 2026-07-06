@@ -4,6 +4,7 @@ use App\Models\Costos\Aprobacion;
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Permiso;
+use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
@@ -84,15 +85,15 @@ test('rechaza documentos que no son PDF al crear', function () {
 });
 
 test('cualquier usuario con permiso crear puede crear una requisicion en borrador', function () {
-    $obra = \App\Models\Obra::factory()->create();
-    $rubroA = ObraRubro::factory()->create(['obra_id' => $obra->id]);
-    $rubroB = ObraRubro::factory()->create(['obra_id' => $obra->id]);
+    $presupuesto = Presupuesto::factory()->paraObra()->create();
+    $rubroA = ObraRubro::factory()->create(['presupuesto_id' => $presupuesto->id]);
+    $rubroB = ObraRubro::factory()->create(['presupuesto_id' => $presupuesto->id]);
     $uso = \App\Models\Costos\UsoCfdi::factory()->create();
 
     $this->actingAs($this->user)
         ->post('/admin/costos/requisiciones', [
             'departamento_id' => $this->depto->id,
-            'obra_id' => $obra->id,
+            'presupuesto_id' => $presupuesto->id,
             'detalles' => [
                 ['descripcion' => 'Tornillos 1/4"', 'unidad' => 'pza', 'cantidad' => 100, 'obra_rubro_id' => $rubroA->id, 'uso_cfdi_id' => $uso->id],
                 ['descripcion' => 'Cable AWG 12', 'unidad' => 'm', 'cantidad' => 50, 'obra_rubro_id' => $rubroB->id, 'uso_cfdi_id' => $uso->id],
@@ -104,7 +105,7 @@ test('cualquier usuario con permiso crear puede crear una requisicion en borrado
     expect($req)->not->toBeNull();
     expect($req->estatus->value)->toBe('borrador');
     expect($req->folio)->toStartWith('REQ-');
-    expect($req->obra_id)->toBe($obra->id);
+    expect($req->presupuesto_id)->toBe($presupuesto->id);
     expect($req->detalles()->count())->toBe(2);
     expect($req->detalles()->first()->obra_rubro_id)->toBe($rubroA->id);
 });
@@ -165,17 +166,15 @@ test('crear requisicion sin rubro por partida falla', function () {
         ->assertSessionHasErrors(['detalles.0.obra_rubro_id']);
 });
 
-test('crea requisicion multiobra (sin obra de cabecera) con partidas de distintas obras', function () {
-    $obraA = \App\Models\Obra::factory()->create();
-    $obraB = \App\Models\Obra::factory()->create();
-    $rubroA = ObraRubro::factory()->create(['obra_id' => $obraA->id]);
-    $rubroB = ObraRubro::factory()->create(['obra_id' => $obraB->id]);
+test('crea requisicion multipresupuesto (sin cabecera) con partidas de distintos presupuestos', function () {
+    $rubroA = ObraRubro::factory()->create(['presupuesto_id' => Presupuesto::factory()->paraObra()->create()->id]);
+    $rubroB = ObraRubro::factory()->create(['presupuesto_id' => Presupuesto::factory()->paraObra()->create()->id]);
     $uso = \App\Models\Costos\UsoCfdi::factory()->create();
 
     $this->actingAs($this->user)
         ->post('/admin/costos/requisiciones', [
             'departamento_id' => $this->depto->id,
-            // sin obra_id → multiobra
+            // sin presupuesto_id → multipresupuesto
             'detalles' => [
                 ['descripcion' => 'A', 'unidad' => 'pza', 'cantidad' => 1, 'obra_rubro_id' => $rubroA->id, 'uso_cfdi_id' => $uso->id],
                 ['descripcion' => 'B', 'unidad' => 'pza', 'cantidad' => 2, 'obra_rubro_id' => $rubroB->id, 'uso_cfdi_id' => $uso->id],
@@ -185,20 +184,39 @@ test('crea requisicion multiobra (sin obra de cabecera) con partidas de distinta
 
     $req = Requisicion::first();
     expect($req)->not->toBeNull()
-        ->and($req->obra_id)->toBeNull()
+        ->and($req->presupuesto_id)->toBeNull()
         ->and($req->detalles()->count())->toBe(2);
 });
 
-test('requisicion de una sola obra sigue validando la pertenencia del centro de costos', function () {
-    $obraA = \App\Models\Obra::factory()->create();
-    $obraB = \App\Models\Obra::factory()->create();
-    $rubroB = ObraRubro::factory()->create(['obra_id' => $obraB->id]); // de OTRA obra
+test('crea una requisicion contra un presupuesto de proyecto', function () {
+    $presupuesto = Presupuesto::factory()->paraProyecto()->create();
+    $rubro = ObraRubro::factory()->create(['presupuesto_id' => $presupuesto->id]);
     $uso = \App\Models\Costos\UsoCfdi::factory()->create();
 
     $this->actingAs($this->user)
         ->post('/admin/costos/requisiciones', [
             'departamento_id' => $this->depto->id,
-            'obra_id' => $obraA->id, // obra A pero rubro de B → debe fallar
+            'presupuesto_id' => $presupuesto->id,
+            'detalles' => [
+                ['descripcion' => 'Servicio', 'unidad' => 'srv', 'cantidad' => 1, 'obra_rubro_id' => $rubro->id, 'uso_cfdi_id' => $uso->id],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(Requisicion::first()->presupuesto_id)->toBe($presupuesto->id);
+});
+
+test('requisicion de un solo presupuesto sigue validando la pertenencia del centro de costos', function () {
+    $presupuestoA = Presupuesto::factory()->paraObra()->create();
+    $presupuestoB = Presupuesto::factory()->paraObra()->create();
+    $rubroB = ObraRubro::factory()->create(['presupuesto_id' => $presupuestoB->id]); // de OTRO presupuesto
+    $uso = \App\Models\Costos\UsoCfdi::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/costos/requisiciones', [
+            'departamento_id' => $this->depto->id,
+            'presupuesto_id' => $presupuestoA->id, // A pero rubro de B → debe fallar
             'detalles' => [
                 ['descripcion' => 'X', 'unidad' => 'pza', 'cantidad' => 1, 'obra_rubro_id' => $rubroB->id, 'uso_cfdi_id' => $uso->id],
             ],

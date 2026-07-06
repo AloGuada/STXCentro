@@ -21,9 +21,9 @@ class RequisicionStoreRequest extends FormRequest
     {
         return [
             'departamento_id' => ['required', 'exists:departamentos,id'],
-            // Sin obra = requisición multiobra: cada partida define su obra vía
-            // el centro de costos (obra_rubro), sin candado de obra única.
-            'obra_id' => ['nullable', 'exists:obras,id'],
+            // Sin presupuesto = requisición multipresupuesto: cada partida define
+            // el suyo vía el centro de costos (obra_rubro), sin candado único.
+            'presupuesto_id' => ['nullable', 'exists:costos_presupuestos,id'],
             'justificacion' => ['nullable', 'string'],
             'fecha_requerida' => ['nullable', 'date'],
             'detalles' => ['required', 'array', 'min:1'],
@@ -42,10 +42,10 @@ class RequisicionStoreRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            // Solo se valida la pertenencia a la obra cuando la requisición es
-            // de una sola obra (multiobra no tiene obra de cabecera).
-            if ($this->filled('obra_id')) {
-                ObraRubro::validarPertenenciaObra($validator, (int) $this->integer('obra_id'), (array) $this->input('detalles', []));
+            // Solo se valida la pertenencia cuando la requisición es de un solo
+            // presupuesto (multipresupuesto no tiene cabecera).
+            if ($this->filled('presupuesto_id')) {
+                ObraRubro::validarPertenenciaPresupuesto($validator, (int) $this->integer('presupuesto_id'), (array) $this->input('detalles', []));
             }
         });
     }
@@ -56,7 +56,7 @@ class RequisicionStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'obra_id.required' => 'Debe seleccionar la obra de la requisición.',
+            'presupuesto_id.required' => 'Debe seleccionar el presupuesto de la requisición.',
             'detalles.required' => 'Debe registrar al menos una partida.',
             'detalles.min' => 'Debe registrar al menos una partida.',
             'detalles.*.cantidad.min' => 'La cantidad debe ser mayor a cero.',
