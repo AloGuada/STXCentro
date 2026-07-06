@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Rubro;
 use App\Models\Obra;
 use App\Models\User;
@@ -8,16 +9,22 @@ beforeEach(function () {
     $this->user = User::factory()->create();
 });
 
-describe('admin costos presupuestos', function () {
-    test('index page can be rendered with obras and sums', function () {
-        $rubro = Rubro::factory()->create();
-        $obra = Obra::factory()->create();
+/** Crea un presupuesto de obra con un rubro sembrado. */
+function presupuestoDeObraConRubro(array $obraAttrs = [], float $presupuestado = 0, float $acumulado = 0): Presupuesto
+{
+    $obra = Obra::factory()->create($obraAttrs);
+    $presupuesto = Presupuesto::factory()->paraObra($obra)->create();
+    $ambito = $obra->es_planta ? 'planta' : 'obra';
+    $rubro = Rubro::factory()->create(['ambito' => $ambito]);
+    $or = $presupuesto->crearRubro($rubro->id, $presupuestado);
+    $or->update(['acumulado' => $acumulado]);
 
-        // Auto-created ObraRubro should exist, update it with test values
-        $obra->obraRubros()->where('rubro_id', $rubro->id)->update([
-            'presupuestado' => 50000,
-            'acumulado' => 10000,
-        ]);
+    return $presupuesto;
+}
+
+describe('admin costos presupuestos', function () {
+    test('index page can be rendered with presupuestos and sums', function () {
+        presupuestoDeObraConRubro([], 50000, 10000);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.costos.presupuestos.index'));
@@ -25,67 +32,70 @@ describe('admin costos presupuestos', function () {
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/costos/presupuestos/index')
-            ->has('obras.data', 1)
+            ->has('presupuestos.data', 1)
+            ->where('presupuestos.data.0.tipo', 'obra')
         );
     });
 
     test('index page supports search', function () {
-        Obra::factory()->create(['no' => 'OBR-SEARCH-001', 'descripcion' => 'Obra Buscada']);
-        Obra::factory()->create(['no' => 'OBR-OTHER-002', 'descripcion' => 'Otra Obra']);
+        $obra = Obra::factory()->create(['no' => 'OBR-SEARCH-001', 'descripcion' => 'Obra Buscada']);
+        Presupuesto::factory()->paraObra($obra)->create();
+        $otra = Obra::factory()->create(['no' => 'OBR-OTHER-002', 'descripcion' => 'Otra Obra']);
+        Presupuesto::factory()->paraObra($otra)->create();
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.costos.presupuestos.index', ['search' => 'SEARCH']));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
-            ->has('obras.data', 1)
+            ->has('presupuestos.data', 1)
         );
     });
 
     test('edit page can be rendered with obra rubros', function () {
-        $rubro = Rubro::factory()->create();
-        $obra = Obra::factory()->create();
+        $presupuesto = presupuestoDeObraConRubro();
 
-        // Obra should auto-have the rubro assigned
         $response = $this->actingAs($this->user)
-            ->get(route('admin.costos.presupuestos.edit', $obra));
+            ->get(route('admin.costos.presupuestos.edit', $presupuesto));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/costos/presupuestos/edit')
-            ->has('obra.obra_rubros', 1)
+            ->has('presupuesto.obra_rubros', 1)
             ->has('rubros')
         );
     });
 
-    test('creating obra auto-assigns all existing rubros', function () {
-        Rubro::factory()->count(3)->create();
-
+    test('crear presupuesto siembra todos los rubros del ambito obra', function () {
+        Rubro::factory()->count(3)->create(['ambito' => 'obra']);
+        Rubro::factory()->planta()->create();
         $obra = Obra::factory()->create();
 
-        expect($obra->obraRubros)->toHaveCount(3);
-        expect($obra->obraRubros->every(fn ($or) => $or->presupuestado == 0 && $or->acumulado == 0))->toBeTrue();
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.presupuestos.store'), [
+                'presupuestable_type' => 'obra',
+                'presupuestable_id' => $obra->id,
+            ]);
+
+        $presupuesto = Presupuesto::firstWhere('presupuestable_id', $obra->id);
+        expect($presupuesto)->not->toBeNull();
+        $response->assertRedirect(route('admin.costos.presupuestos.edit', $presupuesto));
+        expect($presupuesto->rubros()->count())->toBe(3);
     });
 
-    test('creating rubro auto-assigns it to all existing obras', function () {
-        Obra::factory()->count(2)->create();
-
-        $rubro = Rubro::factory()->create();
-
-        $this->assertDatabaseCount('costos_obra_rubros', 2);
-        $this->assertDatabaseHas('costos_obra_rubros', [
-            'rubro_id' => $rubro->id,
-            'presupuestado' => 0,
-        ]);
-    });
-
-    test('creating planta auto-assigns only planta rubros', function () {
+    test('crear presupuesto sobre un proyecto', function () {
         Rubro::factory()->count(2)->create(['ambito' => 'obra']);
-        Rubro::factory()->planta()->create();
+        $proyecto = \App\Models\Proyecto::factory()->create();
 
-        $planta = Obra::factory()->planta()->create();
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.presupuestos.store'), [
+                'presupuestable_type' => 'proyecto',
+                'presupuestable_id' => $proyecto->id,
+            ])->assertRedirect();
 
-        expect($planta->obraRubros)->toHaveCount(1);
+        $presupuesto = Presupuesto::firstWhere('presupuestable_type', \App\Models\Proyecto::class);
+        expect($presupuesto->presupuestable_id)->toBe($proyecto->id);
+        expect($presupuesto->rubros()->count())->toBe(2);
     });
 
     test('proyecto de planta can be created from presupuestos', function () {
@@ -99,9 +109,10 @@ describe('admin costos presupuestos', function () {
         $planta = Obra::where('es_planta', true)->first();
 
         expect($planta)->not->toBeNull();
-        $response->assertRedirect(route('admin.costos.presupuestos.edit', $planta));
+        $presupuesto = $planta->presupuesto;
+        $response->assertRedirect(route('admin.costos.presupuestos.edit', $presupuesto));
         expect($planta->no)->toBe('PLANTA');
-        expect($planta->obraRubros)->toHaveCount(1);
+        expect($presupuesto->rubros()->count())->toBe(1);
     });
 
     test('solo puede existir un proyecto de planta', function () {
@@ -117,22 +128,22 @@ describe('admin costos presupuestos', function () {
     });
 
     test('index excluye la planta del listado y la envia como prop separada', function () {
-        Obra::factory()->create();
-        Obra::factory()->planta()->create();
+        presupuestoDeObraConRubro();
+        presupuestoDeObraConRubro(['es_planta' => true]);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.costos.presupuestos.index'));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
-            ->has('obras.data', 1)
+            ->has('presupuestos.data', 1)
             ->where('planta.es_planta', true)
             ->has('statsPlanta')
         );
     });
 
     test('index sin planta envia planta null', function () {
-        Obra::factory()->create();
+        presupuestoDeObraConRubro();
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.costos.presupuestos.index'));
@@ -144,14 +155,8 @@ describe('admin costos presupuestos', function () {
     });
 
     test('stats de obras no incluyen el presupuesto de la planta', function () {
-        $rubroObra = Rubro::factory()->create(['ambito' => 'obra']);
-        $rubroPlanta = Rubro::factory()->planta()->create();
-
-        $obra = Obra::factory()->create();
-        $planta = Obra::factory()->planta()->create();
-
-        $obra->obraRubros()->where('rubro_id', $rubroObra->id)->update(['presupuestado' => 1000]);
-        $planta->obraRubros()->where('rubro_id', $rubroPlanta->id)->update(['presupuestado' => 9000]);
+        presupuestoDeObraConRubro([], 1000);
+        presupuestoDeObraConRubro(['es_planta' => true], 9000);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.costos.presupuestos.index'));
@@ -167,9 +172,10 @@ describe('admin costos presupuestos', function () {
         $rubroPlanta = Rubro::factory()->planta()->create();
 
         $planta = Obra::factory()->planta()->create();
+        $presupuesto = Presupuesto::factory()->paraObra($planta)->create();
 
         $response = $this->actingAs($this->user)
-            ->get(route('admin.costos.presupuestos.edit', $planta));
+            ->get(route('admin.costos.presupuestos.edit', $presupuesto));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
@@ -183,9 +189,10 @@ describe('admin costos presupuestos', function () {
         Rubro::factory()->planta()->create();
 
         $obra = Obra::factory()->create();
+        $presupuesto = Presupuesto::factory()->paraObra($obra)->create();
 
         $response = $this->actingAs($this->user)
-            ->get(route('admin.costos.presupuestos.edit', $obra));
+            ->get(route('admin.costos.presupuestos.edit', $presupuesto));
 
         $response->assertInertia(fn ($page) => $page->has('rubros', 2));
     });

@@ -138,23 +138,4 @@ describe('admin costos rubros', function () {
         ]);
     });
 
-    test('rubro de obra se asigna solo a obras normales al crearse', function () {
-        $obra = \App\Models\Obra::factory()->create();
-        $planta = \App\Models\Obra::factory()->planta()->create();
-
-        $rubro = Rubro::factory()->create(['ambito' => 'obra']);
-
-        $this->assertDatabaseHas('costos_obra_rubros', ['obra_id' => $obra->id, 'rubro_id' => $rubro->id]);
-        $this->assertDatabaseMissing('costos_obra_rubros', ['obra_id' => $planta->id, 'rubro_id' => $rubro->id]);
-    });
-
-    test('rubro de planta se asigna solo a la obra planta al crearse', function () {
-        $obra = \App\Models\Obra::factory()->create();
-        $planta = \App\Models\Obra::factory()->planta()->create();
-
-        $rubro = Rubro::factory()->planta()->create();
-
-        $this->assertDatabaseHas('costos_obra_rubros', ['obra_id' => $planta->id, 'rubro_id' => $rubro->id]);
-        $this->assertDatabaseMissing('costos_obra_rubros', ['obra_id' => $obra->id, 'rubro_id' => $rubro->id]);
-    });
 });

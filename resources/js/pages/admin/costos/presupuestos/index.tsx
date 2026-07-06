@@ -4,10 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Obra, ObraEstatus, PaginatedData } from '@/types/models';
-import { OBRA_ESTATUS_LABELS } from '@/types/models';
+import type { CostosPresupuestoEstatus, PaginatedData, PresupuestableTipo, PresupuestoRow } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { AlertTriangleIcon, DownloadIcon, FactoryIcon, Loader2Icon, ShieldAlertIcon } from 'lucide-react';
+import { AlertTriangleIcon, DownloadIcon, FactoryIcon, Loader2Icon, PlusIcon, ShieldAlertIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -16,18 +15,29 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Presupuestos', href: '/admin/costos/presupuestos' },
 ];
 
-const ESTATUS_COLORS: Record<ObraEstatus, string> = {
-    abierta: 'badge-success',
-    cerrada: 'badge-ghost',
+const TIPO_LABELS: Record<PresupuestableTipo, string> = {
+    proyecto: 'Proyecto',
+    obra: 'Obra',
+    partida: 'Partida',
+};
+
+const TIPO_COLORS: Record<PresupuestableTipo, string> = {
+    proyecto: 'badge-primary',
+    obra: 'badge-neutral',
+    partida: 'badge-accent',
+};
+
+const ESTATUS_LABELS: Record<CostosPresupuestoEstatus, string> = {
+    activo: 'Activo',
+    cerrado: 'Cerrado',
+};
+
+const ESTATUS_COLORS: Record<CostosPresupuestoEstatus, string> = {
+    activo: 'badge-success',
+    cerrado: 'badge-ghost',
 };
 
 const fmt = (v: number) => `$${Number(v).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-
-type ObraWithSums = Obra & {
-    obra_rubros_sum_presupuestado: number | null;
-    obra_rubros_sum_acumulado: number | null;
-    obra_rubros_count: number;
-};
 
 function avanceBarColor(pct: number, umbral: number): string {
     if (pct > 100) return 'bg-error';
@@ -35,45 +45,59 @@ function avanceBarColor(pct: number, umbral: number): string {
     return 'bg-success';
 }
 
-function makeColumns(umbral: number): Column<ObraWithSums>[] {
+function makeColumns(umbral: number): Column<PresupuestoRow>[] {
     return [
-        { key: 'no', label: 'No.', sortable: true },
-        { key: 'descripcion', label: 'Descripcion', sortable: true },
         {
-            key: 'estatus',
-            label: 'Estatus',
-            sortable: true,
-            render: (o) => (
-                <span className={`badge badge-sm ${ESTATUS_COLORS[o.estatus]}`}>
-                    {OBRA_ESTATUS_LABELS[o.estatus]}
+            key: 'tipo',
+            label: 'Tipo',
+            render: (p) => (
+                <span className={`badge badge-sm ${p.es_planta ? 'badge-info' : TIPO_COLORS[p.tipo]}`}>
+                    {p.es_planta ? 'Planta' : TIPO_LABELS[p.tipo]}
                 </span>
             ),
         },
         {
-            key: 'obra_rubros_count',
+            key: 'nombre_interno',
+            label: 'Nombre',
+            sortable: true,
+            render: (p) => (
+                <div>
+                    <div className="font-medium">{p.nombre}</div>
+                    {p.nombre_interno && p.no && (
+                        <div className="text-[10px] text-base-content/50">{p.no}</div>
+                    )}
+                </div>
+            ),
+        },
+        {
+            key: 'estatus',
+            label: 'Estatus',
+            sortable: true,
+            render: (p) => <span className={`badge badge-sm ${ESTATUS_COLORS[p.estatus]}`}>{ESTATUS_LABELS[p.estatus]}</span>,
+        },
+        {
+            key: 'rubros_count',
             label: 'Centros de Costos',
             sortable: true,
-            render: (o) => o.obra_rubros_count,
+            render: (p) => p.rubros_count,
         },
         {
-            key: 'obra_rubros_sum_presupuestado',
+            key: 'rubros_sum_presupuestado',
             label: 'Presupuestado',
             sortable: true,
-            render: (o) => <span className="font-mono text-sm">{fmt(o.obra_rubros_sum_presupuestado ?? 0)}</span>,
+            render: (p) => <span className="font-mono text-sm">{fmt(p.sum_presupuestado)}</span>,
         },
         {
-            key: 'obra_rubros_sum_acumulado',
+            key: 'rubros_sum_acumulado',
             label: 'Acumulado',
             sortable: true,
-            render: (o) => <span className="font-mono text-sm">{fmt(o.obra_rubros_sum_acumulado ?? 0)}</span>,
+            render: (p) => <span className="font-mono text-sm">{fmt(p.sum_acumulado)}</span>,
         },
         {
             key: 'avance',
             label: 'Avance',
-            render: (o) => {
-                const presup = o.obra_rubros_sum_presupuestado ?? 0;
-                const acum = o.obra_rubros_sum_acumulado ?? 0;
-                const pct = presup > 0 ? (acum / presup) * 100 : 0;
+            render: (p) => {
+                const pct = p.sum_presupuestado > 0 ? (p.sum_acumulado / p.sum_presupuestado) * 100 : 0;
                 const color = avanceBarColor(pct, umbral);
                 const widthPct = Math.min(100, pct);
 
@@ -81,9 +105,7 @@ function makeColumns(umbral: number): Column<ObraWithSums>[] {
                     <div className="w-32">
                         <div className="flex items-center justify-between text-[10px] text-base-content/60 mb-0.5">
                             <span>{pct.toFixed(0)}%</span>
-                            {pct > 100 && (
-                                <span className="text-error font-bold">+{(pct - 100).toFixed(0)}%</span>
-                            )}
+                            {pct > 100 && <span className="text-error font-bold">+{(pct - 100).toFixed(0)}%</span>}
                         </div>
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-base-200">
                             <div className={`h-full ${color}`} style={{ width: `${widthPct}%` }} />
@@ -95,8 +117,8 @@ function makeColumns(umbral: number): Column<ObraWithSums>[] {
         {
             key: 'disponible',
             label: 'Disponible',
-            render: (o) => {
-                const disponible = (o.obra_rubros_sum_presupuestado ?? 0) - (o.obra_rubros_sum_acumulado ?? 0);
+            render: (p) => {
+                const disponible = p.sum_presupuestado - p.sum_acumulado;
                 return <span className={`font-mono text-sm ${disponible < 0 ? 'text-error font-bold' : ''}`}>{fmt(disponible)}</span>;
             },
         },
@@ -121,15 +143,98 @@ type StatsPlanta = {
     total_acumulado: number;
 };
 
+type Disponibles = Record<PresupuestableTipo, { id: number; label: string }[]>;
+
 type Props = {
-    obras: PaginatedData<ObraWithSums>;
-    planta: ObraWithSums | null;
+    presupuestos: PaginatedData<PresupuestoRow>;
+    planta: PresupuestoRow | null;
+    disponibles: Disponibles;
     statsPlanta: StatsPlanta | null;
     filters: { search?: string };
     stats: Stats;
     sortBy?: string;
     sortDir?: 'asc' | 'desc';
 };
+
+function AgregarPresupuestoDialog({ disponibles, onClose }: { disponibles: Disponibles; onClose: () => void }) {
+    const { data, setData, post, processing, errors } = useForm<{
+        presupuestable_type: PresupuestableTipo;
+        presupuestable_id: string;
+        nombre_interno: string;
+    }>({
+        presupuestable_type: 'obra',
+        presupuestable_id: '',
+        nombre_interno: '',
+    });
+
+    const opciones = disponibles[data.presupuestable_type] ?? [];
+
+    const handleSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        post('/admin/costos/presupuestos', { onSuccess: onClose });
+    };
+
+    return (
+        <dialog className="modal modal-open">
+            <div className="modal-box max-w-md">
+                <h3 className="mb-4 text-lg font-medium">Agregar presupuesto</h3>
+                <p className="mb-4 text-sm text-base-content/60">
+                    Selecciona a qué proyecto, obra o partida se liga el presupuesto. Se crearán todos los centros de costo del ámbito.
+                </p>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <FormField label="Tipo" htmlFor="presupuestable_type" error={errors.presupuestable_type}>
+                        <select
+                            id="presupuestable_type"
+                            className="select select-bordered w-full"
+                            value={data.presupuestable_type}
+                            onChange={(e) => {
+                                setData('presupuestable_type', e.target.value as PresupuestableTipo);
+                                setData('presupuestable_id', '');
+                            }}
+                        >
+                            <option value="obra">Obra</option>
+                            <option value="proyecto">Proyecto</option>
+                            <option value="partida">Partida</option>
+                        </select>
+                    </FormField>
+                    <FormField label="Registro" htmlFor="presupuestable_id" error={errors.presupuestable_id} required>
+                        <select
+                            id="presupuestable_id"
+                            className="select select-bordered w-full"
+                            value={data.presupuestable_id}
+                            onChange={(e) => setData('presupuestable_id', e.target.value)}
+                        >
+                            <option value="" disabled>
+                                {opciones.length ? 'Selecciona…' : 'Sin registros disponibles'}
+                            </option>
+                            {opciones.map((o) => (
+                                <option key={o.id} value={o.id}>
+                                    {o.label}
+                                </option>
+                            ))}
+                        </select>
+                    </FormField>
+                    <FormField label="Nombre interno (opcional)" htmlFor="nombre_interno" error={errors.nombre_interno}>
+                        <Input
+                            id="nombre_interno"
+                            value={data.nombre_interno}
+                            onChange={(e) => setData('nombre_interno', e.target.value)}
+                            placeholder="Nombre a usar en costos"
+                        />
+                    </FormField>
+                    <div className="flex justify-end gap-2">
+                        <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+                        <Button type="submit" disabled={processing || !data.presupuestable_id}>
+                            {processing && <Loader2Icon className="size-4 animate-spin" />}
+                            Crear
+                        </Button>
+                    </div>
+                </form>
+            </div>
+            <div className="modal-backdrop" onClick={onClose} />
+        </dialog>
+    );
+}
 
 function DefinirPlantaDialog({ onClose }: { onClose: () => void }) {
     const { data, setData, post, processing, errors } = useForm({
@@ -172,7 +277,7 @@ function DefinirPlantaDialog({ onClose }: { onClose: () => void }) {
     );
 }
 
-function PlantaSection({ planta, statsPlanta }: { planta: ObraWithSums | null; statsPlanta: StatsPlanta | null }) {
+function PlantaSection({ planta, statsPlanta }: { planta: PresupuestoRow | null; statsPlanta: StatsPlanta | null }) {
     const [showDialog, setShowDialog] = useState(false);
 
     if (!planta) {
@@ -208,11 +313,11 @@ function PlantaSection({ planta, statsPlanta }: { planta: ObraWithSums | null; s
                 <FactoryIcon className="size-5 text-info" />
                 <div>
                     <div className="flex items-center gap-2 font-medium">
-                        {planta.descripcion}
+                        {planta.nombre}
                         <span className="badge badge-info badge-sm">Planta</span>
                     </div>
                     <div className="text-xs text-base-content/60">
-                        {planta.obra_rubros_count} centros de costos
+                        {planta.rubros_count} centros de costos
                         {(statsPlanta?.sobregiros ?? 0) > 0 && (
                             <span className="text-error font-medium"> · {statsPlanta?.sobregiros} en sobregiro</span>
                         )}
@@ -240,7 +345,8 @@ function PlantaSection({ planta, statsPlanta }: { planta: ObraWithSums | null; s
     );
 }
 
-export default function PresupuestosIndex({ obras, planta, statsPlanta, filters, stats, sortBy, sortDir }: Props) {
+export default function PresupuestosIndex({ presupuestos, planta, disponibles, statsPlanta, filters, stats, sortBy, sortDir }: Props) {
+    const [showAgregar, setShowAgregar] = useState(false);
     const columns = makeColumns(stats.umbral_alerta);
     const totalDisponible = stats.total_presupuestado - stats.total_acumulado;
     const pctGlobal = stats.total_presupuestado > 0
@@ -288,7 +394,11 @@ export default function PresupuestosIndex({ obras, planta, statsPlanta, filters,
                     </div>
                 </div>
 
-                <div className="mb-4 flex justify-end">
+                <div className="mb-4 flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setShowAgregar(true)}>
+                        <PlusIcon className="size-4" />
+                        Agregar presupuesto
+                    </Button>
                     <Button asChild variant="outline">
                         <a href="/admin/costos/presupuestos/reporte-pdf" target="_blank" rel="noopener noreferrer">
                             <DownloadIcon className="size-4" />
@@ -298,15 +408,17 @@ export default function PresupuestosIndex({ obras, planta, statsPlanta, filters,
                 </div>
                 <DataTable
                     columns={columns}
-                    data={obras}
+                    data={presupuestos}
                     searchable
                     searchValue={filters.search}
-                    searchPlaceholder="Buscar por numero o descripcion..."
-                    emptyMessage="No hay obras registradas"
-                    getRowHref={(o) => `/admin/costos/presupuestos/${o.id}/edit`}
+                    searchPlaceholder="Buscar por nombre, numero o descripcion..."
+                    emptyMessage="No hay presupuestos registrados"
+                    getRowHref={(p) => `/admin/costos/presupuestos/${p.id}/edit`}
                     sortBy={sortBy}
                     sortDir={sortDir}
                 />
+
+                {showAgregar && <AgregarPresupuestoDialog disponibles={disponibles} onClose={() => setShowAgregar(false)} />}
             </div>
         </AppLayout>
     );

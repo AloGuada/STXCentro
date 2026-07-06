@@ -6,29 +6,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Obra extends Model
 {
     use HasFactory;
 
     protected $table = 'obras';
-
-    protected static function booted(): void
-    {
-        static::created(function (Obra $obra) {
-            $rubros = Costos\Rubro::query()
-                ->where('ambito', $obra->es_planta ? 'planta' : 'obra')
-                ->pluck('id');
-
-            $obra->obraRubros()->createMany(
-                $rubros->map(fn ($rubroId) => [
-                    'rubro_id' => $rubroId,
-                    'presupuestado' => 0,
-                    'acumulado' => 0,
-                ])->all()
-            );
-        });
-    }
 
     /**
      * @var list<string>
@@ -106,12 +90,22 @@ class Obra extends Model
     }
 
     /**
-     * Presupuesto de la obra (centro de costo). Cada obra/sub-obra tiene el
-     * suyo; los adicionales son sub-obras con sus propios rubros.
+     * Renglones de presupuesto (centro de costo) ligados por obra_id.
+     *
+     * @deprecated Se conserva durante la transición (reporte PDF). El
+     * presupuesto ahora se modela con Costos\Presupuesto vía presupuesto().
      */
     public function obraRubros(): HasMany
     {
         return $this->hasMany(Costos\ObraRubro::class, 'obra_id');
+    }
+
+    /**
+     * Presupuesto de costos de esta obra (centro de costo), si existe.
+     */
+    public function presupuesto(): MorphOne
+    {
+        return $this->morphOne(Costos\Presupuesto::class, 'presupuestable');
     }
 
     // Proyecto / jerarquía

@@ -294,11 +294,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('afectaciones/{afectacion}/upload-firmado', [CostosAfectacionPresupuestalController::class, 'uploadFirmado'])->name('afectaciones.upload-firmado');
         Route::post('afectaciones/{afectacion}/cancelar', [CostosAfectacionPresupuestalController::class, 'cancelar'])->name('afectaciones.cancelar');
 
-        // Presupuestos (vista por obra)
+        // Presupuestos (proyecto / obra / partida)
         Route::get('presupuestos', [CostosPresupuestoController::class, 'index'])->name('presupuestos.index');
         Route::get('presupuestos/reporte-pdf', [CostosPresupuestoController::class, 'generarReportePdf'])->name('presupuestos.reporte-pdf');
         Route::post('presupuestos/planta', [CostosPresupuestoController::class, 'storePlanta'])->name('presupuestos.planta.store');
-        Route::get('presupuestos/{obra}/edit', [CostosPresupuestoController::class, 'edit'])->name('presupuestos.edit');
+        Route::post('presupuestos', [CostosPresupuestoController::class, 'store'])->name('presupuestos.store');
+        Route::get('presupuestos/{presupuesto}/edit', [CostosPresupuestoController::class, 'edit'])->name('presupuestos.edit');
+        Route::put('presupuestos/{presupuesto}', [CostosPresupuestoController::class, 'update'])->name('presupuestos.update');
+        Route::post('presupuestos/{presupuesto}/estado', [CostosPresupuestoController::class, 'cambiarEstado'])->name('presupuestos.estado');
 
         // Cuentas Internas
         Route::get('cuentas-internas', [CostosCuentaInternaController::class, 'index'])->name('cuentas-internas.index');

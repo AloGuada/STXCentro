@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 /**
  * Paraguas comercial que agrupa una o más obras (centros de costo/ejecución) y
@@ -41,6 +42,14 @@ class Proyecto extends Model
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class, 'cliente_id');
+    }
+
+    /**
+     * Presupuesto de costos ligado a este proyecto, si existe.
+     */
+    public function presupuesto(): MorphOne
+    {
+        return $this->morphOne(Costos\Presupuesto::class, 'presupuestable');
     }
 
     /** Todas las obras del proyecto (base + sub-obras/adicionales). */

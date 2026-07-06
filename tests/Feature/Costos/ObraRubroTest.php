@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Costos\ObraRubro;
+use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Rubro;
 use App\Models\Obra;
 use App\Models\User;
@@ -9,33 +11,28 @@ beforeEach(function () {
 });
 
 describe('admin costos obra rubros', function () {
-    test('obra rubro can be stored after deletion', function () {
-        $rubro = Rubro::factory()->create();
-        $obra = Obra::factory()->create();
-
-        // Auto-created, delete it to test store
-        $obra->obraRubros()->where('rubro_id', $rubro->id)->delete();
+    test('obra rubro can be stored', function () {
+        $rubro = Rubro::factory()->create(['ambito' => 'obra']);
+        $presupuesto = Presupuesto::factory()->paraObra()->create();
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.obra-rubros.store'), [
-                'obra_id' => $obra->id,
+                'presupuesto_id' => $presupuesto->id,
                 'rubro_id' => $rubro->id,
                 'presupuestado' => 50000.00,
             ]);
 
         $response->assertRedirect();
         $this->assertDatabaseHas('costos_obra_rubros', [
-            'obra_id' => $obra->id,
+            'presupuesto_id' => $presupuesto->id,
             'rubro_id' => $rubro->id,
             'presupuestado' => 50000.00,
         ]);
     });
 
     test('obra rubro can be updated', function () {
-        $rubro = Rubro::factory()->create();
-        $obra = Obra::factory()->create();
-
-        $obraRubro = $obra->obraRubros()->where('rubro_id', $rubro->id)->first();
+        $presupuesto = Presupuesto::factory()->paraObra()->create();
+        $obraRubro = ObraRubro::factory()->create(['presupuesto_id' => $presupuesto->id]);
 
         $response = $this->actingAs($this->user)
             ->put(route('admin.costos.obra-rubros.update', $obraRubro), [
@@ -52,10 +49,7 @@ describe('admin costos obra rubros', function () {
     });
 
     test('obra rubro can be deleted', function () {
-        $rubro = Rubro::factory()->create();
-        $obra = Obra::factory()->create();
-
-        $obraRubro = $obra->obraRubros()->where('rubro_id', $rubro->id)->first();
+        $obraRubro = ObraRubro::factory()->create();
 
         $response = $this->actingAs($this->user)
             ->delete(route('admin.costos.obra-rubros.destroy', $obraRubro));
@@ -64,31 +58,32 @@ describe('admin costos obra rubros', function () {
         $this->assertDatabaseMissing('costos_obra_rubros', ['id' => $obraRubro->id]);
     });
 
-    test('store rechaza rubro de planta en obra normal', function () {
-        $obra = Obra::factory()->create();
+    test('store rechaza rubro de planta en presupuesto de obra', function () {
+        $presupuesto = Presupuesto::factory()->paraObra()->create();
         $rubroPlanta = Rubro::factory()->planta()->create();
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.obra-rubros.store'), [
-                'obra_id' => $obra->id,
+                'presupuesto_id' => $presupuesto->id,
                 'rubro_id' => $rubroPlanta->id,
                 'presupuestado' => 1000,
             ]);
 
         $response->assertSessionHasErrors(['rubro_id']);
         $this->assertDatabaseMissing('costos_obra_rubros', [
-            'obra_id' => $obra->id,
+            'presupuesto_id' => $presupuesto->id,
             'rubro_id' => $rubroPlanta->id,
         ]);
     });
 
-    test('store rechaza rubro de obra en la planta', function () {
+    test('store rechaza rubro de obra en presupuesto de planta', function () {
         $planta = Obra::factory()->planta()->create();
+        $presupuesto = Presupuesto::factory()->paraObra($planta)->create();
         $rubroObra = Rubro::factory()->create(['ambito' => 'obra']);
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.obra-rubros.store'), [
-                'obra_id' => $planta->id,
+                'presupuesto_id' => $presupuesto->id,
                 'rubro_id' => $rubroObra->id,
                 'presupuestado' => 1000,
             ]);
@@ -96,82 +91,78 @@ describe('admin costos obra rubros', function () {
         $response->assertSessionHasErrors(['rubro_id']);
     });
 
-    test('store acepta rubro de planta en la planta', function () {
+    test('store acepta rubro de planta en presupuesto de planta', function () {
         $planta = Obra::factory()->planta()->create();
+        $presupuesto = Presupuesto::factory()->paraObra($planta)->create();
         $rubroPlanta = Rubro::factory()->planta()->create();
-
-        $planta->obraRubros()->where('rubro_id', $rubroPlanta->id)->delete();
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.obra-rubros.store'), [
-                'obra_id' => $planta->id,
+                'presupuesto_id' => $presupuesto->id,
                 'rubro_id' => $rubroPlanta->id,
                 'presupuestado' => 25000,
             ]);
 
         $response->assertRedirect();
         $this->assertDatabaseHas('costos_obra_rubros', [
-            'obra_id' => $planta->id,
+            'presupuesto_id' => $presupuesto->id,
             'rubro_id' => $rubroPlanta->id,
             'presupuestado' => 25000.00,
         ]);
     });
 
-    test('store all asigna los rubros faltantes del ambito de la obra con presupuesto cero', function () {
-        $obra = Obra::factory()->create();
+    test('store all asigna los rubros faltantes del ambito con presupuesto cero', function () {
+        $presupuesto = Presupuesto::factory()->paraObra()->create();
         Rubro::factory()->count(3)->create(['ambito' => 'obra']);
         $rubroPlanta = Rubro::factory()->planta()->create();
 
-        // Deja la obra sin ningun rubro asignado para partir de cero.
-        $obra->obraRubros()->delete();
-
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.obra-rubros.store-all'), [
-                'obra_id' => $obra->id,
+                'presupuesto_id' => $presupuesto->id,
             ]);
 
         $response->assertRedirect();
 
-        $obraRubros = $obra->obraRubros()->get();
-        expect($obraRubros)->toHaveCount(3);
-        expect($obraRubros->pluck('presupuestado')->unique()->all())->toBe(['0.00']);
+        $rubros = $presupuesto->rubros()->get();
+        expect($rubros)->toHaveCount(3);
+        expect($rubros->pluck('presupuestado')->unique()->all())->toBe(['0.00']);
         $this->assertDatabaseMissing('costos_obra_rubros', [
-            'obra_id' => $obra->id,
+            'presupuesto_id' => $presupuesto->id,
             'rubro_id' => $rubroPlanta->id,
         ]);
     });
 
     test('store all no duplica los rubros ya asignados', function () {
-        $obra = Obra::factory()->create();
+        $presupuesto = Presupuesto::factory()->paraObra()->create();
         $existente = Rubro::factory()->create(['ambito' => 'obra']);
         Rubro::factory()->count(2)->create(['ambito' => 'obra']);
 
-        // Parte de cero y deja un unico rubro ya asignado.
-        $obra->obraRubros()->delete();
-        $obra->obraRubros()->create(['rubro_id' => $existente->id, 'presupuestado' => 5000]);
+        $presupuesto->crearRubro($existente->id, 5000);
 
         $this->actingAs($this->user)
-            ->post(route('admin.costos.obra-rubros.store-all'), ['obra_id' => $obra->id])
+            ->post(route('admin.costos.obra-rubros.store-all'), ['presupuesto_id' => $presupuesto->id])
             ->assertRedirect();
 
-        expect($obra->obraRubros()->count())->toBe(3);
+        expect($presupuesto->rubros()->count())->toBe(3);
         $this->assertDatabaseHas('costos_obra_rubros', [
-            'obra_id' => $obra->id,
+            'presupuesto_id' => $presupuesto->id,
             'rubro_id' => $existente->id,
             'presupuestado' => 5000.00,
         ]);
     });
 
-    test('validation requires obra_id, rubro_id and presupuestado', function () {
+    test('validation requires presupuesto_id, rubro_id and presupuestado', function () {
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.obra-rubros.store'), []);
 
-        $response->assertSessionHasErrors(['obra_id', 'rubro_id', 'presupuestado']);
+        $response->assertSessionHasErrors(['presupuesto_id', 'rubro_id', 'presupuestado']);
     });
 
-    test('obra edit shows auto-assigned obra rubros', function () {
-        $rubro = Rubro::factory()->create();
+    test('obra edit muestra los obra rubros existentes', function () {
         $obra = Obra::factory()->create();
+        $presupuesto = Presupuesto::factory()->paraObra($obra)->create();
+        $rubro = Rubro::factory()->create(['ambito' => 'obra']);
+        $presupuesto->crearRubro($rubro->id, 1000);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.obras.edit', $obra));

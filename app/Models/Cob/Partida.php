@@ -2,11 +2,13 @@
 
 namespace App\Models\Cob;
 
+use App\Models\Costos\Presupuesto;
 use App\Models\Obra;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Partida extends Model
 {
@@ -35,6 +37,14 @@ class Partida extends Model
     public function obra(): BelongsTo
     {
         return $this->belongsTo(Obra::class, 'obra_id');
+    }
+
+    /**
+     * Presupuesto de costos ligado a esta partida, si existe.
+     */
+    public function presupuesto(): MorphOne
+    {
+        return $this->morphOne(Presupuesto::class, 'presupuestable');
     }
 
     /** Estimaciones (nivel partida) que cubren esta partida. */

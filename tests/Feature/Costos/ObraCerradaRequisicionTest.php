@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\Rubro;
 use App\Models\Costos\UsoCfdi;
@@ -14,8 +15,21 @@ beforeEach(function () {
     $this->user->givePermissionTo('costos.requisiciones.crear');
     $this->uso = UsoCfdi::factory()->create();
     $this->depto = Departamento::factory()->create();
-    Rubro::factory()->create(['ambito' => 'obra']);
+    $this->rubro = Rubro::factory()->create(['ambito' => 'obra']);
 });
+
+/** Obra con presupuesto (cerrado o activo) y un rubro sembrado. */
+function obraConPresupuesto($test, bool $cerrado): Obra
+{
+    $obra = Obra::factory()->create();
+    $presupuesto = Presupuesto::factory()->paraObra($obra)->create();
+    if ($cerrado) {
+        $presupuesto->update(['estatus' => 'cerrado']);
+    }
+    $presupuesto->crearRubro($test->rubro->id, 1000);
+
+    return $obra;
+}
 
 function crearRequisicion($test, Obra $obra): Requisicion
 {
@@ -38,16 +52,16 @@ function crearRequisicion($test, Obra $obra): Requisicion
     return Requisicion::latest('id')->firstOrFail();
 }
 
-test('una requisición sobre obra cerrada queda marcada sobre_obra_cerrada', function () {
-    $obra = Obra::factory()->create(['estatus' => 'cerrada', 'activa' => false]);
+test('una requisición sobre presupuesto cerrado queda marcada sobre_obra_cerrada', function () {
+    $obra = obraConPresupuesto($this, cerrado: true);
 
     $requisicion = crearRequisicion($this, $obra);
 
     expect($requisicion->sobre_obra_cerrada)->toBeTrue();
 });
 
-test('una requisición sobre obra abierta no queda marcada', function () {
-    $obra = Obra::factory()->create(['estatus' => 'abierta']);
+test('una requisición sobre presupuesto activo no queda marcada', function () {
+    $obra = obraConPresupuesto($this, cerrado: false);
 
     $requisicion = crearRequisicion($this, $obra);
 

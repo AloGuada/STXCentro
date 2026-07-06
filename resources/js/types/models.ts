@@ -1391,7 +1391,8 @@ export type CostosDocumento = {
 
 export type CostosObraRubro = {
     id: number;
-    obra_id: number;
+    presupuesto_id: number;
+    obra_id: number | null;
     rubro_id: number;
     presupuestado: number;
     acumulado: number;
@@ -1399,6 +1400,35 @@ export type CostosObraRubro = {
     obra?: Obra;
     created_at: string;
     updated_at: string;
+};
+
+export type PresupuestableTipo = 'proyecto' | 'obra' | 'partida';
+
+export type CostosPresupuestoEstatus = 'activo' | 'cerrado';
+
+export type CostosPresupuesto = {
+    id: number;
+    presupuestable_type: string;
+    presupuestable_id: number;
+    nombre_interno: string | null;
+    estatus: CostosPresupuestoEstatus;
+    created_at: string;
+    updated_at: string;
+};
+
+/** Fila de presupuesto presentada por PresupuestoController (index/edit). */
+export type PresupuestoRow = {
+    id: number;
+    tipo: PresupuestableTipo;
+    nombre: string;
+    nombre_interno: string | null;
+    no: string | null;
+    descripcion: string | null;
+    estatus: CostosPresupuestoEstatus;
+    es_planta: boolean;
+    rubros_count: number;
+    sum_presupuestado: number;
+    sum_acumulado: number;
 };
 
 export type CostosPermiso = {

@@ -16,28 +16,6 @@ class Rubro extends Model
 
     protected $table = 'costos_rubros';
 
-    protected static function booted(): void
-    {
-        static::created(function (Rubro $rubro) {
-            $obraIds = \App\Models\Obra::query()
-                ->where('es_planta', $rubro->ambito === 'planta')
-                ->pluck('id');
-
-            $records = $obraIds->map(fn ($obraId) => [
-                'obra_id' => $obraId,
-                'rubro_id' => $rubro->id,
-                'presupuestado' => 0,
-                'acumulado' => 0,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ])->all();
-
-            if ($records) {
-                ObraRubro::insert($records);
-            }
-        });
-    }
-
     /**
      * @var list<string>
      */

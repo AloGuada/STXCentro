@@ -9,8 +9,7 @@ beforeEach(function () {
     $this->user = User::factory()->create();
 });
 
-it('crea una obra adicional (hermana) desde el proyecto con su propio presupuesto', function () {
-    Rubro::factory()->count(2)->create(['ambito' => 'obra']);
+it('crea una obra adicional (hermana) desde el proyecto', function () {
     $proyecto = Proyecto::factory()->create();
     Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
 
@@ -24,10 +23,10 @@ it('crea una obra adicional (hermana) desde el proyecto con su propio presupuest
 
     $sub = $proyecto->subObras()->firstOrFail();
 
+    // El presupuesto ya no se auto-crea: se arma explícitamente en el módulo de costos.
     expect($sub->proyecto_id)->toBe($proyecto->id) // obra hermana en el mismo proyecto
         ->and($sub->tipo)->toBe('adicional')
         ->and($sub->estatus)->toBe('abierta')
-        ->and($sub->obraRubros()->count())->toBe(2) // presupuesto propio auto-creado
         ->and($sub->partidas()->count())->toBe(0);
 });
 

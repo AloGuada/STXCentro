@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin\Costos;
 
 use App\Http\Controllers\Controller;
 use App\Models\Costos\ObraRubro;
+use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Rubro;
-use App\Models\Obra;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -14,21 +14,21 @@ class ObraRubroController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'obra_id' => ['required', 'exists:obras,id'],
+            'presupuesto_id' => ['required', 'exists:costos_presupuestos,id'],
             'rubro_id' => ['required', 'exists:costos_rubros,id'],
             'presupuestado' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $obra = Obra::findOrFail($validated['obra_id']);
+        $presupuesto = Presupuesto::findOrFail($validated['presupuesto_id']);
         $rubro = Rubro::findOrFail($validated['rubro_id']);
 
-        if ($obra->es_planta !== ($rubro->ambito === 'planta')) {
+        if ($rubro->ambito !== $presupuesto->ambitoRubros()) {
             return back()->withErrors([
-                'rubro_id' => 'El centro de costos no corresponde al ámbito de esta obra/planta.',
+                'rubro_id' => 'El centro de costos no corresponde al ámbito de este presupuesto.',
             ]);
         }
 
-        ObraRubro::create($validated);
+        $presupuesto->crearRubro((int) $rubro->id, (float) $validated['presupuestado']);
 
         return back();
     }
@@ -36,27 +36,10 @@ class ObraRubroController extends Controller
     public function storeAll(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'obra_id' => ['required', 'exists:obras,id'],
+            'presupuesto_id' => ['required', 'exists:costos_presupuestos,id'],
         ]);
 
-        $obra = Obra::findOrFail($validated['obra_id']);
-
-        $asignados = ObraRubro::query()
-            ->where('obra_id', $obra->id)
-            ->pluck('rubro_id');
-
-        $rubros = Rubro::query()
-            ->where('ambito', $obra->es_planta ? 'planta' : 'obra')
-            ->whereNotIn('id', $asignados)
-            ->get();
-
-        foreach ($rubros as $rubro) {
-            ObraRubro::create([
-                'obra_id' => $obra->id,
-                'rubro_id' => $rubro->id,
-                'presupuestado' => 0,
-            ]);
-        }
+        Presupuesto::findOrFail($validated['presupuesto_id'])->sembrarRubrosFaltantes();
 
         return back();
     }

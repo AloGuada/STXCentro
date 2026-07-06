@@ -59,6 +59,12 @@ it('convierte una partida adicional en sub-obra y re-apunta su presupuesto', fun
     $proyecto = Proyecto::factory()->create();
     $base = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base', 'no' => 'OB-9']);
 
+    // Presupuesto propio de la base. En producción, al correr la migración, lo
+    // habría generado el hook booted (ya retirado); aquí se siembra explícito.
+    foreach (Rubro::factory()->count(2)->create(['ambito' => 'obra']) as $r) {
+        ObraRubro::create(['obra_id' => $base->id, 'rubro_id' => $r->id, 'presupuestado' => 0, 'acumulado' => 0]);
+    }
+
     // Estado legacy: partida adicional + sus obra_rubros con adicional_partida_id.
     $partidaId = insertarPartidaAdicional($base->id, 1);
     foreach ($rubros as $r) {
@@ -88,7 +94,7 @@ it('convierte una partida adicional en sub-obra y re-apunta su presupuesto', fun
     expect((int) $partida->obra_id)->toBe($sub->id)
         ->and((bool) $partida->es_adicional)->toBeFalse();
 
-    // La obra base conserva su propio presupuesto (los rubros del booted).
+    // La obra base conserva su propio presupuesto (los rubros sembrados arriba).
     expect($base->obraRubros()->count())->toBe(2);
 
     // Ya no quedan obra_rubros con adicional_partida_id.
