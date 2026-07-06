@@ -277,7 +277,7 @@ describe('admin costos aprobaciones', function () {
                 ->where('presupuestado', '50000.00')
                 ->where('acumulado', '45000.00')
                 ->has('rubro')
-                ->has('obra')
+                ->has('presupuesto')
                 ->etc()
             )
         );

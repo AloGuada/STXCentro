@@ -40,7 +40,7 @@ class PresupuestoExcedidoNotification extends Notification
             'tipo' => 'presupuesto_excedido',
             'nivel' => $this->nivel, // 'sobregiro' | 'critico'
             'obra_rubro_id' => $this->obraRubro->id,
-            'obra_descripcion' => $this->obraRubro->obra?->descripcion,
+            'obra_descripcion' => $this->obraRubro->presupuesto?->nombreMostrar(),
             'rubro_descripcion' => $this->obraRubro->rubro?->descripcion,
             'presupuestado' => (float) $this->obraRubro->presupuestado,
             'acumulado' => (float) $this->obraRubro->acumulado,
@@ -55,7 +55,7 @@ class PresupuestoExcedidoNotification extends Notification
     private function mensaje(): string
     {
         $rubro = $this->obraRubro->rubro?->descripcion ?? '(centro de costos)';
-        $obra = $this->obraRubro->obra?->descripcion ?? '(obra)';
+        $obra = $this->obraRubro->presupuesto?->nombreMostrar() ?? '(presupuesto)';
         $folio = $this->entrada->folio ?? '?';
 
         if ($this->nivel === 'sobregiro') {

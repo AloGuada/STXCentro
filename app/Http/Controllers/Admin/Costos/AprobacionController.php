@@ -100,11 +100,13 @@ class AprobacionController extends Controller
                 'proveedor',
                 'tipoSolicitud.documentos',
                 'detalles.obraRubro.rubro',
-                'detalles.obraRubro.obra',
+                'detalles.obraRubro.presupuesto.presupuestable',
                 'archivos.documento',
                 'archivos.media',
                 'aprobaciones.aprobador',
             ]);
+
+            $aprobable->detalles->each(fn ($d) => $d->obraRubro?->presupuesto?->append('nombre_mostrar'));
         }
 
         return Inertia::render('admin/costos/aprobaciones/show', [

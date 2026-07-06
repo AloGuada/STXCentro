@@ -238,7 +238,7 @@ export default function AprobacionesShow({ aprobacion, solicitud }: Props) {
 
                                                 return (
                                                     <tr key={d.id} className={sobregiro ? 'bg-error/5' : excede ? 'bg-warning/5' : ''}>
-                                                        <td className="text-sm">{d.obra_rubro?.obra?.descripcion ?? '-'}</td>
+                                                        <td className="text-sm">{d.obra_rubro?.presupuesto?.nombre_mostrar ?? '-'}</td>
                                                         <td>{d.obra_rubro?.rubro?.codigo ?? '-'} - {d.obra_rubro?.rubro?.descripcion ?? ''}</td>
                                                         <td>{d.concepto}</td>
                                                         <td className="text-right">{fmt(Number(d.cantidad))}</td>
