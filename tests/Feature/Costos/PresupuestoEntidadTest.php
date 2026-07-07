@@ -69,14 +69,61 @@ describe('entidad presupuesto', function () {
     });
 
     test('actualizar nombre interno', function () {
-        $presupuesto = Presupuesto::factory()->create(['nombre_interno' => null]);
+        $presupuesto = Presupuesto::factory()->paraObra(Obra::factory()->create())->create(['nombre_interno' => null]);
 
         $this->actingAs($this->user)
             ->put(route('admin.costos.presupuestos.update', $presupuesto), [
                 'nombre_interno' => 'Presupuesto Norte',
+                'op_interno' => 'OP-INT-1',
+                'presupuestable_type' => 'obra',
+                'presupuestable_id' => $presupuesto->presupuestable_id,
             ])->assertRedirect();
 
-        expect($presupuesto->fresh()->nombre_interno)->toBe('Presupuesto Norte');
+        $fresh = $presupuesto->fresh();
+        expect($fresh->nombre_interno)->toBe('Presupuesto Norte')
+            ->and($fresh->op_interno)->toBe('OP-INT-1');
+    });
+
+    test('editar re-vincula el presupuesto a otra obra libre', function () {
+        $presupuesto = Presupuesto::factory()->paraObra(Obra::factory()->create())->create();
+        $otraObra = Obra::factory()->create();
+
+        $this->actingAs($this->user)
+            ->put(route('admin.costos.presupuestos.update', $presupuesto), [
+                'presupuestable_type' => 'obra',
+                'presupuestable_id' => $otraObra->id,
+            ])->assertRedirect();
+
+        $fresh = $presupuesto->fresh();
+        expect($fresh->presupuestable_id)->toBe($otraObra->id)
+            ->and($fresh->presupuestable_type)->toBe(Obra::class);
+    });
+
+    test('no permite re-vincular a un presupuestable que ya tiene presupuesto', function () {
+        $presupuesto = Presupuesto::factory()->paraObra(Obra::factory()->create())->create();
+        $ocupada = Obra::factory()->create();
+        Presupuesto::factory()->paraObra($ocupada)->create();
+
+        $this->actingAs($this->user)
+            ->put(route('admin.costos.presupuestos.update', $presupuesto), [
+                'presupuestable_type' => 'obra',
+                'presupuestable_id' => $ocupada->id,
+            ])->assertSessionHasErrors('presupuestable_id');
+
+        expect($presupuesto->fresh()->presupuestable_id)->not->toBe($ocupada->id);
+    });
+
+    test('la pantalla de edición incluye el selector de presupuestables', function () {
+        $presupuesto = Presupuesto::factory()->paraObra(Obra::factory()->create())->create();
+
+        $this->actingAs($this->user)
+            ->get(route('admin.costos.presupuestos.edit', $presupuesto))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/costos/presupuestos/edit')
+                ->has('presupuestables')
+                ->where('presupuesto.presupuestable_id', $presupuesto->presupuestable_id)
+            );
     });
 
     test('una transición inválida lanza excepción', function () {

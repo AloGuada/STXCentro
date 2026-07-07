@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchSelect } from '@/components/ui/search-select';
 import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -32,9 +33,10 @@ type PresupuestoDetalle = PresupuestoRow & { obra_rubros: CostosObraRubro[] };
 type Props = {
     presupuesto: PresupuestoDetalle;
     rubros: CostosRubro[];
+    presupuestables: { value: string; label: string }[];
 };
 
-export default function PresupuestosEdit({ presupuesto, rubros }: Props) {
+export default function PresupuestosEdit({ presupuesto, rubros, presupuestables }: Props) {
     const [newRubroId, setNewRubroId] = useState('');
     const [newPresupuestado, setNewPresupuestado] = useState('');
     const [addingRubro, setAddingRubro] = useState(false);
@@ -44,10 +46,10 @@ export default function PresupuestosEdit({ presupuesto, rubros }: Props) {
     const [editValue, setEditValue] = useState('');
     const [updatingId, setUpdatingId] = useState<number | null>(null);
     const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
-    const [editingNombre, setEditingNombre] = useState(false);
     const [nombreInterno, setNombreInterno] = useState(presupuesto.nombre_interno ?? '');
     const [opInterno, setOpInterno] = useState(presupuesto.op_interno ?? '');
-    const [savingNombre, setSavingNombre] = useState(false);
+    const [presupuestableSel, setPresupuestableSel] = useState(`${presupuesto.tipo}:${presupuesto.presupuestable_id}`);
+    const [savingDatos, setSavingDatos] = useState(false);
     const [changingEstado, setChangingEstado] = useState(false);
 
     const cerrado = presupuesto.estatus === 'cerrado';
@@ -102,16 +104,18 @@ export default function PresupuestosEdit({ presupuesto, rubros }: Props) {
         });
     };
 
-    const handleSaveNombre = (e: FormEvent) => {
+    const handleGuardarDatos = (e: FormEvent) => {
         e.preventDefault();
-        setSavingNombre(true);
+        const [tipo, id] = presupuestableSel.split(':');
+        setSavingDatos(true);
         router.put(`/admin/costos/presupuestos/${presupuesto.id}`, {
             nombre_interno: nombreInterno,
             op_interno: opInterno,
+            presupuestable_type: tipo,
+            presupuestable_id: id,
         }, {
             preserveScroll: true,
-            onSuccess: () => setEditingNombre(false),
-            onFinish: () => setSavingNombre(false),
+            onFinish: () => setSavingDatos(false),
         });
     };
 
@@ -251,36 +255,7 @@ export default function PresupuestosEdit({ presupuesto, rubros }: Props) {
                             </Link>
                         </Button>
                         <div>
-                            {editingNombre ? (
-                                <form onSubmit={handleSaveNombre} className="flex items-center gap-2">
-                                    <Input
-                                        value={nombreInterno}
-                                        onChange={(e) => setNombreInterno(e.target.value)}
-                                        placeholder={presupuesto.no ?? presupuesto.descripcion ?? 'Nombre interno'}
-                                        className="w-64"
-                                        autoFocus
-                                    />
-                                    <Input
-                                        value={opInterno}
-                                        onChange={(e) => setOpInterno(e.target.value)}
-                                        placeholder={presupuesto.no ?? 'OP interna'}
-                                        className="w-40"
-                                    />
-                                    <Button type="submit" size="sm" disabled={savingNombre}>
-                                        {savingNombre ? <Loader2Icon className="size-4 animate-spin" /> : <CheckIcon className="size-4" />}
-                                    </Button>
-                                    <Button type="button" size="sm" variant="outline" onClick={() => { setEditingNombre(false); setNombreInterno(presupuesto.nombre_interno ?? ''); setOpInterno(presupuesto.op_interno ?? ''); }}>
-                                        <XIcon className="size-4" />
-                                    </Button>
-                                </form>
-                            ) : (
-                                <h1 className="flex items-center gap-2 text-2xl font-semibold">
-                                    {presupuesto.nombre}
-                                    <button type="button" className="btn btn-ghost btn-xs" onClick={() => setEditingNombre(true)} title="Editar nombre y OP internos">
-                                        <PencilIcon className="size-4 opacity-40" />
-                                    </button>
-                                </h1>
-                            )}
+                            <h1 className="text-2xl font-semibold">{presupuesto.nombre}</h1>
                             <div className="mt-1 flex items-center gap-3 text-sm text-base-content/60">
                                 <span className={`badge badge-sm ${presupuesto.es_planta ? 'badge-info' : 'badge-neutral'}`}>
                                     {presupuesto.es_planta ? 'Planta' : TIPO_LABELS[presupuesto.tipo]}
@@ -299,6 +274,45 @@ export default function PresupuestosEdit({ presupuesto, rubros }: Props) {
                         {cerrado ? 'Reabrir' : 'Cerrar'}
                     </Button>
                 </div>
+
+                {/* Datos del presupuesto */}
+                <form onSubmit={handleGuardarDatos} className="card border border-base-300 bg-base-100">
+                    <div className="card-body gap-4">
+                        <h2 className="card-title text-base">Datos del presupuesto</h2>
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <FormField label="Proyecto / Obra / Partida (cobranza)" htmlFor="presupuestable" className="md:col-span-3">
+                                <SearchSelect
+                                    value={presupuestableSel}
+                                    onValueChange={setPresupuestableSel}
+                                    options={presupuestables}
+                                    placeholder="Buscar proyecto, obra o partida…"
+                                />
+                            </FormField>
+                            <FormField label="Nombre interno (opcional)" htmlFor="nombre_interno">
+                                <Input
+                                    id="nombre_interno"
+                                    value={nombreInterno}
+                                    onChange={(e) => setNombreInterno(e.target.value)}
+                                    placeholder={presupuesto.descripcion ?? 'Nombre a usar en costos'}
+                                />
+                            </FormField>
+                            <FormField label="OP interna (opcional)" htmlFor="op_interno">
+                                <Input
+                                    id="op_interno"
+                                    value={opInterno}
+                                    onChange={(e) => setOpInterno(e.target.value)}
+                                    placeholder={presupuesto.no ?? 'OP a usar en costos'}
+                                />
+                            </FormField>
+                            <div className="flex items-end">
+                                <Button type="submit" disabled={savingDatos}>
+                                    {savingDatos ? <Loader2Icon className="size-4 animate-spin" /> : <CheckIcon className="size-4" />}
+                                    Guardar
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
 
                 {/* Tabla de rubros */}
                 {currentRubros.length > 0 ? (

@@ -138,6 +138,9 @@ class PresupuestoController extends Controller
     public function edit(Presupuesto $presupuesto): Response
     {
         $presupuesto->load(['presupuestable', 'rubros.rubro.tipoRubro']);
+        if ($presupuesto->presupuestable instanceof Partida) {
+            $presupuesto->presupuestable->loadMissing('obra:id,no');
+        }
 
         $rubros = Rubro::query()
             ->where('ambito', $presupuesto->ambitoRubros())
@@ -145,9 +148,22 @@ class PresupuestoController extends Controller
             ->orderBy('codigo')
             ->get();
 
+        // Opciones del selector: los presupuestables libres + el actual (para
+        // mostrarlo seleccionado y poder mantenerlo o cambiarlo).
+        $disponibles = $this->presupuestablesDisponibles();
+        $opciones = collect(['obra', 'proyecto', 'partida'])->flatMap(fn (string $tipo) => collect($disponibles[$tipo])
+            ->map(fn (array $o) => ['value' => "{$tipo}:{$o['id']}", 'label' => ucfirst($tipo).' · '.$o['label']]));
+
+        $tipoActual = self::TIPOS[$presupuesto->presupuestable_type];
+        $opciones->prepend([
+            'value' => "{$tipoActual}:{$presupuesto->presupuestable_id}",
+            'label' => ucfirst($tipoActual).' · '.$this->etiquetaPresupuestable($presupuesto->presupuestable),
+        ]);
+
         return Inertia::render('admin/costos/presupuestos/edit', [
             'presupuesto' => $this->presentarDetalle($presupuesto),
             'rubros' => $rubros,
+            'presupuestables' => $opciones->values()->all(),
         ]);
     }
 
@@ -156,9 +172,38 @@ class PresupuestoController extends Controller
         $validated = $request->validate([
             'nombre_interno' => ['nullable', 'string', 'max:255'],
             'op_interno' => ['nullable', 'string', 'max:255'],
+            'presupuestable_type' => ['required', Rule::in(array_values(self::TIPOS))],
+            'presupuestable_id' => ['required', 'integer'],
         ]);
 
-        $presupuesto->update($validated);
+        $class = array_search($validated['presupuestable_type'], self::TIPOS, true);
+        $class::findOrFail($validated['presupuestable_id']);
+
+        $cambia = $presupuesto->presupuestable_type !== $class
+            || $presupuesto->presupuestable_id !== (int) $validated['presupuestable_id'];
+
+        if ($cambia && Presupuesto::query()
+            ->where('presupuestable_type', $class)
+            ->where('presupuestable_id', $validated['presupuestable_id'])
+            ->whereKeyNot($presupuesto->id)
+            ->exists()) {
+            return back()->withErrors(['presupuestable_id' => 'Ese proyecto/obra/partida ya tiene un presupuesto.']);
+        }
+
+        $presupuesto->update([
+            'nombre_interno' => $validated['nombre_interno'] ?? null,
+            'op_interno' => $validated['op_interno'] ?? null,
+            'presupuestable_type' => $class,
+            'presupuestable_id' => (int) $validated['presupuestable_id'],
+        ]);
+
+        // Mantiene la columna compat obra_id de los rubros sincronizada con el
+        // nuevo presupuestable (obra directa, o null para proyecto/partida).
+        if ($cambia) {
+            $presupuesto->rubros()->update([
+                'obra_id' => $class === Obra::class ? (int) $validated['presupuestable_id'] : null,
+            ]);
+        }
 
         return back()->with('success', 'Presupuesto actualizado.');
     }
@@ -189,26 +234,39 @@ class PresupuestoController extends Controller
             ->whereDoesntHave('presupuesto')
             ->orderBy('no')
             ->get(['id', 'no', 'descripcion'])
-            ->map(fn (Obra $o) => ['id' => $o->id, 'label' => trim(($o->descripcion ?? '')." · OP-{$o->no}", ' ·')]);
+            ->map(fn (Obra $o) => ['id' => $o->id, 'label' => $this->etiquetaPresupuestable($o)]);
 
         $proyectos = Proyecto::query()
             ->whereDoesntHave('presupuesto')
             ->orderBy('no')
             ->get(['id', 'no', 'descripcion'])
-            ->map(fn (Proyecto $p) => ['id' => $p->id, 'label' => trim(($p->descripcion ?? '')." · {$p->no}", ' ·')]);
+            ->map(fn (Proyecto $p) => ['id' => $p->id, 'label' => $this->etiquetaPresupuestable($p)]);
 
         $partidas = Partida::query()
             ->whereDoesntHave('presupuesto')
             ->with('obra:id,no')
             ->orderBy('id')
             ->get(['id', 'obra_id', 'descripcion'])
-            ->map(fn (Partida $p) => ['id' => $p->id, 'label' => trim(($p->descripcion ?? "Partida #{$p->id}").($p->obra ? " · OP-{$p->obra->no}" : ''))]);
+            ->map(fn (Partida $p) => ['id' => $p->id, 'label' => $this->etiquetaPresupuestable($p)]);
 
         return [
             'obra' => $obras->values()->all(),
             'proyecto' => $proyectos->values()->all(),
             'partida' => $partidas->values()->all(),
         ];
+    }
+
+    /**
+     * Etiqueta legible de un presupuestable (descripción · OP), usada tanto en el
+     * selector de creación como en el de edición.
+     */
+    private function etiquetaPresupuestable(Obra|Proyecto|Partida $p): string
+    {
+        return match (true) {
+            $p instanceof Obra => trim(($p->descripcion ?? '')." · OP-{$p->no}", ' ·'),
+            $p instanceof Proyecto => trim(($p->descripcion ?? '')." · {$p->no}", ' ·'),
+            $p instanceof Partida => trim(($p->descripcion ?? "Partida #{$p->id}").($p->obra ? " · OP-{$p->obra->no}" : '')),
+        };
     }
 
     /**
@@ -309,6 +367,7 @@ class PresupuestoController extends Controller
         return [
             'id' => $p->id,
             'tipo' => self::TIPOS[$p->presupuestable_type] ?? 'obra',
+            'presupuestable_id' => $p->presupuestable_id,
             'nombre' => $p->nombreMostrar(),
             'nombre_interno' => $p->nombre_interno,
             'op' => $p->opMostrar(),

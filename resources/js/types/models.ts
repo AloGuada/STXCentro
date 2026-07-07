@@ -1431,6 +1431,7 @@ export type PresupuestoOption = {
 export type PresupuestoRow = {
     id: number;
     tipo: PresupuestableTipo;
+    presupuestable_id: number;
     nombre: string;
     nombre_interno: string | null;
     op: string | null;
