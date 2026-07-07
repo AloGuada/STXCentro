@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin\Costos;
 
 use App\Contracts\Costos\Aprobable;
 use App\Enums\Costos\AprobacionEstatus;
+use App\Enums\Costos\RequisicionEstatus;
+use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Models\Costos\Aprobacion;
 use App\Models\Costos\Requisicion;
@@ -48,8 +50,16 @@ class AprobacionController extends Controller
                 ]);
             }]);
 
+        // Solo pendientes cuyo documento sigue esperando aprobación. Blinda la
+        // bandeja contra aprobaciones que quedaron en `pendiente` aunque el
+        // documento ya se canceló/rechazó/aprobó (ej. cancelaciones antiguas).
         $pendientes = $baseQuery()
             ->where('estatus', AprobacionEstatus::Pendiente->value)
+            ->whereHasMorph('aprobable', [SolicitudPago::class, Requisicion::class], function ($q, string $type) {
+                $q->where('estatus', $type === SolicitudPago::class
+                    ? SolicitudPagoEstatus::PendienteFirma->value
+                    : RequisicionEstatus::PendienteAprobacion->value);
+            })
             ->latest()
             ->get()
             ->filter(fn (Aprobacion $a) => $this->esTurno($a))

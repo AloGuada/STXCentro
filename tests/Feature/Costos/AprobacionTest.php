@@ -42,6 +42,23 @@ describe('admin costos aprobaciones', function () {
         );
     });
 
+    test('no muestra pendientes de una solicitud cancelada aunque la aprobacion siga pendiente', function () {
+        // Simula una cancelación previa al fix: la solicitud queda cancelada
+        // pero su aprobación se quedó en `pendiente`.
+        $solicitud = SolicitudPago::factory()->create(['estatus' => 'cancelada']);
+        AprobacionSolicitud::create([
+            'solicitud_id' => $solicitud->id,
+            'nivel' => 1,
+            'aprobador_id' => $this->user->id,
+            'estatus' => 'pendiente',
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.costos.aprobaciones.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('pendientes', 0));
+    });
+
     test('pending aprobacion not shown if lower level still pending', function () {
         $solicitud = SolicitudPago::factory()->pendienteFirma()->create();
         $otherUser = User::factory()->create();
