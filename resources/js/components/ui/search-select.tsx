@@ -143,7 +143,7 @@ export function SearchSelect({
             {open && !disabled && filtered.length > 0 && coords && createPortal(
                 <ul
                     ref={dropdownRef}
-                    className="menu bg-base-100 border-base-300 fixed z-[100] max-h-60 overflow-auto rounded border shadow-lg"
+                    className="menu bg-base-100 border-base-300 fixed z-[1000] max-h-60 overflow-auto rounded border shadow-lg"
                     style={{ top: coords.top, left: coords.left, width: coords.width }}
                 >
                     {filtered.map((option, idx) => (
