@@ -1,7 +1,8 @@
+import { DocumentoUpload } from '@/components/costos/documento-upload';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosAprobacionSolicitud } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
+import type { CostosAprobacionSolicitud, CostosSolicitudPago } from '@/types/models';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, CheckIcon, EyeIcon, FileCheckIcon, FileTextIcon, PaperclipIcon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 
@@ -34,6 +35,9 @@ function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: num
             onSuccess: () => {
                 reset();
                 onClose();
+                // Refresca las tres listas para que la aprobación recién
+                // procesada salga de "Pendientes" y aparezca en su pestaña.
+                router.reload({ only: ['pendientes', 'aprobadas', 'rechazadas'] });
             },
         });
     };
@@ -78,6 +82,56 @@ function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: num
                         </button>
                     </div>
                 </form>
+            </div>
+            <div className="modal-backdrop" onClick={onClose} />
+        </dialog>
+    );
+}
+
+function ArchivosModal({ solicitud, onClose }: { solicitud: CostosSolicitudPago; onClose: () => void }) {
+    const documentos = solicitud.tipo_solicitud?.documentos ?? [];
+    const archivos = solicitud.archivos ?? [];
+    const baseUrl = `/admin/costos/solicitudes-pago/${solicitud.id}/archivos`;
+
+    return (
+        <dialog className="modal modal-open">
+            <div className="modal-box max-w-3xl">
+                <div className="mb-4 flex items-center justify-between border-b border-base-300 pb-3">
+                    <h3 className="font-medium">Archivos de {solicitud.folio}</h3>
+                    <button className="btn btn-sm btn-ghost" onClick={onClose}>✕</button>
+                </div>
+
+                {documentos.length > 0 ? (
+                    <div className="space-y-4">
+                        {documentos.map((doc) => (
+                            <DocumentoUpload
+                                key={doc.id}
+                                documento={doc}
+                                archivos={archivos}
+                                storeUrl={baseUrl}
+                                destroyUrlPrefix={baseUrl}
+                                readOnly
+                            />
+                        ))}
+                    </div>
+                ) : archivos.length > 0 ? (
+                    <div className="space-y-2">
+                        {archivos.map((a) => (
+                            <a
+                                key={a.id}
+                                href={`/storage/${a.media?.path}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 rounded bg-base-200 p-2 text-sm hover:bg-base-300"
+                            >
+                                <FileTextIcon className="size-4 text-base-content/60" />
+                                {a.media?.nombre_original ?? 'Archivo'}
+                            </a>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-base-content/60">Esta solicitud no tiene archivos.</p>
+                )}
             </div>
             <div className="modal-backdrop" onClick={onClose} />
         </dialog>
@@ -172,6 +226,7 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
 function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; tipo: 'pendientes' | 'aprobadas' | 'rechazadas' }) {
     const [modalState, setModalState] = useState<{ id: number; tipo: 'aprobar' | 'rechazar' } | null>(null);
     const [pdfModal, setPdfModal] = useState<{ url: string; title: string } | null>(null);
+    const [archivosModal, setArchivosModal] = useState<CostosSolicitudPago | null>(null);
 
     if (items.length === 0) {
         const mensajes = {
@@ -206,6 +261,8 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                             if (!d) return null;
                             const tieneSobregiro = d.tieneSobregiro;
                             const esRequisicion = a.tipo === 'requisicion';
+                            const sol = !esRequisicion ? a.solicitud ?? null : null;
+                            const docsSolicitados = sol?.tipo_solicitud?.documentos?.length ?? 0;
 
                             return (
                                 <tr key={a.id} className={tieneSobregiro ? 'bg-error/10' : 'hover'}>
@@ -253,10 +310,14 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                                     </td>
                                     <td>
                                         <div className="flex gap-1.5">
-                                            {d.archivosCount > 0 && (
-                                                <span className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60" title={`${d.archivosCount} archivo(s)`}>
+                                            {sol && (d.archivosCount > 0 || docsSolicitados > 0) && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setArchivosModal(sol); }}
+                                                    className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60 transition-colors hover:bg-base-200"
+                                                    title={`Ver archivos (${d.archivosCount}/${docsSolicitados || d.archivosCount})`}
+                                                >
                                                     <PaperclipIcon className="size-3.5" />
-                                                </span>
+                                                </button>
                                             )}
                                             {d.pdfUrl && (
                                                 <button
@@ -333,6 +394,10 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
 
             {pdfModal && (
                 <PdfModal url={pdfModal.url} title={pdfModal.title} onClose={() => setPdfModal(null)} />
+            )}
+
+            {archivosModal && (
+                <ArchivosModal solicitud={archivosModal} onClose={() => setArchivosModal(null)} />
             )}
         </>
     );
