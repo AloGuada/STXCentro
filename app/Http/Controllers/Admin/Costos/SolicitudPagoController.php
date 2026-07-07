@@ -13,6 +13,7 @@ use App\Http\Requests\Admin\Costos\SolicitudPagoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoUpdateRequest;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Pago;
+use App\Models\Costos\Requisicion;
 use App\Models\Costos\SolicitudArchivo;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
@@ -40,6 +41,44 @@ class SolicitudPagoController extends Controller
     use OrdenaColumnas;
 
     public function __construct(private readonly ApartadoPresupuestal $apartado) {}
+
+    /**
+     * Reporte PDF con dos tablas: solicitudes de pago y requisiciones. Respeta
+     * la misma visibilidad del index (solo propias salvo permiso `ver-todas`) y
+     * el filtro de búsqueda por folio.
+     */
+    public function reportePdf(Request $request): HttpResponse
+    {
+        Gate::authorize('costos.solicitudes-pago.ver');
+
+        $verTodas = $request->user()->can('costos.solicitudes-pago.ver-todas');
+        $search = $request->string('search')->toString();
+
+        $solicitudes = SolicitudPago::query()
+            ->unless($verTodas, fn ($q) => $q->where('solicitante_id', $request->user()->id))
+            ->with(['departamento', 'proveedor', 'solicitante'])
+            ->when($search, fn ($q, $s) => $q->where(fn ($w) => $w
+                ->where('folio', 'like', "%{$s}%")
+                ->orWhere('concepto', 'like', "%{$s}%")))
+            ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
+            ->latest()
+            ->get();
+
+        $requisiciones = Requisicion::query()
+            ->unless($verTodas, fn ($q) => $q->where('solicitante_id', $request->user()->id))
+            ->with(['departamento', 'solicitante'])
+            ->when($search, fn ($q, $s) => $q->where('folio', 'like', "%{$s}%"))
+            ->latest()
+            ->get();
+
+        $pdf = Pdf::loadView('pdf.costos.reporte-solicitudes-requisiciones', [
+            'solicitudes' => $solicitudes,
+            'requisiciones' => $requisiciones,
+            'fechaGeneracion' => now(),
+        ])->setPaper('letter', 'landscape');
+
+        return $pdf->download('reporte-solicitudes-requisiciones-'.now()->format('Y-m-d').'.pdf');
+    }
 
     public function index(Request $request): Response
     {

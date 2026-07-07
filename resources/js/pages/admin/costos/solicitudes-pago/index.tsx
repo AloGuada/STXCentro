@@ -172,6 +172,20 @@ export default function SolicitudesPagoIndex({ solicitudes, filters, sortBy, sor
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                     </select>
+
+                    <a
+                        href={`/admin/costos/solicitudes-pago/reporte-pdf?${new URLSearchParams(
+                            Object.fromEntries(
+                                Object.entries(filters).filter(([, v]) => v),
+                            ),
+                        ).toString()}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-sm btn-outline ml-auto"
+                    >
+                        <FileDown className="size-4" />
+                        Reporte PDF
+                    </a>
                 </div>
 
                 <DataTable
