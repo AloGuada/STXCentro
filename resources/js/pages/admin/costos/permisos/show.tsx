@@ -15,6 +15,7 @@ type Props = {
     permiso: CostosPermiso;
     departamentos: Departamento[];
     usuarios: Usuario[];
+    usuariosSinPermiso: string[];
     asignaciones: Record<number, string[]>;
     omitir: Record<number, boolean>;
     rubros: Rubro[];
@@ -23,10 +24,12 @@ type Props = {
 
 function MultiUserSelect({
     usuarios,
+    sinPermiso,
     selected,
     onChange,
 }: {
     usuarios: Usuario[];
+    sinPermiso: Set<string>;
     selected: string[];
     onChange: (ids: string[]) => void;
 }) {
@@ -61,10 +64,16 @@ function MultiUserSelect({
                 {selectedUsers.map((u) => (
                     <Badge
                         key={u.id}
-                        variant="primary"
+                        variant={sinPermiso.has(u.id) ? 'error' : 'primary'}
                         className="gap-1 text-xs"
+                        title={
+                            sinPermiso.has(u.id)
+                                ? 'Este usuario ya no tiene el permiso de aprobar. Quítalo del nivel.'
+                                : undefined
+                        }
                     >
                         {u.name}
+                        {sinPermiso.has(u.id) && ' (sin permiso)'}
                         <button
                             type="button"
                             className="ml-0.5 hover:opacity-70"
@@ -82,19 +91,22 @@ function MultiUserSelect({
 
             {open && (
                 <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-base-300 bg-base-100 shadow-lg">
-                    {usuarios.map((u) => (
-                        <label
-                            key={u.id}
-                            className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-base-200"
-                        >
-                            <Checkbox
-                                checked={selected.includes(u.id)}
-                                onCheckedChange={() => toggle(u.id)}
-                            />
-                            <span className="text-sm">{u.name}</span>
-                        </label>
-                    ))}
-                    {usuarios.length === 0 && (
+                    {usuarios
+                        .filter((u) => !sinPermiso.has(u.id))
+                        .map((u) => (
+                            <label
+                                key={u.id}
+                                className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-base-200"
+                            >
+                                <Checkbox
+                                    checked={selected.includes(u.id)}
+                                    onCheckedChange={() => toggle(u.id)}
+                                />
+                                <span className="text-sm">{u.name}</span>
+                            </label>
+                        ))}
+                    {usuarios.filter((u) => !sinPermiso.has(u.id)).length ===
+                        0 && (
                         <div className="px-3 py-2 text-sm text-base-content/50">
                             No hay usuarios con el rol requerido
                         </div>
@@ -191,11 +203,13 @@ export default function PermisosShow({
     permiso,
     departamentos,
     usuarios,
+    usuariosSinPermiso,
     asignaciones,
     omitir,
     rubros,
     rubrosPermitidos,
 }: Props) {
+    const sinPermiso = new Set(usuariosSinPermiso);
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/permisos' },
@@ -315,6 +329,7 @@ export default function PermisosShow({
                                             <td>
                                                 <MultiUserSelect
                                                     usuarios={usuarios}
+                                                    sinPermiso={sinPermiso}
                                                     selected={
                                                         selections[dept.id] ??
                                                         []

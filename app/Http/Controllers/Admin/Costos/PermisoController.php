@@ -70,7 +70,7 @@ class PermisoController extends Controller
             default => null,
         };
 
-        $usuarios = $permissionName && Permission::where('name', $permissionName)->exists()
+        $candidatos = $permissionName && Permission::where('name', $permissionName)->exists()
             ? Usuario::permission($permissionName)->orderBy('name')->get(['id', 'name'])
             : collect();
 
@@ -81,6 +81,20 @@ class PermisoController extends Controller
         $asignaciones = $porDepto->map(fn ($group) => $group->pluck('aprobador_id')->filter()->values());
         $omitir = $porDepto->map(fn ($group) => (bool) $group->first()->omitir_si_presupuesto_reservado);
 
+        // Usuarios ya asignados a algún departamento que ya no son candidatos
+        // (perdieron el rol/permiso de aprobar). Se agregan a la lista para que
+        // el input pueda mostrarlos y permitir removerlos; de lo contrario
+        // quedan invisibles pero persistidos, y su firma/nivel seguiría
+        // apareciendo en los documentos.
+        $asignadosIds = $asignaciones->flatten()->unique();
+        $sinPermisoIds = $asignadosIds->diff($candidatos->pluck('id'));
+
+        $faltantes = $sinPermisoIds->isNotEmpty()
+            ? Usuario::whereIn('id', $sinPermisoIds->all())->orderBy('name')->get(['id', 'name'])
+            : collect();
+
+        $usuarios = $candidatos->concat($faltantes)->sortBy('name')->values();
+
         $rubrosPermitidos = OmitirRubro::where('permiso_id', $permiso->id)
             ->get()
             ->groupBy('departamento_id')
@@ -90,6 +104,7 @@ class PermisoController extends Controller
             'permiso' => $permiso,
             'departamentos' => $departamentos,
             'usuarios' => $usuarios,
+            'usuariosSinPermiso' => $sinPermisoIds->values(),
             'asignaciones' => $asignaciones,
             'omitir' => $omitir,
             'rubros' => Rubro::orderBy('codigo')->get(['id', 'codigo', 'descripcion']),

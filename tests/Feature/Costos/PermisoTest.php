@@ -4,6 +4,8 @@ use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\Permiso;
 use App\Models\Departamento;
 use App\Models\User;
+use App\Models\Usuario;
+use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -61,10 +63,43 @@ describe('admin costos permisos', function () {
             ->has('permiso')
             ->has('departamentos')
             ->has('usuarios')
+            ->has('usuariosSinPermiso')
             ->has('asignaciones')
             ->has('omitir')
             ->has('rubros')
             ->has('rubrosPermitidos')
+        );
+    });
+
+    test('show surfaces assigned users who lost the approval permission so they can be removed', function () {
+        Permission::findOrCreate('costos.requisiciones.aprobar', 'web');
+
+        $permiso = Permiso::factory()->create(['tipo_aprobacion' => 'requisicion']);
+        $departamento = Departamento::factory()->create();
+
+        // Candidato vigente: tiene el permiso.
+        $candidato = Usuario::factory()->create();
+        $candidato->givePermissionTo('costos.requisiciones.aprobar');
+
+        // Fantasma: asignado al nivel pero ya sin el permiso de aprobar.
+        $fantasma = Usuario::factory()->create();
+        AprobacionDepartamento::factory()->create([
+            'permiso_id' => $permiso->id,
+            'departamento_id' => $departamento->id,
+            'aprobador_id' => $fantasma->id,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.costos.permisos.show', $permiso));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            // Ambos aparecen en la lista para poder verse/removerse.
+            ->where('usuarios', fn ($usuarios) => collect($usuarios)->pluck('id')->contains($fantasma->id)
+                && collect($usuarios)->pluck('id')->contains($candidato->id))
+            // Solo el fantasma queda marcado como sin permiso.
+            ->where('usuariosSinPermiso', fn ($ids) => collect($ids)->contains($fantasma->id)
+                && ! collect($ids)->contains($candidato->id))
         );
     });
 
