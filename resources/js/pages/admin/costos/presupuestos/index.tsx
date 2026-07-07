@@ -2,6 +2,7 @@ import { DataTable, type Column } from '@/components/data-table';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosPresupuestoEstatus, PaginatedData, PresupuestableTipo, PresupuestoRow } from '@/types/models';
@@ -67,6 +68,15 @@ function makeColumns(umbral: number): Column<PresupuestoRow>[] {
                         <div className="text-[10px] text-base-content/50">{p.no}</div>
                     )}
                 </div>
+            ),
+        },
+        {
+            key: 'descripcion',
+            label: 'Descripción',
+            render: (p) => (
+                <span className="text-sm text-base-content/70">
+                    {p.descripcion ?? '—'}
+                </span>
             ),
         },
         {
@@ -193,25 +203,19 @@ function AgregarPresupuestoDialog({ disponibles, onClose }: { disponibles: Dispo
                 </p>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <FormField label="Presupuestable" htmlFor="presupuestable" error={errors.presupuestable_id ?? errors.presupuestable_type} required>
-                        <select
-                            id="presupuestable"
-                            className="select select-bordered w-full"
+                        <SearchSelect
                             value={valorSeleccionado}
-                            onChange={(e) => {
-                                const [tipo, id] = e.target.value.split(':');
+                            onValueChange={(v) => {
+                                const [tipo, id] = v.split(':');
                                 setData('presupuestable_type', tipo as PresupuestableTipo);
                                 setData('presupuestable_id', id ?? '');
                             }}
-                        >
-                            <option value="" disabled>
-                                {opciones.length ? 'Selecciona…' : 'Sin registros disponibles'}
-                            </option>
-                            {opciones.map((o) => (
-                                <option key={`${o.tipo}:${o.id}`} value={`${o.tipo}:${o.id}`}>
-                                    {TIPO_LABELS[o.tipo]} · {o.label}
-                                </option>
-                            ))}
-                        </select>
+                            placeholder={opciones.length ? 'Escribe para filtrar…' : 'Sin registros disponibles'}
+                            options={opciones.map((o) => ({
+                                value: `${o.tipo}:${o.id}`,
+                                label: `${TIPO_LABELS[o.tipo]} · ${o.label}`,
+                            }))}
+                        />
                     </FormField>
                     <FormField label="Nombre interno (opcional)" htmlFor="nombre_interno" error={errors.nombre_interno}>
                         <Input
