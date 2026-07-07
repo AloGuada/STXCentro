@@ -73,6 +73,7 @@ function makeColumns(umbral: number): Column<PresupuestoRow>[] {
         {
             key: 'descripcion',
             label: 'Descripción',
+            sortable: true,
             render: (p) => (
                 <span className="text-sm text-base-content/70">
                     {p.descripcion ?? '—'}
