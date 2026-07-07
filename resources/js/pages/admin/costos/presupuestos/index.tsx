@@ -156,6 +156,8 @@ type Props = {
     sortDir?: 'asc' | 'desc';
 };
 
+const TIPO_ORDEN: PresupuestableTipo[] = ['obra', 'proyecto', 'partida'];
+
 function AgregarPresupuestoDialog({ disponibles, onClose }: { disponibles: Disponibles; onClose: () => void }) {
     const { data, setData, post, processing, errors } = useForm<{
         presupuestable_type: PresupuestableTipo;
@@ -167,7 +169,15 @@ function AgregarPresupuestoDialog({ disponibles, onClose }: { disponibles: Dispo
         nombre_interno: '',
     });
 
-    const opciones = disponibles[data.presupuestable_type] ?? [];
+    // Todos los presupuestables en una sola lista; cada opción codifica su
+    // tipo en el value (`tipo:id`) y antepone una anotación con el tipo.
+    const opciones = TIPO_ORDEN.flatMap((tipo) =>
+        (disponibles[tipo] ?? []).map((o) => ({ tipo, id: o.id, label: o.label })),
+    );
+
+    const valorSeleccionado = data.presupuestable_id
+        ? `${data.presupuestable_type}:${data.presupuestable_id}`
+        : '';
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -182,34 +192,23 @@ function AgregarPresupuestoDialog({ disponibles, onClose }: { disponibles: Dispo
                     Selecciona a qué proyecto, obra o partida se liga el presupuesto. Se crearán todos los centros de costo del ámbito.
                 </p>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <FormField label="Tipo" htmlFor="presupuestable_type" error={errors.presupuestable_type}>
+                    <FormField label="Presupuestable" htmlFor="presupuestable" error={errors.presupuestable_id ?? errors.presupuestable_type} required>
                         <select
-                            id="presupuestable_type"
+                            id="presupuestable"
                             className="select select-bordered w-full"
-                            value={data.presupuestable_type}
+                            value={valorSeleccionado}
                             onChange={(e) => {
-                                setData('presupuestable_type', e.target.value as PresupuestableTipo);
-                                setData('presupuestable_id', '');
+                                const [tipo, id] = e.target.value.split(':');
+                                setData('presupuestable_type', tipo as PresupuestableTipo);
+                                setData('presupuestable_id', id ?? '');
                             }}
-                        >
-                            <option value="obra">Obra</option>
-                            <option value="proyecto">Proyecto</option>
-                            <option value="partida">Partida</option>
-                        </select>
-                    </FormField>
-                    <FormField label="Registro" htmlFor="presupuestable_id" error={errors.presupuestable_id} required>
-                        <select
-                            id="presupuestable_id"
-                            className="select select-bordered w-full"
-                            value={data.presupuestable_id}
-                            onChange={(e) => setData('presupuestable_id', e.target.value)}
                         >
                             <option value="" disabled>
                                 {opciones.length ? 'Selecciona…' : 'Sin registros disponibles'}
                             </option>
                             {opciones.map((o) => (
-                                <option key={o.id} value={o.id}>
-                                    {o.label}
+                                <option key={`${o.tipo}:${o.id}`} value={`${o.tipo}:${o.id}`}>
+                                    {TIPO_LABELS[o.tipo]} · {o.label}
                                 </option>
                             ))}
                         </select>

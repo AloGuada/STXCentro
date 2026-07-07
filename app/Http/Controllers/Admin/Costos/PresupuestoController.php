@@ -198,13 +198,13 @@ class PresupuestoController extends Controller
             ->whereDoesntHave('presupuesto')
             ->orderBy('no')
             ->get(['id', 'no', 'descripcion'])
-            ->map(fn (Obra $o) => ['id' => $o->id, 'label' => trim("OP-{$o->no} · ".($o->descripcion ?? ''), ' ·')]);
+            ->map(fn (Obra $o) => ['id' => $o->id, 'label' => trim(($o->descripcion ?? '')." · OP-{$o->no}", ' ·')]);
 
         $proyectos = Proyecto::query()
             ->whereDoesntHave('presupuesto')
             ->orderBy('no')
             ->get(['id', 'no', 'descripcion'])
-            ->map(fn (Proyecto $p) => ['id' => $p->id, 'label' => trim("{$p->no} · ".($p->descripcion ?? ''), ' ·')]);
+            ->map(fn (Proyecto $p) => ['id' => $p->id, 'label' => trim(($p->descripcion ?? '')." · {$p->no}", ' ·')]);
 
         $partidas = Partida::query()
             ->whereDoesntHave('presupuesto')
