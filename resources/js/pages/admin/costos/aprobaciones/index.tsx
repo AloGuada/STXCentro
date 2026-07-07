@@ -3,8 +3,8 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosAprobacionSolicitud, CostosSolicitudPago } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { AlertTriangleIcon, CheckIcon, EyeIcon, FileCheckIcon, FileTextIcon, PaperclipIcon, XIcon } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangleIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, CheckIcon, EyeIcon, FileCheckIcon, FileTextIcon, PaperclipIcon, XIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -223,10 +223,73 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
     };
 }
 
+type SortKey = 'tipo' | 'folio' | 'solicitante' | 'proveedor' | 'concepto' | 'monto' | 'fecha' | 'observaciones';
+
 function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; tipo: 'pendientes' | 'aprobadas' | 'rechazadas' }) {
     const [modalState, setModalState] = useState<{ id: number; tipo: 'aprobar' | 'rechazar' } | null>(null);
     const [pdfModal, setPdfModal] = useState<{ url: string; title: string } | null>(null);
     const [archivosModal, setArchivosModal] = useState<CostosSolicitudPago | null>(null);
+    const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
+
+    // Preserva el scroll de la tabla al ir/volver del detalle (por pestaña).
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const storageKey = `aprobaciones-scroll-${tipo}`;
+    useEffect(() => {
+        const el = scrollRef.current;
+        const saved = el && sessionStorage.getItem(storageKey);
+        if (el && saved) {
+            el.scrollTop = Number(saved) || 0;
+        }
+    }, [storageKey]);
+    const handleScroll = () => {
+        if (scrollRef.current) {
+            sessionStorage.setItem(storageKey, String(scrollRef.current.scrollTop));
+        }
+    };
+
+    const toggleSort = (key: SortKey) =>
+        setSort((prev) => (prev?.key === key ? (prev.dir === 'asc' ? { key, dir: 'desc' } : null) : { key, dir: 'asc' }));
+
+    const rows = useMemo(() => {
+        const base = items
+            .map((a) => ({ a, d: buildDisplay(a) }))
+            .filter((x): x is { a: CostosAprobacionSolicitud; d: RowDisplay } => x.d !== null);
+
+        if (!sort) return base;
+
+        const valor = ({ a, d }: { a: CostosAprobacionSolicitud; d: RowDisplay }): string | number => {
+            switch (sort.key) {
+                case 'tipo': return a.tipo ?? '';
+                case 'folio': return d.folio;
+                case 'solicitante': return d.solicitanteName;
+                case 'proveedor': return d.proveedor?.razon_social ?? '';
+                case 'concepto': return d.tipoLabel;
+                case 'monto': return d.monto;
+                case 'fecha': return a.fecha_respuesta ?? '';
+                case 'observaciones': return a.observaciones ?? '';
+            }
+        };
+
+        return [...base].sort((p, q) => {
+            const x = valor(p);
+            const y = valor(q);
+            const cmp = typeof x === 'number' && typeof y === 'number'
+                ? x - y
+                : String(x).localeCompare(String(y), 'es', { numeric: true });
+            return sort.dir === 'asc' ? cmp : -cmp;
+        });
+    }, [items, sort]);
+
+    const SortHeader = ({ label, sortKey, className }: { label: string; sortKey: SortKey; className?: string }) => (
+        <th className={className}>
+            <button type="button" onClick={() => toggleSort(sortKey)} className="inline-flex items-center gap-1 hover:text-base-content">
+                {label}
+                {sort?.key === sortKey
+                    ? (sort.dir === 'asc' ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />)
+                    : <ArrowUpDownIcon className="size-3 opacity-40" />}
+            </button>
+        </th>
+    );
 
     if (items.length === 0) {
         const mensajes = {
@@ -239,26 +302,24 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
 
     return (
         <>
-            <div className="overflow-auto rounded-box border border-base-300" style={{ maxHeight: '70vh' }}>
+            <div ref={scrollRef} onScroll={handleScroll} className="overflow-auto rounded-box border border-base-300" style={{ maxHeight: '70vh' }}>
                 <table className="table">
                     <thead className="sticky top-0 z-10 bg-base-100">
                         <tr>
-                            <th>Tipo</th>
-                            <th>Folio</th>
-                            <th>Solicitante</th>
-                            <th>Proveedor</th>
-                            <th>Concepto</th>
-                            <th className="text-right">Monto</th>
+                            <SortHeader label="Tipo" sortKey="tipo" />
+                            <SortHeader label="Folio" sortKey="folio" />
+                            <SortHeader label="Solicitante" sortKey="solicitante" />
+                            <SortHeader label="Proveedor" sortKey="proveedor" />
+                            <SortHeader label="Concepto" sortKey="concepto" />
+                            <SortHeader label="Monto" sortKey="monto" className="text-right" />
                             <th>Docs</th>
-                            {tipo !== 'pendientes' && <th>Fecha</th>}
-                            {tipo !== 'pendientes' && <th>Observaciones</th>}
+                            {tipo !== 'pendientes' && <SortHeader label="Fecha" sortKey="fecha" />}
+                            {tipo !== 'pendientes' && <SortHeader label="Observaciones" sortKey="observaciones" />}
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        {items.map((a) => {
-                            const d = buildDisplay(a);
-                            if (!d) return null;
+                        {rows.map(({ a, d }) => {
                             const tieneSobregiro = d.tieneSobregiro;
                             const esRequisicion = a.tipo === 'requisicion';
                             const sol = !esRequisicion ? a.solicitud ?? null : null;
@@ -301,7 +362,11 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                                     <td><span className="text-xs text-base-content/60">{d.tipoLabel}</span></td>
                                     <td className="text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            {tieneSobregiro && <AlertTriangleIcon className="size-4 text-error" title="Sobregiro en centro de costos" />}
+                                            {tieneSobregiro && (
+                                                <span title="Sobregiro en centro de costos">
+                                                    <AlertTriangleIcon className="size-4 text-error" />
+                                                </span>
+                                            )}
                                             <span className="font-medium">{fmtMoney(d.monto)}</span>
                                         </div>
                                         {tieneSobregiro && (
