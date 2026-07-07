@@ -197,6 +197,12 @@ const navGroups: NavGroup[] = [
                 permission: 'costos.obra-rubros.ver',
             },
             {
+                title: 'Obras activas',
+                href: '/admin/costos/obras-activas',
+                icon: Building2,
+                permission: 'costos.obra-rubros.ver',
+            },
+            {
                 title: 'Requisiciones',
                 href: '/admin/costos/requisiciones',
                 icon: FileText,

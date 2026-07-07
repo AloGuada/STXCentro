@@ -297,6 +297,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Presupuestos (proyecto / obra / partida)
         Route::get('presupuestos', [CostosPresupuestoController::class, 'index'])->name('presupuestos.index');
+        Route::get('obras-activas', [CostosPresupuestoController::class, 'obrasActivas'])->name('obras-activas.index');
         Route::get('presupuestos/reporte-pdf', [CostosPresupuestoController::class, 'generarReportePdf'])->name('presupuestos.reporte-pdf');
         Route::post('presupuestos/planta', [CostosPresupuestoController::class, 'storePlanta'])->name('presupuestos.planta.store');
         Route::post('presupuestos', [CostosPresupuestoController::class, 'store'])->name('presupuestos.store');

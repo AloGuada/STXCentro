@@ -14,6 +14,7 @@ use App\Models\Obra;
 use App\Models\Proyecto;
 use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -50,26 +51,11 @@ class PresupuestoController extends Controller
             ->withSum('rubros', 'presupuestado')
             ->withSum('rubros', 'acumulado')
             ->withCount('rubros')
-            ->when($planta, fn ($q) => $q->whereKeyNot($planta->id))
-            ->when($request->search, function ($q, $s) {
-                $q->where(function ($q) use ($s) {
-                    $q->where('nombre_interno', 'like', "%{$s}%")
-                        ->orWhereHasMorph('presupuestable', [Obra::class, Proyecto::class], function ($q2) use ($s) {
-                            $q2->where('no', 'like', "%{$s}%")->orWhere('descripcion', 'like', "%{$s}%");
-                        })
-                        ->orWhereHasMorph('presupuestable', [Partida::class], function ($q2) use ($s) {
-                            $q2->where('descripcion', 'like', "%{$s}%");
-                        });
-                });
-            });
+            ->when($planta, fn ($q) => $q->whereKeyNot($planta->id));
 
-        $orden = $this->aplicarOrden($query, $request, [
-            'nombre_interno' => 'nombre_interno',
-            'estatus' => 'estatus',
-            'rubros_count' => 'rubros_count',
-            'rubros_sum_presupuestado' => 'rubros_sum_presupuestado',
-            'rubros_sum_acumulado' => 'rubros_sum_acumulado',
-        ], 'created_at', 'desc');
+        $this->aplicarBusqueda($query, $request->search);
+
+        $orden = $this->aplicarOrden($query, $request, $this->columnasOrden(), 'created_at', 'desc');
 
         $presupuestos = $query->paginate(15)->withQueryString()
             ->through(fn (Presupuesto $p) => $this->presentar($p));
@@ -217,6 +203,95 @@ class PresupuestoController extends Controller
             'obra' => $obras->values()->all(),
             'proyecto' => $proyectos->values()->all(),
             'partida' => $partidas->values()->all(),
+        ];
+    }
+
+    /**
+     * Página "Obras activas": tabla de presupuestos (obra/proyecto/partida)
+     * filtrada por estatus, con pestañas Activas / Cerradas. Solo la tabla.
+     */
+    public function obrasActivas(Request $request): Response
+    {
+        $umbral = (int) config('costos.umbral_alerta_porcentaje', 90);
+        $estatus = $request->string('estatus')->toString() === PresupuestoEstatus::Cerrado->value
+            ? PresupuestoEstatus::Cerrado->value
+            : PresupuestoEstatus::Activo->value;
+
+        $query = Presupuesto::query()
+            ->with('presupuestable')
+            ->withSum('rubros', 'presupuestado')
+            ->withSum('rubros', 'acumulado')
+            ->withCount('rubros')
+            ->where('estatus', $estatus);
+
+        $this->aplicarBusqueda($query, $request->search);
+
+        $orden = $this->aplicarOrden($query, $request, $this->columnasOrden(), 'created_at', 'desc');
+
+        $presupuestos = $query->paginate(15)->withQueryString()
+            ->through(fn (Presupuesto $p) => $this->presentar($p));
+
+        return Inertia::render('admin/costos/obras-activas/index', [
+            'presupuestos' => $presupuestos,
+            'estatus' => $estatus,
+            'conteos' => [
+                'activo' => Presupuesto::where('estatus', PresupuestoEstatus::Activo->value)->count(),
+                'cerrado' => Presupuesto::where('estatus', PresupuestoEstatus::Cerrado->value)->count(),
+            ],
+            'umbral' => $umbral,
+            'filters' => $request->only('search', 'estatus'),
+            'sortBy' => $orden['by'],
+            'sortDir' => $orden['dir'],
+        ]);
+    }
+
+    /**
+     * Búsqueda case-insensitive (LOWER LIKE, portable a PostgreSQL) por nombre
+     * interno del presupuesto y por número/descripción del presupuestable.
+     *
+     * @param  Builder<Presupuesto>  $query
+     */
+    private function aplicarBusqueda(Builder $query, ?string $search): void
+    {
+        if (! $search) {
+            return;
+        }
+
+        $needle = '%'.mb_strtolower($search).'%';
+
+        $query->where(function (Builder $q) use ($needle) {
+            $q->whereRaw('lower(nombre_interno) like ?', [$needle])
+                ->orWhereHasMorph('presupuestable', [Obra::class, Proyecto::class], function ($q2) use ($needle) {
+                    $q2->whereRaw('lower(no) like ?', [$needle])->orWhereRaw('lower(descripcion) like ?', [$needle]);
+                })
+                ->orWhereHasMorph('presupuestable', [Partida::class], function ($q2) use ($needle) {
+                    $q2->whereRaw('lower(descripcion) like ?', [$needle]);
+                });
+        });
+    }
+
+    /**
+     * Whitelist de columnas ordenables. `descripcion` viene del presupuestable
+     * polimórfico: se ordena con un COALESCE de subconsultas por tipo.
+     *
+     * @return array<string, string|\Closure>
+     */
+    private function columnasOrden(): array
+    {
+        return [
+            'nombre_interno' => 'nombre_interno',
+            'estatus' => 'estatus',
+            'descripcion' => fn (Builder $q, string $dir) => $q->orderByRaw(
+                'coalesce('.
+                '(select descripcion from obras where obras.id = costos_presupuestos.presupuestable_id and costos_presupuestos.presupuestable_type = ?),'.
+                '(select descripcion from proyectos where proyectos.id = costos_presupuestos.presupuestable_id and costos_presupuestos.presupuestable_type = ?),'.
+                '(select descripcion from cob_partidas where cob_partidas.id = costos_presupuestos.presupuestable_id and costos_presupuestos.presupuestable_type = ?)'.
+                ') '.$dir,
+                [Obra::class, Proyecto::class, Partida::class],
+            ),
+            'rubros_count' => 'rubros_count',
+            'rubros_sum_presupuestado' => 'rubros_sum_presupuestado',
+            'rubros_sum_acumulado' => 'rubros_sum_acumulado',
         ];
     }
 
