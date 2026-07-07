@@ -98,6 +98,7 @@ class PresupuestoController extends Controller
             'presupuestable_type' => ['required', Rule::in(array_values(self::TIPOS))],
             'presupuestable_id' => ['required', 'integer'],
             'nombre_interno' => ['nullable', 'string', 'max:255'],
+            'op_interno' => ['nullable', 'string', 'max:255'],
         ]);
 
         $class = array_search($validated['presupuestable_type'], self::TIPOS, true);
@@ -105,7 +106,10 @@ class PresupuestoController extends Controller
 
         $presupuesto = Presupuesto::firstOrCreate(
             ['presupuestable_type' => $class, 'presupuestable_id' => $validated['presupuestable_id']],
-            ['nombre_interno' => $validated['nombre_interno'] ?? null],
+            [
+                'nombre_interno' => $validated['nombre_interno'] ?? null,
+                'op_interno' => $validated['op_interno'] ?? null,
+            ],
         );
 
         $presupuesto->sembrarRubrosFaltantes();
@@ -151,6 +155,7 @@ class PresupuestoController extends Controller
     {
         $validated = $request->validate([
             'nombre_interno' => ['nullable', 'string', 'max:255'],
+            'op_interno' => ['nullable', 'string', 'max:255'],
         ]);
 
         $presupuesto->update($validated);
@@ -212,7 +217,6 @@ class PresupuestoController extends Controller
      */
     public function obrasActivas(Request $request): Response
     {
-        $umbral = (int) config('costos.umbral_alerta_porcentaje', 90);
         $estatus = $request->string('estatus')->toString() === PresupuestoEstatus::Cerrado->value
             ? PresupuestoEstatus::Cerrado->value
             : PresupuestoEstatus::Activo->value;
@@ -238,7 +242,6 @@ class PresupuestoController extends Controller
                 'activo' => Presupuesto::where('estatus', PresupuestoEstatus::Activo->value)->count(),
                 'cerrado' => Presupuesto::where('estatus', PresupuestoEstatus::Cerrado->value)->count(),
             ],
-            'umbral' => $umbral,
             'filters' => $request->only('search', 'estatus'),
             'sortBy' => $orden['by'],
             'sortDir' => $orden['dir'],
@@ -308,6 +311,8 @@ class PresupuestoController extends Controller
             'tipo' => self::TIPOS[$p->presupuestable_type] ?? 'obra',
             'nombre' => $p->nombreMostrar(),
             'nombre_interno' => $p->nombre_interno,
+            'op' => $p->opMostrar(),
+            'op_interno' => $p->op_interno,
             'no' => $presupuestable->no ?? null,
             'descripcion' => $presupuestable->descripcion ?? null,
             'estatus' => $p->estatus->value,

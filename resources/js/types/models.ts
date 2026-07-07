@@ -1412,6 +1412,7 @@ export type CostosPresupuesto = {
     presupuestable_type: string;
     presupuestable_id: number;
     nombre_interno: string | null;
+    op_interno: string | null;
     estatus: CostosPresupuestoEstatus;
     nombre_mostrar?: string;
     presupuestable?: { id: number; no?: string | null; descripcion?: string | null; estatus?: string };
@@ -1432,6 +1433,8 @@ export type PresupuestoRow = {
     tipo: PresupuestableTipo;
     nombre: string;
     nombre_interno: string | null;
+    op: string | null;
+    op_interno: string | null;
     no: string | null;
     descripcion: string | null;
     estatus: CostosPresupuestoEstatus;

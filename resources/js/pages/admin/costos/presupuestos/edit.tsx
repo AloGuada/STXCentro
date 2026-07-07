@@ -46,6 +46,7 @@ export default function PresupuestosEdit({ presupuesto, rubros }: Props) {
     const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
     const [editingNombre, setEditingNombre] = useState(false);
     const [nombreInterno, setNombreInterno] = useState(presupuesto.nombre_interno ?? '');
+    const [opInterno, setOpInterno] = useState(presupuesto.op_interno ?? '');
     const [savingNombre, setSavingNombre] = useState(false);
     const [changingEstado, setChangingEstado] = useState(false);
 
@@ -106,6 +107,7 @@ export default function PresupuestosEdit({ presupuesto, rubros }: Props) {
         setSavingNombre(true);
         router.put(`/admin/costos/presupuestos/${presupuesto.id}`, {
             nombre_interno: nombreInterno,
+            op_interno: opInterno,
         }, {
             preserveScroll: true,
             onSuccess: () => setEditingNombre(false),
@@ -255,20 +257,26 @@ export default function PresupuestosEdit({ presupuesto, rubros }: Props) {
                                         value={nombreInterno}
                                         onChange={(e) => setNombreInterno(e.target.value)}
                                         placeholder={presupuesto.no ?? presupuesto.descripcion ?? 'Nombre interno'}
-                                        className="w-72"
+                                        className="w-64"
                                         autoFocus
+                                    />
+                                    <Input
+                                        value={opInterno}
+                                        onChange={(e) => setOpInterno(e.target.value)}
+                                        placeholder={presupuesto.no ?? 'OP interna'}
+                                        className="w-40"
                                     />
                                     <Button type="submit" size="sm" disabled={savingNombre}>
                                         {savingNombre ? <Loader2Icon className="size-4 animate-spin" /> : <CheckIcon className="size-4" />}
                                     </Button>
-                                    <Button type="button" size="sm" variant="outline" onClick={() => { setEditingNombre(false); setNombreInterno(presupuesto.nombre_interno ?? ''); }}>
+                                    <Button type="button" size="sm" variant="outline" onClick={() => { setEditingNombre(false); setNombreInterno(presupuesto.nombre_interno ?? ''); setOpInterno(presupuesto.op_interno ?? ''); }}>
                                         <XIcon className="size-4" />
                                     </Button>
                                 </form>
                             ) : (
                                 <h1 className="flex items-center gap-2 text-2xl font-semibold">
                                     {presupuesto.nombre}
-                                    <button type="button" className="btn btn-ghost btn-xs" onClick={() => setEditingNombre(true)} title="Editar nombre interno">
+                                    <button type="button" className="btn btn-ghost btn-xs" onClick={() => setEditingNombre(true)} title="Editar nombre y OP internos">
                                         <PencilIcon className="size-4 opacity-40" />
                                     </button>
                                 </h1>
@@ -280,8 +288,8 @@ export default function PresupuestosEdit({ presupuesto, rubros }: Props) {
                                 <span className={`badge badge-sm ${ESTATUS_COLORS[presupuesto.estatus]}`}>
                                     {ESTATUS_LABELS[presupuesto.estatus]}
                                 </span>
-                                {presupuesto.nombre_interno && presupuesto.no && (
-                                    <span className="text-xs">{presupuesto.no}</span>
+                                {presupuesto.op && (
+                                    <span className="text-xs">OP: {presupuesto.op}</span>
                                 )}
                             </div>
                         </div>

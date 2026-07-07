@@ -174,10 +174,12 @@ function AgregarPresupuestoDialog({ disponibles, onClose }: { disponibles: Dispo
         presupuestable_type: PresupuestableTipo;
         presupuestable_id: string;
         nombre_interno: string;
+        op_interno: string;
     }>({
         presupuestable_type: 'obra',
         presupuestable_id: '',
         nombre_interno: '',
+        op_interno: '',
     });
 
     // Todos los presupuestables en una sola lista; cada opción codifica su
@@ -224,6 +226,14 @@ function AgregarPresupuestoDialog({ disponibles, onClose }: { disponibles: Dispo
                             value={data.nombre_interno}
                             onChange={(e) => setData('nombre_interno', e.target.value)}
                             placeholder="Nombre a usar en costos"
+                        />
+                    </FormField>
+                    <FormField label="OP interna (opcional)" htmlFor="op_interno" error={errors.op_interno}>
+                        <Input
+                            id="op_interno"
+                            value={data.op_interno}
+                            onChange={(e) => setData('op_interno', e.target.value)}
+                            placeholder="OP a usar en costos"
                         />
                     </FormField>
                     <div className="flex justify-end gap-2">

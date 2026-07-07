@@ -33,6 +33,7 @@ class Presupuesto extends Model
         'presupuestable_type',
         'presupuestable_id',
         'nombre_interno',
+        'op_interno',
         'estatus',
     ];
 
@@ -74,6 +75,24 @@ class Presupuesto extends Model
     public function getNombreMostrarAttribute(): string
     {
         return $this->nombreMostrar();
+    }
+
+    /**
+     * OP a mostrar: la interna si existe, si no el número (OP) que viene del
+     * presupuestable (cobranza). Puede ser null (ej. partidas sin número).
+     */
+    public function opMostrar(): ?string
+    {
+        if (filled($this->op_interno)) {
+            return $this->op_interno;
+        }
+
+        return $this->presupuestable->no ?? null;
+    }
+
+    public function getOpMostrarAttribute(): ?string
+    {
+        return $this->opMostrar();
     }
 
     /**
