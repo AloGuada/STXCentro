@@ -29,6 +29,38 @@ test('el solicitante con permiso puede cancelar su propia solicitud', function (
     expect($solicitud->fresh()->estatus->value)->toBe('cancelada');
 });
 
+test('cancelar la propia solicitud cancela sus aprobaciones pendientes', function () {
+    $duenio = User::factory()->create();
+    $duenio->givePermissionTo('costos.solicitudes-pago.cancelar-propia');
+    $aprobador = User::factory()->create();
+
+    $solicitud = SolicitudPago::factory()->create([
+        'solicitante_id' => $duenio->id,
+        'departamento_id' => $this->depto->id,
+        'estatus' => 'pendiente_firma',
+    ]);
+
+    $pendiente = $solicitud->cadenaAprobacion()->create([
+        'nivel' => 1,
+        'aprobador_id' => $aprobador->id,
+        'estatus' => 'pendiente',
+    ]);
+    $yaAprobada = $solicitud->cadenaAprobacion()->create([
+        'nivel' => 2,
+        'aprobador_id' => $aprobador->id,
+        'estatus' => 'aprobada',
+    ]);
+
+    $this->actingAs($duenio)
+        ->post("/admin/costos/solicitudes-pago/{$solicitud->id}/cancelar", ['motivo' => 'Ya no se requiere'])
+        ->assertRedirect();
+
+    expect($pendiente->fresh()->estatus->value)->toBe('cancelada')
+        ->and($pendiente->fresh()->fecha_respuesta)->not->toBeNull()
+        // Las ya resueltas no se tocan (se conserva el historial).
+        ->and($yaAprobada->fresh()->estatus->value)->toBe('aprobada');
+});
+
 test('no puede cancelar la solicitud de otro aunque tenga el permiso propio', function () {
     $usuario = User::factory()->create();
     $usuario->givePermissionTo('costos.solicitudes-pago.cancelar-propia');

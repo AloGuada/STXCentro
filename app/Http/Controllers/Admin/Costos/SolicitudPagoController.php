@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\AprobacionEstatus;
 use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
@@ -589,6 +590,16 @@ class SolicitudPagoController extends Controller
                 'fecha_aplicacion' => now(),
             ]);
         }
+
+        // Cancelar las aprobaciones pendientes de la cadena para que salgan de
+        // la bandeja de aprobación (mismo criterio que un rechazo). No se borran:
+        // quedan como Cancelada para conservar el historial.
+        $solicitudPago->cadenaAprobacion()
+            ->where('estatus', AprobacionEstatus::Pendiente->value)
+            ->update([
+                'estatus' => AprobacionEstatus::Cancelada->value,
+                'fecha_respuesta' => now(),
+            ]);
 
         $solicitudPago->transitionTo(SolicitudPagoEstatus::Cancelada);
         $solicitudPago->registrarCancelacion($request->validated('motivo'), $request->user()->id);
