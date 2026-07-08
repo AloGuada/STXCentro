@@ -201,7 +201,14 @@ function Pagination<T>({ data }: { data: PaginatedData<T> }) {
         pages.push(last);
     }
 
-    const pageUrl = (page: number) => `${data.path}?page=${page}`;
+    // Preserva el query string actual (sort_by, sort_dir, search, ...) al paginar.
+    // Construimos todos los enlaces aquí en vez de usar prev/next_page_url del
+    // backend, que solo conservan esos params si el paginador hizo withQueryString().
+    const pageUrl = (page: number) => {
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', String(page));
+        return `${data.path}?${params.toString()}`;
+    };
 
     return (
         <div className="flex items-center justify-between">
@@ -209,8 +216,8 @@ function Pagination<T>({ data }: { data: PaginatedData<T> }) {
                 {data.from}–{data.to} de {data.total}
             </span>
             <div className="join">
-                {data.prev_page_url ? (
-                    <Link href={data.prev_page_url} className="join-item btn btn-sm" preserveState preserveScroll>
+                {current > 1 ? (
+                    <Link href={pageUrl(current - 1)} className="join-item btn btn-sm" preserveState preserveScroll>
                         <ChevronLeftIcon className="size-4" />
                     </Link>
                 ) : (
@@ -237,8 +244,8 @@ function Pagination<T>({ data }: { data: PaginatedData<T> }) {
                     ),
                 )}
 
-                {data.next_page_url ? (
-                    <Link href={data.next_page_url} className="join-item btn btn-sm" preserveState preserveScroll>
+                {current < last ? (
+                    <Link href={pageUrl(current + 1)} className="join-item btn btn-sm" preserveState preserveScroll>
                         <ChevronRightIcon className="size-4" />
                     </Link>
                 ) : (
