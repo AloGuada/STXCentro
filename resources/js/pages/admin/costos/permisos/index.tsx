@@ -1,8 +1,11 @@
 import { DataTable, type Column } from '@/components/data-table';
+import { ButtonLink } from '@/components/ui/button';
+import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosPermiso, PaginatedData } from '@/types/models';
 import { Head } from '@inertiajs/react';
+import { UserCheckIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -33,6 +36,8 @@ type Props = {
 };
 
 export default function PermisosIndex({ permisos, filters, sortBy, sortDir }: Props) {
+    const { hasRole } = useCan();
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Niveles Aprobacion" />
@@ -50,7 +55,14 @@ export default function PermisosIndex({ permisos, filters, sortBy, sortDir }: Pr
                     getRowHref={(row) => `/admin/costos/permisos/${row.id}`}
                     sortBy={sortBy}
                     sortDir={sortDir}
-                />
+                >
+                    {hasRole('super-admin') && (
+                        <ButtonLink href="/admin/costos/aprobaciones/bandeja" variant="ghost">
+                            <UserCheckIcon className="size-4" />
+                            Bandeja de aprobador
+                        </ButtonLink>
+                    )}
+                </DataTable>
             </div>
         </AppLayout>
     );
