@@ -1,10 +1,14 @@
 <?php
 
+use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\AprobacionSolicitud;
 use App\Models\Costos\ObraRubro;
+use App\Models\Costos\Permiso;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
+use App\Models\Departamento;
 use App\Models\User;
+use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['firma_path' => 'firmas/test.png']);
@@ -322,6 +326,60 @@ describe('admin costos aprobaciones', function () {
             ]);
 
         $response->assertSessionHasErrors(['nivel']);
+    });
+});
+
+describe('bandeja supervisora de aprobaciones (solo lectura)', function () {
+    beforeEach(function () {
+        Permission::firstOrCreate(['name' => 'costos.aprobaciones.ver']);
+        $this->supervisor = User::factory()->create();
+        $this->supervisor->givePermissionTo('costos.aprobaciones.ver');
+    });
+
+    test('sin usuario, lista los aprobadores para elegir', function () {
+        $aprobador = User::factory()->create();
+        AprobacionDepartamento::create([
+            'departamento_id' => Departamento::factory()->create()->id,
+            'permiso_id' => Permiso::factory()->create()->id,
+            'aprobador_id' => $aprobador->id,
+        ]);
+
+        $this->actingAs($this->supervisor)
+            ->get(route('admin.costos.aprobaciones.bandeja'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/costos/aprobaciones/index')
+                ->where('soloLectura', true)
+                ->where('aprobador', null)
+                ->has('aprobadores', 1)
+            );
+    });
+
+    test('muestra las pendientes de otro aprobador sin entrar a su cuenta', function () {
+        $aprobador = User::factory()->create();
+        $solicitud = SolicitudPago::factory()->pendienteFirma()->create();
+        AprobacionSolicitud::create([
+            'solicitud_id' => $solicitud->id,
+            'nivel' => 1,
+            'aprobador_id' => $aprobador->id,
+            'estatus' => 'pendiente',
+        ]);
+
+        $this->actingAs($this->supervisor)
+            ->get(route('admin.costos.aprobaciones.bandeja', $aprobador))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/costos/aprobaciones/index')
+                ->where('soloLectura', true)
+                ->where('aprobador.id', $aprobador->id)
+                ->has('pendientes', 1)
+            );
+    });
+
+    test('requiere el permiso costos.aprobaciones.ver', function () {
+        $this->actingAs(User::factory()->create())
+            ->get(route('admin.costos.aprobaciones.bandeja'))
+            ->assertForbidden();
     });
 });
 

@@ -16,6 +16,9 @@ type Props = {
     pendientes: CostosAprobacionSolicitud[];
     aprobadas: CostosAprobacionSolicitud[];
     rechazadas: CostosAprobacionSolicitud[];
+    soloLectura?: boolean;
+    aprobador?: { id: string; name: string } | null;
+    aprobadores?: { id: string; name: string }[];
 };
 
 const fmtDate = (date: string | null) =>
@@ -35,9 +38,10 @@ function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: num
             onSuccess: () => {
                 reset();
                 onClose();
-                // Refresca las tres listas para que la aprobación recién
-                // procesada salga de "Pendientes" y aparezca en su pestaña.
-                router.reload({ only: ['pendientes', 'aprobadas', 'rechazadas'] });
+                // Recarga completa remontando las tablas con props frescas
+                // (`preserveState: false`). Un reload parcial (`only`) o con
+                // estado preservado dejaba la tabla de pendientes desincronizada.
+                router.get(window.location.pathname, {}, { preserveScroll: true, preserveState: false });
             },
         });
     };
@@ -223,9 +227,9 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
     };
 }
 
-type SortKey = 'tipo' | 'folio' | 'solicitante' | 'proveedor' | 'concepto' | 'monto' | 'fecha' | 'observaciones';
+type SortKey = 'tipo' | 'nivel' | 'folio' | 'solicitante' | 'proveedor' | 'concepto' | 'monto' | 'fecha' | 'observaciones';
 
-function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; tipo: 'pendientes' | 'aprobadas' | 'rechazadas' }) {
+function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAprobacionSolicitud[]; tipo: 'pendientes' | 'aprobadas' | 'rechazadas'; soloLectura?: boolean }) {
     const [modalState, setModalState] = useState<{ id: number; tipo: 'aprobar' | 'rechazar' } | null>(null);
     const [pdfModal, setPdfModal] = useState<{ url: string; title: string } | null>(null);
     const [archivosModal, setArchivosModal] = useState<CostosSolicitudPago | null>(null);
@@ -260,6 +264,7 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
         const valor = ({ a, d }: { a: CostosAprobacionSolicitud; d: RowDisplay }): string | number => {
             switch (sort.key) {
                 case 'tipo': return a.tipo ?? '';
+                case 'nivel': return a.nivel ?? 0;
                 case 'folio': return d.folio;
                 case 'solicitante': return d.solicitanteName;
                 case 'proveedor': return d.proveedor?.razon_social ?? '';
@@ -308,6 +313,7 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                         <tr>
                             <SortHeader label="Tipo" sortKey="tipo" />
                             <SortHeader label="Folio" sortKey="folio" />
+                            <SortHeader label="Nivel" sortKey="nivel" className="text-center" />
                             <SortHeader label="Solicitante" sortKey="solicitante" />
                             <SortHeader label="Proveedor" sortKey="proveedor" />
                             <SortHeader label="Concepto" sortKey="concepto" />
@@ -337,6 +343,9 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                                             <span className="font-mono text-xs font-medium">{d.folio}</span>
                                             <div className="mt-0.5 text-[11px] text-base-content/50">{fmtDate(d.createdAt)}</div>
                                         </div>
+                                    </td>
+                                    <td className="text-center">
+                                        <span className="badge badge-ghost badge-sm">Nivel {a.nivel}</span>
                                     </td>
                                     <td>
                                         <div>
@@ -415,7 +424,7 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                                     )}
                                     <td>
                                         <div className="flex gap-1.5">
-                                            {tipo === 'pendientes' && (
+                                            {!soloLectura && tipo === 'pendientes' && (
                                                 <>
                                                     <button
                                                         onClick={() => setModalState({ id: a.id, tipo: 'aprobar' })}
@@ -433,13 +442,17 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
                                                     </button>
                                                 </>
                                             )}
-                                            <Link
-                                                href={d.detailHref}
-                                                className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60 transition-colors hover:bg-base-200"
-                                                title="Ver detalle"
-                                            >
-                                                <EyeIcon className="size-3.5" />
-                                            </Link>
+                                            {!soloLectura ? (
+                                                <Link
+                                                    href={d.detailHref}
+                                                    className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60 transition-colors hover:bg-base-200"
+                                                    title="Ver detalle"
+                                                >
+                                                    <EyeIcon className="size-3.5" />
+                                                </Link>
+                                            ) : (
+                                                <span className="text-xs text-base-content/40">-</span>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -468,30 +481,64 @@ function AprobacionTable({ items, tipo }: { items: CostosAprobacionSolicitud[]; 
     );
 }
 
-export default function AprobacionesIndex({ pendientes, aprobadas, rechazadas }: Props) {
+export default function AprobacionesIndex({ pendientes, aprobadas, rechazadas, soloLectura = false, aprobador = null, aprobadores = [] }: Props) {
+    const titulo = soloLectura ? 'Bandeja de aprobador' : 'Mis Aprobaciones';
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Mis Aprobaciones" />
+            <Head title={titulo} />
 
             <div className="p-6">
-                <h1 className="mb-6 text-2xl font-semibold">Mis Aprobaciones</h1>
-
-                <div role="tablist" className="tabs tabs-bordered mb-6">
-                    <input type="radio" name="aprobaciones_tabs" role="tab" className="tab" aria-label={`Pendientes (${pendientes.length})`} defaultChecked />
-                    <div role="tabpanel" className="tab-content py-4">
-                        <AprobacionTable items={pendientes} tipo="pendientes" />
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-semibold">{titulo}</h1>
+                        {soloLectura && (
+                            <p className="mt-1 text-sm text-base-content/60">
+                                Vista de solo lectura de las aprobaciones de otro usuario. No puedes aprobar ni rechazar desde aquí.
+                            </p>
+                        )}
                     </div>
 
-                    <input type="radio" name="aprobaciones_tabs" role="tab" className="tab" aria-label={`Aprobadas (${aprobadas.length})`} />
-                    <div role="tabpanel" className="tab-content py-4">
-                        <AprobacionTable items={aprobadas} tipo="aprobadas" />
-                    </div>
-
-                    <input type="radio" name="aprobaciones_tabs" role="tab" className="tab" aria-label={`Rechazadas (${rechazadas.length})`} />
-                    <div role="tabpanel" className="tab-content py-4">
-                        <AprobacionTable items={rechazadas} tipo="rechazadas" />
-                    </div>
+                    {soloLectura && (
+                        <label className="flex items-center gap-2 text-sm">
+                            <span className="text-base-content/60">Aprobador:</span>
+                            <select
+                                className="select select-bordered select-sm min-w-56"
+                                value={aprobador?.id ?? ''}
+                                onChange={(e) => {
+                                    const id = e.target.value;
+                                    router.get(`/admin/costos/aprobaciones/bandeja${id ? `/${id}` : ''}`, {}, { preserveScroll: true });
+                                }}
+                            >
+                                <option value="">Selecciona un aprobador…</option>
+                                {aprobadores.map((u) => (
+                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
                 </div>
+
+                {soloLectura && !aprobador ? (
+                    <p className="py-12 text-center text-base-content/60">Selecciona un aprobador para ver su bandeja.</p>
+                ) : (
+                    <div role="tablist" className="tabs tabs-bordered mb-6">
+                        <input type="radio" name="aprobaciones_tabs" role="tab" className="tab" aria-label={`Pendientes (${pendientes.length})`} defaultChecked />
+                        <div role="tabpanel" className="tab-content py-4">
+                            <AprobacionTable items={pendientes} tipo="pendientes" soloLectura={soloLectura} />
+                        </div>
+
+                        <input type="radio" name="aprobaciones_tabs" role="tab" className="tab" aria-label={`Aprobadas (${aprobadas.length})`} />
+                        <div role="tabpanel" className="tab-content py-4">
+                            <AprobacionTable items={aprobadas} tipo="aprobadas" soloLectura={soloLectura} />
+                        </div>
+
+                        <input type="radio" name="aprobaciones_tabs" role="tab" className="tab" aria-label={`Rechazadas (${rechazadas.length})`} />
+                        <div role="tabpanel" className="tab-content py-4">
+                            <AprobacionTable items={rechazadas} tipo="rechazadas" soloLectura={soloLectura} />
+                        </div>
+                    </div>
+                )}
             </div>
         </AppLayout>
     );

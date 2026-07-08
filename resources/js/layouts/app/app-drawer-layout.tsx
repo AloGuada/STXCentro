@@ -303,6 +303,12 @@ const navGroups: NavGroup[] = [
                         permission: 'costos.aprobaciones.ver',
                     },
                     {
+                        title: 'Bandeja de aprobador',
+                        href: '/admin/costos/aprobaciones/bandeja',
+                        icon: UserCheck,
+                        permission: 'costos.aprobaciones.ver',
+                    },
+                    {
                         title: 'Configuración',
                         href: '/admin/costos/configuracion',
                         icon: Settings,

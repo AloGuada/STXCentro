@@ -8,8 +8,10 @@ use App\Enums\Costos\RequisicionEstatus;
 use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Models\Costos\Aprobacion;
+use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\SolicitudPago;
+use App\Models\Usuario;
 use App\Services\Costos\AprobacionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,8 +28,44 @@ class AprobacionController extends Controller
                 ->with('warning', 'Debe configurar su firma antes de acceder a las aprobaciones.');
         }
 
-        $userId = auth()->id();
+        return Inertia::render('admin/costos/aprobaciones/index', [
+            ...$this->construirBandeja(auth()->id()),
+            'soloLectura' => false,
+        ]);
+    }
 
+    /**
+     * Vista supervisora (solo lectura): renderiza la misma bandeja de
+     * aprobaciones tal como la ve otro aprobador, sin entrar a su cuenta y
+     * sin botones de aprobar/rechazar. Incluye un selector de aprobadores.
+     */
+    public function bandejaDe(?Usuario $usuario = null): Response
+    {
+        $aprobadores = Usuario::whereIn('id', AprobacionDepartamento::query()->distinct()->pluck('aprobador_id'))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $data = $usuario
+            ? $this->construirBandeja($usuario->getKey())
+            : ['pendientes' => collect(), 'aprobadas' => collect(), 'rechazadas' => collect()];
+
+        return Inertia::render('admin/costos/aprobaciones/index', [
+            ...$data,
+            'soloLectura' => true,
+            'aprobador' => $usuario ? ['id' => $usuario->getKey(), 'name' => $usuario->name] : null,
+            'aprobadores' => $aprobadores,
+        ]);
+    }
+
+    /**
+     * Construye las tres colecciones (pendientes/aprobadas/rechazadas) ya
+     * formadas para un aprobador. Reutilizado por la bandeja propia y por la
+     * vista supervisora.
+     *
+     * @return array{pendientes: \Illuminate\Support\Collection, aprobadas: \Illuminate\Support\Collection, rechazadas: \Illuminate\Support\Collection}
+     */
+    private function construirBandeja(int|string $userId): array
+    {
         $baseQuery = fn () => Aprobacion::where('aprobador_id', $userId)
             ->whereIn('aprobable_type', [SolicitudPago::class, Requisicion::class])
             ->with(['aprobable' => function ($morphTo) {
@@ -75,11 +113,11 @@ class AprobacionController extends Controller
             ->latest('fecha_respuesta')
             ->get();
 
-        return Inertia::render('admin/costos/aprobaciones/index', [
+        return [
             'pendientes' => $pendientes->map(fn (Aprobacion $a) => $this->shape($a)),
             'aprobadas' => $aprobadas->map(fn (Aprobacion $a) => $this->shape($a)),
             'rechazadas' => $rechazadas->map(fn (Aprobacion $a) => $this->shape($a)),
-        ]);
+        ];
     }
 
     public function show(Aprobacion $aprobacionSolicitud): Response|HttpResponse|RedirectResponse
