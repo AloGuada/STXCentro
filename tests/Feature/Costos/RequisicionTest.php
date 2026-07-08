@@ -39,6 +39,33 @@ beforeEach(function () {
     $this->depto = Departamento::factory()->create();
 });
 
+test('el selector de presupuesto usa la OP y descripción internas y cae a cobranza si faltan', function () {
+    // Con datos internos → se muestran esos.
+    $obraInterna = \App\Models\Obra::factory()->create(['no' => 'OP-COB-1', 'descripcion' => 'Desc Cobranza 1']);
+    Presupuesto::factory()->paraObra($obraInterna)->create([
+        'op_interno' => 'OP-INT-1',
+        'nombre_interno' => 'Nombre Interno 1',
+    ]);
+
+    // Sin datos internos → cae a la OP/descripción de cobranza (obra).
+    $obraCobranza = \App\Models\Obra::factory()->create(['no' => 'OP-COB-2', 'descripcion' => 'Desc Cobranza 2']);
+    Presupuesto::factory()->paraObra($obraCobranza)->create([
+        'op_interno' => null,
+        'nombre_interno' => null,
+    ]);
+
+    $response = $this->actingAs($this->user)
+        ->get(route('admin.costos.requisiciones.create'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->where('presupuestos', fn ($presupuestos) => collect($presupuestos)->pluck('label')->all() === [
+            'OP-COB-2 - Desc Cobranza 2',
+            'OP-INT-1 - Nombre Interno 1',
+        ])
+    );
+});
+
 test('al crear una requisición se adjuntan los PDF de cotización', function () {
     \Illuminate\Support\Facades\Storage::fake('public');
     $obra = \App\Models\Obra::factory()->create();

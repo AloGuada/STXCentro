@@ -925,11 +925,18 @@ class RequisicionController extends Controller
     {
         return Presupuesto::with('presupuestable')
             ->get()
-            ->map(fn (Presupuesto $p) => [
-                'id' => $p->id,
-                'label' => $p->nombreMostrar(),
-                'cerrado' => $p->estaCerrado(),
-            ])
+            ->map(function (Presupuesto $p) {
+                // OP y descripción internas del presupuesto; cada una cae a la
+                // de cobranza (número/descripción del presupuestable) si falta.
+                $partes = array_filter([$p->opMostrar(), $p->descripcionMostrar()]);
+                $label = implode(' - ', $partes);
+
+                return [
+                    'id' => $p->id,
+                    'label' => $label !== '' ? $label : $p->nombreMostrar(),
+                    'cerrado' => $p->estaCerrado(),
+                ];
+            })
             ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
     }
