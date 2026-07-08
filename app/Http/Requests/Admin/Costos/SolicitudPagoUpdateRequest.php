@@ -42,7 +42,30 @@ class SolicitudPagoUpdateRequest extends FormRequest
             if ($tipo && ! $tipo->rubros && empty($this->input('detalles', [])) && ! $this->filled('monto_total')) {
                 $validator->errors()->add('monto_total', 'Captura el total del pago.');
             }
+
+            $this->validarFechaPago($validator);
         });
+    }
+
+    /**
+     * La fecha de pago debe ser un viernes no anterior al corte configurado.
+     */
+    protected function validarFechaPago(\Illuminate\Contracts\Validation\Validator $validator): void
+    {
+        if (! $this->filled('fecha_pago_solicitada') || $validator->errors()->has('fecha_pago_solicitada')) {
+            return;
+        }
+
+        $fecha = \Illuminate\Support\Carbon::parse($this->input('fecha_pago_solicitada'));
+
+        if (! \App\Models\Costos\ConfiguracionCostos::actual()->fechaPagoValida($fecha)) {
+            $validator->errors()->add(
+                'fecha_pago_solicitada',
+                $fecha->dayOfWeek !== \Illuminate\Support\Carbon::FRIDAY
+                    ? 'La fecha de pago debe ser un viernes.'
+                    : 'La fecha de pago ya pasó el corte; elige un viernes posterior.',
+            );
+        }
     }
 
     /**

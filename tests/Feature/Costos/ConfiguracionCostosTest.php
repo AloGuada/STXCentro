@@ -8,6 +8,7 @@ use App\Models\Costos\SolicitudPago;
 use App\Models\Departamento;
 use App\Models\User;
 use App\Services\Costos\ApartadoPresupuestal;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 test('actual() devuelve una fila única con los valores por defecto', function () {
@@ -15,7 +16,10 @@ test('actual() devuelve una fila única con los valores por defecto', function (
 
     expect($c->dias_apartado)->toBe(5)
         ->and($c->dias_cancelar_requisicion)->toBe(10)
-        ->and($c->dias_cancelar_solicitud)->toBe(10);
+        ->and($c->dias_cancelar_solicitud)->toBe(10)
+        ->and($c->corte_activo)->toBeTrue()
+        ->and($c->corte_dia)->toBe(Carbon::WEDNESDAY)
+        ->and($c->corte_hora)->toBe('13:00');
 
     ConfiguracionCostos::actual();
     expect(ConfiguracionCostos::count())->toBe(1);
@@ -27,13 +31,54 @@ test('el endpoint actualiza la configuración', function () {
             'dias_apartado' => 7,
             'dias_cancelar_requisicion' => 15,
             'dias_cancelar_solicitud' => 20,
+            'corte_activo' => false,
+            'corte_dia' => 4,
+            'corte_hora' => '09:30',
         ])
         ->assertRedirect();
 
     $c = ConfiguracionCostos::actual();
     expect($c->dias_apartado)->toBe(7)
         ->and($c->dias_cancelar_requisicion)->toBe(15)
-        ->and($c->dias_cancelar_solicitud)->toBe(20);
+        ->and($c->dias_cancelar_solicitud)->toBe(20)
+        ->and($c->corte_activo)->toBeFalse()
+        ->and($c->corte_dia)->toBe(4)
+        ->and($c->corte_hora)->toBe('09:30');
+});
+
+test('con corte activo el viernes de la semana se bloquea tras el corte', function () {
+    $config = ConfiguracionCostos::actual(); // miércoles 13:00
+
+    Carbon::setTestNow(Carbon::parse('2026-07-08 12:00')); // miércoles, antes del corte
+    expect($config->minViernes()->toDateString())->toBe('2026-07-10')
+        ->and($config->fechaPagoValida(Carbon::parse('2026-07-10')))->toBeTrue();
+
+    Carbon::setTestNow(Carbon::parse('2026-07-08 13:30')); // miércoles, después del corte
+    expect($config->minViernes()->toDateString())->toBe('2026-07-17')
+        ->and($config->fechaPagoValida(Carbon::parse('2026-07-10')))->toBeFalse();
+
+    Carbon::setTestNow();
+});
+
+test('sin corte siempre puede elegirse el viernes de la semana en curso', function () {
+    $config = ConfiguracionCostos::actual();
+    $config->update(['corte_activo' => false]);
+
+    Carbon::setTestNow(Carbon::parse('2026-07-09 18:00')); // jueves por la tarde
+    expect($config->minViernes()->toDateString())->toBe('2026-07-10')
+        ->and($config->fechaPagoValida(Carbon::parse('2026-07-10')))->toBeTrue();
+
+    Carbon::setTestNow();
+});
+
+test('fechaPagoValida rechaza cualquier día que no sea viernes', function () {
+    $config = ConfiguracionCostos::actual();
+    $config->update(['corte_activo' => false]);
+
+    Carbon::setTestNow(Carbon::parse('2026-07-06 08:00')); // lunes
+    expect($config->fechaPagoValida(Carbon::parse('2026-07-09')))->toBeFalse(); // jueves
+
+    Carbon::setTestNow();
 });
 
 test('el apartado de presupuesto usa los días configurados', function () {

@@ -12,26 +12,26 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { type FormEvent, useCallback, useMemo, useState } from 'react';
 
-function getMinViernes(): string {
-    const now = new Date();
-    const day = now.getDay();
-    const hour = now.getHours();
-
-    const viernes = new Date(now);
-    viernes.setDate(now.getDate() + (5 - day + 7) % 7);
-    viernes.setHours(0, 0, 0, 0);
-
-    const pasoCorteMiercoles = day > 3 || (day === 3 && hour >= 13);
-    if (day <= 5 && pasoCorteMiercoles) {
-        viernes.setDate(viernes.getDate() + 7);
-    }
-
-    return viernes.toISOString().split('T')[0];
-}
-
 function esViernes(dateStr: string): boolean {
     const date = new Date(dateStr + 'T00:00:00');
     return date.getDay() === 5;
+}
+
+type CorteFechaPago = {
+    activo: boolean;
+    dia: number;
+    hora: string;
+    min_viernes: string;
+};
+
+const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+function corteAyuda(corte: CorteFechaPago): string {
+    if (!corte.activo) {
+        return 'Solo viernes. Puedes elegir cualquier viernes futuro.';
+    }
+
+    return `Solo viernes. Corte: ${DIAS_SEMANA[corte.dia] ?? ''} ${corte.hora}.`;
 }
 
 type DetalleForm = {
@@ -45,6 +45,7 @@ type DetalleForm = {
 
 type Props = {
     solicitud: CostosSolicitudPago;
+    corteFechaPago: CorteFechaPago;
     departamentos: Departamento[];
     proveedores: Proveedor[];
     tipoSolicitudes: CostosTipoSolicitud[];
@@ -52,7 +53,7 @@ type Props = {
     obraRubros: CostosObraRubro[];
 };
 
-export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedores, tipoSolicitudes, obras, obraRubros }: Props) {
+export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departamentos, proveedores, tipoSolicitudes, obras, obraRubros }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/solicitudes-pago' },
@@ -97,7 +98,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
         }),
     });
 
-    const minViernes = useMemo(() => getMinViernes(), []);
+    const minViernes = corteFechaPago.min_viernes;
 
     const handleFechaChange = useCallback((value: string) => {
         if (!value || esViernes(value)) {
@@ -260,7 +261,7 @@ export default function SolicitudesPagoEdit({ solicitud, departamentos, proveedo
                                         value={data.fecha_pago_solicitada}
                                         onChange={(e) => handleFechaChange(e.target.value)}
                                     />
-                                    <p className="mt-1 text-[11px] text-base-content/50">Solo viernes. Corte: miércoles 1:00 PM</p>
+                                    <p className="mt-1 text-[11px] text-base-content/50">{corteAyuda(corteFechaPago)}</p>
                                 </FormField>
                             </div>
                         </div>

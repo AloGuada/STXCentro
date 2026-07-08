@@ -29,6 +29,9 @@ class ConfiguracionCostosController extends Controller
             'dias_apartado' => ['required', 'integer', 'min:1', 'max:365'],
             'dias_cancelar_requisicion' => ['required', 'integer', 'min:1', 'max:365'],
             'dias_cancelar_solicitud' => ['required', 'integer', 'min:1', 'max:365'],
+            'corte_activo' => ['required', 'boolean'],
+            'corte_dia' => ['required', 'integer', 'min:1', 'max:5'],
+            'corte_hora' => ['required', 'date_format:H:i'],
         ]);
 
         ConfiguracionCostos::actual()->update($validated);

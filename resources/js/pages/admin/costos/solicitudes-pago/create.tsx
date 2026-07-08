@@ -38,30 +38,26 @@ import type {
     Proveedor,
 } from '@/types/models';
 
-function getMinViernes(): string {
-    const now = new Date();
-    const day = now.getDay(); // 0=dom, 1=lun, ..., 5=vie
-    const hour = now.getHours();
-
-    // Calcular el viernes de esta semana
-    const viernes = new Date(now);
-    viernes.setDate(now.getDate() + ((5 - day + 7) % 7));
-    viernes.setHours(0, 0, 0, 0);
-
-    // Si ya pasó el miércoles a la 1pm (day>=3 && hour>=13, o day>3 sin ser viernes futuro),
-    // el viernes de esta semana queda bloqueado → mínimo es el siguiente viernes
-    const pasoCorteMiercoles = day > 3 || (day === 3 && hour >= 13);
-    // Si hoy es jueves o viernes o sábado/domingo, el viernes calculado podría ser esta semana o la siguiente
-    if (day <= 5 && pasoCorteMiercoles) {
-        viernes.setDate(viernes.getDate() + 7);
-    }
-
-    return viernes.toISOString().split('T')[0];
-}
-
 function esViernes(dateStr: string): boolean {
     const date = new Date(dateStr + 'T00:00:00');
     return date.getDay() === 5;
+}
+
+type CorteFechaPago = {
+    activo: boolean;
+    dia: number;
+    hora: string;
+    min_viernes: string;
+};
+
+const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+function corteAyuda(corte: CorteFechaPago): string {
+    if (!corte.activo) {
+        return 'Solo viernes. Puedes elegir cualquier viernes futuro.';
+    }
+
+    return `Solo viernes. Corte: ${DIAS_SEMANA[corte.dia] ?? ''} ${corte.hora}.`;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -80,6 +76,7 @@ type DetalleForm = {
 };
 
 type Props = {
+    corteFechaPago: CorteFechaPago;
     departamentos: Departamento[];
     proveedores: Proveedor[];
     tipoSolicitudes: CostosTipoSolicitud[];
@@ -88,6 +85,7 @@ type Props = {
 };
 
 export default function SolicitudesPagoCreate({
+    corteFechaPago,
     departamentos,
     proveedores,
     tipoSolicitudes,
@@ -130,7 +128,7 @@ export default function SolicitudesPagoCreate({
     });
 
     const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-    const minViernes = useMemo(() => getMinViernes(), []);
+    const minViernes = corteFechaPago.min_viernes;
 
     const handleFechaChange = useCallback(
         (value: string) => {
@@ -517,7 +515,7 @@ export default function SolicitudesPagoCreate({
                                         }
                                     />
                                     <p className="mt-1 text-[11px] text-base-content/50">
-                                        Solo viernes. Corte: miércoles 1:00 PM
+                                        {corteAyuda(corteFechaPago)}
                                     </p>
                                 </FormField>
                             </div>

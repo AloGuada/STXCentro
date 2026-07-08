@@ -11,6 +11,7 @@ use App\Http\Requests\Admin\Costos\SolicitudArchivoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudFirmadoRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoUpdateRequest;
+use App\Models\Costos\ConfiguracionCostos;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Pago;
 use App\Models\Costos\Requisicion;
@@ -119,11 +120,30 @@ class SolicitudPagoController extends Controller
         ]);
     }
 
+    /**
+     * Parámetros del corte semanal para el campo de fecha de pago solicitada,
+     * consumidos por el formulario (mínimo viernes seleccionable y ayuda).
+     *
+     * @return array{activo: bool, dia: int, hora: string, min_viernes: string}
+     */
+    private function corteFechaPago(): array
+    {
+        $config = ConfiguracionCostos::actual();
+
+        return [
+            'activo' => $config->corte_activo,
+            'dia' => $config->corte_dia,
+            'hora' => $config->corte_hora,
+            'min_viernes' => $config->minViernes()->toDateString(),
+        ];
+    }
+
     public function create(): Response
     {
         Gate::authorize('costos.solicitudes-pago.crear');
 
         return Inertia::render('admin/costos/solicitudes-pago/create', [
+            'corteFechaPago' => $this->corteFechaPago(),
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
             'proveedores' => Proveedor::where('activo', true)
                 ->with(['complementosPago' => fn ($q) => $q->whereIn('estatus', ['pendiente', 'vencido'])])
@@ -348,6 +368,7 @@ class SolicitudPagoController extends Controller
 
         return Inertia::render('admin/costos/solicitudes-pago/edit', [
             'solicitud' => $solicitudPago,
+            'corteFechaPago' => $this->corteFechaPago(),
             'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
             'proveedores' => Proveedor::where('activo', true)
                 ->with(['complementosPago' => fn ($q) => $q->whereIn('estatus', ['pendiente', 'vencido'])])

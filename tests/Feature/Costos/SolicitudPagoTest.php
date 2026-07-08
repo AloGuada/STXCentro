@@ -260,4 +260,63 @@ describe('admin costos solicitudes pago', function () {
 
         $response->assertSessionHasErrors(['departamento_id', 'tipo_solicitud_id', 'concepto', 'tipo_pago', 'tipo_moneda']);
     });
+
+    test('la fecha de pago debe ser un viernes', function () {
+        $departamento = Departamento::factory()->create();
+        $tipoSolicitud = TipoSolicitud::factory()->create(['rubros' => false]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.store'), [
+                'departamento_id' => $departamento->id,
+                'tipo_solicitud_id' => $tipoSolicitud->id,
+                'concepto' => 'Compra de materiales',
+                'tipo_pago' => 'transferencia',
+                'tipo_moneda' => 'mxn',
+                'monto_total' => 100,
+                'fecha_pago_solicitada' => '2026-07-09', // jueves
+            ])
+            ->assertSessionHasErrors('fecha_pago_solicitada');
+    });
+
+    test('la fecha de pago anterior al corte es rechazada', function () {
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-07-08 13:30')); // miércoles, tras el corte
+        $departamento = Departamento::factory()->create();
+        $tipoSolicitud = TipoSolicitud::factory()->create(['rubros' => false]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.store'), [
+                'departamento_id' => $departamento->id,
+                'tipo_solicitud_id' => $tipoSolicitud->id,
+                'concepto' => 'Compra de materiales',
+                'tipo_pago' => 'transferencia',
+                'tipo_moneda' => 'mxn',
+                'monto_total' => 100,
+                'fecha_pago_solicitada' => '2026-07-10', // viernes bloqueado por el corte
+            ])
+            ->assertSessionHasErrors('fecha_pago_solicitada');
+
+        \Illuminate\Support\Carbon::setTestNow();
+    });
+
+    test('la fecha de pago en un viernes válido se acepta', function () {
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-07-08 12:00')); // miércoles, antes del corte
+        $departamento = Departamento::factory()->create();
+        $tipoSolicitud = TipoSolicitud::factory()->create(['rubros' => false]);
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.store'), [
+                'departamento_id' => $departamento->id,
+                'tipo_solicitud_id' => $tipoSolicitud->id,
+                'concepto' => 'Compra de materiales',
+                'tipo_pago' => 'transferencia',
+                'tipo_moneda' => 'mxn',
+                'monto_total' => 100,
+                'fecha_pago_solicitada' => '2026-07-10', // viernes de esta semana
+            ]);
+
+        $response->assertSessionDoesntHaveErrors('fecha_pago_solicitada');
+        expect(SolicitudPago::latest('id')->first()->fecha_pago_solicitada->toDateString())->toBe('2026-07-10');
+
+        \Illuminate\Support\Carbon::setTestNow();
+    });
 });
