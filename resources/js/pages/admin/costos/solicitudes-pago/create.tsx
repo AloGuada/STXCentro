@@ -11,7 +11,6 @@ import {
     Fragment,
     type FormEvent,
     useCallback,
-    useEffect,
     useMemo,
     useRef,
     useState,
@@ -122,7 +121,7 @@ export default function SolicitudesPagoCreate({
         tipo_moneda: 'mxn',
         fecha_pago_solicitada: '',
         detalles: [],
-        monto_total: '',
+        monto_total: '0',
         archivos: {},
         archivos_texto: {},
     });
@@ -214,15 +213,8 @@ export default function SolicitudesPagoCreate({
         return { totalArchivosBytes: bytes, totalArchivosCount: count };
     }, [data.archivos]);
 
-    // El total del pago es editable. Mientras no se edite a mano, se mantiene
-    // sincronizado con la suma de los detalles; al editarlo, se respeta el valor.
-    const [montoManual, setMontoManual] = useState(false);
-
-    useEffect(() => {
-        if (selectedTipo?.rubros && !montoManual) {
-            setData('monto_total', total > 0 ? total.toFixed(2) : '');
-        }
-    }, [total, selectedTipo?.rubros, montoManual, setData]);
+    // El total del pago siempre se captura a mano; arranca en 0 para que el
+    // usuario sepa que debe ajustarlo.
 
     // Por defecto se ocultan obras/adicionales cerrados; el checkbox los incluye.
     const [incluirCerradas, setIncluirCerradas] = useState(false);
@@ -268,7 +260,9 @@ export default function SolicitudesPagoCreate({
                         'El centro de costos es obligatorio.';
                 }
             });
-        } else if (selectedTipo) {
+        }
+
+        if (selectedTipo) {
             const monto = parseFloat(data.monto_total);
             if (!data.monto_total || Number.isNaN(monto) || monto <= 0) {
                 validationErrors.monto_total =
@@ -896,8 +890,8 @@ export default function SolicitudesPagoCreate({
                             </div>
                         )}
 
-                        {/* Total del pago: capturado directo (sin rubros) o
-                            calculado desde los detalles (con rubros). */}
+                        {/* Total del pago: siempre se captura a mano; arranca
+                            en 0 para que el usuario lo ajuste. */}
                         {selectedTipo && (
                             <div className="space-y-4">
                                 <div className="border-b border-base-300 pb-2">
@@ -921,7 +915,6 @@ export default function SolicitudesPagoCreate({
                                         error={!!errors.monto_total}
                                         value={data.monto_total}
                                         onChange={(e) => {
-                                            setMontoManual(true);
                                             setData(
                                                 'monto_total',
                                                 e.target.value,
@@ -935,29 +928,10 @@ export default function SolicitudesPagoCreate({
                                     />
                                     {selectedTipo.rubros && (
                                         <p className="mt-1 text-xs text-base-content/50">
-                                            Suma de detalles: $
+                                            Suma de detalles (referencia): $
                                             {total.toLocaleString('es-MX', {
                                                 minimumFractionDigits: 2,
                                             })}
-                                            {montoManual && (
-                                                <button
-                                                    type="button"
-                                                    className="ml-2 link link-primary"
-                                                    onClick={() => {
-                                                        setMontoManual(false);
-                                                        setData(
-                                                            'monto_total',
-                                                            total > 0
-                                                                ? total.toFixed(
-                                                                      2,
-                                                                  )
-                                                                : '',
-                                                        );
-                                                    }}
-                                                >
-                                                    Usar suma
-                                                </button>
-                                            )}
                                         </p>
                                     )}
                                 </FormField>
