@@ -27,6 +27,16 @@ const columns: Column<Usuario>[] = [
             </div>
         ),
     },
+    {
+        key: 'activo',
+        label: 'Estado',
+        render: (usuario) =>
+            usuario.activo ? (
+                <Badge variant="success">Activo</Badge>
+            ) : (
+                <Badge variant="error">Baja</Badge>
+            ),
+    },
 ];
 
 type Props = {

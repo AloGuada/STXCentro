@@ -5,11 +5,14 @@ namespace App\Providers;
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Actions\Fortify\UpdateUserPassword;
+use App\Models\Usuario;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
@@ -30,8 +33,32 @@ class FortifyServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureActions();
+        $this->configureAuthentication();
         $this->configureViews();
         $this->configureRateLimiting();
+    }
+
+    /**
+     * Configure how users are authenticated, blocking accounts that have been
+     * deactivated (dados de baja).
+     */
+    private function configureAuthentication(): void
+    {
+        Fortify::authenticateUsing(function (Request $request) {
+            $usuario = Usuario::where('email', $request->email)->first();
+
+            if (! $usuario || ! Hash::check($request->password, $usuario->password)) {
+                return null;
+            }
+
+            if (! $usuario->activo) {
+                throw ValidationException::withMessages([
+                    Fortify::username() => __('Esta cuenta está dada de baja. Contacta a un administrador.'),
+                ]);
+            }
+
+            return $usuario;
+        });
     }
 
     /**

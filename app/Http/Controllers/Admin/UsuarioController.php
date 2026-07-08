@@ -73,6 +73,21 @@ class UsuarioController extends Controller
         return to_route('admin.usuarios.index');
     }
 
+    public function estado(Request $request, Usuario $usuario): RedirectResponse
+    {
+        if ($usuario->is($request->user())) {
+            return back()->withErrors(['estado' => 'No puedes cambiar el estado de tu propia cuenta.']);
+        }
+
+        if ($usuario->activo) {
+            $usuario->darDeBaja();
+        } else {
+            $usuario->reactivar();
+        }
+
+        return back();
+    }
+
     public function destroy(Usuario $usuario): RedirectResponse
     {
         $usuario->delete();

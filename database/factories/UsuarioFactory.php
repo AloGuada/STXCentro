@@ -56,4 +56,12 @@ class UsuarioFactory extends Factory
             'empleado' => $empleadoId,
         ]);
     }
+
+    public function dadoDeBaja(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'activo' => false,
+            'fecha_baja' => now(),
+        ]);
+    }
 }

@@ -4,6 +4,8 @@ export type Usuario = {
     name: string;
     email: string;
     email_verified_at: string | null;
+    activo: boolean;
+    fecha_baja: string | null;
     firma_path: string | null;
     roles?: Role[];
     created_at: string;

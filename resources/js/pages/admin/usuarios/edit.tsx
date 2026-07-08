@@ -1,15 +1,16 @@
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
+import type { BreadcrumbItem, SharedData } from '@/types';
 import type { Role, Usuario } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Loader2Icon, UserCheck, UserX } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
 
 type Props = {
     usuario: Usuario;
@@ -17,6 +18,25 @@ type Props = {
 };
 
 export default function UsuariosEdit({ usuario, roles }: Props) {
+    const { auth } = usePage<SharedData>().props;
+    const esMiCuenta = String(auth.user?.id) === usuario.id;
+    const [cambiandoEstado, setCambiandoEstado] = useState(false);
+
+    const cambiarEstado = () => {
+        const accion = usuario.activo ? 'dar de baja a' : 'reactivar a';
+        if (!confirm(`¿Seguro que deseas ${accion} "${usuario.name}"?`)) {
+            return;
+        }
+        router.patch(
+            `/admin/usuarios/${usuario.id}/estado`,
+            {},
+            {
+                preserveScroll: true,
+                onStart: () => setCambiandoEstado(true),
+                onFinish: () => setCambiandoEstado(false),
+            },
+        );
+    };
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Usuarios', href: '/admin/usuarios' },
@@ -52,13 +72,50 @@ export default function UsuariosEdit({ usuario, roles }: Props) {
             <div className="p-6">
                 <div className="w-3/4">
                     <div className="mb-6 flex items-center justify-between">
-                        <h1 className="text-2xl font-semibold">Editar Usuario</h1>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl font-semibold">Editar Usuario</h1>
+                            {usuario.activo ? (
+                                <Badge variant="success">Activo</Badge>
+                            ) : (
+                                <Badge variant="error">Baja</Badge>
+                            )}
+                        </div>
                         <DeleteDialog
                             title="Eliminar usuario"
                             description={`¿Estas seguro de eliminar a "${usuario.name}"? Esta accion no se puede deshacer.`}
                             deleteUrl={`/admin/usuarios/${usuario.id}`}
                         />
                     </div>
+
+                    {!esMiCuenta && (
+                        <div className="mb-6 flex items-center justify-between rounded-lg border border-border p-4">
+                            <div>
+                                <p className="font-medium">
+                                    {usuario.activo ? 'Dar de baja la cuenta' : 'Reactivar la cuenta'}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    {usuario.activo
+                                        ? 'El usuario no podrá iniciar sesión y se cerrará su sesión activa.'
+                                        : 'El usuario podrá volver a iniciar sesión.'}
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                variant={usuario.activo ? 'destructive' : 'default'}
+                                onClick={cambiarEstado}
+                                disabled={cambiandoEstado}
+                            >
+                                {cambiandoEstado ? (
+                                    <Loader2Icon className="size-4 animate-spin" />
+                                ) : usuario.activo ? (
+                                    <UserX className="size-4" />
+                                ) : (
+                                    <UserCheck className="size-4" />
+                                )}
+                                {usuario.activo ? 'Dar de baja' : 'Reactivar'}
+                            </Button>
+                        </div>
+                    )}
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Nombre" htmlFor="name" error={errors.name} required>
                             <Input

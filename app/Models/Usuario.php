@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -55,11 +56,37 @@ class Usuario extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'activo' => 'boolean',
+            'fecha_baja' => 'datetime',
         ];
     }
 
     public function departamentoComoManager(): HasOne
     {
         return $this->hasOne(Departamento::class, 'manager_usuario_id');
+    }
+
+    /**
+     * @param  Builder<Usuario>  $query
+     */
+    public function scopeActivos(Builder $query): void
+    {
+        $query->where('activo', true);
+    }
+
+    public function darDeBaja(): void
+    {
+        $this->forceFill([
+            'activo' => false,
+            'fecha_baja' => now(),
+        ])->save();
+    }
+
+    public function reactivar(): void
+    {
+        $this->forceFill([
+            'activo' => true,
+            'fecha_baja' => null,
+        ])->save();
     }
 }

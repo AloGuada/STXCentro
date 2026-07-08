@@ -123,6 +123,7 @@ use App\Http\Controllers\Admin\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    Route::patch('usuarios/{usuario}/estado', [UsuarioController::class, 'estado'])->name('usuarios.estado');
     Route::resource('usuarios', UsuarioController::class);
     Route::resource('roles', RoleController::class);
     Route::resource('departamentos', DepartamentoController::class);
