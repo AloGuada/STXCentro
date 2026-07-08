@@ -56,6 +56,7 @@ class TipoSolicitudController extends Controller
                     $tipoSolicitud->documentos()->create([
                         'titulo' => $doc['titulo'],
                         'multiple' => $doc['multiple'] ?? false,
+                        'opcional' => $doc['opcional'] ?? false,
                         'texto' => $doc['texto'] ?? null,
                         'texto_adicional' => $doc['texto_adicional'] ?? false,
                     ]);
@@ -92,6 +93,7 @@ class TipoSolicitudController extends Controller
                     Documento::where('id', $doc['id'])->update([
                         'titulo' => $doc['titulo'],
                         'multiple' => $doc['multiple'] ?? false,
+                        'opcional' => $doc['opcional'] ?? false,
                         'texto' => $doc['texto'] ?? null,
                         'texto_adicional' => $doc['texto_adicional'] ?? false,
                     ]);
@@ -99,6 +101,7 @@ class TipoSolicitudController extends Controller
                     $tipoSolicitud->documentos()->create([
                         'titulo' => $doc['titulo'],
                         'multiple' => $doc['multiple'] ?? false,
+                        'opcional' => $doc['opcional'] ?? false,
                         'texto' => $doc['texto'] ?? null,
                         'texto_adicional' => $doc['texto_adicional'] ?? false,
                     ]);

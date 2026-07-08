@@ -17,6 +17,7 @@ type DocForm = {
     id?: number;
     titulo: string;
     multiple: boolean;
+    opcional: boolean;
     texto: string;
     texto_adicional: boolean;
 };
@@ -44,13 +45,14 @@ export default function TipoSolicitudesEdit({ tipoSolicitud }: Props) {
             id: d.id,
             titulo: d.titulo,
             multiple: d.multiple,
+            opcional: d.opcional ?? false,
             texto: d.texto ?? '',
             texto_adicional: d.texto_adicional ?? false,
         })),
     });
 
     const addDocumento = () => {
-        setData('documentos', [...data.documentos, { titulo: '', multiple: false, texto: '', texto_adicional: false }]);
+        setData('documentos', [...data.documentos, { titulo: '', multiple: false, opcional: false, texto: '', texto_adicional: false }]);
     };
 
     const removeDocumento = (index: number) => {
@@ -140,6 +142,10 @@ export default function TipoSolicitudesEdit({ tipoSolicitud }: Props) {
                                 <label className="label cursor-pointer justify-start gap-2">
                                     <input type="checkbox" className="checkbox checkbox-sm" checked={doc.multiple} onChange={(e) => updateDocumento(index, 'multiple', e.target.checked)} />
                                     <span className="label-text">Permite múltiples archivos</span>
+                                </label>
+                                <label className="label cursor-pointer justify-start gap-2">
+                                    <input type="checkbox" className="checkbox checkbox-sm" checked={doc.opcional} onChange={(e) => updateDocumento(index, 'opcional', e.target.checked)} />
+                                    <span className="label-text">Opcional (no obligatorio)</span>
                                 </label>
                                 <FormField label="Texto" htmlFor={`doc_texto_${index}`}>
                                     <Input id={`doc_texto_${index}`} value={doc.texto} onChange={(e) => updateDocumento(index, 'texto', e.target.value)} />

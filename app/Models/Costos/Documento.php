@@ -16,6 +16,7 @@ class Documento extends Model
         'tipo_solicitud_id',
         'titulo',
         'multiple',
+        'opcional',
         'texto',
         'texto_adicional',
     ];
@@ -27,6 +28,7 @@ class Documento extends Model
     {
         return [
             'multiple' => 'boolean',
+            'opcional' => 'boolean',
             'texto_adicional' => 'boolean',
         ];
     }

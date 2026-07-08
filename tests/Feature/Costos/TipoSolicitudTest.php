@@ -60,6 +60,34 @@ describe('admin costos tipo solicitudes', function () {
         $this->assertDatabaseCount('costos_documentos', 2);
     });
 
+    test('guarda documentos marcados como opcionales', function () {
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.tipo-solicitudes.store'), [
+                'titulo' => 'Solicitud con opcionales',
+                'rubros' => false,
+                'documentos' => [
+                    [
+                        'titulo' => 'Factura',
+                        'multiple' => false,
+                        'opcional' => false,
+                        'texto' => '',
+                        'texto_adicional' => '',
+                    ],
+                    [
+                        'titulo' => 'Evidencia',
+                        'multiple' => false,
+                        'opcional' => true,
+                        'texto' => '',
+                        'texto_adicional' => '',
+                    ],
+                ],
+            ]);
+
+        $response->assertRedirect(route('admin.costos.tipo-solicitudes.index'));
+        $this->assertDatabaseHas('costos_documentos', ['titulo' => 'Factura', 'opcional' => false]);
+        $this->assertDatabaseHas('costos_documentos', ['titulo' => 'Evidencia', 'opcional' => true]);
+    });
+
     test('edit page can be rendered with documentos', function () {
         $tipoSolicitud = TipoSolicitud::factory()->create();
         $tipoSolicitud->documentos()->create([

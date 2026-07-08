@@ -24,6 +24,7 @@ class TipoSolicitudStoreRequest extends FormRequest
             'documentos' => ['nullable', 'array'],
             'documentos.*.titulo' => ['required', 'string', 'max:255'],
             'documentos.*.multiple' => ['boolean'],
+            'documentos.*.opcional' => ['boolean'],
             'documentos.*.texto' => ['nullable', 'string'],
             'documentos.*.texto_adicional' => ['nullable', 'boolean'],
         ];

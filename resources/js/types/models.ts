@@ -1386,6 +1386,7 @@ export type CostosDocumento = {
     tipo_solicitud_id: number;
     titulo: string;
     multiple: boolean;
+    opcional: boolean;
     texto: string | null;
     texto_adicional: boolean;
     created_at: string;

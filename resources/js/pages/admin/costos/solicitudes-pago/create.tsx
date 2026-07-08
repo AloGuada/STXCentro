@@ -271,6 +271,9 @@ export default function SolicitudesPagoCreate({
         }
 
         (selectedTipo?.documentos ?? []).forEach((doc) => {
+            if (doc.opcional) {
+                return;
+            }
             const docKey = String(doc.id);
             if ((data.archivos[docKey]?.length ?? 0) === 0) {
                 validationErrors[`archivos.${docKey}`] =
@@ -983,9 +986,15 @@ export default function SolicitudesPagoCreate({
                                                     <div>
                                                         <h4 className="font-medium">
                                                             {doc.titulo}
-                                                            <span className="ml-1 text-error">
-                                                                *
-                                                            </span>
+                                                            {doc.opcional ? (
+                                                                <span className="ml-2 badge badge-ghost badge-sm">
+                                                                    Opcional
+                                                                </span>
+                                                            ) : (
+                                                                <span className="ml-1 text-error">
+                                                                    *
+                                                                </span>
+                                                            )}
                                                             {doc.multiple && (
                                                                 <span className="ml-2 badge badge-ghost badge-sm">
                                                                     Múltiple

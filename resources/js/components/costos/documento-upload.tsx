@@ -98,7 +98,10 @@ export function DocumentoUpload({ documento, archivos, storeUrl, destroyUrlPrefi
         <div className="rounded-lg border border-base-300 p-4">
             <div className="flex items-center justify-between mb-3">
                 <div>
-                    <h4 className="font-medium">{documento.titulo}</h4>
+                    <h4 className="font-medium">
+                        {documento.titulo}
+                        {documento.opcional && <span className="ml-2 badge badge-ghost badge-sm">Opcional</span>}
+                    </h4>
                     {documento.texto && <p className="text-xs text-base-content/60">{documento.texto}</p>}
                     <p className="text-xs text-base-content/50">Máx. {MAX_FILE_SIZE_MB} MB por archivo</p>
                 </div>
