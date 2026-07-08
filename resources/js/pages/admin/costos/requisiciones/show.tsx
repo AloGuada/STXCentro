@@ -805,11 +805,13 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
 
 /**
  * Cuadro comparativo simplificado por partida:
- * Cantidad | Descripción | Precio × proveedor (N columnas) | Importe (mejor)
+ * Cantidad | Descripción | Precio × proveedor (N columnas) | Importe
  *
- * "Importe" usa el precio del mejor proveedor global cuando éste existe; si
- * no hay cotización completa, usa el menor precio cotizado por cada partida
- * (best-case mix). Al final calcula subtotal, IVA 16% y total.
+ * "Importe" usa el/los proveedor(es) seleccionado(s) de la partida una vez
+ * definidos (∑ cantidad seleccionada × precio cotizado). Mientras no haya
+ * selección, cae al comparativo best-case: precio del mejor proveedor global
+ * si cotizó la partida, o el menor precio cotizado. Al final calcula subtotal,
+ * IVA 16% y total.
  */
 function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisicion }) {
     const detalles = requisicion.detalles ?? [];
@@ -846,6 +848,30 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
         return precios.length > 0 ? Math.min(...precios) : null;
     };
 
+    // Importe de la partida: con proveedor(es) seleccionado(s), suma
+    // (cantidad seleccionada × precio cotizado) de cada selección; si aún no
+    // hay selección, usa el comparativo best-case sobre la cantidad solicitada.
+    const importeDetalle = (
+        d: CostosRequisicion['detalles'] extends (infer U)[] | undefined ? U : never,
+    ): { importe: number; tieneImporte: boolean } => {
+        const selecciones = d.selecciones ?? [];
+        if (selecciones.length > 0) {
+            let total = 0;
+            let tieneImporte = false;
+            for (const s of selecciones) {
+                const px = Number(s.cotizacion_precio?.precio_unitario ?? 0);
+                if (px > 0) {
+                    total += px * Number(s.cantidad);
+                    tieneImporte = true;
+                }
+            }
+            return { importe: total, tieneImporte };
+        }
+
+        const precio = precioImporte(d);
+        return { importe: precio !== null ? precio * Number(d.cantidad) : 0, tieneImporte: precio !== null };
+    };
+
     // Mejor (menor) precio por partida — para resaltar la celda ganadora.
     const mejorPrecioPartida = new Map<number, number>();
     for (const d of detalles) {
@@ -857,10 +883,9 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
 
     let subtotal = 0;
     const filas = detalles.map((d) => {
-        const precio = precioImporte(d);
-        const importe = precio !== null ? precio * Number(d.cantidad) : 0;
+        const { importe, tieneImporte } = importeDetalle(d);
         subtotal += importe;
-        return { d, precio, importe };
+        return { d, tieneImporte, importe };
     });
     const iva = subtotal * 0.16;
     const total = subtotal + iva;
@@ -898,7 +923,7 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                         </tr>
                     </thead>
                     <tbody>
-                        {filas.map(({ d, precio, importe }) => (
+                        {filas.map(({ d, tieneImporte, importe }) => (
                             <tr key={d.id}>
                                 <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')} {d.unidad}</td>
                                 <td>{d.descripcion}</td>
@@ -934,7 +959,7 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                                     );
                                 })}
                                 <td className="text-right font-semibold">
-                                    {precio !== null ? fmt(importe) : <span className="text-base-content/30">—</span>}
+                                    {tieneImporte ? fmt(importe) : <span className="text-base-content/30">—</span>}
                                 </td>
                             </tr>
                         ))}
