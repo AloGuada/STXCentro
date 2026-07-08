@@ -71,6 +71,50 @@ describe('admin costos solicitud archivos', function () {
         $this->assertDatabaseMissing('costos_solicitud_archivos', ['id' => $archivo->id]);
     });
 
+    test('archivo mayor a 10 MB es rechazado', function () {
+        $tipoSolicitud = TipoSolicitud::factory()->create();
+        $documento = Documento::create([
+            'tipo_solicitud_id' => $tipoSolicitud->id,
+            'titulo' => 'Factura',
+            'multiple' => false,
+        ]);
+        $solicitud = SolicitudPago::factory()->create(['tipo_solicitud_id' => $tipoSolicitud->id]);
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.archivos.store', $solicitud), [
+                'archivo' => UploadedFile::fake()->create('grande.pdf', 11000, 'application/pdf'),
+                'archivo_id' => $documento->id,
+            ]);
+
+        $response->assertSessionHasErrors('archivo');
+        $this->assertDatabaseMissing('costos_solicitud_archivos', [
+            'solicitud_id' => $solicitud->id,
+            'archivo_id' => $documento->id,
+        ]);
+    });
+
+    test('archivo de hasta 10 MB es aceptado', function () {
+        $tipoSolicitud = TipoSolicitud::factory()->create();
+        $documento = Documento::create([
+            'tipo_solicitud_id' => $tipoSolicitud->id,
+            'titulo' => 'Factura',
+            'multiple' => false,
+        ]);
+        $solicitud = SolicitudPago::factory()->create(['tipo_solicitud_id' => $tipoSolicitud->id]);
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.archivos.store', $solicitud), [
+                'archivo' => UploadedFile::fake()->create('grande.pdf', 10000, 'application/pdf'),
+                'archivo_id' => $documento->id,
+            ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('costos_solicitud_archivos', [
+            'solicitud_id' => $solicitud->id,
+            'archivo_id' => $documento->id,
+        ]);
+    });
+
     test('upload requires archivo and archivo_id', function () {
         $solicitud = SolicitudPago::factory()->create();
 

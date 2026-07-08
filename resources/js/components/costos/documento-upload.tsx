@@ -1,5 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    formatBytes,
+    MAX_FILE_SIZE_BYTES,
+    MAX_FILE_SIZE_MB,
+} from '@/lib/uploads';
 import type { CostosDocumento, CostosSolicitudArchivo } from '@/types/models';
 import { router } from '@inertiajs/react';
 import { FileTextIcon, Loader2Icon, Trash2Icon, UploadIcon } from 'lucide-react';
@@ -17,6 +22,7 @@ export function DocumentoUpload({ documento, archivos, storeUrl, destroyUrlPrefi
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
     const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [sizeError, setSizeError] = useState<string | null>(null);
 
     const documentoArchivos = archivos.filter((a) => a.archivo_id === documento.id);
 
@@ -26,10 +32,33 @@ export function DocumentoUpload({ documento, archivos, storeUrl, destroyUrlPrefi
             return;
         }
 
-        setUploading(true);
-        let pending = files.length;
+        const seleccionados = Array.from(files);
+        const grandes = seleccionados.filter((f) => f.size > MAX_FILE_SIZE_BYTES);
+        const validos = seleccionados.filter((f) => f.size <= MAX_FILE_SIZE_BYTES);
 
-        Array.from(files).forEach((file) => {
+        if (grandes.length > 0) {
+            const nombres = grandes
+                .map((f) => `"${f.name}" (${formatBytes(f.size)})`)
+                .join(', ');
+            setSizeError(
+                `${nombres} supera${grandes.length > 1 ? 'n' : ''} el máximo de ${MAX_FILE_SIZE_MB} MB por archivo y no se subió.`,
+            );
+        } else {
+            setSizeError(null);
+        }
+
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+
+        if (validos.length === 0) {
+            return;
+        }
+
+        setUploading(true);
+        let pending = validos.length;
+
+        validos.forEach((file) => {
             router.post(
                 storeUrl,
                 { archivo: file, archivo_id: documento.id },
@@ -40,9 +69,6 @@ export function DocumentoUpload({ documento, archivos, storeUrl, destroyUrlPrefi
                         pending--;
                         if (pending === 0) {
                             setUploading(false);
-                            if (fileInputRef.current) {
-                                fileInputRef.current.value = '';
-                            }
                         }
                     },
                 },
@@ -74,6 +100,7 @@ export function DocumentoUpload({ documento, archivos, storeUrl, destroyUrlPrefi
                 <div>
                     <h4 className="font-medium">{documento.titulo}</h4>
                     {documento.texto && <p className="text-xs text-base-content/60">{documento.texto}</p>}
+                    <p className="text-xs text-base-content/50">Máx. {MAX_FILE_SIZE_MB} MB por archivo</p>
                 </div>
                 {!readOnly && canUpload && (
                     <div>
@@ -101,6 +128,8 @@ export function DocumentoUpload({ documento, archivos, storeUrl, destroyUrlPrefi
                     </div>
                 )}
             </div>
+
+            {sizeError && <p className="mb-2 text-xs text-error">{sizeError}</p>}
 
             {documentoArchivos.length > 0 ? (
                 <div className="space-y-2">

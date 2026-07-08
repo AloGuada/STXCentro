@@ -22,4 +22,16 @@ class SolicitudArchivoStoreRequest extends FormRequest
             'texto_adicional' => ['nullable', 'string', 'max:255'],
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'archivo.required' => 'Selecciona un archivo para subir.',
+            'archivo.file' => 'El documento adjunto no es un archivo válido.',
+            'archivo.max' => 'El archivo no puede superar los 10 MB.',
+        ];
+    }
 }

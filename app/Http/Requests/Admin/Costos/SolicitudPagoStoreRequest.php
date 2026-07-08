@@ -62,6 +62,8 @@ class SolicitudPagoStoreRequest extends FormRequest
             'detalles.*.concepto.required' => 'El concepto del detalle es obligatorio.',
             'detalles.*.cantidad.required' => 'La cantidad es obligatoria.',
             'detalles.*.precio_unitario.required' => 'El precio unitario es obligatorio.',
+            'archivos.*.*.file' => 'El documento adjunto no es un archivo válido.',
+            'archivos.*.*.max' => 'Cada archivo no puede superar los 10 MB.',
         ];
     }
 }

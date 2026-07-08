@@ -20,6 +20,14 @@ import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
+import {
+    formatBytes,
+    MAX_FILE_SIZE_BYTES,
+    MAX_FILE_SIZE_MB,
+    MAX_FILES_PER_REQUEST,
+    MAX_TOTAL_UPLOAD_BYTES,
+    MAX_TOTAL_UPLOAD_MB,
+} from '@/lib/uploads';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type {
@@ -196,6 +204,18 @@ export default function SolicitudesPagoCreate({
 
     const total = data.detalles.reduce((sum, d) => sum + calcSubtotal(d), 0);
 
+    const { totalArchivosBytes, totalArchivosCount } = useMemo(() => {
+        let bytes = 0;
+        let count = 0;
+        Object.values(data.archivos).forEach((files) => {
+            files.forEach((file) => {
+                bytes += file.size;
+                count += 1;
+            });
+        });
+        return { totalArchivosBytes: bytes, totalArchivosCount: count };
+    }, [data.archivos]);
+
     // El total del pago es editable. Mientras no se edite a mano, se mantiene
     // sincronizado con la suma de los detalles; al editarlo, se respeta el valor.
     const [montoManual, setMontoManual] = useState(false);
@@ -265,6 +285,14 @@ export default function SolicitudesPagoCreate({
                     `Adjunta el documento requerido: ${doc.titulo}.`;
             }
         });
+
+        if (totalArchivosCount > MAX_FILES_PER_REQUEST) {
+            validationErrors.archivos =
+                `No puedes adjuntar más de ${MAX_FILES_PER_REQUEST} archivos en una solicitud (llevas ${totalArchivosCount}).`;
+        } else if (totalArchivosBytes > MAX_TOTAL_UPLOAD_BYTES) {
+            validationErrors.archivos =
+                `El peso total de los archivos (${formatBytes(totalArchivosBytes)}) supera el máximo de ${MAX_TOTAL_UPLOAD_MB} MB por solicitud. Reduce o comprime algunos documentos.`;
+        }
 
         if (Object.keys(validationErrors).length > 0) {
             setError(validationErrors as Parameters<typeof setError>[0]);
@@ -942,9 +970,27 @@ export default function SolicitudesPagoCreate({
                         {selectedTipo?.documentos &&
                             selectedTipo.documentos.length > 0 && (
                                 <div className="space-y-4">
-                                    <h2 className="border-b border-base-300 pb-2 text-lg font-medium">
-                                        Documentos
-                                    </h2>
+                                    <div className="flex items-center justify-between border-b border-base-300 pb-2">
+                                        <h2 className="text-lg font-medium">
+                                            Documentos
+                                        </h2>
+                                        {totalArchivosCount > 0 && (
+                                            <span
+                                                className={`text-xs ${totalArchivosBytes > MAX_TOTAL_UPLOAD_BYTES ? 'font-medium text-error' : 'text-base-content/60'}`}
+                                            >
+                                                Total:{' '}
+                                                {formatBytes(
+                                                    totalArchivosBytes,
+                                                )}{' '}
+                                                / {MAX_TOTAL_UPLOAD_MB} MB
+                                            </span>
+                                        )}
+                                    </div>
+                                    {errors.archivos && (
+                                        <p className="text-sm text-error">
+                                            {errors.archivos}
+                                        </p>
+                                    )}
                                     {selectedTipo.documentos.map((doc) => {
                                         const docKey = String(doc.id);
                                         const files =
@@ -979,6 +1025,10 @@ export default function SolicitudesPagoCreate({
                                                                 {doc.texto}
                                                             </p>
                                                         )}
+                                                        <p className="text-xs text-base-content/50">
+                                                            Máx. {MAX_FILE_SIZE_MB}{' '}
+                                                            MB por archivo
+                                                        </p>
                                                         {docError && (
                                                             <p className="mt-1 text-xs text-error">
                                                                 {docError}
@@ -1144,49 +1194,95 @@ export default function SolicitudesPagoCreate({
                                                                     files.length >
                                                                         0
                                                                 ) {
-                                                                    const currentFiles =
-                                                                        data
-                                                                            .archivos[
-                                                                            docKey
-                                                                        ] ?? [];
-                                                                    const currentTextos =
-                                                                        data
-                                                                            .archivos_texto[
-                                                                            docKey
-                                                                        ] ?? [];
-                                                                    const newFiles =
+                                                                    const seleccionados =
                                                                         Array.from(
                                                                             files,
                                                                         );
-                                                                    setData({
-                                                                        ...data,
-                                                                        archivos:
+                                                                    const grandes =
+                                                                        seleccionados.filter(
+                                                                            (f) =>
+                                                                                f.size >
+                                                                                MAX_FILE_SIZE_BYTES,
+                                                                        );
+                                                                    const newFiles =
+                                                                        seleccionados.filter(
+                                                                            (f) =>
+                                                                                f.size <=
+                                                                                MAX_FILE_SIZE_BYTES,
+                                                                        );
+
+                                                                    if (
+                                                                        grandes.length >
+                                                                        0
+                                                                    ) {
+                                                                        const nombres =
+                                                                            grandes
+                                                                                .map(
+                                                                                    (f) =>
+                                                                                        `"${f.name}" (${formatBytes(f.size)})`,
+                                                                                )
+                                                                                .join(
+                                                                                    ', ',
+                                                                                );
+                                                                        setError(
+                                                                            `archivos.${docKey}` as `archivos.${string}`,
+                                                                            `${nombres} supera${grandes.length > 1 ? 'n' : ''} el máximo de ${MAX_FILE_SIZE_MB} MB por archivo y no se agregó.`,
+                                                                        );
+                                                                    }
+
+                                                                    if (
+                                                                        newFiles.length >
+                                                                        0
+                                                                    ) {
+                                                                        const currentFiles =
+                                                                            data
+                                                                                .archivos[
+                                                                                docKey
+                                                                            ] ??
+                                                                            [];
+                                                                        const currentTextos =
+                                                                            data
+                                                                                .archivos_texto[
+                                                                                docKey
+                                                                            ] ??
+                                                                            [];
+                                                                        setData(
                                                                             {
-                                                                                ...data.archivos,
-                                                                                [docKey]:
-                                                                                    [
-                                                                                        ...currentFiles,
-                                                                                        ...newFiles,
-                                                                                    ],
+                                                                                ...data,
+                                                                                archivos:
+                                                                                    {
+                                                                                        ...data.archivos,
+                                                                                        [docKey]:
+                                                                                            [
+                                                                                                ...currentFiles,
+                                                                                                ...newFiles,
+                                                                                            ],
+                                                                                    },
+                                                                                archivos_texto:
+                                                                                    {
+                                                                                        ...data.archivos_texto,
+                                                                                        [docKey]:
+                                                                                            [
+                                                                                                ...currentTextos,
+                                                                                                ...newFiles.map(
+                                                                                                    () =>
+                                                                                                        '',
+                                                                                                ),
+                                                                                            ],
+                                                                                    },
                                                                             },
-                                                                        archivos_texto:
-                                                                            {
-                                                                                ...data.archivos_texto,
-                                                                                [docKey]:
-                                                                                    [
-                                                                                        ...currentTextos,
-                                                                                        ...newFiles.map(
-                                                                                            () =>
-                                                                                                '',
-                                                                                        ),
-                                                                                    ],
-                                                                            },
-                                                                    });
-                                                                    clearErrors(
-                                                                        `archivos.${docKey}` as Parameters<
-                                                                            typeof clearErrors
-                                                                        >[0],
-                                                                    );
+                                                                        );
+                                                                        if (
+                                                                            grandes.length ===
+                                                                            0
+                                                                        ) {
+                                                                            clearErrors(
+                                                                                `archivos.${docKey}` as Parameters<
+                                                                                    typeof clearErrors
+                                                                                >[0],
+                                                                            );
+                                                                        }
+                                                                    }
                                                                 }
                                                                 if (
                                                                     fileInputRefs
