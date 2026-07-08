@@ -44,6 +44,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'esProduccion' => app()->isProduction(),
             'auth' => fn () => $isDrive
                 ? [
                     'user' => $request->user('externo')?->load('carpetas'),

@@ -8,5 +8,6 @@ export type SharedData = {
     name: string;
     auth: Auth;
     sidebarOpen: boolean;
+    esProduccion: boolean;
     [key: string]: unknown;
 };

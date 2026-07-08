@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { router } from '@inertiajs/react';
-import { Eye, EyeOff, KeyRound, Loader2 } from 'lucide-react';
+import { router, usePage } from '@inertiajs/react';
+import { Check, Eye, EyeOff, KeyRound, Loader2 } from 'lucide-react';
+import type { SharedData } from '@/types';
 
 type Props = {
     onClose: () => void;
 };
 
 export default function CambiarPasswordModal({ onClose }: Props) {
+    const { esProduccion } = usePage<SharedData>().props;
     const [current, setCurrent] = useState('');
     const [password, setPassword] = useState('');
     const [confirmation, setConfirmation] = useState('');
@@ -15,6 +17,15 @@ export default function CambiarPasswordModal({ onClose }: Props) {
     const [errores, setErrores] = useState<Record<string, string>>({});
     const [procesando, setProcesando] = useState(false);
     const [exito, setExito] = useState(false);
+
+    const requisitos = esProduccion
+        ? [
+              { label: 'Mínimo 12 caracteres', ok: password.length >= 12 },
+              { label: 'Mayúsculas y minúsculas', ok: /[a-z]/.test(password) && /[A-Z]/.test(password) },
+              { label: 'Al menos un número', ok: /\d/.test(password) },
+              { label: 'Al menos un símbolo', ok: /[^a-zA-Z0-9]/.test(password) },
+          ]
+        : [{ label: 'Mínimo 8 caracteres', ok: password.length >= 8 }];
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -82,8 +93,28 @@ export default function CambiarPasswordModal({ onClose }: Props) {
                         ver={verPassword}
                         setVer={setVerPassword}
                         error={errores.password}
-                        help="Mínimo 8 caracteres."
                     />
+
+                    <ul className="space-y-1 -mt-1">
+                        {requisitos.map((req) => (
+                            <li
+                                key={req.label}
+                                className={`flex items-center gap-1.5 text-xs ${
+                                    req.ok ? 'text-success' : 'text-base-content/60'
+                                }`}
+                            >
+                                <Check className={`size-3.5 shrink-0 ${req.ok ? 'opacity-100' : 'opacity-30'}`} />
+                                <span>{req.label}</span>
+                            </li>
+                        ))}
+                        {esProduccion && (
+                            <li className="flex items-center gap-1.5 text-xs text-base-content/60">
+                                <Check className="size-3.5 shrink-0 opacity-30" />
+                                <span>No haber aparecido en filtraciones de datos conocidas</span>
+                            </li>
+                        )}
+                    </ul>
+
                     <CampoPassword
                         id="confirm"
                         label="Confirmar nueva contraseña"
