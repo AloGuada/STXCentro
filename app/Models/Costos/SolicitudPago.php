@@ -139,6 +139,11 @@ class SolicitudPago extends Model implements Aprobable
         return self::TIPO_APROBACION;
     }
 
+    public function saltaVerificacionCostos(): bool
+    {
+        return (bool) $this->tipoSolicitud?->saltar_verificacion_costos;
+    }
+
     public function onAprobacionCompleta(?string $userId = null): void
     {
         $this->transitionTo(SolicitudPagoEstatus::Aprobada);

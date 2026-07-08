@@ -26,11 +26,13 @@ export default function TipoSolicitudesCreate() {
         titulo: string;
         descripcion: string;
         rubros: boolean;
+        saltar_verificacion_costos: boolean;
         documentos: DocForm[];
     }>({
         titulo: '',
         descripcion: '',
         rubros: false,
+        saltar_verificacion_costos: false,
         documentos: [],
     });
 
@@ -78,6 +80,16 @@ export default function TipoSolicitudesCreate() {
                         <label className="label cursor-pointer justify-start gap-2">
                             <input type="checkbox" className="checkbox" checked={data.rubros} onChange={(e) => setData('rubros', e.target.checked)} />
                             <span className="label-text">Requiere centros de costos</span>
+                        </label>
+
+                        <label className="label cursor-pointer justify-start gap-2">
+                            <input
+                                type="checkbox"
+                                className="checkbox"
+                                checked={data.saltar_verificacion_costos}
+                                onChange={(e) => setData('saltar_verificacion_costos', e.target.checked)}
+                            />
+                            <span className="label-text">Saltar verificación de costos</span>
                         </label>
 
                         <div className="divider" />

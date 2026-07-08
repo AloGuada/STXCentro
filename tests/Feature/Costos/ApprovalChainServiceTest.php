@@ -8,6 +8,7 @@ use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\Rubro;
 use App\Models\Costos\SolicitudPago;
+use App\Models\Costos\TipoSolicitud;
 use App\Models\Departamento;
 use App\Models\User;
 use App\Services\Costos\ApartadoPresupuestal;
@@ -55,6 +56,37 @@ test('crea una aprobacion por nivel del tipo correcto y devuelve el conteo', fun
     expect($creadas)->toBe(2);
     expect($req->aprobaciones()->count())->toBe(2);
     expect($req->aprobaciones()->pluck('nivel')->map(fn ($n) => (int) $n)->sort()->values()->all())->toBe([1, 2]);
+});
+
+test('salta el primer nivel (verificación de costos) cuando el tipo de solicitud lo indica', function () {
+    configurarNivel($this->depto, 'solicitud_pago', 1);
+    configurarNivel($this->depto, 'solicitud_pago', 2);
+    configurarNivel($this->depto, 'solicitud_pago', 3);
+
+    $tipo = TipoSolicitud::factory()->create(['saltar_verificacion_costos' => true]);
+    $sp = SolicitudPago::factory()->create([
+        'departamento_id' => $this->depto->id,
+        'tipo_solicitud_id' => $tipo->id,
+    ]);
+
+    $creadas = $this->service->crearCadenaAprobaciones($sp);
+
+    expect($creadas)->toBe(2);
+    expect($sp->aprobaciones()->pluck('nivel')->map(fn ($n) => (int) $n)->sort()->values()->all())->toBe([2, 3]);
+});
+
+test('NO salta el primer nivel cuando el tipo de solicitud no lo indica', function () {
+    configurarNivel($this->depto, 'solicitud_pago', 1);
+    configurarNivel($this->depto, 'solicitud_pago', 2);
+
+    $tipo = TipoSolicitud::factory()->create(['saltar_verificacion_costos' => false]);
+    $sp = SolicitudPago::factory()->create([
+        'departamento_id' => $this->depto->id,
+        'tipo_solicitud_id' => $tipo->id,
+    ]);
+
+    expect($this->service->crearCadenaAprobaciones($sp))->toBe(2);
+    expect($sp->aprobaciones()->pluck('nivel')->map(fn ($n) => (int) $n)->sort()->values()->all())->toBe([1, 2]);
 });
 
 test('filtra por el tipoAprobacion del aprobable', function () {

@@ -162,6 +162,11 @@ class Requisicion extends Model implements Aprobable
         return self::TIPO_APROBACION;
     }
 
+    public function saltaVerificacionCostos(): bool
+    {
+        return false;
+    }
+
     public function cadenaAprobacion(): MorphMany
     {
         return $this->aprobaciones();

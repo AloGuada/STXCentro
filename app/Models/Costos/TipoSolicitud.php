@@ -22,6 +22,7 @@ class TipoSolicitud extends Model
         'titulo',
         'descripcion',
         'rubros',
+        'saltar_verificacion_costos',
     ];
 
     /**
@@ -31,6 +32,7 @@ class TipoSolicitud extends Model
     {
         return [
             'rubros' => 'boolean',
+            'saltar_verificacion_costos' => 'boolean',
         ];
     }
 

@@ -20,6 +20,7 @@ class TipoSolicitudUpdateRequest extends FormRequest
             'titulo' => ['required', 'string', 'max:255'],
             'descripcion' => ['nullable', 'string'],
             'rubros' => ['boolean'],
+            'saltar_verificacion_costos' => ['boolean'],
             'documentos' => ['nullable', 'array'],
             'documentos.*.id' => ['nullable', 'integer'],
             'documentos.*.titulo' => ['required', 'string', 'max:255'],

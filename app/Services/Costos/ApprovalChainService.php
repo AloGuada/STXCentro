@@ -27,6 +27,14 @@ class ApprovalChainService
     {
         $cadena = $this->cadenaDepartamento($aprobable);
 
+        // El documento puede saltarse el primer nivel de la cadena (la
+        // verificación de costos). Se descartan todas las asignaciones de ese
+        // primer nivel antes de armar la cadena.
+        if ($aprobable->saltaVerificacionCostos() && $cadena->isNotEmpty()) {
+            $primerNivel = $cadena->first()->permiso->nivel;
+            $cadena = $cadena->reject(fn ($asignacion) => $asignacion->permiso->nivel === $primerNivel)->values();
+        }
+
         // Una asignación (departamento + nivel) marcada
         // `omitir_si_presupuesto_reservado` se salta cuando el documento tiene
         // presupuesto reservado vigente (apartado sin vencer). Se evalúa por

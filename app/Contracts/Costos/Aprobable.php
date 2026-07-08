@@ -40,6 +40,12 @@ interface Aprobable
     public function centrosDeCostoIds(): array;
 
     /**
+     * True si el documento debe saltarse el primer nivel de la cadena (la
+     * verificación de costos). La cadena de aprobaciones omite ese nivel.
+     */
+    public function saltaVerificacionCostos(): bool;
+
+    /**
      * Hook disparado cuando todas las aprobaciones se cubrieron en orden.
      */
     public function onAprobacionCompleta(?string $userId = null): void;

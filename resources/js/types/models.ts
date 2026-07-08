@@ -1374,6 +1374,7 @@ export type CostosTipoSolicitud = {
     titulo: string;
     descripcion: string | null;
     rubros: boolean;
+    saltar_verificacion_costos: boolean;
     documentos?: CostosDocumento[];
     documentos_count?: number;
     created_at: string;
