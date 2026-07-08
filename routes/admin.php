@@ -286,7 +286,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // Aprobaciones digitales
         Route::get('aprobaciones', [CostosAprobacionController::class, 'index'])->name('aprobaciones.index');
         Route::get('aprobaciones/bandeja/{usuario?}', [CostosAprobacionController::class, 'bandejaDe'])
-            ->middleware('permission:costos.aprobaciones.ver')
+            ->middleware('role:super-admin')
             ->name('aprobaciones.bandeja');
         Route::get('aprobaciones/{aprobacionSolicitud}', [CostosAprobacionController::class, 'show'])->name('aprobaciones.show');
         Route::post('aprobaciones/{aprobacionSolicitud}/aprobar', [CostosAprobacionController::class, 'aprobar'])->name('aprobaciones.aprobar');

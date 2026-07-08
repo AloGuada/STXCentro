@@ -8,7 +8,7 @@ use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
 use App\Models\Departamento;
 use App\Models\User;
-use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['firma_path' => 'firmas/test.png']);
@@ -331,9 +331,8 @@ describe('admin costos aprobaciones', function () {
 
 describe('bandeja supervisora de aprobaciones (solo lectura)', function () {
     beforeEach(function () {
-        Permission::firstOrCreate(['name' => 'costos.aprobaciones.ver']);
         $this->supervisor = User::factory()->create();
-        $this->supervisor->givePermissionTo('costos.aprobaciones.ver');
+        $this->supervisor->assignRole(Role::firstOrCreate(['name' => 'super-admin']));
     });
 
     test('sin usuario, lista los aprobadores para elegir', function () {
@@ -376,7 +375,7 @@ describe('bandeja supervisora de aprobaciones (solo lectura)', function () {
             );
     });
 
-    test('requiere el permiso costos.aprobaciones.ver', function () {
+    test('requiere el rol super-admin', function () {
         $this->actingAs(User::factory()->create())
             ->get(route('admin.costos.aprobaciones.bandeja'))
             ->assertForbidden();
