@@ -6,13 +6,32 @@ import { FormattedDate } from '@/components/ui/formatted-date';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, SharedData } from '@/types';
-import type { CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
+import type { CostosObraRubro, CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CheckCircleIcon, FileTextIcon } from 'lucide-react';
 import { useState } from 'react';
 
 type DocumentoPrevio = { label: string; url: string };
+
+/**
+ * Sobregiro del centro de costo del renglón: cuánto excede el gasto acumulado
+ * al presupuesto y su porcentaje. Devuelve null si está dentro de presupuesto.
+ */
+function calcularSobregiro(obraRubro?: CostosObraRubro): { monto: number; pct: number | null } | null {
+    const presupuestado = Number(obraRubro?.presupuestado ?? 0);
+    const acumulado = Number(obraRubro?.acumulado ?? 0);
+    const sobregiro = acumulado - presupuestado;
+
+    if (sobregiro <= 0) {
+        return null;
+    }
+
+    return {
+        monto: sobregiro,
+        pct: presupuestado > 0 ? (sobregiro / presupuestado) * 100 : null,
+    };
+}
 
 type Props = {
     solicitud: CostosSolicitudPago;
@@ -180,7 +199,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                                     <p className="font-medium">{solicitud.departamento?.descripcion ?? '-'}</p>
                                 </div>
                                 <div>
-                                    <span className="text-sm text-base-content/60">Proveedor</span>
+                                    <span className="text-sm text-base-content/60">Beneficiario</span>
                                     <p className="font-medium">{solicitud.proveedor?.razon_social ?? 'Sin proveedor'}</p>
                                 </div>
                                 <div>
@@ -188,7 +207,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                                     <p className="font-medium">{solicitud.tipo_solicitud?.titulo ?? '-'}</p>
                                 </div>
                                 <div>
-                                    <span className="text-sm text-base-content/60">Solicitante</span>
+                                    <span className="text-sm text-base-content/60">Elaboró</span>
                                     <p className="font-medium">{solicitud.solicitante?.name ?? '-'}</p>
                                 </div>
                             </div>
@@ -227,16 +246,24 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                                     <table className="table table-sm">
                                         <thead>
                                             <tr>
+                                                <th>Obra</th>
                                                 <th>Centro de Costos</th>
                                                 <th>Concepto</th>
                                                 <th className="text-right">Cantidad</th>
                                                 <th className="text-right">P. Unitario</th>
                                                 <th className="text-right">Subtotal</th>
+                                                <th>Presupuesto</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {solicitud.detalles.map((d) => (
+                                            {solicitud.detalles.map((d) => {
+                                                const sobregiro = calcularSobregiro(d.obra_rubro);
+                                                return (
                                                 <tr key={d.id} className={d.sobre_obra_cerrada ? 'bg-warning/10' : ''}>
+                                                    <td>
+                                                        <div className="font-medium">{d.obra_rubro?.presupuesto?.op_mostrar ?? '-'}</div>
+                                                        <div className="text-xs text-base-content/60">{d.obra_rubro?.presupuesto?.descripcion_mostrar ?? ''}</div>
+                                                    </td>
                                                     <td>
                                                         {d.obra_rubro?.rubro?.codigo ?? '-'} - {d.obra_rubro?.rubro?.descripcion ?? ''}
                                                         {d.sobre_obra_cerrada && (
@@ -247,13 +274,28 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                                                     <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                                                     <td className="text-right">${Number(d.precio_unitario).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                                                     <td className="text-right">${Number(d.subtotal).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                                    <td>
+                                                        {sobregiro ? (
+                                                            <div className="whitespace-nowrap">
+                                                                <span className="badge badge-error badge-sm">Sobregirado</span>
+                                                                <div className="mt-1 text-xs text-error">
+                                                                    ${sobregiro.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                                    {sobregiro.pct !== null && ` (${sobregiro.pct.toLocaleString('es-MX', { maximumFractionDigits: 1 })}%)`}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="badge badge-success badge-sm">Dentro</span>
+                                                        )}
+                                                    </td>
                                                 </tr>
-                                            ))}
+                                                );
+                                            })}
                                         </tbody>
                                         <tfoot>
                                             <tr>
-                                                <td colSpan={4} className="text-right font-bold">Total</td>
+                                                <td colSpan={5} className="text-right font-bold">Cargado a costos</td>
                                                 <td className="text-right font-bold">${Number(solicitud.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                                <td></td>
                                             </tr>
                                         </tfoot>
                                     </table>

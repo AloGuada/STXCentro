@@ -299,6 +299,7 @@ class SolicitudPagoController extends Controller
             'proveedor',
             'tipoSolicitud.documentos',
             'detalles.obraRubro.rubro',
+            'detalles.obraRubro.presupuesto.presupuestable',
             'archivos.documento',
             'archivos.media',
             'aprobaciones.aprobador',
@@ -308,6 +309,12 @@ class SolicitudPagoController extends Controller
             'ordenCompra.requisicion:id,folio,solicitante_id',
             'activities.causer',
         ]);
+
+        // La columna de obra del detalle muestra la OP y el nombre (interno o de
+        // cobranza) que resuelve el propio presupuesto.
+        $solicitudPago->detalles->each(
+            fn ($detalle) => $detalle->obraRubro?->presupuesto?->append(['op_mostrar', 'descripcion_mostrar']),
+        );
 
         // Solo ve la solicitud quien puede ver todas, el solicitante, el
         // solicitante de la requisición de la OC que la originó (contado), o un

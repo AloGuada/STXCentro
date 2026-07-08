@@ -78,6 +78,24 @@ class Presupuesto extends Model
     }
 
     /**
+     * Descripción a mostrar: el nombre interno si existe, si no la descripción
+     * que viene del presupuestable (cobranza).
+     */
+    public function descripcionMostrar(): ?string
+    {
+        if (filled($this->nombre_interno)) {
+            return $this->nombre_interno;
+        }
+
+        return $this->presupuestable->descripcion ?? null;
+    }
+
+    public function getDescripcionMostrarAttribute(): ?string
+    {
+        return $this->descripcionMostrar();
+    }
+
+    /**
      * OP a mostrar: la interna si existe, si no el número (OP) que viene del
      * presupuestable (cobranza). Puede ser null (ej. partidas sin número).
      */

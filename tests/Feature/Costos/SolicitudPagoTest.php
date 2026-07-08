@@ -1,10 +1,12 @@
 <?php
 
 use App\Models\Costos\ObraRubro;
+use App\Models\Costos\Presupuesto;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
 use App\Models\Costos\TipoSolicitud;
 use App\Models\Departamento;
+use App\Models\Obra;
 use App\Models\User;
 
 beforeEach(function () {
@@ -167,6 +169,35 @@ describe('admin costos solicitudes pago', function () {
             ->component('admin/costos/solicitudes-pago/show')
             ->has('solicitud')
         );
+    });
+
+    test('el show incluye la OP, la descripción y el presupuesto del centro de costo en cada detalle', function () {
+        $obra = Obra::factory()->create(['no' => 'OP-123', 'descripcion' => 'Nave Industrial']);
+        $presupuesto = Presupuesto::factory()->paraObra($obra)->create([
+            'nombre_interno' => null,
+            'op_interno' => null,
+        ]);
+        $obraRubro = ObraRubro::factory()->create([
+            'presupuesto_id' => $presupuesto->id,
+            'presupuestado' => 100000,
+            'acumulado' => 130000,
+        ]);
+        $solicitud = SolicitudPago::factory()->aprobada()->create(['solicitante_id' => $this->user->id]);
+        SolicitudPagoDetalle::factory()->create([
+            'solicitud_id' => $solicitud->id,
+            'obra_rubro_id' => $obraRubro->id,
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.costos.solicitudes-pago.show', $solicitud))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('solicitud.detalles.0.obra_rubro.presupuesto.op_mostrar', 'OP-123')
+                ->where('solicitud.detalles.0.obra_rubro.presupuesto.descripcion_mostrar', 'Nave Industrial')
+                // Datos que alimentan la columna "dentro / sobregirado".
+                ->where('solicitud.detalles.0.obra_rubro.presupuestado', '100000.00')
+                ->where('solicitud.detalles.0.obra_rubro.acumulado', '130000.00')
+            );
     });
 
     test('edit page redirects to show for non-borrador', function () {

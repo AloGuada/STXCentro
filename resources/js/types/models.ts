@@ -1417,6 +1417,8 @@ export type CostosPresupuesto = {
     op_interno: string | null;
     estatus: CostosPresupuestoEstatus;
     nombre_mostrar?: string;
+    op_mostrar?: string | null;
+    descripcion_mostrar?: string | null;
     presupuestable?: { id: number; no?: string | null; descripcion?: string | null; estatus?: string };
     created_at: string;
     updated_at: string;
