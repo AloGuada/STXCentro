@@ -19,16 +19,28 @@ trait HasMonthlyFolio
         });
     }
 
+    /**
+     * Corre dentro de una transacción con `lockForUpdate` para serializar la
+     * generación: mientras un alta calcula y aparta su folio, otra con el mismo
+     * prefijo espera hasta que la primera confirme, evitando folios duplicados
+     * por altas concurrentes. Al anidarse en la transacción del controlador el
+     * lock se conserva hasta el commit externo (después del INSERT real).
+     */
     public function generateMonthlyFolio(): string
     {
         $prefix = sprintf('%s-%s', static::$folioPrefix, now()->format('ym'));
 
-        $last = DB::table($this->getTable())
-            ->where('folio', 'like', "{$prefix}%")
-            ->max('folio');
+        return DB::transaction(function () use ($prefix): string {
+            $max = DB::table($this->getTable())
+                ->where('folio', 'like', "{$prefix}%")
+                ->lockForUpdate()
+                ->pluck('folio')
+                ->map(fn (string $folio): int => (int) substr($folio, strlen($prefix)))
+                ->max();
 
-        $next = $last ? ((int) substr($last, -2)) + 1 : 1;
+            $next = ($max ?? 0) + 1;
 
-        return sprintf('%s%02d', $prefix, $next);
+            return sprintf('%s%02d', $prefix, $next);
+        });
     }
 }

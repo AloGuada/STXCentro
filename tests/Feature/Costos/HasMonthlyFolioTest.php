@@ -23,6 +23,19 @@ test('genera folio con prefijo mensual y secuencia que reinicia cada mes', funct
     Carbon::setTestNow();
 });
 
+test('la secuencia continua correctamente al pasar de 99 a 100 y mas', function () {
+    Carbon::setTestNow('2026-07-05');
+
+    SolicitudPago::factory()->create(['folio' => 'SP-260799']);
+    SolicitudPago::factory()->create(['folio' => 'SP-2607100']);
+
+    $siguiente = SolicitudPago::factory()->create();
+
+    expect($siguiente->folio)->toBe('SP-2607101');
+
+    Carbon::setTestNow();
+});
+
 test('respeta el folio si ya fue asignado manualmente', function () {
     $oc = OrdenCompra::factory()->create(['folio' => 'OC-CUSTOM-99']);
 
