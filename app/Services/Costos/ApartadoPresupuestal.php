@@ -27,7 +27,10 @@ class ApartadoPresupuestal
     /** Valor por defecto si no hay configuración guardada. */
     public const DIAS_APARTADO = 5;
 
-    public function __construct(private readonly ValidadorPresupuesto $validador) {}
+    public function __construct(
+        private readonly ValidadorPresupuesto $validador,
+        private readonly AcumuladoLedger $ledger,
+    ) {}
 
     private function diasApartado(): int
     {
@@ -98,8 +101,7 @@ class ApartadoPresupuestal
                 ->get();
 
             foreach ($afectaciones as $ra) {
-                ObraRubro::where('id', $ra->obra_rubro_id)
-                    ->decrement('acumulado', (float) $ra->monto);
+                $this->ledger->registrarPorId($ra->obra_rubro_id, -(float) $ra->monto, $ra->id, $motivo);
 
                 $ra->update([
                     'estatus' => RubroAfectadoEstatus::Cancelado,
@@ -126,8 +128,7 @@ class ApartadoPresupuestal
                 ->get();
 
             foreach ($vencidos as $ra) {
-                ObraRubro::where('id', $ra->obra_rubro_id)
-                    ->decrement('acumulado', (float) $ra->monto);
+                $this->ledger->registrarPorId($ra->obra_rubro_id, -(float) $ra->monto, $ra->id, 'apartado vencido');
 
                 $ra->update([
                     'estatus' => RubroAfectadoEstatus::Vencido,
@@ -177,26 +178,31 @@ class ApartadoPresupuestal
         bool $allowSobregiro = false,
     ): RubroAfectado {
         $userId = $userId ?? Auth::id();
-        $obraRubro = ObraRubro::findOrFail($obraRubroId);
 
-        $this->validador->validar($obraRubro, $monto, $entrada, allowSobregiro: $allowSobregiro);
+        return DB::transaction(function () use ($entrada, $obraRubroId, $monto, $estatus, $descripcion, $userId, $apartadoHasta, $allowSobregiro): RubroAfectado {
+            $obraRubro = ObraRubro::whereKey($obraRubroId)->lockForUpdate()->firstOrFail();
 
-        ObraRubro::where('id', $obraRubroId)->increment('acumulado', $monto);
+            $this->validador->validar($obraRubro, $monto, $entrada, allowSobregiro: $allowSobregiro);
 
-        $obraRubro->refresh();
+            $sobreGiro = ((float) $obraRubro->presupuestado - ((float) $obraRubro->acumulado + $monto)) < 0;
 
-        return RubroAfectado::create([
-            'entrada_type' => $entrada::class,
-            'entrada_id' => $entrada->getKey(),
-            'obra_rubro_id' => $obraRubroId,
-            'monto' => $monto,
-            'sobre_giro' => $obraRubro->disponible < 0,
-            'descripcion' => $descripcion,
-            'tipo_movimiento' => 'cargo',
-            'estatus' => $estatus,
-            'apartado_hasta' => $apartadoHasta,
-            'usuario_aplica_id' => $userId,
-            'fecha_aplicacion' => now(),
-        ]);
+            $ra = RubroAfectado::create([
+                'entrada_type' => $entrada::class,
+                'entrada_id' => $entrada->getKey(),
+                'obra_rubro_id' => $obraRubroId,
+                'monto' => $monto,
+                'sobre_giro' => $sobreGiro,
+                'descripcion' => $descripcion,
+                'tipo_movimiento' => 'cargo',
+                'estatus' => $estatus,
+                'apartado_hasta' => $apartadoHasta,
+                'usuario_aplica_id' => $userId,
+                'fecha_aplicacion' => now(),
+            ]);
+
+            $this->ledger->registrar($obraRubro, $monto, $ra->id, $descripcion ?? $estatus->value, $userId);
+
+            return $ra;
+        });
     }
 }

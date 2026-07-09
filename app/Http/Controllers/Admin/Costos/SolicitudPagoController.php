@@ -22,6 +22,7 @@ use App\Models\Costos\TipoSolicitud;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
+use App\Services\Costos\AcumuladoLedger;
 use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
 use App\Services\Costos\FirmasPdfBuilder;
@@ -643,8 +644,12 @@ class SolicitudPagoController extends Controller
         // Revertir impacto si estaba aprobada
         if ($solicitudPago->estatus === SolicitudPagoEstatus::Aprobada) {
             foreach ($solicitudPago->detalles as $detalle) {
-                ObraRubro::where('id', $detalle->obra_rubro_id)
-                    ->decrement('acumulado', (float) $detalle->subtotal);
+                app(AcumuladoLedger::class)->registrarPorId(
+                    $detalle->obra_rubro_id,
+                    -(float) $detalle->subtotal,
+                    motivo: 'Cancelación de solicitud',
+                    userId: auth()->id(),
+                );
             }
 
             $solicitudPago->rubrosAfectados()->create([

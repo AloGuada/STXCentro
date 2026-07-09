@@ -7,6 +7,7 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\ObraRubroFactory>
@@ -55,6 +56,15 @@ class ObraRubro extends Model
     public function rubro(): BelongsTo
     {
         return $this->belongsTo(Rubro::class);
+    }
+
+    /**
+     * Libro de movimientos del `acumulado`: cada cargo o reverso con saldo
+     * antes y después. Escrito por {@see \App\Services\Costos\AcumuladoLedger}.
+     */
+    public function movimientos(): HasMany
+    {
+        return $this->hasMany(RubroMovimiento::class, 'obra_rubro_id');
     }
 
     /**

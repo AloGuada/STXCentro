@@ -440,8 +440,12 @@ class OrdenCompra extends Model
         $userId = $userId ?? Auth::id();
 
         foreach ($this->detalles as $detalle) {
-            ObraRubro::where('id', $detalle->obra_rubro_id)
-                ->decrement('acumulado', (float) $detalle->subtotal);
+            app(\App\Services\Costos\AcumuladoLedger::class)->registrarPorId(
+                $detalle->obra_rubro_id,
+                -(float) $detalle->subtotal,
+                motivo: 'Cancelación de orden de compra',
+                userId: $userId,
+            );
         }
 
         $this->rubrosAfectados()->create([

@@ -57,6 +57,7 @@ class LimpiarFlujoCommand extends Command
         'costos_afectaciones_detalle',
         'costos_afectaciones_historial',
         'costos_afectaciones_presupuestales',
+        'costos_rubro_movimientos',
         'costos_rubros_afectados',
         'costos_producto_precios',
     ];

@@ -86,6 +86,7 @@ class SeedDemoCommand extends Command
 
         DB::table('costos_afectaciones_presupuestales')->delete();
 
+        DB::table('costos_rubro_movimientos')->delete();
         ObraRubro::query()->update(['acumulado' => 0]);
     }
 

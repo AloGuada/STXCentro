@@ -13,6 +13,7 @@ use App\Models\Costos\ObraRubro;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
+use App\Services\Costos\AcumuladoLedger;
 use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
@@ -268,16 +269,17 @@ class AfectacionPresupuestalController extends Controller
 
         // Apply budget impact and create rubros afectados
         foreach ($afectacion->detalles as $detalle) {
-            ObraRubro::where('id', $detalle->obra_rubro_id)
-                ->increment('acumulado', (float) $detalle->monto);
-
-            $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
-            $disponible = $obraRubro->disponible;
+            $obraRubro = app(AcumuladoLedger::class)->registrarPorId(
+                $detalle->obra_rubro_id,
+                (float) $detalle->monto,
+                motivo: $detalle->concepto,
+                userId: $request->user()->id,
+            );
 
             $afectacion->rubrosAfectados()->create([
                 'obra_rubro_id' => $detalle->obra_rubro_id,
                 'monto' => $detalle->monto,
-                'sobre_giro' => $disponible < 0,
+                'sobre_giro' => $obraRubro->disponible < 0,
                 'descripcion' => $detalle->concepto,
                 'tipo_movimiento' => 'cargo',
                 'estatus' => 'aplicado',
@@ -300,8 +302,12 @@ class AfectacionPresupuestalController extends Controller
         // Revert budget impact if was approved
         if ($afectacion->estatus === AfectacionEstatus::Aprobada) {
             foreach ($afectacion->detalles as $detalle) {
-                ObraRubro::where('id', $detalle->obra_rubro_id)
-                    ->decrement('acumulado', (float) $detalle->monto);
+                app(AcumuladoLedger::class)->registrarPorId(
+                    $detalle->obra_rubro_id,
+                    -(float) $detalle->monto,
+                    motivo: 'Cancelación de afectación',
+                    userId: auth()->id(),
+                );
             }
 
             $afectacion->rubrosAfectados()->create([
