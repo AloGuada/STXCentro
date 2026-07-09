@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\Permiso;
 use App\Models\Departamento;
 use App\Models\User;
@@ -8,19 +7,12 @@ use App\Services\Costos\FirmasPdfBuilder;
 
 beforeEach(function () {
     $this->builder = new FirmasPdfBuilder;
-    $this->deptoA = Departamento::factory()->create();
-    $this->deptoB = Departamento::factory()->create();
+    $this->depto = Departamento::factory()->create();
 
-    // Permisos de dos tipos de documento que comparten el nivel 1.
-    $this->sol1 = Permiso::factory()->create(['descripcion' => 'Jefe', 'nivel' => 1, 'tipo_aprobacion' => 'solicitud_pago']);
-    $this->sol2 = Permiso::factory()->create(['descripcion' => 'Gerente', 'nivel' => 2, 'tipo_aprobacion' => 'solicitud_pago']);
-    $this->req1 = Permiso::factory()->create(['descripcion' => 'Compras', 'nivel' => 1, 'tipo_aprobacion' => 'requisicion']);
-
-    // El departamento A participa en ambos tipos; B solo en el nivel 1 de solicitud.
-    AprobacionDepartamento::factory()->create(['departamento_id' => $this->deptoA->id, 'permiso_id' => $this->sol1->id]);
-    AprobacionDepartamento::factory()->create(['departamento_id' => $this->deptoA->id, 'permiso_id' => $this->sol2->id]);
-    AprobacionDepartamento::factory()->create(['departamento_id' => $this->deptoA->id, 'permiso_id' => $this->req1->id]);
-    AprobacionDepartamento::factory()->create(['departamento_id' => $this->deptoB->id, 'permiso_id' => $this->sol1->id]);
+    // Config vigente de niveles (solo para rotular la columna).
+    Permiso::factory()->create(['descripcion' => 'Jefe', 'nivel' => 1, 'tipo_aprobacion' => 'solicitud_pago']);
+    Permiso::factory()->create(['descripcion' => 'Gerente', 'nivel' => 2, 'tipo_aprobacion' => 'solicitud_pago']);
+    Permiso::factory()->create(['descripcion' => 'Compras', 'nivel' => 1, 'tipo_aprobacion' => 'requisicion']);
 });
 
 function aprobacion(int $nivel, string $estatus = 'pendiente', $aprobador = null): object
@@ -28,47 +20,87 @@ function aprobacion(int $nivel, string $estatus = 'pendiente', $aprobador = null
     return (object) ['nivel' => $nivel, 'estatus' => $estatus, 'aprobador' => $aprobador, 'fecha_respuesta' => null];
 }
 
-test('incluye solo los niveles del tipo de documento (no mezcla otros tipos)', function () {
+test('crea una columna por nivel de la cadena, ordenadas por nivel', function () {
     $aprobaciones = collect([
-        aprobacion(1, 'aprobada', User::factory()->create()),
         aprobacion(2),
+        aprobacion(1, 'aprobada', User::factory()->create()),
     ]);
 
-    $firmas = $this->builder->build('solicitud_pago', $this->deptoA->id, $aprobaciones);
+    $firmas = $this->builder->build('solicitud_pago', $this->depto->id, $aprobaciones);
 
-    expect($firmas)->toHaveCount(2);
-    // El nivel 1 debe traer el permiso de solicitud ('Jefe'), no el de requisición ('Compras').
-    expect($firmas[0]->permiso->descripcion)->toBe('Jefe')
+    expect($firmas)->toHaveCount(2)
+        ->and($firmas[0]->permiso->nivel)->toBe(1)
+        ->and($firmas[1]->permiso->nivel)->toBe(2)
         ->and($firmas[0]->aprobada)->toBeTrue()
-        ->and($firmas[1]->permiso->descripcion)->toBe('Gerente')
         ->and($firmas[1]->aprobada)->toBeFalse();
 });
 
-test('filtra por departamento: B no ve niveles que no tiene asignados', function () {
-    // Aunque haya aprobación de nivel 2, el depto B no tiene ese permiso asignado.
+test('rotula cada nivel con la descripción del permiso de ese tipo', function () {
     $aprobaciones = collect([aprobacion(1, 'aprobada'), aprobacion(2)]);
 
-    $firmas = $this->builder->build('solicitud_pago', $this->deptoB->id, $aprobaciones);
+    $firmas = $this->builder->build('solicitud_pago', $this->depto->id, $aprobaciones);
 
-    expect($firmas)->toHaveCount(1)
-        ->and($firmas[0]->permiso->nivel)->toBe(1);
+    expect($firmas[0]->permiso->descripcion)->toBe('Jefe')
+        ->and($firmas[1]->permiso->descripcion)->toBe('Gerente');
 });
 
-test('para requisición solo trae el permiso de ese tipo', function () {
+test('para requisición rotula con el permiso de ese tipo', function () {
     $aprobaciones = collect([aprobacion(1, 'aprobada')]);
 
-    $firmas = $this->builder->build('requisicion', $this->deptoA->id, $aprobaciones);
+    $firmas = $this->builder->build('requisicion', $this->depto->id, $aprobaciones);
 
     expect($firmas)->toHaveCount(1)
         ->and($firmas[0]->permiso->descripcion)->toBe('Compras');
 });
 
-test('solo incluye niveles que tienen una aprobación en la cadena', function () {
-    // Sin aprobación de nivel 2: no debe pintar esa columna aunque el permiso exista.
-    $aprobaciones = collect([aprobacion(1, 'aprobada')]);
+test('conserva todas las firmas de la cadena aunque los niveles configurados hayan cambiado', function () {
+    // La solicitud se firmó con 3 niveles; después alguien reconfiguró los
+    // niveles y ya no existe un permiso para el nivel 3. La firma debe seguir.
+    $aprobaciones = collect([
+        aprobacion(1, 'aprobada', User::factory()->create()),
+        aprobacion(2, 'aprobada', User::factory()->create()),
+        aprobacion(3, 'aprobada', User::factory()->create()),
+    ]);
 
-    $firmas = $this->builder->build('solicitud_pago', $this->deptoA->id, $aprobaciones);
+    $firmas = $this->builder->build('solicitud_pago', $this->depto->id, $aprobaciones);
+
+    expect($firmas)->toHaveCount(3)
+        ->and($firmas->pluck('permiso.nivel')->all())->toBe([1, 2, 3])
+        // El nivel 3 no tiene permiso en la config actual: se rotula vacío sin romper.
+        ->and($firmas[2]->permiso->descripcion)->toBe('')
+        ->and($firmas[2]->aprobada)->toBeTrue();
+});
+
+test('candidatos lista los aprobadores asignados al nivel (multiusuario)', function () {
+    $ana = User::factory()->create(['name' => 'Ana']);
+    $beto = User::factory()->create(['name' => 'Beto']);
+
+    // Un nivel con dos candidatos pendientes.
+    $aprobaciones = collect([
+        aprobacion(1, 'pendiente', $ana),
+        aprobacion(1, 'pendiente', $beto),
+    ]);
+
+    $firmas = $this->builder->build('solicitud_pago', $this->depto->id, $aprobaciones);
 
     expect($firmas)->toHaveCount(1)
-        ->and($firmas[0]->permiso->nivel)->toBe(1);
+        ->and($firmas[0]->candidatos->all())->toBe(['Ana', 'Beto'])
+        ->and($firmas[0]->aprobada)->toBeFalse();
+});
+
+test('toma al aprobador que firmó el nivel', function () {
+    $ana = User::factory()->create(['name' => 'Ana']);
+    $beto = User::factory()->create(['name' => 'Beto']);
+
+    // Nivel con dos candidatos; Beto firmó.
+    $aprobaciones = collect([
+        aprobacion(1, 'pendiente', $ana),
+        aprobacion(1, 'aprobada', $beto),
+    ]);
+
+    $firmas = $this->builder->build('solicitud_pago', $this->depto->id, $aprobaciones);
+
+    expect($firmas)->toHaveCount(1)
+        ->and($firmas[0]->aprobada)->toBeTrue()
+        ->and($firmas[0]->aprobador->name)->toBe('Beto');
 });

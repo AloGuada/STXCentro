@@ -2,6 +2,7 @@
 
 namespace App\Services\Costos;
 
+use App\Enums\Costos\AprobacionEstatus;
 use App\Models\Costos\Permiso;
 use Illuminate\Support\Collection;
 
@@ -9,42 +10,44 @@ use Illuminate\Support\Collection;
  * Construye las columnas de firma para los PDF de costos (solicitud de pago y
  * comparativo de requisición/OC).
  *
- * Solo incluye los niveles de firma que realmente aplican al documento: los del
- * tipo de aprobación correspondiente y asignados al departamento del documento
- * (un permiso por nivel), intersectados con las aprobaciones generadas en la
- * cadena. Así el PDF no pinta espacios de firma de otros tipos de documento ni
- * de departamentos ajenos.
+ * La fuente de verdad son las aprobaciones REALES del documento (la cadena que
+ * se le aplicó): una columna por nivel, ordenadas por nivel. Así el PDF refleja
+ * exactamente las firmas de la cadena aunque después se hayan reconfigurado los
+ * niveles del departamento. El `Permiso` de la config actual solo se usa, en la
+ * medida en que exista, para rotular el nivel (descripción/rol).
  */
 class FirmasPdfBuilder
 {
     /**
      * @param  Collection<int, object>  $aprobaciones  Aprobaciones del documento (con `aprobador` cargado).
-     * @return Collection<int, object{permiso: Permiso, aprobador: mixed, aprobada: bool, fecha: ?string}>
+     * @return Collection<int, object{permiso: object, aprobador: mixed, aprobada: bool, fecha: ?string, candidatos: Collection<int, string>}>
      */
     public function build(string $tipoAprobacion, ?int $departamentoId, Collection $aprobaciones): Collection
     {
-        $aprobacionesPorNivel = $aprobaciones->groupBy('nivel');
-
-        return Permiso::query()
+        // Etiqueta (rol) de cada nivel según la configuración vigente; es solo
+        // para rotular, no filtra ni ordena las columnas.
+        $permisosPorNivel = Permiso::query()
             ->where('tipo_aprobacion', $tipoAprobacion)
-            ->whereHas('aprobacionesDepartamento', fn ($q) => $q->where('departamento_id', $departamentoId))
-            ->with(['aprobacionesDepartamento' => fn ($q) => $q->where('departamento_id', $departamentoId)->with('aprobador:id,name')])
             ->orderBy('nivel')
             ->get()
-            ->unique('nivel')
-            ->filter(fn (Permiso $permiso) => $aprobacionesPorNivel->has($permiso->nivel))
-            ->map(function (Permiso $permiso) use ($aprobacionesPorNivel) {
-                $aprobada = $aprobacionesPorNivel->get($permiso->nivel)->firstWhere('estatus', 'aprobada');
+            ->keyBy('nivel');
 
-                // Usuarios habilitados para firmar este nivel en el departamento.
-                $candidatos = $permiso->aprobacionesDepartamento
-                    ->map(fn ($ad) => $ad->aprobador?->name)
+        return $aprobaciones
+            ->groupBy('nivel')
+            ->sortKeys()
+            ->map(function (Collection $delNivel, $nivel) use ($permisosPorNivel) {
+                $aprobada = $delNivel->first(fn ($a) => $this->estaAprobada($a));
+
+                // Aprobadores asignados a este nivel en el documento (multiusuario).
+                $candidatos = $delNivel
+                    ->map(fn ($a) => $a->aprobador?->name)
                     ->filter()
                     ->unique()
                     ->values();
 
                 return (object) [
-                    'permiso' => $permiso,
+                    'permiso' => $permisosPorNivel->get($nivel)
+                        ?? (object) ['descripcion' => '', 'nivel' => (int) $nivel],
                     'aprobador' => $aprobada?->aprobador,
                     'aprobada' => $aprobada !== null,
                     'fecha' => $aprobada?->fecha_respuesta?->format('d/m/Y H:i'),
@@ -52,5 +55,20 @@ class FirmasPdfBuilder
                 ];
             })
             ->values();
+    }
+
+    /**
+     * Normaliza el estatus (enum en modelos reales, string en objetos de prueba)
+     * para detectar el nivel firmado.
+     */
+    private function estaAprobada(object $aprobacion): bool
+    {
+        $estatus = $aprobacion->estatus ?? null;
+
+        if ($estatus instanceof AprobacionEstatus) {
+            $estatus = $estatus->value;
+        }
+
+        return $estatus === AprobacionEstatus::Aprobada->value;
     }
 }
