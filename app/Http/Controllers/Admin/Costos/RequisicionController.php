@@ -308,7 +308,7 @@ class RequisicionController extends Controller
             return [];
         }
 
-        $proveedores = Proveedor::with(['regimenFiscal:id,clave,descripcion', 'media'])
+        $proveedores = Proveedor::with(['regimenFiscal:id,clave,descripcion', 'media', 'banco:id,nombre'])
             ->whereIn('id', $provIds)
             ->where('estatus', '!=', ProveedorEstatus::Activo->value)
             ->get();
@@ -346,8 +346,10 @@ class RequisicionController extends Controller
                 'razon_social' => $prov->razon_social,
                 'rfc' => $prov->rfc,
                 'tipo_persona' => $prov->tipo_persona,
+                'tipo_proveedor' => $prov->tipo_proveedor?->value,
+                'forma_pago' => $prov->forma_pago?->value,
                 'regimen' => $prov->regimenFiscal?->descripcion,
-                'banco' => $prov->banco,
+                'banco' => $prov->banco?->nombre ?? $prov->banco_nombre,
                 'titular_cuenta' => $prov->titular_cuenta,
                 'numero_cuenta' => $prov->numero_cuenta,
                 'clabe' => $prov->clabe,

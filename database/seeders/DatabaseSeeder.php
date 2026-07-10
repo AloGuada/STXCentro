@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             ProdTipoSeeder::class,
             DgCarpetasSeeder::class,
             RegimenFiscalSeeder::class,
+            BancosSeeder::class,
             UsoCfdiSeeder::class,
             CostosTipoSolicitudSeeder::class,
             CobDocumentoSeccionSeeder::class,

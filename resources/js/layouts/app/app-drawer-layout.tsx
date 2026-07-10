@@ -24,6 +24,7 @@ import {
     Layers,
     LayoutGrid,
     KeyRound,
+    Landmark,
     LogOut,
     MenuIcon,
     Monitor,
@@ -265,6 +266,12 @@ const navGroups: NavGroup[] = [
                         href: '/admin/regimenes-fiscales',
                         icon: Layers,
                         permission: 'costos.regimenes-fiscales.ver',
+                    },
+                    {
+                        title: 'Bancos',
+                        href: '/admin/bancos',
+                        icon: Landmark,
+                        permission: 'costos.bancos.ver',
                     },
                     {
                         title: 'Usos CFDI',

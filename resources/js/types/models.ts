@@ -950,6 +950,31 @@ export const PROVEEDOR_ESTATUS_COLORS: Record<ProveedorEstatus, string> = {
     rechazado: 'badge-error',
 };
 
+export type TipoProveedor = 'proveedor' | 'tercero' | 'servicio';
+
+export const TIPO_PROVEEDOR_LABELS: Record<TipoProveedor, string> = {
+    proveedor: 'Proveedor',
+    tercero: 'Tercero',
+    servicio: 'Servicio',
+};
+
+export type FormaPago = 'transferencia' | 'cheque_efectivo';
+
+export const FORMA_PAGO_LABELS: Record<FormaPago, string> = {
+    transferencia: 'Transferencia',
+    cheque_efectivo: 'Cheque / Efectivo',
+};
+
+export type Banco = {
+    id: number;
+    nombre: string;
+    digitos_cuenta: number | null;
+    es_pagador: boolean;
+    activo: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
 export type RegimenFiscal = {
     id: number;
     clave: string;
@@ -977,18 +1002,22 @@ export type Proveedor = {
     telefono: string | null;
     email: string | null;
     contacto_nombre: string | null;
-    banco: string | null;
+    banco_nombre: string | null;
+    banco_id: number | null;
     titular_cuenta: string | null;
     numero_cuenta: string | null;
     clabe: string | null;
     tarjeta: string | null;
     moneda_cuenta: string | null;
+    forma_pago: FormaPago | null;
+    numero_servicio: string | null;
+    referencia_servicio: string | null;
     tiene_acceso_portal: boolean;
     maneja_credito: boolean;
     limite_credito: number;
     dias_credito_default: number;
     respetar_fecha_factura: boolean;
-    tipo_proveedor: string | null;
+    tipo_proveedor: TipoProveedor | null;
     activo: boolean;
     estatus: ProveedorEstatus;
     validado_por: string | null;
@@ -997,6 +1026,7 @@ export type Proveedor = {
     creado_por: string | null;
     bloqueado_complemento?: boolean;
     regimen_fiscal?: RegimenFiscal;
+    banco?: Banco | null;
     validador?: Usuario;
     media?: Media[];
     complementos_pago?: CostosComplementoPago[];

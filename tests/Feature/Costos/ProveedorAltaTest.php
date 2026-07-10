@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\ProveedorEstatus;
+use App\Enums\TipoProveedor;
+use App\Models\Banco;
 use App\Models\Proveedor;
 use App\Models\RegimenFiscal;
 use App\Models\User;
@@ -19,12 +21,14 @@ beforeEach(function () {
     $this->compras->givePermissionTo('costos.proveedores.crear');
 
     $this->regimen = RegimenFiscal::factory()->create();
+    $this->bancoPagador = Banco::factory()->pagador(10)->create(['nombre' => 'Banorte']);
+    $this->otroBanco = Banco::factory()->create(['nombre' => 'BBVA']);
 });
 
 function payloadProveedor(array $overrides = []): array
 {
     return array_merge([
-        'codigo' => 'PROV001',
+        'tipo_proveedor' => 'proveedor',
         'razon_social' => 'Aceros del Norte SA de CV',
         'rfc' => 'ANO123456XY0',
         'tipo_persona' => 'moral',
@@ -32,7 +36,8 @@ function payloadProveedor(array $overrides = []): array
         'codigo_postal' => '64000',
         'domicilio_fiscal' => 'Av. Siempre Viva 123',
         'email' => 'compras@aceros.mx',
-        'banco' => 'BBVA',
+        'forma_pago' => 'transferencia',
+        'banco_id' => test()->otroBanco->id,
         'titular_cuenta' => 'Aceros del Norte',
         'clabe' => '012345678901234567',
         'moneda_cuenta' => 'MXN',
@@ -44,18 +49,20 @@ function payloadProveedor(array $overrides = []): array
 test('alta crea proveedor desactivado y pendiente de validación', function () {
     $this->actingAs($this->compras)
         ->post('/admin/proveedores', payloadProveedor())
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
     $proveedor = Proveedor::first();
     expect($proveedor)->not->toBeNull();
     expect($proveedor->estatus)->toBe(ProveedorEstatus::PendienteValidacion);
     expect($proveedor->activo)->toBeFalse();
+    expect($proveedor->tipo_proveedor)->toBe(TipoProveedor::Proveedor);
     expect($proveedor->creado_por)->toBe($this->compras->id);
     expect($proveedor->media()->where('descripcion', 'constancia_fiscal')->exists())->toBeTrue();
     expect($proveedor->media()->where('descripcion', 'caratula_bancaria')->exists())->toBeTrue();
 });
 
-test('régimen, constancia y carátula son obligatorios', function () {
+test('régimen, constancia y carátula son obligatorios para proveedor', function () {
     $this->actingAs($this->compras)
         ->post('/admin/proveedores', payloadProveedor([
             'regimen_fiscal_id' => null,
@@ -67,23 +74,19 @@ test('régimen, constancia y carátula son obligatorios', function () {
     expect(Proveedor::count())->toBe(0);
 });
 
-test('requiere al menos un medio de depósito', function () {
+test('el banco pagador exige número de cuenta de la longitud del catálogo', function () {
     $this->actingAs($this->compras)
         ->post('/admin/proveedores', payloadProveedor([
+            'banco_id' => $this->bancoPagador->id,
             'clabe' => null,
-            'tarjeta' => null,
-            'numero_cuenta' => null,
+            'numero_cuenta' => '123',
         ]))
-        ->assertSessionHasErrors(['clabe']);
+        ->assertSessionHasErrors(['numero_cuenta']);
 
-    expect(Proveedor::count())->toBe(0);
-});
-
-test('basta el número de cuenta como medio de depósito', function () {
     $this->actingAs($this->compras)
         ->post('/admin/proveedores', payloadProveedor([
+            'banco_id' => $this->bancoPagador->id,
             'clabe' => null,
-            'tarjeta' => null,
             'numero_cuenta' => '1234567890',
         ]))
         ->assertRedirect()
@@ -92,23 +95,84 @@ test('basta el número de cuenta como medio de depósito', function () {
     expect(Proveedor::first()->numero_cuenta)->toBe('1234567890');
 });
 
-test('basta la tarjeta como medio de depósito', function () {
+test('un banco distinto al pagador exige CLABE de 18 dígitos', function () {
     $this->actingAs($this->compras)
         ->post('/admin/proveedores', payloadProveedor([
+            'banco_id' => $this->otroBanco->id,
             'clabe' => null,
-            'numero_cuenta' => null,
-            'tarjeta' => '4152313412341234',
+            'numero_cuenta' => '1234567890',
+        ]))
+        ->assertSessionHasErrors(['clabe']);
+
+    expect(Proveedor::count())->toBe(0);
+});
+
+test('cheque o efectivo no exige datos bancarios ni carátula', function () {
+    $this->actingAs($this->compras)
+        ->post('/admin/proveedores', payloadProveedor([
+            'forma_pago' => 'cheque_efectivo',
+            'banco_id' => null,
+            'clabe' => null,
+            'titular_cuenta' => null,
+            'caratula' => null,
         ]))
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
-    expect(Proveedor::first()->tarjeta)->toBe('4152313412341234');
+    expect(Proveedor::first()->forma_pago->value)->toBe('cheque_efectivo');
 });
 
-test('el titular debe coincidir con la razón social', function () {
+test('el titular debe coincidir con la razón social para proveedor', function () {
     $this->actingAs($this->compras)
         ->post('/admin/proveedores', payloadProveedor(['titular_cuenta' => 'Otra Empresa Distinta']))
         ->assertSessionHasErrors(['titular_cuenta']);
+});
+
+test('un tercero permite titular distinto y sin RFC', function () {
+    $this->actingAs($this->compras)
+        ->post('/admin/proveedores', payloadProveedor([
+            'tipo_proveedor' => 'tercero',
+            'rfc' => null,
+            'regimen_fiscal_id' => null,
+            'tipo_persona' => null,
+            'codigo_postal' => null,
+            'domicilio_fiscal' => null,
+            'constancia' => null,
+            'titular_cuenta' => 'Juan Pérez López',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(Proveedor::first()->tipo_proveedor)->toBe(TipoProveedor::Tercero);
+});
+
+test('un servicio no requiere banca ni fiscal pero exige número de servicio y referencia', function () {
+    $this->actingAs($this->compras)
+        ->post('/admin/proveedores', [
+            'tipo_proveedor' => 'servicio',
+            'razon_social' => 'Comisión Federal de Electricidad',
+            'numero_servicio' => '1234567890',
+            'referencia_servicio' => '9988',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $servicio = Proveedor::first();
+    expect($servicio->tipo_proveedor)->toBe(TipoProveedor::Servicio);
+    expect($servicio->numero_servicio)->toBe('1234567890');
+    expect($servicio->banco_id)->toBeNull();
+});
+
+test('un servicio sin número de servicio falla', function () {
+    $this->actingAs($this->compras)
+        ->post('/admin/proveedores', [
+            'tipo_proveedor' => 'servicio',
+            'razon_social' => 'Agua y Drenaje',
+            'referencia_servicio' => '9988',
+        ])
+        ->assertSessionHasErrors(['numero_servicio']);
+
+    expect(Proveedor::count())->toBe(0);
 });
 
 test('solo usuarios con permiso pueden dar de alta proveedores', function () {

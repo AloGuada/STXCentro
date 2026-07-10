@@ -2,7 +2,10 @@
 
 namespace Database\Factories;
 
+use App\Enums\FormaPago;
 use App\Enums\ProveedorEstatus;
+use App\Enums\TipoProveedor;
+use App\Models\Banco;
 use App\Models\Proveedor;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -31,16 +34,38 @@ class ProveedorFactory extends Factory
             'maneja_credito' => fake()->boolean(30),
             'limite_credito' => fake()->randomFloat(2, 0, 500000),
             'dias_credito_default' => fake()->randomElement([0, 15, 30, 45, 60, 90]),
-            'tipo_proveedor' => fake()->randomElement(['materiales', 'servicios', 'equipos', 'mixto']),
+            'tipo_proveedor' => TipoProveedor::Proveedor->value,
+            'forma_pago' => FormaPago::Transferencia->value,
             'tipo_persona' => fake()->randomElement(['fisica', 'moral']),
             'codigo_postal' => fake()->numerify('#####'),
-            'banco' => fake()->randomElement(['Banorte', 'BBVA', 'Santander', 'Banamex']),
+            'banco_id' => Banco::factory(),
             'titular_cuenta' => fn (array $attrs) => $attrs['razon_social'],
             'clabe' => fake()->numerify('##################'),
             'moneda_cuenta' => 'MXN',
             'activo' => true,
             'estatus' => ProveedorEstatus::Activo->value,
         ];
+    }
+
+    public function tercero(): static
+    {
+        return $this->state(fn () => [
+            'tipo_proveedor' => TipoProveedor::Tercero->value,
+            'forma_pago' => FormaPago::Transferencia->value,
+        ]);
+    }
+
+    public function servicio(): static
+    {
+        return $this->state(fn () => [
+            'tipo_proveedor' => TipoProveedor::Servicio->value,
+            'forma_pago' => null,
+            'banco_id' => null,
+            'clabe' => null,
+            'titular_cuenta' => null,
+            'numero_servicio' => fake()->numerify('##########'),
+            'referencia_servicio' => fake()->numerify('####'),
+        ]);
     }
 
     public function pendienteValidacion(): static

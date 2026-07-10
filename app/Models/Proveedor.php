@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Enums\Costos\ComplementoPagoEstatus;
+use App\Enums\FormaPago;
 use App\Enums\ProveedorEstatus;
+use App\Enums\TipoProveedor;
 use App\Models\Costos\ComplementoPago;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
@@ -72,12 +74,16 @@ class Proveedor extends Authenticatable
         'domicilio_fiscal',
         'domicilio_compra',
         'giro',
-        'banco',
+        'banco_nombre',
+        'banco_id',
         'titular_cuenta',
         'numero_cuenta',
         'clabe',
         'tarjeta',
         'moneda_cuenta',
+        'forma_pago',
+        'numero_servicio',
+        'referencia_servicio',
         'estatus',
         'validado_por',
         'validado_at',
@@ -108,6 +114,8 @@ class Proveedor extends Authenticatable
             'password' => 'hashed',
             'portal_ultimo_acceso' => 'datetime',
             'estatus' => ProveedorEstatus::class,
+            'tipo_proveedor' => TipoProveedor::class,
+            'forma_pago' => FormaPago::class,
             'validado_at' => 'datetime',
         ];
     }
@@ -115,6 +123,11 @@ class Proveedor extends Authenticatable
     public function regimenFiscal(): BelongsTo
     {
         return $this->belongsTo(RegimenFiscal::class);
+    }
+
+    public function banco(): BelongsTo
+    {
+        return $this->belongsTo(Banco::class);
     }
 
     public function validador(): BelongsTo
@@ -178,6 +191,31 @@ class Proveedor extends Authenticatable
     public function getBloqueadoComplementoAttribute(): bool
     {
         return $this->bloqueadoPorComplemento();
+    }
+
+    public function esProveedor(): bool
+    {
+        return $this->tipo_proveedor === TipoProveedor::Proveedor;
+    }
+
+    public function esTercero(): bool
+    {
+        return $this->tipo_proveedor === TipoProveedor::Tercero;
+    }
+
+    public function esServicio(): bool
+    {
+        return $this->tipo_proveedor === TipoProveedor::Servicio;
+    }
+
+    /**
+     * Captura cuenta bancaria: Proveedor o Tercero que paga por transferencia.
+     * Servicio (luz/agua) y cheque/efectivo no requieren datos bancarios.
+     */
+    public function requiereBanco(): bool
+    {
+        return $this->tipo_proveedor?->usaCuentaBancaria()
+            && $this->forma_pago === FormaPago::Transferencia;
     }
 
     public function esPersonaFisica(): bool

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\BadgeConfigController;
+use App\Http\Controllers\Admin\BancoController;
 use App\Http\Controllers\Admin\Cob\AdendaController as CobAdendaController;
 use App\Http\Controllers\Admin\Cob\AnticipoController as CobAnticipoController;
 use App\Http\Controllers\Admin\Cob\ClienteController as CobClienteController;
@@ -133,6 +134,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::resource('regimenes-fiscales', RegimenFiscalController::class)
         ->parameters(['regimenes-fiscales' => 'regimenFiscal'])
         ->except(['show']);
+    Route::resource('bancos', BancoController::class)->except(['show']);
     Route::middleware('role:super-admin')->group(function () {
         Route::resource('media', MediaController::class);
         Route::resource('tags', TagController::class);

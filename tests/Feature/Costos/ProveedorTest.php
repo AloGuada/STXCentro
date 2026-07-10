@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Banco;
 use App\Models\Proveedor;
 use App\Models\RegimenFiscal;
 use App\Models\User;
@@ -28,12 +29,14 @@ beforeEach(function () {
     ]);
 
     $this->regimen = RegimenFiscal::factory()->create();
+    $this->bancoPagador = Banco::factory()->pagador(10)->create(['nombre' => 'Banorte']);
 });
 
 function datosProveedorValidos(array $overrides = []): array
 {
     return array_merge([
         'codigo' => 'PROV001',
+        'tipo_proveedor' => 'proveedor',
         'razon_social' => 'Test SA de CV',
         'rfc' => 'TST123456AB0',
         'tipo_persona' => 'moral',
@@ -41,7 +44,8 @@ function datosProveedorValidos(array $overrides = []): array
         'codigo_postal' => '64000',
         'domicilio_fiscal' => 'Calle 1',
         'email' => 'test@test.mx',
-        'banco' => 'Banorte',
+        'forma_pago' => 'transferencia',
+        'banco_id' => test()->bancoPagador->id,
         'titular_cuenta' => 'Test',
         'numero_cuenta' => '1234567890',
         'moneda_cuenta' => 'MXN',
@@ -175,7 +179,7 @@ describe('admin proveedores', function () {
 
     test('validation requires razon_social and rfc', function () {
         $response = $this->actingAs($this->user)
-            ->post(route('admin.proveedores.store'), []);
+            ->post(route('admin.proveedores.store'), ['tipo_proveedor' => 'proveedor']);
 
         $response->assertSessionHasErrors(['razon_social', 'rfc']);
     });
