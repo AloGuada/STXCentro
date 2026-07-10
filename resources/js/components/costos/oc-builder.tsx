@@ -300,6 +300,13 @@ function OcCard({
         lineas.map((l) => ({ tipo_fiscal: l.detalle.tipo_fiscal, subtotal: l.precio_unitario * l.cantidad })),
     );
     const totalRet = retenciones.reduce((s, r) => s + r.monto, 0);
+    const tieneRet = retenciones.length > 0;
+
+    const pagoBadge = (
+        <span className={`ml-2 rounded px-2 py-0.5 text-[10px] ${modoPago === 'credito' ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
+            {modoPago === 'credito' ? 'CRÉDITO' : pagos.length > 0 ? `CONTADO · ${pagos.length} PAGOS` : 'CONTADO'}
+        </span>
+    );
 
     const monedas = new Set(lineas.map((l) => l.moneda));
     const monedaConflicto = monedas.size > 1;
@@ -460,21 +467,31 @@ function OcCard({
                     </div>
                 )}
 
-                <div className="mt-2 grid grid-cols-[1fr_90px] gap-2 border-t border-base-200 pt-1 text-xs">
+                <div className="mt-2 grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 border-t border-base-200 pt-2 text-xs">
                     <div className="text-base-content/60">Subtotal</div>
                     <div className="text-right">{fmt(subtotal)}</div>
+
                     <div className="text-base-content/60">IVA (16%)</div>
-                    <div className="text-right">{fmt(iva)}</div>
+                    <div className="text-right">+{fmt(iva)}</div>
+
+                    {/* Total (subtotal + IVA) antes de retenciones. Si no hay
+                        retenciones, este es el total final y lleva el badge. */}
+                    <div className={tieneRet ? 'font-medium' : 'text-sm font-bold'}>Total</div>
+                    <div className={`text-right ${tieneRet ? 'font-medium' : 'text-sm font-bold'}`}>
+                        {fmt(total)}{!tieneRet && pagoBadge}
+                    </div>
+
                     {retenciones.map((r) => (
                         <Fragment key={r.clave}>
                             <div className="text-error/80">Ret. {r.concepto} ({(r.tasa * 100).toFixed(2)}%)</div>
                             <div className="text-right text-error/80">−{fmt(r.monto)}</div>
                         </Fragment>
                     ))}
-                    {retenciones.length > 0 && (
+
+                    {tieneRet && (
                         <>
-                            <div className="font-semibold">Total neto a pagar</div>
-                            <div className="text-right font-semibold">{fmt(total - totalRet)}</div>
+                            <div className="text-sm font-bold">Total neto a pagar</div>
+                            <div className="text-right text-sm font-bold">{fmt(total - totalRet)}{pagoBadge}</div>
                         </>
                     )}
                 </div>
@@ -603,15 +620,6 @@ function OcCard({
                     </div>
                 )}
 
-                <div className="mt-2 flex items-center justify-between border-t border-dashed border-base-200 pt-2 text-sm font-semibold">
-                    <div>Total</div>
-                    <div>
-                        {fmt(total)}{' '}
-                        <span className={`ml-1 rounded px-2 py-0.5 text-[10px] ${modoPago === 'credito' ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
-                            {modoPago === 'credito' ? 'CRÉDITO' : pagos.length > 0 ? `CONTADO · ${pagos.length} PAGOS` : 'CONTADO'}
-                        </span>
-                    </div>
-                </div>
             </div>
         </div>
     );
