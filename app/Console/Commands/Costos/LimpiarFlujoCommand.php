@@ -29,6 +29,7 @@ class LimpiarFlujoCommand extends Command
         // Requisición y su cotización/selección/OC-meta
         'costos_requisicion_seleccion',
         'costos_requisicion_cotizacion_precio',
+        'costos_requisicion_cotizacion_opcion',
         'costos_requisicion_ocs',
         'costos_requisicion_detalle',
         'costos_requisiciones',

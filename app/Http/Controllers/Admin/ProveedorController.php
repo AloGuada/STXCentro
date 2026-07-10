@@ -6,6 +6,7 @@ use App\Enums\ProveedorEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ProveedorStoreRequest;
 use App\Http\Requests\Admin\ProveedorUpdateRequest;
+use App\Models\Banco;
 use App\Models\Proveedor;
 use App\Models\RegimenFiscal;
 use Illuminate\Http\RedirectResponse;
@@ -46,6 +47,7 @@ class ProveedorController extends Controller
 
         return Inertia::render('admin/proveedores/create', [
             'regimenes' => RegimenFiscal::where('activo', true)->orderBy('clave')->get(['id', 'clave', 'descripcion']),
+            'bancos' => Banco::where('activo', true)->orderBy('nombre')->get(['id', 'nombre', 'digitos_cuenta', 'es_pagador']),
         ]);
     }
 
@@ -64,8 +66,13 @@ class ProveedorController extends Controller
 
         $proveedor = Proveedor::create($data);
 
-        $this->guardarArchivo($proveedor, $request->file('constancia'), 'constancia_fiscal');
-        $this->guardarArchivo($proveedor, $request->file('caratula'), 'caratula_bancaria');
+        if ($request->hasFile('constancia')) {
+            $this->guardarArchivo($proveedor, $request->file('constancia'), 'constancia_fiscal');
+        }
+
+        if ($request->hasFile('caratula')) {
+            $this->guardarArchivo($proveedor, $request->file('caratula'), 'caratula_bancaria');
+        }
 
         return to_route('admin.proveedores.index')
             ->with('success', 'Proveedor registrado. Quedará desactivado hasta validar su documentación.');
@@ -75,7 +82,7 @@ class ProveedorController extends Controller
     {
         Gate::authorize('costos.proveedores.editar');
 
-        $proveedor->load(['regimenFiscal', 'media', 'validador:id,name']);
+        $proveedor->load(['regimenFiscal', 'media', 'validador:id,name', 'banco']);
 
         $documento = fn (string $descripcion) => ($m = $proveedor->media->firstWhere('descripcion', $descripcion)) ? [
             'url' => Storage::disk('public')->url($m->path),
@@ -91,6 +98,7 @@ class ProveedorController extends Controller
             ],
             'tienePassword' => (bool) $proveedor->password,
             'regimenes' => RegimenFiscal::where('activo', true)->orderBy('clave')->get(['id', 'clave', 'descripcion']),
+            'bancos' => Banco::where('activo', true)->orderBy('nombre')->get(['id', 'nombre', 'digitos_cuenta', 'es_pagador']),
         ]);
     }
 

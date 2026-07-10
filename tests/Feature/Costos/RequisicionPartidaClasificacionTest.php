@@ -51,17 +51,19 @@ test('compras clasifica el tipo fiscal de la partida desde cotizacion', function
     expect($detalle->refresh()->tipo_fiscal->value)->toBe('flete');
 });
 
-test('el codigo de producto se guarda por linea y por proveedor en la cotizacion', function () {
+test('el codigo de producto se guarda por linea y por opcion en la cotizacion', function () {
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id]);
     $provA = \App\Models\Proveedor::factory()->create();
     $provB = \App\Models\Proveedor::factory()->create();
+    $opA = \App\Models\Costos\RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $provA->id, 'orden' => 1]);
+    $opB = \App\Models\Costos\RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $provB->id, 'orden' => 1]);
 
-    foreach ([[$provA, 'COD-A', 100], [$provB, 'COD-B', 120]] as [$prov, $cod, $precio]) {
+    foreach ([[$opA, 'COD-A', 100], [$opB, 'COD-B', 120]] as [$op, $cod, $precio]) {
         $this->actingAs($this->user)
             ->post('/admin/costos/requisiciones/cotizaciones', [
                 'requisicion_detalle_id' => $detalle->id,
-                'proveedor_id' => $prov->id,
+                'opcion_id' => $op->id,
                 'precio_unitario' => $precio,
                 'codigo_producto' => $cod,
                 'moneda' => 'mxn',

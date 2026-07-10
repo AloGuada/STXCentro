@@ -261,11 +261,16 @@ test('compras captura precio cotizado y la requisicion pasa a cotizada', functio
         'cantidad' => 10,
     ]);
     $proveedor = Proveedor::factory()->create();
+    $opcion = App\Models\Costos\RequisicionCotizacionOpcion::create([
+        'requisicion_id' => $req->id,
+        'proveedor_id' => $proveedor->id,
+        'orden' => 1,
+    ]);
 
     $this->actingAs($this->compras)
         ->post('/admin/costos/requisiciones/cotizaciones', [
             'requisicion_detalle_id' => $detalle->id,
-            'proveedor_id' => $proveedor->id,
+            'opcion_id' => $opcion->id,
             'precio_unitario' => 250.50,
             'moneda' => 'mxn',
         ])
@@ -276,7 +281,7 @@ test('compras captura precio cotizado y la requisicion pasa a cotizada', functio
 });
 
 test('seleccion no puede exceder cantidad de partida', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 10,
@@ -294,7 +299,7 @@ test('seleccion no puede exceder cantidad de partida', function () {
 });
 
 test('seleccion del mismo proveedor se consolida sumando cantidades', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 20,
@@ -324,7 +329,7 @@ test('seleccion del mismo proveedor se consolida sumando cantidades', function (
 });
 
 test('consolidacion respeta el limite de cantidad solicitada', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 10,
@@ -353,7 +358,7 @@ test('consolidacion respeta el limite de cantidad solicitada', function () {
 });
 
 test('seleccion permite split entre dos proveedores', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 10,
@@ -383,7 +388,7 @@ test('seleccion permite split entre dos proveedores', function () {
 });
 
 test('enviar a aprobacion genera cadena por niveles del departamento', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 5,
@@ -454,7 +459,7 @@ test('enviar a aprobacion genera cadena por niveles del departamento', function 
 });
 
 test('no puede enviar a aprobacion sin selecciones completas', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 5,
@@ -470,7 +475,7 @@ test('no puede enviar a aprobacion sin selecciones completas', function () {
 });
 
 test('no puede enviar a aprobacion si una partida tiene menos de 3 empresas cotizadas', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 5,
@@ -495,7 +500,7 @@ test('no puede enviar a aprobacion si una partida tiene menos de 3 empresas coti
 });
 
 test('no puede enviar a aprobacion sin una OC definida', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 5,
@@ -522,7 +527,7 @@ test('no puede enviar a aprobacion sin una OC definida', function () {
 });
 
 test('no puede enviar a aprobacion si una partida no tiene rubro asignado', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'obra_rubro_id' => null,
@@ -544,7 +549,7 @@ test('no puede enviar a aprobacion si una partida no tiene rubro asignado', func
 });
 
 test('numero_oc consolida por (partida, precio, numero_oc) y crea filas separadas para distintos OC#', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 20,

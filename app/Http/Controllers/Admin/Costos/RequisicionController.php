@@ -234,12 +234,14 @@ class RequisicionController extends Controller
 
         $requisicion->load([
             'solicitante:id,name',
+            'controlador:id,name',
             'departamento:id,descripcion',
             'presupuesto.presupuestable',
             'detalles.obraRubro.presupuesto.presupuestable',
             'detalles.obraRubro.rubro:id,codigo,descripcion',
             'detalles.usoCfdi:id,clave,descripcion',
             'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial,estatus,activo',
+            'cotizacionOpciones.proveedor:id,razon_social,nombre_comercial',
             'detalles.selecciones.cotizacionPrecio',
             'detalles.selecciones.proveedor:id,razon_social,estatus',
             'ocs',
@@ -264,6 +266,7 @@ class RequisicionController extends Controller
                 ->orderBy('razon_social')
                 ->get(['id', 'razon_social', 'nombre_comercial', 'maneja_credito', 'estatus', 'tipo_persona', 'regimen_fiscal_id']),
             'obraRubros' => $this->obraRubrosOptions(),
+            'usosCfdi' => $this->usosCfdiOptions(),
             'aprobacionPendienteId' => $aprobacionPendienteId,
             'esUltimoNivel' => $esUltimoNivel,
             'proveedoresPorValidar' => $esUltimoNivel ? $this->proveedoresPorValidar($requisicion) : [],
@@ -308,7 +311,7 @@ class RequisicionController extends Controller
             return [];
         }
 
-        $proveedores = Proveedor::with(['regimenFiscal:id,clave,descripcion', 'media'])
+        $proveedores = Proveedor::with(['regimenFiscal:id,clave,descripcion', 'media', 'banco:id,nombre'])
             ->whereIn('id', $provIds)
             ->where('estatus', '!=', ProveedorEstatus::Activo->value)
             ->get();
@@ -346,8 +349,10 @@ class RequisicionController extends Controller
                 'razon_social' => $prov->razon_social,
                 'rfc' => $prov->rfc,
                 'tipo_persona' => $prov->tipo_persona,
+                'tipo_proveedor' => $prov->tipo_proveedor?->value,
+                'forma_pago' => $prov->forma_pago?->value,
                 'regimen' => $prov->regimenFiscal?->descripcion,
-                'banco' => $prov->banco,
+                'banco' => $prov->banco?->nombre ?? $prov->banco_nombre,
                 'titular_cuenta' => $prov->titular_cuenta,
                 'numero_cuenta' => $prov->numero_cuenta,
                 'clabe' => $prov->clabe,
@@ -533,6 +538,10 @@ class RequisicionController extends Controller
                 'presupuesto_id' => $request->integer('presupuesto_id') ?: null,
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
+                // Editar la requisición invalida un punto de control previo.
+                'control_verificado' => false,
+                'control_por' => null,
+                'control_at' => null,
             ]);
 
             $idsKeep = collect($request->input('detalles', []))
@@ -615,12 +624,54 @@ class RequisicionController extends Controller
      * y exige captura completa: rubro por detalle, modo de pago, partidas
      * cubiertas 100% por selecciones, y cada seleccion con precio capturado.
      */
+    /**
+     * Marca el punto de control de la requisición: gate manual (permiso propio)
+     * que habilita el botón de enviar a aprobación. Solo en estado cotizada.
+     */
+    public function marcarControl(Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.control');
+
+        if ($requisicion->estatus !== RequisicionEstatus::Cotizada) {
+            return back()->withErrors(['control' => 'El punto de control solo aplica a requisiciones cotizadas.']);
+        }
+
+        $requisicion->update([
+            'control_verificado' => true,
+            'control_por' => auth()->id(),
+            'control_at' => now(),
+        ]);
+
+        return back()->with('success', 'Punto de control marcado.');
+    }
+
+    public function quitarControl(Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.control');
+
+        if ($requisicion->estatus !== RequisicionEstatus::Cotizada) {
+            return back()->withErrors(['control' => 'El punto de control solo aplica a requisiciones cotizadas.']);
+        }
+
+        $requisicion->update([
+            'control_verificado' => false,
+            'control_por' => null,
+            'control_at' => null,
+        ]);
+
+        return back()->with('success', 'Punto de control retirado.');
+    }
+
     public function enviarAprobacion(Request $request, Requisicion $requisicion): RedirectResponse
     {
         Gate::authorize('costos.requisiciones.cotizar');
 
         if ($requisicion->estatus !== RequisicionEstatus::Cotizada) {
             return back()->withErrors(['estatus' => 'La requisición debe estar cotizada para enviarse a aprobación.']);
+        }
+
+        if (! $requisicion->control_verificado) {
+            return back()->withErrors(['control' => 'Falta marcar el punto de control antes de enviar a aprobación.']);
         }
 
         $requisicion->load(['detalles.selecciones.cotizacionPrecio', 'detalles.cotizaciones']);

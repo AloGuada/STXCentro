@@ -2,7 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Enums\FormaPago;
 use App\Enums\ProveedorEstatus;
+use App\Enums\TipoProveedor;
 use App\Models\Proveedor;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -70,6 +72,8 @@ class ProveedoresSeeder extends Seeder
                     'email' => trim($email),
                     'password' => $password,
                     'tipo_persona' => strlen($rfc) === 13 ? 'fisica' : 'moral',
+                    'tipo_proveedor' => TipoProveedor::Proveedor->value,
+                    'forma_pago' => FormaPago::Transferencia->value,
                     'tiene_acceso_portal' => true,
                     'activo' => true,
                     'estatus' => ProveedorEstatus::Activo->value,

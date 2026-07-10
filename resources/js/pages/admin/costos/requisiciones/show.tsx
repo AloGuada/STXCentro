@@ -1,17 +1,18 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { AlertTriangleIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
 import { OcBuilder } from '@/components/costos/oc-builder';
+import { calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
 import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { SharedData } from '@/types';
-import type { CostosRequisicion, Proveedor } from '@/types/models';
+import type { CostosRequisicion, CostosTipoFiscalPartida, CostosUsoCfdi, ObraRubroOption, Proveedor } from '@/types/models';
 import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 
 type Alternativa = {
@@ -47,7 +48,8 @@ type ProveedorPorValidar = {
 type Props = {
     requisicion: CostosRequisicion;
     proveedores: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial' | 'maneja_credito' | 'tipo_persona' | 'regimen_fiscal'>[];
-    obraRubros: Array<{ id: number; label: string }>;
+    obraRubros: ObraRubroOption[];
+    usosCfdi: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>[];
     aprobacionPendienteId: number | null;
     esUltimoNivel: boolean;
     proveedoresPorValidar: ProveedorPorValidar[];
@@ -201,6 +203,44 @@ function EnviarAprobacionModal({
                         </div>
                     </>
                 )}
+            </div>
+            <div className="modal-backdrop" onClick={onClose} />
+        </dialog>
+    );
+}
+
+function PuntoControlModal({
+    requisicionId,
+    onClose,
+}: {
+    requisicionId: number;
+    onClose: () => void;
+}) {
+    const { post, processing } = useForm({});
+
+    const confirmar = () => {
+        post(`/admin/costos/requisiciones/${requisicionId}/punto-control`, {
+            preserveScroll: true,
+            onSuccess: () => onClose(),
+        });
+    };
+
+    return (
+        <dialog className="modal modal-open">
+            <div className="modal-box">
+                <h2 className="text-xl font-bold">Verificación gerencial</h2>
+                <p className="mt-3 text-sm text-base-content/70">
+                    ¿Estás seguro? Al marcar la verificación gerencial confirmas que la cotización
+                    fue revisada y habilitas el botón de <strong>enviar a aprobación</strong>.
+                </p>
+                <div className="modal-action">
+                    <button type="button" className="btn" onClick={onClose} disabled={processing}>
+                        Cancelar
+                    </button>
+                    <button type="button" className="btn btn-primary" onClick={confirmar} disabled={processing}>
+                        {processing ? 'Guardando...' : 'Sí, marcar'}
+                    </button>
+                </div>
             </div>
             <div className="modal-backdrop" onClick={onClose} />
         </dialog>
@@ -430,7 +470,7 @@ function ValidacionProveedoresModal({
     );
 }
 
-export default function RequisicionesShow({ requisicion, proveedores, aprobacionPendienteId, esUltimoNivel, proveedoresPorValidar }: Props) {
+export default function RequisicionesShow({ requisicion, proveedores, obraRubros, usosCfdi, aprobacionPendienteId, esUltimoNivel, proveedoresPorValidar }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/requisiciones' },
@@ -441,6 +481,7 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
     const { can } = useCan();
     const [tab, setTab] = useState<Tab>('datos');
     const [enviarAprobacion, setEnviarAprobacion] = useState(false);
+    const [marcandoControl, setMarcandoControl] = useState(false);
     const [cancelando, setCancelando] = useState(false);
     const [liberando, setLiberando] = useState(false);
     const [firmando, setFirmando] = useState<'aprobar' | 'rechazar' | null>(null);
@@ -457,6 +498,34 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
         .filter((d) => new Set((d.cotizaciones ?? []).map((c) => c.proveedor_id)).size < MIN_EMPRESAS_COTIZACION)
         .map((d) => d.descripcion);
     const cotizacionCompleta = partidasSinCotizar.length === 0;
+
+    // Total neto a pagar cuando ya hay OC(s) definidas: agrupa las selecciones
+    // por (proveedor, OC), calcula retenciones por grupo (espeja el OcBuilder) y
+    // suma el neto de todas.
+    const resumenNeto = useMemo(() => {
+        const provMap = new Map(proveedores.map((p) => [p.id, p]));
+        const grupos = new Map<string, { proveedorId: number; lines: { tipo_fiscal: CostosTipoFiscalPartida; subtotal: number }[] }>();
+        (requisicion.detalles ?? []).forEach((d) => {
+            (d.selecciones ?? []).forEach((s) => {
+                const key = `${s.proveedor_id}|${s.numero_oc ?? 1}`;
+                const sub = Number(s.cotizacion_precio?.precio_unitario ?? 0) * Number(s.cantidad);
+                const g = grupos.get(key) ?? { proveedorId: s.proveedor_id, lines: [] };
+                g.lines.push({ tipo_fiscal: d.tipo_fiscal, subtotal: sub });
+                grupos.set(key, g);
+            });
+        });
+        if (grupos.size === 0) return null;
+        let subtotal = 0;
+        let ret = 0;
+        grupos.forEach((g) => {
+            subtotal += g.lines.reduce((a, l) => a + l.subtotal, 0);
+            ret += calcularRetenciones(provMap.get(g.proveedorId), g.lines).reduce((a, r) => a + r.monto, 0);
+        });
+        const iva = subtotal * IVA_RATE;
+        return { subtotal, iva, ret, total: subtotal + iva, neto: subtotal + iva - ret };
+    }, [requisicion.detalles, proveedores]);
+
+    const fmtMoney = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -503,10 +572,47 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                             </Button>
                         )}
 
-                        {requisicion.estatus === 'cotizada' && can('costos.requisiciones.cotizar') && (
-                            <Button onClick={() => setEnviarAprobacion(true)}>
-                                Enviar a aprobación
-                            </Button>
+                        {requisicion.estatus === 'cotizada' && (
+                            <>
+                                {requisicion.control_verificado ? (
+                                    <span
+                                        className="badge badge-success gap-1 py-3"
+                                        title={requisicion.controlador ? `Verificación gerencial: ${requisicion.controlador.name}` : 'Verificación gerencial marcada'}
+                                    >
+                                        ✓ Verificación gerencial
+                                    </span>
+                                ) : (
+                                    can('costos.requisiciones.control') && (
+                                        <Button variant="outline" onClick={() => setMarcandoControl(true)}>
+                                            Marcar verificación gerencial
+                                        </Button>
+                                    )
+                                )}
+
+                                {requisicion.control_verificado && can('costos.requisiciones.control') && (
+                                    <Button
+                                        variant="outline"
+                                        className="text-error"
+                                        onClick={() => {
+                                            if (confirm('¿Quitar la verificación gerencial? Deshabilitará el envío a aprobación.')) {
+                                                router.delete(`/admin/costos/requisiciones/${requisicion.id}/punto-control`, { preserveScroll: true });
+                                            }
+                                        }}
+                                    >
+                                        Quitar verificación
+                                    </Button>
+                                )}
+
+                                {can('costos.requisiciones.cotizar') && (
+                                    <Button
+                                        onClick={() => setEnviarAprobacion(true)}
+                                        disabled={!requisicion.control_verificado}
+                                        title={!requisicion.control_verificado ? 'Falta la verificación gerencial' : undefined}
+                                    >
+                                        Enviar a aprobación
+                                    </Button>
+                                )}
+                            </>
                         )}
 
                         {!['liberada', 'cancelada'].includes(requisicion.estatus) && can('costos.requisiciones.cancelar') && (
@@ -539,7 +645,7 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
 
                 <div role="tablist" className="tabs tabs-bordered mb-4">
                     <button role="tab" className={`tab ${tab === 'datos' ? 'tab-active' : ''}`} onClick={() => setTab('datos')}>
-                        Datos
+                        Resumen
                     </button>
                     {can('costos.requisiciones.cotizar') && (
                         <button role="tab" className={`tab ${tab === 'cotizacion' ? 'tab-active' : ''}`} onClick={() => setTab('cotizacion')}>
@@ -563,6 +669,28 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
 
                 {tab === 'datos' && (
                     <div className="rounded-lg border border-base-300 p-4">
+                        {resumenNeto && (
+                            <div className="mb-4 rounded-lg border border-base-300 bg-base-200/40 p-4">
+                                <h3 className="mb-2 text-xs tracking-wider text-base-content/60 uppercase">Total de las órdenes de compra</h3>
+                                <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm md:max-w-sm">
+                                    <div className="text-base-content/60">Subtotal</div>
+                                    <div className="text-right">{fmtMoney(resumenNeto.subtotal)}</div>
+                                    <div className="text-base-content/60">IVA (16%)</div>
+                                    <div className="text-right">+{fmtMoney(resumenNeto.iva)}</div>
+                                    <div className="font-medium">Total</div>
+                                    <div className="text-right font-medium">{fmtMoney(resumenNeto.total)}</div>
+                                    {resumenNeto.ret > 0 && (
+                                        <>
+                                            <div className="text-error/80">Retenciones</div>
+                                            <div className="text-right text-error/80">−{fmtMoney(resumenNeto.ret)}</div>
+                                        </>
+                                    )}
+                                    <div className="text-base font-bold">Total neto a pagar</div>
+                                    <div className="text-right text-base font-bold text-primary">{fmtMoney(resumenNeto.neto)}</div>
+                                </div>
+                            </div>
+                        )}
+
                         {requisicion.justificacion && (
                             <div className="mb-4">
                                 <div className="text-xs text-base-content/60">Justificación</div>
@@ -638,7 +766,10 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                     <CotizacionMatriz
                         requisicion={requisicion}
                         proveedores={proveedores}
+                        obraRubros={obraRubros}
+                        usosCfdi={usosCfdi}
                         editable={cotizable}
+                        puedeEditarPartidas={['borrador', 'cotizada', 'rechazada'].includes(requisicion.estatus)}
                     />
                 )}
 
@@ -751,6 +882,13 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                     />
                 )}
 
+                {marcandoControl && (
+                    <PuntoControlModal
+                        requisicionId={requisicion.id}
+                        onClose={() => setMarcandoControl(false)}
+                    />
+                )}
+
                 {tab === 'ocs' && (
                     <div className="rounded-lg border border-base-300 p-4">
                         <h3 className="mb-3 font-medium">Órdenes de compra generadas</h3>
@@ -815,26 +953,44 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
  */
 function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisicion }) {
     const detalles = requisicion.detalles ?? [];
-    const proveedores = new Map<number, { id: number; nombre: string }>();
+
+    // Columnas = opciones con al menos un precio, agrupadas por proveedor.
+    const opcionConPrecio = new Set<number>();
     for (const d of detalles) {
         for (const c of d.cotizaciones ?? []) {
-            if (!c.proveedor) continue;
-            proveedores.set(c.proveedor.id, {
-                id: c.proveedor.id,
-                nombre: c.proveedor.nombre_comercial || c.proveedor.razon_social,
-            });
+            if (c.opcion_id != null) opcionConPrecio.add(c.opcion_id);
         }
     }
-    if (proveedores.size === 0) return null;
+    const opciones = (requisicion.cotizacion_opciones ?? []).filter((o) => opcionConPrecio.has(o.id));
+    if (opciones.length === 0) return null;
 
-    const provList = Array.from(proveedores.values());
+    const etiquetaOpcion = (o: (typeof opciones)[number]) => o.etiqueta || `Opción ${o.orden}`;
+
+    const gruposMap = new Map<number, { proveedorId: number; nombre: string; opciones: typeof opciones }>();
+    for (const o of opciones) {
+        const nombre = o.proveedor?.nombre_comercial || o.proveedor?.razon_social || `#${o.proveedor_id}`;
+        const g = gruposMap.get(o.proveedor_id) ?? { proveedorId: o.proveedor_id, nombre, opciones: [] };
+        g.opciones.push(o);
+        gruposMap.set(o.proveedor_id, g);
+    }
+    const grupos = Array.from(gruposMap.values())
+        .map((g) => ({ ...g, opciones: [...g.opciones].sort((a, b) => a.orden - b.orden) }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+    const columnas = grupos.flatMap((g) => g.opciones);
+
     const mejorProveedorId = requisicion.mejor_proveedor?.id ?? null;
     const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+    const cotizacionDe = (detalleId: number, opcionId: number) =>
+        detalles.find((x) => x.id === detalleId)?.cotizaciones?.find((c) => c.opcion_id === opcionId);
+
     const precioPartidaProv = (detalleId: number, proveedorId: number): number | null => {
         const d = detalles.find((x) => x.id === detalleId);
-        const cot = d?.cotizaciones?.find((c) => c.proveedor_id === proveedorId);
-        return cot ? Number(cot.precio_unitario) : null;
+        const precios = (d?.cotizaciones ?? [])
+            .filter((c) => c.proveedor_id === proveedorId)
+            .map((c) => Number(c.precio_unitario))
+            .filter((n) => n > 0);
+        return precios.length > 0 ? Math.min(...precios) : null;
     };
 
     const precioImporte = (d: CostosRequisicion['detalles'] extends (infer U)[] | undefined ? U : never): number | null => {
@@ -907,19 +1063,27 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                 <table className="table table-sm">
                     <thead className="bg-base-200">
                         <tr>
-                            <th className="text-right">Cantidad</th>
-                            <th>Descripción</th>
-                            {provList.map((p) => (
+                            <th rowSpan={2} className="text-right">Cantidad</th>
+                            <th rowSpan={2}>Descripción</th>
+                            {grupos.map((g) => (
                                 <th
-                                    key={p.id}
-                                    className={`text-right ${p.id === mejorProveedorId ? 'text-success' : ''}`}
-                                    title={p.nombre}
+                                    key={g.proveedorId}
+                                    colSpan={g.opciones.length}
+                                    className={`border-l border-base-300 text-center ${g.proveedorId === mejorProveedorId ? 'text-success' : ''}`}
+                                    title={g.nombre}
                                 >
-                                    {p.nombre}
-                                    {p.id === mejorProveedorId && <span className="ml-1 text-[10px]">★</span>}
+                                    {g.nombre}
+                                    {g.proveedorId === mejorProveedorId && <span className="ml-1 text-[10px]">★</span>}
                                 </th>
                             ))}
-                            <th className="text-right">Importe</th>
+                            <th rowSpan={2} className="text-right">Importe</th>
+                        </tr>
+                        <tr>
+                            {columnas.map((op) => (
+                                <th key={op.id} className="border-l border-base-300 text-right text-[11px] font-medium">
+                                    {etiquetaOpcion(op)}
+                                </th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
@@ -927,25 +1091,28 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                             <tr key={d.id}>
                                 <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')} {d.unidad}</td>
                                 <td>{d.descripcion}</td>
-                                {provList.map((p) => {
-                                    const cot = d.cotizaciones?.find((c) => c.proveedor_id === p.id);
+                                {columnas.map((op) => {
+                                    const cot = cotizacionDe(d.id, op.id);
                                     const px = cot ? Number(cot.precio_unitario) : null;
                                     const dias = cot?.tiempo_entrega_dias ?? null;
                                     const moneda = cot?.moneda ?? 'mxn';
                                     const esMejorPartida = px !== null && px === mejorPrecioPartida.get(d.id);
-                                    const seleccionado = (d.selecciones ?? []).some((s) => s.proveedor_id === p.id);
+                                    const seleccionado = cot != null && (d.selecciones ?? []).some((s) => s.cotizacion_precio_id === cot.id);
                                     const classes = [
-                                        'text-right align-top',
+                                        'border-l border-base-300 text-right align-top',
                                         seleccionado
                                             ? 'bg-primary/15 font-semibold text-primary ring-1 ring-inset ring-primary/50'
                                             : esMejorPartida ? 'bg-success/15 font-semibold text-success' : '',
-                                        p.id === mejorProveedorId && !esMejorPartida && !seleccionado ? 'text-success' : '',
+                                        op.proveedor_id === mejorProveedorId && !esMejorPartida && !seleccionado ? 'text-success' : '',
                                     ].filter(Boolean).join(' ');
                                     return (
-                                        <td key={p.id} className={classes}>
+                                        <td key={op.id} className={classes}>
                                             {px !== null ? (
                                                 <>
                                                     <div>{seleccionado && <span className="mr-1">✓</span>}{fmt(px)} <span className="text-[10px] font-normal text-base-content/50">{TIPO_MONEDA_LABELS[moneda]}</span></div>
+                                                    {cot?.descripcion && (
+                                                        <div className="text-[10px] font-normal text-base-content/60">{cot.descripcion}</div>
+                                                    )}
                                                     {dias !== null && dias > 0 && (
                                                         <div className="text-[10px] font-normal text-base-content/60">
                                                             {dias} {dias === 1 ? 'día' : 'días'} entrega
@@ -966,15 +1133,15 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colSpan={2 + provList.length} className="text-right text-sm text-base-content/60">Subtotal</td>
+                            <td colSpan={2 + columnas.length} className="text-right text-sm text-base-content/60">Subtotal</td>
                             <td className="text-right font-semibold">{fmt(subtotal)}</td>
                         </tr>
                         <tr>
-                            <td colSpan={2 + provList.length} className="text-right text-sm text-base-content/60">IVA (16%)</td>
+                            <td colSpan={2 + columnas.length} className="text-right text-sm text-base-content/60">IVA (16%)</td>
                             <td className="text-right">{fmt(iva)}</td>
                         </tr>
                         <tr className="bg-base-200">
-                            <td colSpan={2 + provList.length} className="text-right text-sm font-semibold">Total</td>
+                            <td colSpan={2 + columnas.length} className="text-right text-sm font-semibold">Total</td>
                             <td className="text-right text-lg font-bold text-primary">{fmt(total)}</td>
                         </tr>
                     </tfoot>

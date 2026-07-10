@@ -3,6 +3,7 @@
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\Requisicion;
+use App\Models\Costos\RequisicionCotizacionOpcion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\RequisicionSeleccion;
@@ -26,11 +27,12 @@ test('guardar una cotización persiste la moneda', function () {
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
     $proveedor = Proveedor::factory()->create();
+    $opcion = RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $proveedor->id, 'orden' => 1]);
 
     $this->actingAs($this->compras)
         ->post('/admin/costos/requisiciones/cotizaciones', [
             'requisicion_detalle_id' => $detalle->id,
-            'proveedor_id' => $proveedor->id,
+            'opcion_id' => $opcion->id,
             'precio_unitario' => 100,
             'moneda' => 'usd',
         ])
@@ -43,11 +45,12 @@ test('la moneda de la cotización es obligatoria y validada', function () {
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
     $proveedor = Proveedor::factory()->create();
+    $opcion = RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $proveedor->id, 'orden' => 1]);
 
     $this->actingAs($this->compras)
         ->post('/admin/costos/requisiciones/cotizaciones', [
             'requisicion_detalle_id' => $detalle->id,
-            'proveedor_id' => $proveedor->id,
+            'opcion_id' => $opcion->id,
             'precio_unitario' => 100,
             'moneda' => 'gbp',
         ])

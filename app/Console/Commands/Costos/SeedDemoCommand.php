@@ -81,6 +81,7 @@ class SeedDemoCommand extends Command
 
         DB::table('costos_requisicion_seleccion')->delete();
         DB::table('costos_requisicion_cotizacion_precio')->delete();
+        DB::table('costos_requisicion_cotizacion_opcion')->delete();
         DB::table('costos_requisicion_detalle')->delete();
         DB::table('costos_requisiciones')->delete();
 

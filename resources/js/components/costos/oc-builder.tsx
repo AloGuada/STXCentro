@@ -28,6 +28,8 @@ type Linea = {
     precio_unitario: number;
     moneda: CostosTipoMoneda;
     cotizacion_precio_id: number;
+    opcion_id: number | null;
+    codigo_producto: string | null;
 };
 
 type Grupo = { proveedor_id: number; numero_oc: number; lineas: Linea[] };
@@ -77,6 +79,8 @@ export function OcBuilder({
                     precio_unitario: Number(s.cotizacion_precio?.precio_unitario ?? 0),
                     moneda: (s.cotizacion_precio?.moneda ?? 'mxn') as CostosTipoMoneda,
                     cotizacion_precio_id: s.cotizacion_precio_id,
+                    opcion_id: s.cotizacion_precio?.opcion_id ?? null,
+                    codigo_producto: s.cotizacion_precio?.codigo_producto ?? null,
                 });
             });
         });
@@ -103,6 +107,16 @@ export function OcBuilder({
         detalles.forEach((d) => d.cotizaciones?.forEach((c) => ids.add(c.proveedor_id)));
         return proveedores.filter((p) => ids.has(p.id));
     }, [detalles, proveedores]);
+
+    // Etiqueta legible de cada columna-opción, para distinguir opciones al
+    // agregar partidas a una OC.
+    const opcionLabel = useMemo(() => {
+        const m = new Map<number, string>();
+        (requisicion.cotizacion_opciones ?? []).forEach((o) =>
+            m.set(o.id, o.etiqueta || `Opción ${o.orden}`),
+        );
+        return m;
+    }, [requisicion.cotizacion_opciones]);
 
     const nextNumeroOc = (proveedorId: number, exceptLocalId: number): number => {
         const usados = [
@@ -144,6 +158,7 @@ export function OcBuilder({
                     meta={ocsMetaMap.get(groupKey(g.proveedor_id, g.numero_oc))}
                     cobertura={cobertura}
                     proveedoresCotizadores={proveedoresCotizadores}
+                    opcionLabel={opcionLabel}
                     editable={editable}
                 />
             ))}
@@ -159,6 +174,7 @@ export function OcBuilder({
                     meta={d.proveedor_id && d.numero_oc ? ocsMetaMap.get(groupKey(d.proveedor_id, d.numero_oc)) : undefined}
                     cobertura={cobertura}
                     proveedoresCotizadores={proveedoresCotizadores}
+                    opcionLabel={opcionLabel}
                     editable={editable}
                     isDraft
                     onPickProveedor={(pid) => pickProveedor(d.localId, pid)}
@@ -191,6 +207,7 @@ function OcCard({
     meta,
     cobertura,
     proveedoresCotizadores,
+    opcionLabel,
     editable,
     isDraft = false,
     onPickProveedor,
@@ -205,6 +222,7 @@ function OcCard({
     meta?: CostosRequisicionOc;
     cobertura: Cobertura[];
     proveedoresCotizadores: ProveedorMin[];
+    opcionLabel: Map<number, string>;
     editable: boolean;
     isDraft?: boolean;
     onPickProveedor?: (proveedorId: number | null) => void;
@@ -282,26 +300,42 @@ function OcCard({
         lineas.map((l) => ({ tipo_fiscal: l.detalle.tipo_fiscal, subtotal: l.precio_unitario * l.cantidad })),
     );
     const totalRet = retenciones.reduce((s, r) => s + r.monto, 0);
+    const tieneRet = retenciones.length > 0;
+
+    const pagoBadge = (
+        <span className={`ml-2 rounded px-2 py-0.5 text-[10px] ${modoPago === 'credito' ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
+            {modoPago === 'credito' ? 'CRÉDITO' : pagos.length > 0 ? `CONTADO · ${pagos.length} PAGOS` : 'CONTADO'}
+        </span>
+    );
 
     const monedas = new Set(lineas.map((l) => l.moneda));
     const monedaConflicto = monedas.size > 1;
     const moneda = lineas[0]?.moneda ?? 'mxn';
 
+    // Cada opción cotizada del proveedor para una partida no cubierta es una
+    // entrada agregable: si el proveedor tiene varias opciones, el comprador
+    // elige cuál. Se manda el `cotizacion_precio_id` de la opción elegida.
     const idsEnOc = new Set(lineas.map((l) => l.detalle.id));
-    const partidasAgregables = cobertura
+    const opcionesAgregables = cobertura
         .filter((c) => c.restante > 0.001 && !idsEnOc.has(c.detalle.id))
-        .map((c) => ({ ...c, cot: c.detalle.cotizaciones?.find((x) => x.proveedor_id === proveedorId) }))
-        .filter((c) => c.cot);
+        .flatMap((c) =>
+            (c.detalle.cotizaciones ?? [])
+                .filter((x) => x.proveedor_id === proveedorId)
+                .map((cot) => ({ detalle: c.detalle, restante: c.restante, cot })),
+        );
 
-    const agregarPartida = (detalleId: number) => {
-        const objetivo = partidasAgregables.find((c) => c.detalle.id === detalleId);
-        if (!objetivo?.cot) return;
+    const agregarOpcion = (cotizacionId: number) => {
+        const objetivo = opcionesAgregables.find((c) => c.cot.id === cotizacionId);
+        if (!objetivo) return;
         router.post(
             '/admin/costos/requisiciones/selecciones',
             { cotizacion_precio_id: objetivo.cot.id, cantidad: objetivo.restante, numero_oc: numeroOc },
             { preserveScroll: true, onSuccess: () => { if (!hasLineas) onConverted?.(); } },
         );
     };
+
+    const nombreOpcion = (cot: (typeof opcionesAgregables)[number]['cot']): string =>
+        cot.descripcion || (cot.opcion_id != null ? opcionLabel.get(cot.opcion_id) ?? '' : '');
 
     // ── Pagos múltiples (parcialidades) ──
     const sumaPagos = pagos.reduce((s, p) => s + Number(p.porcentaje || 0), 0);
@@ -407,44 +441,57 @@ function OcCard({
                             key={`${l.seleccion_id}-${l.cantidad}-${l.cotizacion_precio_id}`}
                             linea={l}
                             requisicionDetalleId={l.detalle.id}
-                            proveedorId={proveedorId}
                             editable={editable}
                         />
                     ))
                 )}
 
-                {editable && partidasAgregables.length > 0 && (
+                {editable && opcionesAgregables.length > 0 && (
                     <div className="mt-2">
                         <select
                             className="select select-bordered select-xs w-full max-w-md"
                             value=""
-                            onChange={(e) => { if (e.target.value) agregarPartida(Number(e.target.value)); }}
+                            onChange={(e) => { if (e.target.value) agregarOpcion(Number(e.target.value)); }}
                         >
                             <option value="">+ Agregar partida a esta OC...</option>
-                            {partidasAgregables.map((c) => (
-                                <option key={c.detalle.id} value={c.detalle.id}>
-                                    {c.detalle.descripcion} · faltan {c.restante.toLocaleString('es-MX')} {c.detalle.unidad} · {fmt(Number(c.cot!.precio_unitario))}
-                                </option>
-                            ))}
+                            {opcionesAgregables.map((c) => {
+                                const etq = nombreOpcion(c.cot);
+                                return (
+                                    <option key={c.cot.id} value={c.cot.id}>
+                                        {c.detalle.descripcion}
+                                        {etq ? ` · ${etq}` : ''} · faltan {c.restante.toLocaleString('es-MX')} {c.detalle.unidad} · {fmt(Number(c.cot.precio_unitario))}
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
                 )}
 
-                <div className="mt-2 grid grid-cols-[1fr_90px] gap-2 border-t border-base-200 pt-1 text-xs">
+                <div className="mt-2 grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 border-t border-base-200 pt-2 text-xs">
                     <div className="text-base-content/60">Subtotal</div>
                     <div className="text-right">{fmt(subtotal)}</div>
+
                     <div className="text-base-content/60">IVA (16%)</div>
-                    <div className="text-right">{fmt(iva)}</div>
+                    <div className="text-right">+{fmt(iva)}</div>
+
+                    {/* Total (subtotal + IVA) antes de retenciones. Si no hay
+                        retenciones, este es el total final y lleva el badge. */}
+                    <div className={tieneRet ? 'font-medium' : 'text-sm font-bold'}>Total</div>
+                    <div className={`text-right ${tieneRet ? 'font-medium' : 'text-sm font-bold'}`}>
+                        {fmt(total)}{!tieneRet && pagoBadge}
+                    </div>
+
                     {retenciones.map((r) => (
                         <Fragment key={r.clave}>
                             <div className="text-error/80">Ret. {r.concepto} ({(r.tasa * 100).toFixed(2)}%)</div>
                             <div className="text-right text-error/80">−{fmt(r.monto)}</div>
                         </Fragment>
                     ))}
-                    {retenciones.length > 0 && (
+
+                    {tieneRet && (
                         <>
-                            <div className="font-semibold">Total neto a pagar</div>
-                            <div className="text-right font-semibold">{fmt(total - totalRet)}</div>
+                            <div className="text-sm font-bold">Total neto a pagar</div>
+                            <div className="text-right text-sm font-bold">{fmt(total - totalRet)}{pagoBadge}</div>
                         </>
                     )}
                 </div>
@@ -573,15 +620,6 @@ function OcCard({
                     </div>
                 )}
 
-                <div className="mt-2 flex items-center justify-between border-t border-dashed border-base-200 pt-2 text-sm font-semibold">
-                    <div>Total</div>
-                    <div>
-                        {fmt(total)}{' '}
-                        <span className={`ml-1 rounded px-2 py-0.5 text-[10px] ${modoPago === 'credito' ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'}`}>
-                            {modoPago === 'credito' ? 'CRÉDITO' : pagos.length > 0 ? `CONTADO · ${pagos.length} PAGOS` : 'CONTADO'}
-                        </span>
-                    </div>
-                </div>
             </div>
         </div>
     );
@@ -590,16 +628,14 @@ function OcCard({
 function OcLinea({
     linea,
     requisicionDetalleId,
-    proveedorId,
     editable,
 }: {
     linea: Linea;
     requisicionDetalleId: number;
-    proveedorId: number;
     editable: boolean;
 }) {
     const [cantidad, setCantidad] = useState(String(linea.cantidad));
-    const [codigo, setCodigo] = useState(linea.detalle.cotizaciones?.find((c) => c.proveedor_id === proveedorId)?.codigo_producto ?? '');
+    const [codigo, setCodigo] = useState(linea.codigo_producto ?? '');
 
     const guardarCantidad = () => {
         const c = Number(cantidad);
@@ -608,11 +644,11 @@ function OcLinea({
     };
 
     const guardarCodigo = () => {
-        const cot = linea.detalle.cotizaciones?.find((c) => c.proveedor_id === proveedorId);
-        if (!cot || codigo === (cot.codigo_producto ?? '')) return;
+        // Actualiza el código de la opción exacta seleccionada para esta línea.
+        if (linea.opcion_id == null || codigo === (linea.codigo_producto ?? '')) return;
         router.post(
             '/admin/costos/requisiciones/cotizaciones',
-            { requisicion_detalle_id: requisicionDetalleId, proveedor_id: proveedorId, precio_unitario: linea.precio_unitario, codigo_producto: codigo || null },
+            { requisicion_detalle_id: requisicionDetalleId, opcion_id: linea.opcion_id, precio_unitario: linea.precio_unitario, moneda: linea.moneda, codigo_producto: codigo || null },
             { preserveScroll: true },
         );
     };
@@ -621,11 +657,11 @@ function OcLinea({
 
     return (
         <div className="grid grid-cols-[1fr_70px_90px_90px_30px] items-center gap-2 py-1 text-xs">
-            <div>
-                <div>{linea.detalle.descripcion}</div>
+            <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate" title={linea.detalle.descripcion}>{linea.detalle.descripcion}</span>
                 <input
                     type="text"
-                    className="input input-bordered input-xs mt-1 w-40"
+                    className="input input-bordered input-xs w-40 shrink-0"
                     value={codigo}
                     disabled={!editable}
                     placeholder="Código producto"

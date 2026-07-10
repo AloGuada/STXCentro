@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Costos\Requisicion;
+use App\Models\Costos\RequisicionCotizacionOpcion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Proveedor;
@@ -70,6 +71,26 @@ test('en empate gana el proveedor de id menor', function () {
 
     expect($mejor['id'])->toBe(min($primero->id, $segundo->id));
     expect($mejor['total'])->toBe(500.0);
+});
+
+test('con varias opciones por proveedor el total usa el mínimo por partida', function () {
+    $req = Requisicion::factory()->create();
+    $p1 = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 10]);
+    $p2 = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
+    $prov = Proveedor::factory()->create();
+    $op1 = RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $prov->id, 'orden' => 1]);
+    $op2 = RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $prov->id, 'orden' => 2]);
+
+    // p1: dos opciones (100 y 80) → gana 80 × 10 = 800.
+    RequisicionCotizacionPrecio::factory()->create(['requisicion_detalle_id' => $p1->id, 'proveedor_id' => $prov->id, 'opcion_id' => $op1->id, 'precio_unitario' => 100]);
+    RequisicionCotizacionPrecio::factory()->create(['requisicion_detalle_id' => $p1->id, 'proveedor_id' => $prov->id, 'opcion_id' => $op2->id, 'precio_unitario' => 80]);
+    // p2: una opción (20) → 20 × 5 = 100.
+    RequisicionCotizacionPrecio::factory()->create(['requisicion_detalle_id' => $p2->id, 'proveedor_id' => $prov->id, 'opcion_id' => $op1->id, 'precio_unitario' => 20]);
+
+    $mejor = $this->buscador->buscar($req->refresh());
+
+    expect($mejor['id'])->toBe($prov->id);
+    expect($mejor['total'])->toBe(900.0); // 800 + 100, no la suma de todas las opciones
 });
 
 test('devuelve null cuando la requisicion no tiene partidas', function () {
