@@ -1258,8 +1258,10 @@ export default function AppDrawerLayout({ children, breadcrumbs = [] }: Props) {
                 className="drawer-toggle"
             />
 
-            {/* Contenido principal */}
-            <div className="drawer-content flex flex-col">
+            {/* Contenido principal. `min-w-0` permite que la columna del drawer
+                se encoja para que las tablas anchas scrolleen en su propio
+                contenedor (overflow-x-auto) en vez de ensanchar la página. */}
+            <div className="drawer-content flex min-w-0 flex-col">
                 {/* Header móvil */}
                 <header className="navbar border-b border-base-300 bg-base-100 lg:hidden">
                     <div className="flex-none">
