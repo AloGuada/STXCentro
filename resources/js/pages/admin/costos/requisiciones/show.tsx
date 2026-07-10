@@ -126,14 +126,14 @@ function EnviarAprobacionModal({
     requisicionId,
     tieneOc,
     cotizacionCompleta,
-    partidasSinCotizar,
+    empresasCotizando,
     minEmpresas,
     onClose,
 }: {
     requisicionId: number;
     tieneOc: boolean;
     cotizacionCompleta: boolean;
-    partidasSinCotizar: string[];
+    empresasCotizando: number;
     minEmpresas: number;
     onClose: () => void;
 }) {
@@ -171,15 +171,9 @@ function EnviarAprobacionModal({
                             <AlertTriangleIcon className="size-5" /> Cotización incompleta
                         </h2>
                         <p className="mt-3 text-sm text-base-content/70">
-                            Toda cotización debe comparar al menos <strong>{minEmpresas} empresas</strong>.
-                            Ve a la pestaña <strong>Cotización</strong> y agrega proveedores a las
-                            siguientes partidas:
+                            La cotización debe comparar al menos <strong>{minEmpresas} proveedores</strong> (tiene <strong>{empresasCotizando}</strong>).
+                            Ve a la pestaña <strong>Cotización</strong> y agrega más proveedores.
                         </p>
-                        <ul className="mt-2 list-inside list-disc text-sm text-error">
-                            {partidasSinCotizar.map((descripcion, idx) => (
-                                <li key={idx}>{descripcion}</li>
-                            ))}
-                        </ul>
                         <div className="modal-action">
                             <button type="button" className="btn" onClick={onClose}>
                                 Entendido
@@ -494,10 +488,12 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
     const tieneOcDefinida = (requisicion.ocs?.length ?? 0) > 0;
 
     const MIN_EMPRESAS_COTIZACION = 3;
-    const partidasSinCotizar = (requisicion.detalles ?? [])
-        .filter((d) => new Set((d.cotizaciones ?? []).map((c) => c.proveedor_id)).size < MIN_EMPRESAS_COTIZACION)
-        .map((d) => d.descripcion);
-    const cotizacionCompleta = partidasSinCotizar.length === 0;
+    // La cotización se compara a nivel requisición: basta con tener al menos
+    // MIN_EMPRESAS_COTIZACION proveedores distintos en total (no por partida).
+    const empresasCotizando = new Set(
+        (requisicion.detalles ?? []).flatMap((d) => (d.cotizaciones ?? []).map((c) => c.proveedor_id)),
+    ).size;
+    const cotizacionCompleta = empresasCotizando >= MIN_EMPRESAS_COTIZACION;
 
     // Total neto a pagar cuando ya hay OC(s) definidas: agrupa las selecciones
     // por (proveedor, OC), calcula retenciones por grupo (espeja el OcBuilder) y
@@ -669,28 +665,6 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
 
                 {tab === 'datos' && (
                     <div className="rounded-lg border border-base-300 p-4">
-                        {resumenNeto && (
-                            <div className="mb-4 rounded-lg border border-base-300 bg-base-200/40 p-4">
-                                <h3 className="mb-2 text-xs tracking-wider text-base-content/60 uppercase">Total de las órdenes de compra</h3>
-                                <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm md:max-w-sm">
-                                    <div className="text-base-content/60">Subtotal</div>
-                                    <div className="text-right">{fmtMoney(resumenNeto.subtotal)}</div>
-                                    <div className="text-base-content/60">IVA (16%)</div>
-                                    <div className="text-right">+{fmtMoney(resumenNeto.iva)}</div>
-                                    <div className="font-medium">Total</div>
-                                    <div className="text-right font-medium">{fmtMoney(resumenNeto.total)}</div>
-                                    {resumenNeto.ret > 0 && (
-                                        <>
-                                            <div className="text-error/80">Retenciones</div>
-                                            <div className="text-right text-error/80">−{fmtMoney(resumenNeto.ret)}</div>
-                                        </>
-                                    )}
-                                    <div className="text-base font-bold">Total neto a pagar</div>
-                                    <div className="text-right text-base font-bold text-primary">{fmtMoney(resumenNeto.neto)}</div>
-                                </div>
-                            </div>
-                        )}
-
                         {requisicion.justificacion && (
                             <div className="mb-4">
                                 <div className="text-xs text-base-content/60">Justificación</div>
@@ -759,6 +733,28 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                         </div>
 
                         <ComparativoCotizaciones requisicion={requisicion} />
+
+                        {resumenNeto && (
+                            <div className="mt-4 rounded-lg border border-base-300 bg-base-200/40 p-4">
+                                <h3 className="mb-2 text-xs tracking-wider text-base-content/60 uppercase">Total de las órdenes de compra</h3>
+                                <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm md:max-w-sm">
+                                    <div className="text-base-content/60">Subtotal</div>
+                                    <div className="text-right">{fmtMoney(resumenNeto.subtotal)}</div>
+                                    <div className="text-base-content/60">IVA (16%)</div>
+                                    <div className="text-right">+{fmtMoney(resumenNeto.iva)}</div>
+                                    <div className="font-medium">Total</div>
+                                    <div className="text-right font-medium">{fmtMoney(resumenNeto.total)}</div>
+                                    {resumenNeto.ret > 0 && (
+                                        <>
+                                            <div className="text-error/80">Retenciones</div>
+                                            <div className="text-right text-error/80">−{fmtMoney(resumenNeto.ret)}</div>
+                                        </>
+                                    )}
+                                    <div className="text-base font-bold">Total neto a pagar</div>
+                                    <div className="text-right text-base font-bold text-primary">{fmtMoney(resumenNeto.neto)}</div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -876,7 +872,7 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                         requisicionId={requisicion.id}
                         tieneOc={tieneOcDefinida}
                         cotizacionCompleta={cotizacionCompleta}
-                        partidasSinCotizar={partidasSinCotizar}
+                        empresasCotizando={empresasCotizando}
                         minEmpresas={MIN_EMPRESAS_COTIZACION}
                         onClose={() => setEnviarAprobacion(false)}
                     />
