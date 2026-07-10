@@ -474,13 +474,13 @@ test('no puede enviar a aprobacion sin selecciones completas', function () {
         ->assertSessionHasErrors(['selecciones']);
 });
 
-test('no puede enviar a aprobacion si una partida tiene menos de 3 empresas cotizadas', function () {
+test('no puede enviar a aprobacion con menos de 3 proveedores en la cotización', function () {
     $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 5,
     ]);
-    // Solo 2 empresas cotizantes: no alcanza el mínimo de 3.
+    // Solo 2 proveedores distintos en toda la requisición: no alcanza el mínimo de 3.
     $precios = RequisicionCotizacionPrecio::factory()->count(2)->create([
         'requisicion_detalle_id' => $detalle->id,
     ]);
@@ -497,6 +497,24 @@ test('no puede enviar a aprobacion si una partida tiene menos de 3 empresas coti
         ->assertSessionHasErrors(['cotizaciones']);
 
     expect($req->fresh()->estatus->value)->toBe('cotizada');
+});
+
+test('3 proveedores en total bastan aunque una partida tenga uno solo', function () {
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+
+    // 3 partidas, cada una cotizada por un proveedor distinto → 3 proveedores
+    // en total, aunque ninguna partida tenga 3. Sin selecciones aún.
+    RequisicionDetalle::factory()->count(3)->create(['requisicion_id' => $req->id, 'cantidad' => 5])
+        ->each(fn ($detalle) => RequisicionCotizacionPrecio::factory()->create([
+            'requisicion_detalle_id' => $detalle->id,
+        ]));
+
+    // El gate de proveedores ya pasa (3 distintos); la siguiente falla es por
+    // selecciones incompletas, no por cotización.
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/enviar-aprobacion")
+        ->assertSessionHasErrors(['selecciones'])
+        ->assertSessionDoesntHaveErrors(['cotizaciones']);
 });
 
 test('no puede enviar a aprobacion sin una OC definida', function () {
@@ -534,6 +552,11 @@ test('no puede enviar a aprobacion si una partida no tiene rubro asignado', func
         'cantidad' => 5,
     ]);
     $precio = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+    ]);
+    // 3 proveedores en total para pasar el gate de empresas y llegar al chequeo
+    // de centro de costos.
+    RequisicionCotizacionPrecio::factory()->count(2)->create([
         'requisicion_detalle_id' => $detalle->id,
     ]);
     RequisicionSeleccion::factory()->create([

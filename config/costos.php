@@ -101,12 +101,12 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Mínimo de empresas cotizantes por partida
+    | Mínimo de proveedores en la cotización
     |--------------------------------------------------------------------------
     |
-    | Número mínimo de empresas (proveedores) que deben haber cotizado cada
-    | partida de una requisición antes de poder enviarla a aprobación. Regla
-    | de compras: toda cotización debe tener al menos 3 empresas comparadas.
+    | Número mínimo de proveedores (empresas) distintos que deben haber cotizado
+    | en la requisición —en total, no por partida— antes de poder enviarla a
+    | aprobación. Regla de compras: comparar al menos 3 proveedores.
     |
     */
     'min_empresas_cotizacion' => (int) env('COSTOS_MIN_EMPRESAS_COTIZACION', 3),

@@ -678,6 +678,20 @@ class RequisicionController extends Controller
 
         $minEmpresas = (int) config('costos.min_empresas_cotizacion', 3);
 
+        // La cotización debe comparar al menos N proveedores en total (no por
+        // partida): basta con tener N empresas distintas en toda la requisición.
+        $empresasTotal = $requisicion->detalles
+            ->flatMap->cotizaciones
+            ->pluck('proveedor_id')
+            ->unique()
+            ->count();
+
+        if ($empresasTotal < $minEmpresas) {
+            return back()->withErrors([
+                'cotizaciones' => "La cotización debe comparar al menos {$minEmpresas} proveedores (tiene {$empresasTotal}).",
+            ]);
+        }
+
         foreach ($requisicion->detalles as $detalle) {
             if (empty($detalle->uso_cfdi_id)) {
                 return back()->withErrors([
@@ -688,14 +702,6 @@ class RequisicionController extends Controller
             if (empty($detalle->obra_rubro_id)) {
                 return back()->withErrors([
                     'detalles' => "La partida \"{$detalle->descripcion}\" no tiene centro de costos asignado.",
-                ]);
-            }
-
-            $empresasCotizadas = $detalle->cotizaciones->pluck('proveedor_id')->unique()->count();
-
-            if ($empresasCotizadas < $minEmpresas) {
-                return back()->withErrors([
-                    'cotizaciones' => "La partida \"{$detalle->descripcion}\" debe tener cotización de al menos {$minEmpresas} empresas (tiene {$empresasCotizadas}).",
                 ]);
             }
 
