@@ -1,17 +1,18 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { AlertTriangleIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
 import { OcBuilder } from '@/components/costos/oc-builder';
+import { calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
 import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { SharedData } from '@/types';
-import type { CostosRequisicion, CostosUsoCfdi, ObraRubroOption, Proveedor } from '@/types/models';
+import type { CostosRequisicion, CostosTipoFiscalPartida, CostosUsoCfdi, ObraRubroOption, Proveedor } from '@/types/models';
 import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 
 type Alternativa = {
@@ -227,9 +228,9 @@ function PuntoControlModal({
     return (
         <dialog className="modal modal-open">
             <div className="modal-box">
-                <h2 className="text-xl font-bold">Marcar punto de control</h2>
+                <h2 className="text-xl font-bold">Verificación gerencial</h2>
                 <p className="mt-3 text-sm text-base-content/70">
-                    ¿Estás seguro? Al marcar el punto de control confirmas que la cotización
+                    ¿Estás seguro? Al marcar la verificación gerencial confirmas que la cotización
                     fue revisada y habilitas el botón de <strong>enviar a aprobación</strong>.
                 </p>
                 <div className="modal-action">
@@ -498,6 +499,34 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
         .map((d) => d.descripcion);
     const cotizacionCompleta = partidasSinCotizar.length === 0;
 
+    // Total neto a pagar cuando ya hay OC(s) definidas: agrupa las selecciones
+    // por (proveedor, OC), calcula retenciones por grupo (espeja el OcBuilder) y
+    // suma el neto de todas.
+    const resumenNeto = useMemo(() => {
+        const provMap = new Map(proveedores.map((p) => [p.id, p]));
+        const grupos = new Map<string, { proveedorId: number; lines: { tipo_fiscal: CostosTipoFiscalPartida; subtotal: number }[] }>();
+        (requisicion.detalles ?? []).forEach((d) => {
+            (d.selecciones ?? []).forEach((s) => {
+                const key = `${s.proveedor_id}|${s.numero_oc ?? 1}`;
+                const sub = Number(s.cotizacion_precio?.precio_unitario ?? 0) * Number(s.cantidad);
+                const g = grupos.get(key) ?? { proveedorId: s.proveedor_id, lines: [] };
+                g.lines.push({ tipo_fiscal: d.tipo_fiscal, subtotal: sub });
+                grupos.set(key, g);
+            });
+        });
+        if (grupos.size === 0) return null;
+        let subtotal = 0;
+        let ret = 0;
+        grupos.forEach((g) => {
+            subtotal += g.lines.reduce((a, l) => a + l.subtotal, 0);
+            ret += calcularRetenciones(provMap.get(g.proveedorId), g.lines).reduce((a, r) => a + r.monto, 0);
+        });
+        const iva = subtotal * IVA_RATE;
+        return { subtotal, iva, ret, total: subtotal + iva, neto: subtotal + iva - ret };
+    }, [requisicion.detalles, proveedores]);
+
+    const fmtMoney = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={requisicion.folio} />
@@ -548,14 +577,14 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                                 {requisicion.control_verificado ? (
                                     <span
                                         className="badge badge-success gap-1 py-3"
-                                        title={requisicion.controlador ? `Punto de control: ${requisicion.controlador.name}` : 'Punto de control marcado'}
+                                        title={requisicion.controlador ? `Verificación gerencial: ${requisicion.controlador.name}` : 'Verificación gerencial marcada'}
                                     >
-                                        ✓ Punto de control
+                                        ✓ Verificación gerencial
                                     </span>
                                 ) : (
                                     can('costos.requisiciones.control') && (
                                         <Button variant="outline" onClick={() => setMarcandoControl(true)}>
-                                            Marcar punto de control
+                                            Marcar verificación gerencial
                                         </Button>
                                     )
                                 )}
@@ -565,12 +594,12 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                                         variant="outline"
                                         className="text-error"
                                         onClick={() => {
-                                            if (confirm('¿Quitar el punto de control? Deshabilitará el envío a aprobación.')) {
+                                            if (confirm('¿Quitar la verificación gerencial? Deshabilitará el envío a aprobación.')) {
                                                 router.delete(`/admin/costos/requisiciones/${requisicion.id}/punto-control`, { preserveScroll: true });
                                             }
                                         }}
                                     >
-                                        Quitar control
+                                        Quitar verificación
                                     </Button>
                                 )}
 
@@ -578,7 +607,7 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                                     <Button
                                         onClick={() => setEnviarAprobacion(true)}
                                         disabled={!requisicion.control_verificado}
-                                        title={!requisicion.control_verificado ? 'Falta marcar el punto de control' : undefined}
+                                        title={!requisicion.control_verificado ? 'Falta la verificación gerencial' : undefined}
                                     >
                                         Enviar a aprobación
                                     </Button>
@@ -616,7 +645,7 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
 
                 <div role="tablist" className="tabs tabs-bordered mb-4">
                     <button role="tab" className={`tab ${tab === 'datos' ? 'tab-active' : ''}`} onClick={() => setTab('datos')}>
-                        Datos
+                        Resumen
                     </button>
                     {can('costos.requisiciones.cotizar') && (
                         <button role="tab" className={`tab ${tab === 'cotizacion' ? 'tab-active' : ''}`} onClick={() => setTab('cotizacion')}>
@@ -640,6 +669,28 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
 
                 {tab === 'datos' && (
                     <div className="rounded-lg border border-base-300 p-4">
+                        {resumenNeto && (
+                            <div className="mb-4 rounded-lg border border-base-300 bg-base-200/40 p-4">
+                                <h3 className="mb-2 text-xs tracking-wider text-base-content/60 uppercase">Total de las órdenes de compra</h3>
+                                <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm md:max-w-sm">
+                                    <div className="text-base-content/60">Subtotal</div>
+                                    <div className="text-right">{fmtMoney(resumenNeto.subtotal)}</div>
+                                    <div className="text-base-content/60">IVA (16%)</div>
+                                    <div className="text-right">+{fmtMoney(resumenNeto.iva)}</div>
+                                    <div className="font-medium">Total</div>
+                                    <div className="text-right font-medium">{fmtMoney(resumenNeto.total)}</div>
+                                    {resumenNeto.ret > 0 && (
+                                        <>
+                                            <div className="text-error/80">Retenciones</div>
+                                            <div className="text-right text-error/80">−{fmtMoney(resumenNeto.ret)}</div>
+                                        </>
+                                    )}
+                                    <div className="text-base font-bold">Total neto a pagar</div>
+                                    <div className="text-right text-base font-bold text-primary">{fmtMoney(resumenNeto.neto)}</div>
+                                </div>
+                            </div>
+                        )}
+
                         {requisicion.justificacion && (
                             <div className="mb-4">
                                 <div className="text-xs text-base-content/60">Justificación</div>
