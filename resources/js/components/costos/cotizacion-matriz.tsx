@@ -26,6 +26,17 @@ const fmt = (n: number) =>
 const etiquetaOpcion = (o: CostosRequisicionCotizacionOpcion) =>
     o.etiqueta || `Opción ${o.orden}`;
 
+// Columnas fijas (no scrollean en horizontal). Los `left-*` son acumulativos
+// según el ancho de las columnas previas (48=12rem, 24=6rem, 16=4rem → 22rem).
+// Requieren fondo opaco (bg-base-100 / bg-base-200 en la fila total) para que
+// el contenido scrolleado no se transparente debajo.
+const COL_FIJA = {
+    partida: 'sticky left-0 w-48 min-w-48',
+    codigo: 'sticky left-48 w-24 min-w-24',
+    req: 'sticky left-72 w-16 min-w-16',
+    tipo: 'sticky left-[22rem] w-36 min-w-36 border-r border-base-300',
+};
+
 /**
  * Matriz de cotización: filas = partidas, columnas = OPCIONES de proveedor. Un
  * proveedor puede tener varias columnas-opción (ej. distintas marcas). Cada
@@ -240,10 +251,10 @@ export function CotizacionMatriz({
                     <table className="table table-xs [&_td]:align-top">
                         <thead>
                             <tr>
-                                <th rowSpan={2} className="min-w-48">Partida</th>
-                                <th rowSpan={2} className="min-w-28">Código</th>
-                                <th rowSpan={2} className="text-right">Req.</th>
-                                <th rowSpan={2} className="min-w-36">Tipo fiscal</th>
+                                <th rowSpan={2} className={`${COL_FIJA.partida} z-20 bg-base-100`}>Partida</th>
+                                <th rowSpan={2} className={`${COL_FIJA.codigo} z-20 bg-base-100`}>Código</th>
+                                <th rowSpan={2} className={`${COL_FIJA.req} z-20 bg-base-100 text-right`}>Req.</th>
+                                <th rowSpan={2} className={`${COL_FIJA.tipo} z-20 bg-base-100`}>Tipo fiscal</th>
                                 {grupos.map((g) => (
                                     <th
                                         key={g.proveedorId}
@@ -313,10 +324,10 @@ export function CotizacionMatriz({
                                             puedeQuitar={puedeEditarPartidas}
                                             onQuitar={() => quitarPartida(d.id, d.descripcion)}
                                         />
-                                        <td className="text-right">
-                                            {Number(d.cantidad).toLocaleString('es-MX')}
+                                        <td className={`${COL_FIJA.req} z-10 bg-base-100 text-right`}>
+                                            {Number(d.cantidad).toLocaleString('es-MX')} {d.unidad}
                                         </td>
-                                        <td>
+                                        <td className={`${COL_FIJA.tipo} z-10 bg-base-100`}>
                                             <TipoFiscalSelect detalle={d} editable={editable} />
                                         </td>
                                         {columnas.map(({ op }) => {
@@ -343,10 +354,10 @@ export function CotizacionMatriz({
                             })}
                             {columnas.length > 0 && (
                                 <tr className="bg-base-200/50">
-                                    <td className="font-semibold">Total si todo a uno</td>
-                                    <td />
-                                    <td />
-                                    <td />
+                                    <td className={`${COL_FIJA.partida} z-10 bg-base-200 font-semibold`}>Total si todo a uno</td>
+                                    <td className={`${COL_FIJA.codigo} z-10 bg-base-200`} />
+                                    <td className={`${COL_FIJA.req} z-10 bg-base-200`} />
+                                    <td className={`${COL_FIJA.tipo} z-10 bg-base-200`} />
                                     {columnas.map(({ op }) => {
                                         const t = totalesPorOpcion[op.id];
                                         const isMin = t > 0 && t === totalMin;
@@ -365,7 +376,7 @@ export function CotizacionMatriz({
                         {columnas.length > 0 && (
                             <tfoot>
                                 <tr>
-                                    <td colSpan={4} className="text-xs font-medium text-base-content/60">
+                                    <td colSpan={4} className="sticky left-0 z-10 bg-base-100 text-xs font-medium text-base-content/60">
                                         Días de envío
                                     </td>
                                     {columnas.map(({ op }) => (
@@ -437,10 +448,10 @@ function EtiquetaOpcion({
     };
 
     return (
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex w-full items-center gap-1">
             <input
                 type="text"
-                className="input-bordered input input-xs w-24 text-right"
+                className="input-bordered input input-xs w-full"
                 value={valor}
                 placeholder={`Opción ${opcion.orden}`}
                 onChange={(e) => setValor(e.target.value)}
@@ -603,18 +614,13 @@ function ProductoCelda({
     if (!detalle.producto_id || !editable) {
         return (
             <>
-                <td>
+                <td className={`${COL_FIJA.partida} z-10 bg-base-100`}>
                     <div className="flex items-start justify-between gap-1">
-                        <div>
-                            <div className="font-medium">{detalle.descripcion}</div>
-                            <div className="text-[10px] text-base-content/50">
-                                {detalle.unidad}
-                            </div>
-                        </div>
+                        <div className="font-medium">{detalle.descripcion}</div>
                         {botonQuitar}
                     </div>
                 </td>
-                <td className="text-[10px] text-base-content/50">
+                <td className={`${COL_FIJA.codigo} z-10 bg-base-100 text-[10px] text-base-content/50`}>
                     {detalle.codigo_producto ?? '—'}
                 </td>
             </>
@@ -637,7 +643,7 @@ function ProductoCelda({
 
     return (
         <>
-            <td>
+            <td className={`${COL_FIJA.partida} z-10 bg-base-100`}>
                 <div className="flex items-start gap-1">
                     <input
                         type="text"
@@ -649,11 +655,8 @@ function ProductoCelda({
                     />
                     {botonQuitar}
                 </div>
-                <div className="mt-1 text-[10px] text-base-content/50">
-                    {detalle.unidad}
-                </div>
             </td>
-            <td>
+            <td className={`${COL_FIJA.codigo} z-10 bg-base-100`}>
                 <input
                     type="text"
                     className="input-bordered input input-xs w-full"
