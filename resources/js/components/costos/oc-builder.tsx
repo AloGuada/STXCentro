@@ -21,6 +21,10 @@ const fmt = (n: number) =>
 
 const groupKey = (proveedorId: number, numeroOc: number) => `${proveedorId}|${numeroOc}`;
 
+// Muestra razón social + nombre comercial (si existe) para identificar al proveedor.
+const labelProveedor = (p?: ProveedorMin) =>
+    p ? (p.nombre_comercial ? `${p.razon_social} · ${p.nombre_comercial}` : p.razon_social) : '';
+
 type Linea = {
     seleccion_id: number;
     detalle: CostosRequisicionDetalle;
@@ -254,7 +258,7 @@ function OcCard({
                     >
                         <option value="">Elige el proveedor...</option>
                         {proveedoresCotizadores.map((p) => (
-                            <option key={p.id} value={p.id}>{p.razon_social}</option>
+                            <option key={p.id} value={p.id}>{labelProveedor(p)}</option>
                         ))}
                     </select>
                     {editable && onRemoveDraft && (
@@ -366,7 +370,7 @@ function OcCard({
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-base-300 bg-base-200/40 px-3 py-2">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                     {hasLineas || !editable ? (
-                        <span>{proveedor?.razon_social ?? `#${proveedorId}`}</span>
+                        <span>{proveedor ? labelProveedor(proveedor) : `#${proveedorId}`}</span>
                     ) : (
                         <select
                             className="select select-bordered select-xs w-56"
@@ -374,7 +378,7 @@ function OcCard({
                             onChange={(e) => onPickProveedor?.(e.target.value ? Number(e.target.value) : null)}
                         >
                             {proveedoresCotizadores.map((p) => (
-                                <option key={p.id} value={p.id}>{p.razon_social}</option>
+                                <option key={p.id} value={p.id}>{labelProveedor(p)}</option>
                             ))}
                         </select>
                     )}
