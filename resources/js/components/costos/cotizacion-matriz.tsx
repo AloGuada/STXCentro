@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
-import { FileTextIcon, PlusIcon, XIcon } from 'lucide-react';
+import { FileTextIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
+import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
 import type {
     CostosRequisicion,
@@ -9,9 +10,13 @@ import type {
     CostosRequisicionDetalle,
     CostosTipoFiscalPartida,
     CostosTipoMoneda,
+    CostosUsoCfdi,
+    ObraRubroOption,
     Proveedor,
 } from '@/types/models';
 import { TIPO_MONEDA_LABELS } from '@/types/models';
+
+type UsoCfdiMin = Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>;
 
 type ProveedorMin = Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>;
 
@@ -32,11 +37,17 @@ const etiquetaOpcion = (o: CostosRequisicionCotizacionOpcion) =>
 export function CotizacionMatriz({
     requisicion,
     proveedores,
+    obraRubros,
+    usosCfdi,
     editable,
+    puedeEditarPartidas,
 }: {
     requisicion: CostosRequisicion;
     proveedores: ProveedorMin[];
+    obraRubros: ObraRubroOption[];
+    usosCfdi: UsoCfdiMin[];
     editable: boolean;
+    puedeEditarPartidas: boolean;
 }) {
     const detalles = useMemo(
         () => requisicion.detalles ?? [],
@@ -116,6 +127,19 @@ export function CotizacionMatriz({
             return;
         }
         router.delete(`/admin/costos/requisiciones/opciones/${opcionId}`, {
+            preserveScroll: true,
+        });
+    };
+
+    const quitarPartida = (detalleId: number, descripcion: string) => {
+        if (
+            !confirm(
+                `¿Quitar la partida "${descripcion}"? Se borrarán sus cotizaciones y selecciones.`,
+            )
+        ) {
+            return;
+        }
+        router.delete(`/admin/costos/requisiciones/detalles/${detalleId}`, {
             preserveScroll: true,
         });
     };
@@ -286,6 +310,8 @@ export function CotizacionMatriz({
                                             key={`${d.id}-${d.descripcion}-${d.codigo_producto ?? ''}`}
                                             detalle={d}
                                             editable={editable}
+                                            puedeQuitar={puedeEditarPartidas}
+                                            onQuitar={() => quitarPartida(d.id, d.descripcion)}
                                         />
                                         <td className="text-right">
                                             {Number(d.cantidad).toLocaleString('es-MX')}
@@ -359,6 +385,15 @@ export function CotizacionMatriz({
                     </table>
                 </div>
             </div>
+
+            {puedeEditarPartidas && (
+                <AgregarPartida
+                    requisicionId={requisicion.id}
+                    presupuestoId={requisicion.presupuesto_id}
+                    obraRubros={obraRubros}
+                    usosCfdi={usosCfdi}
+                />
+            )}
 
             <DocumentosCotizacion
                 requisicion={requisicion}
@@ -542,21 +577,41 @@ function DocumentosCotizacion({
 function ProductoCelda({
     detalle,
     editable,
+    puedeQuitar,
+    onQuitar,
 }: {
     detalle: CostosRequisicionDetalle;
     editable: boolean;
+    puedeQuitar: boolean;
+    onQuitar: () => void;
 }) {
     const [descripcion, setDescripcion] = useState(detalle.descripcion);
     const [codigo, setCodigo] = useState(detalle.codigo_producto ?? '');
+
+    const botonQuitar = puedeQuitar ? (
+        <button
+            type="button"
+            className="btn px-1 text-error btn-ghost btn-xs"
+            title="Quitar partida"
+            onClick={onQuitar}
+        >
+            <Trash2Icon className="size-3" />
+        </button>
+    ) : null;
 
     // Sin producto del catálogo (partidas históricas) o no editable: solo lectura.
     if (!detalle.producto_id || !editable) {
         return (
             <>
                 <td>
-                    <div className="font-medium">{detalle.descripcion}</div>
-                    <div className="text-[10px] text-base-content/50">
-                        {detalle.unidad}
+                    <div className="flex items-start justify-between gap-1">
+                        <div>
+                            <div className="font-medium">{detalle.descripcion}</div>
+                            <div className="text-[10px] text-base-content/50">
+                                {detalle.unidad}
+                            </div>
+                        </div>
+                        {botonQuitar}
                     </div>
                 </td>
                 <td className="text-[10px] text-base-content/50">
@@ -583,14 +638,17 @@ function ProductoCelda({
     return (
         <>
             <td>
-                <input
-                    type="text"
-                    className="input-bordered input input-xs w-full font-medium"
-                    value={descripcion}
-                    onChange={(e) => setDescripcion(e.target.value)}
-                    onBlur={guardar}
-                    title="Descripción del producto (catálogo)"
-                />
+                <div className="flex items-start gap-1">
+                    <input
+                        type="text"
+                        className="input-bordered input input-xs w-full font-medium"
+                        value={descripcion}
+                        onChange={(e) => setDescripcion(e.target.value)}
+                        onBlur={guardar}
+                        title="Descripción del producto (catálogo)"
+                    />
+                    {botonQuitar}
+                </div>
                 <div className="mt-1 text-[10px] text-base-content/50">
                     {detalle.unidad}
                 </div>
@@ -791,6 +849,145 @@ function CeldaCotizacion({
                     <option value="usd">USD</option>
                     <option value="eur">EUR</option>
                 </select>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Alta rápida de una partida (renglón) desde el tab de cotización. Captura los
+ * campos mínimos para poder liberar después: descripción, unidad, cantidad,
+ * centro de costos y uso de CFDI.
+ */
+function AgregarPartida({
+    requisicionId,
+    presupuestoId,
+    obraRubros,
+    usosCfdi,
+}: {
+    requisicionId: number;
+    presupuestoId: number | null;
+    obraRubros: ObraRubroOption[];
+    usosCfdi: UsoCfdiMin[];
+}) {
+    const defaultUsoId = usosCfdi.find((u) => u.clave === 'G01')?.id ?? '';
+    const rubrosDisponibles = presupuestoId
+        ? obraRubros.filter((r) => r.presupuesto_id === presupuestoId)
+        : obraRubros;
+
+    const [abierto, setAbierto] = useState(false);
+    const [descripcion, setDescripcion] = useState('');
+    const [unidad, setUnidad] = useState('pza');
+    const [cantidad, setCantidad] = useState('1');
+    const [obraRubroId, setObraRubroId] = useState<number | ''>('');
+    const [usoCfdiId, setUsoCfdiId] = useState<number | ''>(defaultUsoId);
+    const [guardando, setGuardando] = useState(false);
+
+    const valido = descripcion.trim() !== '' && Number(cantidad) > 0 && obraRubroId !== '' && usoCfdiId !== '';
+
+    const reset = () => {
+        setDescripcion('');
+        setUnidad('pza');
+        setCantidad('1');
+        setObraRubroId('');
+        setUsoCfdiId(defaultUsoId);
+    };
+
+    const guardar = () => {
+        if (!valido) return;
+        setGuardando(true);
+        router.post(
+            `/admin/costos/requisiciones/${requisicionId}/detalles`,
+            {
+                descripcion: descripcion.trim(),
+                unidad: unidad.trim() || 'pza',
+                cantidad: Number(cantidad),
+                obra_rubro_id: obraRubroId,
+                uso_cfdi_id: usoCfdiId,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => reset(),
+                onFinish: () => setGuardando(false),
+            },
+        );
+    };
+
+    if (!abierto) {
+        return (
+            <div>
+                <Button variant="outline" onClick={() => setAbierto(true)}>
+                    <PlusIcon className="size-3" /> Agregar partida
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="rounded-lg border border-base-300 p-3">
+            <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-xs tracking-wider text-base-content/60 uppercase">
+                    Nueva partida
+                </h3>
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => { setAbierto(false); reset(); }}>
+                    Cerrar
+                </button>
+            </div>
+            <div className="grid gap-2 md:grid-cols-[1fr_80px_80px]">
+                <div>
+                    <label className="text-[10px] uppercase tracking-wider text-base-content/60">Descripción</label>
+                    <input
+                        type="text"
+                        className="input-bordered input input-sm w-full"
+                        value={descripcion}
+                        onChange={(e) => setDescripcion(e.target.value)}
+                        placeholder="Ej. Cemento gris 50kg"
+                    />
+                </div>
+                <div>
+                    <label className="text-[10px] uppercase tracking-wider text-base-content/60">Unidad</label>
+                    <input
+                        type="text"
+                        className="input-bordered input input-sm w-full"
+                        value={unidad}
+                        onChange={(e) => setUnidad(e.target.value)}
+                    />
+                </div>
+                <div>
+                    <label className="text-[10px] uppercase tracking-wider text-base-content/60">Cantidad</label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        className="input-bordered input input-sm w-full text-right"
+                        value={cantidad}
+                        onChange={(e) => setCantidad(e.target.value)}
+                    />
+                </div>
+            </div>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+                <div>
+                    <label className="text-[10px] uppercase tracking-wider text-base-content/60">Centro de costos</label>
+                    <RubroSelector value={obraRubroId} options={rubrosDisponibles} onChange={setObraRubroId} />
+                </div>
+                <div>
+                    <label className="text-[10px] uppercase tracking-wider text-base-content/60">Uso de CFDI</label>
+                    <select
+                        className="select-bordered select w-full select-sm"
+                        value={usoCfdiId}
+                        onChange={(e) => setUsoCfdiId(e.target.value ? Number(e.target.value) : '')}
+                    >
+                        <option value="">Selecciona...</option>
+                        {usosCfdi.map((u) => (
+                            <option key={u.id} value={u.id}>{u.clave} - {u.descripcion}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+            <div className="mt-3 flex justify-end">
+                <Button onClick={guardar} disabled={!valido || guardando}>
+                    <PlusIcon className="size-3" /> Agregar partida
+                </Button>
             </div>
         </div>
     );

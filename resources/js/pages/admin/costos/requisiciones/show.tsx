@@ -11,7 +11,7 @@ import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { SharedData } from '@/types';
-import type { CostosRequisicion, Proveedor } from '@/types/models';
+import type { CostosRequisicion, CostosUsoCfdi, ObraRubroOption, Proveedor } from '@/types/models';
 import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 
 type Alternativa = {
@@ -47,7 +47,8 @@ type ProveedorPorValidar = {
 type Props = {
     requisicion: CostosRequisicion;
     proveedores: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial' | 'maneja_credito' | 'tipo_persona' | 'regimen_fiscal'>[];
-    obraRubros: Array<{ id: number; label: string }>;
+    obraRubros: ObraRubroOption[];
+    usosCfdi: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>[];
     aprobacionPendienteId: number | null;
     esUltimoNivel: boolean;
     proveedoresPorValidar: ProveedorPorValidar[];
@@ -430,7 +431,7 @@ function ValidacionProveedoresModal({
     );
 }
 
-export default function RequisicionesShow({ requisicion, proveedores, aprobacionPendienteId, esUltimoNivel, proveedoresPorValidar }: Props) {
+export default function RequisicionesShow({ requisicion, proveedores, obraRubros, usosCfdi, aprobacionPendienteId, esUltimoNivel, proveedoresPorValidar }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/requisiciones' },
@@ -638,7 +639,10 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
                     <CotizacionMatriz
                         requisicion={requisicion}
                         proveedores={proveedores}
+                        obraRubros={obraRubros}
+                        usosCfdi={usosCfdi}
                         editable={cotizable}
+                        puedeEditarPartidas={['borrador', 'cotizada', 'rechazada'].includes(requisicion.estatus)}
                     />
                 )}
 

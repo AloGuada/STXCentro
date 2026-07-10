@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Costos;
 use App\Enums\Costos\RequisicionEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\RequisicionCotizacionPrecioStoreRequest;
+use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Producto;
 use App\Models\Costos\ProductoPrecio;
 use App\Models\Costos\Requisicion;
@@ -19,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 /**
  * Maneja la matriz de precio comparativo de la requisicion: por cada
@@ -168,6 +170,69 @@ class RequisicionCotizacionController extends Controller
         $detalle->update(['tipo_fiscal' => $validated['tipo_fiscal']]);
 
         return back()->with('success', 'Clasificación de la partida actualizada.');
+    }
+
+    /**
+     * Agrega una partida (renglón) a la requisición desde el tab de cotización.
+     * Compras puede sumar partidas mientras la requisición siga editable, sin
+     * volver a la edición del solicitante. Se captura como texto libre (sin
+     * producto de catálogo); el centro de costos y uso de CFDI son obligatorios
+     * para poder liberar después.
+     */
+    public function detalleStore(Request $request, Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+        $this->ensureEditable($requisicion->estatus);
+
+        $validated = $request->validate([
+            'descripcion' => ['required', 'string', 'max:255'],
+            'unidad' => ['required', 'string', 'max:20'],
+            'cantidad' => ['required', 'numeric', 'min:0.01'],
+            'obra_rubro_id' => ['required', 'exists:costos_obra_rubros,id'],
+            'uso_cfdi_id' => ['required', Rule::exists('costos_usos_cfdi', 'id')->where('activo', true)],
+            'notas' => ['nullable', 'string'],
+            'tipo_fiscal' => ['nullable', 'in:mercancia,flete,servicio_profesional,renta'],
+        ]);
+
+        // Si la requisición es de un solo presupuesto, el centro de costos debe
+        // pertenecer a ese presupuesto.
+        if ($requisicion->presupuesto_id) {
+            $rubro = ObraRubro::find($validated['obra_rubro_id']);
+            abort_unless(
+                $rubro && $rubro->presupuesto_id === $requisicion->presupuesto_id,
+                422,
+                'El centro de costos no pertenece al presupuesto de la requisición.',
+            );
+        }
+
+        $requisicion->detalles()->create([
+            'descripcion' => $validated['descripcion'],
+            'unidad' => $validated['unidad'],
+            'cantidad' => $validated['cantidad'],
+            'obra_rubro_id' => $validated['obra_rubro_id'],
+            'uso_cfdi_id' => $validated['uso_cfdi_id'],
+            'tipo_fiscal' => $validated['tipo_fiscal'] ?? 'mercancia',
+            'notas' => $validated['notas'] ?? null,
+        ]);
+
+        return back()->with('success', 'Partida agregada.');
+    }
+
+    /**
+     * Quita una partida de la requisición. Sus cotizaciones y selecciones se
+     * borran (cascada + limpieza explícita de selecciones).
+     */
+    public function detalleDestroy(RequisicionDetalle $detalle): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $detalle->load('requisicion');
+        $this->ensureEditable($detalle->requisicion->estatus);
+
+        $detalle->selecciones()->delete();
+        $detalle->delete();
+
+        return back()->with('success', 'Partida eliminada.');
     }
 
     public function destroy(RequisicionCotizacionPrecio $precio): RedirectResponse

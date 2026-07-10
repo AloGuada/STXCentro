@@ -1,10 +1,12 @@
 <?php
 
+use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionCotizacionOpcion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\RequisicionSeleccion;
+use App\Models\Costos\UsoCfdi;
 use App\Models\Departamento;
 use App\Models\Proveedor;
 use App\Models\User;
@@ -175,6 +177,79 @@ test('quitar un proveedor borra sus opciones, cotizaciones y selecciones sin toc
         ->and(RequisicionSeleccion::where('proveedor_id', $provA->id)->count())->toBe(0)
         ->and(RequisicionCotizacionPrecio::find($cotB->id))->not->toBeNull()
         ->and(RequisicionCotizacionOpcion::find($opB->id))->not->toBeNull();
+});
+
+test('agregar una partida desde cotización crea el renglón', function () {
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada', 'presupuesto_id' => null]);
+    $rubro = ObraRubro::factory()->create();
+    $uso = UsoCfdi::factory()->create(['activo' => true]);
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/detalles", [
+            'descripcion' => 'Cemento gris 50kg',
+            'unidad' => 'saco',
+            'cantidad' => 20,
+            'obra_rubro_id' => $rubro->id,
+            'uso_cfdi_id' => $uso->id,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $detalle = RequisicionDetalle::where('requisicion_id', $req->id)->first();
+    expect($detalle)->not->toBeNull()
+        ->and($detalle->descripcion)->toBe('Cemento gris 50kg')
+        ->and($detalle->unidad)->toBe('saco')
+        ->and($detalle->cantidad)->toBe('20.00')
+        ->and($detalle->obra_rubro_id)->toBe($rubro->id)
+        ->and($detalle->uso_cfdi_id)->toBe($uso->id);
+});
+
+test('agregar partida exige centro de costos y uso de CFDI', function () {
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada', 'presupuesto_id' => null]);
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/detalles", [
+            'descripcion' => 'Sin centro', 'unidad' => 'pza', 'cantidad' => 1,
+        ])
+        ->assertSessionHasErrors(['obra_rubro_id', 'uso_cfdi_id']);
+
+    expect(RequisicionDetalle::count())->toBe(0);
+});
+
+test('no se puede agregar partida a una requisición ya liberada', function () {
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'liberada', 'presupuesto_id' => null]);
+    $rubro = ObraRubro::factory()->create();
+    $uso = UsoCfdi::factory()->create(['activo' => true]);
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/detalles", [
+            'descripcion' => 'Tarde', 'unidad' => 'pza', 'cantidad' => 1,
+            'obra_rubro_id' => $rubro->id, 'uso_cfdi_id' => $uso->id,
+        ])
+        ->assertStatus(422);
+
+    expect(RequisicionDetalle::count())->toBe(0);
+});
+
+test('quitar una partida borra sus cotizaciones y selecciones pero no las opciones', function () {
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
+    $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
+    $otro = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 3]);
+    $prov = Proveedor::factory()->create();
+    $op = opcionDe($req, $prov);
+
+    $cot = RequisicionCotizacionPrecio::create(['requisicion_detalle_id' => $detalle->id, 'proveedor_id' => $prov->id, 'opcion_id' => $op->id, 'precio_unitario' => 100, 'moneda' => 'mxn']);
+    RequisicionSeleccion::create(['requisicion_detalle_id' => $detalle->id, 'cotizacion_precio_id' => $cot->id, 'numero_oc' => 1, 'proveedor_id' => $prov->id, 'cantidad' => 5]);
+
+    $this->actingAs($this->compras)
+        ->delete("/admin/costos/requisiciones/detalles/{$detalle->id}")
+        ->assertRedirect();
+
+    expect(RequisicionDetalle::find($detalle->id))->toBeNull()
+        ->and(RequisicionCotizacionPrecio::find($cot->id))->toBeNull()
+        ->and(RequisicionSeleccion::where('cotizacion_precio_id', $cot->id)->count())->toBe(0)
+        ->and(RequisicionCotizacionOpcion::find($op->id))->not->toBeNull()
+        ->and(RequisicionDetalle::find($otro->id))->not->toBeNull();
 });
 
 test('no se puede quitar un proveedor de una requisición ya liberada', function () {

@@ -227,6 +227,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/re-apartar', [CostosRequisicionController::class, 'reApartar'])->name('requisiciones.re-apartar');
         Route::post('requisiciones/detalles/{detalle}/clasificacion', [CostosRequisicionCotizacionController::class, 'clasificar'])->name('requisiciones.detalles.clasificar');
         Route::patch('requisiciones/detalles/{detalle}/producto', [CostosRequisicionCotizacionController::class, 'actualizarProducto'])->name('requisiciones.detalles.producto');
+        Route::post('requisiciones/{requisicion}/detalles', [CostosRequisicionCotizacionController::class, 'detalleStore'])->name('requisiciones.detalles.store');
+        Route::delete('requisiciones/detalles/{detalle}', [CostosRequisicionCotizacionController::class, 'detalleDestroy'])->name('requisiciones.detalles.destroy');
         Route::post('requisiciones/{requisicion}/documentos', [CostosRequisicionCotizacionController::class, 'subirDocumento'])->name('requisiciones.documentos.store');
         Route::delete('requisiciones/{requisicion}/documentos/{media}', [CostosRequisicionCotizacionController::class, 'eliminarDocumento'])->name('requisiciones.documentos.destroy');
         Route::post('requisiciones/cotizaciones', [CostosRequisicionCotizacionController::class, 'store'])->name('requisiciones.cotizaciones.store');

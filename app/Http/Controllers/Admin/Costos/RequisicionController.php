@@ -265,6 +265,7 @@ class RequisicionController extends Controller
                 ->orderBy('razon_social')
                 ->get(['id', 'razon_social', 'nombre_comercial', 'maneja_credito', 'estatus', 'tipo_persona', 'regimen_fiscal_id']),
             'obraRubros' => $this->obraRubrosOptions(),
+            'usosCfdi' => $this->usosCfdiOptions(),
             'aprobacionPendienteId' => $aprobacionPendienteId,
             'esUltimoNivel' => $esUltimoNivel,
             'proveedoresPorValidar' => $esUltimoNivel ? $this->proveedoresPorValidar($requisicion) : [],
