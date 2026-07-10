@@ -811,7 +811,7 @@ function CeldaCotizacion({
     };
 
     return (
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex items-center justify-end gap-1">
             <input
                 type="text"
                 className="input-bordered input input-xs w-32"
@@ -822,34 +822,32 @@ function CeldaCotizacion({
                 onBlur={() => guardar()}
                 title="Ej. marca / modelo cotizado"
             />
-            <div className="flex items-center justify-end gap-1">
-                <input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    className={`input-bordered input input-xs w-20 text-right font-semibold ${esMejor ? 'border-success text-success' : ''}`}
-                    value={precio}
-                    disabled={!editable}
-                    placeholder="—"
-                    onChange={(e) => setPrecio(e.target.value)}
-                    onBlur={() => guardar()}
-                />
-                <select
-                    className="select-bordered select w-16 select-xs"
-                    value={moneda}
-                    disabled={!editable}
-                    onChange={(e) => {
-                        const m = e.target.value as CostosTipoMoneda;
-                        setMoneda(m);
-                        guardar(m);
-                    }}
-                    title={TIPO_MONEDA_LABELS[moneda]}
-                >
-                    <option value="mxn">MXN</option>
-                    <option value="usd">USD</option>
-                    <option value="eur">EUR</option>
-                </select>
-            </div>
+            <input
+                type="number"
+                step="0.01"
+                min={0}
+                className={`input-bordered input input-xs w-20 text-right font-semibold ${esMejor ? 'border-success text-success' : ''}`}
+                value={precio}
+                disabled={!editable}
+                placeholder="—"
+                onChange={(e) => setPrecio(e.target.value)}
+                onBlur={() => guardar()}
+            />
+            <select
+                className="select-bordered select w-16 select-xs"
+                value={moneda}
+                disabled={!editable}
+                onChange={(e) => {
+                    const m = e.target.value as CostosTipoMoneda;
+                    setMoneda(m);
+                    guardar(m);
+                }}
+                title={TIPO_MONEDA_LABELS[moneda]}
+            >
+                <option value="mxn">MXN</option>
+                <option value="usd">USD</option>
+                <option value="eur">EUR</option>
+            </select>
         </div>
     );
 }
