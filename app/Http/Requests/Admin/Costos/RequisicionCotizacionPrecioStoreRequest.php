@@ -18,8 +18,9 @@ class RequisicionCotizacionPrecioStoreRequest extends FormRequest
     {
         return [
             'requisicion_detalle_id' => ['required', 'exists:costos_requisicion_detalle,id'],
-            'proveedor_id' => ['required', 'exists:proveedores,id'],
+            'opcion_id' => ['required', 'exists:costos_requisicion_cotizacion_opcion,id'],
             'precio_unitario' => ['required', 'numeric', 'min:0.01'],
+            'descripcion' => ['nullable', 'string', 'max:255'],
             'codigo_producto' => ['nullable', 'string', 'max:255'],
             'moneda' => ['required', 'in:mxn,usd,eur'],
             'tiempo_entrega_dias' => ['nullable', 'integer', 'min:0'],

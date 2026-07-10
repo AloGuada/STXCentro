@@ -3,6 +3,7 @@
 use App\Models\Costos\Producto;
 use App\Models\Costos\ProductoPrecio;
 use App\Models\Costos\Requisicion;
+use App\Models\Costos\RequisicionCotizacionOpcion;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Departamento;
 use App\Models\Proveedor;
@@ -21,10 +22,11 @@ test('cotizar un precio lo registra en el histórico del producto', function () 
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'producto_id' => $producto->id, 'cantidad' => 5]);
     $proveedor = Proveedor::factory()->create();
+    $opcion = RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $proveedor->id, 'orden' => 1]);
 
     $this->actingAs($this->compras)
         ->post('/admin/costos/requisiciones/cotizaciones', [
-            'requisicion_detalle_id' => $detalle->id, 'proveedor_id' => $proveedor->id, 'precio_unitario' => 123.45, 'moneda' => 'mxn',
+            'requisicion_detalle_id' => $detalle->id, 'opcion_id' => $opcion->id, 'precio_unitario' => 123.45, 'moneda' => 'mxn',
         ])
         ->assertRedirect();
 
@@ -41,10 +43,11 @@ test('re-cotizar el mismo proveedor en la misma requisición no duplica el hist�
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'producto_id' => $producto->id, 'cantidad' => 5]);
     $proveedor = Proveedor::factory()->create();
+    $opcion = RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $proveedor->id, 'orden' => 1]);
 
     foreach ([100, 150] as $p) {
         $this->actingAs($this->compras)->post('/admin/costos/requisiciones/cotizaciones', [
-            'requisicion_detalle_id' => $detalle->id, 'proveedor_id' => $proveedor->id, 'precio_unitario' => $p, 'moneda' => 'mxn',
+            'requisicion_detalle_id' => $detalle->id, 'opcion_id' => $opcion->id, 'precio_unitario' => $p, 'moneda' => 'mxn',
         ])->assertRedirect();
     }
 
@@ -56,9 +59,10 @@ test('una partida sin producto del catálogo no genera histórico', function () 
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'producto_id' => null, 'cantidad' => 5]);
     $proveedor = Proveedor::factory()->create();
+    $opcion = RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $proveedor->id, 'orden' => 1]);
 
     $this->actingAs($this->compras)->post('/admin/costos/requisiciones/cotizaciones', [
-        'requisicion_detalle_id' => $detalle->id, 'proveedor_id' => $proveedor->id, 'precio_unitario' => 50, 'moneda' => 'mxn',
+        'requisicion_detalle_id' => $detalle->id, 'opcion_id' => $opcion->id, 'precio_unitario' => 50, 'moneda' => 'mxn',
     ])->assertRedirect();
 
     expect(ProductoPrecio::count())->toBe(0);

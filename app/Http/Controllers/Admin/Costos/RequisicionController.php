@@ -240,6 +240,7 @@ class RequisicionController extends Controller
             'detalles.obraRubro.rubro:id,codigo,descripcion',
             'detalles.usoCfdi:id,clave,descripcion',
             'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial,estatus,activo',
+            'cotizacionOpciones.proveedor:id,razon_social,nombre_comercial',
             'detalles.selecciones.cotizacionPrecio',
             'detalles.selecciones.proveedor:id,razon_social,estatus',
             'ocs',

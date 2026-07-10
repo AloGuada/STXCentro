@@ -815,26 +815,44 @@ export default function RequisicionesShow({ requisicion, proveedores, aprobacion
  */
 function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisicion }) {
     const detalles = requisicion.detalles ?? [];
-    const proveedores = new Map<number, { id: number; nombre: string }>();
+
+    // Columnas = opciones con al menos un precio, agrupadas por proveedor.
+    const opcionConPrecio = new Set<number>();
     for (const d of detalles) {
         for (const c of d.cotizaciones ?? []) {
-            if (!c.proveedor) continue;
-            proveedores.set(c.proveedor.id, {
-                id: c.proveedor.id,
-                nombre: c.proveedor.nombre_comercial || c.proveedor.razon_social,
-            });
+            if (c.opcion_id != null) opcionConPrecio.add(c.opcion_id);
         }
     }
-    if (proveedores.size === 0) return null;
+    const opciones = (requisicion.cotizacion_opciones ?? []).filter((o) => opcionConPrecio.has(o.id));
+    if (opciones.length === 0) return null;
 
-    const provList = Array.from(proveedores.values());
+    const etiquetaOpcion = (o: (typeof opciones)[number]) => o.etiqueta || `Opción ${o.orden}`;
+
+    const gruposMap = new Map<number, { proveedorId: number; nombre: string; opciones: typeof opciones }>();
+    for (const o of opciones) {
+        const nombre = o.proveedor?.nombre_comercial || o.proveedor?.razon_social || `#${o.proveedor_id}`;
+        const g = gruposMap.get(o.proveedor_id) ?? { proveedorId: o.proveedor_id, nombre, opciones: [] };
+        g.opciones.push(o);
+        gruposMap.set(o.proveedor_id, g);
+    }
+    const grupos = Array.from(gruposMap.values())
+        .map((g) => ({ ...g, opciones: [...g.opciones].sort((a, b) => a.orden - b.orden) }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+    const columnas = grupos.flatMap((g) => g.opciones);
+
     const mejorProveedorId = requisicion.mejor_proveedor?.id ?? null;
     const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+    const cotizacionDe = (detalleId: number, opcionId: number) =>
+        detalles.find((x) => x.id === detalleId)?.cotizaciones?.find((c) => c.opcion_id === opcionId);
+
     const precioPartidaProv = (detalleId: number, proveedorId: number): number | null => {
         const d = detalles.find((x) => x.id === detalleId);
-        const cot = d?.cotizaciones?.find((c) => c.proveedor_id === proveedorId);
-        return cot ? Number(cot.precio_unitario) : null;
+        const precios = (d?.cotizaciones ?? [])
+            .filter((c) => c.proveedor_id === proveedorId)
+            .map((c) => Number(c.precio_unitario))
+            .filter((n) => n > 0);
+        return precios.length > 0 ? Math.min(...precios) : null;
     };
 
     const precioImporte = (d: CostosRequisicion['detalles'] extends (infer U)[] | undefined ? U : never): number | null => {
@@ -907,19 +925,27 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                 <table className="table table-sm">
                     <thead className="bg-base-200">
                         <tr>
-                            <th className="text-right">Cantidad</th>
-                            <th>Descripción</th>
-                            {provList.map((p) => (
+                            <th rowSpan={2} className="text-right">Cantidad</th>
+                            <th rowSpan={2}>Descripción</th>
+                            {grupos.map((g) => (
                                 <th
-                                    key={p.id}
-                                    className={`text-right ${p.id === mejorProveedorId ? 'text-success' : ''}`}
-                                    title={p.nombre}
+                                    key={g.proveedorId}
+                                    colSpan={g.opciones.length}
+                                    className={`border-l border-base-300 text-center ${g.proveedorId === mejorProveedorId ? 'text-success' : ''}`}
+                                    title={g.nombre}
                                 >
-                                    {p.nombre}
-                                    {p.id === mejorProveedorId && <span className="ml-1 text-[10px]">★</span>}
+                                    {g.nombre}
+                                    {g.proveedorId === mejorProveedorId && <span className="ml-1 text-[10px]">★</span>}
                                 </th>
                             ))}
-                            <th className="text-right">Importe</th>
+                            <th rowSpan={2} className="text-right">Importe</th>
+                        </tr>
+                        <tr>
+                            {columnas.map((op) => (
+                                <th key={op.id} className="border-l border-base-300 text-right text-[11px] font-medium">
+                                    {etiquetaOpcion(op)}
+                                </th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
@@ -927,25 +953,28 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                             <tr key={d.id}>
                                 <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')} {d.unidad}</td>
                                 <td>{d.descripcion}</td>
-                                {provList.map((p) => {
-                                    const cot = d.cotizaciones?.find((c) => c.proveedor_id === p.id);
+                                {columnas.map((op) => {
+                                    const cot = cotizacionDe(d.id, op.id);
                                     const px = cot ? Number(cot.precio_unitario) : null;
                                     const dias = cot?.tiempo_entrega_dias ?? null;
                                     const moneda = cot?.moneda ?? 'mxn';
                                     const esMejorPartida = px !== null && px === mejorPrecioPartida.get(d.id);
-                                    const seleccionado = (d.selecciones ?? []).some((s) => s.proveedor_id === p.id);
+                                    const seleccionado = cot != null && (d.selecciones ?? []).some((s) => s.cotizacion_precio_id === cot.id);
                                     const classes = [
-                                        'text-right align-top',
+                                        'border-l border-base-300 text-right align-top',
                                         seleccionado
                                             ? 'bg-primary/15 font-semibold text-primary ring-1 ring-inset ring-primary/50'
                                             : esMejorPartida ? 'bg-success/15 font-semibold text-success' : '',
-                                        p.id === mejorProveedorId && !esMejorPartida && !seleccionado ? 'text-success' : '',
+                                        op.proveedor_id === mejorProveedorId && !esMejorPartida && !seleccionado ? 'text-success' : '',
                                     ].filter(Boolean).join(' ');
                                     return (
-                                        <td key={p.id} className={classes}>
+                                        <td key={op.id} className={classes}>
                                             {px !== null ? (
                                                 <>
                                                     <div>{seleccionado && <span className="mr-1">✓</span>}{fmt(px)} <span className="text-[10px] font-normal text-base-content/50">{TIPO_MONEDA_LABELS[moneda]}</span></div>
+                                                    {cot?.descripcion && (
+                                                        <div className="text-[10px] font-normal text-base-content/60">{cot.descripcion}</div>
+                                                    )}
                                                     {dias !== null && dias > 0 && (
                                                         <div className="text-[10px] font-normal text-base-content/60">
                                                             {dias} {dias === 1 ? 'día' : 'días'} entrega
@@ -966,15 +995,15 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colSpan={2 + provList.length} className="text-right text-sm text-base-content/60">Subtotal</td>
+                            <td colSpan={2 + columnas.length} className="text-right text-sm text-base-content/60">Subtotal</td>
                             <td className="text-right font-semibold">{fmt(subtotal)}</td>
                         </tr>
                         <tr>
-                            <td colSpan={2 + provList.length} className="text-right text-sm text-base-content/60">IVA (16%)</td>
+                            <td colSpan={2 + columnas.length} className="text-right text-sm text-base-content/60">IVA (16%)</td>
                             <td className="text-right">{fmt(iva)}</td>
                         </tr>
                         <tr className="bg-base-200">
-                            <td colSpan={2 + provList.length} className="text-right text-sm font-semibold">Total</td>
+                            <td colSpan={2 + columnas.length} className="text-right text-sm font-semibold">Total</td>
                             <td className="text-right text-lg font-bold text-primary">{fmt(total)}</td>
                         </tr>
                     </tfoot>

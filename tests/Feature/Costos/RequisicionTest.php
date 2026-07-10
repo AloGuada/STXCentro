@@ -261,11 +261,16 @@ test('compras captura precio cotizado y la requisicion pasa a cotizada', functio
         'cantidad' => 10,
     ]);
     $proveedor = Proveedor::factory()->create();
+    $opcion = App\Models\Costos\RequisicionCotizacionOpcion::create([
+        'requisicion_id' => $req->id,
+        'proveedor_id' => $proveedor->id,
+        'orden' => 1,
+    ]);
 
     $this->actingAs($this->compras)
         ->post('/admin/costos/requisiciones/cotizaciones', [
             'requisicion_detalle_id' => $detalle->id,
-            'proveedor_id' => $proveedor->id,
+            'opcion_id' => $opcion->id,
             'precio_unitario' => 250.50,
             'moneda' => 'mxn',
         ])

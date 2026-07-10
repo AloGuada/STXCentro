@@ -233,6 +233,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/cotizaciones/tiempo-entrega', [CostosRequisicionCotizacionController::class, 'tiempoEntrega'])->name('requisiciones.cotizaciones.tiempo-entrega');
         Route::delete('requisiciones/cotizaciones/{precio}', [CostosRequisicionCotizacionController::class, 'destroy'])->name('requisiciones.cotizaciones.destroy');
         Route::delete('requisiciones/{requisicion}/proveedores/{proveedor}', [CostosRequisicionCotizacionController::class, 'destroyProveedor'])->name('requisiciones.proveedores.destroy');
+        Route::post('requisiciones/{requisicion}/opciones', [CostosRequisicionCotizacionController::class, 'opcionStore'])->name('requisiciones.opciones.store');
+        Route::patch('requisiciones/opciones/{opcion}', [CostosRequisicionCotizacionController::class, 'opcionUpdate'])->name('requisiciones.opciones.update');
+        Route::delete('requisiciones/opciones/{opcion}', [CostosRequisicionCotizacionController::class, 'opcionDestroy'])->name('requisiciones.opciones.destroy');
         Route::post('requisiciones/selecciones', [CostosRequisicionSeleccionController::class, 'store'])->name('requisiciones.selecciones.store');
         Route::patch('requisiciones/selecciones/{seleccion}', [CostosRequisicionSeleccionController::class, 'update'])->name('requisiciones.selecciones.update');
         Route::delete('requisiciones/selecciones/{seleccion}', [CostosRequisicionSeleccionController::class, 'destroy'])->name('requisiciones.selecciones.destroy');

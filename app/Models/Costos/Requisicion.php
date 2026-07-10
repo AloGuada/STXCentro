@@ -126,6 +126,13 @@ class Requisicion extends Model implements Aprobable
         return $this->hasMany(RequisicionOc::class, 'requisicion_id');
     }
 
+    public function cotizacionOpciones(): HasMany
+    {
+        return $this->hasMany(RequisicionCotizacionOpcion::class, 'requisicion_id')
+            ->orderBy('proveedor_id')
+            ->orderBy('orden');
+    }
+
     public function aprobaciones(): MorphMany
     {
         return $this->morphMany(Aprobacion::class, 'aprobable');

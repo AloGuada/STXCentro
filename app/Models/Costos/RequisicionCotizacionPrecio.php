@@ -23,7 +23,9 @@ class RequisicionCotizacionPrecio extends Model
     protected $fillable = [
         'requisicion_detalle_id',
         'proveedor_id',
+        'opcion_id',
         'precio_unitario',
+        'descripcion',
         'codigo_producto',
         'moneda',
         'tiempo_entrega_dias',
@@ -50,6 +52,11 @@ class RequisicionCotizacionPrecio extends Model
     public function proveedor(): BelongsTo
     {
         return $this->belongsTo(Proveedor::class);
+    }
+
+    public function opcion(): BelongsTo
+    {
+        return $this->belongsTo(RequisicionCotizacionOpcion::class, 'opcion_id');
     }
 
     public function media(): BelongsTo

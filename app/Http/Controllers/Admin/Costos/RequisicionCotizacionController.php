@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\Costos\RequisicionCotizacionPrecioStoreRequest;
 use App\Models\Costos\Producto;
 use App\Models\Costos\ProductoPrecio;
 use App\Models\Costos\Requisicion;
+use App\Models\Costos\RequisicionCotizacionOpcion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\RequisicionSeleccion;
@@ -37,9 +38,17 @@ class RequisicionCotizacionController extends Controller
 
         $this->ensureEditable($detalle->requisicion->estatus);
 
-        $valores = ['precio_unitario' => $request->float('precio_unitario')];
+        // La opción define a qué proveedor pertenece la celda; se valida que
+        // pertenezca a la misma requisición que la partida.
+        $opcion = RequisicionCotizacionOpcion::findOrFail($request->integer('opcion_id'));
+        abort_unless($opcion->requisicion_id === $detalle->requisicion_id, 422, 'La opción no pertenece a esta requisición.');
 
-        foreach (['codigo_producto', 'moneda', 'tiempo_entrega_dias', 'observaciones'] as $campo) {
+        $valores = [
+            'precio_unitario' => $request->float('precio_unitario'),
+            'proveedor_id' => $opcion->proveedor_id,
+        ];
+
+        foreach (['descripcion', 'codigo_producto', 'moneda', 'tiempo_entrega_dias', 'observaciones'] as $campo) {
             if ($request->has($campo)) {
                 $valores[$campo] = $request->input($campo);
             }
@@ -48,12 +57,12 @@ class RequisicionCotizacionController extends Controller
         RequisicionCotizacionPrecio::updateOrCreate(
             [
                 'requisicion_detalle_id' => $detalle->id,
-                'proveedor_id' => $request->integer('proveedor_id'),
+                'opcion_id' => $opcion->id,
             ],
             $valores,
         );
 
-        $this->registrarHistoricoPrecio($detalle, $request->integer('proveedor_id'), $request->float('precio_unitario'), (string) $request->input('moneda', 'mxn'));
+        $this->registrarHistoricoPrecio($detalle, $opcion->proveedor_id, $request->float('precio_unitario'), (string) $request->input('moneda', 'mxn'));
 
         $this->promoverACotizada($detalle->requisicion);
 
@@ -61,8 +70,8 @@ class RequisicionCotizacionController extends Controller
     }
 
     /**
-     * Días de envío por proveedor: se aplica a todas las cotizaciones de ese
-     * proveedor en la requisición (el tiempo de entrega es uno por proveedor).
+     * Días de envío por opción: se aplica a todas las celdas de esa columna-opción
+     * (el tiempo de entrega es uno por opción del proveedor).
      */
     public function tiempoEntrega(Request $request, Requisicion $requisicion): RedirectResponse
     {
@@ -70,15 +79,74 @@ class RequisicionCotizacionController extends Controller
         $this->ensureEditable($requisicion->estatus);
 
         $validated = $request->validate([
-            'proveedor_id' => ['required', 'integer', 'exists:proveedores,id'],
+            'opcion_id' => ['required', 'integer', 'exists:costos_requisicion_cotizacion_opcion,id'],
             'tiempo_entrega_dias' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        RequisicionCotizacionPrecio::whereHas('detalle', fn ($q) => $q->where('requisicion_id', $requisicion->id))
-            ->where('proveedor_id', $validated['proveedor_id'])
+        RequisicionCotizacionPrecio::where('opcion_id', $validated['opcion_id'])
+            ->whereHas('detalle', fn ($q) => $q->where('requisicion_id', $requisicion->id))
             ->update(['tiempo_entrega_dias' => $validated['tiempo_entrega_dias']]);
 
         return back()->with('success', 'Días de envío actualizados.');
+    }
+
+    /**
+     * Crea una columna-opción para un proveedor en el comparativo. El orden es el
+     * siguiente disponible para ese proveedor en la requisición.
+     */
+    public function opcionStore(Request $request, Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+        $this->ensureEditable($requisicion->estatus);
+
+        $validated = $request->validate([
+            'proveedor_id' => ['required', 'integer', 'exists:proveedores,id'],
+            'etiqueta' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $orden = ($requisicion->cotizacionOpciones()->where('proveedor_id', $validated['proveedor_id'])->max('orden') ?? 0) + 1;
+
+        $requisicion->cotizacionOpciones()->create([
+            'proveedor_id' => $validated['proveedor_id'],
+            'etiqueta' => $validated['etiqueta'] ?? null,
+            'orden' => $orden,
+        ]);
+
+        return back()->with('success', 'Opción agregada.');
+    }
+
+    public function opcionUpdate(Request $request, RequisicionCotizacionOpcion $opcion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $opcion->load('requisicion');
+        $this->ensureEditable($opcion->requisicion->estatus);
+
+        $validated = $request->validate([
+            'etiqueta' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $opcion->update(['etiqueta' => $validated['etiqueta'] ?: null]);
+
+        return back()->with('success', 'Opción actualizada.');
+    }
+
+    /**
+     * Borra una columna-opción. Sus celdas se borran en cascada (FK); las
+     * selecciones que apuntaban a esas celdas se quitan antes.
+     */
+    public function opcionDestroy(RequisicionCotizacionOpcion $opcion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $opcion->load('requisicion');
+        $this->ensureEditable($opcion->requisicion->estatus);
+
+        RequisicionSeleccion::whereIn('cotizacion_precio_id', $opcion->precios()->pluck('id'))->delete();
+
+        $opcion->delete();
+
+        return back()->with('success', 'Opción eliminada.');
     }
 
     /**
@@ -197,6 +265,9 @@ class RequisicionCotizacionController extends Controller
         RequisicionCotizacionPrecio::whereIn('requisicion_detalle_id', $detalleIds)
             ->where('proveedor_id', $proveedor->id)
             ->delete();
+
+        // Borra todas las columnas-opción del proveedor en esta requisición.
+        $requisicion->cotizacionOpciones()->where('proveedor_id', $proveedor->id)->delete();
 
         return back()->with('success', 'Proveedor eliminado de la cotización.');
     }
