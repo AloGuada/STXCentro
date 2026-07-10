@@ -50,6 +50,9 @@ class Requisicion extends Model implements Aprobable
         'justificacion',
         'fecha_requerida',
         'estatus',
+        'control_verificado',
+        'control_por',
+        'control_at',
         'sobre_obra_cerrada',
         'motivo_rechazo',
         'locked_by',
@@ -64,6 +67,8 @@ class Requisicion extends Model implements Aprobable
         return [
             'fecha_requerida' => 'date',
             'estatus' => RequisicionEstatus::class,
+            'control_verificado' => 'boolean',
+            'control_at' => 'datetime',
             'sobre_obra_cerrada' => 'boolean',
             'locked_at' => 'datetime',
         ];
@@ -72,6 +77,11 @@ class Requisicion extends Model implements Aprobable
     public function solicitante(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'solicitante_id');
+    }
+
+    public function controlador(): BelongsTo
+    {
+        return $this->belongsTo(Usuario::class, 'control_por');
     }
 
     public function departamento(): BelongsTo

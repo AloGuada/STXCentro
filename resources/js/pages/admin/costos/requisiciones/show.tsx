@@ -208,6 +208,44 @@ function EnviarAprobacionModal({
     );
 }
 
+function PuntoControlModal({
+    requisicionId,
+    onClose,
+}: {
+    requisicionId: number;
+    onClose: () => void;
+}) {
+    const { post, processing } = useForm({});
+
+    const confirmar = () => {
+        post(`/admin/costos/requisiciones/${requisicionId}/punto-control`, {
+            preserveScroll: true,
+            onSuccess: () => onClose(),
+        });
+    };
+
+    return (
+        <dialog className="modal modal-open">
+            <div className="modal-box">
+                <h2 className="text-xl font-bold">Marcar punto de control</h2>
+                <p className="mt-3 text-sm text-base-content/70">
+                    ¿Estás seguro? Al marcar el punto de control confirmas que la cotización
+                    fue revisada y habilitas el botón de <strong>enviar a aprobación</strong>.
+                </p>
+                <div className="modal-action">
+                    <button type="button" className="btn" onClick={onClose} disabled={processing}>
+                        Cancelar
+                    </button>
+                    <button type="button" className="btn btn-primary" onClick={confirmar} disabled={processing}>
+                        {processing ? 'Guardando...' : 'Sí, marcar'}
+                    </button>
+                </div>
+            </div>
+            <div className="modal-backdrop" onClick={onClose} />
+        </dialog>
+    );
+}
+
 type Decision = {
     accion: 'activar' | 'rechazar';
     // requisicion_detalle_id -> cotizacion_precio_id seleccionada como reemplazo
@@ -442,6 +480,7 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
     const { can } = useCan();
     const [tab, setTab] = useState<Tab>('datos');
     const [enviarAprobacion, setEnviarAprobacion] = useState(false);
+    const [marcandoControl, setMarcandoControl] = useState(false);
     const [cancelando, setCancelando] = useState(false);
     const [liberando, setLiberando] = useState(false);
     const [firmando, setFirmando] = useState<'aprobar' | 'rechazar' | null>(null);
@@ -504,10 +543,47 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                             </Button>
                         )}
 
-                        {requisicion.estatus === 'cotizada' && can('costos.requisiciones.cotizar') && (
-                            <Button onClick={() => setEnviarAprobacion(true)}>
-                                Enviar a aprobación
-                            </Button>
+                        {requisicion.estatus === 'cotizada' && (
+                            <>
+                                {requisicion.control_verificado ? (
+                                    <span
+                                        className="badge badge-success gap-1 py-3"
+                                        title={requisicion.controlador ? `Punto de control: ${requisicion.controlador.name}` : 'Punto de control marcado'}
+                                    >
+                                        ✓ Punto de control
+                                    </span>
+                                ) : (
+                                    can('costos.requisiciones.control') && (
+                                        <Button variant="outline" onClick={() => setMarcandoControl(true)}>
+                                            Marcar punto de control
+                                        </Button>
+                                    )
+                                )}
+
+                                {requisicion.control_verificado && can('costos.requisiciones.control') && (
+                                    <Button
+                                        variant="outline"
+                                        className="text-error"
+                                        onClick={() => {
+                                            if (confirm('¿Quitar el punto de control? Deshabilitará el envío a aprobación.')) {
+                                                router.delete(`/admin/costos/requisiciones/${requisicion.id}/punto-control`, { preserveScroll: true });
+                                            }
+                                        }}
+                                    >
+                                        Quitar control
+                                    </Button>
+                                )}
+
+                                {can('costos.requisiciones.cotizar') && (
+                                    <Button
+                                        onClick={() => setEnviarAprobacion(true)}
+                                        disabled={!requisicion.control_verificado}
+                                        title={!requisicion.control_verificado ? 'Falta marcar el punto de control' : undefined}
+                                    >
+                                        Enviar a aprobación
+                                    </Button>
+                                )}
+                            </>
                         )}
 
                         {!['liberada', 'cancelada'].includes(requisicion.estatus) && can('costos.requisiciones.cancelar') && (
@@ -752,6 +828,13 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                         partidasSinCotizar={partidasSinCotizar}
                         minEmpresas={MIN_EMPRESAS_COTIZACION}
                         onClose={() => setEnviarAprobacion(false)}
+                    />
+                )}
+
+                {marcandoControl && (
+                    <PuntoControlModal
+                        requisicionId={requisicion.id}
+                        onClose={() => setMarcandoControl(false)}
                     />
                 )}
 

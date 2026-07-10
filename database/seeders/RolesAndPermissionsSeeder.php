@@ -137,6 +137,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.requisiciones.ver-todas',
             'costos.requisiciones.crear',
             'costos.requisiciones.cotizar',
+            'costos.requisiciones.control',
             'costos.requisiciones.aprobar',
             'costos.requisiciones.liberar',
             'costos.requisiciones.cancelar',

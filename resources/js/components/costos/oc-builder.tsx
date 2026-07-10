@@ -649,11 +649,11 @@ function OcLinea({
 
     return (
         <div className="grid grid-cols-[1fr_70px_90px_90px_30px] items-center gap-2 py-1 text-xs">
-            <div>
-                <div>{linea.detalle.descripcion}</div>
+            <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate" title={linea.detalle.descripcion}>{linea.detalle.descripcion}</span>
                 <input
                     type="text"
-                    className="input input-bordered input-xs mt-1 w-40"
+                    className="input input-bordered input-xs w-40 shrink-0"
                     value={codigo}
                     disabled={!editable}
                     placeholder="Código producto"

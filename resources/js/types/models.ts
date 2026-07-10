@@ -1755,11 +1755,15 @@ export type CostosRequisicion = {
     justificacion: string | null;
     fecha_requerida: string | null;
     estatus: CostosRequisicionEstatus;
+    control_verificado: boolean;
+    control_por: string | null;
+    control_at: string | null;
     sobre_obra_cerrada: boolean;
     motivo_rechazo: string | null;
     locked_by: string | null;
     locked_at: string | null;
     solicitante?: Pick<Usuario, 'id' | 'name'>;
+    controlador?: Pick<Usuario, 'id' | 'name'> | null;
     departamento?: Pick<Departamento, 'id' | 'descripcion'>;
     obra?: { id: number; no: number | null; descripcion: string };
     presupuesto?: CostosPresupuesto;

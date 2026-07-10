@@ -234,6 +234,7 @@ class RequisicionController extends Controller
 
         $requisicion->load([
             'solicitante:id,name',
+            'controlador:id,name',
             'departamento:id,descripcion',
             'presupuesto.presupuestable',
             'detalles.obraRubro.presupuesto.presupuestable',
@@ -537,6 +538,10 @@ class RequisicionController extends Controller
                 'presupuesto_id' => $request->integer('presupuesto_id') ?: null,
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
+                // Editar la requisición invalida un punto de control previo.
+                'control_verificado' => false,
+                'control_por' => null,
+                'control_at' => null,
             ]);
 
             $idsKeep = collect($request->input('detalles', []))
@@ -619,12 +624,54 @@ class RequisicionController extends Controller
      * y exige captura completa: rubro por detalle, modo de pago, partidas
      * cubiertas 100% por selecciones, y cada seleccion con precio capturado.
      */
+    /**
+     * Marca el punto de control de la requisición: gate manual (permiso propio)
+     * que habilita el botón de enviar a aprobación. Solo en estado cotizada.
+     */
+    public function marcarControl(Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.control');
+
+        if ($requisicion->estatus !== RequisicionEstatus::Cotizada) {
+            return back()->withErrors(['control' => 'El punto de control solo aplica a requisiciones cotizadas.']);
+        }
+
+        $requisicion->update([
+            'control_verificado' => true,
+            'control_por' => auth()->id(),
+            'control_at' => now(),
+        ]);
+
+        return back()->with('success', 'Punto de control marcado.');
+    }
+
+    public function quitarControl(Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.control');
+
+        if ($requisicion->estatus !== RequisicionEstatus::Cotizada) {
+            return back()->withErrors(['control' => 'El punto de control solo aplica a requisiciones cotizadas.']);
+        }
+
+        $requisicion->update([
+            'control_verificado' => false,
+            'control_por' => null,
+            'control_at' => null,
+        ]);
+
+        return back()->with('success', 'Punto de control retirado.');
+    }
+
     public function enviarAprobacion(Request $request, Requisicion $requisicion): RedirectResponse
     {
         Gate::authorize('costos.requisiciones.cotizar');
 
         if ($requisicion->estatus !== RequisicionEstatus::Cotizada) {
             return back()->withErrors(['estatus' => 'La requisición debe estar cotizada para enviarse a aprobación.']);
+        }
+
+        if (! $requisicion->control_verificado) {
+            return back()->withErrors(['control' => 'Falta marcar el punto de control antes de enviar a aprobación.']);
         }
 
         $requisicion->load(['detalles.selecciones.cotizacionPrecio', 'detalles.cotizaciones']);
