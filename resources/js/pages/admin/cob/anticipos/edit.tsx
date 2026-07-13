@@ -1,13 +1,13 @@
-import { FormField } from '@/components/form';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
-import { COB_ANTICIPO_ESTADO_LABELS, type CobAnticipo, type Obra } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import { type ChangeEvent, type FormEvent } from 'react';
+import { FormField } from '@/components/form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
+import { COB_ANTICIPO_ESTADO_LABELS, type CobAnticipo, type Obra } from '@/types/models';
 
 type Props = {
     obra: Obra;
@@ -69,22 +69,16 @@ export default function AnticipoEdit({ obra, anticipo }: Props) {
 
                             <FormField label="Moneda" htmlFor="moneda" error={errors.moneda}>
                                 <Select value={data.moneda} onValueChange={(v) => setData('moneda', v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="MXN">MXN</SelectItem>
-                                        <SelectItem value="USD">USD</SelectItem>
-                                    </SelectContent>
+                                    <SelectItem value="MXN">MXN</SelectItem>
+                                    <SelectItem value="USD">USD</SelectItem>
                                 </Select>
                             </FormField>
 
                             <FormField label="Estado" htmlFor="estado" error={errors.estado}>
                                 <Select value={data.estado} onValueChange={(v) => setData('estado', v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(COB_ANTICIPO_ESTADO_LABELS).map(([k, v]) => (
-                                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                                        ))}
-                                    </SelectContent>
+                                    {Object.entries(COB_ANTICIPO_ESTADO_LABELS).map(([k, v]) => (
+                                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                                    ))}
                                 </Select>
                             </FormField>
 

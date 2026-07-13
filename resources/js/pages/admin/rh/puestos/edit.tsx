@@ -1,19 +1,19 @@
-import { CreatableCombobox } from '@/components/ui/creatable-combobox';
-import { DeleteDialog } from '@/components/delete-dialog';
-import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { FormField } from '@/components/form';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
-import type { Departamento, RhActividad, RhDocumentoPuesto, RhPuesto, RhRequerimiento, RhSkill } from '@/types/models';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import { BriefcaseIcon, ClipboardListIcon, FileTextIcon, ListChecksIcon, Loader2Icon, PencilIcon, PlusIcon, SparklesIcon, TrashIcon, XIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
+import { DeleteDialog } from '@/components/delete-dialog';
+import { FormField } from '@/components/form';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { CreatableCombobox } from '@/components/ui/creatable-combobox';
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
+
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
+import type { Departamento, RhActividad, RhDocumentoPuesto, RhPuesto, RhRequerimiento, RhSkill } from '@/types/models';
 
 type Props = {
     puesto: RhPuesto;
@@ -236,17 +236,12 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
                             </FormField>
 
                             <FormField label="Departamento" htmlFor="departamento_id" error={errors.departamento_id} required>
-                                <Select value={data.departamento_id} onValueChange={(v) => setData('departamento_id', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar departamento" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {departamentos.map((dep) => (
-                                            <SelectItem key={dep.id} value={String(dep.id)}>
-                                                {dep.descripcion}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
+                                <Select value={data.departamento_id} onValueChange={(v) => setData('departamento_id', v)} placeholder="Seleccionar departamento">
+                                    {departamentos.map((dep) => (
+                                        <SelectItem key={dep.id} value={String(dep.id)}>
+                                            {dep.descripcion}
+                                        </SelectItem>
+                                    ))}
                                 </Select>
                             </FormField>
 
@@ -275,17 +270,12 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
                             </div>
 
                             <FormField label="Puesto Jefe" htmlFor="puesto_jefe_id" error={errors.puesto_jefe_id}>
-                                <Select value={data.puesto_jefe_id} onValueChange={(v) => setData('puesto_jefe_id', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar puesto jefe (opcional)" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {puestosJefe.map((p) => (
-                                            <SelectItem key={p.id} value={String(p.id)}>
-                                                {p.nombre}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
+                                <Select value={data.puesto_jefe_id} onValueChange={(v) => setData('puesto_jefe_id', v)} placeholder="Seleccionar puesto jefe (opcional)">
+                                    {puestosJefe.map((p) => (
+                                        <SelectItem key={p.id} value={String(p.id)}>
+                                            {p.nombre}
+                                        </SelectItem>
+                                    ))}
                                 </Select>
                             </FormField>
 
@@ -330,25 +320,15 @@ export default function PuestoEdit({ puesto, departamentos, puestosJefe, allSkil
                                         </FormField>
                                         <FormField label="Tipo" htmlFor="new_skill_tipo" required>
                                             <Select value={newSkillTipo} onValueChange={setNewSkillTipo}>
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="hard">Hard skill (técnica)</SelectItem>
-                                                    <SelectItem value="soft">Soft skill (interpersonal)</SelectItem>
-                                                </SelectContent>
+                                                <SelectItem value="hard">Hard skill (técnica)</SelectItem>
+                                                <SelectItem value="soft">Soft skill (interpersonal)</SelectItem>
                                             </Select>
                                         </FormField>
                                         <FormField label="Nivel requerido" htmlFor="new_skill_nivel" required>
                                             <Select value={newSkillNivel} onValueChange={setNewSkillNivel}>
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="basico">Básico</SelectItem>
-                                                    <SelectItem value="intermedio">Intermedio</SelectItem>
-                                                    <SelectItem value="avanzado">Avanzado</SelectItem>
-                                                </SelectContent>
+                                                <SelectItem value="basico">Básico</SelectItem>
+                                                <SelectItem value="intermedio">Intermedio</SelectItem>
+                                                <SelectItem value="avanzado">Avanzado</SelectItem>
                                             </Select>
                                         </FormField>
                                     </div>

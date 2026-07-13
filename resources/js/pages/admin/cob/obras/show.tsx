@@ -15,7 +15,7 @@ import { ResumenFinancieroCard } from '@/components/cob/resumen-financiero';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import {
@@ -161,24 +161,18 @@ function ContratoTab({ obra, clientes }: { obra: Obra; clientes: Pick<Cliente, '
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                     <FormField label="Cliente" htmlFor="cliente_id" error={form.errors.cliente_id}>
-                        <Select value={form.data.cliente_id} onValueChange={(v) => form.setData('cliente_id', v)}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
-                            <SelectContent>
-                                {clientes.map((c) => (
-                                    <SelectItem key={c.id} value={String(c.id)}>{c.nombre}</SelectItem>
-                                ))}
-                            </SelectContent>
+                        <Select value={form.data.cliente_id} onValueChange={(v) => form.setData('cliente_id', v)} placeholder="Seleccionar cliente">
+                            {clientes.map((c) => (
+                                <SelectItem key={c.id} value={String(c.id)}>{c.nombre}</SelectItem>
+                            ))}
                         </Select>
                     </FormField>
 
                     <FormField label="Tipo Contrato" htmlFor="tipo_contrato" error={form.errors.tipo_contrato}>
-                        <Select value={form.data.tipo_contrato} onValueChange={(v) => form.setData('tipo_contrato', v)}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar tipo" /></SelectTrigger>
-                            <SelectContent>
-                                {Object.entries(COB_TIPO_CONTRATO_LABELS).map(([k, v]) => (
-                                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                                ))}
-                            </SelectContent>
+                        <Select value={form.data.tipo_contrato} onValueChange={(v) => form.setData('tipo_contrato', v)} placeholder="Seleccionar tipo">
+                            {Object.entries(COB_TIPO_CONTRATO_LABELS).map(([k, v]) => (
+                                <SelectItem key={k} value={k}>{v}</SelectItem>
+                            ))}
                         </Select>
                     </FormField>
 

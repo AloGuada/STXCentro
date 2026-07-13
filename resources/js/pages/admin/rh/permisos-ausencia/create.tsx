@@ -1,13 +1,13 @@
-import { FormField } from '@/components/form';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { FormField } from '@/components/form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
+
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -69,31 +69,21 @@ export default function PermisoAusenciaCreate() {
 
                         <div className="grid grid-cols-2 gap-4">
                             <FormField label="Tipo" htmlFor="tipo" error={errors.tipo}>
-                                <Select value={data.tipo} onValueChange={(v) => setData('tipo', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar tipo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="personal">Personal</SelectItem>
-                                        <SelectItem value="medico">Medico</SelectItem>
-                                        <SelectItem value="vacaciones">Vacaciones</SelectItem>
-                                        <SelectItem value="maternidad">Maternidad</SelectItem>
-                                        <SelectItem value="paternidad">Paternidad</SelectItem>
-                                        <SelectItem value="otro">Otro</SelectItem>
-                                    </SelectContent>
+                                <Select value={data.tipo} onValueChange={(v) => setData('tipo', v)} placeholder="Seleccionar tipo">
+                                    <SelectItem value="personal">Personal</SelectItem>
+                                    <SelectItem value="medico">Medico</SelectItem>
+                                    <SelectItem value="vacaciones">Vacaciones</SelectItem>
+                                    <SelectItem value="maternidad">Maternidad</SelectItem>
+                                    <SelectItem value="paternidad">Paternidad</SelectItem>
+                                    <SelectItem value="otro">Otro</SelectItem>
                                 </Select>
                             </FormField>
 
                             <FormField label="Modalidad" htmlFor="modalidad" error={errors.modalidad}>
-                                <Select value={data.modalidad} onValueChange={(v) => setData('modalidad', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar modalidad" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="con_goce">Con goce de sueldo</SelectItem>
-                                        <SelectItem value="sin_goce">Sin goce de sueldo</SelectItem>
-                                        <SelectItem value="a_cuenta_vacaciones">A cuenta de vacaciones</SelectItem>
-                                    </SelectContent>
+                                <Select value={data.modalidad} onValueChange={(v) => setData('modalidad', v)} placeholder="Seleccionar modalidad">
+                                    <SelectItem value="con_goce">Con goce de sueldo</SelectItem>
+                                    <SelectItem value="sin_goce">Sin goce de sueldo</SelectItem>
+                                    <SelectItem value="a_cuenta_vacaciones">A cuenta de vacaciones</SelectItem>
                                 </Select>
                             </FormField>
                         </div>

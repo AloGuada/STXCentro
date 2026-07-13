@@ -4,7 +4,7 @@ import { type FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { OBRA_ESTATUS_LABELS, type Obra, type Proyecto } from '@/types/models';
@@ -45,11 +45,8 @@ export default function ObraEdit({ proyecto, obra }: Props) {
                         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                             <FormField label="Tipo" htmlFor="tipo" error={errors.tipo}>
                                 <Select value={data.tipo} onValueChange={(v) => setData('tipo', v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="base">Obra</SelectItem>
-                                        <SelectItem value="adicional">Adicional</SelectItem>
-                                    </SelectContent>
+                                    <SelectItem value="base">Obra</SelectItem>
+                                    <SelectItem value="adicional">Adicional</SelectItem>
                                 </Select>
                             </FormField>
 
@@ -63,12 +60,9 @@ export default function ObraEdit({ proyecto, obra }: Props) {
 
                             <FormField label="Estado" htmlFor="estatus" error={errors.estatus}>
                                 <Select value={data.estatus} onValueChange={(v) => setData('estatus', v as typeof data.estatus)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(OBRA_ESTATUS_LABELS).map(([k, v]) => (
-                                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                                        ))}
-                                    </SelectContent>
+                                    {Object.entries(OBRA_ESTATUS_LABELS).map(([k, v]) => (
+                                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                                    ))}
                                 </Select>
                             </FormField>
                         </div>

@@ -7,7 +7,7 @@ import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectItem } from '@/components/ui/select';
 import type { CobEstimacion, CobEstimacionEstado, CobEstimacionEstadoHistorial, Proyecto } from '@/types/models';
 
 /**
@@ -468,11 +468,8 @@ export function PlaneacionGantt({ proyecto }: { proyecto: Proyecto }) {
                     </DialogHeader>
                     <div className="space-y-4">
                         <FormField label="Obra" htmlFor="e_obra">
-                            <Select value={eObra} onValueChange={setEObra}>
-                                <SelectTrigger><SelectValue placeholder="Seleccionar obra" /></SelectTrigger>
-                                <SelectContent>
-                                    {obras.map((o) => (<SelectItem key={o.id} value={String(o.id)}>{o.no} — {o.descripcion}</SelectItem>))}
-                                </SelectContent>
+                            <Select value={eObra} onValueChange={setEObra} placeholder="Seleccionar obra">
+                                {obras.map((o) => (<SelectItem key={o.id} value={String(o.id)}>{o.no} — {o.descripcion}</SelectItem>))}
                             </Select>
                         </FormField>
                         <FormField label="Descripción" htmlFor="e_desc"><Input value={eDescripcion} onChange={(e) => setEDescripcion(e.target.value)} placeholder="Ej. Suministro, Montaje, Fabricación…" /></FormField>

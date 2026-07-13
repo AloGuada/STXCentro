@@ -1,17 +1,17 @@
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { BriefcaseIcon, CameraIcon, CheckCircle2Icon, CircleIcon, FileIcon, FolderOpenIcon, Loader2Icon, PencilIcon, TrashIcon, UploadIcon, UserIcon, XCircleIcon } from 'lucide-react';
+import type { FormEvent } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { checkPdfHasText, type PdfTextCheck } from '@/lib/check-pdf-text';
 import type { BreadcrumbItem } from '@/types';
 import type { RhPersona } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { checkPdfHasText, type PdfTextCheck } from '@/lib/check-pdf-text';
-import { BriefcaseIcon, CameraIcon, CheckCircle2Icon, CircleIcon, FileIcon, FolderOpenIcon, Loader2Icon, PencilIcon, TrashIcon, UploadIcon, UserIcon, XCircleIcon } from 'lucide-react';
-import type { FormEvent } from 'react';
-import { useMemo, useRef, useState } from 'react';
 
 type Props = {
     persona: RhPersona;
@@ -356,17 +356,12 @@ export default function PersonaEdit({ persona }: Props) {
                                     <Input id="numero_ine" value={extrasForm.data.numero_ine} onChange={(e) => extrasForm.setData('numero_ine', e.target.value)} placeholder="Número de INE" />
                                 </FormField>
                                 <FormField label="Estado Civil" htmlFor="estado_civil" error={extrasForm.errors.estado_civil}>
-                                    <Select value={extrasForm.data.estado_civil} onValueChange={(v) => extrasForm.setData('estado_civil', v)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Seleccionar" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="soltero">Soltero(a)</SelectItem>
-                                            <SelectItem value="casado">Casado(a)</SelectItem>
-                                            <SelectItem value="union libre">Union Libre</SelectItem>
-                                            <SelectItem value="divorciado">Divorciado(a)</SelectItem>
-                                            <SelectItem value="viudo">Viudo(a)</SelectItem>
-                                        </SelectContent>
+                                    <Select value={extrasForm.data.estado_civil} onValueChange={(v) => extrasForm.setData('estado_civil', v)} placeholder="Seleccionar">
+                                        <SelectItem value="soltero">Soltero(a)</SelectItem>
+                                        <SelectItem value="casado">Casado(a)</SelectItem>
+                                        <SelectItem value="union libre">Union Libre</SelectItem>
+                                        <SelectItem value="divorciado">Divorciado(a)</SelectItem>
+                                        <SelectItem value="viudo">Viudo(a)</SelectItem>
                                     </Select>
                                 </FormField>
                                 <FormField label="Hijos" htmlFor="hijos" error={extrasForm.errors.hijos}>
@@ -417,25 +412,15 @@ export default function PersonaEdit({ persona }: Props) {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <FormField label="Credito Infonavit" htmlFor="c_infonavit" error={extrasForm.errors.c_infonavit}>
-                                    <Select value={extrasForm.data.c_infonavit} onValueChange={(v) => extrasForm.setData('c_infonavit', v)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Seleccionar" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="si">SI</SelectItem>
-                                            <SelectItem value="no">NO</SelectItem>
-                                        </SelectContent>
+                                    <Select value={extrasForm.data.c_infonavit} onValueChange={(v) => extrasForm.setData('c_infonavit', v)} placeholder="Seleccionar">
+                                        <SelectItem value="si">SI</SelectItem>
+                                        <SelectItem value="no">NO</SelectItem>
                                     </Select>
                                 </FormField>
                                 <FormField label="Credito Fonacot" htmlFor="c_fonacot" error={extrasForm.errors.c_fonacot}>
-                                    <Select value={extrasForm.data.c_fonacot} onValueChange={(v) => extrasForm.setData('c_fonacot', v)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Seleccionar" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="si">SI</SelectItem>
-                                            <SelectItem value="no">NO</SelectItem>
-                                        </SelectContent>
+                                    <Select value={extrasForm.data.c_fonacot} onValueChange={(v) => extrasForm.setData('c_fonacot', v)} placeholder="Seleccionar">
+                                        <SelectItem value="si">SI</SelectItem>
+                                        <SelectItem value="no">NO</SelectItem>
                                     </Select>
                                 </FormField>
                             </div>

@@ -1,13 +1,13 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import type { FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import type { FormEvent } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -116,41 +116,26 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
 
                         <div className="grid grid-cols-3 gap-4">
                             <FormField label="Periodicidad de Pago" htmlFor="periodicidad_pago" error={errors.periodicidad_pago}>
-                                <Select value={data.periodicidad_pago} onValueChange={(v) => setData('periodicidad_pago', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="semanal">Semanal</SelectItem>
-                                        <SelectItem value="catorcenal">Catorcenal</SelectItem>
-                                        <SelectItem value="quincenal">Quincenal</SelectItem>
-                                        <SelectItem value="mensual">Mensual</SelectItem>
-                                    </SelectContent>
+                                <Select value={data.periodicidad_pago} onValueChange={(v) => setData('periodicidad_pago', v)} placeholder="Seleccionar">
+                                    <SelectItem value="semanal">Semanal</SelectItem>
+                                    <SelectItem value="catorcenal">Catorcenal</SelectItem>
+                                    <SelectItem value="quincenal">Quincenal</SelectItem>
+                                    <SelectItem value="mensual">Mensual</SelectItem>
                                 </Select>
                             </FormField>
 
                             <FormField label="Tipo de Salario" htmlFor="tipo_salario" error={errors.tipo_salario}>
-                                <Select value={data.tipo_salario} onValueChange={(v) => setData('tipo_salario', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="fijo">Fijo</SelectItem>
-                                        <SelectItem value="destajo">Destajo</SelectItem>
-                                    </SelectContent>
+                                <Select value={data.tipo_salario} onValueChange={(v) => setData('tipo_salario', v)} placeholder="Seleccionar">
+                                    <SelectItem value="fijo">Fijo</SelectItem>
+                                    <SelectItem value="destajo">Destajo</SelectItem>
                                 </Select>
                             </FormField>
 
                             <FormField label="Tipo de Contrato" htmlFor="tipo_contrato" error={errors.tipo_contrato}>
-                                <Select value={data.tipo_contrato} onValueChange={(v) => setData('tipo_contrato', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="indeterminado">Indeterminado</SelectItem>
-                                        <SelectItem value="determinado">Determinado</SelectItem>
-                                        <SelectItem value="obra_determinada">Obra determinada</SelectItem>
-                                    </SelectContent>
+                                <Select value={data.tipo_contrato} onValueChange={(v) => setData('tipo_contrato', v)} placeholder="Seleccionar">
+                                    <SelectItem value="indeterminado">Indeterminado</SelectItem>
+                                    <SelectItem value="determinado">Determinado</SelectItem>
+                                    <SelectItem value="obra_determinada">Obra determinada</SelectItem>
                                 </Select>
                             </FormField>
                         </div>
@@ -165,29 +150,19 @@ export default function PeriodoLaboralCreate({ personas, puestos, requisiciones 
                             </FormField>
 
                             <FormField label="Tipo de Empleado" htmlFor="tipo_empleado" error={errors.tipo_empleado}>
-                                <Select value={data.tipo_empleado} onValueChange={(v) => setData('tipo_empleado', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="planta">Planta</SelectItem>
-                                        <SelectItem value="contratista">Contratista</SelectItem>
-                                        <SelectItem value="becario">Becario</SelectItem>
-                                        <SelectItem value="foraneo">Foraneo</SelectItem>
-                                    </SelectContent>
+                                <Select value={data.tipo_empleado} onValueChange={(v) => setData('tipo_empleado', v)} placeholder="Seleccionar">
+                                    <SelectItem value="planta">Planta</SelectItem>
+                                    <SelectItem value="contratista">Contratista</SelectItem>
+                                    <SelectItem value="becario">Becario</SelectItem>
+                                    <SelectItem value="foraneo">Foraneo</SelectItem>
                                 </Select>
                             </FormField>
                         </div>
 
                         <FormField label="Estado" htmlFor="estado" error={errors.estado} required>
-                            <Select value={data.estado} onValueChange={(v) => setData('estado', v as 'activo' | 'baja')}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar estado" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="activo">Activo</SelectItem>
-                                    <SelectItem value="baja">Baja</SelectItem>
-                                </SelectContent>
+                            <Select value={data.estado} onValueChange={(v) => setData('estado', v as 'activo' | 'baja')} placeholder="Seleccionar estado">
+                                <SelectItem value="activo">Activo</SelectItem>
+                                <SelectItem value="baja">Baja</SelectItem>
                             </Select>
                         </FormField>
 

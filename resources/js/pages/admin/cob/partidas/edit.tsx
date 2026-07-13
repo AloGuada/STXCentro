@@ -4,7 +4,7 @@ import { type FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { type CobPartida, type Obra } from '@/types/models';
@@ -46,11 +46,8 @@ export default function PartidaEdit({ obra, partida }: Props) {
                         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                             <FormField label="Tipo" htmlFor="tipo" error={errors.tipo}>
                                 <Select value={data.tipo} onValueChange={(v) => setData('tipo', v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="suministro">Suministro</SelectItem>
-                                        <SelectItem value="montaje">Montaje</SelectItem>
-                                    </SelectContent>
+                                    <SelectItem value="suministro">Suministro</SelectItem>
+                                    <SelectItem value="montaje">Montaje</SelectItem>
                                 </Select>
                             </FormField>
 
@@ -64,11 +61,8 @@ export default function PartidaEdit({ obra, partida }: Props) {
 
                             <FormField label="Moneda" htmlFor="moneda" error={errors.moneda}>
                                 <Select value={data.moneda} onValueChange={(v) => setData('moneda', v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="MXN">MXN</SelectItem>
-                                        <SelectItem value="USD">USD</SelectItem>
-                                    </SelectContent>
+                                    <SelectItem value="MXN">MXN</SelectItem>
+                                    <SelectItem value="USD">USD</SelectItem>
                                 </Select>
                             </FormField>
 

@@ -1,13 +1,13 @@
-import { FormField } from '@/components/form';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { FormField } from '@/components/form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
+
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -62,28 +62,18 @@ export default function RequisicionCreate({ puestos }: Props) {
                             </FormField>
 
                             <FormField label="Tipo de Requisicion" htmlFor="tipo_requisicion" error={errors.tipo_requisicion} required>
-                                <Select value={data.tipo_requisicion} onValueChange={(v) => setData('tipo_requisicion', v as 'nueva' | 'reemplazo' | 'temporal')}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar tipo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="nueva">Nueva</SelectItem>
-                                        <SelectItem value="reemplazo">Reemplazo</SelectItem>
-                                        <SelectItem value="temporal">Temporal</SelectItem>
-                                    </SelectContent>
+                                <Select value={data.tipo_requisicion} onValueChange={(v) => setData('tipo_requisicion', v as 'nueva' | 'reemplazo' | 'temporal')} placeholder="Seleccionar tipo">
+                                    <SelectItem value="nueva">Nueva</SelectItem>
+                                    <SelectItem value="reemplazo">Reemplazo</SelectItem>
+                                    <SelectItem value="temporal">Temporal</SelectItem>
                                 </Select>
                             </FormField>
                         </div>
 
                         <FormField label="Tipo de Contrato a Generar" htmlFor="tipo_contrato_generado" error={errors.tipo_contrato_generado} required>
-                            <Select value={data.tipo_contrato_generado} onValueChange={(v) => setData('tipo_contrato_generado', v as 'planta' | 'obra')}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar tipo de contrato" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="planta">Planta</SelectItem>
-                                    <SelectItem value="obra">Obra</SelectItem>
-                                </SelectContent>
+                            <Select value={data.tipo_contrato_generado} onValueChange={(v) => setData('tipo_contrato_generado', v as 'planta' | 'obra')} placeholder="Seleccionar tipo de contrato">
+                                <SelectItem value="planta">Planta</SelectItem>
+                                <SelectItem value="obra">Obra</SelectItem>
                             </Select>
                         </FormField>
 

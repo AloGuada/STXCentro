@@ -1,15 +1,15 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import type { FormEvent } from 'react';
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectItem } from '@/components/ui/select';
 
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { RhRequisicion } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import type { FormEvent } from 'react';
 
 type Props = {
     requisicion: RhRequisicion;
@@ -59,17 +59,12 @@ export default function RequisicionEdit({ requisicion, puestos }: Props) {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Puesto" htmlFor="puesto_id" error={errors.puesto_id} required>
-                            <Select value={data.puesto_id} onValueChange={(v) => setData('puesto_id', v)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar puesto" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {puestos.map((p) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                            {p.nombre}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
+                            <Select value={data.puesto_id} onValueChange={(v) => setData('puesto_id', v)} placeholder="Seleccionar puesto">
+                                {puestos.map((p) => (
+                                    <SelectItem key={p.id} value={String(p.id)}>
+                                        {p.nombre}
+                                    </SelectItem>
+                                ))}
                             </Select>
                         </FormField>
 
@@ -79,43 +74,28 @@ export default function RequisicionEdit({ requisicion, puestos }: Props) {
                             </FormField>
 
                             <FormField label="Tipo de Requisicion" htmlFor="tipo_requisicion" error={errors.tipo_requisicion} required>
-                                <Select value={data.tipo_requisicion} onValueChange={(v) => setData('tipo_requisicion', v as 'nueva' | 'reemplazo' | 'temporal')}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar tipo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="nueva">Nueva</SelectItem>
-                                        <SelectItem value="reemplazo">Reemplazo</SelectItem>
-                                        <SelectItem value="temporal">Temporal</SelectItem>
-                                    </SelectContent>
+                                <Select value={data.tipo_requisicion} onValueChange={(v) => setData('tipo_requisicion', v as 'nueva' | 'reemplazo' | 'temporal')} placeholder="Seleccionar tipo">
+                                    <SelectItem value="nueva">Nueva</SelectItem>
+                                    <SelectItem value="reemplazo">Reemplazo</SelectItem>
+                                    <SelectItem value="temporal">Temporal</SelectItem>
                                 </Select>
                             </FormField>
                         </div>
 
                         <FormField label="Tipo de Contrato a Generar" htmlFor="tipo_contrato_generado" error={errors.tipo_contrato_generado} required>
-                            <Select value={data.tipo_contrato_generado} onValueChange={(v) => setData('tipo_contrato_generado', v as 'planta' | 'obra')}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar tipo de contrato" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="planta">Planta</SelectItem>
-                                    <SelectItem value="obra">Obra</SelectItem>
-                                </SelectContent>
+                            <Select value={data.tipo_contrato_generado} onValueChange={(v) => setData('tipo_contrato_generado', v as 'planta' | 'obra')} placeholder="Seleccionar tipo de contrato">
+                                <SelectItem value="planta">Planta</SelectItem>
+                                <SelectItem value="obra">Obra</SelectItem>
                             </Select>
                         </FormField>
 
                         <FormField label="Estado" htmlFor="estado" error={errors.estado} required>
-                            <Select value={data.estado} onValueChange={(v) => setData('estado', v as 'borrador' | 'abierta' | 'en_proceso' | 'cerrada' | 'cancelada')}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar estado" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="borrador">Borrador</SelectItem>
-                                    <SelectItem value="abierta">Abierta</SelectItem>
-                                    <SelectItem value="en_proceso">En Proceso</SelectItem>
-                                    <SelectItem value="cerrada">Cerrada</SelectItem>
-                                    <SelectItem value="cancelada">Cancelada</SelectItem>
-                                </SelectContent>
+                            <Select value={data.estado} onValueChange={(v) => setData('estado', v as 'borrador' | 'abierta' | 'en_proceso' | 'cerrada' | 'cancelada')} placeholder="Seleccionar estado">
+                                <SelectItem value="borrador">Borrador</SelectItem>
+                                <SelectItem value="abierta">Abierta</SelectItem>
+                                <SelectItem value="en_proceso">En Proceso</SelectItem>
+                                <SelectItem value="cerrada">Cerrada</SelectItem>
+                                <SelectItem value="cancelada">Cancelada</SelectItem>
                             </Select>
                         </FormField>
 
