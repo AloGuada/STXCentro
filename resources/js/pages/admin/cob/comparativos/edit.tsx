@@ -1,13 +1,13 @@
-import { FormField } from '@/components/form';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
-import { COB_COMPARATIVO_ESTADO_LABELS, type CobComparativo, type Proyecto } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import { type FormEvent } from 'react';
+import { FormField } from '@/components/form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
+import { COB_COMPARATIVO_ESTADO_LABELS, type CobComparativo, type Proyecto } from '@/types/models';
 
 type ObraOpcion = { id: number; no: string; tipo: string };
 
@@ -49,15 +49,12 @@ export default function ComparativoEdit({ proyecto, obras, comparativo }: Props)
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                             <FormField label="Obra" htmlFor="obra_id" error={errors.obra_id} required>
-                                <Select value={data.obra_id} onValueChange={(v) => setData('obra_id', v)}>
-                                    <SelectTrigger><SelectValue placeholder="Seleccionar obra" /></SelectTrigger>
-                                    <SelectContent>
-                                        {obras.map((o) => (
-                                            <SelectItem key={o.id} value={String(o.id)}>
-                                                {o.no} {o.tipo === 'base' ? '(base)' : '(adicional)'}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
+                                <Select value={data.obra_id} onValueChange={(v) => setData('obra_id', v)} placeholder="Seleccionar obra">
+                                    {obras.map((o) => (
+                                        <SelectItem key={o.id} value={String(o.id)}>
+                                            {o.no} {o.tipo === 'base' ? '(base)' : '(adicional)'}
+                                        </SelectItem>
+                                    ))}
                                 </Select>
                             </FormField>
 
@@ -71,12 +68,9 @@ export default function ComparativoEdit({ proyecto, obras, comparativo }: Props)
 
                             <FormField label="Estado" htmlFor="estado" error={errors.estado}>
                                 <Select value={data.estado} onValueChange={(v) => setData('estado', v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(COB_COMPARATIVO_ESTADO_LABELS).map(([k, v]) => (
-                                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                                        ))}
-                                    </SelectContent>
+                                    {Object.entries(COB_COMPARATIVO_ESTADO_LABELS).map(([k, v]) => (
+                                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                                    ))}
                                 </Select>
                             </FormField>
                         </div>
