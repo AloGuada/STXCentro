@@ -1963,6 +1963,7 @@ export type CostosAprobacionSolicitud = {
     aprobable_id?: number;
     solicitud?: CostosSolicitudPago;
     requisicion?: CostosRequisicion;
+    // Total neto a pagar de la requisición (subtotal + IVA - retenciones)
     requisicion_total?: number;
     created_at: string;
     updated_at: string;
