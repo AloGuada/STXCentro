@@ -193,7 +193,7 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
                 ? { razon_social: mejor.nombre_comercial || mejor.razon_social, rfc: null, subLabel }
                 : { razon_social: 'Cotización parcial', rfc: null, subLabel },
             tipoLabel: 'Requisición de compras',
-            monto: mejor ? mejor.total : (a.requisicion_total ?? 0),
+            monto: a.requisicion_total ?? (mejor ? mejor.total : 0),
             tieneSobregiro: Boolean(req.tiene_sobregiro),
             detailHref: `/admin/costos/requisiciones/${req.id}`,
             archivosCount: 0,

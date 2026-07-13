@@ -1,12 +1,19 @@
 <?php
 
+use App\Enums\Costos\TipoFiscalPartida;
+use App\Models\Costos\Aprobacion;
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\AprobacionSolicitud;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Permiso;
+use App\Models\Costos\Requisicion;
+use App\Models\Costos\RequisicionCotizacionPrecio;
+use App\Models\Costos\RequisicionDetalle;
+use App\Models\Costos\RequisicionSeleccion;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
 use App\Models\Departamento;
+use App\Models\Proveedor;
 use App\Models\User;
 use Spatie\Permission\Models\Role;
 
@@ -44,6 +51,46 @@ describe('admin costos aprobaciones', function () {
         $response->assertInertia(fn ($page) => $page
             ->has('pendientes', 1)
         );
+    });
+
+    test('el monto de una requisicion en la bandeja es el neto (subtotal + IVA - retenciones)', function () {
+        // Persona moral + partida de mercancia: sin retenciones, solo IVA 16%.
+        $proveedor = Proveedor::factory()->create(['tipo_persona' => 'moral']);
+
+        $requisicion = Requisicion::factory()->pendienteAprobacion()->create();
+        $detalle = RequisicionDetalle::factory()->create([
+            'requisicion_id' => $requisicion->id,
+            'tipo_fiscal' => TipoFiscalPartida::Mercancia->value,
+        ]);
+        $precio = RequisicionCotizacionPrecio::factory()->create([
+            'requisicion_detalle_id' => $detalle->id,
+            'proveedor_id' => $proveedor->id,
+            'precio_unitario' => 1000,
+        ]);
+        RequisicionSeleccion::factory()->create([
+            'requisicion_detalle_id' => $detalle->id,
+            'cotizacion_precio_id' => $precio->id,
+            'proveedor_id' => $proveedor->id,
+            'numero_oc' => 1,
+            'cantidad' => 1,
+        ]);
+
+        Aprobacion::create([
+            'aprobable_type' => Requisicion::class,
+            'aprobable_id' => $requisicion->id,
+            'nivel' => 1,
+            'aprobador_id' => $this->user->id,
+            'estatus' => 'pendiente',
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.costos.aprobaciones.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('pendientes', 1)
+                // 1000 subtotal + 16% IVA = 1160 (no es el subtotal pelon de 1000).
+                ->where('pendientes.0.requisicion_total', fn ($v) => abs((float) $v - 1160.0) < 0.01)
+            );
     });
 
     test('no muestra pendientes de una solicitud cancelada aunque la aprobacion siga pendiente', function () {
