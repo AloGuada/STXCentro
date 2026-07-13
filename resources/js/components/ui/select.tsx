@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
 
 type SelectProps = Omit<ComponentProps<'select'>, 'value' | 'onChange'> & {
@@ -44,9 +44,4 @@ function SelectItem({ children, ...props }: SelectItemProps) {
     return <option {...props}>{children}</option>;
 }
 
-// Alias para compatibilidad
-const SelectTrigger = ({ children }: { children: ReactNode }) => <>{children}</>;
-const SelectValue = ({ placeholder }: { placeholder?: string }) => <>{placeholder}</>;
-const SelectContent = ({ children }: { children: ReactNode }) => <>{children}</>;
-
-export { Select, SelectItem, SelectTrigger, SelectValue, SelectContent };
+export { Select, SelectItem };

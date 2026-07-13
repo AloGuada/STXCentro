@@ -1,9 +1,9 @@
+import { Head, router } from '@inertiajs/react';
 import { DataTable, type Column } from '@/components/data-table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Departamento, PaginatedData, RhPuesto } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -63,18 +63,14 @@ export default function PuestosIndex({ puestos, filters, departamentos }: Props)
                     <Select
                         value={filters.departamento_id ? String(filters.departamento_id) : TODOS}
                         onValueChange={handleDepartamentoChange}
+                        placeholder="Todos los departamentos"
                     >
-                        <SelectTrigger className="w-56">
-                            <SelectValue placeholder="Todos los departamentos" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={TODOS}>Todos los departamentos</SelectItem>
-                            {departamentos.map((d) => (
-                                <SelectItem key={d.id} value={String(d.id)}>
-                                    {d.descripcion}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
+                        <SelectItem value={TODOS}>Todos los departamentos</SelectItem>
+                        {departamentos.map((d) => (
+                            <SelectItem key={d.id} value={String(d.id)}>
+                                {d.descripcion}
+                            </SelectItem>
+                        ))}
                     </Select>
                 </DataTable>
             </div>

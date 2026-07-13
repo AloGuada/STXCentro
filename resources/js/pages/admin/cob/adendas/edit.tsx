@@ -1,13 +1,13 @@
-import { FormField } from '@/components/form';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
-import { COB_ADENDA_ESTADO_LABELS, COB_ADENDA_TIPO_LABELS, type CobAdenda, type Obra } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import { type FormEvent } from 'react';
+import { FormField } from '@/components/form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
+import { COB_ADENDA_ESTADO_LABELS, COB_ADENDA_TIPO_LABELS, type CobAdenda, type Obra } from '@/types/models';
 
 type Props = {
     obra: Obra;
@@ -47,12 +47,9 @@ export default function AdendaEdit({ obra, adenda }: Props) {
                         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                             <FormField label="Tipo" htmlFor="tipo" error={errors.tipo}>
                                 <Select value={data.tipo} onValueChange={(v) => setData('tipo', v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(COB_ADENDA_TIPO_LABELS).map(([k, v]) => (
-                                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                                        ))}
-                                    </SelectContent>
+                                    {Object.entries(COB_ADENDA_TIPO_LABELS).map(([k, v]) => (
+                                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                                    ))}
                                 </Select>
                             </FormField>
 
@@ -66,12 +63,9 @@ export default function AdendaEdit({ obra, adenda }: Props) {
 
                             <FormField label="Estado" htmlFor="estado" error={errors.estado}>
                                 <Select value={data.estado} onValueChange={(v) => setData('estado', v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(COB_ADENDA_ESTADO_LABELS).map(([k, v]) => (
-                                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                                        ))}
-                                    </SelectContent>
+                                    {Object.entries(COB_ADENDA_ESTADO_LABELS).map(([k, v]) => (
+                                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                                    ))}
                                 </Select>
                             </FormField>
                         </div>

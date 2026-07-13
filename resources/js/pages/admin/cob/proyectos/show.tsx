@@ -11,7 +11,7 @@ import { ResumenFinancieroCard } from '@/components/cob/resumen-financiero';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectItem } from '@/components/ui/select';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -478,13 +478,10 @@ function DatosTab({ proyecto, clientes }: { proyecto: Proyecto; clientes: Pick<C
                     </FormField>
 
                     <FormField label="Cliente" htmlFor="cliente_id" error={form.errors.cliente_id}>
-                        <Select value={form.data.cliente_id} onValueChange={(v) => form.setData('cliente_id', v)}>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
-                            <SelectContent>
-                                {clientes.map((c) => (
-                                    <SelectItem key={c.id} value={String(c.id)}>{c.nombre}</SelectItem>
-                                ))}
-                            </SelectContent>
+                        <Select value={form.data.cliente_id} onValueChange={(v) => form.setData('cliente_id', v)} placeholder="Seleccionar cliente">
+                            {clientes.map((c) => (
+                                <SelectItem key={c.id} value={String(c.id)}>{c.nombre}</SelectItem>
+                            ))}
                         </Select>
                     </FormField>
                 </div>

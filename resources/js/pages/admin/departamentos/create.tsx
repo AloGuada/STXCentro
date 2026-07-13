@@ -1,19 +1,13 @@
-import { FormField } from '@/components/form';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
-import type { Usuario } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { FormField } from '@/components/form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
+import type { Usuario } from '@/types/models';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -82,17 +76,13 @@ export default function DepartamentosCreate({ usuarios }: Props) {
                             <Select
                                 value={data.manager_usuario_id}
                                 onValueChange={(value) => setData('manager_usuario_id', value)}
+                                placeholder="Seleccionar usuario"
                             >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar usuario" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {usuarios.map((usuario) => (
-                                        <SelectItem key={usuario.id} value={usuario.id}>
-                                            {usuario.name} ({usuario.email})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
+                                {usuarios.map((usuario) => (
+                                    <SelectItem key={usuario.id} value={usuario.id}>
+                                        {usuario.name} ({usuario.email})
+                                    </SelectItem>
+                                ))}
                             </Select>
                         </FormField>
 

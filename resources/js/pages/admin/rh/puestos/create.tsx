@@ -1,14 +1,14 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import type { FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectItem } from '@/components/ui/select';
 
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Departamento } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import type { FormEvent } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -53,17 +53,12 @@ export default function PuestoCreate({ departamentos, puestos }: Props) {
                         </FormField>
 
                         <FormField label="Departamento" htmlFor="departamento_id" error={errors.departamento_id} required>
-                            <Select value={data.departamento_id} onValueChange={(v) => setData('departamento_id', v)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar departamento" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {departamentos.map((dep) => (
-                                        <SelectItem key={dep.id} value={String(dep.id)}>
-                                            {dep.descripcion}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
+                            <Select value={data.departamento_id} onValueChange={(v) => setData('departamento_id', v)} placeholder="Seleccionar departamento">
+                                {departamentos.map((dep) => (
+                                    <SelectItem key={dep.id} value={String(dep.id)}>
+                                        {dep.descripcion}
+                                    </SelectItem>
+                                ))}
                             </Select>
                         </FormField>
 
@@ -92,17 +87,12 @@ export default function PuestoCreate({ departamentos, puestos }: Props) {
                         </div>
 
                         <FormField label="Puesto Jefe" htmlFor="puesto_jefe_id" error={errors.puesto_jefe_id}>
-                            <Select value={data.puesto_jefe_id} onValueChange={(v) => setData('puesto_jefe_id', v)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar puesto jefe (opcional)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {puestos.map((p) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                            {p.nombre}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
+                            <Select value={data.puesto_jefe_id} onValueChange={(v) => setData('puesto_jefe_id', v)} placeholder="Seleccionar puesto jefe (opcional)">
+                                {puestos.map((p) => (
+                                    <SelectItem key={p.id} value={String(p.id)}>
+                                        {p.nombre}
+                                    </SelectItem>
+                                ))}
                             </Select>
                         </FormField>
 
