@@ -50,6 +50,9 @@ type Props = {
     proveedores: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial' | 'maneja_credito' | 'tipo_persona' | 'regimen_fiscal'>[];
     obraRubros: ObraRubroOption[];
     usosCfdi: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>[];
+    // Último precio de cada proveedor para el insumo de cada partida, en otras
+    // requisiciones. Clave: "productoId|proveedorId".
+    preciosPrevios: Record<string, number>;
     aprobacionPendienteId: number | null;
     esUltimoNivel: boolean;
     proveedoresPorValidar: ProveedorPorValidar[];
@@ -464,7 +467,7 @@ function ValidacionProveedoresModal({
     );
 }
 
-export default function RequisicionesShow({ requisicion, proveedores, obraRubros, usosCfdi, aprobacionPendienteId, esUltimoNivel, proveedoresPorValidar }: Props) {
+export default function RequisicionesShow({ requisicion, proveedores, obraRubros, usosCfdi, preciosPrevios, aprobacionPendienteId, esUltimoNivel, proveedoresPorValidar }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/requisiciones' },
@@ -542,7 +545,8 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                             )}
                             <span className="text-sm text-base-content/60">
                                 {requisicion.solicitante?.name} · {requisicion.departamento?.descripcion}
-                                {requisicion.presupuesto && ` · ${requisicion.presupuesto.nombre_mostrar ?? ''}`}
+                                {requisicion.presupuesto &&
+                                    ` · ${requisicion.presupuesto.nombre_mostrar ?? ''}${requisicion.presupuesto.op_mostrar ? ` (${requisicion.presupuesto.op_mostrar})` : ''}`}
                                 {' · '}{fmtDate(requisicion.created_at)}
                             </span>
                         </div>
@@ -764,6 +768,7 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                         proveedores={proveedores}
                         obraRubros={obraRubros}
                         usosCfdi={usosCfdi}
+                        preciosPrevios={preciosPrevios}
                         editable={cotizable}
                         puedeEditarPartidas={['borrador', 'cotizada', 'rechazada'].includes(requisicion.estatus)}
                     />
