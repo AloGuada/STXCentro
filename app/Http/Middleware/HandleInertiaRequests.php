@@ -190,6 +190,18 @@ class HandleInertiaRequests extends Middleware
 
         if ($config->condiciones_extra) {
             foreach ($config->condiciones_extra as $condicion) {
+                // Condición de existencia de relación (ej. "tiene al menos una OC
+                // configurada"): whereExists contra otra tabla por su FK.
+                if (($condicion['tipo'] ?? 'campo') === 'existe') {
+                    $query->whereExists(function ($q) use ($config, $condicion) {
+                        $q->select(DB::raw(1))
+                            ->from($condicion['tabla'])
+                            ->whereColumn($condicion['tabla'].'.'.$condicion['fk'], $config->tabla.'.id');
+                    });
+
+                    continue;
+                }
+
                 $op = $condicion['operador'] ?? '=';
                 $val = $this->resolveValue($condicion['valor'], $op);
                 $query->where($condicion['campo'], $op, $val);

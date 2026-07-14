@@ -203,6 +203,50 @@ test('badge no aparece si conteo es cero', function () {
     expect($badges)->toBeEmpty();
 });
 
+test('badge cuenta requisiciones cotizadas con OC configurada pendientes de verificación gerencial', function () {
+    $role = Role::firstOrCreate(['name' => 'compras', 'guard_name' => 'web']);
+    $this->user->assignRole($role);
+
+    BadgeConfig::factory()->create([
+        'tabla' => 'costos_requisiciones',
+        'campo_estatus' => 'estatus',
+        'operador' => '=',
+        'valor_estatus' => 'cotizada',
+        'condiciones_extra' => [
+            ['campo' => 'control_verificado', 'operador' => '=', 'valor' => false],
+            ['tipo' => 'existe', 'tabla' => 'costos_requisicion_ocs', 'fk' => 'requisicion_id'],
+        ],
+        'rol' => 'compras',
+        'nav_href' => '/admin/costos/requisiciones',
+        'activo' => true,
+    ]);
+
+    $depto = \App\Models\Departamento::factory()->create();
+    $ocData = fn () => ['proveedor_id' => \App\Models\Proveedor::factory()->create()->id, 'numero_oc' => 1];
+
+    // Cuenta: cotizada, sin verificar, con OC configurada.
+    $conOc = \App\Models\Costos\Requisicion::factory()->cotizada()->create([
+        'departamento_id' => $depto->id, 'control_verificado' => false,
+    ]);
+    $conOc->ocs()->create($ocData());
+
+    // No cuenta: sin OC.
+    \App\Models\Costos\Requisicion::factory()->cotizada()->create([
+        'departamento_id' => $depto->id, 'control_verificado' => false,
+    ]);
+
+    // No cuenta: ya verificada aunque tenga OC.
+    $verificada = \App\Models\Costos\Requisicion::factory()->cotizada()->create([
+        'departamento_id' => $depto->id, 'control_verificado' => true,
+    ]);
+    $verificada->ocs()->create($ocData());
+
+    $response = $this->actingAs($this->user)->get('/admin/badge-configs');
+    $badges = $response->original->getData()['page']['props']['auth']['badges'];
+
+    expect($badges['/admin/costos/requisiciones']['count'])->toBe(1);
+});
+
 test('usuario sin rol no recibe badges', function () {
     BadgeConfig::factory()->create(['activo' => true]);
 
