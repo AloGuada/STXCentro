@@ -90,6 +90,42 @@ class Requisicion extends Model implements Aprobable
         return $this->firma_adicional_aprobador_id;
     }
 
+    /**
+     * Total neto a pagar (subtotal + IVA - retenciones) agrupando las
+     * selecciones por (proveedor, OC) con {@see \App\Services\Costos\RetencionCalculator}.
+     * Es 0 mientras no haya selecciones (antes de definir la OC).
+     */
+    public function getTotalNetoAttribute(): float
+    {
+        $calculador = new \App\Services\Costos\RetencionCalculator;
+
+        /** @var array<string, array{proveedor: \App\Models\Proveedor, lineas: list<array{tipo_fiscal: ?string, subtotal: float}>}> $grupos */
+        $grupos = [];
+        foreach ($this->detalles as $detalle) {
+            foreach ($detalle->selecciones as $seleccion) {
+                if (! $seleccion->proveedor) {
+                    continue;
+                }
+
+                $clave = $seleccion->proveedor_id.'|'.($seleccion->numero_oc ?? 1);
+                $subtotal = (float) ($seleccion->cotizacionPrecio?->precio_unitario ?? 0) * (float) $seleccion->cantidad;
+
+                $grupos[$clave]['proveedor'] ??= $seleccion->proveedor;
+                $grupos[$clave]['lineas'][] = [
+                    'tipo_fiscal' => $detalle->tipo_fiscal?->value,
+                    'subtotal' => $subtotal,
+                ];
+            }
+        }
+
+        $neto = 0.0;
+        foreach ($grupos as $grupo) {
+            $neto += $calculador->calcular($grupo['proveedor'], $grupo['lineas'])['total_neto'];
+        }
+
+        return round($neto, 2);
+    }
+
     public function controlador(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'control_por');

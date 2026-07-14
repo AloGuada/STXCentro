@@ -5,11 +5,12 @@ import {
     PlusIcon,
     Trash2Icon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
 import { CreatableCombobox } from '@/components/ui/creatable-combobox';
 import { SearchSelect } from '@/components/ui/search-select';
+import { useFormCache } from '@/hooks/use-form-cache';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type {
@@ -95,8 +96,46 @@ export default function RequisicionesCreate({
             documentos: [],
         });
 
+    // Cache de navegador: si el usuario refresca o sale del form (a veces con
+    // 10+ partidas capturadas) no pierde lo hecho. Los `documentos` son File[]
+    // no serializables, se excluyen.
+    const cached = useMemo<Partial<FormData> | null>(() => {
+        try {
+            const raw = localStorage.getItem(
+                'form-cache:costos-requisicion-create',
+            );
+            return raw ? (JSON.parse(raw) as Partial<FormData>) : null;
+        } catch {
+            return null;
+        }
+    }, []);
+
+    const { hasCachedData, clearCache } = useFormCache({
+        key: 'costos-requisicion-create',
+        data,
+        setData,
+        exclude: ['documentos'],
+    });
+
+    const descartarCache = () => {
+        setData({
+            departamento_id: '',
+            presupuesto_id: '',
+            firma_adicional_aprobador_id: '',
+            justificacion: '',
+            detalles: [blankDetalle()],
+            documentos: [],
+        });
+        setMultipresupuesto(false);
+        setRequiereFirmaAdicional(false);
+        clearCache();
+    };
+
     // Firma adicional (ad-hoc): opcional, firma antes que la cadena normal.
-    const [requiereFirmaAdicional, setRequiereFirmaAdicional] = useState(false);
+    // Los toggles viven fuera de `data`; se rehidratan del cache al montar.
+    const [requiereFirmaAdicional, setRequiereFirmaAdicional] = useState(
+        Boolean(cached?.firma_adicional_aprobador_id),
+    );
 
     const addDocumentos = (files: FileList | null) => {
         if (!files || files.length === 0) {
@@ -131,7 +170,9 @@ export default function RequisicionesCreate({
     // Multipresupuesto: por defecto la requisición es de un solo presupuesto
     // (candado de pertenencia). Al activarlo, cada partida elige su centro de
     // costos de cualquier presupuesto (el obra_rubro ya encierra el presupuesto).
-    const [multipresupuesto, setMultipresupuesto] = useState(false);
+    const [multipresupuesto, setMultipresupuesto] = useState(
+        Boolean(cached?.detalles?.some((d) => d.presupuesto_id)),
+    );
 
     // Centros de costo de un presupuesto dado (respetando el filtro de cerrados).
     const rubrosDe = (presupuestoId: number | '') =>
@@ -210,7 +251,10 @@ export default function RequisicionesCreate({
             );
             return;
         }
-        post('/admin/costos/requisiciones', { forceFormData: true });
+        post('/admin/costos/requisiciones', {
+            forceFormData: true,
+            onSuccess: () => clearCache(),
+        });
     };
 
     return (
@@ -234,6 +278,22 @@ export default function RequisicionesCreate({
                                 antes de continuar.
                             </p>
                         </div>
+                    </div>
+                )}
+
+                {hasCachedData && (
+                    <div className="mb-4 alert alert-info">
+                        <span>
+                            Restauramos las partidas que habías capturado antes
+                            de salir o refrescar.
+                        </span>
+                        <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={descartarCache}
+                        >
+                            Descartar y empezar de nuevo
+                        </button>
                     </div>
                 )}
 
@@ -405,15 +465,8 @@ export default function RequisicionesCreate({
                     </div>
                 </div>
 
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-3">
                     <h2 className="text-lg font-medium">Partidas</h2>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={addDetalle}
-                    >
-                        <PlusIcon className="size-3.5" /> Agregar partida
-                    </Button>
                 </div>
 
                 {!multipresupuesto && !data.presupuesto_id && (
@@ -677,6 +730,12 @@ export default function RequisicionesCreate({
                             ))}
                         </tbody>
                     </table>
+                </div>
+
+                <div className="mt-3">
+                    <Button type="button" variant="outline" onClick={addDetalle}>
+                        <PlusIcon className="size-3.5" /> Agregar partida
+                    </Button>
                 </div>
 
                 {errors.detalles && (

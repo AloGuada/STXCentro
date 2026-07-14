@@ -49,9 +49,13 @@ class RequisicionController extends Controller
             ->with([
                 'solicitante:id,name',
                 'departamento:id,descripcion',
-                'detalles:id,requisicion_id,cantidad',
+                'detalles:id,requisicion_id,cantidad,tipo_fiscal',
                 'detalles.cotizaciones:id,requisicion_detalle_id,proveedor_id,precio_unitario',
                 'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
+                // Para el neto a pagar (cuando ya hay OC definida) — ver total_neto.
+                'detalles.selecciones:id,requisicion_detalle_id,proveedor_id,numero_oc,cantidad,cotizacion_precio_id',
+                'detalles.selecciones.proveedor.regimenFiscal',
+                'detalles.selecciones.cotizacionPrecio:id,precio_unitario',
             ])
             // Los usuarios comunes solo ven sus requisiciones; los operadores con
             // `ver-todas` ven las de todos.
@@ -70,7 +74,7 @@ class RequisicionController extends Controller
 
         $requisiciones = $query->paginate(15)->withQueryString();
 
-        $requisiciones->getCollection()->each(fn ($r) => $r->append(['mejor_proveedor', 'proveedores_cotizadores_count']));
+        $requisiciones->getCollection()->each(fn ($r) => $r->append(['mejor_proveedor', 'proveedores_cotizadores_count', 'total_neto']));
 
         return Inertia::render('admin/costos/requisiciones/index', [
             'requisiciones' => $requisiciones,
