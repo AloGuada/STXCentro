@@ -259,14 +259,41 @@ class RequisicionController extends Controller
             'activities.causer',
         ]);
 
-        $requisicion->presupuesto?->append('nombre_mostrar');
+        $requisicion->presupuesto?->append(['nombre_mostrar', 'op_mostrar']);
         $requisicion->detalles->each(fn (RequisicionDetalle $d) => $d->obraRubro?->presupuesto?->append('nombre_mostrar'));
+
+        // Último precio cotizado por cada proveedor (opción) para el insumo
+        // (producto) de cada partida, en OTRAS requisiciones. Permite a compras
+        // reutilizar un precio anterior con un clic. Clave: "productoId|proveedorId".
+        $productoIds = $requisicion->detalles->pluck('producto_id')->filter()->unique()->values();
+        $proveedorIds = $requisicion->cotizacionOpciones->pluck('proveedor_id')->unique()->values();
+
+        $preciosPrevios = [];
+        if ($productoIds->isNotEmpty() && $proveedorIds->isNotEmpty()) {
+            \App\Models\Costos\RequisicionCotizacionPrecio::query()
+                ->whereIn('proveedor_id', $proveedorIds)
+                ->whereNotNull('precio_unitario')
+                ->whereHas('detalle', fn ($q) => $q
+                    ->whereIn('producto_id', $productoIds)
+                    ->where('requisicion_id', '!=', $requisicion->id))
+                ->with('detalle:id,producto_id')
+                ->orderByDesc('id')
+                ->get(['id', 'requisicion_detalle_id', 'proveedor_id', 'precio_unitario'])
+                ->each(function (\App\Models\Costos\RequisicionCotizacionPrecio $p) use (&$preciosPrevios) {
+                    $productoId = $p->detalle?->producto_id;
+                    if (! $productoId) {
+                        return;
+                    }
+                    $preciosPrevios[$productoId.'|'.$p->proveedor_id] ??= (float) $p->precio_unitario;
+                });
+        }
 
         $aprobacionPendienteId = $this->aprobacionPendienteParaUsuario($requisicion);
         $esUltimoNivel = $this->esUltimoNivel($requisicion, $aprobacionPendienteId);
 
         return Inertia::render('admin/costos/requisiciones/show', [
             'requisicion' => $requisicion,
+            'preciosPrevios' => $preciosPrevios,
             'proveedores' => Proveedor::whereIn('estatus', [ProveedorEstatus::PendienteValidacion->value, ProveedorEstatus::Activo->value])
                 ->with('regimenFiscal:id,clave')
                 ->orderBy('razon_social')

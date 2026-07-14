@@ -50,6 +50,7 @@ export function CotizacionMatriz({
     proveedores,
     obraRubros,
     usosCfdi,
+    preciosPrevios,
     editable,
     puedeEditarPartidas,
 }: {
@@ -57,6 +58,7 @@ export function CotizacionMatriz({
     proveedores: ProveedorMin[];
     obraRubros: ObraRubroOption[];
     usosCfdi: UsoCfdiMin[];
+    preciosPrevios: Record<string, number>;
     editable: boolean;
     puedeEditarPartidas: boolean;
 }) {
@@ -332,6 +334,10 @@ export function CotizacionMatriz({
                                         </td>
                                         {columnas.map(({ op }) => {
                                             const cot = cotizacionDe(d, op.id);
+                                            const precioPrevio =
+                                                d.producto_id != null
+                                                    ? preciosPrevios[`${d.producto_id}|${op.proveedor_id}`]
+                                                    : undefined;
                                             return (
                                                 <td key={op.id} className="border-l border-base-300 text-right">
                                                     <CeldaCotizacion
@@ -339,6 +345,7 @@ export function CotizacionMatriz({
                                                         requisicionDetalleId={d.id}
                                                         opcionId={op.id}
                                                         cotizacion={cot}
+                                                        precioPrevio={precioPrevio}
                                                         esMejor={
                                                             Number(cot?.precio_unitario ?? 0) > 0 &&
                                                             Number(cot?.precio_unitario) === min
@@ -755,12 +762,14 @@ function CeldaCotizacion({
     requisicionDetalleId,
     opcionId,
     cotizacion,
+    precioPrevio,
     esMejor,
     editable,
 }: {
     requisicionDetalleId: number;
     opcionId: number;
     cotizacion?: CostosRequisicionCotizacionPrecio;
+    precioPrevio?: number;
     esMejor: boolean;
     editable: boolean;
 }) {
@@ -774,8 +783,8 @@ function CeldaCotizacion({
         cotizacion?.moneda ?? 'mxn',
     );
 
-    const guardar = (monedaOverride?: CostosTipoMoneda) => {
-        const p = Number(precio);
+    const guardar = (monedaOverride?: CostosTipoMoneda, precioOverride?: number) => {
+        const p = precioOverride ?? Number(precio);
         const m = monedaOverride ?? moneda;
         const desc = descripcion.trim() || null;
 
@@ -814,43 +823,61 @@ function CeldaCotizacion({
     };
 
     return (
-        <div className="flex items-center justify-end gap-1">
-            <input
-                type="text"
-                className="input-bordered input input-xs w-32"
-                value={descripcion}
-                disabled={!editable}
-                placeholder="Descripción (opcional)"
-                onChange={(e) => setDescripcion(e.target.value)}
-                onBlur={() => guardar()}
-                title="Ej. marca / modelo cotizado"
-            />
-            <input
-                type="number"
-                step="0.01"
-                min={0}
-                className={`input-bordered input input-xs w-20 text-right font-semibold ${esMejor ? 'border-success text-success' : ''}`}
-                value={precio}
-                disabled={!editable}
-                placeholder="—"
-                onChange={(e) => setPrecio(e.target.value)}
-                onBlur={() => guardar()}
-            />
-            <select
-                className="select-bordered select w-16 select-xs"
-                value={moneda}
-                disabled={!editable}
-                onChange={(e) => {
-                    const m = e.target.value as CostosTipoMoneda;
-                    setMoneda(m);
-                    guardar(m);
-                }}
-                title={TIPO_MONEDA_LABELS[moneda]}
-            >
-                <option value="mxn">MXN</option>
-                <option value="usd">USD</option>
-                <option value="eur">EUR</option>
-            </select>
+        <div>
+            <div className="flex items-center justify-end gap-1">
+                <input
+                    type="text"
+                    className="input-bordered input input-xs w-32"
+                    value={descripcion}
+                    disabled={!editable}
+                    placeholder="Descripción (opcional)"
+                    onChange={(e) => setDescripcion(e.target.value)}
+                    onBlur={() => guardar()}
+                    title="Ej. marca / modelo cotizado"
+                />
+                <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    className={`input-bordered input input-xs w-20 text-right font-semibold ${esMejor ? 'border-success text-success' : ''}`}
+                    value={precio}
+                    disabled={!editable}
+                    placeholder="—"
+                    onChange={(e) => setPrecio(e.target.value)}
+                    onBlur={() => guardar()}
+                />
+                <select
+                    className="select-bordered select w-16 select-xs"
+                    value={moneda}
+                    disabled={!editable}
+                    onChange={(e) => {
+                        const m = e.target.value as CostosTipoMoneda;
+                        setMoneda(m);
+                        guardar(m);
+                    }}
+                    title={TIPO_MONEDA_LABELS[moneda]}
+                >
+                    <option value="mxn">MXN</option>
+                    <option value="usd">USD</option>
+                    <option value="eur">EUR</option>
+                </select>
+            </div>
+            {editable && precioPrevio != null && !precio && (
+                <button
+                    type="button"
+                    className="mt-0.5 text-[10px] text-primary hover:underline"
+                    title="Usar el último precio que este proveedor cotizó para este insumo"
+                    onClick={() => {
+                        setPrecio(String(precioPrevio));
+                        guardar(undefined, precioPrevio);
+                    }}
+                >
+                    Usar anterior: $
+                    {precioPrevio.toLocaleString('es-MX', {
+                        minimumFractionDigits: 2,
+                    })}
+                </button>
+            )}
         </div>
     );
 }

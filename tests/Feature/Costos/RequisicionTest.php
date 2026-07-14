@@ -458,6 +458,44 @@ test('enviar a aprobacion genera cadena por niveles del departamento', function 
         ->count())->toBe(1);
 });
 
+test('el show expone el último precio de cada proveedor para el insumo (preciosPrevios)', function () {
+    $producto = \App\Models\Costos\Producto::factory()->create();
+    $proveedor = Proveedor::factory()->create();
+
+    // Requisición histórica (otra) con una cotización del proveedor para el insumo.
+    $reqVieja = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
+    $detalleViejo = RequisicionDetalle::factory()->create([
+        'requisicion_id' => $reqVieja->id,
+        'producto_id' => $producto->id,
+    ]);
+    RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalleViejo->id,
+        'proveedor_id' => $proveedor->id,
+        'precio_unitario' => 123.45,
+    ]);
+
+    // Requisición actual: mismo insumo y una opción para ese proveedor.
+    $req = Requisicion::factory()->cotizada()->create([
+        'departamento_id' => $this->depto->id,
+        'solicitante_id' => $this->compras->id,
+    ]);
+    RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'producto_id' => $producto->id,
+    ]);
+    $req->cotizacionOpciones()->create(['proveedor_id' => $proveedor->id, 'orden' => 1]);
+
+    $this->actingAs($this->compras)
+        ->get("/admin/costos/requisiciones/{$req->id}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where(
+                "preciosPrevios.{$producto->id}|{$proveedor->id}",
+                fn ($v) => abs((float) $v - 123.45) < 0.01,
+            )
+        );
+});
+
 test('no puede enviar a aprobacion sin selecciones completas', function () {
     $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
