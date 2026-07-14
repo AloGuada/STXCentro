@@ -45,9 +45,15 @@ class FirmasPdfBuilder
                     ->unique()
                     ->values();
 
+                // La firma adicional (ad-hoc) vive en el nivel 0 y no tiene un
+                // Permiso configurado; se rotula explícitamente.
+                $esAdicional = (bool) ($delNivel->first()->es_adicional ?? false) || (int) $nivel === 0;
+
                 return (object) [
-                    'permiso' => $permisosPorNivel->get($nivel)
-                        ?? (object) ['descripcion' => '', 'nivel' => (int) $nivel],
+                    'permiso' => $esAdicional
+                        ? (object) ['descripcion' => 'Firma adicional', 'nivel' => (int) $nivel]
+                        : ($permisosPorNivel->get($nivel)
+                            ?? (object) ['descripcion' => '', 'nivel' => (int) $nivel]),
                     'aprobador' => $aprobada?->aprobador,
                     'aprobada' => $aprobada !== null,
                     'fecha' => $aprobada?->fecha_respuesta?->format('d/m/Y H:i'),

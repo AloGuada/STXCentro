@@ -44,6 +44,7 @@ class Requisicion extends Model implements Aprobable
     protected $fillable = [
         'folio',
         'solicitante_id',
+        'firma_adicional_aprobador_id',
         'departamento_id',
         'obra_id',
         'presupuesto_id',
@@ -77,6 +78,16 @@ class Requisicion extends Model implements Aprobable
     public function solicitante(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'solicitante_id');
+    }
+
+    public function firmaAdicionalAprobador(): BelongsTo
+    {
+        return $this->belongsTo(Usuario::class, 'firma_adicional_aprobador_id');
+    }
+
+    public function firmaAdicionalAprobadorId(): ?string
+    {
+        return $this->firma_adicional_aprobador_id;
     }
 
     public function controlador(): BelongsTo

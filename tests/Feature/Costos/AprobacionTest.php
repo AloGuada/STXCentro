@@ -93,6 +93,40 @@ describe('admin costos aprobaciones', function () {
             );
     });
 
+    test('guardar una solicitud de pago con firma adicional crea la aprobacion nivel 0', function () {
+        $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+        $departamento = $obraRubro->obra->departamento ?? Departamento::factory()->create();
+        $tipoSolicitud = \App\Models\Costos\TipoSolicitud::factory()->create();
+        $aprobadorAdicional = User::factory()->create();
+        $solicitante = darPermisosSolicitudesPago(User::factory()->create());
+
+        $this->actingAs($solicitante)
+            ->post(route('admin.costos.solicitudes-pago.store'), [
+                'departamento_id' => $departamento->id,
+                'tipo_solicitud_id' => $tipoSolicitud->id,
+                'concepto' => 'Compra con firma adicional',
+                'tipo_pago' => 'transferencia',
+                'tipo_moneda' => 'mxn',
+                'firma_adicional_aprobador_id' => $aprobadorAdicional->id,
+                'monto_total' => 1000,
+                'detalles' => [[
+                    'obra_rubro_id' => $obraRubro->id,
+                    'concepto' => 'Material',
+                    'cantidad' => 10,
+                    'precio_unitario' => 100,
+                ]],
+            ])
+            ->assertRedirect();
+
+        $solicitud = SolicitudPago::latest('id')->first();
+        expect($solicitud->firma_adicional_aprobador_id)->toBe($aprobadorAdicional->id);
+
+        $adicional = $solicitud->aprobaciones()->where('nivel', 0)->first();
+        expect($adicional)->not->toBeNull();
+        expect($adicional->es_adicional)->toBeTrue();
+        expect($adicional->aprobador_id)->toBe($aprobadorAdicional->id);
+    });
+
     test('no muestra pendientes de una solicitud cancelada aunque la aprobacion siga pendiente', function () {
         // Simula una cancelación previa al fix: la solicitud queda cancelada
         // pero su aprobación se quedó en `pendiente`.

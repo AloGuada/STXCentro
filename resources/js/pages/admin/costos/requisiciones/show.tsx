@@ -823,7 +823,7 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                                         return (
                                             <div key={nivel} className="flex items-center justify-between rounded border border-base-200 p-3">
                                                 <div>
-                                                    <div className="text-sm font-medium">Nivel {nivel}: {quien}</div>
+                                                    <div className="text-sm font-medium">{nivel === 0 ? 'Firma adicional' : `Nivel ${nivel}`}: {quien}</div>
                                                     {resuelta?.observaciones && (
                                                         <div className="text-xs text-base-content/60 mt-1">{resuelta.observaciones}</div>
                                                     )}

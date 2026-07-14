@@ -32,6 +32,7 @@ class Aprobacion extends Model
         'aprobable_id',
         'solicitud_id',
         'nivel',
+        'es_adicional',
         'aprobador_id',
         'estatus',
         'fecha_respuesta',
@@ -48,6 +49,7 @@ class Aprobacion extends Model
     {
         return [
             'nivel' => 'integer',
+            'es_adicional' => 'boolean',
             'fecha_respuesta' => 'datetime',
             'estatus' => AprobacionEstatus::class,
         ];

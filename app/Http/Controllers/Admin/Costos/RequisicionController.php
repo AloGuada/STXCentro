@@ -93,6 +93,7 @@ class RequisicionController extends Controller
             'productos' => \App\Models\Costos\Producto::where('activo', true)
                 ->orderBy('descripcion')
                 ->get(['id', 'codigo', 'descripcion', 'unidad']),
+            'usuarios' => \App\Models\Usuario::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -101,6 +102,7 @@ class RequisicionController extends Controller
         $requisicion = DB::transaction(function () use ($request) {
             $requisicion = Requisicion::create([
                 'solicitante_id' => $request->user()->id,
+                'firma_adicional_aprobador_id' => $request->input('firma_adicional_aprobador_id') ?: null,
                 'departamento_id' => $request->integer('departamento_id'),
                 'presupuesto_id' => $request->integer('presupuesto_id') ?: null,
                 'justificacion' => $request->input('justificacion'),

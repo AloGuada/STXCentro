@@ -81,6 +81,7 @@ type Props = {
     tipoSolicitudes: CostosTipoSolicitud[];
     obras: Obra[];
     obraRubros: CostosObraRubro[];
+    usuarios: { id: string; name: string }[];
 };
 
 export default function SolicitudesPagoCreate({
@@ -90,6 +91,7 @@ export default function SolicitudesPagoCreate({
     tipoSolicitudes,
     obras,
     obraRubros,
+    usuarios,
 }: Props) {
     const {
         data,
@@ -102,6 +104,7 @@ export default function SolicitudesPagoCreate({
         clearErrors,
     } = useForm<{
         departamento_id: string;
+        firma_adicional_aprobador_id: string;
         proveedor_id: string;
         tipo_solicitud_id: string;
         concepto: string;
@@ -114,6 +117,7 @@ export default function SolicitudesPagoCreate({
         archivos_texto: Record<string, string[]>;
     }>({
         departamento_id: '',
+        firma_adicional_aprobador_id: '',
         proveedor_id: '',
         tipo_solicitud_id: '',
         concepto: '',
@@ -219,6 +223,9 @@ export default function SolicitudesPagoCreate({
     // Por defecto se ocultan obras/adicionales cerrados; el checkbox los incluye.
     const [incluirCerradas, setIncluirCerradas] = useState(false);
 
+    // Firma adicional (ad-hoc): opcional, firma antes que la cadena normal.
+    const [requiereFirmaAdicional, setRequiereFirmaAdicional] = useState(false);
+
     const esCerrado = (or: CostosObraRubro) => or.presupuesto?.estatus === 'cerrado';
 
     const obrasVisibles = obras.filter(
@@ -247,6 +254,11 @@ export default function SolicitudesPagoCreate({
         if (!data.fecha_pago_solicitada) {
             validationErrors.fecha_pago_solicitada =
                 'Selecciona la fecha de pago solicitada (un viernes).';
+        }
+
+        if (requiereFirmaAdicional && !data.firma_adicional_aprobador_id) {
+            validationErrors.firma_adicional_aprobador_id =
+                'Selecciona el aprobador de la firma adicional.';
         }
 
         if (selectedTipo?.rubros) {
@@ -306,6 +318,13 @@ export default function SolicitudesPagoCreate({
                 'fecha_pago_solicitada',
                 data.fecha_pago_solicitada,
             );
+
+            if (data.firma_adicional_aprobador_id) {
+                formData.append(
+                    'firma_adicional_aprobador_id',
+                    data.firma_adicional_aprobador_id,
+                );
+            }
 
             data.detalles.forEach((det, i) => {
                 formData.append(
@@ -516,6 +535,61 @@ export default function SolicitudesPagoCreate({
                                     </p>
                                 </FormField>
                             </div>
+                        </div>
+
+                        {/* Firma adicional (ad-hoc): firma antes que la cadena */}
+                        <div className="space-y-3 rounded-lg border border-base-300 p-4">
+                            <label className="label w-fit cursor-pointer justify-start gap-2 py-0">
+                                <input
+                                    type="checkbox"
+                                    className="checkbox checkbox-sm"
+                                    checked={requiereFirmaAdicional}
+                                    onChange={(e) => {
+                                        setRequiereFirmaAdicional(
+                                            e.target.checked,
+                                        );
+                                        if (!e.target.checked) {
+                                            setData(
+                                                'firma_adicional_aprobador_id',
+                                                '',
+                                            );
+                                            clearErrors(
+                                                'firma_adicional_aprobador_id',
+                                            );
+                                        }
+                                    }}
+                                />
+                                <span className="label-text font-medium">
+                                    Requiere firma adicional
+                                </span>
+                            </label>
+                            {requiereFirmaAdicional && (
+                                <FormField
+                                    label="Aprobador de la firma adicional"
+                                    htmlFor="firma_adicional_aprobador_id"
+                                    error={errors.firma_adicional_aprobador_id}
+                                    required
+                                >
+                                    <SearchSelect
+                                        value={data.firma_adicional_aprobador_id}
+                                        onValueChange={(v) =>
+                                            setData(
+                                                'firma_adicional_aprobador_id',
+                                                v,
+                                            )
+                                        }
+                                        placeholder="Buscar aprobador..."
+                                        options={usuarios.map((u) => ({
+                                            value: String(u.id),
+                                            label: u.name,
+                                        }))}
+                                    />
+                                    <p className="mt-1 text-xs text-base-content/50">
+                                        Firmará antes que la cadena de
+                                        aprobación normal.
+                                    </p>
+                                </FormField>
+                            )}
                         </div>
 
                         {/* Sección 2: Tipo Solicitud */}
