@@ -12,7 +12,6 @@ use App\Models\Costos\AfectacionPresupuestal;
 use App\Models\Costos\ObraRubro;
 use App\Models\Departamento;
 use App\Models\Obra;
-use App\Models\Proveedor;
 use App\Services\Costos\AcumuladoLedger;
 use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -63,8 +62,6 @@ class AfectacionPresupuestalController extends Controller
     public function create(): Response
     {
         return Inertia::render('admin/costos/afectaciones/create', [
-            'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
-            'proveedores' => Proveedor::where('activo', true)->orderBy('razon_social')->get(['id', 'razon_social', 'nombre_comercial']),
             'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
             'obraRubros' => ObraRubro::with('rubro')->get(),
         ]);
@@ -74,7 +71,7 @@ class AfectacionPresupuestalController extends Controller
     {
         DB::transaction(function () use ($request) {
             $afectacion = AfectacionPresupuestal::create([
-                ...$request->safe()->except('detalles'),
+                ...$request->safe()->except(['detalles', 'documentos']),
                 'creado_por' => $request->user()->id,
                 'estatus' => 'borrador',
             ]);
@@ -82,18 +79,27 @@ class AfectacionPresupuestalController extends Controller
             $montoTotal = 0;
 
             foreach ($request->input('detalles', []) as $detalle) {
-                $monto = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
+                $monto = round((float) $detalle['monto'], 2);
                 $afectacion->detalles()->create([
                     'obra_rubro_id' => $detalle['obra_rubro_id'],
-                    'concepto' => $detalle['concepto'],
-                    'cantidad' => $detalle['cantidad'],
-                    'precio_unitario' => $detalle['precio_unitario'],
+                    'concepto' => $afectacion->descripcion,
                     'monto' => $monto,
                 ]);
                 $montoTotal += $monto;
             }
 
             $afectacion->update(['monto_total' => $montoTotal]);
+
+            // Documentos de sustento (uno o varios).
+            foreach ($request->file('documentos', []) as $file) {
+                $afectacion->media()->create([
+                    'descripcion' => 'sustento',
+                    'nombre_original' => $file->getClientOriginalName(),
+                    'path' => $file->store("costos/afectaciones/{$afectacion->id}", 'public'),
+                    'mime' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                ]);
+            }
 
             $afectacion->historial()->create([
                 'estatus_anterior' => '',
@@ -116,6 +122,7 @@ class AfectacionPresupuestalController extends Controller
             'detalles.obraRubro.rubro',
             'historial.usuario',
             'rubrosAfectados.obraRubro.rubro',
+            'media',
         ]);
 
         return Inertia::render('admin/costos/afectaciones/show', [
@@ -133,8 +140,6 @@ class AfectacionPresupuestalController extends Controller
 
         return Inertia::render('admin/costos/afectaciones/edit', [
             'afectacion' => $afectacion,
-            'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
-            'proveedores' => Proveedor::where('activo', true)->orderBy('razon_social')->get(['id', 'razon_social', 'nombre_comercial']),
             'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
             'obraRubros' => ObraRubro::with('rubro')->get(),
         ]);
@@ -163,22 +168,18 @@ class AfectacionPresupuestalController extends Controller
             $montoTotal = 0;
 
             foreach ($request->input('detalles', []) as $detalle) {
-                $monto = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
+                $monto = round((float) $detalle['monto'], 2);
 
                 if (! empty($detalle['id'])) {
                     AfectacionDetalle::where('id', $detalle['id'])->update([
                         'obra_rubro_id' => $detalle['obra_rubro_id'],
-                        'concepto' => $detalle['concepto'],
-                        'cantidad' => $detalle['cantidad'],
-                        'precio_unitario' => $detalle['precio_unitario'],
+                        'concepto' => $afectacion->descripcion,
                         'monto' => $monto,
                     ]);
                 } else {
                     $afectacion->detalles()->create([
                         'obra_rubro_id' => $detalle['obra_rubro_id'],
-                        'concepto' => $detalle['concepto'],
-                        'cantidad' => $detalle['cantidad'],
-                        'precio_unitario' => $detalle['precio_unitario'],
+                        'concepto' => $afectacion->descripcion,
                         'monto' => $monto,
                     ]);
                 }

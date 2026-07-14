@@ -2002,7 +2002,7 @@ export type CostosAfectacionPresupuestal = {
     monto_total: number;
     estatus: CostosAfectacionEstatus;
     proveedor_id: number | null;
-    departamento_id: number;
+    departamento_id: number | null;
     creado_por: string | Usuario;
     aprobado_por: string | Usuario | null;
     fecha_aprobacion: string | null;
@@ -2010,6 +2010,7 @@ export type CostosAfectacionPresupuestal = {
     pdf_firmado_path: string | null;
     departamento?: Departamento;
     proveedor?: Proveedor;
+    media?: Media[];
     detalles?: CostosAfectacionDetalle[];
     historial?: CostosAfectacionHistorial[];
     rubros_afectados?: CostosRubroAfectado[];
@@ -2024,9 +2025,9 @@ export type CostosAfectacionDetalle = {
     id: number;
     afectacion_id: number;
     obra_rubro_id: number;
-    concepto: string;
-    cantidad: number;
-    precio_unitario: number;
+    concepto: string | null;
+    cantidad: number | null;
+    precio_unitario: number | null;
     monto: number;
     obra_rubro?: CostosObraRubro;
     created_at: string;
