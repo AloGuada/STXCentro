@@ -21,6 +21,7 @@ class RequisicionStoreRequest extends FormRequest
     {
         return [
             'departamento_id' => ['required', 'exists:departamentos,id'],
+            'firma_adicional_aprobador_id' => ['nullable', 'exists:usuarios,id'],
             // Sin presupuesto = requisición multipresupuesto: cada partida define
             // el suyo vía el centro de costos (obra_rubro), sin candado único.
             'presupuesto_id' => ['nullable', 'exists:costos_presupuestos,id'],

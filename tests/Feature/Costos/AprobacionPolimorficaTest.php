@@ -1,9 +1,11 @@
 <?php
 
 use App\Models\Costos\Aprobacion;
+use App\Models\Costos\Requisicion;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
 use App\Models\User;
+use App\Services\Costos\ApprovalChainService;
 
 beforeEach(function () {
     $this->aprobador = User::factory()->create(['firma_path' => 'firmas/x.png']);
@@ -66,4 +68,39 @@ test('onAprobacionRechazada cancela la solicitud', function () {
     $solicitud->onAprobacionRechazada('precio fuera de rango', $this->aprobador->id);
 
     expect($solicitud->fresh()->estatus->value)->toBe('cancelada');
+});
+
+test('la firma adicional agrega una aprobacion nivel 0 al construir la cadena', function () {
+    $solicitud = SolicitudPago::factory()->create([
+        'firma_adicional_aprobador_id' => $this->aprobador->id,
+    ]);
+
+    app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitud);
+
+    $adicional = $solicitud->aprobaciones()->where('nivel', 0)->first();
+    expect($adicional)->not->toBeNull();
+    expect($adicional->es_adicional)->toBeTrue();
+    expect($adicional->aprobador_id)->toBe($this->aprobador->id);
+    expect($adicional->estatus->value)->toBe('pendiente');
+});
+
+test('sin firma adicional no se crea aprobacion nivel 0', function () {
+    $solicitud = SolicitudPago::factory()->create(['firma_adicional_aprobador_id' => null]);
+
+    app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitud);
+
+    expect($solicitud->aprobaciones()->where('nivel', 0)->exists())->toBeFalse();
+});
+
+test('la firma adicional tambien aplica a requisiciones', function () {
+    $requisicion = Requisicion::factory()->create([
+        'firma_adicional_aprobador_id' => $this->aprobador->id,
+    ]);
+
+    app(ApprovalChainService::class)->crearCadenaAprobaciones($requisicion);
+
+    $adicional = $requisicion->aprobaciones()->where('nivel', 0)->first();
+    expect($adicional)->not->toBeNull();
+    expect($adicional->es_adicional)->toBeTrue();
+    expect($adicional->aprobador_id)->toBe($this->aprobador->id);
 });

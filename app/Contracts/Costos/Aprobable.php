@@ -46,6 +46,13 @@ interface Aprobable
     public function saltaVerificacionCostos(): bool;
 
     /**
+     * UUID del aprobador de la firma adicional (ad-hoc) elegida al crear el
+     * documento, o null si no aplica. La cadena de aprobaciones la inserta como
+     * un nivel 0 que firma antes que la cadena configurada.
+     */
+    public function firmaAdicionalAprobadorId(): ?string;
+
+    /**
      * Hook disparado cuando todas las aprobaciones se cubrieron en orden.
      */
     public function onAprobacionCompleta(?string $userId = null): void;

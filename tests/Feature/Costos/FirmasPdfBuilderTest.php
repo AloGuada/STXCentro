@@ -71,6 +71,28 @@ test('conserva todas las firmas de la cadena aunque los niveles configurados hay
         ->and($firmas[2]->aprobada)->toBeTrue();
 });
 
+test('rotula la firma adicional (nivel 0) como "Firma adicional" y la pone primero', function () {
+    $ana = User::factory()->create(['name' => 'Ana']);
+    $adicional = (object) [
+        'nivel' => 0,
+        'es_adicional' => true,
+        'estatus' => 'aprobada',
+        'aprobador' => $ana,
+        'fecha_respuesta' => null,
+    ];
+
+    $firmas = $this->builder->build('solicitud_pago', $this->depto->id, collect([
+        aprobacion(1, 'pendiente', User::factory()->create()),
+        $adicional,
+    ]));
+
+    expect($firmas)->toHaveCount(2)
+        ->and($firmas[0]->permiso->nivel)->toBe(0)
+        ->and($firmas[0]->permiso->descripcion)->toBe('Firma adicional')
+        ->and($firmas[0]->aprobada)->toBeTrue()
+        ->and($firmas[1]->permiso->descripcion)->toBe('Jefe');
+});
+
 test('candidatos lista los aprobadores asignados al nivel (multiusuario)', function () {
     $ana = User::factory()->create(['name' => 'Ana']);
     $beto = User::factory()->create(['name' => 'Beto']);

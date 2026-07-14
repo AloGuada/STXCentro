@@ -157,6 +157,7 @@ class SolicitudPagoController extends Controller
                 'rubro',
                 'presupuesto:id,estatus',
             ])->get(),
+            'usuarios' => \App\Models\Usuario::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -389,6 +390,7 @@ class SolicitudPagoController extends Controller
                 'rubro',
                 'presupuesto:id,estatus',
             ])->get(),
+            'usuarios' => \App\Models\Usuario::orderBy('name')->get(['id', 'name']),
         ]);
     }
 

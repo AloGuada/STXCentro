@@ -34,6 +34,7 @@ type Detalle = {
 type FormData = {
     departamento_id: number | '';
     presupuesto_id: number | '';
+    firma_adicional_aprobador_id: string;
     justificacion: string;
     detalles: Detalle[];
     documentos: File[];
@@ -55,6 +56,7 @@ type Props = {
         CostosProducto,
         'id' | 'codigo' | 'descripcion' | 'unidad'
     >[];
+    usuarios: { id: string; name: string }[];
 };
 
 export default function RequisicionesCreate({
@@ -63,6 +65,7 @@ export default function RequisicionesCreate({
     obraRubros,
     usosCfdi,
     productos,
+    usuarios,
 }: Props) {
     const defaultUsoId = usosCfdi.find((u) => u.clave === 'G01')?.id ?? '';
 
@@ -86,10 +89,14 @@ export default function RequisicionesCreate({
         useForm<FormData>({
             departamento_id: '',
             presupuesto_id: '',
+            firma_adicional_aprobador_id: '',
             justificacion: '',
             detalles: [blankDetalle()],
             documentos: [],
         });
+
+    // Firma adicional (ad-hoc): opcional, firma antes que la cadena normal.
+    const [requiereFirmaAdicional, setRequiereFirmaAdicional] = useState(false);
 
     const addDocumentos = (files: FileList | null) => {
         if (!files || files.length === 0) {
@@ -196,6 +203,13 @@ export default function RequisicionesCreate({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (requiereFirmaAdicional && !data.firma_adicional_aprobador_id) {
+            setError(
+                'firma_adicional_aprobador_id',
+                'Selecciona el aprobador de la firma adicional.',
+            );
+            return;
+        }
         post('/admin/costos/requisiciones', { forceFormData: true });
     };
 
@@ -336,6 +350,58 @@ export default function RequisicionesCreate({
                             }
                             placeholder="Por qué se necesita y cuál es el impacto esperado"
                         />
+                    </div>
+
+                    <div className="md:col-span-2">
+                        <label className="label w-fit cursor-pointer justify-start gap-2 py-0">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm"
+                                checked={requiereFirmaAdicional}
+                                onChange={(e) => {
+                                    setRequiereFirmaAdicional(e.target.checked);
+                                    if (!e.target.checked) {
+                                        setData(
+                                            'firma_adicional_aprobador_id',
+                                            '',
+                                        );
+                                        clearErrors(
+                                            'firma_adicional_aprobador_id',
+                                        );
+                                    }
+                                }}
+                            />
+                            <span className="label-text font-medium">
+                                Requiere firma adicional
+                            </span>
+                        </label>
+                        {requiereFirmaAdicional && (
+                            <div className="mt-2 max-w-md">
+                                <SearchSelect
+                                    value={data.firma_adicional_aprobador_id}
+                                    onValueChange={(v) =>
+                                        setData(
+                                            'firma_adicional_aprobador_id',
+                                            v,
+                                        )
+                                    }
+                                    placeholder="Buscar aprobador..."
+                                    options={usuarios.map((u) => ({
+                                        value: String(u.id),
+                                        label: u.name,
+                                    }))}
+                                />
+                                {errors.firma_adicional_aprobador_id && (
+                                    <p className="mt-1 text-sm text-error">
+                                        {errors.firma_adicional_aprobador_id}
+                                    </p>
+                                )}
+                                <p className="mt-1 text-xs text-base-content/60">
+                                    Firmará antes que la cadena de aprobación
+                                    normal.
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

@@ -74,6 +74,20 @@ class ApprovalChainService
             $creados++;
         }
 
+        // Firma adicional (ad-hoc): un aprobador designado al crear el documento
+        // firma ANTES que toda la cadena configurada. Ocupa el nivel 0 (entero
+        // único, no usado por la config que arranca en 1) para no chocar con la
+        // lógica OR de cancelación por nivel de la cadena normal.
+        if ($aprobadorAdicional = $aprobable->firmaAdicionalAprobadorId()) {
+            $aprobable->cadenaAprobacion()->create([
+                'nivel' => 0,
+                'es_adicional' => true,
+                'aprobador_id' => $aprobadorAdicional,
+                'estatus' => AprobacionEstatus::Pendiente->value,
+            ]);
+            $creados++;
+        }
+
         return $creados;
     }
 

@@ -1749,6 +1749,7 @@ export type CostosRequisicion = {
     id: number;
     folio: string;
     solicitante_id: string;
+    firma_adicional_aprobador_id: string | null;
     departamento_id: number;
     obra_id: number | null;
     presupuesto_id: number | null;
@@ -1763,6 +1764,7 @@ export type CostosRequisicion = {
     locked_by: string | null;
     locked_at: string | null;
     solicitante?: Pick<Usuario, 'id' | 'name'>;
+    firma_adicional_aprobador?: Pick<Usuario, 'id' | 'name'> | null;
     controlador?: Pick<Usuario, 'id' | 'name'> | null;
     departamento?: Pick<Departamento, 'id' | 'descripcion'>;
     obra?: { id: number; no: number | null; descripcion: string };
@@ -1880,6 +1882,7 @@ export type CostosSolicitudPago = {
     id: number;
     folio: string;
     solicitante_id: string;
+    firma_adicional_aprobador_id: string | null;
     departamento_id: number;
     proveedor_id: number | null;
     orden_compra_id: number | null;
@@ -1899,6 +1902,7 @@ export type CostosSolicitudPago = {
     confirmada_contabilidad_por: string | null;
     confirmada_contabilidad_at: string | null;
     solicitante?: Usuario;
+    firma_adicional_aprobador?: Pick<Usuario, 'id' | 'name'> | null;
     departamento?: Departamento;
     proveedor?: Proveedor;
     tipo_solicitud?: CostosTipoSolicitud;
@@ -1950,6 +1954,7 @@ export type CostosAprobacionSolicitud = {
     id: number;
     solicitud_id: number;
     nivel: number;
+    es_adicional?: boolean;
     aprobador_id: string | null;
     estatus: string;
     fecha_respuesta: string | null;
