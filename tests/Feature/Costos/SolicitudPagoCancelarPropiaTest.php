@@ -29,6 +29,26 @@ test('el solicitante con permiso puede cancelar su propia solicitud', function (
     expect($solicitud->fresh()->estatus->value)->toBe('cancelada');
 });
 
+test('el solicitante puede cancelar su propio borrador y conserva el folio', function () {
+    $duenio = User::factory()->create();
+    $duenio->givePermissionTo('costos.solicitudes-pago.cancelar-propia');
+
+    $solicitud = SolicitudPago::factory()->create([
+        'solicitante_id' => $duenio->id,
+        'departamento_id' => $this->depto->id,
+        'estatus' => 'borrador',
+    ]);
+    $folio = $solicitud->folio;
+
+    $this->actingAs($duenio)
+        ->post("/admin/costos/solicitudes-pago/{$solicitud->id}/cancelar", ['motivo' => 'Ya no se requiere'])
+        ->assertRedirect();
+
+    $fresca = $solicitud->fresh();
+    expect($fresca->estatus->value)->toBe('cancelada')
+        ->and($fresca->folio)->toBe($folio);
+});
+
 test('cancelar la propia solicitud cancela sus aprobaciones pendientes', function () {
     $duenio = User::factory()->create();
     $duenio->givePermissionTo('costos.solicitudes-pago.cancelar-propia');

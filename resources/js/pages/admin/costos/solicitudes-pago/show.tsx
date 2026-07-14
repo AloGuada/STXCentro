@@ -1,3 +1,6 @@
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { CheckCircleIcon, FileTextIcon } from 'lucide-react';
+import { useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { DocumentoUpload } from '@/components/costos/documento-upload';
@@ -8,9 +11,6 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, SharedData } from '@/types';
 import type { CostosObraRubro, CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import { CheckCircleIcon, FileTextIcon } from 'lucide-react';
-import { useState } from 'react';
 
 type DocumentoPrevio = { label: string; url: string };
 
@@ -89,7 +89,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
     const esPropia = String(auth.user?.id) === solicitud.solicitante_id;
     const puedeCancelar =
         !solicitud.pago &&
-        (solicitud.estatus === 'pendiente_firma' || solicitud.estatus === 'aprobada') &&
+        (solicitud.estatus === 'borrador' || solicitud.estatus === 'pendiente_firma' || solicitud.estatus === 'aprobada') &&
         (can('costos.solicitudes-pago.editar') || (esPropia && can('costos.solicitudes-pago.cancelar-propia')));
 
     const handleEnviarAprobacion = () => {
