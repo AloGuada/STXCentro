@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import type { ComponentProps, ReactNode } from 'react';
+import { cloneElement, isValidElement, type ComponentProps, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'ghost' | 'link' | 'outline' | 'error' | 'destructive' | 'default';
@@ -39,7 +39,13 @@ function Button({
     const classes = cn('btn', variantClass, sizeClass, className);
 
     if (asChild) {
-        // Si asChild es true, esperamos que children sea un Link u otro elemento
+        // asChild: renderiza el hijo (Link, <a>, etc.) COMO botón, inyectándole
+        // las clases del botón para que se vea como tal (patrón tipo Slot).
+        if (isValidElement<{ className?: string }>(children)) {
+            return cloneElement(children, {
+                className: cn(classes, children.props.className),
+            });
+        }
         return children;
     }
 
