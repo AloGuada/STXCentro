@@ -121,6 +121,24 @@ describe('admin costos solicitudes pago', function () {
         expect((float) $solicitud->monto_total)->toBe(1505.00);
     });
 
+    test('store crea la solicitud en borrador', function () {
+        $departamento = Departamento::factory()->create();
+        $tipoSolicitud = TipoSolicitud::factory()->create(['rubros' => false]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.store'), [
+                'departamento_id' => $departamento->id,
+                'tipo_solicitud_id' => $tipoSolicitud->id,
+                'concepto' => 'Compra',
+                'tipo_pago' => 'transferencia',
+                'tipo_moneda' => 'mxn',
+                'monto_total' => 1000,
+            ])
+            ->assertRedirect();
+
+        expect(SolicitudPago::latest('id')->first()->estatus->value)->toBe('borrador');
+    });
+
     test('el monto_total capturado manda sobre la suma de los detalles', function () {
         $departamento = Departamento::factory()->create();
         $tipoSolicitud = TipoSolicitud::factory()->create(['rubros' => true]);

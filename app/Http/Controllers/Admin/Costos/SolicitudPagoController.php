@@ -181,7 +181,7 @@ class SolicitudPagoController extends Controller
             $solicitud = SolicitudPago::create([
                 ...$request->safe()->except(['detalles', 'archivos']),
                 'solicitante_id' => $request->user()->id,
-                'estatus' => 'pendiente_firma',
+                'estatus' => 'borrador',
             ]);
 
             $montoTotal = 0;
@@ -242,18 +242,6 @@ class SolicitudPagoController extends Controller
             }
 
             $solicitud->update(['monto_total' => $montoTotal]);
-
-            // Apartado temporal de presupuesto (5 días) en cada rubro de la
-            // solicitud. Si no se aprueba en ese plazo, el comando programado
-            // costos:liberar-apartados-vencidos lo libera automáticamente.
-            $items = collect($solicitud->detalles)->map(fn ($d) => [
-                'obra_rubro_id' => (int) $d->obra_rubro_id,
-                'monto' => (float) $d->subtotal,
-                'descripcion' => $d->concepto,
-            ]);
-            $this->apartado->apartarDocumento($solicitud, $items, $request->user()->id);
-
-            app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitud);
         });
 
         $redirect = to_route('admin.costos.solicitudes-pago.show', $solicitud);
@@ -263,6 +251,39 @@ class SolicitudPagoController extends Controller
         }
 
         return $redirect;
+    }
+
+    /**
+     * Envía una solicitud en borrador a la cadena de aprobación: transiciona a
+     * pendiente_firma, aparta el presupuesto y crea la cadena de firmas. Solo el
+     * creador de la solicitud puede enviarla.
+     */
+    public function enviarAprobacion(SolicitudPago $solicitudPago): RedirectResponse
+    {
+        abort_unless($solicitudPago->solicitante_id === auth()->id(), 403);
+
+        if ($solicitudPago->estatus !== SolicitudPagoEstatus::Borrador) {
+            return back()->withErrors(['estatus' => 'Solo se puede enviar a aprobación una solicitud en borrador.']);
+        }
+
+        DB::transaction(function () use ($solicitudPago) {
+            $solicitudPago->loadMissing('detalles');
+            $solicitudPago->transitionTo(SolicitudPagoEstatus::PendienteFirma);
+
+            // Apartado temporal de presupuesto (5 días) por rubro. Antes vivía en
+            // store(); se movió aquí para que el borrador no reserve presupuesto.
+            $items = collect($solicitudPago->detalles)->map(fn ($d) => [
+                'obra_rubro_id' => (int) $d->obra_rubro_id,
+                'monto' => (float) $d->subtotal,
+                'descripcion' => $d->concepto,
+            ]);
+            $this->apartado->apartarDocumento($solicitudPago, $items, auth()->id());
+
+            app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitudPago);
+        });
+
+        return to_route('admin.costos.solicitudes-pago.show', $solicitudPago)
+            ->with('success', 'Solicitud enviada a aprobación.');
     }
 
     /**
@@ -565,11 +586,8 @@ class SolicitudPagoController extends Controller
             'detalles.obraRubro.obra',
         ]);
 
-        // Cambiar estatus a pendiente_firma
-        if ($solicitudPago->estatus === SolicitudPagoEstatus::Borrador) {
-            $solicitudPago->transitionTo(SolicitudPagoEstatus::PendienteFirma);
-            app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitudPago);
-        }
+        // El PDF en borrador es solo previsualización; el envío a aprobación
+        // (transición + apartado + cadena) ocurre en enviarAprobacion().
 
         // Columnas de firma: solo los niveles que aplican a este tipo de
         // documento y al departamento de la solicitud.

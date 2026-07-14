@@ -121,6 +121,11 @@ describe('admin costos aprobaciones', function () {
         $solicitud = SolicitudPago::latest('id')->first();
         expect($solicitud->firma_adicional_aprobador_id)->toBe($aprobadorAdicional->id);
 
+        // La cadena (incluida la firma adicional nivel 0) se crea al enviar a aprobación.
+        $this->actingAs($solicitante)
+            ->post(route('admin.costos.solicitudes-pago.enviar-aprobacion', $solicitud))
+            ->assertRedirect();
+
         $adicional = $solicitud->aprobaciones()->where('nivel', 0)->first();
         expect($adicional)->not->toBeNull();
         expect($adicional->es_adicional)->toBeTrue();
@@ -524,6 +529,14 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
         $response->assertRedirect();
 
         $solicitud = SolicitudPago::latest('id')->first();
+        // Nace en borrador; el creador la envía a aprobación (aparta presupuesto + cadena).
+        expect($solicitud->estatus->value)->toBe('borrador');
+
+        $this->actingAs($solicitante)
+            ->post(route('admin.costos.solicitudes-pago.enviar-aprobacion', $solicitud))
+            ->assertRedirect();
+
+        $solicitud->refresh();
         expect($solicitud->estatus->value)->toBe('pendiente_firma');
         expect((float) $solicitud->monto_total)->toBe(15000.00);
         expect($solicitud->aprobaciones)->toHaveCount(3);

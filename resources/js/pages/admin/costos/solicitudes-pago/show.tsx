@@ -92,6 +92,12 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
         (solicitud.estatus === 'pendiente_firma' || solicitud.estatus === 'aprobada') &&
         (can('costos.solicitudes-pago.editar') || (esPropia && can('costos.solicitudes-pago.cancelar-propia')));
 
+    const handleEnviarAprobacion = () => {
+        if (confirm('¿Enviar esta solicitud a aprobación? Ya no podrás editarla y se apartará el presupuesto.')) {
+            router.post(`/admin/costos/solicitudes-pago/${solicitud.id}/enviar-aprobacion`);
+        }
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={solicitud.folio} />
@@ -106,9 +112,19 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                     </div>
                     <div className="flex gap-2">
                         {solicitud.estatus === 'borrador' && (
-                            <Button asChild>
-                                <a href={`/admin/costos/solicitudes-pago/${solicitud.id}/pdf`}>Generar Formato PDF</a>
-                            </Button>
+                            <>
+                                <Button variant="outline" asChild>
+                                    <a href={`/admin/costos/solicitudes-pago/${solicitud.id}/pdf`}>Generar Formato PDF</a>
+                                </Button>
+                                {esPropia && (
+                                    <>
+                                        <Button variant="outline" asChild>
+                                            <Link href={`/admin/costos/solicitudes-pago/${solicitud.id}/edit`}>Editar</Link>
+                                        </Button>
+                                        <Button onClick={handleEnviarAprobacion}>Enviar a aprobación</Button>
+                                    </>
+                                )}
+                            </>
                         )}
                         {solicitud.estatus === 'pendiente_firma' && (
                             <Button variant="outline" asChild>
