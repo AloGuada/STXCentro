@@ -2,10 +2,34 @@
 
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Requisicion;
+use App\Models\Costos\RequisicionCotizacionPrecio;
+use App\Models\Costos\RequisicionDetalle;
+use App\Models\Costos\RequisicionSeleccion;
 use App\Models\Costos\UsoCfdi;
 use App\Models\Departamento;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
+
+/**
+ * Requisición cotizada y COMPLETA (3 proveedores, selección al 100% con precio
+ * y una OC), lista para marcar la verificación gerencial / enviar a aprobación.
+ */
+function requisicionCompletaParaControl(Departamento $depto): Requisicion
+{
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $depto->id]);
+    $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
+    $precio = RequisicionCotizacionPrecio::factory()->create(['requisicion_detalle_id' => $detalle->id]);
+    RequisicionCotizacionPrecio::factory()->count(2)->create(['requisicion_detalle_id' => $detalle->id]);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+        'cotizacion_precio_id' => $precio->id,
+        'proveedor_id' => $precio->proveedor_id,
+        'cantidad' => 5,
+    ]);
+    $req->ocs()->create(['proveedor_id' => $precio->proveedor_id, 'numero_oc' => 1]);
+
+    return $req;
+}
 
 beforeEach(function () {
     foreach (['costos.requisiciones.cotizar', 'costos.requisiciones.control', 'costos.requisiciones.crear'] as $perm) {
@@ -32,16 +56,28 @@ test('marcar el punto de control requiere permiso propio', function () {
 });
 
 test('con permiso marca el punto de control y registra quién y cuándo', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = requisicionCompletaParaControl($this->depto);
 
     $this->actingAs($this->control)
         ->post("/admin/costos/requisiciones/{$req->id}/punto-control")
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
     $req->refresh();
     expect($req->control_verificado)->toBeTrue()
         ->and($req->control_por)->toBe($this->control->id)
         ->and($req->control_at)->not->toBeNull();
+});
+
+test('no marca el punto de control si la cotización está incompleta (mismas validaciones que enviar a aprobación)', function () {
+    // Cotizada pero sin cotizaciones/selecciones/OC: no debe pasar el control.
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+
+    $this->actingAs($this->control)
+        ->post("/admin/costos/requisiciones/{$req->id}/punto-control")
+        ->assertSessionHasErrors(['cotizaciones']);
+
+    expect($req->fresh()->control_verificado)->toBeFalse();
 });
 
 test('se puede quitar el punto de control', function () {

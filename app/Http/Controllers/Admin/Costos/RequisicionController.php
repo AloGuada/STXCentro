@@ -642,6 +642,12 @@ class RequisicionController extends Controller
             return back()->withErrors(['control' => 'El punto de control solo aplica a requisiciones cotizadas.']);
         }
 
+        // Mismas validaciones que enviar a aprobación: no se puede marcar la
+        // verificación gerencial si la cotización está incompleta.
+        if ($errores = $this->validarCotizacionCompleta($requisicion)) {
+            return back()->withErrors($errores);
+        }
+
         $requisicion->update([
             'control_verificado' => true,
             'control_por' => auth()->id(),
@@ -680,71 +686,8 @@ class RequisicionController extends Controller
             return back()->withErrors(['control' => 'Falta marcar el punto de control antes de enviar a aprobación.']);
         }
 
-        $requisicion->load(['detalles.selecciones.cotizacionPrecio', 'detalles.cotizaciones']);
-
-        $minEmpresas = (int) config('costos.min_empresas_cotizacion', 3);
-
-        // La cotización debe comparar al menos N proveedores en total (no por
-        // partida): basta con tener N empresas distintas en toda la requisición.
-        $empresasTotal = $requisicion->detalles
-            ->flatMap->cotizaciones
-            ->pluck('proveedor_id')
-            ->unique()
-            ->count();
-
-        if ($empresasTotal < $minEmpresas) {
-            return back()->withErrors([
-                'cotizaciones' => "La cotización debe comparar al menos {$minEmpresas} proveedores (tiene {$empresasTotal}).",
-            ]);
-        }
-
-        foreach ($requisicion->detalles as $detalle) {
-            if (empty($detalle->uso_cfdi_id)) {
-                return back()->withErrors([
-                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene uso de CFDI asignado.",
-                ]);
-            }
-
-            if (empty($detalle->obra_rubro_id)) {
-                return back()->withErrors([
-                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene centro de costos asignado.",
-                ]);
-            }
-
-            $sumaSelecciones = (float) $detalle->selecciones->sum('cantidad');
-            $cantidadPartida = (float) $detalle->cantidad;
-
-            if ($sumaSelecciones <= 0.0) {
-                return back()->withErrors([
-                    'selecciones' => "La partida \"{$detalle->descripcion}\" no tiene proveedor asignado.",
-                ]);
-            }
-
-            if ($sumaSelecciones + config('costos.epsilon_cantidad') < $cantidadPartida) {
-                return back()->withErrors([
-                    'selecciones' => "La partida \"{$detalle->descripcion}\" no está cubierta al 100% por las selecciones.",
-                ]);
-            }
-
-            if ($sumaSelecciones > $cantidadPartida + config('costos.epsilon_cantidad')) {
-                return back()->withErrors([
-                    'selecciones' => "La partida \"{$detalle->descripcion}\" tiene selecciones por encima de la cantidad solicitada.",
-                ]);
-            }
-
-            foreach ($detalle->selecciones as $sel) {
-                if (! $sel->cotizacionPrecio || ! $sel->cotizacionPrecio->precio_unitario) {
-                    return back()->withErrors([
-                        'selecciones' => "La partida \"{$detalle->descripcion}\" tiene una selección sin precio cotizado.",
-                    ]);
-                }
-            }
-        }
-
-        if ($requisicion->ocs()->doesntExist()) {
-            return back()->withErrors([
-                'ocs' => 'Debes definir al menos una orden de compra antes de enviar a aprobación.',
-            ]);
+        if ($errores = $this->validarCotizacionCompleta($requisicion)) {
+            return back()->withErrors($errores);
         }
 
         DB::transaction(function () use ($request, $requisicion) {
@@ -779,6 +722,71 @@ class RequisicionController extends Controller
         });
 
         return back()->with('success', 'Requisición enviada a aprobación.');
+    }
+
+    /**
+     * Valida que la cotización esté completa para avanzar (verificación
+     * gerencial y envío a aprobación): mínimo de proveedores comparados, uso
+     * de CFDI y centro de costos por partida, partidas cubiertas 100% por
+     * selecciones con precio, y al menos una OC definida. Devuelve los errores
+     * (clave => mensaje) o null si todo está correcto.
+     *
+     * @return array<string, string>|null
+     */
+    private function validarCotizacionCompleta(Requisicion $requisicion): ?array
+    {
+        $requisicion->loadMissing(['detalles.selecciones.cotizacionPrecio', 'detalles.cotizaciones']);
+
+        $minEmpresas = (int) config('costos.min_empresas_cotizacion', 3);
+
+        // La cotización debe comparar al menos N proveedores en total (no por
+        // partida): basta con tener N empresas distintas en toda la requisición.
+        $empresasTotal = $requisicion->detalles
+            ->flatMap->cotizaciones
+            ->pluck('proveedor_id')
+            ->unique()
+            ->count();
+
+        if ($empresasTotal < $minEmpresas) {
+            return ['cotizaciones' => "La cotización debe comparar al menos {$minEmpresas} proveedores (tiene {$empresasTotal})."];
+        }
+
+        foreach ($requisicion->detalles as $detalle) {
+            if (empty($detalle->uso_cfdi_id)) {
+                return ['detalles' => "La partida \"{$detalle->descripcion}\" no tiene uso de CFDI asignado."];
+            }
+
+            if (empty($detalle->obra_rubro_id)) {
+                return ['detalles' => "La partida \"{$detalle->descripcion}\" no tiene centro de costos asignado."];
+            }
+
+            $sumaSelecciones = (float) $detalle->selecciones->sum('cantidad');
+            $cantidadPartida = (float) $detalle->cantidad;
+
+            if ($sumaSelecciones <= 0.0) {
+                return ['selecciones' => "La partida \"{$detalle->descripcion}\" no tiene proveedor asignado."];
+            }
+
+            if ($sumaSelecciones + config('costos.epsilon_cantidad') < $cantidadPartida) {
+                return ['selecciones' => "La partida \"{$detalle->descripcion}\" no está cubierta al 100% por las selecciones."];
+            }
+
+            if ($sumaSelecciones > $cantidadPartida + config('costos.epsilon_cantidad')) {
+                return ['selecciones' => "La partida \"{$detalle->descripcion}\" tiene selecciones por encima de la cantidad solicitada."];
+            }
+
+            foreach ($detalle->selecciones as $sel) {
+                if (! $sel->cotizacionPrecio || ! $sel->cotizacionPrecio->precio_unitario) {
+                    return ['selecciones' => "La partida \"{$detalle->descripcion}\" tiene una selección sin precio cotizado."];
+                }
+            }
+        }
+
+        if ($requisicion->ocs()->doesntExist()) {
+            return ['ocs' => 'Debes definir al menos una orden de compra antes de enviar a aprobación.'];
+        }
+
+        return null;
     }
 
     /**
