@@ -394,7 +394,7 @@ class SolicitudPagoController extends Controller
             return to_route('admin.costos.solicitudes-pago.show', $solicitudPago);
         }
 
-        $solicitudPago->load(['detalles.obraRubro.rubro', 'tipoSolicitud.documentos', 'archivos.documento', 'lockedBy:id,name']);
+        $solicitudPago->load(['detalles.obraRubro.rubro', 'tipoSolicitud.documentos', 'archivos.documento', 'archivos.media', 'lockedBy:id,name']);
 
         return Inertia::render('admin/costos/solicitudes-pago/edit', [
             'solicitud' => $solicitudPago,

@@ -1,10 +1,10 @@
+import { Head, router } from '@inertiajs/react';
+import { EyeIcon, FileDown, FileCheckIcon } from 'lucide-react';
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosSolicitudPago, PaginatedData } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_LABELS } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
-import { EyeIcon, FileDown, FileCheckIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -125,7 +125,7 @@ const columns: Column<CostosSolicitudPago>[] = [
         label: '',
         render: (row) => (
             <a
-                href={row.estatus === 'borrador' ? `/admin/costos/solicitudes-pago/${row.id}/edit` : `/admin/costos/solicitudes-pago/${row.id}`}
+                href={`/admin/costos/solicitudes-pago/${row.id}`}
                 onClick={(e) => e.stopPropagation()}
                 className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60 transition-colors hover:bg-base-200"
                 title="Ver detalle"
@@ -197,9 +197,7 @@ export default function SolicitudesPagoIndex({ solicitudes, filters, sortBy, sor
                     createHref="/admin/costos/solicitudes-pago/create"
                     createLabel="Nueva Solicitud"
                     emptyMessage="No hay solicitudes de pago"
-                    getRowHref={(row) => row.estatus === 'borrador'
-                        ? `/admin/costos/solicitudes-pago/${row.id}/edit`
-                        : `/admin/costos/solicitudes-pago/${row.id}`
+                    getRowHref={(row) => `/admin/costos/solicitudes-pago/${row.id}`
                     }
                     sortBy={sortBy}
                     sortDir={sortDir}
