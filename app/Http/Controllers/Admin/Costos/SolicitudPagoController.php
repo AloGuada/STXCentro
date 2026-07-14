@@ -657,8 +657,8 @@ class SolicitudPagoController extends Controller
             403,
         );
 
-        if (! in_array($solicitudPago->estatus, [SolicitudPagoEstatus::PendienteFirma, SolicitudPagoEstatus::Aprobada], true)) {
-            return back()->withErrors(['estatus' => 'Solo se pueden cancelar solicitudes pendientes o aprobadas.']);
+        if (! in_array($solicitudPago->estatus, [SolicitudPagoEstatus::Borrador, SolicitudPagoEstatus::PendienteFirma, SolicitudPagoEstatus::Aprobada], true)) {
+            return back()->withErrors(['estatus' => 'Solo se pueden cancelar solicitudes en borrador, pendientes o aprobadas.']);
         }
 
         // Revertir impacto si estaba aprobada
