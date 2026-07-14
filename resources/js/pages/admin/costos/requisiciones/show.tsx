@@ -4,9 +4,9 @@ import { useMemo, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
+import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { OcBuilder } from '@/components/costos/oc-builder';
 import { calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
-import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -553,6 +553,12 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                     </div>
 
                     <div className="flex gap-2">
+                        <Button variant="outline" asChild>
+                            <a href={`/admin/costos/requisiciones/${requisicion.id}/pdf`} target="_blank" rel="noreferrer">
+                                Generar Formato PDF
+                            </a>
+                        </Button>
+
                         {can('costos.requisiciones.cotizar') && (
                             <Button
                                 variant="outline"
