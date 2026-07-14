@@ -158,6 +158,28 @@ class HandleInertiaRequests extends Middleware
         $pendientes = DB::table('costos_aprobaciones as a')
             ->where('a.aprobador_id', $userId)
             ->where('a.estatus', 'pendiente')
+            // El documento debe seguir esperando aprobación: mismo blindaje que la
+            // bandeja (no contar pendientes de documentos ya cancelados/aprobados).
+            ->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->where('a.aprobable_type', \App\Models\Costos\Requisicion::class)
+                        ->whereExists(function ($sub) {
+                            $sub->select(DB::raw(1))
+                                ->from('costos_requisiciones as r')
+                                ->whereColumn('r.id', 'a.aprobable_id')
+                                ->where('r.estatus', 'pendiente_aprobacion');
+                        });
+                })->orWhere(function ($q2) {
+                    $q2->where('a.aprobable_type', \App\Models\Costos\SolicitudPago::class)
+                        ->whereExists(function ($sub) {
+                            $sub->select(DB::raw(1))
+                                ->from('costos_solicitudes_pago as s')
+                                ->whereColumn('s.id', 'a.aprobable_id')
+                                ->where('s.estatus', 'pendiente_firma');
+                        });
+                });
+            })
+            // Es turno: ningún nivel inferior sigue pendiente.
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
                     ->from('costos_aprobaciones as prev')

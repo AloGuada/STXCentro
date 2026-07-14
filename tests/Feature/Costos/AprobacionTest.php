@@ -53,6 +53,32 @@ describe('admin costos aprobaciones', function () {
         );
     });
 
+    test('el badge de mis aprobaciones no cuenta pendientes de documentos ya cerrados', function () {
+        // Pendiente en documento vivo (pendiente_firma) → cuenta.
+        $viva = SolicitudPago::factory()->pendienteFirma()->create();
+        AprobacionSolicitud::create([
+            'solicitud_id' => $viva->id,
+            'nivel' => 1,
+            'aprobador_id' => $this->user->id,
+            'estatus' => 'pendiente',
+        ]);
+
+        // Pendiente colgado en documento cancelado → NO debe contar.
+        $cerrada = SolicitudPago::factory()->create(['estatus' => 'cancelada']);
+        AprobacionSolicitud::create([
+            'solicitud_id' => $cerrada->id,
+            'nivel' => 1,
+            'aprobador_id' => $this->user->id,
+            'estatus' => 'pendiente',
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.costos.aprobaciones.index'));
+
+        $badges = $response->original->getData()['page']['props']['auth']['badges'];
+        expect($badges['/admin/costos/aprobaciones']['count'])->toBe(1);
+    });
+
     test('el monto de una requisicion en la bandeja es el neto (subtotal + IVA - retenciones)', function () {
         // Persona moral + partida de mercancia: sin retenciones, solo IVA 16%.
         $proveedor = Proveedor::factory()->create(['tipo_persona' => 'moral']);
