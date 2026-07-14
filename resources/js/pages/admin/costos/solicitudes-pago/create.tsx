@@ -19,6 +19,7 @@ import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
+import AppLayout from '@/layouts/app-layout';
 import {
     formatBytes,
     MAX_FILE_SIZE_BYTES,
@@ -27,7 +28,6 @@ import {
     MAX_TOTAL_UPLOAD_BYTES,
     MAX_TOTAL_UPLOAD_MB,
 } from '@/lib/uploads';
-import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type {
     CostosObraRubro,
@@ -326,18 +326,23 @@ export default function SolicitudesPagoCreate({
                 );
             }
 
-            data.detalles.forEach((det, i) => {
-                formData.append(
-                    `detalles[${i}][obra_rubro_id]`,
-                    det.obra_rubro_id,
-                );
-                formData.append(`detalles[${i}][concepto]`, det.concepto);
-                formData.append(`detalles[${i}][cantidad]`, det.cantidad);
-                formData.append(
-                    `detalles[${i}][precio_unitario]`,
-                    det.precio_unitario,
-                );
-            });
+            // Solo los tipos que requieren centros de costos mandan detalles; si
+            // no, se omiten para no arrastrar renglones colados de otro tipo
+            // (que dispararían "El centro de costos es obligatorio" en el backend).
+            if (selectedTipo?.rubros) {
+                data.detalles.forEach((det, i) => {
+                    formData.append(
+                        `detalles[${i}][obra_rubro_id]`,
+                        det.obra_rubro_id,
+                    );
+                    formData.append(`detalles[${i}][concepto]`, det.concepto);
+                    formData.append(`detalles[${i}][cantidad]`, det.cantidad);
+                    formData.append(
+                        `detalles[${i}][precio_unitario]`,
+                        det.precio_unitario,
+                    );
+                });
+            }
 
             // El total del pago es editable en ambos flujos; si se capturó, se
             // envía (manda sobre la suma de detalles en el backend).
@@ -608,12 +613,21 @@ export default function SolicitudesPagoCreate({
                                     id="tipo_solicitud_id"
                                     className={`select-bordered select w-full ${errors.tipo_solicitud_id ? 'select-error' : ''}`}
                                     value={data.tipo_solicitud_id}
-                                    onChange={(e) =>
-                                        setData(
-                                            'tipo_solicitud_id',
-                                            e.target.value,
-                                        )
-                                    }
+                                    onChange={(e) => {
+                                        const nuevoTipo = tipoSolicitudes.find(
+                                            (t) => t.id === Number(e.target.value),
+                                        );
+                                        setData((prev) => ({
+                                            ...prev,
+                                            tipo_solicitud_id: e.target.value,
+                                            // Un tipo sin centros de costos no lleva
+                                            // detalles: se limpian para no arrastrar
+                                            // renglones de un tipo anterior.
+                                            detalles: nuevoTipo?.rubros
+                                                ? prev.detalles
+                                                : [],
+                                        }));
+                                    }}
                                 >
                                     <option value="">Seleccionar tipo</option>
                                     {tipoSolicitudes.map((ts) => (

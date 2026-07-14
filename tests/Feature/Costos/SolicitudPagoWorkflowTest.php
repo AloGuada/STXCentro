@@ -16,7 +16,7 @@ beforeEach(function () {
 });
 
 describe('admin costos solicitud pago workflow', function () {
-    test('generar pdf changes estatus to pendiente_firma', function () {
+    test('enviar a aprobacion cambia estatus a pendiente_firma y crea la cadena', function () {
         $departamento = Departamento::factory()->create();
         $permiso = Permiso::factory()->create(['nivel' => 1, 'descripcion' => 'Jefe Depto']);
         AprobacionDepartamento::factory()->create([
@@ -27,17 +27,40 @@ describe('admin costos solicitud pago workflow', function () {
         $solicitud = SolicitudPago::factory()->create([
             'departamento_id' => $departamento->id,
             'estatus' => 'borrador',
+            'solicitante_id' => $this->user->id,
         ]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.enviar-aprobacion', $solicitud))
+            ->assertRedirect();
+
+        $solicitud->refresh();
+        expect($solicitud->estatus->value)->toBe('pendiente_firma');
+        expect($solicitud->aprobaciones)->toHaveCount(1);
+    });
+
+    test('generar pdf en borrador no cambia el estatus (solo previsualiza)', function () {
+        $solicitud = SolicitudPago::factory()->create(['estatus' => 'borrador']);
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.costos.solicitudes-pago.pdf', $solicitud));
 
         $response->assertOk();
         $response->assertHeader('content-type', 'application/pdf');
+        expect($solicitud->fresh()->estatus->value)->toBe('borrador');
+    });
 
-        $solicitud->refresh();
-        expect($solicitud->estatus->value)->toBe('pendiente_firma');
-        expect($solicitud->aprobaciones)->toHaveCount(1);
+    test('solo el creador puede enviar la solicitud a aprobacion', function () {
+        $solicitud = SolicitudPago::factory()->create([
+            'estatus' => 'borrador',
+            'solicitante_id' => User::factory()->create()->id,
+        ]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.enviar-aprobacion', $solicitud))
+            ->assertForbidden();
+
+        expect($solicitud->fresh()->estatus->value)->toBe('borrador');
     });
 
     test('generar pdf con detalles muestra obra y centro de costos', function () {
@@ -55,7 +78,7 @@ describe('admin costos solicitud pago workflow', function () {
         $response->assertHeader('content-type', 'application/pdf');
     });
 
-    test('generar pdf creates aprobaciones from cadena departamento', function () {
+    test('enviar a aprobacion crea aprobaciones de la cadena del departamento', function () {
         $departamento = Departamento::factory()->create();
         $permiso1 = Permiso::factory()->create(['nivel' => 1, 'descripcion' => 'Jefe Depto']);
         $permiso2 = Permiso::factory()->create(['nivel' => 2, 'descripcion' => 'Gerente']);
@@ -71,10 +94,11 @@ describe('admin costos solicitud pago workflow', function () {
         $solicitud = SolicitudPago::factory()->create([
             'departamento_id' => $departamento->id,
             'estatus' => 'borrador',
+            'solicitante_id' => $this->user->id,
         ]);
 
         $this->actingAs($this->user)
-            ->get(route('admin.costos.solicitudes-pago.pdf', $solicitud));
+            ->post(route('admin.costos.solicitudes-pago.enviar-aprobacion', $solicitud));
 
         $solicitud->refresh();
         expect($solicitud->aprobaciones)->toHaveCount(2);

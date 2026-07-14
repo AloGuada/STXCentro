@@ -1,3 +1,6 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { AlertTriangleIcon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { type FormEvent, useCallback, useMemo, useState } from 'react';
 import { DocumentoUpload } from '@/components/costos/documento-upload';
 import { EditLockBanner } from '@/components/costos/edit-lock-banner';
 import { DeleteDialog } from '@/components/delete-dialog';
@@ -8,9 +11,6 @@ import { useEditLock } from '@/hooks/use-edit-lock';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosObraRubro, CostosSolicitudPago, CostosTipoSolicitud, Departamento, Obra, Proveedor } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { AlertTriangleIcon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { type FormEvent, useCallback, useMemo, useState } from 'react';
 
 function esViernes(dateStr: string): boolean {
     const date = new Date(dateStr + 'T00:00:00');
@@ -64,7 +64,7 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
     const lockState = useEditLock('solicitud-pago', solicitud.id);
     const readonly = lockState.status !== 'owned';
 
-    const { data, setData, put, processing, errors } = useForm<{
+    const { data, setData, put, transform, processing, errors } = useForm<{
         departamento_id: string;
         proveedor_id: string;
         tipo_solicitud_id: string;
@@ -161,6 +161,12 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
+        // Un tipo sin centros de costos no manda detalles (evita "El centro de
+        // costos es obligatorio" por renglones de un tipo anterior).
+        transform((d) => ({
+            ...d,
+            detalles: selectedTipo?.rubros ? d.detalles : [],
+        }));
         put(`/admin/costos/solicitudes-pago/${solicitud.id}`);
     };
 
@@ -274,7 +280,14 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
                                     id="tipo_solicitud_id"
                                     className="select select-bordered w-full"
                                     value={data.tipo_solicitud_id}
-                                    onChange={(e) => setData('tipo_solicitud_id', e.target.value)}
+                                    onChange={(e) => {
+                                        const nuevoTipo = tipoSolicitudes.find((t) => t.id === Number(e.target.value));
+                                        setData((prev) => ({
+                                            ...prev,
+                                            tipo_solicitud_id: e.target.value,
+                                            detalles: nuevoTipo?.rubros ? prev.detalles : [],
+                                        }));
+                                    }}
                                 >
                                     <option value="">Seleccionar tipo</option>
                                     {tipoSolicitudes.map((ts) => (
