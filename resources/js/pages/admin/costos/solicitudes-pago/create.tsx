@@ -226,6 +226,9 @@ export default function SolicitudesPagoCreate({
     // Firma adicional (ad-hoc): opcional, firma antes que la cadena normal.
     const [requiereFirmaAdicional, setRequiereFirmaAdicional] = useState(false);
 
+    // Modal que explica el flujo del borrador antes de guardar.
+    const [showBorradorModal, setShowBorradorModal] = useState(false);
+
     const esCerrado = (or: CostosObraRubro) => or.presupuesto?.estatus === 'cerrado';
 
     const obrasVisibles = obras.filter(
@@ -305,6 +308,14 @@ export default function SolicitudesPagoCreate({
             setError(validationErrors as Parameters<typeof setError>[0]);
             return;
         }
+
+        // Válido: se muestra el modal explicativo; el guardado real ocurre al
+        // presionar "Aceptar".
+        setShowBorradorModal(true);
+    };
+
+    const guardarBorrador = () => {
+        setShowBorradorModal(false);
 
         transform(() => {
             const formData = new FormData();
@@ -1405,6 +1416,66 @@ export default function SolicitudesPagoCreate({
                     </form>
                 </div>
             </div>
+
+            {showBorradorModal && (
+                <dialog className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="mb-3 text-lg font-bold">
+                            Se guardará como borrador
+                        </h3>
+                        <div className="space-y-2 text-sm text-base-content/70">
+                            <p>
+                                La solicitud se guardará en{' '}
+                                <strong>borrador</strong>. Todavía no entra a
+                                aprobación. Antes de enviarla debes:
+                            </p>
+                            <ol className="list-decimal space-y-1 pl-5">
+                                <li>
+                                    <strong>Revisarla</strong> en su detalle.
+                                </li>
+                                <li>
+                                    <strong>Editarla</strong> si algo falta o
+                                    hay que corregir.
+                                </li>
+                                <li>
+                                    <strong>Enviarla a aprobación</strong> con
+                                    el botón correspondiente.
+                                </li>
+                            </ol>
+                            <p className="text-base-content/50">
+                                Mientras esté en borrador no se aparta
+                                presupuesto ni se notifica a los aprobadores.
+                            </p>
+                        </div>
+                        <div className="modal-action">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowBorradorModal(false)}
+                                disabled={processing}
+                            >
+                                Volver
+                            </Button>
+                            <Button
+                                onClick={guardarBorrador}
+                                disabled={processing}
+                            >
+                                {processing && (
+                                    <Loader2Icon className="size-4 animate-spin" />
+                                )}
+                                Aceptar
+                            </Button>
+                        </div>
+                    </div>
+                    <div
+                        className="modal-backdrop"
+                        onClick={
+                            processing
+                                ? undefined
+                                : () => setShowBorradorModal(false)
+                        }
+                    ></div>
+                </dialog>
+            )}
         </AppLayout>
     );
 }
