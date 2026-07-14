@@ -3,8 +3,9 @@
 use App\Models\Costos\AfectacionDetalle;
 use App\Models\Costos\AfectacionPresupuestal;
 use App\Models\Costos\ObraRubro;
-use App\Models\Departamento;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -31,32 +32,23 @@ describe('admin costos afectaciones presupuestales', function () {
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/costos/afectaciones/create')
-            ->has('departamentos')
-            ->has('proveedores')
+            ->has('obras')
+            ->has('obraRubros')
         );
     });
 
-    test('afectacion can be stored without detalles', function () {
-        $departamento = Departamento::factory()->create();
-
+    test('afectacion requiere al menos un centro de costos', function () {
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.afectaciones.store'), [
                 'fecha' => '2026-02-12',
                 'tipo_origen' => 'gasto_directo',
-                'descripcion' => 'Gasto directo de prueba',
-                'departamento_id' => $departamento->id,
+                'descripcion' => 'Sin detalles',
             ]);
 
-        $response->assertRedirect(route('admin.costos.afectaciones.index'));
-        $this->assertDatabaseHas('costos_afectaciones_presupuestales', [
-            'descripcion' => 'Gasto directo de prueba',
-            'creado_por' => $this->user->id,
-            'estatus' => 'borrador',
-        ]);
+        $response->assertSessionHasErrors(['detalles']);
     });
 
-    test('afectacion can be stored with detalles', function () {
-        $departamento = Departamento::factory()->create();
+    test('afectacion se guarda con monto directo y sin departamento', function () {
         $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
 
         $response = $this->actingAs($this->user)
@@ -64,14 +56,8 @@ describe('admin costos afectaciones presupuestales', function () {
                 'fecha' => '2026-02-12',
                 'tipo_origen' => 'nomina',
                 'descripcion' => 'Nómina quincenal',
-                'departamento_id' => $departamento->id,
                 'detalles' => [
-                    [
-                        'obra_rubro_id' => $obraRubro->id,
-                        'concepto' => 'Salarios',
-                        'cantidad' => 10,
-                        'precio_unitario' => 150.50,
-                    ],
+                    ['obra_rubro_id' => $obraRubro->id, 'monto' => 1505.00],
                 ],
             ]);
 
@@ -79,7 +65,30 @@ describe('admin costos afectaciones presupuestales', function () {
 
         $afectacion = AfectacionPresupuestal::latest('id')->first();
         expect($afectacion->detalles)->toHaveCount(1);
+        expect($afectacion->departamento_id)->toBeNull();
         expect((float) $afectacion->monto_total)->toBe(1505.00);
+        expect((float) $afectacion->detalles->first()->monto)->toBe(1505.00);
+    });
+
+    test('afectacion guarda documentos de sustento', function () {
+        Storage::fake('public');
+        $obraRubro = ObraRubro::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.afectaciones.store'), [
+                'fecha' => '2026-02-12',
+                'tipo_origen' => 'otro',
+                'descripcion' => 'Con sustento',
+                'detalles' => [
+                    ['obra_rubro_id' => $obraRubro->id, 'monto' => 500],
+                ],
+                'documentos' => [UploadedFile::fake()->create('sustento.pdf', 100, 'application/pdf')],
+            ])
+            ->assertRedirect();
+
+        $afectacion = AfectacionPresupuestal::latest('id')->first();
+        expect($afectacion->media)->toHaveCount(1);
+        Storage::disk('public')->assertExists($afectacion->media->first()->path);
     });
 
     test('folio is auto-generated', function () {
@@ -135,15 +144,8 @@ describe('admin costos afectaciones presupuestales', function () {
                 'fecha' => '2026-02-12',
                 'tipo_origen' => 'reembolso',
                 'descripcion' => 'Updated descripcion',
-                'departamento_id' => $afectacion->departamento_id,
                 'detalles' => [
-                    [
-                        'id' => $detalle->id,
-                        'obra_rubro_id' => $obraRubro->id,
-                        'concepto' => 'Updated concepto',
-                        'cantidad' => 5,
-                        'precio_unitario' => 200,
-                    ],
+                    ['id' => $detalle->id, 'obra_rubro_id' => $obraRubro->id, 'monto' => 1000],
                 ],
                 '_version' => $afectacion->updated_at->toIso8601String(),
             ]);
@@ -155,7 +157,8 @@ describe('admin costos afectaciones presupuestales', function () {
         ]);
         $this->assertDatabaseHas('costos_afectaciones_detalle', [
             'id' => $detalle->id,
-            'concepto' => 'Updated concepto',
+            'monto' => 1000,
+            'concepto' => 'Updated descripcion',
         ]);
     });
 
@@ -167,7 +170,9 @@ describe('admin costos afectaciones presupuestales', function () {
                 'fecha' => '2026-02-12',
                 'tipo_origen' => 'nomina',
                 'descripcion' => 'Should not update',
-                'departamento_id' => $afectacion->departamento_id,
+                'detalles' => [
+                    ['obra_rubro_id' => ObraRubro::factory()->create()->id, 'monto' => 100],
+                ],
             ]);
 
         $response->assertSessionHasErrors(['estatus']);
@@ -187,6 +192,6 @@ describe('admin costos afectaciones presupuestales', function () {
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.afectaciones.store'), []);
 
-        $response->assertSessionHasErrors(['fecha', 'tipo_origen', 'descripcion', 'departamento_id']);
+        $response->assertSessionHasErrors(['fecha', 'tipo_origen', 'descripcion', 'detalles']);
     });
 });

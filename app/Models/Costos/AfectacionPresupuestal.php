@@ -96,6 +96,14 @@ class AfectacionPresupuestal extends Model
         return $this->hasMany(AfectacionHistorial::class, 'afectacion_id');
     }
 
+    /**
+     * Documentos de sustento (uno o varios) adjuntos a la afectación.
+     */
+    public function media(): MorphMany
+    {
+        return $this->morphMany(\App\Models\Media::class, 'mediable');
+    }
+
     public function rubrosAfectados(): MorphMany
     {
         return $this->morphMany(RubroAfectado::class, 'entrada');

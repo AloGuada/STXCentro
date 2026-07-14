@@ -1,12 +1,12 @@
+import { Head, Link, router } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosAfectacionEstatus, CostosAfectacionPresupuestal } from '@/types/models';
 import { AFECTACION_ESTATUS_COLORS, AFECTACION_ESTATUS_LABELS } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import { useRef, useState } from 'react';
 
 type Props = {
     afectacion: CostosAfectacionPresupuestal;
@@ -65,9 +65,14 @@ export default function AfectacionesShow({ afectacion }: Props) {
                     </div>
                     <div className="flex gap-2">
                         {afectacion.estatus === 'borrador' && (
-                            <Button asChild>
-                                <a href={`/admin/costos/afectaciones/${afectacion.id}/pdf`}>Generar Formato PDF</a>
-                            </Button>
+                            <>
+                                <Button variant="outline" asChild>
+                                    <Link href={`/admin/costos/afectaciones/${afectacion.id}/edit`}>Editar</Link>
+                                </Button>
+                                <Button asChild>
+                                    <a href={`/admin/costos/afectaciones/${afectacion.id}/pdf`}>Generar Formato PDF</a>
+                                </Button>
+                            </>
                         )}
                         {afectacion.estatus === 'pendiente_firma' && (
                             <>
@@ -120,19 +125,11 @@ export default function AfectacionesShow({ afectacion }: Props) {
                                     <p className="font-medium">{new Date(afectacion.fecha).toLocaleDateString()}</p>
                                 </div>
                                 <div>
-                                    <span className="text-sm text-base-content/60">Departamento</span>
-                                    <p className="font-medium">{afectacion.departamento?.descripcion ?? '-'}</p>
-                                </div>
-                                <div>
-                                    <span className="text-sm text-base-content/60">Proveedor</span>
-                                    <p className="font-medium">{afectacion.proveedor?.razon_social ?? 'Sin proveedor'}</p>
-                                </div>
-                            </div>
-                            <div className="space-y-3">
-                                <div>
                                     <span className="text-sm text-base-content/60">Tipo de Origen</span>
                                     <p className="font-medium capitalize">{afectacion.tipo_origen.replace(/_/g, ' ')}</p>
                                 </div>
+                            </div>
+                            <div className="space-y-3">
                                 <div>
                                     <span className="text-sm text-base-content/60">Creado por</span>
                                     <p className="font-medium">{typeof afectacion.creado_por === 'object' ? afectacion.creado_por?.name : '-'}</p>
@@ -145,39 +142,54 @@ export default function AfectacionesShow({ afectacion }: Props) {
                         </div>
 
                         <div className="mt-4">
-                            <span className="text-sm text-base-content/60">Descripción</span>
+                            <span className="text-sm text-base-content/60">Razón / Descripción</span>
                             <p>{afectacion.descripcion}</p>
                         </div>
 
-                        {/* Detalles table */}
+                        {/* Documentos de sustento */}
+                        {afectacion.media && afectacion.media.length > 0 && (
+                            <div className="mt-4">
+                                <span className="text-sm text-base-content/60">Documento(s) de sustento</span>
+                                <ul className="mt-1 space-y-1">
+                                    {afectacion.media.map((m) => (
+                                        <li key={m.id}>
+                                            <a
+                                                href={`/storage/${m.path}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="link text-sm link-primary"
+                                            >
+                                                {m.nombre_original ?? m.descripcion ?? 'documento'}
+                                            </a>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {/* Detalles: centros de costos a afectar */}
                         {afectacion.detalles && afectacion.detalles.length > 0 && (
                             <div className="mt-6">
-                                <h3 className="mb-3 font-medium">Detalles</h3>
+                                <h3 className="mb-3 font-medium">Centros de costos a afectar</h3>
                                 <div className="overflow-x-auto">
                                     <table className="table table-sm">
                                         <thead>
                                             <tr>
                                                 <th>Centro de Costos</th>
-                                                <th>Concepto</th>
-                                                <th className="text-right">Cantidad</th>
-                                                <th className="text-right">P. Unitario</th>
-                                                <th className="text-right">Monto</th>
+                                                <th className="text-right">Monto a afectar</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {afectacion.detalles.map((d) => (
                                                 <tr key={d.id}>
                                                     <td>{d.obra_rubro?.rubro?.codigo ?? '-'} - {d.obra_rubro?.rubro?.descripcion ?? ''}</td>
-                                                    <td>{d.concepto}</td>
-                                                    <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                                                    <td className="text-right">${Number(d.precio_unitario).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                                                     <td className="text-right">${Number(d.monto).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                         <tfoot>
                                             <tr>
-                                                <td colSpan={4} className="text-right font-bold">Total</td>
+                                                <td className="text-right font-bold">Total</td>
                                                 <td className="text-right font-bold">${Number(afectacion.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                                             </tr>
                                         </tfoot>
