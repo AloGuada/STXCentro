@@ -1781,6 +1781,8 @@ export type CostosRequisicion = {
         total: number;
     } | null;
     proveedores_cotizadores_count?: number;
+    // Neto a pagar (subtotal + IVA - retenciones); 0 mientras no haya OC definida.
+    total_neto?: number;
     tiene_sobregiro?: boolean;
     media?: Media[];
     activities?: CostosActivity[];

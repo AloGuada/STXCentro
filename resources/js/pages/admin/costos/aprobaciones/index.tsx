@@ -165,6 +165,9 @@ type RowDisplay = {
     proveedor: { razon_social: string; rfc?: string | null; subLabel?: string | null } | null;
     tipoLabel: string;
     monto: number;
+    // Para requisiciones: el monto es el neto a pagar (subtotal + IVA - retenciones)
+    // cuando ya hay OC/selecciones; si aún no, es el mejor precio (estimado).
+    montoEsNeto: boolean;
     tieneSobregiro: boolean;
     detailHref: string;
     archivosCount: number;
@@ -193,7 +196,12 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
                 ? { razon_social: mejor.nombre_comercial || mejor.razon_social, rfc: null, subLabel }
                 : { razon_social: 'Cotización parcial', rfc: null, subLabel },
             tipoLabel: 'Requisición de compras',
-            monto: a.requisicion_total ?? (mejor ? mejor.total : 0),
+            // Al inicio (sin OC/selecciones) el neto es 0: se muestra el mejor
+            // precio como estimado. Una vez definida la OC, se muestra el neto.
+            monto: (a.requisicion_total ?? 0) > 0
+                ? (a.requisicion_total ?? 0)
+                : (mejor ? mejor.total : 0),
+            montoEsNeto: (a.requisicion_total ?? 0) > 0,
             tieneSobregiro: Boolean(req.tiene_sobregiro),
             detailHref: `/admin/costos/requisiciones/${req.id}`,
             archivosCount: 0,
@@ -216,6 +224,7 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
         proveedor: sol.proveedor ? { razon_social: sol.proveedor.razon_social, rfc: sol.proveedor.rfc } : null,
         tipoLabel: sol.tipo_solicitud?.titulo ?? '-',
         monto: Number(sol.monto_total ?? 0),
+        montoEsNeto: true,
         tieneSobregiro: Boolean(sol.tiene_sobregiro),
         detailHref: `/admin/costos/aprobaciones/${a.id}`,
         archivosCount: sol.archivos?.length ?? 0,
@@ -378,6 +387,11 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
                                             )}
                                             <span className="font-medium">{fmtMoney(d.monto)}</span>
                                         </div>
+                                        {!d.montoEsNeto && (
+                                            <div className="mt-0.5 text-[11px] text-base-content/50" title="El neto a pagar se calcula al definir la OC">
+                                                Mejor precio (estimado)
+                                            </div>
+                                        )}
                                         {tieneSobregiro && (
                                             <div className="mt-0.5 text-[11px] font-semibold text-error">Centro de costos en sobregiro</div>
                                         )}

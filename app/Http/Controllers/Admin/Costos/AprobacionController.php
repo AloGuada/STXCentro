@@ -11,10 +11,8 @@ use App\Models\Costos\Aprobacion;
 use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\SolicitudPago;
-use App\Models\Proveedor;
 use App\Models\Usuario;
 use App\Services\Costos\AprobacionService;
-use App\Services\Costos\RetencionCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -309,46 +307,9 @@ class AprobacionController extends Controller
             $aprobable->setAttribute('tiene_sobregiro', $tieneSobregiro);
             $a->setAttribute('tipo', 'requisicion');
             $a->setRelation('requisicion', $aprobable);
-            $a->setAttribute('requisicion_total', $this->totalNetoRequisicion($aprobable));
+            $a->setAttribute('requisicion_total', $aprobable->total_neto);
         }
 
         return $a;
-    }
-
-    /**
-     * Total neto a pagar de la requisición: agrupa las selecciones por
-     * (proveedor, OC), calcula IVA y retenciones por grupo con
-     * {@see RetencionCalculator} y suma el neto de cada grupo. Espeja el
-     * "Total neto a pagar" que se muestra en el detalle de la requisición.
-     */
-    private function totalNetoRequisicion(Requisicion $req): float
-    {
-        $calculador = new RetencionCalculator;
-
-        /** @var array<string, array{proveedor: Proveedor, lineas: list<array{tipo_fiscal: ?string, subtotal: float}>}> $grupos */
-        $grupos = [];
-        foreach ($req->detalles as $detalle) {
-            foreach ($detalle->selecciones as $seleccion) {
-                if (! $seleccion->proveedor) {
-                    continue;
-                }
-
-                $clave = $seleccion->proveedor_id.'|'.($seleccion->numero_oc ?? 1);
-                $subtotal = (float) ($seleccion->cotizacionPrecio?->precio_unitario ?? 0) * (float) $seleccion->cantidad;
-
-                $grupos[$clave]['proveedor'] ??= $seleccion->proveedor;
-                $grupos[$clave]['lineas'][] = [
-                    'tipo_fiscal' => $detalle->tipo_fiscal?->value,
-                    'subtotal' => $subtotal,
-                ];
-            }
-        }
-
-        $neto = 0.0;
-        foreach ($grupos as $grupo) {
-            $neto += $calculador->calcular($grupo['proveedor'], $grupo['lineas'])['total_neto'];
-        }
-
-        return round($neto, 2);
     }
 }

@@ -47,7 +47,7 @@ const columns: Column<CostosRequisicion>[] = [
     },
     {
         key: 'mejor_proveedor',
-        label: 'Mejor cotización',
+        label: 'Monto',
         render: (row) => {
             const cotCount = row.proveedores_cotizadores_count ?? 0;
             if (!row.mejor_proveedor) {
@@ -61,12 +61,21 @@ const columns: Column<CostosRequisicion>[] = [
                 );
             }
             const m = row.mejor_proveedor;
-            return (
+            // Con OC definida (hay selecciones) el neto es > 0: se muestra el neto
+            // a pagar. Antes de eso, el mejor precio como estimado.
+            const neto = row.total_neto ?? 0;
+            return neto > 0 ? (
+                <div>
+                    <div className="text-sm font-medium">{m.nombre_comercial || m.razon_social}</div>
+                    <div className="mt-0.5 text-xs font-semibold text-success">{fmtMoney(neto)} MXN</div>
+                    <div className="mt-0.5 text-[11px] text-base-content/50">Neto a pagar</div>
+                </div>
+            ) : (
                 <div>
                     <div className="text-sm font-medium">{m.nombre_comercial || m.razon_social}</div>
                     <div className="mt-0.5 text-xs font-semibold text-success">{fmtMoney(m.total)} MXN</div>
                     <div className="mt-0.5 text-[11px] text-base-content/50">
-                        {cotCount} {cotCount === 1 ? 'proveedor cotizó' : 'proveedores cotizaron'}
+                        Mejor precio · {cotCount} {cotCount === 1 ? 'proveedor cotizó' : 'proveedores cotizaron'}
                     </div>
                 </div>
             );
