@@ -692,3 +692,13 @@ test('onAprobacionRechazada guarda motivo y transiciona a rechazada', function (
     expect($req->estatus->value)->toBe('rechazada');
     expect($req->motivo_rechazo)->toBe('precio fuera de mercado');
 });
+
+test('el formato comparativo de la requisicion se genera en PDF', function () {
+    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+
+    $response = $this->actingAs($this->user)
+        ->get(route('admin.costos.requisiciones.pdf', $req));
+
+    $response->assertOk();
+    expect($response->headers->get('content-type'))->toContain('application/pdf');
+});

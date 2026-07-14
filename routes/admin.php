@@ -219,6 +219,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Requisiciones (Fase 10.2)
         Route::resource('requisiciones', CostosRequisicionController::class)->parameters(['requisiciones' => 'requisicion']);
+        Route::get('requisiciones/{requisicion}/pdf', [CostosRequisicionController::class, 'pdf'])->name('requisiciones.pdf');
         Route::post('requisiciones/{requisicion}/duplicar', [CostosRequisicionController::class, 'duplicar'])->name('requisiciones.duplicar');
         Route::post('requisiciones/{requisicion}/cancelar', [CostosRequisicionController::class, 'cancelar'])->name('requisiciones.cancelar');
         Route::post('requisiciones/{requisicion}/enviar-aprobacion', [CostosRequisicionController::class, 'enviarAprobacion'])->name('requisiciones.enviar-aprobacion');

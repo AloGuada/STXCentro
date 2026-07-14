@@ -24,11 +24,14 @@ use App\Models\Proveedor;
 use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
 use App\Services\Costos\AprobacionService;
+use App\Services\Costos\FirmasPdfBuilder;
 use App\Services\Costos\OrdenCompraGenerator;
 use App\Support\OrdenaColumnas;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
@@ -304,6 +307,34 @@ class RequisicionController extends Controller
             'esUltimoNivel' => $esUltimoNivel,
             'proveedoresPorValidar' => $esUltimoNivel ? $this->proveedoresPorValidar($requisicion) : [],
         ]);
+    }
+
+    /**
+     * Formato comparativo de la requisición en PDF. Mismo render que el que se
+     * obtiene desde la OC, pero accesible directamente desde la requisición.
+     */
+    public function pdf(Requisicion $requisicion): HttpResponse
+    {
+        Gate::authorize('costos.requisiciones.ver');
+
+        $requisicion->load([
+            'solicitante',
+            'departamento',
+            'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
+            'detalles.obraRubro.obra:id,no,descripcion',
+            'detalles.obraRubro.rubro:id,codigo,descripcion',
+        ]);
+
+        $firmas = app(FirmasPdfBuilder::class)->build(
+            $requisicion->tipoAprobacion(),
+            $requisicion->departamento_id,
+            $requisicion->aprobaciones()->with('aprobador')->get(),
+        );
+
+        return Pdf::loadView('pdf.costos.formato-requisicion-comparativo', [
+            'requisicion' => $requisicion,
+            'firmas' => $firmas,
+        ])->setPaper('letter', 'landscape')->stream("Comparativo-{$requisicion->folio}.pdf");
     }
 
     /**
