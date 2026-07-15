@@ -24,6 +24,7 @@ use App\Models\Proveedor;
 use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
 use App\Services\Costos\AprobacionService;
+use App\Services\Costos\ComparativoTotalesBuilder;
 use App\Services\Costos\FirmasPdfBuilder;
 use App\Services\Costos\OrdenCompraGenerator;
 use App\Support\OrdenaColumnas;
@@ -324,6 +325,8 @@ class RequisicionController extends Controller
             'departamento',
             'detalles.cotizaciones.opcion',
             'detalles.selecciones.cotizacionPrecio',
+            'detalles.selecciones.proveedor:id,razon_social,tipo_persona,regimen_fiscal_id',
+            'detalles.selecciones.proveedor.regimenFiscal:id,clave',
             'detalles.obraRubro.obra:id,no,descripcion',
             'detalles.obraRubro.rubro:id,codigo,descripcion',
             'cotizacionOpciones.proveedor:id,razon_social,nombre_comercial',
@@ -338,6 +341,7 @@ class RequisicionController extends Controller
         return Pdf::loadView('pdf.costos.formato-requisicion-comparativo', [
             'requisicion' => $requisicion,
             'firmas' => $firmas,
+            'totales' => app(ComparativoTotalesBuilder::class)->build($requisicion),
         ])->setPaper('letter', 'landscape')->stream("Comparativo-{$requisicion->folio}.pdf");
     }
 

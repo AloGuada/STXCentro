@@ -17,6 +17,7 @@ use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
 use App\Services\Costos\CfdiXmlParser;
+use App\Services\Costos\ComparativoTotalesBuilder;
 use App\Services\Costos\FirmasPdfBuilder;
 use App\Services\Costos\RetencionCalculator;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -436,6 +437,8 @@ class OrdenCompraController extends Controller
             'departamento',
             'detalles.cotizaciones.opcion',
             'detalles.selecciones.cotizacionPrecio',
+            'detalles.selecciones.proveedor:id,razon_social,tipo_persona,regimen_fiscal_id',
+            'detalles.selecciones.proveedor.regimenFiscal:id,clave',
             'detalles.obraRubro.obra:id,no,descripcion',
             'detalles.obraRubro.rubro:id,codigo,descripcion',
             'cotizacionOpciones.proveedor:id,razon_social,nombre_comercial',
@@ -456,6 +459,7 @@ class OrdenCompraController extends Controller
         $pdf = Pdf::loadView('pdf.costos.formato-requisicion-comparativo', [
             'requisicion' => $requisicion,
             'firmas' => $firmas,
+            'totales' => app(ComparativoTotalesBuilder::class)->build($requisicion),
         ])->setPaper('letter', 'landscape');
 
         return $pdf->stream("Comparativo-{$requisicion->folio}.pdf");

@@ -754,6 +754,7 @@ test('el comparativo colorea solo al proveedor elegido y con IDs tipo texto (Pos
         'solicitante', 'departamento',
         'detalles.cotizaciones.opcion',
         'detalles.selecciones.cotizacionPrecio',
+        'detalles.selecciones.proveedor.regimenFiscal',
         'detalles.obraRubro.obra:id,no,descripcion',
         'detalles.obraRubro.rubro:id,codigo,descripcion',
         'cotizacionOpciones.proveedor:id,razon_social,nombre_comercial',
@@ -778,10 +779,51 @@ test('el comparativo colorea solo al proveedor elegido y con IDs tipo texto (Pos
     $html = view('pdf.costos.formato-requisicion-comparativo', [
         'requisicion' => $req,
         'firmas' => collect(),
+        'totales' => app(\App\Services\Costos\ComparativoTotalesBuilder::class)->build($req),
     ])->render();
 
     expect($html)
         ->toContain('opcion seleccionado') // la celda elegida se colorea
         ->not->toContain('#d4edda')        // sin resaltado verde de "mejor opción"
         ->toContain('$100.00');            // importe = precio elegido 5 × 20
+});
+
+test('el comparativo aplica retenciones al total neto', function () {
+    $req = Requisicion::factory()->cotizada()->create([
+        'departamento_id' => $this->depto->id,
+        'control_verificado' => true,
+    ]);
+    // Partida de flete (ISR Fletes 4%) para que haya retención.
+    $detalle = RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'cantidad' => 1,
+        'tipo_fiscal' => 'flete',
+    ]);
+    $proveedor = Proveedor::factory()->create();
+    $opcion = App\Models\Costos\RequisicionCotizacionOpcion::create([
+        'requisicion_id' => $req->id, 'proveedor_id' => $proveedor->id, 'orden' => 1,
+    ]);
+    $precio = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id, 'proveedor_id' => $proveedor->id,
+        'opcion_id' => $opcion->id, 'precio_unitario' => 1000,
+    ]);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+        'cotizacion_precio_id' => $precio->id,
+        'proveedor_id' => $proveedor->id,
+        'cantidad' => 1,
+    ]);
+
+    $req->load([
+        'detalles.selecciones.cotizacionPrecio',
+        'detalles.selecciones.proveedor.regimenFiscal',
+    ]);
+
+    $totales = app(\App\Services\Costos\ComparativoTotalesBuilder::class)->build($req);
+
+    // Subtotal 1000, IVA 160, ISR Fletes 4% = 40, neto = 1160 - 40 = 1120.
+    expect($totales['subtotal'])->toBe(1000.0)
+        ->and($totales['iva'])->toBe(160.0)
+        ->and($totales['total_retenciones'])->toBe(40.0)
+        ->and($totales['neto'])->toBe(1120.0);
 });

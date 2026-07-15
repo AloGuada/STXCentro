@@ -96,12 +96,6 @@
             return ['importe' => $total, 'tiene' => $tiene];
         };
 
-        $subtotalComp = 0;
-        foreach ($requisicion->detalles as $d) {
-            $subtotalComp += $importeDetalle($d)['importe'];
-        }
-        $ivaComp = $subtotalComp * 0.16;
-        $totalComp = $subtotalComp + $ivaComp;
     @endphp
 
     <table class="header-table">
@@ -226,18 +220,28 @@
         <tfoot>
             <tr class="total-row">
                 <td colspan="{{ 3 + $numCols }}" class="text-right">SUBTOTAL</td>
-                <td class="text-right">${{ number_format($subtotalComp, 2) }}</td>
+                <td class="text-right">${{ number_format($totales['subtotal'], 2) }}</td>
             </tr>
             <tr class="total-row">
                 <td colspan="{{ 3 + $numCols }}" class="text-right">IVA (16%)</td>
-                <td class="text-right">${{ number_format($ivaComp, 2) }}</td>
+                <td class="text-right">${{ number_format($totales['iva'], 2) }}</td>
             </tr>
             <tr class="total-row">
                 <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL</td>
-                <td class="text-right">${{ number_format($totalComp, 2) }}</td>
+                <td class="text-right">${{ number_format($totales['total'], 2) }}</td>
+            </tr>
+            @foreach($totales['retenciones'] as $ret)
+            <tr class="total-row">
+                <td colspan="{{ 3 + $numCols }}" class="text-right">(−) {{ $ret['concepto'] }}</td>
+                <td class="text-right">-${{ number_format($ret['monto'], 2) }}</td>
+            </tr>
+            @endforeach
+            <tr class="total-row">
+                <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL NETO A PAGAR</td>
+                <td class="text-right">${{ number_format($totales['neto'], 2) }}</td>
             </tr>
             <tr class="letras-row">
-                <td colspan="{{ 4 + $numCols }}">{{ \App\Support\NumeroALetras::convertir((float) $totalComp, 'mxn') }}</td>
+                <td colspan="{{ 4 + $numCols }}">{{ \App\Support\NumeroALetras::convertir((float) $totales['neto'], 'mxn') }}</td>
             </tr>
         </tfoot>
     </table>
