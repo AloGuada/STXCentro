@@ -37,6 +37,15 @@ type Props = {
 const fmtMoney = (n: number) =>
     n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
+const blankDetalle = (): DetalleForm => ({
+    obra_id: '',
+    obra_rubro_id: '',
+    monto: '',
+});
+
+const filaTieneDatos = (d: DetalleForm) =>
+    Boolean(d.obra_id || d.obra_rubro_id || d.monto);
+
 export default function AfectacionesEdit({
     afectacion,
     obras,
@@ -55,7 +64,7 @@ export default function AfectacionesEdit({
     const lockState = useEditLock('afectacion', afectacion.id);
     const readonly = lockState.status !== 'owned';
 
-    const { data, setData, put, processing, errors } = useForm<{
+    const { data, setData, put, transform, processing, errors } = useForm<{
         fecha: string;
         tipo_origen: string;
         descripcion: string;
@@ -66,15 +75,18 @@ export default function AfectacionesEdit({
         tipo_origen: afectacion.tipo_origen,
         descripcion: afectacion.descripcion,
         _version: afectacion.updated_at,
-        detalles: (afectacion.detalles ?? []).map((d) => {
-            const or = obraRubros.find((r) => r.id === d.obra_rubro_id);
-            return {
-                id: d.id,
-                obra_id: or?.obra_id ? String(or.obra_id) : '',
-                obra_rubro_id: String(d.obra_rubro_id),
-                monto: String(d.monto),
-            };
-        }),
+        detalles: [
+            ...(afectacion.detalles ?? []).map((d) => {
+                const or = obraRubros.find((r) => r.id === d.obra_rubro_id);
+                return {
+                    id: d.id,
+                    obra_id: or?.obra_id ? String(or.obra_id) : '',
+                    obra_rubro_id: String(d.obra_rubro_id),
+                    monto: String(d.monto),
+                };
+            }),
+            blankDetalle(),
+        ],
     });
 
     const addDetalle = () => {
@@ -101,6 +113,10 @@ export default function AfectacionesEdit({
         if (field === 'obra_id') {
             updated[index].obra_rubro_id = '';
         }
+        // Al usar la última fila, deja una vacía debajo para seguir capturando.
+        if (index === updated.length - 1 && filaTieneDatos(updated[index])) {
+            updated.push(blankDetalle());
+        }
         setData('detalles', updated);
     };
 
@@ -122,6 +138,11 @@ export default function AfectacionesEdit({
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
+        // No enviar la fila vacía de auto-append; el backend exige rubro y monto.
+        transform((d) => ({
+            ...d,
+            detalles: d.detalles.filter(filaTieneDatos),
+        }));
         put(`/admin/costos/afectaciones/${afectacion.id}`);
     };
 

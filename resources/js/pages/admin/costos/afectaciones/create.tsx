@@ -38,8 +38,17 @@ type Props = {
 const fmtMoney = (n: number) =>
     n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
+const blankDetalle = (): DetalleForm => ({
+    obra_id: '',
+    obra_rubro_id: '',
+    monto: '',
+});
+
+const filaTieneDatos = (d: DetalleForm) =>
+    Boolean(d.obra_id || d.obra_rubro_id || d.monto);
+
 export default function AfectacionesCreate({ obras, obraRubros }: Props) {
-    const { data, setData, post, processing, errors } = useForm<{
+    const { data, setData, post, transform, processing, errors } = useForm<{
         fecha: string;
         tipo_origen: string;
         descripcion: string;
@@ -49,7 +58,7 @@ export default function AfectacionesCreate({ obras, obraRubros }: Props) {
         fecha: new Date().toISOString().slice(0, 10),
         tipo_origen: '',
         descripcion: '',
-        detalles: [],
+        detalles: [blankDetalle()],
         documentos: [],
     });
 
@@ -70,7 +79,7 @@ export default function AfectacionesCreate({ obras, obraRubros }: Props) {
             fecha: new Date().toISOString().slice(0, 10),
             tipo_origen: '',
             descripcion: '',
-            detalles: [],
+            detalles: [blankDetalle()],
             documentos: [],
         });
         clearCache();
@@ -111,6 +120,10 @@ export default function AfectacionesCreate({ obras, obraRubros }: Props) {
         if (field === 'obra_id') {
             updated[index].obra_rubro_id = '';
         }
+        // Al usar la última fila, deja una vacía debajo para seguir capturando.
+        if (index === updated.length - 1 && filaTieneDatos(updated[index])) {
+            updated.push(blankDetalle());
+        }
         setData('detalles', updated);
     };
 
@@ -125,7 +138,10 @@ export default function AfectacionesCreate({ obras, obraRubros }: Props) {
         return Number(or.presupuestado) - Number(or.acumulado);
     };
 
-    const total = data.detalles.reduce(
+    // Filas realmente capturadas (excluye la vacía de auto-append al final).
+    const detallesLlenos = data.detalles.filter(filaTieneDatos);
+
+    const total = detallesLlenos.reduce(
         (sum, d) => sum + (parseFloat(d.monto) || 0),
         0,
     );
@@ -150,6 +166,11 @@ export default function AfectacionesCreate({ obras, obraRubros }: Props) {
 
     const guardarAfectacion = () => {
         setShowConfirmModal(false);
+        // No enviar la fila vacía de auto-append; el backend exige rubro y monto.
+        transform((d) => ({
+            ...d,
+            detalles: d.detalles.filter(filaTieneDatos),
+        }));
         post('/admin/costos/afectaciones', {
             forceFormData: true,
             onSuccess: () => clearCache(),
@@ -566,8 +587,8 @@ export default function AfectacionesCreate({ obras, obraRubros }: Props) {
                         </h3>
                         <p className="mb-3 text-sm text-base-content/70">
                             Vas a registrar una afectación sobre{' '}
-                            {data.detalles.length}{' '}
-                            {data.detalles.length === 1
+                            {detallesLlenos.length}{' '}
+                            {detallesLlenos.length === 1
                                 ? 'centro de costos'
                                 : 'centros de costos'}
                             . Revisa que los montos sean correctos:
@@ -575,7 +596,7 @@ export default function AfectacionesCreate({ obras, obraRubros }: Props) {
                         <div className="max-h-52 overflow-y-auto rounded-lg border border-base-300">
                             <table className="table table-sm">
                                 <tbody>
-                                    {data.detalles.map((d, i) => (
+                                    {detallesLlenos.map((d, i) => (
                                         <tr key={i}>
                                             <td className="text-sm">
                                                 {rubroLabel(d.obra_rubro_id)}
