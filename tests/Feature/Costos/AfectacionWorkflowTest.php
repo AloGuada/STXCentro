@@ -111,6 +111,58 @@ describe('afectacion presupuestal workflow', function () {
         expect((float) $obraRubro->acumulado)->toBe(0.00);
     });
 
+    test('afectar aplica el presupuesto y deja la afectacion en aprobada', function () {
+        $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+        $afectacion = AfectacionPresupuestal::factory()->create(['estatus' => 'borrador']);
+        AfectacionDetalle::factory()->create([
+            'afectacion_id' => $afectacion->id,
+            'obra_rubro_id' => $obraRubro->id,
+            'monto' => 4000,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.costos.afectaciones.afectar', $afectacion));
+
+        $response->assertRedirect();
+        $afectacion->refresh();
+        expect($afectacion->estatus->value)->toBe('aprobada');
+        expect($afectacion->aprobado_por)->toBe($this->user->id);
+        expect($afectacion->rubrosAfectados)->toHaveCount(1);
+
+        $obraRubro->refresh();
+        expect((float) $obraRubro->acumulado)->toBe(4000.00);
+    });
+
+    test('no se puede afectar dos veces la misma afectacion', function () {
+        $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+        $afectacion = AfectacionPresupuestal::factory()->create(['estatus' => 'borrador']);
+        AfectacionDetalle::factory()->create([
+            'afectacion_id' => $afectacion->id,
+            'obra_rubro_id' => $obraRubro->id,
+            'monto' => 4000,
+        ]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.afectaciones.afectar', $afectacion))
+            ->assertRedirect();
+
+        // Segundo intento: ya está aprobada, debe rechazarse.
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.afectaciones.afectar', $afectacion))
+            ->assertSessionHasErrors(['estatus']);
+
+        $obraRubro->refresh();
+        expect((float) $obraRubro->acumulado)->toBe(4000.00);
+    });
+
+    test('no se puede afectar sin centros de costos', function () {
+        $afectacion = AfectacionPresupuestal::factory()->create(['estatus' => 'borrador']);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.afectaciones.afectar', $afectacion))
+            ->assertSessionHasErrors(['detalles']);
+    });
+
     test('cannot upload firmado if not pendiente_firma', function () {
         Storage::fake('public');
 

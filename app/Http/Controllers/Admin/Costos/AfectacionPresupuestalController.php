@@ -268,13 +268,62 @@ class AfectacionPresupuestalController extends Controller
             'usuario_id' => $request->user()->id,
         ]);
 
-        // Apply budget impact and create rubros afectados
+        $this->aplicarImpacto($afectacion, $request->user()->id);
+
+        return back()->with('success', 'Afectación aprobada correctamente.');
+    }
+
+    /**
+     * Aplica la afectación directo desde borrador: impacta los centros de
+     * costos (acumulado + rubros afectados) y deja la afectación en aprobada.
+     * Reemplaza el flujo de generar formato / firmar / subir firmado.
+     */
+    public function afectar(AfectacionPresupuestal $afectacion): RedirectResponse
+    {
+        if ($afectacion->estatus !== AfectacionEstatus::Borrador) {
+            return back()->withErrors(['estatus' => 'Solo se pueden afectar afectaciones en borrador.']);
+        }
+
+        if ($afectacion->detalles()->count() === 0) {
+            return back()->withErrors(['detalles' => 'Agrega al menos un centro de costos antes de afectar.']);
+        }
+
+        DB::transaction(function () use ($afectacion) {
+            $estatusAnterior = $afectacion->estatus->value;
+            $userId = auth()->id();
+
+            $afectacion->load('detalles');
+            $this->aplicarImpacto($afectacion, $userId);
+
+            $afectacion->update([
+                'estatus' => 'aprobada',
+                'aprobado_por' => $userId,
+                'fecha_aprobacion' => now(),
+            ]);
+
+            $afectacion->historial()->create([
+                'estatus_anterior' => $estatusAnterior,
+                'estatus_nuevo' => 'aprobada',
+                'fecha' => now(),
+                'usuario_id' => $userId,
+            ]);
+        });
+
+        return back()->with('success', 'Centros de costos afectados correctamente.');
+    }
+
+    /**
+     * Impacta el acumulado de cada centro de costos del detalle y registra el
+     * rubro afectado. Compartido por `afectar` (borrador) y `uploadFirmado`.
+     */
+    private function aplicarImpacto(AfectacionPresupuestal $afectacion, int|string $userId): void
+    {
         foreach ($afectacion->detalles as $detalle) {
             $obraRubro = app(AcumuladoLedger::class)->registrarPorId(
                 $detalle->obra_rubro_id,
                 (float) $detalle->monto,
                 motivo: $detalle->concepto,
-                userId: $request->user()->id,
+                userId: $userId,
             );
 
             $afectacion->rubrosAfectados()->create([
@@ -284,12 +333,10 @@ class AfectacionPresupuestalController extends Controller
                 'descripcion' => $detalle->concepto,
                 'tipo_movimiento' => 'cargo',
                 'estatus' => 'aplicado',
-                'usuario_aplica_id' => $request->user()->id,
+                'usuario_aplica_id' => $userId,
                 'fecha_aplicacion' => now(),
             ]);
         }
-
-        return back()->with('success', 'Afectación aprobada correctamente.');
     }
 
     public function cancelar(CancelarRequest $request, AfectacionPresupuestal $afectacion): RedirectResponse
