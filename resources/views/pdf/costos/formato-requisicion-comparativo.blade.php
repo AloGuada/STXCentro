@@ -23,10 +23,15 @@
         .comp-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
         .comp-table th, .comp-table td { border: 1px solid #000; padding: 3px 5px; font-size: 9px; }
         .comp-table th { font-weight: bold; background-color: #f0f0f0; text-align: center; }
+        .comp-table th.prov { border-left: 2px solid #000; }
+        .comp-table td.opcion { border-left: 2px solid #000; }
         .comp-table .text-right { text-align: right; }
-        .comp-table .mejor { background-color: #d4edda; font-weight: bold; }
+        .comp-table .seleccionado { background-color: #cfe2ff; font-weight: bold; }
         .comp-table .total-row td { font-weight: bold; background-color: #f0f0f0; }
         .comp-table .letras-row td { font-size: 8.5px; font-style: italic; text-transform: uppercase; text-align: left; }
+        .legend { font-size: 8.5px; color: #555; margin-bottom: 8px; }
+        .legend .swatch { display: inline-block; width: 9px; height: 9px; vertical-align: middle; margin: 0 3px 0 10px; border: 1px solid #999; }
+        .legend .swatch.sel { background-color: #cfe2ff; }
         .signatures-table { width: 100%; margin-top: 40px; }
         .signatures-table td { text-align: center; vertical-align: bottom; padding: 0 10px; }
         .sig-placeholder { height: 50px; }
@@ -40,54 +45,63 @@
     @php
         $fecha = $requisicion->created_at ?? now();
 
-        // Build proveedores map from cotizaciones
-        $proveedores = collect();
+        // Columnas = opciones (de proveedor) con al menos un precio capturado,
+        // agrupadas por proveedor. Mismo criterio que el comparativo en pantalla.
+        $opcionesConPrecio = [];
         foreach ($requisicion->detalles as $d) {
             foreach ($d->cotizaciones as $c) {
-                if ($c->proveedor && !$proveedores->has($c->proveedor_id)) {
-                    $proveedores->put($c->proveedor_id, $c->proveedor);
+                if ($c->opcion_id !== null) {
+                    $opcionesConPrecio[$c->opcion_id] = true;
                 }
             }
         }
-        $provList = $proveedores->values();
+        $opciones = $requisicion->cotizacionOpciones
+            ->filter(fn ($o) => isset($opcionesConPrecio[$o->id]));
 
-        // Calc totals per proveedor
-        $totalesProv = [];
-        $totalPartidas = $requisicion->detalles->count();
-        foreach ($provList as $p) {
+        // Agrupar por proveedor (encabezado con col-span) y ordenar por nombre.
+        $grupos = $opciones
+            ->groupBy('proveedor_id')
+            ->map(function ($ops) {
+                $prov = $ops->first()->proveedor;
+                return [
+                    'proveedor_id' => (int) $ops->first()->proveedor_id,
+                    'nombre' => $prov?->nombre_comercial ?: ($prov?->razon_social ?: '#'.$ops->first()->proveedor_id),
+                    'opciones' => $ops->sortBy('orden')->values(),
+                ];
+            })
+            ->sortBy('nombre')
+            ->values();
+        $columnas = $grupos->flatMap(fn ($g) => $g['opciones']);
+        $numCols = $columnas->count();
+
+        $etiquetaOpcion = fn ($o) => $o->etiqueta ?: 'Opción '.$o->orden;
+
+        $cotizacionDe = function ($detalle, $opcionId) {
+            return $detalle->cotizaciones->firstWhere('opcion_id', $opcionId);
+        };
+
+        // Importe de la partida: suma (cantidad × precio) de las opciones
+        // elegidas para la OC. El PDF se emite ya con la OC definida, así que
+        // sin selección no hay importe.
+        $importeDetalle = function ($d) {
             $total = 0;
-            $partidasCotizadas = 0;
-            foreach ($requisicion->detalles as $d) {
-                $cot = $d->cotizaciones->firstWhere('proveedor_id', $p->id);
-                if ($cot) {
-                    $total += (float) $cot->precio_unitario * (float) $d->cantidad;
-                    $partidasCotizadas++;
+            $tiene = false;
+            foreach ($d->selecciones as $s) {
+                $px = (float) ($s->cotizacionPrecio->precio_unitario ?? 0);
+                if ($px > 0) {
+                    $total += $px * (float) $s->cantidad;
+                    $tiene = true;
                 }
             }
-            $totalesProv[$p->id] = [
-                'total' => $total,
-                'completo' => $partidasCotizadas === $totalPartidas,
-            ];
-        }
+            return ['importe' => $total, 'tiene' => $tiene];
+        };
 
-        // Find mejor proveedor (cotizo todas las partidas, menor total)
-        $mejorId = null;
-        $mejorTotal = PHP_FLOAT_MAX;
-        foreach ($totalesProv as $pid => $info) {
-            if ($info['completo'] && $info['total'] < $mejorTotal) {
-                $mejorTotal = $info['total'];
-                $mejorId = $pid;
-            }
-        }
-
-        // Find mejor precio por partida
-        $mejorPrecioPartida = [];
+        $subtotalComp = 0;
         foreach ($requisicion->detalles as $d) {
-            $precios = $d->cotizaciones->pluck('precio_unitario')->map(fn($p) => (float) $p)->filter(fn($p) => $p > 0);
-            if ($precios->isNotEmpty()) {
-                $mejorPrecioPartida[$d->id] = $precios->min();
-            }
+            $subtotalComp += $importeDetalle($d)['importe'];
         }
+        $ivaComp = $subtotalComp * 0.16;
+        $totalComp = $subtotalComp + $ivaComp;
     @endphp
 
     <table class="header-table">
@@ -132,31 +146,36 @@
         </tr>
     </table>
 
+    <p class="legend">
+        <span class="swatch sel"></span> Proveedor elegido para la orden de compra
+    </p>
+
     <table class="comp-table">
         <thead>
             <tr>
-                <th>Cantidad</th>
-                <th>Descripcion</th>
-                <th>Obra / Centro de costos</th>
-                @foreach($provList as $p)
-                <th>{{ $p->nombre_comercial ?: $p->razon_social }}@if($p->id === $mejorId) *@endif</th>
+                <th rowspan="2">Cantidad</th>
+                <th rowspan="2">Descripcion</th>
+                <th rowspan="2">Obra / Centro de costos</th>
+                @foreach($grupos as $g)
+                <th class="prov" colspan="{{ $g['opciones']->count() }}">
+                    {{ $g['nombre'] }}
+                </th>
                 @endforeach
-                <th>Importe</th>
+                <th rowspan="2">Importe</th>
+            </tr>
+            <tr>
+                @foreach($grupos as $g)
+                    @foreach($g['opciones'] as $i => $op)
+                    <th class="{{ $i === 0 ? 'prov' : '' }}">{{ $etiquetaOpcion($op) }}</th>
+                    @endforeach
+                @endforeach
             </tr>
         </thead>
         <tbody>
             @foreach($requisicion->detalles as $d)
             @php
-                $mejorPrecio = $mejorPrecioPartida[$d->id] ?? null;
-                $importePrecio = null;
-                if ($mejorId) {
-                    $cot = $d->cotizaciones->firstWhere('proveedor_id', $mejorId);
-                    $importePrecio = $cot ? (float) $cot->precio_unitario : null;
-                }
-                if ($importePrecio === null && $mejorPrecio !== null) {
-                    $importePrecio = $mejorPrecio;
-                }
-                $importe = $importePrecio !== null ? $importePrecio * (float) $d->cantidad : null;
+                $info = $importeDetalle($d);
+                $seleccionIds = $d->selecciones->pluck('cotizacion_precio_id')->map(fn ($v) => (int) $v)->all();
             @endphp
             <tr>
                 <td class="text-right">{{ number_format($d->cantidad, 2) }} {{ $d->unidad }}</td>
@@ -169,26 +188,34 @@
                         <br><span style="font-size: 8px; color: #666;">{{ $d->obraRubro->rubro->codigo }} - {{ $d->obraRubro->rubro->descripcion }}</span>
                     @endif
                 </td>
-                @foreach($provList as $p)
-                @php
-                    $cot = $d->cotizaciones->firstWhere('proveedor_id', $p->id);
-                    $precio = $cot ? (float) $cot->precio_unitario : null;
-                    $esMejor = $precio !== null && $mejorPrecio !== null && abs($precio - $mejorPrecio) < 0.01;
-                @endphp
-                <td class="text-right {{ $esMejor ? 'mejor' : '' }}">
-                    @if($precio !== null)
-                        ${{ number_format($precio, 2) }}
-                        @if($cot->tiempo_entrega_dias)
-                            <br><span style="font-size: 8px; color: #666;">{{ $cot->tiempo_entrega_dias }}d</span>
+                @foreach($grupos as $g)
+                    @foreach($g['opciones'] as $i => $op)
+                    @php
+                        $cot = $cotizacionDe($d, $op->id);
+                        $precio = $cot ? (float) $cot->precio_unitario : null;
+                        $seleccionado = $cot && in_array((int) $cot->id, $seleccionIds, true);
+                    @endphp
+                    <td class="text-right {{ $i === 0 ? 'opcion' : '' }} {{ $seleccionado ? 'seleccionado' : '' }}">
+                        @if($precio !== null)
+                            @if($seleccionado)&#10003; @endif${{ number_format($precio, 2) }}
+                            @if($cot->moneda && strtolower($cot->moneda) !== 'mxn')
+                                <span style="font-size: 8px; color: #666;">{{ strtoupper($cot->moneda) }}</span>
+                            @endif
+                            @if($cot->descripcion)
+                                <br><span style="font-size: 8px; color: #666;">{{ $cot->descripcion }}</span>
+                            @endif
+                            @if($cot->tiempo_entrega_dias)
+                                <br><span style="font-size: 8px; color: #666;">{{ $cot->tiempo_entrega_dias }}d entrega</span>
+                            @endif
+                        @else
+                            -
                         @endif
-                    @else
-                        -
-                    @endif
-                </td>
+                    </td>
+                    @endforeach
                 @endforeach
                 <td class="text-right">
-                    @if($importe !== null)
-                        ${{ number_format($importe, 2) }}
+                    @if($info['tiene'])
+                        ${{ number_format($info['importe'], 2) }}
                     @else
                         -
                     @endif
@@ -196,44 +223,24 @@
             </tr>
             @endforeach
         </tbody>
-        @php
-            $subtotalComp = 0;
-            foreach ($requisicion->detalles as $d) {
-                $importePrecio = null;
-                if ($mejorId) {
-                    $cot = $d->cotizaciones->firstWhere('proveedor_id', $mejorId);
-                    $importePrecio = $cot ? (float) $cot->precio_unitario : null;
-                }
-                if ($importePrecio === null) {
-                    $importePrecio = $mejorPrecioPartida[$d->id] ?? 0;
-                }
-                $subtotalComp += $importePrecio * (float) $d->cantidad;
-            }
-            $ivaComp = $subtotalComp * 0.16;
-            $totalComp = $subtotalComp + $ivaComp;
-        @endphp
         <tfoot>
             <tr class="total-row">
-                <td colspan="{{ 3 + $provList->count() }}" class="text-right">SUBTOTAL</td>
+                <td colspan="{{ 3 + $numCols }}" class="text-right">SUBTOTAL</td>
                 <td class="text-right">${{ number_format($subtotalComp, 2) }}</td>
             </tr>
             <tr class="total-row">
-                <td colspan="{{ 3 + $provList->count() }}" class="text-right">IVA (16%)</td>
+                <td colspan="{{ 3 + $numCols }}" class="text-right">IVA (16%)</td>
                 <td class="text-right">${{ number_format($ivaComp, 2) }}</td>
             </tr>
             <tr class="total-row">
-                <td colspan="{{ 3 + $provList->count() }}" class="text-right">TOTAL</td>
+                <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL</td>
                 <td class="text-right">${{ number_format($totalComp, 2) }}</td>
             </tr>
             <tr class="letras-row">
-                <td colspan="{{ 4 + $provList->count() }}">{{ \App\Support\NumeroALetras::convertir((float) $totalComp, 'mxn') }}</td>
+                <td colspan="{{ 4 + $numCols }}">{{ \App\Support\NumeroALetras::convertir((float) $totalComp, 'mxn') }}</td>
             </tr>
         </tfoot>
     </table>
-
-    @if($mejorId)
-    <p style="font-size: 9px; color: #555; margin-bottom: 6px;">* Proveedor seleccionado: <strong>{{ $proveedores->get($mejorId)?->razon_social }}</strong> con total de ${{ number_format($mejorTotal, 2) }}</p>
-    @endif
 
     @if($requisicion->justificacion)
     <p style="font-size: 9px; margin-bottom: 15px;"><strong>Justificación:</strong> {{ $requisicion->justificacion }}</p>

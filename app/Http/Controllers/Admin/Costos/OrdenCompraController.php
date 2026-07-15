@@ -434,9 +434,11 @@ class OrdenCompraController extends Controller
         $requisicion->load([
             'solicitante',
             'departamento',
-            'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
+            'detalles.cotizaciones.opcion',
+            'detalles.selecciones.cotizacionPrecio',
             'detalles.obraRubro.obra:id,no,descripcion',
             'detalles.obraRubro.rubro:id,codigo,descripcion',
+            'cotizacionOpciones.proveedor:id,razon_social,nombre_comercial',
         ]);
 
         // Columnas de firma: solo los niveles que aplican al tipo de documento

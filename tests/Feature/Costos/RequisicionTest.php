@@ -693,12 +693,95 @@ test('onAprobacionRechazada guarda motivo y transiciona a rechazada', function (
     expect($req->motivo_rechazo)->toBe('precio fuera de mercado');
 });
 
-test('el formato comparativo de la requisicion se genera en PDF', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+test('el formato comparativo de la requisicion se genera en PDF con verificacion gerencial', function () {
+    $req = Requisicion::factory()->cotizada()->create([
+        'departamento_id' => $this->depto->id,
+        'control_verificado' => true,
+    ]);
 
     $response = $this->actingAs($this->user)
         ->get(route('admin.costos.requisiciones.pdf', $req));
 
     $response->assertOk();
     expect($response->headers->get('content-type'))->toContain('application/pdf');
+});
+
+test('el comparativo no se genera sin verificacion gerencial', function () {
+    $req = Requisicion::factory()->cotizada()->create([
+        'departamento_id' => $this->depto->id,
+        'control_verificado' => false,
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('admin.costos.requisiciones.pdf', $req))
+        ->assertForbidden();
+});
+
+test('el comparativo colorea solo al proveedor elegido y con IDs tipo texto (PostgreSQL)', function () {
+    // En producción (PostgreSQL) PDO devuelve las columnas enteras como texto;
+    // este test emula ese tipado para blindar las comparaciones de IDs del blade.
+    $req = Requisicion::factory()->cotizada()->create([
+        'departamento_id' => $this->depto->id,
+        'control_verificado' => true,
+    ]);
+    $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
+
+    $elegido = Proveedor::factory()->create();
+    $otro = Proveedor::factory()->create();
+
+    $opcElegido = App\Models\Costos\RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $elegido->id, 'orden' => 1]);
+    $opcOtro = App\Models\Costos\RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $otro->id, 'orden' => 1]);
+
+    // El proveedor elegido es MÁS CARO ($20) que el otro ($10): se colorea la
+    // elección, no el precio más bajo.
+    $precioElegido = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id, 'proveedor_id' => $elegido->id,
+        'opcion_id' => $opcElegido->id, 'precio_unitario' => 20,
+    ]);
+    RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id, 'proveedor_id' => $otro->id,
+        'opcion_id' => $opcOtro->id, 'precio_unitario' => 10,
+    ]);
+
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+        'cotizacion_precio_id' => $precioElegido->id,
+        'proveedor_id' => $elegido->id,
+        'cantidad' => 5,
+    ]);
+
+    $req->load([
+        'solicitante', 'departamento',
+        'detalles.cotizaciones.opcion',
+        'detalles.selecciones.cotizacionPrecio',
+        'detalles.obraRubro.obra:id,no,descripcion',
+        'detalles.obraRubro.rubro:id,codigo,descripcion',
+        'cotizacionOpciones.proveedor:id,razon_social,nombre_comercial',
+    ]);
+
+    // Emula el tipado de PostgreSQL: IDs/FKs como texto.
+    foreach ($req->cotizacionOpciones as $o) {
+        $o->id = (string) $o->id;
+        $o->proveedor_id = (string) $o->proveedor_id;
+    }
+    foreach ($req->detalles as $d) {
+        foreach ($d->cotizaciones as $c) {
+            $c->id = (string) $c->id;
+            $c->proveedor_id = (string) $c->proveedor_id;
+            $c->opcion_id = (string) $c->opcion_id;
+        }
+        foreach ($d->selecciones as $s) {
+            $s->cotizacion_precio_id = (string) $s->cotizacion_precio_id;
+        }
+    }
+
+    $html = view('pdf.costos.formato-requisicion-comparativo', [
+        'requisicion' => $req,
+        'firmas' => collect(),
+    ])->render();
+
+    expect($html)
+        ->toContain('opcion seleccionado') // la celda elegida se colorea
+        ->not->toContain('#d4edda')        // sin resaltado verde de "mejor opción"
+        ->toContain('$100.00');            // importe = precio elegido 5 × 20
 });

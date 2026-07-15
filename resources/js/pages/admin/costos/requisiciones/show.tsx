@@ -483,6 +483,7 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
     const [liberando, setLiberando] = useState(false);
     const [firmando, setFirmando] = useState<'aprobar' | 'rechazar' | null>(null);
     const [validando, setValidando] = useState(false);
+    const [pdfBloqueado, setPdfBloqueado] = useState(false);
 
     const requiereValidacion = esUltimoNivel && proveedoresPorValidar.length > 0;
 
@@ -553,11 +554,17 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                     </div>
 
                     <div className="flex gap-2">
-                        <Button variant="outline" asChild>
-                            <a href={`/admin/costos/requisiciones/${requisicion.id}/pdf`} target="_blank" rel="noreferrer">
+                        {requisicion.control_verificado ? (
+                            <Button variant="outline" asChild>
+                                <a href={`/admin/costos/requisiciones/${requisicion.id}/pdf`} target="_blank" rel="noreferrer">
+                                    Generar Formato PDF
+                                </a>
+                            </Button>
+                        ) : (
+                            <Button variant="outline" onClick={() => setPdfBloqueado(true)}>
                                 Generar Formato PDF
-                            </a>
-                        </Button>
+                            </Button>
+                        )}
 
                         {can('costos.requisiciones.cotizar') && (
                             <Button
@@ -894,6 +901,25 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                         requisicionId={requisicion.id}
                         onClose={() => setMarcandoControl(false)}
                     />
+                )}
+
+                {pdfBloqueado && (
+                    <dialog className="modal modal-open">
+                        <div className="modal-box">
+                            <h2 className="text-xl font-bold">Falta la verificación gerencial</h2>
+                            <p className="mt-3 text-sm text-base-content/70">
+                                El comparativo solo puede generarse una vez que la requisición tenga la
+                                <strong> verificación gerencial</strong>. Márcala desde la pestaña de cotización
+                                y vuelve a intentarlo.
+                            </p>
+                            <div className="modal-action">
+                                <button type="button" className="btn btn-primary" onClick={() => setPdfBloqueado(false)}>
+                                    Entendido
+                                </button>
+                            </div>
+                        </div>
+                        <div className="modal-backdrop" onClick={() => setPdfBloqueado(false)} />
+                    </dialog>
                 )}
 
                 {tab === 'ocs' && (
