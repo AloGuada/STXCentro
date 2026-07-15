@@ -134,6 +134,34 @@ test('agregar opción crea la columna con el siguiente orden del proveedor', fun
         ->and($opciones[1]->etiqueta)->toBe('Opción B');
 });
 
+test('agregar proveedor por nombre crea un proveedor pendiente y su opción', function () {
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/opciones", ['proveedor_nuevo' => '  Ferretería El Tornillo  '])
+        ->assertRedirect();
+
+    $proveedor = Proveedor::where('razon_social', 'Ferretería El Tornillo')->first();
+    expect($proveedor)->not->toBeNull()
+        ->and($proveedor->estatus)->toBe(App\Enums\ProveedorEstatus::PendienteValidacion)
+        ->and($proveedor->activo)->toBeFalse()
+        ->and($proveedor->tipo_proveedor)->toBeNull()
+        ->and($proveedor->creado_por)->toBe($this->compras->id);
+
+    $opcion = RequisicionCotizacionOpcion::where('requisicion_id', $req->id)->first();
+    expect($opcion)->not->toBeNull()
+        ->and($opcion->proveedor_id)->toBe($proveedor->id)
+        ->and($opcion->orden)->toBe(1);
+});
+
+test('agregar opción exige proveedor por id o por nombre', function () {
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/opciones", [])
+        ->assertSessionHasErrors(['proveedor_id', 'proveedor_nuevo']);
+});
+
 test('borrar una opción borra sus celdas y selecciones en cascada', function () {
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 10]);

@@ -109,10 +109,16 @@ export function CotizacionMatriz({
     );
 
     const [agregando, setAgregando] = useState(false);
+    const [nombreNuevo, setNombreNuevo] = useState('');
 
     const disponiblesParaAgregar = proveedores.filter(
         (p) => !grupos.some((g) => g.proveedorId === p.id),
     );
+
+    const cerrarAgregar = () => {
+        setAgregando(false);
+        setNombreNuevo('');
+    };
 
     const agregarProveedor = (proveedorId: number) => {
         router.post(
@@ -120,7 +126,33 @@ export function CotizacionMatriz({
             { proveedor_id: proveedorId },
             { preserveScroll: true },
         );
-        setAgregando(false);
+        cerrarAgregar();
+    };
+
+    // Selector creatable: si el texto coincide con un proveedor disponible se usa
+    // ese; si no, se crea un proveedor pendiente con solo el nombre.
+    const confirmarAgregar = () => {
+        const nombre = nombreNuevo.trim();
+        if (!nombre) {
+            return;
+        }
+        const existente = disponiblesParaAgregar.find(
+            (p) => p.razon_social.toLowerCase() === nombre.toLowerCase(),
+        );
+        if (existente) {
+            agregarProveedor(existente.id);
+            return;
+        }
+        if (grupos.some((g) => g.nombre.toLowerCase() === nombre.toLowerCase())) {
+            cerrarAgregar();
+            return;
+        }
+        router.post(
+            `/admin/costos/requisiciones/${requisicion.id}/opciones`,
+            { proveedor_nuevo: nombre },
+            { preserveScroll: true },
+        );
+        cerrarAgregar();
     };
 
     const agregarOpcion = (proveedorId: number) => {
@@ -211,29 +243,30 @@ export function CotizacionMatriz({
                     {editable &&
                         (agregando ? (
                             <div className="flex items-center gap-2">
-                                <select
-                                    className="select-bordered select w-56 select-xs"
-                                    defaultValue=""
-                                    onChange={(e) => {
-                                        const id = Number(e.target.value);
-                                        if (id) {
-                                            agregarProveedor(id);
+                                <input
+                                    type="text"
+                                    list="proveedores-disponibles"
+                                    className="input-bordered input w-64 input-xs"
+                                    placeholder="Proveedor existente o nombre nuevo..."
+                                    value={nombreNuevo}
+                                    autoFocus
+                                    onChange={(e) => setNombreNuevo(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            confirmarAgregar();
                                         }
                                     }}
-                                >
-                                    <option value="">
-                                        Selecciona proveedor...
-                                    </option>
+                                />
+                                <datalist id="proveedores-disponibles">
                                     {disponiblesParaAgregar.map((p) => (
-                                        <option key={p.id} value={p.id}>
-                                            {p.razon_social}
-                                        </option>
+                                        <option key={p.id} value={p.razon_social} />
                                     ))}
-                                </select>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setAgregando(false)}
-                                >
+                                </datalist>
+                                <Button onClick={confirmarAgregar} disabled={!nombreNuevo.trim()}>
+                                    Agregar
+                                </Button>
+                                <Button variant="outline" onClick={cerrarAgregar}>
                                     Cancelar
                                 </Button>
                             </div>
@@ -241,7 +274,6 @@ export function CotizacionMatriz({
                             <Button
                                 variant="outline"
                                 onClick={() => setAgregando(true)}
-                                disabled={disponiblesParaAgregar.length === 0}
                             >
                                 <PlusIcon className="size-3" /> Agregar
                                 proveedor

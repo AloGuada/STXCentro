@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Costos;
 
 use App\Enums\Costos\RequisicionEstatus;
+use App\Enums\ProveedorEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\RequisicionCotizacionPrecioStoreRequest;
 use App\Models\Costos\ObraRubro;
@@ -102,14 +103,28 @@ class RequisicionCotizacionController extends Controller
         $this->ensureEditable($requisicion->estatus);
 
         $validated = $request->validate([
-            'proveedor_id' => ['required', 'integer', 'exists:proveedores,id'],
+            'proveedor_id' => ['nullable', 'integer', 'exists:proveedores,id', 'required_without:proveedor_nuevo'],
+            'proveedor_nuevo' => ['nullable', 'string', 'max:255', 'required_without:proveedor_id'],
             'etiqueta' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $orden = ($requisicion->cotizacionOpciones()->where('proveedor_id', $validated['proveedor_id'])->max('orden') ?? 0) + 1;
+        // Alta rápida desde la cotización: si viene un nombre en vez de un id, se
+        // crea un proveedor pendiente de validación (sin tipo ni documentación)
+        // para completar su información más adelante si es necesario.
+        $proveedorId = $validated['proveedor_id'] ?? null;
+        if (! $proveedorId) {
+            $proveedorId = Proveedor::create([
+                'razon_social' => trim($validated['proveedor_nuevo']),
+                'estatus' => ProveedorEstatus::PendienteValidacion,
+                'activo' => false,
+                'creado_por' => $request->user()->id,
+            ])->id;
+        }
+
+        $orden = ($requisicion->cotizacionOpciones()->where('proveedor_id', $proveedorId)->max('orden') ?? 0) + 1;
 
         $requisicion->cotizacionOpciones()->create([
-            'proveedor_id' => $validated['proveedor_id'],
+            'proveedor_id' => $proveedorId,
             'etiqueta' => $validated['etiqueta'] ?? null,
             'orden' => $orden,
         ]);
