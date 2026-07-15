@@ -1,11 +1,13 @@
 <?php
 
 use App\Models\Costos\Aprobacion;
+use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\SolicitudPagoDetalle;
 use App\Models\User;
 use App\Services\Costos\ApprovalChainService;
+use Inertia\Testing\AssertableInertia;
 
 beforeEach(function () {
     $this->aprobador = User::factory()->create(['firma_path' => 'firmas/x.png']);
@@ -90,6 +92,43 @@ test('sin firma adicional no se crea aprobacion nivel 0', function () {
     app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitud);
 
     expect($solicitud->aprobaciones()->where('nivel', 0)->exists())->toBeFalse();
+});
+
+test('la bandeja expone los archivos (media) de la requisicion pendiente', function () {
+    // El gate 'aprobador-costos' exige estar asignado en aprobacion_departamento.
+    AprobacionDepartamento::factory()->create(['aprobador_id' => $this->aprobador->id]);
+
+    $requisicion = Requisicion::factory()->pendienteAprobacion()->create([
+        'control_verificado' => true,
+    ]);
+    $requisicion->media()->create([
+        'descripcion' => 'Cotizacion escaneada',
+        'nombre_original' => 'cotizacion.pdf',
+        'path' => "costos/requisiciones/{$requisicion->id}/cotizacion.pdf",
+        'mime' => 'application/pdf',
+        'size' => 1024,
+    ]);
+
+    $requisicion->aprobaciones()->create([
+        'nivel' => 1,
+        'aprobador_id' => $this->aprobador->id,
+        'estatus' => 'pendiente',
+    ]);
+
+    $this->actingAs($this->aprobador)
+        ->get(route('admin.costos.aprobaciones.index'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('admin/costos/aprobaciones/index')
+            ->has('pendientes', 1, fn (AssertableInertia $row) => $row
+                ->where('tipo', 'requisicion')
+                ->has('requisicion.media', 1, fn (AssertableInertia $m) => $m
+                    ->where('nombre_original', 'cotizacion.pdf')
+                    ->etc()
+                )
+                ->etc()
+            )
+        );
 });
 
 test('la firma adicional tambien aplica a requisiciones', function () {

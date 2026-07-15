@@ -82,6 +82,7 @@ class AprobacionController extends Controller
                     Requisicion::class => [
                         'departamento',
                         'solicitante',
+                        'media',
                         'detalles.selecciones.cotizacionPrecio',
                         'detalles.selecciones.proveedor',
                         'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',

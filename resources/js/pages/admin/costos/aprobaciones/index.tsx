@@ -142,6 +142,39 @@ function ArchivosModal({ solicitud, onClose }: { solicitud: CostosSolicitudPago;
     );
 }
 
+function MediaModal({ titulo, archivos, onClose }: { titulo: string; archivos: { id: number; url: string; nombre: string }[]; onClose: () => void }) {
+    return (
+        <dialog className="modal modal-open">
+            <div className="modal-box max-w-3xl">
+                <div className="mb-4 flex items-center justify-between border-b border-base-300 pb-3">
+                    <h3 className="font-medium">Archivos de {titulo}</h3>
+                    <button className="btn btn-sm btn-ghost" onClick={onClose}>✕</button>
+                </div>
+
+                {archivos.length > 0 ? (
+                    <div className="space-y-2">
+                        {archivos.map((a) => (
+                            <a
+                                key={a.id}
+                                href={a.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 rounded bg-base-200 p-2 text-sm hover:bg-base-300"
+                            >
+                                <FileTextIcon className="size-4 text-base-content/60" />
+                                {a.nombre}
+                            </a>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-base-content/60">Esta requisición no tiene archivos.</p>
+                )}
+            </div>
+            <div className="modal-backdrop" onClick={onClose} />
+        </dialog>
+    );
+}
+
 function PdfModal({ url, title, onClose }: { url: string; title: string; onClose: () => void }) {
     return (
         <dialog className="modal modal-open">
@@ -171,6 +204,8 @@ type RowDisplay = {
     tieneSobregiro: boolean;
     detailHref: string;
     archivosCount: number;
+    // Archivos adjuntos genéricos (requisición): se listan en un modal propio.
+    mediaFiles: { id: number; url: string; nombre: string }[];
     pdfUrl: string | null;
     pdfTitle: string;
     firmadoUrl: string | null;
@@ -205,8 +240,15 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
             tieneSobregiro: Boolean(req.tiene_sobregiro),
             detailHref: `/admin/costos/requisiciones/${req.id}`,
             archivosCount: 0,
-            pdfUrl: null,
-            pdfTitle: '',
+            mediaFiles: (req.media ?? []).map((m) => ({
+                id: m.id,
+                url: `/storage/${m.path}`,
+                nombre: m.nombre_original || m.descripcion || 'Archivo',
+            })),
+            // El comparativo solo se genera tras la verificación gerencial; si
+            // no está verificado, el endpoint responde 403, así que ocultamos.
+            pdfUrl: req.control_verificado ? `/admin/costos/requisiciones/${req.id}/pdf` : null,
+            pdfTitle: `Comparativo ${req.folio}`,
             firmadoUrl: null,
             firmadoTitle: '',
             estatusOrigen: req.estatus,
@@ -228,6 +270,7 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
         tieneSobregiro: Boolean(sol.tiene_sobregiro),
         detailHref: `/admin/costos/aprobaciones/${a.id}`,
         archivosCount: sol.archivos?.length ?? 0,
+        mediaFiles: [],
         pdfUrl: sol.estatus !== 'borrador' ? `/admin/costos/solicitudes-pago/${sol.id}/pdf` : null,
         pdfTitle: `Formato ${sol.folio}`,
         firmadoUrl: sol.media ? `/storage/${sol.media.path}` : null,
@@ -242,6 +285,7 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
     const [modalState, setModalState] = useState<{ id: number; tipo: 'aprobar' | 'rechazar' } | null>(null);
     const [pdfModal, setPdfModal] = useState<{ url: string; title: string } | null>(null);
     const [archivosModal, setArchivosModal] = useState<CostosSolicitudPago | null>(null);
+    const [mediaModal, setMediaModal] = useState<{ titulo: string; archivos: { id: number; url: string; nombre: string }[] } | null>(null);
     const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
 
     // Preserva el scroll de la tabla al ir/volver del detalle (por pestaña).
@@ -407,6 +451,15 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
                                                     <PaperclipIcon className="size-3.5" />
                                                 </button>
                                             )}
+                                            {esRequisicion && d.mediaFiles.length > 0 && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setMediaModal({ titulo: d.folio, archivos: d.mediaFiles }); }}
+                                                    className="flex size-7 items-center justify-center rounded-lg border border-base-300 text-base-content/60 transition-colors hover:bg-base-200"
+                                                    title={`Ver archivos (${d.mediaFiles.length})`}
+                                                >
+                                                    <PaperclipIcon className="size-3.5" />
+                                                </button>
+                                            )}
                                             {d.pdfUrl && (
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setPdfModal({ url: d.pdfUrl!, title: d.pdfTitle }); }}
@@ -425,7 +478,7 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
                                                     <FileCheckIcon className="size-3.5" />
                                                 </button>
                                             )}
-                                            {d.archivosCount === 0 && !d.pdfUrl && !d.firmadoUrl && (
+                                            {d.archivosCount === 0 && d.mediaFiles.length === 0 && !d.pdfUrl && !d.firmadoUrl && (
                                                 <span className="text-xs text-base-content/40">-</span>
                                             )}
                                         </div>
@@ -490,6 +543,10 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
 
             {archivosModal && (
                 <ArchivosModal solicitud={archivosModal} onClose={() => setArchivosModal(null)} />
+            )}
+
+            {mediaModal && (
+                <MediaModal titulo={mediaModal.titulo} archivos={mediaModal.archivos} onClose={() => setMediaModal(null)} />
             )}
         </>
     );
