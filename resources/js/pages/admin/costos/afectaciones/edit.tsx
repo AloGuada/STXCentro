@@ -11,6 +11,7 @@ import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchSelect } from '@/components/ui/search-select';
 import { useEditLock } from '@/hooks/use-edit-lock';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -238,159 +239,205 @@ export default function AfectacionesEdit({
                                 </p>
                             )}
 
-                            {data.detalles.map((det, index) => {
-                                const monto = parseFloat(det.monto) || 0;
-                                const disponible = getDisponible(
-                                    det.obra_rubro_id,
-                                );
-                                const excede =
-                                    disponible !== null && monto > disponible;
+                            {data.detalles.length === 0 ? (
+                                <p className="text-sm text-base-content/60">
+                                    No hay centros de costos agregados.
+                                </p>
+                            ) : (
+                                <div className="overflow-x-auto rounded-lg border border-base-300">
+                                    <table className="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th className="w-8 text-center">
+                                                    #
+                                                </th>
+                                                <th className="min-w-[180px]">
+                                                    Obra
+                                                </th>
+                                                <th className="min-w-[240px]">
+                                                    Centro de Costos
+                                                </th>
+                                                <th className="w-44 text-right">
+                                                    Monto a afectar
+                                                </th>
+                                                <th className="w-10"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {data.detalles.map((det, index) => {
+                                                const monto =
+                                                    parseFloat(det.monto) || 0;
+                                                const disponible =
+                                                    getDisponible(
+                                                        det.obra_rubro_id,
+                                                    );
+                                                const excede =
+                                                    disponible !== null &&
+                                                    monto > disponible;
 
-                                return (
-                                    <div
-                                        key={index}
-                                        className="space-y-3 rounded-lg border border-base-300 p-4"
-                                    >
-                                        <div className="flex items-start justify-between">
-                                            <h3 className="font-medium">
-                                                Afectación {index + 1}
-                                            </h3>
-                                            <button
-                                                type="button"
-                                                className="btn text-error btn-ghost btn-sm"
-                                                onClick={() =>
-                                                    removeDetalle(index)
-                                                }
-                                            >
-                                                <Trash2Icon className="size-4" />
-                                            </button>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <FormField
-                                                label="Obra"
-                                                htmlFor={`det_obra_${index}`}
-                                            >
-                                                <select
-                                                    id={`det_obra_${index}`}
-                                                    className="select-bordered select w-full"
-                                                    value={det.obra_id}
-                                                    onChange={(e) =>
-                                                        updateDetalle(
-                                                            index,
-                                                            'obra_id',
-                                                            e.target.value,
-                                                        )
-                                                    }
+                                                return (
+                                                    <tr
+                                                        key={index}
+                                                        className="align-top"
+                                                    >
+                                                        <td className="text-center text-base-content/50">
+                                                            {index + 1}
+                                                        </td>
+                                                        <td>
+                                                            <SearchSelect
+                                                                value={
+                                                                    det.obra_id
+                                                                }
+                                                                onValueChange={(
+                                                                    v,
+                                                                ) =>
+                                                                    updateDetalle(
+                                                                        index,
+                                                                        'obra_id',
+                                                                        v,
+                                                                    )
+                                                                }
+                                                                placeholder="Buscar obra..."
+                                                                options={obras.map(
+                                                                    (o) => ({
+                                                                        value: String(
+                                                                            o.id,
+                                                                        ),
+                                                                        label: `${o.no} - ${o.descripcion}`,
+                                                                    }),
+                                                                )}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <SearchSelect
+                                                                value={
+                                                                    det.obra_rubro_id
+                                                                }
+                                                                onValueChange={(
+                                                                    v,
+                                                                ) =>
+                                                                    updateDetalle(
+                                                                        index,
+                                                                        'obra_rubro_id',
+                                                                        v,
+                                                                    )
+                                                                }
+                                                                placeholder={
+                                                                    det.obra_id
+                                                                        ? 'Buscar centro de costos...'
+                                                                        : 'Seleccione obra primero'
+                                                                }
+                                                                disabled={
+                                                                    !det.obra_id
+                                                                }
+                                                                options={rubrosDeObra(
+                                                                    det.obra_id,
+                                                                ).map((or) => ({
+                                                                    value: String(
+                                                                        or.id,
+                                                                    ),
+                                                                    label: `${or.rubro?.codigo ?? ''} - ${or.rubro?.descripcion ?? ''}`,
+                                                                    danger:
+                                                                        Number(
+                                                                            or.presupuestado,
+                                                                        ) -
+                                                                            Number(
+                                                                                or.acumulado,
+                                                                            ) <=
+                                                                        0,
+                                                                }))}
+                                                            />
+                                                            {errors[
+                                                                `detalles.${index}.obra_rubro_id` as keyof typeof errors
+                                                            ] && (
+                                                                <p className="mt-1 text-xs text-error">
+                                                                    {
+                                                                        errors[
+                                                                            `detalles.${index}.obra_rubro_id` as keyof typeof errors
+                                                                        ]
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0.01"
+                                                                className={`input-bordered input input-sm w-full text-right ${errors[`detalles.${index}.monto` as keyof typeof errors] || excede ? 'input-error' : ''}`}
+                                                                value={
+                                                                    det.monto
+                                                                }
+                                                                onChange={(e) =>
+                                                                    updateDetalle(
+                                                                        index,
+                                                                        'monto',
+                                                                        e.target
+                                                                            .value,
+                                                                    )
+                                                                }
+                                                            />
+                                                            {errors[
+                                                                `detalles.${index}.monto` as keyof typeof errors
+                                                            ] && (
+                                                                <p className="mt-1 text-xs text-error">
+                                                                    {
+                                                                        errors[
+                                                                            `detalles.${index}.monto` as keyof typeof errors
+                                                                        ]
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                            {disponible !==
+                                                                null && (
+                                                                <p
+                                                                    className={`mt-1 text-xs ${excede ? 'text-error' : 'text-base-content/60'}`}
+                                                                >
+                                                                    Disp: $
+                                                                    {fmtMoney(
+                                                                        disponible,
+                                                                    )}
+                                                                    {excede && (
+                                                                        <span className="ml-1 inline-flex items-center gap-1">
+                                                                            <AlertTriangleIcon className="size-3" />{' '}
+                                                                            Excede
+                                                                        </span>
+                                                                    )}
+                                                                </p>
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            <button
+                                                                type="button"
+                                                                className="btn text-error btn-ghost btn-xs"
+                                                                onClick={() =>
+                                                                    removeDetalle(
+                                                                        index,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2Icon className="size-4" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr>
+                                                <td
+                                                    colSpan={3}
+                                                    className="text-right text-base font-semibold"
                                                 >
-                                                    <option value="">
-                                                        Seleccionar obra
-                                                    </option>
-                                                    {obras.map((o) => (
-                                                        <option
-                                                            key={o.id}
-                                                            value={o.id}
-                                                        >
-                                                            {o.no} -{' '}
-                                                            {o.descripcion}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </FormField>
-
-                                            <FormField
-                                                label="Centro de Costos"
-                                                htmlFor={`det_rubro_${index}`}
-                                                error={
-                                                    errors[
-                                                        `detalles.${index}.obra_rubro_id` as keyof typeof errors
-                                                    ]
-                                                }
-                                                required
-                                            >
-                                                <select
-                                                    id={`det_rubro_${index}`}
-                                                    className="select-bordered select w-full"
-                                                    value={det.obra_rubro_id}
-                                                    disabled={!det.obra_id}
-                                                    onChange={(e) =>
-                                                        updateDetalle(
-                                                            index,
-                                                            'obra_rubro_id',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        {det.obra_id
-                                                            ? 'Seleccionar centro de costos'
-                                                            : 'Selecciona la obra primero'}
-                                                    </option>
-                                                    {rubrosDeObra(
-                                                        det.obra_id,
-                                                    ).map((or) => (
-                                                        <option
-                                                            key={or.id}
-                                                            value={or.id}
-                                                        >
-                                                            {or.rubro?.codigo} -{' '}
-                                                            {
-                                                                or.rubro
-                                                                    ?.descripcion
-                                                            }
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </FormField>
-                                        </div>
-
-                                        <FormField
-                                            label="Monto a afectar"
-                                            htmlFor={`det_monto_${index}`}
-                                            error={
-                                                errors[
-                                                    `detalles.${index}.monto` as keyof typeof errors
-                                                ]
-                                            }
-                                            required
-                                        >
-                                            <Input
-                                                id={`det_monto_${index}`}
-                                                type="number"
-                                                step="0.01"
-                                                min="0.01"
-                                                className="w-48"
-                                                value={det.monto}
-                                                onChange={(e) =>
-                                                    updateDetalle(
-                                                        index,
-                                                        'monto',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                            />
-                                            {disponible !== null && (
-                                                <p
-                                                    className={`mt-1 text-xs ${excede ? 'text-error' : 'text-base-content/60'}`}
-                                                >
-                                                    Disponible: $
-                                                    {fmtMoney(disponible)}
-                                                    {excede && (
-                                                        <span className="ml-2 inline-flex items-center gap-1">
-                                                            <AlertTriangleIcon className="size-3" />{' '}
-                                                            Excede presupuesto
-                                                        </span>
-                                                    )}
-                                                </p>
-                                            )}
-                                        </FormField>
-                                    </div>
-                                );
-                            })}
-
-                            {data.detalles.length > 0 && (
-                                <div className="text-right text-lg font-semibold">
-                                    Total: ${fmtMoney(total)}
+                                                    Total
+                                                </td>
+                                                <td className="text-right text-base font-semibold whitespace-nowrap">
+                                                    ${fmtMoney(total)}
+                                                </td>
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
                                 </div>
                             )}
                         </div>
