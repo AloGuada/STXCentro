@@ -197,7 +197,7 @@
                     @endphp
                     <td class="text-right {{ $i === 0 ? 'opcion' : '' }} {{ $seleccionado ? 'seleccionado' : '' }}">
                         @if($precio !== null)
-                            @if($seleccionado)&#10003; @endif${{ number_format($precio, 2) }}
+                            ${{ number_format($precio, 2) }}
                             @if($cot->moneda && strtolower($cot->moneda) !== 'mxn')
                                 <span style="font-size: 8px; color: #666;">{{ strtoupper($cot->moneda) }}</span>
                             @endif
