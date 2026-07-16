@@ -98,6 +98,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.aprobaciones.eliminar',
             'costos.solicitudes-pago.ver',
             'costos.solicitudes-pago.ver-todas',
+            'costos.solicitudes-pago.ver-departamentos-aprobador',
             'costos.solicitudes-pago.crear',
             'costos.solicitudes-pago.editar',
             'costos.solicitudes-pago.eliminar',
@@ -135,6 +136,7 @@ class RolesAndPermissionsSeeder extends Seeder
             // Requisiciones (Fase 10.2)
             'costos.requisiciones.ver',
             'costos.requisiciones.ver-todas',
+            'costos.requisiciones.ver-departamentos-aprobador',
             'costos.requisiciones.crear',
             'costos.requisiciones.cotizar',
             'costos.requisiciones.control',
