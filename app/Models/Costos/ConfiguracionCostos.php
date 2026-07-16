@@ -2,9 +2,11 @@
 
 namespace App\Models\Costos;
 
+use App\Models\Usuario;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Configuración (fila única) del módulo de Costos, editable desde el admin:
@@ -26,6 +28,7 @@ class ConfiguracionCostos extends Model
         'corte_activo',
         'corte_dia',
         'corte_hora',
+        'gerente_compras_id',
     ];
 
     /**
@@ -40,6 +43,15 @@ class ConfiguracionCostos extends Model
             'corte_activo' => 'boolean',
             'corte_dia' => 'integer',
         ];
+    }
+
+    /**
+     * Gerente de compras que firma (única aprobación) las solicitudes de pago
+     * generadas desde una orden de compra de contado.
+     */
+    public function gerenteCompras(): BelongsTo
+    {
+        return $this->belongsTo(Usuario::class, 'gerente_compras_id');
     }
 
     /**
@@ -79,6 +91,23 @@ class ConfiguracionCostos extends Model
         }
 
         return $viernes;
+    }
+
+    /**
+     * Viernes inmediato desde la fecha dada (o desde hoy): devuelve la misma
+     * fecha si ya es viernes, o el siguiente viernes. No considera el corte —
+     * es el "próximo viernes" a secas, usado para recorrer la fecha de pago de
+     * las solicitudes de OC que quedaron vencidas.
+     */
+    public function proximoViernes(?CarbonInterface $desde = null): CarbonImmutable
+    {
+        $fecha = $desde ? $desde->toImmutable()->startOfDay() : CarbonImmutable::now()->startOfDay();
+
+        while ($fecha->dayOfWeek !== CarbonInterface::FRIDAY) {
+            $fecha = $fecha->addDay();
+        }
+
+        return $fecha;
     }
 
     /**

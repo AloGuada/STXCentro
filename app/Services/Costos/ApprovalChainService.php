@@ -5,7 +5,9 @@ namespace App\Services\Costos;
 use App\Contracts\Costos\Aprobable;
 use App\Enums\Costos\AprobacionEstatus;
 use App\Models\Costos\AprobacionDepartamento;
+use App\Models\Costos\ConfiguracionCostos;
 use App\Models\Costos\OmitirRubro;
+use App\Models\Costos\SolicitudPago;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -89,6 +91,29 @@ class ApprovalChainService
         }
 
         return $creados;
+    }
+
+    /**
+     * Cadena fija para solicitudes de pago generadas desde una orden de compra:
+     * IGNORA los niveles de aprobación del departamento y crea una única
+     * aprobación pendiente a cargo del gerente de compras configurado en el
+     * catálogo de costos. Devuelve 1 si se creó, 0 si no hay gerente configurado.
+     */
+    public function crearAprobacionGerenteCompras(SolicitudPago $solicitud): int
+    {
+        $gerenteId = ConfiguracionCostos::actual()->gerente_compras_id;
+
+        if ($gerenteId === null) {
+            return 0;
+        }
+
+        $solicitud->cadenaAprobacion()->create([
+            'nivel' => 1,
+            'aprobador_id' => $gerenteId,
+            'estatus' => AprobacionEstatus::Pendiente->value,
+        ]);
+
+        return 1;
     }
 
     /**

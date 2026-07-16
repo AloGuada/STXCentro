@@ -163,6 +163,15 @@ class SolicitudPago extends Model implements Aprobable
         // presupuesto: la OC ya aplicó su impacto permanente al crearse. Volver
         // a afectarlo aquí duplicaría el acumulado del rubro.
         if ($this->orden_compra_id !== null) {
+            // Si al aprobar la fecha de pago solicitada ya pasó, se recorre al
+            // viernes inmediato siguiente: el pago no debe quedar con fecha
+            // vencida por haberse firmado tarde.
+            $hoy = \Carbon\CarbonImmutable::now()->startOfDay();
+            if ($this->fecha_pago_solicitada !== null && $this->fecha_pago_solicitada->lt($hoy)) {
+                $this->fecha_pago_solicitada = ConfiguracionCostos::actual()->proximoViernes($hoy);
+                $this->save();
+            }
+
             return;
         }
 

@@ -264,8 +264,9 @@
         </tr>
     </table>
 
-    {{-- Firma del primer nivel (justo bajo los datos) --}}
-    @php $primeraFirma = $firmasPdf->first(); @endphp
+    {{-- Firma del primer nivel (justo bajo los datos). No aplica a solicitudes
+         generadas por OC, que usan el bloque fijo de dos firmas al final. --}}
+    @php $primeraFirma = ($firmasOc ?? null) ? null : $firmasPdf->first(); @endphp
     @if($primeraFirma)
     <table class="firma-primer-nivel">
         <tr>
@@ -328,6 +329,25 @@
     </table>
     @endif
 
+    {{-- Firmas de solicitud generada por OC: dos espacios fijos (elaboró +
+         gerente de compras). --}}
+    @if($firmasOc ?? null)
+    <table class="signatures-table">
+        <tr>
+            @foreach($firmasOc as $firma)
+            <td style="width: 50%;">
+                @if($firma->firma_path && file_exists(storage_path('app/public/' . $firma->firma_path)))
+                    <img class="sig-img" src="{{ storage_path('app/public/' . $firma->firma_path) }}" alt="Firma">
+                @else
+                    <div class="sig-placeholder"></div>
+                @endif
+                <div class="sig-name">{{ $firma->nombre }}</div>
+                <div class="sig-role">{{ $firma->fecha ? 'Firmado '.$firma->fecha : $firma->rol }}</div>
+            </td>
+            @endforeach
+        </tr>
+    </table>
+    @else
     {{-- Signatures (niveles restantes; el primero va bajo los datos) --}}
     @php $firmasRestantes = $firmasPdf->slice(1); @endphp
     @if($firmasRestantes->isNotEmpty())
@@ -346,6 +366,7 @@
             @endforeach
         </tr>
     </table>
+    @endif
     @endif
 </body>
 </html>

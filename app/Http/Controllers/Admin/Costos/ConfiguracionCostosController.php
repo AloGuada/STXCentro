@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Costos;
 
 use App\Http\Controllers\Controller;
 use App\Models\Costos\ConfiguracionCostos;
+use App\Models\Usuario;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,6 +21,7 @@ class ConfiguracionCostosController extends Controller
     {
         return Inertia::render('admin/costos/configuracion/edit', [
             'configuracion' => ConfiguracionCostos::actual(),
+            'usuarios' => Usuario::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -32,6 +34,7 @@ class ConfiguracionCostosController extends Controller
             'corte_activo' => ['required', 'boolean'],
             'corte_dia' => ['required', 'integer', 'min:1', 'max:5'],
             'corte_hora' => ['required', 'date_format:H:i'],
+            'gerente_compras_id' => ['nullable', 'string', 'exists:usuarios,id'],
         ]);
 
         ConfiguracionCostos::actual()->update($validated);

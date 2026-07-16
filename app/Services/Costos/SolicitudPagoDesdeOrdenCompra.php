@@ -4,11 +4,13 @@ namespace App\Services\Costos;
 
 use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\SolicitudPagoEstatus;
+use App\Models\Costos\ConfiguracionCostos;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\SolicitudPago;
 use App\Models\Costos\TipoSolicitud;
 use App\Models\Media;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -17,10 +19,11 @@ class SolicitudPagoDesdeOrdenCompra
     public const TIPO_TITULO = 'Pago de orden de compra (contado)';
 
     /**
-     * Genera la solicitud de pago de anticipo para una OC de contado: arma su
-     * cadena de aprobación por departamento y adjunta el PDF de la OC como
-     * respaldo. NO aparta ni afecta el presupuesto (la OC ya aplicó su impacto
-     * permanente al crearse), evitando duplicar el acumulado del rubro.
+     * Genera la solicitud de pago de anticipo para una OC de contado: crea su
+     * única aprobación (el gerente de compras configurado, ignorando los niveles
+     * de aprobación del departamento) y adjunta el PDF de la OC como respaldo.
+     * NO aparta ni afecta el presupuesto (la OC ya aplicó su impacto permanente
+     * al crearse), evitando duplicar el acumulado del rubro.
      *
      * Idempotente: si la OC ya tiene una solicitud asociada, no hace nada.
      */
@@ -53,7 +56,7 @@ class SolicitudPagoDesdeOrdenCompra
                 'monto_total' => $oc->total,
                 'tipo_pago' => $metodoPago,
                 'tipo_moneda' => $oc->moneda,
-                'fecha_pago_solicitada' => $fechaPago ?: now()->toDateString(),
+                'fecha_pago_solicitada' => $this->fechaPagoInicial($fechaPago),
                 'estatus' => SolicitudPagoEstatus::PendienteFirma->value,
             ]);
 
@@ -74,8 +77,8 @@ class SolicitudPagoDesdeOrdenCompra
                 'texto_adicional' => "Formato de OC {$oc->folio}",
             ]);
 
-            if (app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitud) === 0) {
-                Log::warning('Solicitud de pago de OC contado sin cadena de aprobación configurada.', [
+            if (app(ApprovalChainService::class)->crearAprobacionGerenteCompras($solicitud) === 0) {
+                Log::warning('Solicitud de pago de OC contado sin gerente de compras configurado.', [
                     'solicitud_id' => $solicitud->id,
                     'departamento_id' => $solicitud->departamento_id,
                 ]);
@@ -91,8 +94,9 @@ class SolicitudPagoDesdeOrdenCompra
 
     /**
      * Genera N solicitudes de pago para una OC de contado con parcialidades:
-     * una por cada hito, con monto = total × (porcentaje / 100) y su propia
-     * cadena de aprobación. Comparte el PDF de la OC como respaldo. Idempotente.
+     * una por cada hito, con monto = total × (porcentaje / 100) y su única
+     * aprobación del gerente de compras. Comparte el PDF de la OC como respaldo.
+     * Idempotente.
      *
      * @param  list<array{porcentaje: float|int|string, concepto?: string|null}>  $parcialidades
      */
@@ -131,7 +135,7 @@ class SolicitudPagoDesdeOrdenCompra
                     'monto_total' => $monto,
                     'tipo_pago' => $metodoPago,
                     'tipo_moneda' => $oc->moneda,
-                    'fecha_pago_solicitada' => $fechaPago ?: now()->toDateString(),
+                    'fecha_pago_solicitada' => $this->fechaPagoInicial($fechaPago),
                     'estatus' => SolicitudPagoEstatus::PendienteFirma->value,
                 ]);
 
@@ -151,8 +155,8 @@ class SolicitudPagoDesdeOrdenCompra
                     'texto_adicional' => "Formato de OC {$oc->folio}",
                 ]);
 
-                if (app(ApprovalChainService::class)->crearCadenaAprobaciones($solicitud) === 0) {
-                    Log::warning('Solicitud de pago (parcialidad) de OC contado sin cadena de aprobación configurada.', [
+                if (app(ApprovalChainService::class)->crearAprobacionGerenteCompras($solicitud) === 0) {
+                    Log::warning('Solicitud de pago (parcialidad) de OC contado sin gerente de compras configurado.', [
                         'solicitud_id' => $solicitud->id,
                         'departamento_id' => $solicitud->departamento_id,
                     ]);
@@ -163,6 +167,28 @@ class SolicitudPagoDesdeOrdenCompra
 
             throw $e;
         }
+    }
+
+    /**
+     * Fecha de pago inicial de la solicitud generada por la OC: respeta la
+     * fecha que eligió compras si es hoy o futura (permite este viernes aunque
+     * ya haya pasado el corte del miércoles). Si viene vacía o ya pasó, usa el
+     * próximo viernes. El recorrido posterior por vencimiento sucede al aprobar.
+     */
+    private function fechaPagoInicial(?string $fechaPago): string
+    {
+        $config = ConfiguracionCostos::actual();
+        $hoy = CarbonImmutable::now()->startOfDay();
+
+        if ($fechaPago !== null) {
+            $fecha = CarbonImmutable::parse($fechaPago)->startOfDay();
+
+            if ($fecha->greaterThanOrEqualTo($hoy)) {
+                return $fecha->toDateString();
+            }
+        }
+
+        return $config->proximoViernes($hoy)->toDateString();
     }
 
     /**

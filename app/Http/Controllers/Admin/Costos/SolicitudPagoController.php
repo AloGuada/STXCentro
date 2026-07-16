@@ -612,9 +612,17 @@ class SolicitudPagoController extends Controller
             $solicitudPago->aprobaciones,
         );
 
+        // Las solicitudes generadas por una OC llevan un bloque de firma fijo de
+        // dos espacios (usuario de compras que la elaboró + gerente de compras),
+        // en vez de las columnas de la cadena por niveles.
+        $firmasOc = $solicitudPago->orden_compra_id !== null
+            ? $this->firmasOrdenCompra($solicitudPago)
+            : null;
+
         $pdf = Pdf::loadView('pdf.costos.formato-solicitud-pago', [
             'solicitud' => $solicitudPago,
             'firmasPdf' => $firmasPdf,
+            'firmasOc' => $firmasOc,
         ])->setPaper('letter', 'portrait')
             ->setOption('margin-top', 30)
             ->setOption('margin-bottom', 60)
@@ -628,6 +636,39 @@ class SolicitudPagoController extends Controller
         return $request->boolean('download')
             ? $pdf->download($filename)
             : $pdf->stream($filename);
+    }
+
+    /**
+     * Bloque de firma de dos espacios para el PDF de una solicitud generada por
+     * OC: el usuario de compras que la elaboró (espacio manual) y el gerente de
+     * compras, cuya firma digital aparece una vez que aprobó.
+     *
+     * @return list<object{nombre: string, rol: string, firma_path: ?string, fecha: ?string}>
+     */
+    private function firmasOrdenCompra(SolicitudPago $solicitudPago): array
+    {
+        $aprobacionGerente = $solicitudPago->aprobaciones
+            ->sortBy('nivel')
+            ->first(fn ($a) => $a->estatus === AprobacionEstatus::Aprobada);
+
+        $gerenteConfigurado = ConfiguracionCostos::actual()->gerenteCompras;
+
+        return [
+            (object) [
+                'nombre' => $solicitudPago->solicitante?->name ?? 'Usuario de compras',
+                'rol' => 'Elaboró · Compras',
+                'firma_path' => null,
+                'fecha' => null,
+            ],
+            (object) [
+                'nombre' => $aprobacionGerente?->aprobador?->name
+                    ?? $gerenteConfigurado?->name
+                    ?? 'Gerente de compras',
+                'rol' => 'Gerente de compras',
+                'firma_path' => $aprobacionGerente?->aprobador?->firma_path,
+                'fecha' => $aprobacionGerente?->fecha_respuesta?->format('d/m/Y H:i'),
+            ],
+        ];
     }
 
     public function uploadFirmado(SolicitudFirmadoRequest $request, SolicitudPago $solicitudPago): RedirectResponse

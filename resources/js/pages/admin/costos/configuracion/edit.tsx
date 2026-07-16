@@ -16,9 +16,12 @@ type Configuracion = {
     corte_activo: boolean;
     corte_dia: number;
     corte_hora: string;
+    gerente_compras_id: string | null;
 };
 
-type Props = { configuracion: Configuracion };
+type Usuario = { id: string; name: string };
+
+type Props = { configuracion: Configuracion; usuarios: Usuario[] };
 
 const DIAS_SEMANA: { value: number; label: string }[] = [
     { value: 1, label: 'Lunes' },
@@ -34,7 +37,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Configuración', href: '/admin/costos/configuracion' },
 ];
 
-export default function ConfiguracionCostosEdit({ configuracion }: Props) {
+export default function ConfiguracionCostosEdit({ configuracion, usuarios }: Props) {
     const { data, setData, put, processing, errors, recentlySuccessful } = useForm({
         dias_apartado: configuracion.dias_apartado,
         dias_cancelar_requisicion: configuracion.dias_cancelar_requisicion,
@@ -42,6 +45,7 @@ export default function ConfiguracionCostosEdit({ configuracion }: Props) {
         corte_activo: configuracion.corte_activo,
         corte_dia: configuracion.corte_dia,
         corte_hora: configuracion.corte_hora,
+        gerente_compras_id: configuracion.gerente_compras_id ?? '',
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -163,6 +167,33 @@ export default function ConfiguracionCostosEdit({ configuracion }: Props) {
                                     </FormField>
                                 </div>
                             )}
+                        </div>
+
+                        <div className="rounded-lg border border-base-300 p-4">
+                            <FormField
+                                label="Gerente de compras (firma de solicitudes de OC)"
+                                htmlFor="gerente_compras_id"
+                                error={errors.gerente_compras_id}
+                            >
+                                <select
+                                    id="gerente_compras_id"
+                                    className="select-bordered select w-full"
+                                    value={data.gerente_compras_id}
+                                    onChange={(e) => setData('gerente_compras_id', e.target.value)}
+                                >
+                                    <option value="">— Sin asignar —</option>
+                                    {usuarios.map((usuario) => (
+                                        <option key={usuario.id} value={usuario.id}>
+                                            {usuario.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-xs text-base-content/60">
+                                    Las solicitudes de pago generadas por una orden de compra llevan una sola firma: la
+                                    de este gerente (ignoran los niveles de aprobación del departamento). En el PDF se
+                                    imprime además un espacio de firma para el usuario de compras que la elaboró.
+                                </p>
+                            </FormField>
                         </div>
 
                         <div className="flex items-center gap-3">
