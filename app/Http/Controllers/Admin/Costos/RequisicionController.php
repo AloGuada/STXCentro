@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Costos;
 use App\Enums\Costos\AprobacionEstatus;
 use App\Enums\Costos\RequisicionEstatus;
 use App\Enums\ProveedorEstatus;
+use App\Exceptions\Costos\OrdenCompraInvalidaException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Http\Requests\Admin\Costos\FirmarRequisicionFinalRequest;
@@ -803,7 +804,9 @@ class RequisicionController extends Controller
     {
         $requisicion->loadMissing(['detalles.selecciones.cotizacionPrecio', 'detalles.cotizaciones']);
 
-        $minEmpresas = (int) config('costos.min_empresas_cotizacion', 3);
+        // En modo "dedazo" basta un proveedor (no hay comparativa). Fuera de él,
+        // se exige el mínimo configurado (por defecto 3).
+        $minEmpresas = $requisicion->modo_dedazo ? 1 : (int) config('costos.min_empresas_cotizacion', 3);
 
         // La cotización debe comparar al menos N proveedores en total (no por
         // partida): basta con tener N empresas distintas en toda la requisición.
@@ -883,6 +886,86 @@ class RequisicionController extends Controller
             ]);
         }
 
+        try {
+            $this->generarOrdenesCompra($requisicion, $generator, $request->user()->id);
+        } catch (OrdenCompraInvalidaException $e) {
+            return back()->withErrors($e->errores);
+        }
+
+        return to_route('admin.costos.requisiciones.show', $requisicion)
+            ->with('success', 'Requisición liberada y órdenes de compra generadas.');
+    }
+
+    /**
+     * Modo "dedazo": tras la verificación gerencial (mismo punto de control),
+     * convierte una requisición cotizada DIRECTO a orden de compra, sin cadena
+     * de aprobación ni apartado temporal. El único requisito flexibilizado es el
+     * mínimo de proveedores (basta 1); todo lo demás (uso CFDI, centro de costos,
+     * selecciones 100%, OC definida) se mantiene.
+     */
+    public function convertirAOc(Requisicion $requisicion, OrdenCompraGenerator $generator): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.liberar');
+
+        if (! $requisicion->modo_dedazo) {
+            return back()->withErrors(['modo_dedazo' => 'Esta acción solo aplica a requisiciones en modo dedazo.']);
+        }
+
+        if ($requisicion->estatus !== RequisicionEstatus::Cotizada) {
+            return back()->withErrors(['estatus' => 'La requisición debe estar cotizada para convertirse a OC.']);
+        }
+
+        if (! $requisicion->control_verificado) {
+            return back()->withErrors(['control' => 'Falta la verificación gerencial (gerente de compras) antes de convertir a OC.']);
+        }
+
+        if ($errores = $this->validarCotizacionCompleta($requisicion)) {
+            return back()->withErrors($errores);
+        }
+
+        try {
+            DB::transaction(function () use ($requisicion, $generator): void {
+                // Sin cadena de aprobación ni apartado: se lleva directo a
+                // Aprobada y el generador la deja en Liberada, aplicando el
+                // impacto presupuestal permanente (Aplicado).
+                $requisicion->transitionTo(RequisicionEstatus::PendienteAprobacion);
+                $requisicion->transitionTo(RequisicionEstatus::Aprobada);
+
+                $this->generarOrdenesCompra($requisicion, $generator, auth()->id());
+            });
+        } catch (OrdenCompraInvalidaException $e) {
+            return back()->withErrors($e->errores);
+        }
+
+        return to_route('admin.costos.requisiciones.show', $requisicion)
+            ->with('success', 'Requisición convertida a orden de compra (dedazo).');
+    }
+
+    /**
+     * Activa/desactiva el modo "dedazo" mientras la requisición está en captura
+     * o cotización.
+     */
+    public function setDedazo(Request $request, Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        if (! in_array($requisicion->estatus, [RequisicionEstatus::Borrador, RequisicionEstatus::Cotizada, RequisicionEstatus::Rechazada], true)) {
+            return back()->withErrors(['modo_dedazo' => 'Solo se puede cambiar el modo mientras la requisición está en captura o cotización.']);
+        }
+
+        $requisicion->update(['modo_dedazo' => $request->boolean('modo_dedazo')]);
+
+        return back()->with('success', $requisicion->modo_dedazo ? 'Modo dedazo activado.' : 'Modo dedazo desactivado.');
+    }
+
+    /**
+     * Genera las OCs de la requisición (agrupando selecciones por proveedor/OC)
+     * y aplica el impacto presupuestal. Compartido por `liberar` (flujo normal)
+     * y `convertirAOc` (dedazo). Lanza OrdenCompraInvalidaException si algún dato
+     * impide generar.
+     */
+    private function generarOrdenesCompra(Requisicion $requisicion, OrdenCompraGenerator $generator, string $userId): void
+    {
         $requisicion->load([
             'detalles.selecciones.cotizacionPrecio',
             'detalles.selecciones.proveedor',
@@ -891,15 +974,11 @@ class RequisicionController extends Controller
 
         foreach ($requisicion->detalles as $detalle) {
             if (empty($detalle->uso_cfdi_id)) {
-                return back()->withErrors([
-                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene uso de CFDI asignado.",
-                ]);
+                throw new OrdenCompraInvalidaException(['detalles' => "La partida \"{$detalle->descripcion}\" no tiene uso de CFDI asignado."]);
             }
 
             if (empty($detalle->obra_rubro_id)) {
-                return back()->withErrors([
-                    'detalles' => "La partida \"{$detalle->descripcion}\" no tiene centro de costos asignado.",
-                ]);
+                throw new OrdenCompraInvalidaException(['detalles' => "La partida \"{$detalle->descripcion}\" no tiene centro de costos asignado."]);
             }
         }
 
@@ -948,23 +1027,16 @@ class RequisicionController extends Controller
                 ->unique();
 
             if ($monedas->count() > 1) {
-                return back()->withErrors([
-                    'ocs' => "La OC del grupo {$key} mezcla monedas (".$monedas->implode(', ').'). Separa las partidas por moneda en OCs distintas.',
-                ]);
+                throw new OrdenCompraInvalidaException(['ocs' => "La OC del grupo {$key} mezcla monedas (".$monedas->implode(', ').'). Separa las partidas por moneda en OCs distintas.']);
             }
 
             $proveedor = $selecciones->first()?->proveedor;
             if ($proveedor?->bloqueadoPorComplemento()) {
-                return back()->withErrors([
-                    'ocs' => "El proveedor \"{$proveedor->razon_social}\" está bloqueado por un complemento de pago pendiente. No se puede liberar la OC hasta regularizar.",
-                ]);
+                throw new OrdenCompraInvalidaException(['ocs' => "El proveedor \"{$proveedor->razon_social}\" está bloqueado por un complemento de pago pendiente. No se puede liberar la OC hasta regularizar."]);
             }
         }
 
-        $generator->generar($requisicion, $grupos, $ocsPayload, $request->user()->id);
-
-        return to_route('admin.costos.requisiciones.show', $requisicion)
-            ->with('success', 'Requisición liberada y órdenes de compra generadas.');
+        $generator->generar($requisicion, $grupos, $ocsPayload, $userId);
     }
 
     /**

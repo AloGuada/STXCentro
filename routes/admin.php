@@ -227,6 +227,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/punto-control', [CostosRequisicionController::class, 'marcarControl'])->name('requisiciones.punto-control.marcar');
         Route::delete('requisiciones/{requisicion}/punto-control', [CostosRequisicionController::class, 'quitarControl'])->name('requisiciones.punto-control.quitar');
         Route::post('requisiciones/{requisicion}/liberar', [CostosRequisicionController::class, 'liberar'])->name('requisiciones.liberar');
+        Route::post('requisiciones/{requisicion}/dedazo', [CostosRequisicionController::class, 'setDedazo'])->name('requisiciones.dedazo');
+        Route::post('requisiciones/{requisicion}/convertir-oc', [CostosRequisicionController::class, 'convertirAOc'])->name('requisiciones.convertir-oc');
         Route::post('requisiciones/{requisicion}/re-apartar', [CostosRequisicionController::class, 'reApartar'])->name('requisiciones.re-apartar');
         Route::post('requisiciones/detalles/{detalle}/clasificacion', [CostosRequisicionCotizacionController::class, 'clasificar'])->name('requisiciones.detalles.clasificar');
         Route::patch('requisiciones/detalles/{detalle}/producto', [CostosRequisicionCotizacionController::class, 'actualizarProducto'])->name('requisiciones.detalles.producto');

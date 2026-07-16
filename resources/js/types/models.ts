@@ -1759,6 +1759,7 @@ export type CostosRequisicion = {
     control_verificado: boolean;
     control_por: string | null;
     control_at: string | null;
+    modo_dedazo: boolean;
     sobre_obra_cerrada: boolean;
     motivo_rechazo: string | null;
     locked_by: string | null;

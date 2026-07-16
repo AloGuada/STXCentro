@@ -54,6 +54,7 @@ class Requisicion extends Model implements Aprobable
         'control_verificado',
         'control_por',
         'control_at',
+        'modo_dedazo',
         'sobre_obra_cerrada',
         'motivo_rechazo',
         'locked_by',
@@ -70,6 +71,7 @@ class Requisicion extends Model implements Aprobable
             'estatus' => RequisicionEstatus::class,
             'control_verificado' => 'boolean',
             'control_at' => 'datetime',
+            'modo_dedazo' => 'boolean',
             'sobre_obra_cerrada' => 'boolean',
             'locked_at' => 'datetime',
         ];

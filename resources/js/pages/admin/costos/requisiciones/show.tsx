@@ -12,8 +12,18 @@ import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { SharedData } from '@/types';
-import type { CostosRequisicion, CostosTipoFiscalPartida, CostosUsoCfdi, ObraRubroOption, Proveedor } from '@/types/models';
-import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
+import type {
+    CostosRequisicion,
+    CostosTipoFiscalPartida,
+    CostosUsoCfdi,
+    ObraRubroOption,
+    Proveedor,
+} from '@/types/models';
+import {
+    REQUISICION_ESTATUS_COLORS,
+    REQUISICION_ESTATUS_LABELS,
+    TIPO_MONEDA_LABELS,
+} from '@/types/models';
 
 type Alternativa = {
     cotizacion_precio_id: number;
@@ -47,7 +57,15 @@ type ProveedorPorValidar = {
 
 type Props = {
     requisicion: CostosRequisicion;
-    proveedores: Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial' | 'maneja_credito' | 'tipo_persona' | 'regimen_fiscal'>[];
+    proveedores: Pick<
+        Proveedor,
+        | 'id'
+        | 'razon_social'
+        | 'nombre_comercial'
+        | 'maneja_credito'
+        | 'tipo_persona'
+        | 'regimen_fiscal'
+    >[];
     obraRubros: ObraRubroOption[];
     usosCfdi: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>[];
     // Último precio de cada proveedor para el insumo de cada partida, en otras
@@ -61,12 +79,28 @@ type Props = {
 type Tab = 'datos' | 'cotizacion' | 'definir-oc' | 'aprobacion' | 'ocs';
 
 const fmtDate = (date: string | null) =>
-    date ? new Date(date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+    date
+        ? new Date(date).toLocaleDateString('es-MX', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+          })
+        : '-';
 
-function FirmarRequisicionModal({ aprobacionId, tipo, onClose }: { aprobacionId: number; tipo: 'aprobar' | 'rechazar'; onClose: () => void }) {
+function FirmarRequisicionModal({
+    aprobacionId,
+    tipo,
+    onClose,
+}: {
+    aprobacionId: number;
+    tipo: 'aprobar' | 'rechazar';
+    onClose: () => void;
+}) {
     const esAprobacion = tipo === 'aprobar';
     const minLen = esAprobacion ? 1 : 10;
-    const { data, setData, post, processing, errors, reset } = useForm({ observaciones: '' });
+    const { data, setData, post, processing, errors, reset } = useForm({
+        observaciones: '',
+    });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -82,9 +116,13 @@ function FirmarRequisicionModal({ aprobacionId, tipo, onClose }: { aprobacionId:
     const tooShort = data.observaciones.trim().length < minLen;
 
     return (
-        <dialog className="modal modal-open">
+        <dialog className="modal-open modal">
             <div className="modal-box w-11/12 max-w-4xl">
-                <h2 className="text-2xl font-bold">{esAprobacion ? 'Aprobar requisición' : 'Rechazar requisición'}</h2>
+                <h2 className="text-2xl font-bold">
+                    {esAprobacion
+                        ? 'Aprobar requisición'
+                        : 'Rechazar requisición'}
+                </h2>
                 <p className="mt-1 text-sm text-base-content/60">
                     {esAprobacion
                         ? 'Agregue sus observaciones para firmar esta requisición.'
@@ -92,27 +130,42 @@ function FirmarRequisicionModal({ aprobacionId, tipo, onClose }: { aprobacionId:
                 </p>
                 <form onSubmit={handleSubmit} className="mt-6">
                     <div className="form-control">
-                        <label className="mb-2 text-sm font-medium">Observaciones</label>
+                        <label className="mb-2 text-sm font-medium">
+                            Observaciones
+                        </label>
                         <textarea
-                            className={`textarea textarea-bordered w-full ${errors.observaciones ? 'textarea-error' : ''}`}
+                            className={`textarea-bordered textarea w-full ${errors.observaciones ? 'textarea-error' : ''}`}
                             rows={6}
-                            placeholder={esAprobacion ? 'Escriba sus observaciones...' : 'Motivo del rechazo...'}
+                            placeholder={
+                                esAprobacion
+                                    ? 'Escriba sus observaciones...'
+                                    : 'Motivo del rechazo...'
+                            }
                             value={data.observaciones}
-                            onChange={(e) => setData('observaciones', e.target.value)}
+                            onChange={(e) =>
+                                setData('observaciones', e.target.value)
+                            }
                             required
                             maxLength={500}
                         />
                         {errors.observaciones && (
-                            <span className="mt-1 text-xs text-error">{errors.observaciones}</span>
+                            <span className="mt-1 text-xs text-error">
+                                {errors.observaciones}
+                            </span>
                         )}
                     </div>
                     <div className="modal-action">
-                        <button type="button" className="btn" onClick={onClose} disabled={processing}>
+                        <button
+                            type="button"
+                            className="btn"
+                            onClick={onClose}
+                            disabled={processing}
+                        >
                             Cancelar
                         </button>
                         <button
                             type="submit"
-                            className={`btn ${esAprobacion ? 'bg-green-600 hover:bg-green-700 text-white' : 'btn-error'}`}
+                            className={`btn ${esAprobacion ? 'bg-green-600 text-white hover:bg-green-700' : 'btn-error'}`}
                             disabled={processing || tooShort}
                         >
                             {esAprobacion ? 'Aprobar' : 'Rechazar'}
@@ -150,20 +203,26 @@ function EnviarAprobacionModal({
     };
 
     return (
-        <dialog className="modal modal-open">
+        <dialog className="modal-open modal">
             <div className="modal-box">
                 {!tieneOc ? (
                     <>
                         <h2 className="flex items-center gap-2 text-xl font-bold text-error">
-                            <AlertTriangleIcon className="size-5" /> Falta definir la orden de compra
+                            <AlertTriangleIcon className="size-5" /> Falta
+                            definir la orden de compra
                         </h2>
                         <p className="mt-3 text-sm text-base-content/70">
-                            No hay ninguna orden de compra definida para esta requisición. Ve a la
-                            pestaña <strong>Definir OC</strong> y define al menos una OC antes de
-                            enviarla a aprobación.
+                            No hay ninguna orden de compra definida para esta
+                            requisición. Ve a la pestaña{' '}
+                            <strong>Definir OC</strong> y define al menos una OC
+                            antes de enviarla a aprobación.
                         </p>
                         <div className="modal-action">
-                            <button type="button" className="btn" onClick={onClose}>
+                            <button
+                                type="button"
+                                className="btn"
+                                onClick={onClose}
+                            >
                                 Entendido
                             </button>
                         </div>
@@ -171,30 +230,51 @@ function EnviarAprobacionModal({
                 ) : !cotizacionCompleta ? (
                     <>
                         <h2 className="flex items-center gap-2 text-xl font-bold text-error">
-                            <AlertTriangleIcon className="size-5" /> Cotización incompleta
+                            <AlertTriangleIcon className="size-5" /> Cotización
+                            incompleta
                         </h2>
                         <p className="mt-3 text-sm text-base-content/70">
-                            La cotización debe comparar al menos <strong>{minEmpresas} proveedores</strong> (tiene <strong>{empresasCotizando}</strong>).
-                            Ve a la pestaña <strong>Cotización</strong> y agrega más proveedores.
+                            La cotización debe comparar al menos{' '}
+                            <strong>{minEmpresas} proveedores</strong> (tiene{' '}
+                            <strong>{empresasCotizando}</strong>). Ve a la
+                            pestaña <strong>Cotización</strong> y agrega más
+                            proveedores.
                         </p>
                         <div className="modal-action">
-                            <button type="button" className="btn" onClick={onClose}>
+                            <button
+                                type="button"
+                                className="btn"
+                                onClick={onClose}
+                            >
                                 Entendido
                             </button>
                         </div>
                     </>
                 ) : (
                     <>
-                        <h2 className="text-xl font-bold">Enviar a aprobación</h2>
+                        <h2 className="text-xl font-bold">
+                            Enviar a aprobación
+                        </h2>
                         <p className="mt-3 text-sm text-base-content/70">
-                            ¿Todo está correcto? Al aceptar, la requisición se enviará a aprobación,
-                            se crearán las firmas pendientes y se bloquearán las ediciones.
+                            ¿Todo está correcto? Al aceptar, la requisición se
+                            enviará a aprobación, se crearán las firmas
+                            pendientes y se bloquearán las ediciones.
                         </p>
                         <div className="modal-action">
-                            <button type="button" className="btn" onClick={onClose} disabled={processing}>
+                            <button
+                                type="button"
+                                className="btn"
+                                onClick={onClose}
+                                disabled={processing}
+                            >
                                 Cancelar
                             </button>
-                            <button type="button" className="btn btn-primary" onClick={handleEnviar} disabled={processing}>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={handleEnviar}
+                                disabled={processing}
+                            >
                                 {processing ? 'Enviando...' : 'Aceptar'}
                             </button>
                         </div>
@@ -223,18 +303,29 @@ function PuntoControlModal({
     };
 
     return (
-        <dialog className="modal modal-open">
+        <dialog className="modal-open modal">
             <div className="modal-box">
                 <h2 className="text-xl font-bold">Verificación gerencial</h2>
                 <p className="mt-3 text-sm text-base-content/70">
-                    ¿Estás seguro? Al marcar la verificación gerencial confirmas que la cotización
-                    fue revisada y habilitas el botón de <strong>enviar a aprobación</strong>.
+                    ¿Estás seguro? Al marcar la verificación gerencial confirmas
+                    que la cotización fue revisada y habilitas el botón de{' '}
+                    <strong>enviar a aprobación</strong>.
                 </p>
                 <div className="modal-action">
-                    <button type="button" className="btn" onClick={onClose} disabled={processing}>
+                    <button
+                        type="button"
+                        className="btn"
+                        onClick={onClose}
+                        disabled={processing}
+                    >
                         Cancelar
                     </button>
-                    <button type="button" className="btn btn-primary" onClick={confirmar} disabled={processing}>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={confirmar}
+                        disabled={processing}
+                    >
                         {processing ? 'Guardando...' : 'Sí, marcar'}
                     </button>
                 </div>
@@ -263,43 +354,70 @@ function ValidacionProveedoresModal({
     const [observaciones, setObservaciones] = useState('');
     const [processing, setProcessing] = useState(false);
     const [decisiones, setDecisiones] = useState<Record<number, Decision>>(() =>
-        Object.fromEntries(proveedores.map((p) => [p.id, { accion: 'activar', reemplazos: {} }])),
+        Object.fromEntries(
+            proveedores.map((p) => [
+                p.id,
+                { accion: 'activar', reemplazos: {} },
+            ]),
+        ),
     );
 
     const setAccion = (provId: number, accion: 'activar' | 'rechazar') =>
-        setDecisiones((prev) => ({ ...prev, [provId]: { ...prev[provId], accion } }));
-
-    const setReemplazo = (provId: number, detalleId: number, cotId: number | '') =>
         setDecisiones((prev) => ({
             ...prev,
-            [provId]: { ...prev[provId], reemplazos: { ...prev[provId].reemplazos, [detalleId]: cotId } },
+            [provId]: { ...prev[provId], accion },
         }));
 
-    const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const setReemplazo = (
+        provId: number,
+        detalleId: number,
+        cotId: number | '',
+    ) =>
+        setDecisiones((prev) => ({
+            ...prev,
+            [provId]: {
+                ...prev[provId],
+                reemplazos: { ...prev[provId].reemplazos, [detalleId]: cotId },
+            },
+        }));
+
+    const fmt = (n: number) =>
+        `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
     // Un rechazo sin reemplazo en TODAS sus partidas implica rechazar la requisición.
     const rechazaRequisicion = proveedores.some((p) => {
         const d = decisiones[p.id];
         if (d.accion !== 'rechazar') return false;
-        return p.partidas.some((part) => !d.reemplazos[part.requisicion_detalle_id]);
+        return p.partidas.some(
+            (part) => !d.reemplazos[part.requisicion_detalle_id],
+        );
     });
 
     const submit = () => {
         const validaciones = proveedores.map((p) => {
             const d = decisiones[p.id];
-            const reemplazos = d.accion === 'rechazar'
-                ? p.partidas
-                      .filter((part) => d.reemplazos[part.requisicion_detalle_id])
-                      .map((part) => {
-                          const cotId = d.reemplazos[part.requisicion_detalle_id] as number;
-                          const alt = part.alternativas.find((a) => a.cotizacion_precio_id === cotId)!;
-                          return {
-                              requisicion_detalle_id: part.requisicion_detalle_id,
-                              nuevo_proveedor_id: alt.proveedor_id,
-                              cotizacion_precio_id: cotId,
-                          };
-                      })
-                : [];
+            const reemplazos =
+                d.accion === 'rechazar'
+                    ? p.partidas
+                          .filter(
+                              (part) =>
+                                  d.reemplazos[part.requisicion_detalle_id],
+                          )
+                          .map((part) => {
+                              const cotId = d.reemplazos[
+                                  part.requisicion_detalle_id
+                              ] as number;
+                              const alt = part.alternativas.find(
+                                  (a) => a.cotizacion_precio_id === cotId,
+                              )!;
+                              return {
+                                  requisicion_detalle_id:
+                                      part.requisicion_detalle_id,
+                                  nuevo_proveedor_id: alt.proveedor_id,
+                                  cotizacion_precio_id: cotId,
+                              };
+                          })
+                    : [];
 
             return { proveedor_id: p.id, accion: d.accion, reemplazos };
         });
@@ -317,14 +435,20 @@ function ValidacionProveedoresModal({
     };
 
     return (
-        <dialog className="modal modal-open">
+        <dialog className="modal-open modal">
             <div className="modal-box w-11/12 max-w-5xl">
                 <h2 className="text-2xl font-bold">
-                    {step === 1 ? 'Validar documentación del proveedor' : 'Confirmar firma'}
+                    {step === 1
+                        ? 'Validar documentación del proveedor'
+                        : 'Confirmar firma'}
                 </h2>
-                <ul className="steps steps-horizontal w-full my-4">
-                    <li className={`step ${step >= 1 ? 'step-primary' : ''}`}>Documentación</li>
-                    <li className={`step ${step >= 2 ? 'step-primary' : ''}`}>Aprobar OC</li>
+                <ul className="steps my-4 steps-horizontal w-full">
+                    <li className={`step ${step >= 1 ? 'step-primary' : ''}`}>
+                        Documentación
+                    </li>
+                    <li className={`step ${step >= 2 ? 'step-primary' : ''}`}>
+                        Aprobar OC
+                    </li>
                 </ul>
 
                 {step === 1 && (
@@ -332,26 +456,39 @@ function ValidacionProveedoresModal({
                         {proveedores.map((p) => {
                             const d = decisiones[p.id];
                             return (
-                                <div key={p.id} className="rounded-lg border border-base-300 p-4">
+                                <div
+                                    key={p.id}
+                                    className="rounded-lg border border-base-300 p-4"
+                                >
                                     <div className="mb-3 flex items-center justify-between">
                                         <div>
-                                            <div className="font-semibold">{p.razon_social}</div>
+                                            <div className="font-semibold">
+                                                {p.razon_social}
+                                            </div>
                                             <div className="text-xs text-base-content/60">
-                                                {p.rfc} · {p.tipo_persona === 'moral' ? 'Persona Moral' : 'Persona Física'} · {p.regimen ?? 'Sin régimen'}
+                                                {p.rfc} ·{' '}
+                                                {p.tipo_persona === 'moral'
+                                                    ? 'Persona Moral'
+                                                    : 'Persona Física'}{' '}
+                                                · {p.regimen ?? 'Sin régimen'}
                                             </div>
                                         </div>
                                         <div className="join">
                                             <button
                                                 type="button"
-                                                className={`btn btn-sm join-item ${d.accion === 'activar' ? 'btn-success' : 'btn-ghost'}`}
-                                                onClick={() => setAccion(p.id, 'activar')}
+                                                className={`btn join-item btn-sm ${d.accion === 'activar' ? 'btn-success' : 'btn-ghost'}`}
+                                                onClick={() =>
+                                                    setAccion(p.id, 'activar')
+                                                }
                                             >
                                                 Activar
                                             </button>
                                             <button
                                                 type="button"
-                                                className={`btn btn-sm join-item ${d.accion === 'rechazar' ? 'btn-error' : 'btn-ghost'}`}
-                                                onClick={() => setAccion(p.id, 'rechazar')}
+                                                className={`btn join-item btn-sm ${d.accion === 'rechazar' ? 'btn-error' : 'btn-ghost'}`}
+                                                onClick={() =>
+                                                    setAccion(p.id, 'rechazar')
+                                                }
                                             >
                                                 Rechazar
                                             </button>
@@ -360,46 +497,112 @@ function ValidacionProveedoresModal({
 
                                     <div className="grid grid-cols-2 gap-3 text-sm">
                                         <div>
-                                            <span className="text-base-content/60">Banco: </span>
+                                            <span className="text-base-content/60">
+                                                Banco:{' '}
+                                            </span>
                                             {p.banco ?? '-'} · {p.moneda_cuenta}
                                         </div>
                                         <div>
-                                            <span className="text-base-content/60">Titular: </span>
+                                            <span className="text-base-content/60">
+                                                Titular:{' '}
+                                            </span>
                                             {p.titular_cuenta ?? '-'}
                                         </div>
                                         <div>
-                                            <span className="text-base-content/60">CLABE/Tarjeta/Cuenta: </span>
-                                            {p.clabe || p.tarjeta || p.numero_cuenta || '-'}
+                                            <span className="text-base-content/60">
+                                                CLABE/Tarjeta/Cuenta:{' '}
+                                            </span>
+                                            {p.clabe ||
+                                                p.tarjeta ||
+                                                p.numero_cuenta ||
+                                                '-'}
                                         </div>
                                         <div className="flex gap-3">
                                             {p.constancia_url && (
-                                                <a className="link link-primary" href={p.constancia_url} target="_blank" rel="noreferrer">Constancia</a>
+                                                <a
+                                                    className="link link-primary"
+                                                    href={p.constancia_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    Constancia
+                                                </a>
                                             )}
                                             {p.caratula_url && (
-                                                <a className="link link-primary" href={p.caratula_url} target="_blank" rel="noreferrer">Carátula</a>
+                                                <a
+                                                    className="link link-primary"
+                                                    href={p.caratula_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    Carátula
+                                                </a>
                                             )}
                                         </div>
                                     </div>
 
                                     {d.accion === 'rechazar' && (
                                         <div className="mt-4 space-y-2 rounded bg-base-200 p-3">
-                                            <p className="text-sm font-medium">Reasignar partidas a otro proveedor que cotizó:</p>
+                                            <p className="text-sm font-medium">
+                                                Reasignar partidas a otro
+                                                proveedor que cotizó:
+                                            </p>
                                             {p.partidas.map((part) => (
-                                                <div key={part.requisicion_detalle_id} className="flex items-center justify-between gap-2">
-                                                    <span className="text-sm">{part.descripcion}</span>
+                                                <div
+                                                    key={
+                                                        part.requisicion_detalle_id
+                                                    }
+                                                    className="flex items-center justify-between gap-2"
+                                                >
+                                                    <span className="text-sm">
+                                                        {part.descripcion}
+                                                    </span>
                                                     <select
-                                                        className="select select-bordered select-sm w-72"
-                                                        value={d.reemplazos[part.requisicion_detalle_id] ?? ''}
+                                                        className="select-bordered select w-72 select-sm"
+                                                        value={
+                                                            d.reemplazos[
+                                                                part
+                                                                    .requisicion_detalle_id
+                                                            ] ?? ''
+                                                        }
                                                         onChange={(e) =>
-                                                            setReemplazo(p.id, part.requisicion_detalle_id, e.target.value ? Number(e.target.value) : '')
+                                                            setReemplazo(
+                                                                p.id,
+                                                                part.requisicion_detalle_id,
+                                                                e.target.value
+                                                                    ? Number(
+                                                                          e
+                                                                              .target
+                                                                              .value,
+                                                                      )
+                                                                    : '',
+                                                            )
                                                         }
                                                     >
-                                                        <option value="">— Rechazar (sin reemplazo) —</option>
-                                                        {part.alternativas.map((a) => (
-                                                            <option key={a.cotizacion_precio_id} value={a.cotizacion_precio_id}>
-                                                                {a.proveedor} · {fmt(a.precio_unitario)}
-                                                            </option>
-                                                        ))}
+                                                        <option value="">
+                                                            — Rechazar (sin
+                                                            reemplazo) —
+                                                        </option>
+                                                        {part.alternativas.map(
+                                                            (a) => (
+                                                                <option
+                                                                    key={
+                                                                        a.cotizacion_precio_id
+                                                                    }
+                                                                    value={
+                                                                        a.cotizacion_precio_id
+                                                                    }
+                                                                >
+                                                                    {
+                                                                        a.proveedor
+                                                                    }{' '}
+                                                                    ·{' '}
+                                                                    {fmt(
+                                                                        a.precio_unitario,
+                                                                    )}
+                                                                </option>
+                                                            ),
+                                                        )}
                                                     </select>
                                                 </div>
                                             ))}
@@ -416,20 +619,35 @@ function ValidacionProveedoresModal({
                         {rechazaRequisicion ? (
                             <div className="alert alert-error">
                                 <AlertTriangleIcon className="size-5" />
-                                <span>Hay un proveedor rechazado sin reemplazo: al confirmar se <strong>rechazará la requisición completa</strong>.</span>
+                                <span>
+                                    Hay un proveedor rechazado sin reemplazo: al
+                                    confirmar se{' '}
+                                    <strong>
+                                        rechazará la requisición completa
+                                    </strong>
+                                    .
+                                </span>
                             </div>
                         ) : (
                             <div className="alert alert-success">
-                                <span>Al confirmar se activarán los proveedores aprobados y la requisición quedará <strong>aprobada</strong>.</span>
+                                <span>
+                                    Al confirmar se activarán los proveedores
+                                    aprobados y la requisición quedará{' '}
+                                    <strong>aprobada</strong>.
+                                </span>
                             </div>
                         )}
                         <div className="form-control">
-                            <label className="mb-2 text-sm font-medium">Observaciones</label>
+                            <label className="mb-2 text-sm font-medium">
+                                Observaciones
+                            </label>
                             <textarea
-                                className="textarea textarea-bordered w-full"
+                                className="textarea-bordered textarea w-full"
                                 rows={4}
                                 value={observaciones}
-                                onChange={(e) => setObservaciones(e.target.value)}
+                                onChange={(e) =>
+                                    setObservaciones(e.target.value)
+                                }
                                 maxLength={500}
                                 placeholder="Observaciones de la firma..."
                             />
@@ -438,25 +656,44 @@ function ValidacionProveedoresModal({
                 )}
 
                 <div className="modal-action">
-                    <button type="button" className="btn" onClick={onClose} disabled={processing}>
+                    <button
+                        type="button"
+                        className="btn"
+                        onClick={onClose}
+                        disabled={processing}
+                    >
                         Cancelar
                     </button>
                     {step === 1 ? (
-                        <button type="button" className="btn btn-primary" onClick={() => setStep(2)}>
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => setStep(2)}
+                        >
                             Continuar
                         </button>
                     ) : (
                         <>
-                            <button type="button" className="btn" onClick={() => setStep(1)} disabled={processing}>
+                            <button
+                                type="button"
+                                className="btn"
+                                onClick={() => setStep(1)}
+                                disabled={processing}
+                            >
                                 Atrás
                             </button>
                             <button
                                 type="button"
-                                className={`btn ${rechazaRequisicion ? 'btn-error' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                                className={`btn ${rechazaRequisicion ? 'btn-error' : 'bg-green-600 text-white hover:bg-green-700'}`}
                                 onClick={submit}
-                                disabled={processing || observaciones.trim().length < 1}
+                                disabled={
+                                    processing ||
+                                    observaciones.trim().length < 1
+                                }
                             >
-                                {rechazaRequisicion ? 'Rechazar requisición' : 'Firmar y aprobar'}
+                                {rechazaRequisicion
+                                    ? 'Rechazar requisición'
+                                    : 'Firmar y aprobar'}
                             </button>
                         </>
                     )}
@@ -467,12 +704,24 @@ function ValidacionProveedoresModal({
     );
 }
 
-export default function RequisicionesShow({ requisicion, proveedores, obraRubros, usosCfdi, preciosPrevios, aprobacionPendienteId, esUltimoNivel, proveedoresPorValidar }: Props) {
+export default function RequisicionesShow({
+    requisicion,
+    proveedores,
+    obraRubros,
+    usosCfdi,
+    preciosPrevios,
+    aprobacionPendienteId,
+    esUltimoNivel,
+    proveedoresPorValidar,
+}: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/requisiciones' },
         { title: 'Requisiciones', href: '/admin/costos/requisiciones' },
-        { title: requisicion.folio, href: `/admin/costos/requisiciones/${requisicion.id}` },
+        {
+            title: requisicion.folio,
+            href: `/admin/costos/requisiciones/${requisicion.id}`,
+        },
     ];
 
     const { can } = useCan();
@@ -481,21 +730,31 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
     const [marcandoControl, setMarcandoControl] = useState(false);
     const [cancelando, setCancelando] = useState(false);
     const [liberando, setLiberando] = useState(false);
-    const [firmando, setFirmando] = useState<'aprobar' | 'rechazar' | null>(null);
+    const [firmando, setFirmando] = useState<'aprobar' | 'rechazar' | null>(
+        null,
+    );
     const [validando, setValidando] = useState(false);
     const [pdfBloqueado, setPdfBloqueado] = useState(false);
 
-    const requiereValidacion = esUltimoNivel && proveedoresPorValidar.length > 0;
+    const requiereValidacion =
+        esUltimoNivel && proveedoresPorValidar.length > 0;
 
     const editable = ['borrador', 'rechazada'].includes(requisicion.estatus);
-    const cotizable = ['borrador', 'cotizada', 'rechazada', 'aprobada'].includes(requisicion.estatus);
+    const cotizable = [
+        'borrador',
+        'cotizada',
+        'rechazada',
+        'aprobada',
+    ].includes(requisicion.estatus);
     const tieneOcDefinida = (requisicion.ocs?.length ?? 0) > 0;
 
-    const MIN_EMPRESAS_COTIZACION = 3;
+    const MIN_EMPRESAS_COTIZACION = requisicion.modo_dedazo ? 1 : 3;
     // La cotización se compara a nivel requisición: basta con tener al menos
     // MIN_EMPRESAS_COTIZACION proveedores distintos en total (no por partida).
     const empresasCotizando = new Set(
-        (requisicion.detalles ?? []).flatMap((d) => (d.cotizaciones ?? []).map((c) => c.proveedor_id)),
+        (requisicion.detalles ?? []).flatMap((d) =>
+            (d.cotizaciones ?? []).map((c) => c.proveedor_id),
+        ),
     ).size;
     const cotizacionCompleta = empresasCotizando >= MIN_EMPRESAS_COTIZACION;
 
@@ -504,12 +763,26 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
     // suma el neto de todas.
     const resumenNeto = useMemo(() => {
         const provMap = new Map(proveedores.map((p) => [p.id, p]));
-        const grupos = new Map<string, { proveedorId: number; lines: { tipo_fiscal: CostosTipoFiscalPartida; subtotal: number }[] }>();
+        const grupos = new Map<
+            string,
+            {
+                proveedorId: number;
+                lines: {
+                    tipo_fiscal: CostosTipoFiscalPartida;
+                    subtotal: number;
+                }[];
+            }
+        >();
         (requisicion.detalles ?? []).forEach((d) => {
             (d.selecciones ?? []).forEach((s) => {
                 const key = `${s.proveedor_id}|${s.numero_oc ?? 1}`;
-                const sub = Number(s.cotizacion_precio?.precio_unitario ?? 0) * Number(s.cantidad);
-                const g = grupos.get(key) ?? { proveedorId: s.proveedor_id, lines: [] };
+                const sub =
+                    Number(s.cotizacion_precio?.precio_unitario ?? 0) *
+                    Number(s.cantidad);
+                const g = grupos.get(key) ?? {
+                    proveedorId: s.proveedor_id,
+                    lines: [],
+                };
                 g.lines.push({ tipo_fiscal: d.tipo_fiscal, subtotal: sub });
                 grupos.set(key, g);
             });
@@ -519,13 +792,23 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
         let ret = 0;
         grupos.forEach((g) => {
             subtotal += g.lines.reduce((a, l) => a + l.subtotal, 0);
-            ret += calcularRetenciones(provMap.get(g.proveedorId), g.lines).reduce((a, r) => a + r.monto, 0);
+            ret += calcularRetenciones(
+                provMap.get(g.proveedorId),
+                g.lines,
+            ).reduce((a, r) => a + r.monto, 0);
         });
         const iva = subtotal * IVA_RATE;
-        return { subtotal, iva, ret, total: subtotal + iva, neto: subtotal + iva - ret };
+        return {
+            subtotal,
+            iva,
+            ret,
+            total: subtotal + iva,
+            neto: subtotal + iva - ret,
+        };
     }, [requisicion.detalles, proveedores]);
 
-    const fmtMoney = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const fmtMoney = (n: number) =>
+        `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -534,21 +817,34 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
             <div className="p-6">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h1 className="text-2xl font-semibold">{requisicion.folio}</h1>
+                        <h1 className="text-2xl font-semibold">
+                            {requisicion.folio}
+                        </h1>
                         <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <span className={`badge ${REQUISICION_ESTATUS_COLORS[requisicion.estatus]}`}>
-                                {REQUISICION_ESTATUS_LABELS[requisicion.estatus]}
+                            <span
+                                className={`badge ${REQUISICION_ESTATUS_COLORS[requisicion.estatus]}`}
+                            >
+                                {
+                                    REQUISICION_ESTATUS_LABELS[
+                                        requisicion.estatus
+                                    ]
+                                }
                             </span>
                             {requisicion.sobre_obra_cerrada && (
-                                <span className="badge badge-warning gap-1" title="Carga sobre presupuesto cerrado">
+                                <span
+                                    className="badge gap-1 badge-warning"
+                                    title="Carga sobre presupuesto cerrado"
+                                >
                                     ⚠ Presupuesto cerrado
                                 </span>
                             )}
                             <span className="text-sm text-base-content/60">
-                                {requisicion.solicitante?.name} · {requisicion.departamento?.descripcion}
+                                {requisicion.solicitante?.name} ·{' '}
+                                {requisicion.departamento?.descripcion}
                                 {requisicion.presupuesto &&
                                     ` · ${requisicion.presupuesto.nombre_mostrar ?? ''}${requisicion.presupuesto.op_mostrar ? ` (${requisicion.presupuesto.op_mostrar})` : ''}`}
-                                {' · '}{fmtDate(requisicion.created_at)}
+                                {' · '}
+                                {fmtDate(requisicion.created_at)}
                             </span>
                         </div>
                     </div>
@@ -556,12 +852,19 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                     <div className="flex gap-2">
                         {requisicion.control_verificado ? (
                             <Button variant="outline" asChild>
-                                <a href={`/admin/costos/requisiciones/${requisicion.id}/pdf`} target="_blank" rel="noreferrer">
+                                <a
+                                    href={`/admin/costos/requisiciones/${requisicion.id}/pdf`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
                                     Generar Formato PDF
                                 </a>
                             </Button>
                         ) : (
-                            <Button variant="outline" onClick={() => setPdfBloqueado(true)}>
+                            <Button
+                                variant="outline"
+                                onClick={() => setPdfBloqueado(true)}
+                            >
                                 Generar Formato PDF
                             </Button>
                         )}
@@ -570,8 +873,14 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                             <Button
                                 variant="outline"
                                 onClick={() => {
-                                    if (confirm('¿Duplicar esta requisición en una nueva (borrador) con folio nuevo? Se copian partidas y cotizaciones.')) {
-                                        router.post(`/admin/costos/requisiciones/${requisicion.id}/duplicar`);
+                                    if (
+                                        confirm(
+                                            '¿Duplicar esta requisición en una nueva (borrador) con folio nuevo? Se copian partidas y cotizaciones.',
+                                        )
+                                    ) {
+                                        router.post(
+                                            `/admin/costos/requisiciones/${requisicion.id}/duplicar`,
+                                        );
                                     }
                                 }}
                             >
@@ -581,7 +890,11 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
 
                         {editable && can('costos.requisiciones.crear') && (
                             <Button variant="outline" asChild>
-                                <Link href={`/admin/costos/requisiciones/${requisicion.id}/edit`}>Editar</Link>
+                                <Link
+                                    href={`/admin/costos/requisiciones/${requisicion.id}/edit`}
+                                >
+                                    Editar
+                                </Link>
                             </Button>
                         )}
 
@@ -589,50 +902,114 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                             <>
                                 {requisicion.control_verificado ? (
                                     <span
-                                        className="badge badge-success gap-1 py-3"
-                                        title={requisicion.controlador ? `Verificación gerencial: ${requisicion.controlador.name}` : 'Verificación gerencial marcada'}
+                                        className="badge gap-1 py-3 badge-success"
+                                        title={
+                                            requisicion.controlador
+                                                ? `Verificación gerencial: ${requisicion.controlador.name}`
+                                                : 'Verificación gerencial marcada'
+                                        }
                                     >
                                         ✓ Verificación gerencial
                                     </span>
                                 ) : (
                                     can('costos.requisiciones.control') && (
-                                        <Button variant="outline" onClick={() => setMarcandoControl(true)}>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() =>
+                                                setMarcandoControl(true)
+                                            }
+                                        >
                                             Marcar verificación gerencial
                                         </Button>
                                     )
                                 )}
 
-                                {requisicion.control_verificado && can('costos.requisiciones.control') && (
-                                    <Button
-                                        variant="outline"
-                                        className="text-error"
-                                        onClick={() => {
-                                            if (confirm('¿Quitar la verificación gerencial? Deshabilitará el envío a aprobación.')) {
-                                                router.delete(`/admin/costos/requisiciones/${requisicion.id}/punto-control`, { preserveScroll: true });
-                                            }
-                                        }}
-                                    >
-                                        Quitar verificación
-                                    </Button>
-                                )}
+                                {requisicion.control_verificado &&
+                                    can('costos.requisiciones.control') && (
+                                        <Button
+                                            variant="outline"
+                                            className="text-error"
+                                            onClick={() => {
+                                                if (
+                                                    confirm(
+                                                        '¿Quitar la verificación gerencial? Deshabilitará el envío a aprobación.',
+                                                    )
+                                                ) {
+                                                    router.delete(
+                                                        `/admin/costos/requisiciones/${requisicion.id}/punto-control`,
+                                                        {
+                                                            preserveScroll: true,
+                                                        },
+                                                    );
+                                                }
+                                            }}
+                                        >
+                                            Quitar verificación
+                                        </Button>
+                                    )}
 
-                                {can('costos.requisiciones.cotizar') && (
-                                    <Button
-                                        onClick={() => setEnviarAprobacion(true)}
-                                        disabled={!requisicion.control_verificado}
-                                        title={!requisicion.control_verificado ? 'Falta la verificación gerencial' : undefined}
-                                    >
-                                        Enviar a aprobación
-                                    </Button>
-                                )}
+                                {requisicion.modo_dedazo
+                                    ? can('costos.requisiciones.liberar') && (
+                                          <Button
+                                              onClick={() => {
+                                                  if (
+                                                      confirm(
+                                                          '¿Convertir a orden de compra? Se afectará el presupuesto y se generará la OC directamente, sin cadena de aprobación.',
+                                                      )
+                                                  ) {
+                                                      router.post(
+                                                          `/admin/costos/requisiciones/${requisicion.id}/convertir-oc`,
+                                                          {},
+                                                          {
+                                                              preserveScroll: true,
+                                                          },
+                                                      );
+                                                  }
+                                              }}
+                                              disabled={
+                                                  !requisicion.control_verificado
+                                              }
+                                              title={
+                                                  !requisicion.control_verificado
+                                                      ? 'Falta la verificación gerencial'
+                                                      : undefined
+                                              }
+                                          >
+                                              Afectar y generar OC
+                                          </Button>
+                                      )
+                                    : can('costos.requisiciones.cotizar') && (
+                                          <Button
+                                              onClick={() =>
+                                                  setEnviarAprobacion(true)
+                                              }
+                                              disabled={
+                                                  !requisicion.control_verificado
+                                              }
+                                              title={
+                                                  !requisicion.control_verificado
+                                                      ? 'Falta la verificación gerencial'
+                                                      : undefined
+                                              }
+                                          >
+                                              Enviar a aprobación
+                                          </Button>
+                                      )}
                             </>
                         )}
 
-                        {!['liberada', 'cancelada'].includes(requisicion.estatus) && can('costos.requisiciones.cancelar') && (
-                            <Button variant="outline" className="text-error" onClick={() => setCancelando(true)}>
-                                Cancelar
-                            </Button>
-                        )}
+                        {!['liberada', 'cancelada'].includes(
+                            requisicion.estatus,
+                        ) &&
+                            can('costos.requisiciones.cancelar') && (
+                                <Button
+                                    variant="outline"
+                                    className="text-error"
+                                    onClick={() => setCancelando(true)}
+                                >
+                                    Cancelar
+                                </Button>
+                            )}
                     </div>
                 </div>
 
@@ -651,30 +1028,53 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                 />
 
                 {requisicion.motivo_rechazo && (
-                    <div className="alert alert-error mb-4">
-                        <span><strong>Motivo de rechazo:</strong> {requisicion.motivo_rechazo}</span>
+                    <div className="mb-4 alert alert-error">
+                        <span>
+                            <strong>Motivo de rechazo:</strong>{' '}
+                            {requisicion.motivo_rechazo}
+                        </span>
                     </div>
                 )}
 
-                <div role="tablist" className="tabs tabs-bordered mb-4">
-                    <button role="tab" className={`tab ${tab === 'datos' ? 'tab-active' : ''}`} onClick={() => setTab('datos')}>
+                <div role="tablist" className="tabs-bordered mb-4 tabs">
+                    <button
+                        role="tab"
+                        className={`tab ${tab === 'datos' ? 'tab-active' : ''}`}
+                        onClick={() => setTab('datos')}
+                    >
                         Resumen
                     </button>
                     {can('costos.requisiciones.cotizar') && (
-                        <button role="tab" className={`tab ${tab === 'cotizacion' ? 'tab-active' : ''}`} onClick={() => setTab('cotizacion')}>
+                        <button
+                            role="tab"
+                            className={`tab ${tab === 'cotizacion' ? 'tab-active' : ''}`}
+                            onClick={() => setTab('cotizacion')}
+                        >
                             Cotización
                         </button>
                     )}
                     {can('costos.requisiciones.cotizar') && (
-                        <button role="tab" className={`tab ${tab === 'definir-oc' ? 'tab-active' : ''}`} onClick={() => setTab('definir-oc')}>
+                        <button
+                            role="tab"
+                            className={`tab ${tab === 'definir-oc' ? 'tab-active' : ''}`}
+                            onClick={() => setTab('definir-oc')}
+                        >
                             Definir OC
                         </button>
                     )}
-                    <button role="tab" className={`tab ${tab === 'aprobacion' ? 'tab-active' : ''}`} onClick={() => setTab('aprobacion')}>
+                    <button
+                        role="tab"
+                        className={`tab ${tab === 'aprobacion' ? 'tab-active' : ''}`}
+                        onClick={() => setTab('aprobacion')}
+                    >
                         Aprobación
                     </button>
                     {(requisicion.ordenes_generadas?.length ?? 0) > 0 && (
-                        <button role="tab" className={`tab ${tab === 'ocs' ? 'tab-active' : ''}`} onClick={() => setTab('ocs')}>
+                        <button
+                            role="tab"
+                            className={`tab ${tab === 'ocs' ? 'tab-active' : ''}`}
+                            onClick={() => setTab('ocs')}
+                        >
                             OCs ({requisicion.ordenes_generadas?.length})
                         </button>
                     )}
@@ -684,12 +1084,18 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                     <div className="rounded-lg border border-base-300 p-4">
                         {requisicion.justificacion && (
                             <div className="mb-4">
-                                <div className="text-xs text-base-content/60">Justificación</div>
-                                <p className="text-sm">{requisicion.justificacion}</p>
+                                <div className="text-xs text-base-content/60">
+                                    Justificación
+                                </div>
+                                <p className="text-sm">
+                                    {requisicion.justificacion}
+                                </p>
                             </div>
                         )}
 
-                        <h3 className="mb-2 font-medium">Partidas solicitadas</h3>
+                        <h3 className="mb-2 font-medium">
+                            Partidas solicitadas
+                        </h3>
                         <div className="overflow-x-auto">
                             <table className="table table-sm">
                                 <thead>
@@ -698,7 +1104,9 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                                         <th>Código producto</th>
                                         <th>Centro de Costos</th>
                                         <th>Uso CFDI</th>
-                                        <th className="text-right">Disponible</th>
+                                        <th className="text-right">
+                                            Disponible
+                                        </th>
                                         <th>Unidad</th>
                                         <th className="text-right">Cantidad</th>
                                         <th>Notas</th>
@@ -706,42 +1114,93 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                                 </thead>
                                 <tbody>
                                     {requisicion.detalles?.map((d) => {
-                                        const presupuestado = Number(d.obra_rubro?.presupuestado ?? 0);
-                                        const acumulado = Number(d.obra_rubro?.acumulado ?? 0);
-                                        const disponible = presupuestado - acumulado;
-                                        const sobregiro = !!d.obra_rubro && disponible < 0;
-                                        const fmtMoney = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+                                        const presupuestado = Number(
+                                            d.obra_rubro?.presupuestado ?? 0,
+                                        );
+                                        const acumulado = Number(
+                                            d.obra_rubro?.acumulado ?? 0,
+                                        );
+                                        const disponible =
+                                            presupuestado - acumulado;
+                                        const sobregiro =
+                                            !!d.obra_rubro && disponible < 0;
+                                        const fmtMoney = (n: number) =>
+                                            `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
                                         return (
-                                            <tr key={d.id} className={sobregiro ? 'bg-error/5' : ''}>
+                                            <tr
+                                                key={d.id}
+                                                className={
+                                                    sobregiro
+                                                        ? 'bg-error/5'
+                                                        : ''
+                                                }
+                                            >
                                                 <td>{d.descripcion}</td>
-                                                <td className="text-xs">{d.codigo_producto ?? '-'}</td>
+                                                <td className="text-xs">
+                                                    {d.codigo_producto ?? '-'}
+                                                </td>
                                                 <td className="text-xs">
                                                     {d.obra_rubro ? (
                                                         <div className="space-y-0.5">
                                                             <div className="font-medium">
-                                                                {d.obra_rubro.presupuesto?.nombre_mostrar ?? '-'}
+                                                                {d.obra_rubro
+                                                                    .presupuesto
+                                                                    ?.nombre_mostrar ??
+                                                                    '-'}
                                                             </div>
                                                             <div className="text-base-content/60">
-                                                                {d.obra_rubro.rubro?.codigo} · {d.obra_rubro.rubro?.descripcion}
+                                                                {
+                                                                    d.obra_rubro
+                                                                        .rubro
+                                                                        ?.codigo
+                                                                }{' '}
+                                                                ·{' '}
+                                                                {
+                                                                    d.obra_rubro
+                                                                        .rubro
+                                                                        ?.descripcion
+                                                                }
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <span className="text-warning">Sin centro de costos</span>
+                                                        <span className="text-warning">
+                                                            Sin centro de costos
+                                                        </span>
                                                     )}
                                                 </td>
-                                                <td className="text-xs">{d.uso_cfdi ? `${d.uso_cfdi.clave}` : '-'}</td>
-                                                <td className={`text-right text-xs font-medium ${sobregiro ? 'text-error' : ''}`}>
+                                                <td className="text-xs">
+                                                    {d.uso_cfdi
+                                                        ? `${d.uso_cfdi.clave}`
+                                                        : '-'}
+                                                </td>
+                                                <td
+                                                    className={`text-right text-xs font-medium ${sobregiro ? 'text-error' : ''}`}
+                                                >
                                                     {d.obra_rubro ? (
                                                         <>
-                                                            {fmtMoney(disponible)}
-                                                            {sobregiro && <span className="ml-1">⚠</span>}
+                                                            {fmtMoney(
+                                                                disponible,
+                                                            )}
+                                                            {sobregiro && (
+                                                                <span className="ml-1">
+                                                                    ⚠
+                                                                </span>
+                                                            )}
                                                         </>
-                                                    ) : '—'}
+                                                    ) : (
+                                                        '—'
+                                                    )}
                                                 </td>
                                                 <td>{d.unidad}</td>
-                                                <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
-                                                <td className="text-xs text-base-content/60">{d.notas ?? '-'}</td>
+                                                <td className="text-right">
+                                                    {Number(
+                                                        d.cantidad,
+                                                    ).toLocaleString('es-MX')}
+                                                </td>
+                                                <td className="text-xs text-base-content/60">
+                                                    {d.notas ?? '-'}
+                                                </td>
                                             </tr>
                                         );
                                     })}
@@ -753,56 +1212,116 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
 
                         {resumenNeto && (
                             <div className="mt-4 rounded-lg border border-base-300 bg-base-200/40 p-4">
-                                <h3 className="mb-2 text-xs tracking-wider text-base-content/60 uppercase">Total de las órdenes de compra</h3>
+                                <h3 className="mb-2 text-xs tracking-wider text-base-content/60 uppercase">
+                                    Total de las órdenes de compra
+                                </h3>
                                 <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm md:max-w-sm">
-                                    <div className="text-base-content/60">Subtotal</div>
-                                    <div className="text-right">{fmtMoney(resumenNeto.subtotal)}</div>
-                                    <div className="text-base-content/60">IVA (16%)</div>
-                                    <div className="text-right">+{fmtMoney(resumenNeto.iva)}</div>
+                                    <div className="text-base-content/60">
+                                        Subtotal
+                                    </div>
+                                    <div className="text-right">
+                                        {fmtMoney(resumenNeto.subtotal)}
+                                    </div>
+                                    <div className="text-base-content/60">
+                                        IVA (16%)
+                                    </div>
+                                    <div className="text-right">
+                                        +{fmtMoney(resumenNeto.iva)}
+                                    </div>
                                     <div className="font-medium">Total</div>
-                                    <div className="text-right font-medium">{fmtMoney(resumenNeto.total)}</div>
+                                    <div className="text-right font-medium">
+                                        {fmtMoney(resumenNeto.total)}
+                                    </div>
                                     {resumenNeto.ret > 0 && (
                                         <>
-                                            <div className="text-error/80">Retenciones</div>
-                                            <div className="text-right text-error/80">−{fmtMoney(resumenNeto.ret)}</div>
+                                            <div className="text-error/80">
+                                                Retenciones
+                                            </div>
+                                            <div className="text-right text-error/80">
+                                                −{fmtMoney(resumenNeto.ret)}
+                                            </div>
                                         </>
                                     )}
-                                    <div className="text-base font-bold">Total neto a pagar</div>
-                                    <div className="text-right text-base font-bold text-primary">{fmtMoney(resumenNeto.neto)}</div>
+                                    <div className="text-base font-bold">
+                                        Total neto a pagar
+                                    </div>
+                                    <div className="text-right text-base font-bold text-primary">
+                                        {fmtMoney(resumenNeto.neto)}
+                                    </div>
                                 </div>
                             </div>
                         )}
                     </div>
                 )}
 
-                {tab === 'cotizacion' && can('costos.requisiciones.cotizar') && (
-                    <CotizacionMatriz
-                        requisicion={requisicion}
-                        proveedores={proveedores}
-                        obraRubros={obraRubros}
-                        usosCfdi={usosCfdi}
-                        preciosPrevios={preciosPrevios}
-                        editable={cotizable}
-                        puedeEditarPartidas={['borrador', 'cotizada', 'rechazada'].includes(requisicion.estatus)}
-                    />
-                )}
+                {tab === 'cotizacion' &&
+                    can('costos.requisiciones.cotizar') && (
+                        <div className="space-y-3">
+                            {cotizable && (
+                                <label className="flex w-fit items-center gap-2 rounded-lg border border-base-300 px-3 py-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        className="checkbox checkbox-sm"
+                                        checked={
+                                            requisicion.modo_dedazo ?? false
+                                        }
+                                        onChange={(e) =>
+                                            router.post(
+                                                `/admin/costos/requisiciones/${requisicion.id}/dedazo`,
+                                                {
+                                                    modo_dedazo:
+                                                        e.target.checked,
+                                                },
+                                                { preserveScroll: true },
+                                            )
+                                        }
+                                    />
+                                    <span className="font-medium">
+                                        Modo materia prima
+                                    </span>
+                                    <span className="text-base-content/60">
+                                        un solo proveedor · se convierte directo
+                                        a OC (con verificación gerencial, sin
+                                        cadena de aprobación)
+                                    </span>
+                                </label>
+                            )}
+                            <CotizacionMatriz
+                                requisicion={requisicion}
+                                proveedores={proveedores}
+                                obraRubros={obraRubros}
+                                usosCfdi={usosCfdi}
+                                preciosPrevios={preciosPrevios}
+                                editable={cotizable}
+                                puedeEditarPartidas={[
+                                    'borrador',
+                                    'cotizada',
+                                    'rechazada',
+                                ].includes(requisicion.estatus)}
+                            />
+                        </div>
+                    )}
 
-                {tab === 'definir-oc' && can('costos.requisiciones.cotizar') && (
-                    <>
-                        <OcBuilder
-                            requisicion={requisicion}
-                            proveedores={proveedores}
-                            editable={cotizable}
-                        />
-                        {requisicion.estatus === 'aprobada' && can('costos.requisiciones.liberar') && (
-                            <div className="mt-4 flex justify-end">
-                                <Button onClick={() => setLiberando(true)}>
-                                    Liberar y generar OCs
-                                </Button>
-                            </div>
-                        )}
-                    </>
-                )}
+                {tab === 'definir-oc' &&
+                    can('costos.requisiciones.cotizar') && (
+                        <>
+                            <OcBuilder
+                                requisicion={requisicion}
+                                proveedores={proveedores}
+                                editable={cotizable}
+                            />
+                            {requisicion.estatus === 'aprobada' &&
+                                can('costos.requisiciones.liberar') && (
+                                    <div className="mt-4 flex justify-end">
+                                        <Button
+                                            onClick={() => setLiberando(true)}
+                                        >
+                                            Liberar y generar OCs
+                                        </Button>
+                                    </div>
+                                )}
+                        </>
+                    )}
 
                 {tab === 'aprobacion' && (
                     <div className="rounded-lg border border-base-300 p-4">
@@ -812,46 +1331,110 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                                 <div className="flex gap-2">
                                     <Button
                                         className="bg-green-600 hover:bg-green-700"
-                                        onClick={() => (requiereValidacion ? setValidando(true) : setFirmando('aprobar'))}
+                                        onClick={() =>
+                                            requiereValidacion
+                                                ? setValidando(true)
+                                                : setFirmando('aprobar')
+                                        }
                                     >
-                                        {requiereValidacion ? 'Firmar (validar proveedores)' : 'Firmar'}
+                                        {requiereValidacion
+                                            ? 'Firmar (validar proveedores)'
+                                            : 'Firmar'}
                                     </Button>
-                                    <Button variant="destructive" onClick={() => setFirmando('rechazar')}>
+                                    <Button
+                                        variant="destructive"
+                                        onClick={() => setFirmando('rechazar')}
+                                    >
                                         Rechazar
                                     </Button>
                                 </div>
                             )}
                         </div>
-                        {!requisicion.aprobaciones || requisicion.aprobaciones.length === 0 ? (
-                            <p className="text-sm text-base-content/60">Aún no se ha enviado a aprobación.</p>
+                        {!requisicion.aprobaciones ||
+                        requisicion.aprobaciones.length === 0 ? (
+                            <p className="text-sm text-base-content/60">
+                                Aún no se ha enviado a aprobación.
+                            </p>
                         ) : (
                             <div className="space-y-2">
                                 {/* Un nivel puede tener varios aprobadores (la primera firma cierra el
                                     nivel); se agrupa por nivel para no repetir filas. */}
-                                {[...new Set(requisicion.aprobaciones.map((a) => a.nivel))]
+                                {[
+                                    ...new Set(
+                                        requisicion.aprobaciones.map(
+                                            (a) => a.nivel,
+                                        ),
+                                    ),
+                                ]
                                     .sort((a, b) => a - b)
                                     .map((nivel) => {
-                                        const delNivel = requisicion.aprobaciones!.filter((a) => a.nivel === nivel);
-                                        const resuelta = delNivel.find((a) => a.estatus === 'aprobada')
-                                            ?? delNivel.find((a) => a.estatus === 'rechazada');
-                                        const estatus = resuelta?.estatus ?? (delNivel.every((a) => a.estatus === 'cancelada') ? 'cancelada' : 'pendiente');
-                                        const candidatos = [...new Set(delNivel.map((a) => a.aprobador?.name).filter(Boolean))].join(' / ');
-                                        const quien = resuelta?.aprobador?.name ?? (candidatos || 'Sin asignar');
+                                        const delNivel =
+                                            requisicion.aprobaciones!.filter(
+                                                (a) => a.nivel === nivel,
+                                            );
+                                        const resuelta =
+                                            delNivel.find(
+                                                (a) => a.estatus === 'aprobada',
+                                            ) ??
+                                            delNivel.find(
+                                                (a) =>
+                                                    a.estatus === 'rechazada',
+                                            );
+                                        const estatus =
+                                            resuelta?.estatus ??
+                                            (delNivel.every(
+                                                (a) =>
+                                                    a.estatus === 'cancelada',
+                                            )
+                                                ? 'cancelada'
+                                                : 'pendiente');
+                                        const candidatos = [
+                                            ...new Set(
+                                                delNivel
+                                                    .map(
+                                                        (a) =>
+                                                            a.aprobador?.name,
+                                                    )
+                                                    .filter(Boolean),
+                                            ),
+                                        ].join(' / ');
+                                        const quien =
+                                            resuelta?.aprobador?.name ??
+                                            (candidatos || 'Sin asignar');
 
                                         return (
-                                            <div key={nivel} className="flex items-center justify-between rounded border border-base-200 p-3">
+                                            <div
+                                                key={nivel}
+                                                className="flex items-center justify-between rounded border border-base-200 p-3"
+                                            >
                                                 <div>
-                                                    <div className="text-sm font-medium">{nivel === 0 ? 'Firma adicional' : `Nivel ${nivel}`}: {quien}</div>
+                                                    <div className="text-sm font-medium">
+                                                        {nivel === 0
+                                                            ? 'Firma adicional'
+                                                            : `Nivel ${nivel}`}
+                                                        : {quien}
+                                                    </div>
                                                     {resuelta?.observaciones && (
-                                                        <div className="text-xs text-base-content/60 mt-1">{resuelta.observaciones}</div>
+                                                        <div className="mt-1 text-xs text-base-content/60">
+                                                            {
+                                                                resuelta.observaciones
+                                                            }
+                                                        </div>
                                                     )}
                                                 </div>
-                                                <span className={`badge badge-sm ${
-                                                    estatus === 'aprobada' ? 'badge-success' :
-                                                    estatus === 'rechazada' ? 'badge-error' :
-                                                    estatus === 'cancelada' ? 'badge-neutral' :
-                                                    'badge-warning'
-                                                }`}>
+                                                <span
+                                                    className={`badge badge-sm ${
+                                                        estatus === 'aprobada'
+                                                            ? 'badge-success'
+                                                            : estatus ===
+                                                                'rechazada'
+                                                              ? 'badge-error'
+                                                              : estatus ===
+                                                                  'cancelada'
+                                                                ? 'badge-neutral'
+                                                                : 'badge-warning'
+                                                    }`}
+                                                >
                                                     {estatus}
                                                 </span>
                                             </div>
@@ -860,12 +1443,17 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                             </div>
                         )}
 
-                        {requisicion.activities && requisicion.activities.length > 0 && (
-                            <div className="mt-6">
-                                <h3 className="mb-3 font-medium">Historial</h3>
-                                <ActivityTimeline activities={requisicion.activities} />
-                            </div>
-                        )}
+                        {requisicion.activities &&
+                            requisicion.activities.length > 0 && (
+                                <div className="mt-6">
+                                    <h3 className="mb-3 font-medium">
+                                        Historial
+                                    </h3>
+                                    <ActivityTimeline
+                                        activities={requisicion.activities}
+                                    />
+                                </div>
+                            )}
                     </div>
                 )}
 
@@ -904,66 +1492,115 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
                 )}
 
                 {pdfBloqueado && (
-                    <dialog className="modal modal-open">
+                    <dialog className="modal-open modal">
                         <div className="modal-box">
-                            <h2 className="text-xl font-bold">Falta la verificación gerencial</h2>
+                            <h2 className="text-xl font-bold">
+                                Falta la verificación gerencial
+                            </h2>
                             <p className="mt-3 text-sm text-base-content/70">
-                                El comparativo solo puede generarse una vez que la requisición tenga la
-                                <strong> verificación gerencial</strong>. Márcala desde la pestaña de cotización
-                                y vuelve a intentarlo.
+                                El comparativo solo puede generarse una vez que
+                                la requisición tenga la
+                                <strong> verificación gerencial</strong>.
+                                Márcala desde la pestaña de cotización y vuelve
+                                a intentarlo.
                             </p>
                             <div className="modal-action">
-                                <button type="button" className="btn btn-primary" onClick={() => setPdfBloqueado(false)}>
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    onClick={() => setPdfBloqueado(false)}
+                                >
                                     Entendido
                                 </button>
                             </div>
                         </div>
-                        <div className="modal-backdrop" onClick={() => setPdfBloqueado(false)} />
+                        <div
+                            className="modal-backdrop"
+                            onClick={() => setPdfBloqueado(false)}
+                        />
                     </dialog>
                 )}
 
                 {tab === 'ocs' && (
                     <div className="rounded-lg border border-base-300 p-4">
-                        <h3 className="mb-3 font-medium">Órdenes de compra generadas</h3>
+                        <h3 className="mb-3 font-medium">
+                            Órdenes de compra generadas
+                        </h3>
                         <div className="space-y-3">
                             {requisicion.ordenes_generadas?.map((oc) => (
-                                <div key={oc.id} className="rounded border border-base-200">
+                                <div
+                                    key={oc.id}
+                                    className="rounded border border-base-200"
+                                >
                                     <Link
                                         href={`/admin/costos/ordenes-compra/${oc.id}`}
                                         className="flex items-center justify-between p-3 hover:bg-base-100"
                                     >
                                         <div>
-                                            <div className="font-mono text-sm">{oc.folio}</div>
-                                            <div className="text-xs text-base-content/60">{oc.proveedor?.razon_social ?? '-'}</div>
+                                            <div className="font-mono text-sm">
+                                                {oc.folio}
+                                            </div>
+                                            <div className="text-xs text-base-content/60">
+                                                {oc.proveedor?.razon_social ??
+                                                    '-'}
+                                            </div>
                                         </div>
                                         <div className="text-right">
-                                            <div className="font-medium">${Number(oc.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
-                                            <div className="text-xs text-base-content/60">{oc.estatus}</div>
+                                            <div className="font-medium">
+                                                $
+                                                {Number(
+                                                    oc.total,
+                                                ).toLocaleString('es-MX', {
+                                                    minimumFractionDigits: 2,
+                                                })}
+                                            </div>
+                                            <div className="text-xs text-base-content/60">
+                                                {oc.estatus}
+                                            </div>
                                         </div>
                                     </Link>
 
-                                    {oc.solicitudes_pago && oc.solicitudes_pago.length > 0 && (
-                                        <div className="border-t border-base-200 bg-base-100/50 px-3 py-2">
-                                            <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-base-content/50">
-                                                Solicitudes de pago
+                                    {oc.solicitudes_pago &&
+                                        oc.solicitudes_pago.length > 0 && (
+                                            <div className="border-t border-base-200 bg-base-100/50 px-3 py-2">
+                                                <div className="mb-1 text-[11px] font-medium tracking-wider text-base-content/50 uppercase">
+                                                    Solicitudes de pago
+                                                </div>
+                                                <div className="space-y-1">
+                                                    {oc.solicitudes_pago.map(
+                                                        (sp) => (
+                                                            <Link
+                                                                key={sp.id}
+                                                                href={`/admin/costos/solicitudes-pago/${sp.id}`}
+                                                                className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-base-200"
+                                                            >
+                                                                <span className="font-mono text-xs">
+                                                                    {sp.folio}
+                                                                </span>
+                                                                <span className="flex items-center gap-3">
+                                                                    <span className="font-medium">
+                                                                        $
+                                                                        {Number(
+                                                                            sp.monto_total,
+                                                                        ).toLocaleString(
+                                                                            'es-MX',
+                                                                            {
+                                                                                minimumFractionDigits: 2,
+                                                                            },
+                                                                        )}
+                                                                    </span>
+                                                                    <span className="text-xs text-base-content/60">
+                                                                        {
+                                                                            sp.estatus
+                                                                        }
+                                                                    </span>
+                                                                </span>
+                                                            </Link>
+                                                        ),
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="space-y-1">
-                                                {oc.solicitudes_pago.map((sp) => (
-                                                    <Link
-                                                        key={sp.id}
-                                                        href={`/admin/costos/solicitudes-pago/${sp.id}`}
-                                                        className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-base-200"
-                                                    >
-                                                        <span className="font-mono text-xs">{sp.folio}</span>
-                                                        <span className="flex items-center gap-3">
-                                                            <span className="font-medium">${Number(sp.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
-                                                            <span className="text-xs text-base-content/60">{sp.estatus}</span>
-                                                        </span>
-                                                    </Link>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                        )}
                                 </div>
                             ))}
                         </div>
@@ -984,7 +1621,11 @@ export default function RequisicionesShow({ requisicion, proveedores, obraRubros
  * si cotizó la partida, o el menor precio cotizado. Al final calcula subtotal,
  * IVA 16% y total.
  */
-function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisicion }) {
+function ComparativoCotizaciones({
+    requisicion,
+}: {
+    requisicion: CostosRequisicion;
+}) {
     const detalles = requisicion.detalles ?? [];
 
     // Columnas = opciones con al menos un precio, agrupadas por proveedor.
@@ -994,30 +1635,52 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
             if (c.opcion_id != null) opcionConPrecio.add(c.opcion_id);
         }
     }
-    const opciones = (requisicion.cotizacion_opciones ?? []).filter((o) => opcionConPrecio.has(o.id));
+    const opciones = (requisicion.cotizacion_opciones ?? []).filter((o) =>
+        opcionConPrecio.has(o.id),
+    );
     if (opciones.length === 0) return null;
 
-    const etiquetaOpcion = (o: (typeof opciones)[number]) => o.etiqueta || `Opción ${o.orden}`;
+    const etiquetaOpcion = (o: (typeof opciones)[number]) =>
+        o.etiqueta || `Opción ${o.orden}`;
 
-    const gruposMap = new Map<number, { proveedorId: number; nombre: string; opciones: typeof opciones }>();
+    const gruposMap = new Map<
+        number,
+        { proveedorId: number; nombre: string; opciones: typeof opciones }
+    >();
     for (const o of opciones) {
-        const nombre = o.proveedor?.nombre_comercial || o.proveedor?.razon_social || `#${o.proveedor_id}`;
-        const g = gruposMap.get(o.proveedor_id) ?? { proveedorId: o.proveedor_id, nombre, opciones: [] };
+        const nombre =
+            o.proveedor?.nombre_comercial ||
+            o.proveedor?.razon_social ||
+            `#${o.proveedor_id}`;
+        const g = gruposMap.get(o.proveedor_id) ?? {
+            proveedorId: o.proveedor_id,
+            nombre,
+            opciones: [],
+        };
         g.opciones.push(o);
         gruposMap.set(o.proveedor_id, g);
     }
     const grupos = Array.from(gruposMap.values())
-        .map((g) => ({ ...g, opciones: [...g.opciones].sort((a, b) => a.orden - b.orden) }))
+        .map((g) => ({
+            ...g,
+            opciones: [...g.opciones].sort((a, b) => a.orden - b.orden),
+        }))
         .sort((a, b) => a.nombre.localeCompare(b.nombre));
     const columnas = grupos.flatMap((g) => g.opciones);
 
     const mejorProveedorId = requisicion.mejor_proveedor?.id ?? null;
-    const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const fmt = (n: number) =>
+        `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     const cotizacionDe = (detalleId: number, opcionId: number) =>
-        detalles.find((x) => x.id === detalleId)?.cotizaciones?.find((c) => c.opcion_id === opcionId);
+        detalles
+            .find((x) => x.id === detalleId)
+            ?.cotizaciones?.find((c) => c.opcion_id === opcionId);
 
-    const precioPartidaProv = (detalleId: number, proveedorId: number): number | null => {
+    const precioPartidaProv = (
+        detalleId: number,
+        proveedorId: number,
+    ): number | null => {
         const d = detalles.find((x) => x.id === detalleId);
         const precios = (d?.cotizaciones ?? [])
             .filter((c) => c.proveedor_id === proveedorId)
@@ -1026,14 +1689,20 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
         return precios.length > 0 ? Math.min(...precios) : null;
     };
 
-    const precioImporte = (d: CostosRequisicion['detalles'] extends (infer U)[] | undefined ? U : never): number | null => {
+    const precioImporte = (
+        d: CostosRequisicion['detalles'] extends (infer U)[] | undefined
+            ? U
+            : never,
+    ): number | null => {
         // Si hay mejor proveedor global y cotizó esta partida → usar ese precio
         if (mejorProveedorId) {
             const p = precioPartidaProv(d.id, mejorProveedorId);
             if (p !== null) return p;
         }
         // Fallback: menor precio cotizado para esta partida
-        const precios = (d.cotizaciones ?? []).map((c) => Number(c.precio_unitario)).filter((n) => n > 0);
+        const precios = (d.cotizaciones ?? [])
+            .map((c) => Number(c.precio_unitario))
+            .filter((n) => n > 0);
         return precios.length > 0 ? Math.min(...precios) : null;
     };
 
@@ -1041,7 +1710,9 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
     // (cantidad seleccionada × precio cotizado) de cada selección; si aún no
     // hay selección, usa el comparativo best-case sobre la cantidad solicitada.
     const importeDetalle = (
-        d: CostosRequisicion['detalles'] extends (infer U)[] | undefined ? U : never,
+        d: CostosRequisicion['detalles'] extends (infer U)[] | undefined
+            ? U
+            : never,
     ): { importe: number; tieneImporte: boolean } => {
         const selecciones = d.selecciones ?? [];
         if (selecciones.length > 0) {
@@ -1058,13 +1729,18 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
         }
 
         const precio = precioImporte(d);
-        return { importe: precio !== null ? precio * Number(d.cantidad) : 0, tieneImporte: precio !== null };
+        return {
+            importe: precio !== null ? precio * Number(d.cantidad) : 0,
+            tieneImporte: precio !== null,
+        };
     };
 
     // Mejor (menor) precio por partida — para resaltar la celda ganadora.
     const mejorPrecioPartida = new Map<number, number>();
     for (const d of detalles) {
-        const precios = (d.cotizaciones ?? []).map((c) => Number(c.precio_unitario)).filter((n) => n > 0);
+        const precios = (d.cotizaciones ?? [])
+            .map((c) => Number(c.precio_unitario))
+            .filter((n) => n > 0);
         if (precios.length > 0) {
             mejorPrecioPartida.set(d.id, Math.min(...precios));
         }
@@ -1085,10 +1761,12 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                 <h3 className="font-medium">Comparativo de cotizaciones</h3>
                 <div className="flex items-center gap-3 text-[10px] text-base-content/60">
                     <span className="inline-flex items-center gap-1">
-                        <span className="inline-block size-2 rounded-full bg-primary"></span> Seleccionado
+                        <span className="inline-block size-2 rounded-full bg-primary"></span>{' '}
+                        Seleccionado
                     </span>
                     <span className="inline-flex items-center gap-1">
-                        <span className="inline-block size-2 rounded-full bg-success"></span> Mejor precio
+                        <span className="inline-block size-2 rounded-full bg-success"></span>{' '}
+                        Mejor precio
                     </span>
                 </div>
             </div>
@@ -1096,7 +1774,9 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                 <table className="table table-sm">
                     <thead className="bg-base-200">
                         <tr>
-                            <th rowSpan={2} className="text-right">Cantidad</th>
+                            <th rowSpan={2} className="text-right">
+                                Cantidad
+                            </th>
                             <th rowSpan={2}>Descripción</th>
                             {grupos.map((g) => (
                                 <th
@@ -1106,14 +1786,23 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                                     title={g.nombre}
                                 >
                                     {g.nombre}
-                                    {g.proveedorId === mejorProveedorId && <span className="ml-1 text-[10px]">★</span>}
+                                    {g.proveedorId === mejorProveedorId && (
+                                        <span className="ml-1 text-[10px]">
+                                            ★
+                                        </span>
+                                    )}
                                 </th>
                             ))}
-                            <th rowSpan={2} className="text-right">Importe</th>
+                            <th rowSpan={2} className="text-right">
+                                Importe
+                            </th>
                         </tr>
                         <tr>
                             {columnas.map((op) => (
-                                <th key={op.id} className="border-l border-base-300 text-right text-[11px] font-medium">
+                                <th
+                                    key={op.id}
+                                    className="border-l border-base-300 text-right text-[11px] font-medium"
+                                >
                                     {etiquetaOpcion(op)}
                                 </th>
                             ))}
@@ -1122,60 +1811,130 @@ function ComparativoCotizaciones({ requisicion }: { requisicion: CostosRequisici
                     <tbody>
                         {filas.map(({ d, tieneImporte, importe }) => (
                             <tr key={d.id}>
-                                <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')} {d.unidad}</td>
+                                <td className="text-right">
+                                    {Number(d.cantidad).toLocaleString('es-MX')}{' '}
+                                    {d.unidad}
+                                </td>
                                 <td>{d.descripcion}</td>
                                 {columnas.map((op) => {
                                     const cot = cotizacionDe(d.id, op.id);
-                                    const px = cot ? Number(cot.precio_unitario) : null;
-                                    const dias = cot?.tiempo_entrega_dias ?? null;
+                                    const px = cot
+                                        ? Number(cot.precio_unitario)
+                                        : null;
+                                    const dias =
+                                        cot?.tiempo_entrega_dias ?? null;
                                     const moneda = cot?.moneda ?? 'mxn';
-                                    const esMejorPartida = px !== null && px === mejorPrecioPartida.get(d.id);
-                                    const seleccionado = cot != null && (d.selecciones ?? []).some((s) => s.cotizacion_precio_id === cot.id);
+                                    const esMejorPartida =
+                                        px !== null &&
+                                        px === mejorPrecioPartida.get(d.id);
+                                    const seleccionado =
+                                        cot != null &&
+                                        (d.selecciones ?? []).some(
+                                            (s) =>
+                                                s.cotizacion_precio_id ===
+                                                cot.id,
+                                        );
                                     const classes = [
                                         'border-l border-base-300 text-right align-top',
                                         seleccionado
                                             ? 'bg-primary/15 font-semibold text-primary ring-1 ring-inset ring-primary/50'
-                                            : esMejorPartida ? 'bg-success/15 font-semibold text-success' : '',
-                                        op.proveedor_id === mejorProveedorId && !esMejorPartida && !seleccionado ? 'text-success' : '',
-                                    ].filter(Boolean).join(' ');
+                                            : esMejorPartida
+                                              ? 'bg-success/15 font-semibold text-success'
+                                              : '',
+                                        op.proveedor_id === mejorProveedorId &&
+                                        !esMejorPartida &&
+                                        !seleccionado
+                                            ? 'text-success'
+                                            : '',
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' ');
                                     return (
                                         <td key={op.id} className={classes}>
                                             {px !== null ? (
                                                 <>
-                                                    <div>{seleccionado && <span className="mr-1">✓</span>}{fmt(px)} <span className="text-[10px] font-normal text-base-content/50">{TIPO_MONEDA_LABELS[moneda]}</span></div>
+                                                    <div>
+                                                        {seleccionado && (
+                                                            <span className="mr-1">
+                                                                ✓
+                                                            </span>
+                                                        )}
+                                                        {fmt(px)}{' '}
+                                                        <span className="text-[10px] font-normal text-base-content/50">
+                                                            {
+                                                                TIPO_MONEDA_LABELS[
+                                                                    moneda
+                                                                ]
+                                                            }
+                                                        </span>
+                                                    </div>
                                                     {cot?.descripcion && (
-                                                        <div className="text-[10px] font-normal text-base-content/60">{cot.descripcion}</div>
-                                                    )}
-                                                    {dias !== null && dias > 0 && (
                                                         <div className="text-[10px] font-normal text-base-content/60">
-                                                            {dias} {dias === 1 ? 'día' : 'días'} entrega
+                                                            {cot.descripcion}
                                                         </div>
                                                     )}
+                                                    {dias !== null &&
+                                                        dias > 0 && (
+                                                            <div className="text-[10px] font-normal text-base-content/60">
+                                                                {dias}{' '}
+                                                                {dias === 1
+                                                                    ? 'día'
+                                                                    : 'días'}{' '}
+                                                                entrega
+                                                            </div>
+                                                        )}
                                                 </>
                                             ) : (
-                                                <span className="text-base-content/30">—</span>
+                                                <span className="text-base-content/30">
+                                                    —
+                                                </span>
                                             )}
                                         </td>
                                     );
                                 })}
                                 <td className="text-right font-semibold">
-                                    {tieneImporte ? fmt(importe) : <span className="text-base-content/30">—</span>}
+                                    {tieneImporte ? (
+                                        fmt(importe)
+                                    ) : (
+                                        <span className="text-base-content/30">
+                                            —
+                                        </span>
+                                    )}
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colSpan={2 + columnas.length} className="text-right text-sm text-base-content/60">Subtotal</td>
-                            <td className="text-right font-semibold">{fmt(subtotal)}</td>
+                            <td
+                                colSpan={2 + columnas.length}
+                                className="text-right text-sm text-base-content/60"
+                            >
+                                Subtotal
+                            </td>
+                            <td className="text-right font-semibold">
+                                {fmt(subtotal)}
+                            </td>
                         </tr>
                         <tr>
-                            <td colSpan={2 + columnas.length} className="text-right text-sm text-base-content/60">IVA (16%)</td>
+                            <td
+                                colSpan={2 + columnas.length}
+                                className="text-right text-sm text-base-content/60"
+                            >
+                                IVA (16%)
+                            </td>
                             <td className="text-right">{fmt(iva)}</td>
                         </tr>
                         <tr className="bg-base-200">
-                            <td colSpan={2 + columnas.length} className="text-right text-sm font-semibold">Total</td>
-                            <td className="text-right text-lg font-bold text-primary">{fmt(total)}</td>
+                            <td
+                                colSpan={2 + columnas.length}
+                                className="text-right text-sm font-semibold"
+                            >
+                                Total
+                            </td>
+                            <td className="text-right text-lg font-bold text-primary">
+                                {fmt(total)}
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
