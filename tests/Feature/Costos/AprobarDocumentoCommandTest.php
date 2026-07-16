@@ -67,6 +67,26 @@ test('costos:aprobar firma la solicitud saltando el director y consolida el acum
     expect((float) $obraRubro->fresh()->acumulado)->toBe(5000.00);
 });
 
+test('costos:aprobar SIN saltar niveles firma todos los niveles faltantes', function () {
+    [$solicitud, $obraRubro] = solicitudConCadena($this->user);
+
+    $this->artisan('costos:aprobar', [
+        'identificador' => $solicitud->folio,
+        '--motivo' => 'Firmado fuera del sistema por cada nivel',
+    ])->assertSuccessful();
+
+    $solicitud->refresh();
+    expect($solicitud->estatus->value)->toBe('aprobada');
+
+    // Los 4 niveles quedaron aprobados; ninguno cancelado.
+    expect($solicitud->aprobaciones()->where('estatus', 'aprobada')->count())->toBe(4);
+    expect($solicitud->aprobaciones()->where('estatus', 'cancelada')->count())->toBe(0);
+
+    // El apartado se consolidó como aplicado y el acumulado no se duplicó.
+    expect($solicitud->rubrosAfectados()->where('estatus', 'aplicado')->exists())->toBeTrue();
+    expect((float) $obraRubro->fresh()->acumulado)->toBe(5000.00);
+});
+
 test('costos:aprobar por id también funciona', function () {
     [$solicitud] = solicitudConCadena($this->user);
 
