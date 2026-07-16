@@ -13,6 +13,7 @@ use App\Http\Requests\Admin\Costos\RequisicionLiberarRequest;
 use App\Http\Requests\Admin\Costos\RequisicionStoreRequest;
 use App\Http\Requests\Admin\Costos\RequisicionUpdateRequest;
 use App\Models\Costos\Aprobacion;
+use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Requisicion;
@@ -63,8 +64,21 @@ class RequisicionController extends Controller
                 'detalles.selecciones.cotizacionPrecio:id,precio_unitario',
             ])
             // Los usuarios comunes solo ven sus requisiciones; los operadores con
-            // `ver-todas` ven las de todos.
-            ->unless($request->user()->can('costos.requisiciones.ver-todas'), fn ($q) => $q->where('solicitante_id', $request->user()->id))
+            // `ver-todas` ven las de todos. Con `ver-departamentos-aprobador`, un
+            // aprobador también ve las de los departamentos que aprueba.
+            ->unless($request->user()->can('costos.requisiciones.ver-todas'), function ($q) use ($request) {
+                $user = $request->user();
+                $q->where(function ($sub) use ($user) {
+                    $sub->where('solicitante_id', $user->id);
+
+                    if ($user->can('costos.requisiciones.ver-departamentos-aprobador')) {
+                        $deptos = AprobacionDepartamento::departamentosDeAprobador($user->id, Requisicion::TIPO_APROBACION);
+                        if ($deptos !== []) {
+                            $sub->orWhereIn('departamento_id', $deptos);
+                        }
+                    }
+                });
+            })
             ->when($request->search, fn ($q, $s) => $q->where('folio', 'like', "%{$s}%"))
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
             ->when($request->departamento_id, fn ($q, $d) => $q->where('departamento_id', $d));

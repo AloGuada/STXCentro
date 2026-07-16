@@ -51,4 +51,22 @@ class AprobacionDepartamento extends Model
     {
         return $this->belongsTo(Usuario::class, 'aprobador_id');
     }
+
+    /**
+     * IDs de los departamentos donde el usuario es aprobador para un tipo de
+     * aprobación ('requisicion' | 'solicitud_pago'). Base de la visibilidad
+     * "ver las requisiciones/solicitudes de los departamentos que apruebo".
+     *
+     * @return array<int, int>
+     */
+    public static function departamentosDeAprobador(string $usuarioId, string $tipoAprobacion): array
+    {
+        return static::query()
+            ->where('aprobador_id', $usuarioId)
+            ->whereHas('permiso', fn ($q) => $q->where('tipo_aprobacion', $tipoAprobacion))
+            ->distinct()
+            ->pluck('departamento_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+    }
 }

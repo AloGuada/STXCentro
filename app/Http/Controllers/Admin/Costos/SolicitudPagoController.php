@@ -11,6 +11,7 @@ use App\Http\Requests\Admin\Costos\SolicitudArchivoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudFirmadoRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoUpdateRequest;
+use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ConfiguracionCostos;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Pago;
@@ -88,8 +89,21 @@ class SolicitudPagoController extends Controller
 
         $query = SolicitudPago::query()
             // Los usuarios comunes solo ven sus solicitudes; los operadores con
-            // `ver-todas` ven las de todos.
-            ->unless($request->user()->can('costos.solicitudes-pago.ver-todas'), fn ($q) => $q->where('solicitante_id', $request->user()->id))
+            // `ver-todas` ven las de todos. Con `ver-departamentos-aprobador`, un
+            // aprobador también ve las de los departamentos que aprueba.
+            ->unless($request->user()->can('costos.solicitudes-pago.ver-todas'), function ($q) use ($request) {
+                $user = $request->user();
+                $q->where(function ($sub) use ($user) {
+                    $sub->where('solicitante_id', $user->id);
+
+                    if ($user->can('costos.solicitudes-pago.ver-departamentos-aprobador')) {
+                        $deptos = AprobacionDepartamento::departamentosDeAprobador($user->id, SolicitudPago::TIPO_APROBACION);
+                        if ($deptos !== []) {
+                            $sub->orWhereIn('departamento_id', $deptos);
+                        }
+                    }
+                });
+            })
             ->with(['departamento', 'proveedor', 'solicitante', 'media'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
