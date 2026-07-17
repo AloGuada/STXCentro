@@ -4,6 +4,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosRequisicion, Departamento, PaginatedData } from '@/types/models';
 import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS } from '@/types/models';
+import { formatDate } from '@/components/ui/formatted-date';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -43,7 +44,7 @@ const columns: Column<CostosRequisicion>[] = [
         key: 'fecha_requerida',
         label: 'Fecha requerida',
         sortable: true,
-        render: (row) => <span className="text-xs text-base-content/60">{fmtDate(row.fecha_requerida)}</span>,
+        render: (row) => <span className="text-xs text-base-content/60">{formatDate(row.fecha_requerida) ?? '-'}</span>,
     },
     {
         key: 'mejor_proveedor',

@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosSolicitudPago, PaginatedData } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_LABELS } from '@/types/models';
+import { formatDate } from '@/components/ui/formatted-date';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -88,7 +89,7 @@ const columns: Column<CostosSolicitudPago>[] = [
         key: 'fecha_pago_solicitada',
         label: 'Fecha Pago',
         sortable: true,
-        render: (row) => <span className="text-xs text-base-content/60">{fmtDate(row.fecha_pago_solicitada)}</span>,
+        render: (row) => <span className="text-xs text-base-content/60">{formatDate(row.fecha_pago_solicitada) ?? '-'}</span>,
     },
     {
         key: 'pdf',

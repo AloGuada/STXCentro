@@ -1,4 +1,5 @@
 import { DataTable, type Column } from '@/components/data-table';
+import { formatDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosPago, CostosPagoEstatus, PaginatedData } from '@/types/models';
@@ -62,13 +63,13 @@ const columns: Column<CostosPago>[] = [
         key: 'fecha_pago_programada',
         label: 'F. Programada',
         sortable: true,
-        render: (row) => row.fecha_pago_programada ? new Date(row.fecha_pago_programada).toLocaleDateString() : '-',
+        render: (row) => formatDate(row.fecha_pago_programada) ?? '-',
     },
     {
         key: 'fecha_pago_realizada',
         label: 'F. Realizada',
         sortable: true,
-        render: (row) => row.fecha_pago_realizada ? new Date(row.fecha_pago_realizada).toLocaleDateString() : '-',
+        render: (row) => formatDate(row.fecha_pago_realizada) ?? '-',
     },
 ];
 

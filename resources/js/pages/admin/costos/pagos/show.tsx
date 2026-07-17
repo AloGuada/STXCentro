@@ -1,5 +1,6 @@
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { Button } from '@/components/ui/button';
+import { formatDate } from '@/components/ui/formatted-date';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -131,8 +132,8 @@ function ParcialidadesTable({ parciales }: { parciales: CostosPago[] }) {
                                     </Link>
                                 </td>
                                 <td className="text-right">${Number(p.monto_pago).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                                <td>{p.fecha_pago_programada ? new Date(p.fecha_pago_programada).toLocaleDateString() : '-'}</td>
-                                <td>{p.fecha_pago_realizada ? new Date(p.fecha_pago_realizada).toLocaleDateString() : '-'}</td>
+                                <td>{formatDate(p.fecha_pago_programada) ?? '-'}</td>
+                                <td>{formatDate(p.fecha_pago_realizada) ?? '-'}</td>
                                 <td>
                                     <span className={`badge ${PAGO_ESTATUS_COLORS[p.estatus]}`}>
                                         {PAGO_ESTATUS_LABELS[p.estatus]}
@@ -271,13 +272,13 @@ export default function PagosShow({ pago }: Props) {
                         {pago.fecha_pago_maxima && (
                             <div>
                                 <span className="text-sm text-base-content/60">Fecha Maxima</span>
-                                <p className="font-medium">{new Date(pago.fecha_pago_maxima).toLocaleDateString()}</p>
+                                <p className="font-medium">{formatDate(pago.fecha_pago_maxima) ?? '-'}</p>
                             </div>
                         )}
                         {pago.fecha_pago_realizada && (
                             <div>
                                 <span className="text-sm text-base-content/60">Fecha Realizada</span>
-                                <p className="font-medium">{new Date(pago.fecha_pago_realizada).toLocaleDateString()}</p>
+                                <p className="font-medium">{formatDate(pago.fecha_pago_realizada) ?? '-'}</p>
                             </div>
                         )}
                     </div>
