@@ -355,6 +355,13 @@ class RequisicionController extends Controller
             'cotizacionOpciones.proveedor:id,razon_social,nombre_comercial',
         ]);
 
+        // Las partidas "solo cotización" (ej. fletes de cantidad variable) son
+        // de referencia interna y no forman parte del comparativo formal.
+        $requisicion->setRelation(
+            'detalles',
+            $requisicion->detalles->reject->solo_cotizacion->values(),
+        );
+
         $firmas = app(FirmasPdfBuilder::class)->build(
             $requisicion->tipoAprobacion(),
             $requisicion->departamento_id,
@@ -872,7 +879,9 @@ class RequisicionController extends Controller
 
         // La cotización debe comparar al menos N proveedores en total (no por
         // partida): basta con tener N empresas distintas en toda la requisición.
+        // Las partidas "solo cotización" no cuentan: no se adjudican a proveedor.
         $empresasTotal = $requisicion->detalles
+            ->reject->solo_cotizacion
             ->flatMap->cotizaciones
             ->pluck('proveedor_id')
             ->unique()
@@ -883,6 +892,12 @@ class RequisicionController extends Controller
         }
 
         foreach ($requisicion->detalles as $detalle) {
+            // Las partidas "solo cotización" son de referencia: no requieren
+            // uso de CFDI, centro de costos ni selección de proveedor.
+            if ($detalle->solo_cotizacion) {
+                continue;
+            }
+
             if (empty($detalle->uso_cfdi_id)) {
                 return ['detalles' => "La partida \"{$detalle->descripcion}\" no tiene uso de CFDI asignado."];
             }
@@ -1034,6 +1049,10 @@ class RequisicionController extends Controller
         ]);
 
         foreach ($requisicion->detalles as $detalle) {
+            if ($detalle->solo_cotizacion) {
+                continue;
+            }
+
             if (empty($detalle->uso_cfdi_id)) {
                 throw new OrdenCompraInvalidaException(['detalles' => "La partida \"{$detalle->descripcion}\" no tiene uso de CFDI asignado."]);
             }
@@ -1043,7 +1062,8 @@ class RequisicionController extends Controller
             }
         }
 
-        $todasSelecciones = $requisicion->detalles->flatMap->selecciones;
+        // Las partidas "solo cotización" no se adjudican; se excluyen de las OCs.
+        $todasSelecciones = $requisicion->detalles->reject->solo_cotizacion->flatMap->selecciones;
 
         // Los metadatos de cada OC (modo_pago, fecha, notas) se persistieron en
         // el tab "Definir OC" (costos_requisicion_ocs). Se indexan por

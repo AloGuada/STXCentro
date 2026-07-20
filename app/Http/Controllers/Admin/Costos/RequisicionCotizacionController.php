@@ -186,6 +186,28 @@ class RequisicionCotizacionController extends Controller
     }
 
     /**
+     * Marca/desmarca una partida como "solo cotización": se cotiza como
+     * referencia (ej. un flete de cantidad variable) y suma al total de captura,
+     * pero no se adjudica a proveedor, no aparece en el comparativo/PDF ni afecta
+     * el neto a pagar ni las órdenes de compra.
+     */
+    public function soloCotizacion(Request $request, RequisicionDetalle $detalle): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $detalle->load('requisicion');
+        $this->ensureEditable($detalle->requisicion->estatus);
+
+        $validated = $request->validate([
+            'solo_cotizacion' => ['required', 'boolean'],
+        ]);
+
+        $detalle->update(['solo_cotizacion' => $validated['solo_cotizacion']]);
+
+        return back()->with('success', 'Partida actualizada.');
+    }
+
+    /**
      * Agrega una partida (renglón) a la requisición desde el tab de cotización.
      * Compras puede sumar partidas mientras la requisición siga editable, sin
      * volver a la edición del solicitante. Se captura como texto libre (sin

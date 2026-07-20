@@ -362,7 +362,8 @@ export function CotizacionMatriz({
                                             {Number(d.cantidad).toLocaleString('es-MX')} {d.unidad}
                                         </td>
                                         <td className={`${COL_FIJA.tipo} z-10 bg-base-100`}>
-                                            <TipoFiscalSelect detalle={d} editable={editable} />
+                                            <TipoFiscalSelect detalle={d} editable={editable && !d.solo_cotizacion} />
+                                            <SoloCotizacionToggle detalle={d} editable={editable} />
                                         </td>
                                         {columnas.map(({ op }) => {
                                             const cot = cotizacionDe(d, op.id);
@@ -787,6 +788,50 @@ function TipoFiscalSelect({
             <option value="servicio_profesional">Servicio profesional</option>
             <option value="renta">Renta</option>
         </select>
+    );
+}
+
+/**
+ * Marca una partida como "solo cotización": se cotiza como referencia (ej. un
+ * flete de cantidad variable) y suma al total de captura, pero no se adjudica a
+ * proveedor, no entra al comparativo/PDF ni al neto a pagar.
+ */
+function SoloCotizacionToggle({
+    detalle,
+    editable,
+}: {
+    detalle: CostosRequisicionDetalle;
+    editable: boolean;
+}) {
+    const [checked, setChecked] = useState(detalle.solo_cotizacion);
+
+    if (!editable) {
+        return checked ? (
+            <span className="badge mt-1 badge-outline badge-xs">Solo cotización</span>
+        ) : null;
+    }
+
+    return (
+        <label
+            className="mt-1 flex cursor-pointer items-center gap-1 text-[10px] text-base-content/60"
+            title="Se cotiza como referencia (ej. flete variable); no se adjudica a proveedor, no aparece en el comparativo/PDF ni afecta el neto a pagar."
+        >
+            <input
+                type="checkbox"
+                className="checkbox checkbox-xs"
+                checked={checked}
+                onChange={(e) => {
+                    const v = e.target.checked;
+                    setChecked(v);
+                    router.post(
+                        `/admin/costos/requisiciones/detalles/${detalle.id}/solo-cotizacion`,
+                        { solo_cotizacion: v },
+                        { preserveScroll: true },
+                    );
+                }}
+            />
+            Solo cotización
+        </label>
     );
 }
 

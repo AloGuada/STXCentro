@@ -55,7 +55,12 @@ export function OcBuilder({
     proveedores: ProveedorMin[];
     editable: boolean;
 }) {
-    const detalles = useMemo(() => requisicion.detalles ?? [], [requisicion.detalles]);
+    // Las partidas "solo cotización" (ej. fletes variables) no se adjudican a
+    // proveedor: se excluyen de la construcción de OCs y de la cobertura.
+    const detalles = useMemo(
+        () => (requisicion.detalles ?? []).filter((d) => !d.solo_cotizacion),
+        [requisicion.detalles],
+    );
 
     const proveedoresMap = useMemo(() => {
         const m = new Map<number, ProveedorMin>();

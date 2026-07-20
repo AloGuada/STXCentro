@@ -29,6 +29,7 @@ class RequisicionDetalle extends Model
         'codigo_producto',
         'unidad',
         'cantidad',
+        'solo_cotizacion',
         'notas',
     ];
 
@@ -39,6 +40,7 @@ class RequisicionDetalle extends Model
     {
         return [
             'cantidad' => 'decimal:2',
+            'solo_cotizacion' => 'boolean',
             'tipo_fiscal' => \App\Enums\Costos\TipoFiscalPartida::class,
         ];
     }

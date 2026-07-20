@@ -104,6 +104,10 @@ class Requisicion extends Model implements Aprobable
         /** @var array<string, array{proveedor: \App\Models\Proveedor, lineas: list<array{tipo_fiscal: ?string, subtotal: float}>}> $grupos */
         $grupos = [];
         foreach ($this->detalles as $detalle) {
+            if ($detalle->solo_cotizacion) {
+                continue;
+            }
+
             foreach ($detalle->selecciones as $seleccion) {
                 if (! $seleccion->proveedor) {
                     continue;

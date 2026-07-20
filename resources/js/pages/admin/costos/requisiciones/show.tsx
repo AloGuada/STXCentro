@@ -1659,7 +1659,9 @@ function ComparativoCotizaciones({
 }: {
     requisicion: CostosRequisicion;
 }) {
-    const detalles = requisicion.detalles ?? [];
+    // Las partidas "solo cotización" (ej. fletes variables) son referencia
+    // interna: no forman parte del comparativo formal ni del PDF.
+    const detalles = (requisicion.detalles ?? []).filter((d) => !d.solo_cotizacion);
 
     // Columnas = opciones con al menos un precio, agrupadas por proveedor.
     const opcionConPrecio = new Set<number>();

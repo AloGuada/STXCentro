@@ -1799,6 +1799,8 @@ export type CostosRequisicionDetalle = {
     codigo_producto: string | null;
     unidad: string;
     cantidad: number;
+    /** Partida de referencia (ej. flete variable): se cotiza pero no se adjudica, no entra al comparativo/PDF ni al neto. */
+    solo_cotizacion: boolean;
     notas: string | null;
     uso_cfdi?: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>;
     obra_rubro?: {

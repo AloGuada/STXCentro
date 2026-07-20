@@ -25,7 +25,9 @@ class BuscadorMejorProveedor
      */
     public function buscar(Requisicion $requisicion): ?array
     {
-        $totalPartidas = $requisicion->detalles()->count();
+        // Las partidas "solo cotización" son de referencia y no se adjudican:
+        // no cuentan para el total ni obligan al proveedor a haberlas cotizado.
+        $totalPartidas = $requisicion->detalles()->where('solo_cotizacion', false)->count();
         if ($totalPartidas === 0) {
             return null;
         }
@@ -38,6 +40,7 @@ class BuscadorMejorProveedor
         $minPorPartida = RequisicionCotizacionPrecio::query()
             ->join("{$det} as d", 'd.id', '=', "{$cot}.requisicion_detalle_id")
             ->where('d.requisicion_id', $requisicion->id)
+            ->where('d.solo_cotizacion', false)
             ->groupBy("{$cot}.proveedor_id", "{$cot}.requisicion_detalle_id")
             ->selectRaw("{$cot}.proveedor_id as proveedor_id, {$cot}.requisicion_detalle_id as detalle_id, MIN({$cot}.precio_unitario) as precio_min");
 

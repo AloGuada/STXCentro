@@ -29,6 +29,10 @@ class ComparativoTotalesBuilder
     {
         $grupos = [];
         foreach ($requisicion->detalles as $detalle) {
+            if ($detalle->solo_cotizacion) {
+                continue;
+            }
+
             $tipoFiscal = $detalle->tipo_fiscal instanceof TipoFiscalPartida
                 ? $detalle->tipo_fiscal->value
                 : (string) ($detalle->tipo_fiscal ?? TipoFiscalPartida::Mercancia->value);
