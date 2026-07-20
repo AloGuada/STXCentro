@@ -24,6 +24,7 @@ class EntregaStoreRequest extends FormRequest
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.orden_compra_detalle_id' => ['required', 'exists:costos_ordenes_compra_detalle,id'],
             'detalles.*.cantidad_recibida' => ['required', 'numeric', 'min:0.01'],
+            'detalles.*.precio_unitario' => ['nullable', 'numeric', 'min:0'],
             'detalles.*.observaciones' => ['nullable', 'string', 'max:255'],
         ];
     }

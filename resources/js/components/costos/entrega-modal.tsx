@@ -15,8 +15,12 @@ type Props = {
 type DetalleRow = {
     orden_compra_detalle_id: number;
     cantidad_recibida: string;
+    precio_unitario: string;
     observaciones: string;
 };
+
+const fmt = (n: number) =>
+    `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function saldoDePartida(ocd: CostosOrdenCompraDetalle, entregas: CostosEntrega[] | undefined): number {
     const yaRecibido = (entregas ?? [])
@@ -51,6 +55,7 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
         detalles: partidas.map((p) => ({
             orden_compra_detalle_id: p.id,
             cantidad_recibida: '',
+            precio_unitario: String(Number(p.precio_unitario)),
             observaciones: '',
         })),
     });
@@ -95,7 +100,7 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
 
     return (
         <dialog className="modal modal-open">
-            <div className="modal-box max-w-3xl">
+            <div className="modal-box max-w-5xl">
                 <h3 className="font-bold text-lg mb-4">Registrar entrega</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -149,6 +154,8 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
                                         <th className="text-right">Ordenado</th>
                                         <th className="text-right">Por recibir</th>
                                         <th className="w-28">Recibir ahora</th>
+                                        <th className="text-right">P.U. OC</th>
+                                        <th className="w-28">P.U. recibido</th>
                                         <th>Notas</th>
                                     </tr>
                                 </thead>
@@ -179,6 +186,16 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
                                                         onChange={(e) => updateDetalle(idx, 'cantidad_recibida', e.target.value)}
                                                     />
                                                     {err && <div className="text-xs text-error mt-1">{err}</div>}
+                                                </td>
+                                                <td className="text-right text-base-content/60">{fmt(Number(p.precio_unitario))}</td>
+                                                <td>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        value={data.detalles[idx]?.precio_unitario ?? ''}
+                                                        onChange={(e) => updateDetalle(idx, 'precio_unitario', e.target.value)}
+                                                    />
                                                 </td>
                                                 <td>
                                                     <Input

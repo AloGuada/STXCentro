@@ -308,7 +308,9 @@ class OrdenCompra extends Model
 
     /**
      * Monto recibido por almacén = sumatoria de (cantidad_neta_recibida * precio_unitario)
-     * por cada partida. Descuenta devoluciones vigentes via EntregaDetalle::cantidad_neta_recibida.
+     * por cada partida. Usa el precio efectivo de la recepción (el capturado al
+     * recibir para igualar la factura, o el de la OC como respaldo). Descuenta
+     * devoluciones vigentes via EntregaDetalle::cantidad_neta_recibida.
      */
     public function getMontoRecibidoAttribute(): float
     {
@@ -317,8 +319,7 @@ class OrdenCompra extends Model
         $total = 0.0;
         foreach ($this->entregas as $entrega) {
             foreach ($entrega->detalles as $ed) {
-                $precio = (float) ($ed->ordenCompraDetalle?->precio_unitario ?? 0);
-                $total += $ed->cantidad_neta_recibida * $precio;
+                $total += $ed->cantidad_neta_recibida * $ed->precio_unitario_efectivo;
             }
         }
 

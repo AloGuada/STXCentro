@@ -2422,6 +2422,8 @@ export type CostosEntregaDetalle = {
     entrega_id: number;
     orden_compra_detalle_id: number;
     cantidad_recibida: number;
+    /** Precio recibido capturado en la recepción (para igualar factura); null = al precio de la OC. */
+    precio_unitario: number | null;
     observaciones: string | null;
     orden_compra_detalle?: CostosOrdenCompraDetalle;
     devoluciones?: CostosDevolucion[];

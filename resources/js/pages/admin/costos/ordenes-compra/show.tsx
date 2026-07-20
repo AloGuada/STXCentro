@@ -387,6 +387,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                             <tr>
                                                 <th>Partida</th>
                                                 <th className="text-right">Recibido</th>
+                                                <th className="text-right">P.U. recibido</th>
                                                 <th className="text-right">Devuelto</th>
                                                 <th className="text-right">Disponible</th>
                                                 <th></th>
@@ -402,12 +403,26 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                                     .filter((dev) => dev.estatus === 'vigente')
                                                     .reduce((s, dev) => s + Number(dev.cantidad), 0);
                                                 const disponible = Math.max(0, recibida - devueltaVigente);
+                                                const puOc = Number(partida?.precio_unitario ?? 0);
+                                                const puRecibido = d.precio_unitario != null ? Number(d.precio_unitario) : puOc;
+                                                const difiere = Math.abs(puRecibido - puOc) >= 0.005;
 
                                                 return (
                                                     <tr key={d.id}>
                                                         <td>{descripcion}</td>
                                                         <td className="text-right">
                                                             {recibida.toLocaleString('es-MX')} {unidad}
+                                                        </td>
+                                                        <td className="text-right">
+                                                            ${puRecibido.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            {difiere && (
+                                                                <span
+                                                                    className="ml-1 badge badge-xs badge-warning"
+                                                                    title={`Precio OC: $${puOc.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                                                >
+                                                                    ≠ OC
+                                                                </span>
+                                                            )}
                                                         </td>
                                                         <td className="text-right">
                                                             {devueltaVigente.toLocaleString('es-MX')}

@@ -24,6 +24,7 @@ class EntregaDetalle extends Model
         'entrega_id',
         'orden_compra_detalle_id',
         'cantidad_recibida',
+        'precio_unitario',
         'observaciones',
     ];
 
@@ -34,6 +35,7 @@ class EntregaDetalle extends Model
     {
         return [
             'cantidad_recibida' => 'decimal:2',
+            'precio_unitario' => 'decimal:2',
         ];
     }
 
@@ -68,5 +70,17 @@ class EntregaDetalle extends Model
     public function getCantidadNetaRecibidaAttribute(): float
     {
         return max(0.0, (float) $this->cantidad_recibida - $this->cantidad_devuelta);
+    }
+
+    /**
+     * Precio unitario efectivo del renglón recibido: el capturado en la recepción
+     * si existe, o el de la partida de la OC como respaldo (recepciones antiguas
+     * o sin ajuste de precio).
+     */
+    public function getPrecioUnitarioEfectivoAttribute(): float
+    {
+        return $this->precio_unitario !== null
+            ? (float) $this->precio_unitario
+            : (float) ($this->ordenCompraDetalle?->precio_unitario ?? 0);
     }
 }
