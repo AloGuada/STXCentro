@@ -10,7 +10,7 @@ use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     foreach ([
-        'costos.ordenes-compra.ver',
+        'costos.ordenes-compra.ver-todas',
         'costos.devoluciones.crear',
     ] as $permName) {
         Permission::firstOrCreate(['name' => $permName, 'guard_name' => 'web']);
@@ -18,7 +18,7 @@ beforeEach(function () {
 
     $this->user = User::factory()->create();
     $this->user->givePermissionTo([
-        'costos.ordenes-compra.ver',
+        'costos.ordenes-compra.ver-todas',
         'costos.devoluciones.crear',
     ]);
 });
