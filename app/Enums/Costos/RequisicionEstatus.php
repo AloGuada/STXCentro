@@ -7,7 +7,6 @@ use App\Enums\Contracts\HasStateTransitions;
 enum RequisicionEstatus: string implements HasStateTransitions
 {
     case Borrador = 'borrador';
-    case Cotizada = 'cotizada';
     case PendienteAprobacion = 'pendiente_aprobacion';
     case Aprobada = 'aprobada';
     case Rechazada = 'rechazada';
@@ -20,9 +19,8 @@ enum RequisicionEstatus: string implements HasStateTransitions
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::Borrador => [self::Cotizada, self::Cancelada],
-            self::Cotizada => [self::Borrador, self::PendienteAprobacion, self::Cancelada],
-            self::PendienteAprobacion => [self::Aprobada, self::Rechazada, self::Cancelada],
+            self::Borrador => [self::PendienteAprobacion, self::Cancelada],
+            self::PendienteAprobacion => [self::Borrador, self::Aprobada, self::Rechazada, self::Cancelada],
             self::Aprobada => [self::Liberada, self::Cancelada],
             self::Rechazada => [self::Borrador, self::Cancelada],
             self::Liberada,
@@ -34,7 +32,6 @@ enum RequisicionEstatus: string implements HasStateTransitions
     {
         return match ($this) {
             self::Borrador => 'Borrador',
-            self::Cotizada => 'Cotizada',
             self::PendienteAprobacion => 'Pendiente de aprobación',
             self::Aprobada => 'Aprobada',
             self::Rechazada => 'Rechazada',

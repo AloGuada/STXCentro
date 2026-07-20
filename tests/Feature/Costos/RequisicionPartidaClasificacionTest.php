@@ -39,7 +39,7 @@ test('crear partida sin tipo_fiscal ni codigo_producto usa defaults', function (
 });
 
 test('compras clasifica el tipo fiscal de la partida desde cotizacion', function () {
-    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id]);
 
     $this->actingAs($this->user)
@@ -52,7 +52,7 @@ test('compras clasifica el tipo fiscal de la partida desde cotizacion', function
 });
 
 test('el codigo de producto se guarda por linea y por opcion en la cotizacion', function () {
-    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id]);
     $provA = \App\Models\Proveedor::factory()->create();
     $provB = \App\Models\Proveedor::factory()->create();
@@ -118,7 +118,7 @@ test('duplicar requiere permiso de cotizar (compras), no solo crear', function (
 });
 
 test('clasificar valida tipo_fiscal', function () {
-    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id]);
 
     $this->actingAs($this->user)

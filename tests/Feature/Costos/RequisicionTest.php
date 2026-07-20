@@ -251,7 +251,7 @@ test('requisicion de un solo presupuesto sigue validando la pertenencia del cent
         ->assertSessionHasErrors(['detalles.0.obra_rubro_id']);
 });
 
-test('compras captura precio cotizado y la requisicion pasa a cotizada', function () {
+test('compras captura precio cotizado y la requisicion sigue en borrador', function () {
     $req = Requisicion::factory()->create([
         'departamento_id' => $this->depto->id,
         'estatus' => 'borrador',
@@ -276,12 +276,12 @@ test('compras captura precio cotizado y la requisicion pasa a cotizada', functio
         ])
         ->assertRedirect();
 
-    expect($req->fresh()->estatus->value)->toBe('cotizada');
+    expect($req->fresh()->estatus->value)->toBe('borrador');
     expect(RequisicionCotizacionPrecio::count())->toBe(1);
 });
 
 test('seleccion no puede exceder cantidad de partida', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 10,
@@ -299,7 +299,7 @@ test('seleccion no puede exceder cantidad de partida', function () {
 });
 
 test('seleccion del mismo proveedor se consolida sumando cantidades', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 20,
@@ -329,7 +329,7 @@ test('seleccion del mismo proveedor se consolida sumando cantidades', function (
 });
 
 test('consolidacion respeta el limite de cantidad solicitada', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 10,
@@ -358,7 +358,7 @@ test('consolidacion respeta el limite de cantidad solicitada', function () {
 });
 
 test('seleccion permite split entre dos proveedores', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 10,
@@ -387,8 +387,8 @@ test('seleccion permite split entre dos proveedores', function () {
     expect(RequisicionSeleccion::count())->toBe(2);
 });
 
-test('enviar a aprobacion genera cadena por niveles del departamento', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+test('mandar a firmas genera cadena por niveles del departamento', function () {
+    $req = Requisicion::factory()->pendienteAprobacion()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 5,
@@ -446,7 +446,7 @@ test('enviar a aprobacion genera cadena por niveles del departamento', function 
     ]);
 
     $this->actingAs($this->compras)
-        ->post("/admin/costos/requisiciones/{$req->id}/enviar-aprobacion")
+        ->post("/admin/costos/requisiciones/{$req->id}/iniciar-aprobacion")
         ->assertRedirect();
 
     $req->refresh();
@@ -475,7 +475,7 @@ test('el show expone el último precio de cada proveedor para el insumo (precios
     ]);
 
     // Requisición actual: mismo insumo y una opción para ese proveedor.
-    $req = Requisicion::factory()->cotizada()->create([
+    $req = Requisicion::factory()->create([
         'departamento_id' => $this->depto->id,
         'solicitante_id' => $this->compras->id,
     ]);
@@ -497,7 +497,7 @@ test('el show expone el último precio de cada proveedor para el insumo (precios
 });
 
 test('no puede enviar a aprobacion sin selecciones completas', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 5,
@@ -513,7 +513,7 @@ test('no puede enviar a aprobacion sin selecciones completas', function () {
 });
 
 test('no puede enviar a aprobacion con menos de 3 proveedores en la cotización', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 5,
@@ -534,11 +534,11 @@ test('no puede enviar a aprobacion con menos de 3 proveedores en la cotización'
         ->post("/admin/costos/requisiciones/{$req->id}/enviar-aprobacion")
         ->assertSessionHasErrors(['cotizaciones']);
 
-    expect($req->fresh()->estatus->value)->toBe('cotizada');
+    expect($req->fresh()->estatus->value)->toBe('borrador');
 });
 
 test('3 proveedores en total bastan aunque una partida tenga uno solo', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
 
     // 3 partidas, cada una cotizada por un proveedor distinto → 3 proveedores
     // en total, aunque ninguna partida tenga 3. Sin selecciones aún.
@@ -556,7 +556,7 @@ test('3 proveedores en total bastan aunque una partida tenga uno solo', function
 });
 
 test('no puede enviar a aprobacion sin una OC definida', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 5,
@@ -579,11 +579,11 @@ test('no puede enviar a aprobacion sin una OC definida', function () {
         ->post("/admin/costos/requisiciones/{$req->id}/enviar-aprobacion")
         ->assertSessionHasErrors(['ocs']);
 
-    expect($req->fresh()->estatus->value)->toBe('cotizada');
+    expect($req->fresh()->estatus->value)->toBe('borrador');
 });
 
 test('no puede enviar a aprobacion si una partida no tiene rubro asignado', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'obra_rubro_id' => null,
@@ -610,7 +610,7 @@ test('no puede enviar a aprobacion si una partida no tiene rubro asignado', func
 });
 
 test('numero_oc consolida por (partida, precio, numero_oc) y crea filas separadas para distintos OC#', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 20,
@@ -693,8 +693,8 @@ test('onAprobacionRechazada guarda motivo y transiciona a rechazada', function (
     expect($req->motivo_rechazo)->toBe('precio fuera de mercado');
 });
 
-test('el formato comparativo de la requisicion se genera en PDF con verificacion gerencial', function () {
-    $req = Requisicion::factory()->cotizada()->create([
+test('el formato comparativo de la requisicion se genera en PDF una vez en aprobación', function () {
+    $req = Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $this->depto->id,
         'control_verificado' => true,
     ]);
@@ -706,10 +706,9 @@ test('el formato comparativo de la requisicion se genera en PDF con verificacion
     expect($response->headers->get('content-type'))->toContain('application/pdf');
 });
 
-test('el comparativo no se genera sin verificacion gerencial', function () {
-    $req = Requisicion::factory()->cotizada()->create([
+test('el comparativo no se genera en borrador', function () {
+    $req = Requisicion::factory()->create([
         'departamento_id' => $this->depto->id,
-        'control_verificado' => false,
     ]);
 
     $this->actingAs($this->user)
@@ -720,7 +719,7 @@ test('el comparativo no se genera sin verificacion gerencial', function () {
 test('el comparativo colorea solo al proveedor elegido y con IDs tipo texto (PostgreSQL)', function () {
     // En producción (PostgreSQL) PDO devuelve las columnas enteras como texto;
     // este test emula ese tipado para blindar las comparaciones de IDs del blade.
-    $req = Requisicion::factory()->cotizada()->create([
+    $req = Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $this->depto->id,
         'control_verificado' => true,
     ]);
@@ -789,7 +788,7 @@ test('el comparativo colorea solo al proveedor elegido y con IDs tipo texto (Pos
 });
 
 test('el comparativo aplica retenciones al total neto', function () {
-    $req = Requisicion::factory()->cotizada()->create([
+    $req = Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $this->depto->id,
         'control_verificado' => true,
     ]);

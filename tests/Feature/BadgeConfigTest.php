@@ -203,7 +203,7 @@ test('badge no aparece si conteo es cero', function () {
     expect($badges)->toBeEmpty();
 });
 
-test('badge cuenta requisiciones cotizadas con OC configurada pendientes de verificación gerencial', function () {
+test('badge cuenta requisiciones pendientes de aprobación gerencial con OC configurada', function () {
     $role = Role::firstOrCreate(['name' => 'compras', 'guard_name' => 'web']);
     $this->user->assignRole($role);
 
@@ -211,7 +211,7 @@ test('badge cuenta requisiciones cotizadas con OC configurada pendientes de veri
         'tabla' => 'costos_requisiciones',
         'campo_estatus' => 'estatus',
         'operador' => '=',
-        'valor_estatus' => 'cotizada',
+        'valor_estatus' => 'pendiente_aprobacion',
         'condiciones_extra' => [
             ['campo' => 'control_verificado', 'operador' => '=', 'valor' => false],
             ['tipo' => 'existe', 'tabla' => 'costos_requisicion_ocs', 'fk' => 'requisicion_id'],
@@ -224,19 +224,19 @@ test('badge cuenta requisiciones cotizadas con OC configurada pendientes de veri
     $depto = \App\Models\Departamento::factory()->create();
     $ocData = fn () => ['proveedor_id' => \App\Models\Proveedor::factory()->create()->id, 'numero_oc' => 1];
 
-    // Cuenta: cotizada, sin verificar, con OC configurada.
-    $conOc = \App\Models\Costos\Requisicion::factory()->cotizada()->create([
+    // Cuenta: pendiente, sin aprobación gerencial, con OC configurada.
+    $conOc = \App\Models\Costos\Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $depto->id, 'control_verificado' => false,
     ]);
     $conOc->ocs()->create($ocData());
 
     // No cuenta: sin OC.
-    \App\Models\Costos\Requisicion::factory()->cotizada()->create([
+    \App\Models\Costos\Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $depto->id, 'control_verificado' => false,
     ]);
 
-    // No cuenta: ya verificada aunque tenga OC.
-    $verificada = \App\Models\Costos\Requisicion::factory()->cotizada()->create([
+    // No cuenta: ya con aprobación gerencial aunque tenga OC.
+    $verificada = \App\Models\Costos\Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $depto->id, 'control_verificado' => true,
     ]);
     $verificada->ocs()->create($ocData());

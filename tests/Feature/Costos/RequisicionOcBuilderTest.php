@@ -21,7 +21,7 @@ beforeEach(function () {
 
 function reqConCotizacion(Departamento $depto, float $cantidad = 10, bool $manejaCredito = true): array
 {
-    $req = Requisicion::factory()->create(['departamento_id' => $depto->id, 'estatus' => 'cotizada']);
+    $req = Requisicion::factory()->create(['departamento_id' => $depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => $cantidad]);
     $proveedor = Proveedor::factory()->create(['maneja_credito' => $manejaCredito]);
     $cot = RequisicionCotizacionPrecio::create([

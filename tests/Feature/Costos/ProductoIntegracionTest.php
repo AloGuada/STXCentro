@@ -70,7 +70,7 @@ test('una partida sin producto del catálogo no genera histórico', function () 
 
 test('compras edita el producto desde cotización y sincroniza la partida', function () {
     $producto = Producto::factory()->create(['descripcion' => 'Viejo', 'codigo' => 'OLD-1']);
-    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id, 'producto_id' => $producto->id, 'descripcion' => 'Viejo', 'codigo_producto' => 'OLD-1',
     ]);

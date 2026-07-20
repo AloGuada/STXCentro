@@ -58,20 +58,20 @@ class BadgeConfigSeeder extends Seeder
                 'filter_href' => '/admin/costos/facturas',
             ],
             [
-                // Requisiciones cotizadas con OC ya configurada que aún esperan la
-                // verificación gerencial (control). Le avisa a compras cuántas hay.
-                'nombre' => 'Requisiciones con OC pendientes de verificación gerencial',
+                // Requisiciones en la bandeja que aún esperan la aprobación
+                // gerencial (control). Le avisa a compras/gerencia cuántas hay.
+                'nombre' => 'Requisiciones pendientes de aprobación gerencial',
                 'tabla' => 'costos_requisiciones',
                 'campo_estatus' => 'estatus',
                 'operador' => '=',
-                'valor_estatus' => 'cotizada',
+                'valor_estatus' => 'pendiente_aprobacion',
                 'condiciones_extra' => [
                     ['campo' => 'control_verificado', 'operador' => '=', 'valor' => false],
                     ['tipo' => 'existe', 'tabla' => 'costos_requisicion_ocs', 'fk' => 'requisicion_id'],
                 ],
                 'rol' => 'compras',
                 'nav_href' => '/admin/costos/requisiciones',
-                'filter_href' => '/admin/costos/requisiciones?estatus=cotizada',
+                'filter_href' => '/admin/costos/requisiciones?estatus=pendiente_aprobacion',
             ],
         ];
 

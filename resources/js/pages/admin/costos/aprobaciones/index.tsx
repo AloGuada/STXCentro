@@ -245,9 +245,10 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
                 url: `/storage/${m.path}`,
                 nombre: m.nombre_original || m.descripcion || 'Archivo',
             })),
-            // El comparativo solo se genera tras la verificación gerencial; si
-            // no está verificado, el endpoint responde 403, así que ocultamos.
-            pdfUrl: req.control_verificado ? `/admin/costos/requisiciones/${req.id}/pdf` : null,
+            // El comparativo se genera una vez en aprobación; en la bandeja de
+            // firmas la requisición siempre está pendiente_aprobacion, así que
+            // el endpoint (estatus ≥ pendiente_aprobacion) lo permite.
+            pdfUrl: `/admin/costos/requisiciones/${req.id}/pdf`,
             pdfTitle: `Comparativo ${req.folio}`,
             firmadoUrl: null,
             firmadoTitle: '',

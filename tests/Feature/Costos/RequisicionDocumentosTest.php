@@ -15,7 +15,7 @@ beforeEach(function () {
 });
 
 test('sube un PDF como documento de cotización', function () {
-    $req = Requisicion::factory()->cotizada()->create();
+    $req = Requisicion::factory()->create();
 
     $this->actingAs($this->user)
         ->post("/admin/costos/requisiciones/{$req->id}/documentos", [
@@ -31,7 +31,7 @@ test('sube un PDF como documento de cotización', function () {
 });
 
 test('rechaza archivos que no son PDF', function () {
-    $req = Requisicion::factory()->cotizada()->create();
+    $req = Requisicion::factory()->create();
 
     $this->actingAs($this->user)
         ->post("/admin/costos/requisiciones/{$req->id}/documentos", [
@@ -53,7 +53,7 @@ test('no permite subir documentos si la requisición ya no es editable', functio
 });
 
 test('elimina un documento de cotización', function () {
-    $req = Requisicion::factory()->cotizada()->create();
+    $req = Requisicion::factory()->create();
     $media = $req->media()->create([
         'descripcion' => 'doc',
         'nombre_original' => 'doc.pdf',
@@ -71,8 +71,8 @@ test('elimina un documento de cotización', function () {
 });
 
 test('no elimina un documento de otra requisición', function () {
-    $req = Requisicion::factory()->cotizada()->create();
-    $otra = Requisicion::factory()->cotizada()->create();
+    $req = Requisicion::factory()->create();
+    $otra = Requisicion::factory()->create();
     $media = $otra->media()->create([
         'descripcion' => 'ajeno',
         'nombre_original' => 'ajeno.pdf',

@@ -67,8 +67,6 @@ class RequisicionCotizacionController extends Controller
 
         $this->registrarHistoricoPrecio($detalle, $opcion->proveedor_id, $request->float('precio_unitario'), (string) $request->input('moneda', 'mxn'));
 
-        $this->promoverACotizada($detalle->requisicion);
-
         return back()->with('success', 'Precio cotizado guardado.');
     }
 
@@ -405,21 +403,9 @@ class RequisicionCotizacionController extends Controller
     {
         if (! in_array($estatus, [
             RequisicionEstatus::Borrador,
-            RequisicionEstatus::Cotizada,
             RequisicionEstatus::Rechazada,
         ], true)) {
             abort(422, 'La requisición ya no permite editar cotizaciones.');
-        }
-    }
-
-    /**
-     * Si la requisicion estaba en borrador y ya tiene al menos una cotizacion,
-     * promueve a cotizada. Idempotente.
-     */
-    private function promoverACotizada(\App\Models\Costos\Requisicion $requisicion): void
-    {
-        if ($requisicion->estatus === RequisicionEstatus::Borrador) {
-            $requisicion->transitionTo(RequisicionEstatus::Cotizada);
         }
     }
 }

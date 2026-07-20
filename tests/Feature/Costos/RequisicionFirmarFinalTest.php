@@ -152,7 +152,7 @@ test('la lista de cotización incluye proveedores pendientes y excluye rechazado
     $activo = Proveedor::factory()->create(['razon_social' => 'Activo SA']);
     $rechazado = Proveedor::factory()->rechazado()->create(['razon_social' => 'Rechazado SA']);
 
-    $req = Requisicion::factory()->cotizada()->create([
+    $req = Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $this->depto->id,
         'solicitante_id' => $this->aprobador->id,
     ]);

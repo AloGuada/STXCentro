@@ -1688,7 +1688,6 @@ export type CostosAnticipoAplicacion = {
 // Requisiciones (Fase 10.2)
 export type CostosRequisicionEstatus =
     | 'borrador'
-    | 'cotizada'
     | 'pendiente_aprobacion'
     | 'aprobada'
     | 'rechazada'
@@ -1697,7 +1696,6 @@ export type CostosRequisicionEstatus =
 
 export const REQUISICION_ESTATUS_LABELS: Record<CostosRequisicionEstatus, string> = {
     borrador: 'Borrador',
-    cotizada: 'Cotizada',
     pendiente_aprobacion: 'Pendiente de aprobación',
     aprobada: 'Aprobada',
     rechazada: 'Rechazada',
@@ -1707,7 +1705,6 @@ export const REQUISICION_ESTATUS_LABELS: Record<CostosRequisicionEstatus, string
 
 export const REQUISICION_ESTATUS_COLORS: Record<CostosRequisicionEstatus, string> = {
     borrador: 'badge-ghost',
-    cotizada: 'badge-info',
     pendiente_aprobacion: 'badge-warning',
     aprobada: 'badge-success',
     rechazada: 'badge-error',

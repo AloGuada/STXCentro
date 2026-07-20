@@ -333,7 +333,15 @@ class RequisicionController extends Controller
     {
         Gate::authorize('costos.requisiciones.ver');
 
-        abort_unless($requisicion->control_verificado, 403, 'El comparativo solo puede generarse tras la verificación gerencial.');
+        abort_unless(
+            in_array($requisicion->estatus, [
+                RequisicionEstatus::PendienteAprobacion,
+                RequisicionEstatus::Aprobada,
+                RequisicionEstatus::Liberada,
+            ], true),
+            403,
+            'El comparativo solo puede generarse una vez enviada a aprobación.'
+        );
 
         $requisicion->load([
             'solicitante',
@@ -715,16 +723,21 @@ class RequisicionController extends Controller
      * Marca el punto de control de la requisición: gate manual (permiso propio)
      * que habilita el botón de enviar a aprobación. Solo en estado cotizada.
      */
+    /**
+     * Botón 2 (gerente): da la aprobación gerencial sobre una requisición que ya
+     * está en la bandeja (pendiente de aprobación). No cambia el estado; solo
+     * marca el visto bueno que habilita al auxiliar a mandarla a firmas.
+     */
     public function marcarControl(Requisicion $requisicion): RedirectResponse
     {
         Gate::authorize('costos.requisiciones.control');
 
-        if ($requisicion->estatus !== RequisicionEstatus::Cotizada) {
-            return back()->withErrors(['control' => 'El punto de control solo aplica a requisiciones cotizadas.']);
+        if ($requisicion->estatus !== RequisicionEstatus::PendienteAprobacion) {
+            return back()->withErrors(['control' => 'La aprobación gerencial solo aplica a requisiciones pendientes de aprobación.']);
         }
 
-        // Mismas validaciones que enviar a aprobación: no se puede marcar la
-        // verificación gerencial si la cotización está incompleta.
+        // Mismas validaciones que mandar a firmas: no se da la aprobación
+        // gerencial si la cotización está incompleta.
         if ($errores = $this->validarCotizacionCompleta($requisicion)) {
             return back()->withErrors($errores);
         }
@@ -735,15 +748,19 @@ class RequisicionController extends Controller
             'control_at' => now(),
         ]);
 
-        return back()->with('success', 'Punto de control marcado.');
+        return back()->with('success', 'Aprobación gerencial registrada.');
     }
 
     public function quitarControl(Requisicion $requisicion): RedirectResponse
     {
         Gate::authorize('costos.requisiciones.control');
 
-        if ($requisicion->estatus !== RequisicionEstatus::Cotizada) {
-            return back()->withErrors(['control' => 'El punto de control solo aplica a requisiciones cotizadas.']);
+        if ($requisicion->estatus !== RequisicionEstatus::PendienteAprobacion) {
+            return back()->withErrors(['control' => 'La aprobación gerencial solo aplica a requisiciones pendientes de aprobación.']);
+        }
+
+        if ($requisicion->cadenaAprobacion()->exists()) {
+            return back()->withErrors(['control' => 'No se puede quitar la aprobación gerencial: la requisición ya se mandó a firmas.']);
         }
 
         $requisicion->update([
@@ -752,19 +769,52 @@ class RequisicionController extends Controller
             'control_at' => null,
         ]);
 
-        return back()->with('success', 'Punto de control retirado.');
+        return back()->with('success', 'Aprobación gerencial retirada.');
     }
 
-    public function enviarAprobacion(Request $request, Requisicion $requisicion): RedirectResponse
+    /**
+     * Botón 1 (auxiliar): mueve la requisición de borrador a la bandeja del
+     * gerente (pendiente de aprobación). NO arranca la cadena de firmas: eso
+     * ocurre en `iniciarAprobacion` (botón 3), una vez que el gerente dio su
+     * aprobación gerencial.
+     */
+    public function enviarAprobacion(Requisicion $requisicion): RedirectResponse
     {
         Gate::authorize('costos.requisiciones.cotizar');
 
-        if ($requisicion->estatus !== RequisicionEstatus::Cotizada) {
-            return back()->withErrors(['estatus' => 'La requisición debe estar cotizada para enviarse a aprobación.']);
+        if ($requisicion->estatus !== RequisicionEstatus::Borrador) {
+            return back()->withErrors(['estatus' => 'La requisición debe estar en borrador para enviarse a aprobación.']);
+        }
+
+        if ($errores = $this->validarCotizacionCompleta($requisicion)) {
+            return back()->withErrors($errores);
+        }
+
+        $requisicion->transitionTo(RequisicionEstatus::PendienteAprobacion);
+
+        return back()->with('success', 'Requisición enviada a aprobación gerencial.');
+    }
+
+    /**
+     * Botón 3 (auxiliar): con la aprobación gerencial ya dada, dispara la cadena
+     * de firmas multinivel. Aparta el presupuesto (5 días) y crea las
+     * aprobaciones. La requisición permanece en pendiente de aprobación hasta que
+     * se firmen todos los niveles (o se aprueba sola si todos se saltan).
+     */
+    public function iniciarAprobacion(Request $request, Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        if ($requisicion->estatus !== RequisicionEstatus::PendienteAprobacion) {
+            return back()->withErrors(['estatus' => 'La requisición debe estar en pendiente de aprobación.']);
         }
 
         if (! $requisicion->control_verificado) {
-            return back()->withErrors(['control' => 'Falta marcar el punto de control antes de enviar a aprobación.']);
+            return back()->withErrors(['control' => 'Falta la aprobación gerencial antes de mandar a firmas.']);
+        }
+
+        if ($requisicion->cadenaAprobacion()->exists()) {
+            return back()->withErrors(['estatus' => 'La requisición ya se mandó a firmas.']);
         }
 
         if ($errores = $this->validarCotizacionCompleta($requisicion)) {
@@ -772,8 +822,6 @@ class RequisicionController extends Controller
         }
 
         DB::transaction(function () use ($request, $requisicion) {
-            $requisicion->transitionTo(RequisicionEstatus::PendienteAprobacion);
-
             // Apartado temporal de presupuesto (5 días): cada partida usa
             // el monto de sus selecciones (∑ cantidad × precio cotizado). Se
             // hace ANTES de armar la cadena porque el salto de niveles depende
@@ -789,7 +837,7 @@ class RequisicionController extends Controller
                 ])
                 ->filter(fn ($i) => $i['monto'] > 0);
 
-            app(\App\Services\Costos\ApartadoPresupuestal::class)
+            app(ApartadoPresupuestal::class)
                 ->apartarDocumento($requisicion, $items, $request->user()->id);
 
             $chain = app(ApprovalChainService::class);
@@ -802,7 +850,7 @@ class RequisicionController extends Controller
             }
         });
 
-        return back()->with('success', 'Requisición enviada a aprobación.');
+        return back()->with('success', 'Requisición mandada a firmas.');
     }
 
     /**
@@ -925,12 +973,12 @@ class RequisicionController extends Controller
             return back()->withErrors(['modo_dedazo' => 'Esta acción solo aplica a requisiciones en modo dedazo.']);
         }
 
-        if ($requisicion->estatus !== RequisicionEstatus::Cotizada) {
-            return back()->withErrors(['estatus' => 'La requisición debe estar cotizada para convertirse a OC.']);
+        if ($requisicion->estatus !== RequisicionEstatus::PendienteAprobacion) {
+            return back()->withErrors(['estatus' => 'La requisición debe estar en pendiente de aprobación para convertirse a OC.']);
         }
 
         if (! $requisicion->control_verificado) {
-            return back()->withErrors(['control' => 'Falta la verificación gerencial (gerente de compras) antes de convertir a OC.']);
+            return back()->withErrors(['control' => 'Falta la aprobación gerencial antes de convertir a OC.']);
         }
 
         if ($errores = $this->validarCotizacionCompleta($requisicion)) {
@@ -942,7 +990,6 @@ class RequisicionController extends Controller
                 // Sin cadena de aprobación ni apartado: se lleva directo a
                 // Aprobada y el generador la deja en Liberada, aplicando el
                 // impacto presupuestal permanente (Aplicado).
-                $requisicion->transitionTo(RequisicionEstatus::PendienteAprobacion);
                 $requisicion->transitionTo(RequisicionEstatus::Aprobada);
 
                 $this->generarOrdenesCompra($requisicion, $generator, auth()->id());
@@ -963,7 +1010,7 @@ class RequisicionController extends Controller
     {
         Gate::authorize('costos.requisiciones.cotizar');
 
-        if (! in_array($requisicion->estatus, [RequisicionEstatus::Borrador, RequisicionEstatus::Cotizada, RequisicionEstatus::Rechazada], true)) {
+        if (! in_array($requisicion->estatus, [RequisicionEstatus::Borrador, RequisicionEstatus::Rechazada], true)) {
             return back()->withErrors(['modo_dedazo' => 'Solo se puede cambiar el modo mientras la requisición está en captura o cotización.']);
         }
 

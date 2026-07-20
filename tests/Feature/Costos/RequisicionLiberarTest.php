@@ -181,7 +181,7 @@ test('liberar genera N OCs cuando se split entre varios proveedores', function (
 
 test('no puede liberar si la requisicion no esta aprobada', function () {
     $rubro = ObraRubro::factory()->create();
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->pendienteAprobacion()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'obra_rubro_id' => $rubro->id,

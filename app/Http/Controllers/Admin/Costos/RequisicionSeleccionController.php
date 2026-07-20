@@ -154,7 +154,6 @@ class RequisicionSeleccionController extends Controller
     private function ensureEditable(RequisicionEstatus $estatus): void
     {
         if (! in_array($estatus, [
-            RequisicionEstatus::Cotizada,
             RequisicionEstatus::Borrador,
             RequisicionEstatus::Rechazada,
         ], true)) {

@@ -256,9 +256,10 @@ function EnviarAprobacionModal({
                             Enviar a aprobación
                         </h2>
                         <p className="mt-3 text-sm text-base-content/70">
-                            ¿Todo está correcto? Al aceptar, la requisición se
-                            enviará a aprobación, se crearán las firmas
-                            pendientes y se bloquearán las ediciones.
+                            ¿Todo está correcto? Al aceptar, la requisición pasa
+                            a <strong>Pendiente de aprobación</strong> (bandeja
+                            del gerente) para su aprobación gerencial y se
+                            bloquearán las ediciones.
                         </p>
                         <div className="modal-action">
                             <button
@@ -305,11 +306,11 @@ function PuntoControlModal({
     return (
         <dialog className="modal-open modal">
             <div className="modal-box">
-                <h2 className="text-xl font-bold">Verificación gerencial</h2>
+                <h2 className="text-xl font-bold">Aprobación gerencial</h2>
                 <p className="mt-3 text-sm text-base-content/70">
-                    ¿Estás seguro? Al marcar la verificación gerencial confirmas
-                    que la cotización fue revisada y habilitas el botón de{' '}
-                    <strong>enviar a aprobación</strong>.
+                    ¿Estás seguro? Al dar tu aprobación gerencial confirmas que
+                    la cotización fue revisada y habilitas al auxiliar a{' '}
+                    <strong>mandar a firmas</strong>.
                 </p>
                 <div className="modal-action">
                     <button
@@ -740,13 +741,20 @@ export default function RequisicionesShow({
         esUltimoNivel && proveedoresPorValidar.length > 0;
 
     const editable = ['borrador', 'rechazada'].includes(requisicion.estatus);
-    const cotizable = [
-        'borrador',
-        'cotizada',
-        'rechazada',
-        'aprobada',
-    ].includes(requisicion.estatus);
+    const cotizable = ['borrador', 'rechazada', 'aprobada'].includes(
+        requisicion.estatus,
+    );
     const tieneOcDefinida = (requisicion.ocs?.length ?? 0) > 0;
+    // El comparativo (PDF) queda disponible una vez que la requisición entra a
+    // la bandeja del gerente, para que él lo revise antes de aprobar.
+    const comparativoDisponible = [
+        'pendiente_aprobacion',
+        'aprobada',
+        'liberada',
+    ].includes(requisicion.estatus);
+    // La cadena de firmas ya arrancó (botón 3 ejecutado): oculta los botones de
+    // aprobación gerencial / mandar a firmas.
+    const cadenaIniciada = (requisicion.aprobaciones?.length ?? 0) > 0;
 
     const MIN_EMPRESAS_COTIZACION = requisicion.modo_dedazo ? 1 : 3;
     // La cotización se compara a nivel requisición: basta con tener al menos
@@ -850,7 +858,7 @@ export default function RequisicionesShow({
                     </div>
 
                     <div className="flex gap-2">
-                        {requisicion.control_verificado ? (
+                        {comparativoDisponible ? (
                             <Button variant="outline" asChild>
                                 <a
                                     href={`/admin/costos/requisiciones/${requisicion.id}/pdf`}
@@ -898,105 +906,131 @@ export default function RequisicionesShow({
                             </Button>
                         )}
 
-                        {requisicion.estatus === 'cotizada' && (
-                            <>
-                                {requisicion.control_verificado ? (
-                                    <span
-                                        className="badge gap-1 py-3 badge-success"
-                                        title={
-                                            requisicion.controlador
-                                                ? `Verificación gerencial: ${requisicion.controlador.name}`
-                                                : 'Verificación gerencial marcada'
-                                        }
-                                    >
-                                        ✓ Verificación gerencial
-                                    </span>
-                                ) : (
-                                    can('costos.requisiciones.control') && (
-                                        <Button
-                                            variant="outline"
-                                            onClick={() =>
-                                                setMarcandoControl(true)
+                        {/* Botón 1 (auxiliar): borrador → pendiente de aprobación. */}
+                        {requisicion.estatus === 'borrador' &&
+                            can('costos.requisiciones.cotizar') && (
+                                <Button
+                                    onClick={() => setEnviarAprobacion(true)}
+                                >
+                                    Enviar a aprobación
+                                </Button>
+                            )}
+
+                        {requisicion.estatus === 'pendiente_aprobacion' &&
+                            !cadenaIniciada && (
+                                <>
+                                    {/* Botón 2 (gerente): aprobación gerencial. */}
+                                    {requisicion.control_verificado ? (
+                                        <span
+                                            className="badge gap-1 py-3 badge-success"
+                                            title={
+                                                requisicion.controlador
+                                                    ? `Aprobación gerencial: ${requisicion.controlador.name}`
+                                                    : 'Aprobación gerencial registrada'
                                             }
                                         >
-                                            Marcar verificación gerencial
-                                        </Button>
-                                    )
-                                )}
-
-                                {requisicion.control_verificado &&
-                                    can('costos.requisiciones.control') && (
-                                        <Button
-                                            variant="outline"
-                                            className="text-error"
-                                            onClick={() => {
-                                                if (
-                                                    confirm(
-                                                        '¿Quitar la verificación gerencial? Deshabilitará el envío a aprobación.',
-                                                    )
-                                                ) {
-                                                    router.delete(
-                                                        `/admin/costos/requisiciones/${requisicion.id}/punto-control`,
-                                                        {
-                                                            preserveScroll: true,
-                                                        },
-                                                    );
+                                            ✓ Aprobación gerencial
+                                        </span>
+                                    ) : (
+                                        can('costos.requisiciones.control') && (
+                                            <Button
+                                                variant="outline"
+                                                onClick={() =>
+                                                    setMarcandoControl(true)
                                                 }
-                                            }}
-                                        >
-                                            Quitar verificación
-                                        </Button>
+                                            >
+                                                Aprobación gerencial
+                                            </Button>
+                                        )
                                     )}
 
-                                {requisicion.modo_dedazo
-                                    ? can('costos.requisiciones.liberar') && (
-                                          <Button
-                                              onClick={() => {
-                                                  if (
-                                                      confirm(
-                                                          '¿Convertir a orden de compra? Se afectará el presupuesto y se generará la OC directamente, sin cadena de aprobación.',
-                                                      )
-                                                  ) {
-                                                      router.post(
-                                                          `/admin/costos/requisiciones/${requisicion.id}/convertir-oc`,
-                                                          {},
-                                                          {
-                                                              preserveScroll: true,
-                                                          },
-                                                      );
+                                    {requisicion.control_verificado &&
+                                        can('costos.requisiciones.control') && (
+                                            <Button
+                                                variant="outline"
+                                                className="text-error"
+                                                onClick={() => {
+                                                    if (
+                                                        confirm(
+                                                            '¿Quitar la aprobación gerencial? Deshabilitará mandar a firmas.',
+                                                        )
+                                                    ) {
+                                                        router.delete(
+                                                            `/admin/costos/requisiciones/${requisicion.id}/punto-control`,
+                                                            {
+                                                                preserveScroll: true,
+                                                            },
+                                                        );
+                                                    }
+                                                }}
+                                            >
+                                                Quitar aprobación
+                                            </Button>
+                                        )}
+
+                                    {/* Botón 3 (auxiliar): mandar a firmas, o
+                                        afectar+OC directo en modo dedazo. */}
+                                    {requisicion.modo_dedazo
+                                        ? can('costos.requisiciones.liberar') && (
+                                              <Button
+                                                  onClick={() => {
+                                                      if (
+                                                          confirm(
+                                                              '¿Convertir a orden de compra? Se afectará el presupuesto y se generará la OC directamente, sin cadena de aprobación.',
+                                                          )
+                                                      ) {
+                                                          router.post(
+                                                              `/admin/costos/requisiciones/${requisicion.id}/convertir-oc`,
+                                                              {},
+                                                              {
+                                                                  preserveScroll: true,
+                                                              },
+                                                          );
+                                                      }
+                                                  }}
+                                                  disabled={
+                                                      !requisicion.control_verificado
                                                   }
-                                              }}
-                                              disabled={
-                                                  !requisicion.control_verificado
-                                              }
-                                              title={
-                                                  !requisicion.control_verificado
-                                                      ? 'Falta la verificación gerencial'
-                                                      : undefined
-                                              }
-                                          >
-                                              Afectar y generar OC
-                                          </Button>
-                                      )
-                                    : can('costos.requisiciones.cotizar') && (
-                                          <Button
-                                              onClick={() =>
-                                                  setEnviarAprobacion(true)
-                                              }
-                                              disabled={
-                                                  !requisicion.control_verificado
-                                              }
-                                              title={
-                                                  !requisicion.control_verificado
-                                                      ? 'Falta la verificación gerencial'
-                                                      : undefined
-                                              }
-                                          >
-                                              Enviar a aprobación
-                                          </Button>
-                                      )}
-                            </>
-                        )}
+                                                  title={
+                                                      !requisicion.control_verificado
+                                                          ? 'Falta la aprobación gerencial'
+                                                          : undefined
+                                                  }
+                                              >
+                                                  Afectar y generar OC
+                                              </Button>
+                                          )
+                                        : can('costos.requisiciones.cotizar') && (
+                                              <Button
+                                                  onClick={() => {
+                                                      if (
+                                                          confirm(
+                                                              '¿Mandar a firmas? Se apartará el presupuesto y se crearán las firmas pendientes de la cadena de aprobación.',
+                                                          )
+                                                      ) {
+                                                          router.post(
+                                                              `/admin/costos/requisiciones/${requisicion.id}/iniciar-aprobacion`,
+                                                              {},
+                                                              {
+                                                                  preserveScroll: true,
+                                                              },
+                                                          );
+                                                      }
+                                                  }}
+                                                  disabled={
+                                                      !requisicion.control_verificado
+                                                  }
+                                                  title={
+                                                      !requisicion.control_verificado
+                                                          ? 'Falta la aprobación gerencial'
+                                                          : undefined
+                                                  }
+                                              >
+                                                  Mandar a firmas
+                                              </Button>
+                                          )}
+                                </>
+                            )}
 
                         {!['liberada', 'cancelada'].includes(
                             requisicion.estatus,
@@ -1281,7 +1315,7 @@ export default function RequisicionesShow({
                                     </span>
                                     <span className="text-base-content/60">
                                         un solo proveedor · se convierte directo
-                                        a OC (con verificación gerencial, sin
+                                        a OC (con aprobación gerencial, sin
                                         cadena de aprobación)
                                     </span>
                                 </label>
@@ -1295,7 +1329,6 @@ export default function RequisicionesShow({
                                 editable={cotizable}
                                 puedeEditarPartidas={[
                                     'borrador',
-                                    'cotizada',
                                     'rechazada',
                                 ].includes(requisicion.estatus)}
                             />
@@ -1495,14 +1528,14 @@ export default function RequisicionesShow({
                     <dialog className="modal-open modal">
                         <div className="modal-box">
                             <h2 className="text-xl font-bold">
-                                Falta la verificación gerencial
+                                Comparativo no disponible aún
                             </h2>
                             <p className="mt-3 text-sm text-base-content/70">
                                 El comparativo solo puede generarse una vez que
-                                la requisición tenga la
-                                <strong> verificación gerencial</strong>.
-                                Márcala desde la pestaña de cotización y vuelve
-                                a intentarlo.
+                                la requisición se{' '}
+                                <strong>envía a aprobación</strong>. Envíala
+                                desde el botón de la cabecera y vuelve a
+                                intentarlo.
                             </p>
                             <div className="modal-action">
                                 <button

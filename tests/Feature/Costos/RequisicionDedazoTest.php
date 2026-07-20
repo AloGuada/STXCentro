@@ -24,15 +24,15 @@ beforeEach(function () {
 });
 
 /**
- * Requisición en modo dedazo: cotizada, verificación gerencial hecha, un solo
- * proveedor con precio, selección al 100% y su OC definida.
+ * Requisición en modo dedazo: pendiente de aprobación, aprobación gerencial
+ * hecha, un solo proveedor con precio, selección al 100% y su OC definida.
  *
  * @return array{0: Requisicion, 1: ObraRubro, 2: Proveedor}
  */
 function setupRequisicionDedazo(Departamento $depto, bool $controlVerificado = true): array
 {
     $rubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
-    $req = Requisicion::factory()->cotizada()->create([
+    $req = Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $depto->id,
         'modo_dedazo' => true,
         'control_verificado' => $controlVerificado,
@@ -125,8 +125,8 @@ test('convertir-oc solo aplica a requisiciones en modo dedazo', function () {
     expect(OrdenCompra::count())->toBe(0);
 });
 
-test('setDedazo activa el modo en una requisición cotizada', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id, 'modo_dedazo' => false]);
+test('setDedazo activa el modo en una requisición en borrador', function () {
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'modo_dedazo' => false]);
 
     $this->actingAs($this->compras)
         ->post("/admin/costos/requisiciones/{$req->id}/dedazo", ['modo_dedazo' => true])

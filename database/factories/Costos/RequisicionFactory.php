@@ -28,11 +28,6 @@ class RequisicionFactory extends Factory
         ];
     }
 
-    public function cotizada(): static
-    {
-        return $this->state(fn () => ['estatus' => 'cotizada']);
-    }
-
     public function pendienteAprobacion(): static
     {
         return $this->state(fn () => ['estatus' => 'pendiente_aprobacion']);

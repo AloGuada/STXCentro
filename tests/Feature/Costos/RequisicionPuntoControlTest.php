@@ -11,12 +11,12 @@ use App\Models\User;
 use Spatie\Permission\Models\Permission;
 
 /**
- * Requisición cotizada y COMPLETA (3 proveedores, selección al 100% con precio
- * y una OC), lista para marcar la verificación gerencial / enviar a aprobación.
+ * Requisición pendiente de aprobación y COMPLETA (3 proveedores, selección al
+ * 100% con precio y una OC), lista para la aprobación gerencial / mandar a firmas.
  */
 function requisicionCompletaParaControl(Departamento $depto): Requisicion
 {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $depto->id]);
+    $req = Requisicion::factory()->pendienteAprobacion()->create(['departamento_id' => $depto->id]);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
     $precio = RequisicionCotizacionPrecio::factory()->create(['requisicion_detalle_id' => $detalle->id]);
     RequisicionCotizacionPrecio::factory()->count(2)->create(['requisicion_detalle_id' => $detalle->id]);
@@ -46,7 +46,7 @@ beforeEach(function () {
 });
 
 test('marcar el punto de control requiere permiso propio', function () {
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    $req = Requisicion::factory()->pendienteAprobacion()->create(['departamento_id' => $this->depto->id]);
 
     $this->actingAs($this->compras)
         ->post("/admin/costos/requisiciones/{$req->id}/punto-control")
@@ -70,8 +70,8 @@ test('con permiso marca el punto de control y registra quién y cuándo', functi
 });
 
 test('no marca el punto de control si la cotización está incompleta (mismas validaciones que enviar a aprobación)', function () {
-    // Cotizada pero sin cotizaciones/selecciones/OC: no debe pasar el control.
-    $req = Requisicion::factory()->cotizada()->create(['departamento_id' => $this->depto->id]);
+    // Pendiente pero sin cotizaciones/selecciones/OC: no debe pasar el control.
+    $req = Requisicion::factory()->pendienteAprobacion()->create(['departamento_id' => $this->depto->id]);
 
     $this->actingAs($this->control)
         ->post("/admin/costos/requisiciones/{$req->id}/punto-control")
@@ -81,7 +81,7 @@ test('no marca el punto de control si la cotización está incompleta (mismas va
 });
 
 test('se puede quitar el punto de control', function () {
-    $req = Requisicion::factory()->cotizada()->create([
+    $req = Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $this->depto->id,
         'control_verificado' => true,
         'control_por' => $this->control->id,
@@ -96,7 +96,7 @@ test('se puede quitar el punto de control', function () {
         ->and($req->control_por)->toBeNull();
 });
 
-test('el punto de control solo aplica a requisiciones cotizadas', function () {
+test('la aprobación gerencial solo aplica a requisiciones pendientes de aprobación', function () {
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
 
     $this->actingAs($this->control)
@@ -106,17 +106,16 @@ test('el punto de control solo aplica a requisiciones cotizadas', function () {
     expect($req->fresh()->control_verificado)->toBeFalse();
 });
 
-test('no se puede enviar a aprobación sin el punto de control', function () {
-    $req = Requisicion::factory()->cotizada()->create([
-        'departamento_id' => $this->depto->id,
-        'control_verificado' => false,
-    ]);
+test('no se puede mandar a firmas sin la aprobación gerencial', function () {
+    $req = requisicionCompletaParaControl($this->depto);
+    $req->update(['control_verificado' => false]);
 
     $this->actingAs($this->compras)
-        ->post("/admin/costos/requisiciones/{$req->id}/enviar-aprobacion")
+        ->post("/admin/costos/requisiciones/{$req->id}/iniciar-aprobacion")
         ->assertSessionHasErrors(['control']);
 
-    expect($req->fresh()->estatus->value)->toBe('cotizada');
+    expect($req->fresh()->estatus->value)->toBe('pendiente_aprobacion')
+        ->and($req->cadenaAprobacion()->exists())->toBeFalse();
 });
 
 test('editar la requisición invalida un punto de control previo', function () {

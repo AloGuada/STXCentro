@@ -92,7 +92,7 @@ test('un proveedor puede tener dos opciones con precio y descripción distintos'
 });
 
 test('los días de envío se aplican a todas las celdas de una opción', function () {
-    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $d1 = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
     $d2 = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 3]);
     $prov = Proveedor::factory()->create();
@@ -163,7 +163,7 @@ test('agregar opción exige proveedor por id o por nombre', function () {
 });
 
 test('borrar una opción borra sus celdas y selecciones en cascada', function () {
-    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 10]);
     $prov = Proveedor::factory()->create();
     $op1 = opcionDe($req, $prov, 1);
@@ -185,7 +185,7 @@ test('borrar una opción borra sus celdas y selecciones en cascada', function ()
 });
 
 test('quitar un proveedor borra sus opciones, cotizaciones y selecciones sin tocar a los demás', function () {
-    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 10]);
     $provA = Proveedor::factory()->create();
     $provB = Proveedor::factory()->create();
@@ -208,7 +208,7 @@ test('quitar un proveedor borra sus opciones, cotizaciones y selecciones sin toc
 });
 
 test('agregar una partida desde cotización crea el renglón', function () {
-    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada', 'presupuesto_id' => null]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador', 'presupuesto_id' => null]);
     $rubro = ObraRubro::factory()->create();
     $uso = UsoCfdi::factory()->create(['activo' => true]);
 
@@ -233,7 +233,7 @@ test('agregar una partida desde cotización crea el renglón', function () {
 });
 
 test('agregar partida exige centro de costos y uso de CFDI', function () {
-    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada', 'presupuesto_id' => null]);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador', 'presupuesto_id' => null]);
 
     $this->actingAs($this->compras)
         ->post("/admin/costos/requisiciones/{$req->id}/detalles", [
@@ -260,7 +260,7 @@ test('no se puede agregar partida a una requisición ya liberada', function () {
 });
 
 test('quitar una partida borra sus cotizaciones y selecciones pero no las opciones', function () {
-    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'cotizada']);
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
     $otro = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 3]);
     $prov = Proveedor::factory()->create();
