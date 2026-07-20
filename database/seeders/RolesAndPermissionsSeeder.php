@@ -4,20 +4,36 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 class RolesAndPermissionsSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Crea (o confirma) el catálogo de permisos SIN tocar los roles.
+     *
+     * Es seguro correrlo en producción para dar de alta permisos nuevos: usa
+     * firstOrCreate, no elimina nada y no re-sincroniza las asignaciones de los
+     * roles. La creación y asignación de roles vive en RolesSeeder.
      */
     public function run(): void
     {
         // Resetear cache de permisos
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Crear permisos del módulo STI
+        foreach (array_merge(...array_values(self::groupedPermissions())) as $permission) {
+            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+        }
+    }
+
+    /**
+     * Permisos agrupados por módulo. Fuente única de verdad, tanto para crearlos
+     * aquí como para que RolesSeeder los asigne a los roles.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function groupedPermissions(): array
+    {
+        // Permisos del módulo STI
         $stiPermissions = [
             'sti.tickets.ver',
             'sti.tickets.crear',
@@ -37,7 +53,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'sti.mantenimientos.eliminar',
         ];
 
-        // Crear permisos del módulo Intranet
+        // Permisos del módulo Intranet
         $intraPermissions = [
             'intra.areas.ver',
             'intra.areas.crear',
@@ -54,12 +70,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'intra.secciones.eliminar',
         ];
 
-        // Crear permisos del módulo Costos
+        // Permisos del módulo Costos
         $costosPermissions = [
             'costos.proveedores.ver',
             'costos.proveedores.crear',
             'costos.proveedores.editar',
             'costos.proveedores.eliminar',
+            'costos.proveedores.aprobar',
             'costos.regimenes-fiscales.ver',
             'costos.regimenes-fiscales.crear',
             'costos.regimenes-fiscales.editar',
@@ -158,7 +175,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.devoluciones.cancelar',
         ];
 
-        // Crear permisos del módulo Produccion
+        // Permisos del módulo Produccion
         $prodPermissions = [
             'prod.registros.ver',
             'prod.registros.crear',
@@ -184,13 +201,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'prod.conceptos.eliminar',
         ];
 
-        // Crear permisos del módulo Infraestructura
+        // Permisos del módulo Infraestructura
         $infraPermissions = [
             'infra.recorridos.ver',
             'infra.recorridos.crear',
         ];
 
-        // Crear permisos del módulo Cobranza
+        // Permisos del módulo Cobranza
         $cobPermissions = [
             'cob.dashboard.ver',
             'cob.clientes.ver',
@@ -253,7 +270,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'cob.reportes.gestionar',
         ];
 
-        // Crear permisos del módulo RH
+        // Permisos del módulo RH
         $rhPermissions = [
             'rh.puestos.ver',
             'rh.puestos.crear',
@@ -290,12 +307,12 @@ class RolesAndPermissionsSeeder extends Seeder
             'rh.permisos-ausencia.eliminar',
         ];
 
-        // Crear permisos del módulo Drive
+        // Permisos del módulo Drive
         $drivePermissions = [
             'drive.gestionar',
         ];
 
-        // Crear permisos del módulo DG Reportes
+        // Permisos del módulo DG Reportes
         // El acceso a subir reportes se controla por la tabla pivote dg_carpeta_usuario (puede_escribir), no por permiso.
         $dgPermissions = [
             'dg.reportes.ver',
@@ -303,7 +320,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'dg.reportes.notas',
         ];
 
-        // Crear permisos del módulo Calidad
+        // Permisos del módulo Calidad
         $calPermissions = [
             'cal.obras.ver',
             'cal.etapas.ver',
@@ -333,7 +350,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'cal.usuarios.gestionar',
         ];
 
-        // Crear permisos Core
+        // Permisos Core
         $corePermissions = [
             'usuarios.ver',
             'usuarios.crear',
@@ -355,7 +372,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'badge-configs.eliminar',
         ];
 
-        // Crear permisos del módulo Cotización (catálogos globales — Fase 0).
+        // Permisos del módulo Cotización (catálogos globales — Fase 0).
         // El trabajo por obra (obras, generadoras, tarjetas, resumen) agrega sus permisos en fases posteriores.
         $cotizCatalogos = [
             'insumos',
@@ -386,216 +403,20 @@ class RolesAndPermissionsSeeder extends Seeder
             }
         }
 
-        $allPermissions = array_merge($stiPermissions, $intraPermissions, $costosPermissions, $prodPermissions, $infraPermissions, $cobPermissions, $rhPermissions, $drivePermissions, $dgPermissions, $calPermissions, $corePermissions, $cotizPermissions, $cotizTrabajoPermissions);
-
-        foreach ($allPermissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
-        }
-
-        // Consolidar a los 4 roles operativos de costos: compras, costos, almacen,
-        // contabilidad. Sustituyen a costos-compras, costos-almacen y admin-costos
-        // conservando las asignaciones (se renombra el registro). Idempotente.
-        foreach ([
-            'costos-compras' => 'compras',
-            'costos-almacen' => 'almacen',
-            'admin-costos' => 'costos',
-        ] as $viejo => $nuevo) {
-            if (($role = Role::where('name', $viejo)->first()) && ! Role::where('name', $nuevo)->exists()) {
-                $role->update(['name' => $nuevo]);
-            }
-        }
-
-        // Crear roles
-        $superAdmin = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
-        $adminSti = Role::firstOrCreate(['name' => 'admin-sti', 'guard_name' => 'web']);
-        $tecnicoSti = Role::firstOrCreate(['name' => 'tecnico-sti', 'guard_name' => 'web']);
-        $adminIntranet = Role::firstOrCreate(['name' => 'admin-intranet', 'guard_name' => 'web']);
-        $costos = Role::firstOrCreate(['name' => 'costos', 'guard_name' => 'web']);
-        $adminProduccion = Role::firstOrCreate(['name' => 'admin-produccion', 'guard_name' => 'web']);
-        $adminInfra = Role::firstOrCreate(['name' => 'admin-infra', 'guard_name' => 'web']);
-        $compras = Role::firstOrCreate(['name' => 'compras', 'guard_name' => 'web']);
-        $almacen = Role::firstOrCreate(['name' => 'almacen', 'guard_name' => 'web']);
-        $contabilidad = Role::firstOrCreate(['name' => 'contabilidad', 'guard_name' => 'web']);
-        $adminCobranza = Role::firstOrCreate(['name' => 'admin-cobranza', 'guard_name' => 'web']);
-        $adminRh = Role::firstOrCreate(['name' => 'admin-rh', 'guard_name' => 'web']);
-        $adminCal = Role::firstOrCreate(['name' => 'admin-cal', 'guard_name' => 'web']);
-        $inspectorCal = Role::firstOrCreate(['name' => 'inspector-cal', 'guard_name' => 'web']);
-        $empleado = Role::firstOrCreate(['name' => 'empleado', 'guard_name' => 'web']);
-        $directorGeneral = Role::firstOrCreate(['name' => 'director-general', 'guard_name' => 'web']);
-        $adminCotiz = Role::firstOrCreate(['name' => 'admin-cotiz', 'guard_name' => 'web']);
-        $usuarioCotiz = Role::firstOrCreate(['name' => 'usuario-cotiz', 'guard_name' => 'web']);
-
-        // El rol `gerente` fue reemplazado por la ACL por carpeta (dg_carpeta_usuario.puede_escribir).
-        Role::where('name', 'gerente')->delete();
-        Permission::where('name', 'dg.reportes.subir')->delete();
-
-        // Super admin tiene todos los permisos
-        $superAdmin->givePermissionTo($allPermissions);
-
-        // Admin STI tiene todos los permisos STI
-        $adminSti->givePermissionTo($stiPermissions);
-
-        // Técnico STI tiene permisos limitados de STI
-        $tecnicoSti->givePermissionTo([
-            'sti.tickets.ver',
-            'sti.tickets.crear',
-            'sti.tickets.editar',
-            'sti.equipos.ver',
-            'sti.mantenimientos.ver',
-            'sti.mantenimientos.programar',
-        ]);
-
-        // Admin Intranet tiene todos los permisos de intranet
-        $adminIntranet->givePermissionTo($intraPermissions);
-
-        // El rol `costos` es el operativo de costos con acceso completo al módulo
-        // (catálogos, presupuesto, afectaciones, configuración de aprobaciones,
-        // facturas y notas de crédito). Sustituye a admin-costos.
-        $costos->givePermissionTo($costosPermissions);
-
-        // Admin Produccion tiene todos los permisos de produccion
-        $adminProduccion->givePermissionTo($prodPermissions);
-
-        // Admin Infra tiene todos los permisos de infraestructura
-        $adminInfra->givePermissionTo($infraPermissions);
-
-        // compras gestiona OC, proveedores y devoluciones; ve facturas en lectura.
-        // La creación/cancelación de factura es responsabilidad de costos.
-        // Como operativo del módulo, ve todas las requisiciones, OC y solicitudes.
-        $compras->syncPermissions([
-            'costos.ordenes-compra.ver',
-            'costos.ordenes-compra.ver-todas',
-            'costos.ordenes-compra.crear',
-            'costos.ordenes-compra.editar',
-            'costos.ordenes-compra.eliminar',
-            'costos.ordenes-compra.aprobar',
-            'costos.ordenes-compra.cancelar',
-            'costos.facturas.ver',
-            'costos.proveedores.ver',
-            'costos.proveedores.crear',
-            'costos.proveedores.editar',
-            'costos.bancos.ver',
-            'costos.requisiciones.ver',
-            'costos.requisiciones.ver-todas',
-            'costos.requisiciones.cotizar',
-            'costos.requisiciones.liberar',
-            'costos.requisiciones.cancelar',
-            'costos.devoluciones.ver',
-            'costos.devoluciones.crear',
-            'costos.devoluciones.cancelar',
-            'costos.productos.ver',
-            'costos.productos.crear',
-            'costos.productos.editar',
-            'costos.productos.eliminar',
-            'costos.solicitudes-pago.ver',
-            'costos.solicitudes-pago.ver-todas',
-        ]);
-
-        // almacen registra recepciones contra OC y gestiona devoluciones.
-        // Operativo del módulo: ve todas las requisiciones, OC y solicitudes.
-        $almacen->syncPermissions([
-            'costos.ordenes-compra.ver',
-            'costos.ordenes-compra.ver-todas',
-            'costos.facturas.ver',
-            'costos.entregas.crear',
-            'costos.devoluciones.ver',
-            'costos.devoluciones.crear',
-            'costos.devoluciones.cancelar',
-            'costos.requisiciones.ver',
-            'costos.requisiciones.ver-todas',
-            'costos.productos.ver',
-            'costos.productos.crear',
-            'costos.productos.editar',
-            'costos.productos.eliminar',
-            'costos.solicitudes-pago.ver',
-            'costos.solicitudes-pago.ver-todas',
-        ]);
-
-        // contabilidad valida costos, crea/aprueba solicitudes de pago, programa
-        // pagos, gestiona anticipos, notas de crédito y complementos de pago.
-        // Operativo del módulo: ve todas las requisiciones, OC y solicitudes.
-        $contabilidad->syncPermissions([
-            'costos.pagos.ver',
-            'costos.pagos.programar',
-            'costos.pagos.editar',
-            'costos.pagos.cancelar',
-            'costos.facturas.ver',
-            'costos.facturas.aceptar-contabilidad',
-            'costos.solicitudes-pago.ver',
-            'costos.solicitudes-pago.ver-todas',
-            'costos.solicitudes-pago.crear',
-            'costos.solicitudes-pago.editar',
-            'costos.solicitudes-pago.aprobar',
-            'costos.solicitudes.confirmar-costos',
-            'costos.anticipos.ver',
-            'costos.anticipos.crear',
-            'costos.anticipos.aplicar',
-            'costos.anticipos.cancelar',
-            'costos.notas-credito.ver',
-            'costos.notas-credito.crear',
-            'costos.notas-credito.cancelar',
-            'costos.complementos.ver',
-            'costos.complementos.desbloquear',
-            'costos.requisiciones.ver',
-            'costos.requisiciones.ver-todas',
-            'costos.ordenes-compra.ver',
-            'costos.ordenes-compra.ver-todas',
-        ]);
-
-        // Admin Cobranza tiene todos los permisos de cobranza
-        $adminCobranza->givePermissionTo($cobPermissions);
-
-        // Admin RH tiene todos los permisos de recursos humanos
-        $adminRh->givePermissionTo($rhPermissions);
-
-        // Admin Calidad tiene todos los permisos de calidad
-        $adminCal->givePermissionTo($calPermissions);
-
-        // Inspector Calidad tiene permisos de ver/crear/editar reportes y flechas
-        $inspectorCal->givePermissionTo([
-            'cal.obras.ver',
-            'cal.etapas.ver',
-            'cal.piezas.ver',
-            'cal.planos.ver',
-            'cal.reportes.ver',
-            'cal.reportes.crear',
-            'cal.reportes.editar',
-            'cal.flechas.ver',
-            'cal.flechas.crear',
-            'cal.flechas.editar',
-            'cal.soldadores.ver',
-        ]);
-
-        // Empleado tiene permisos básicos de lectura
-        $empleado->givePermissionTo([
-            'intra.areas.ver',
-            'intra.documentos.ver',
-            'intra.secciones.ver',
-            // Puede crear solicitudes de pago y cancelar las suyas.
-            'costos.solicitudes-pago.ver',
-            'costos.solicitudes-pago.crear',
-            'costos.solicitudes-pago.cancelar-propia',
-            // Levanta sus propias requisiciones y da seguimiento (solo lectura)
-            // a ellas y a las OC / solicitudes de pago que derivan de ellas.
-            'costos.requisiciones.ver',
-            'costos.requisiciones.crear',
-        ]);
-
-        // Director General: administra carpetas + ve todo + toma notas
-        $directorGeneral->syncPermissions([
-            'dg.reportes.ver',
-            'dg.reportes.administrar',
-            'dg.reportes.notas',
-        ]);
-
-        // Admin Cotización gestiona los catálogos globales y todo el trabajo por obra.
-        $adminCotiz->givePermissionTo(array_merge($cotizPermissions, $cotizTrabajoPermissions));
-
-        // Usuario Cotización: consume los catálogos (solo lectura) y opera el trabajo por
-        // obra (obras/generadoras). Corte fino permiso-por-permiso en Fase 6.
-        $usuarioCotiz->syncPermissions(array_merge(
-            array_values(array_filter($cotizPermissions, fn (string $p) => str_ends_with($p, '.ver'))),
-            $cotizTrabajoPermissions,
-        ));
+        return [
+            'sti' => $stiPermissions,
+            'intra' => $intraPermissions,
+            'costos' => $costosPermissions,
+            'prod' => $prodPermissions,
+            'infra' => $infraPermissions,
+            'cob' => $cobPermissions,
+            'rh' => $rhPermissions,
+            'drive' => $drivePermissions,
+            'dg' => $dgPermissions,
+            'cal' => $calPermissions,
+            'core' => $corePermissions,
+            'cotiz' => $cotizPermissions,
+            'cotizTrabajo' => $cotizTrabajoPermissions,
+        ];
     }
 }

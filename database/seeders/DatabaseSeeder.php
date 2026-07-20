@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
         // Primero ejecutar los seeders de catálogos
         $this->call([
             RolesAndPermissionsSeeder::class,
+            RolesSeeder::class,
             StiStatusSeeder::class,
             ProdTipoSeeder::class,
             DgCarpetasSeeder::class,

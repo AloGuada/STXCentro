@@ -6,12 +6,12 @@ use App\Models\Cotiz\Obra;
 use App\Models\Cotiz\ObraFactorOverride;
 use App\Models\Cotiz\ObraInsumoOverride;
 use App\Models\User;
-use Database\Seeders\RolesAndPermissionsSeeder;
+use Database\Seeders\RolesSeeder;
 
 beforeEach(function () {
     $this->withoutVite();
     config(['inertia.testing.ensure_pages_exist' => false]);
-    $this->seed(RolesAndPermissionsSeeder::class);
+    $this->seed(RolesSeeder::class);
 
     $this->user = User::factory()->create();
     $this->user->assignRole('admin-cotiz');

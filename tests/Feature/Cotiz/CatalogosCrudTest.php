@@ -6,13 +6,13 @@ use App\Models\Cotiz\Factor;
 use App\Models\Cotiz\Insumo;
 use App\Models\Cotiz\Unidad;
 use App\Models\User;
-use Database\Seeders\RolesAndPermissionsSeeder;
+use Database\Seeders\RolesSeeder;
 
 beforeEach(function () {
     $this->withoutVite();
     // Las páginas frontend (.tsx) aún no existen; sólo validamos el contrato Inertia del backend.
     config(['inertia.testing.ensure_pages_exist' => false]);
-    $this->seed(RolesAndPermissionsSeeder::class);
+    $this->seed(RolesSeeder::class);
 
     $this->user = User::factory()->create();
     $this->user->assignRole('admin-cotiz');

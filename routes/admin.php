@@ -130,6 +130,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::resource('departamentos', DepartamentoController::class);
     Route::resource('obras', ObraController::class);
     Route::post('obras/{obra}/import-conceptos', [ObraController::class, 'importConceptos'])->name('obras.import-conceptos');
+    Route::post('proveedores/{proveedor}/aprobar', [ProveedorController::class, 'aprobar'])->name('proveedores.aprobar');
     Route::resource('proveedores', ProveedorController::class)->parameters(['proveedores' => 'proveedor']);
     Route::resource('regimenes-fiscales', RegimenFiscalController::class)
         ->parameters(['regimenes-fiscales' => 'regimenFiscal'])

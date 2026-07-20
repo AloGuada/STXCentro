@@ -6,7 +6,7 @@ use Spatie\Permission\Models\Role;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+    $this->seed(\Database\Seeders\RolesSeeder::class);
 });
 
 describe('roles de costos post-seed', function () {
@@ -80,7 +80,7 @@ describe('roles de costos post-seed', function () {
         Role::where('name', 'costos')->delete();
         Role::create(['name' => 'admin-costos', 'guard_name' => 'web']);
 
-        $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+        $this->seed(\Database\Seeders\RolesSeeder::class);
 
         expect(Role::where('name', 'admin-costos')->exists())->toBeFalse();
         expect(Role::where('name', 'costos')->exists())->toBeTrue();

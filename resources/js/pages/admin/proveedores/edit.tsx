@@ -1,6 +1,7 @@
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { CheckCircle2Icon, Loader2Icon } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { useCan } from '@/hooks/use-can';
 import { DocumentoField, type DocumentoActual } from '@/components/costos/documento-field';
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
@@ -25,6 +26,22 @@ type Props = {
 };
 
 export default function ProveedoresEdit({ proveedor, documentos, tienePassword, regimenes, bancos }: Props) {
+    const { can } = useCan();
+    const [aprobando, setAprobando] = useState(false);
+    const puedeAprobar = proveedor.estatus === 'pendiente_validacion' && can('costos.proveedores.aprobar');
+
+    const aprobar = () => {
+        router.post(
+            `/admin/proveedores/${proveedor.id}/aprobar`,
+            {},
+            {
+                preserveScroll: true,
+                onStart: () => setAprobando(true),
+                onFinish: () => setAprobando(false),
+            },
+        );
+    };
+
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Proveedores', href: '/admin/proveedores' },
@@ -130,11 +147,19 @@ export default function ProveedoresEdit({ proveedor, documentos, tienePassword, 
                                 </span>
                             )}
                         </div>
-                        <DeleteDialog
-                            title="Eliminar proveedor"
-                            description={`¿Estás seguro de eliminar el proveedor "${proveedor.razon_social}"? Esta acción no se puede deshacer.`}
-                            deleteUrl={`/admin/proveedores/${proveedor.id}`}
-                        />
+                        <div className="flex items-center gap-2">
+                            {puedeAprobar && (
+                                <Button variant="primary" onClick={aprobar} disabled={aprobando}>
+                                    {aprobando ? <Loader2Icon className="size-4 animate-spin" /> : <CheckCircle2Icon className="size-4" />}
+                                    Aprobar proveedor
+                                </Button>
+                            )}
+                            <DeleteDialog
+                                title="Eliminar proveedor"
+                                description={`¿Estás seguro de eliminar el proveedor "${proveedor.razon_social}"? Esta acción no se puede deshacer.`}
+                                deleteUrl={`/admin/proveedores/${proveedor.id}`}
+                            />
+                        </div>
                     </div>
 
                     {proveedor.estatus === 'rechazado' && proveedor.observacion_validacion && (

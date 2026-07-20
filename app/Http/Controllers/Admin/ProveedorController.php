@@ -126,6 +126,25 @@ class ProveedorController extends Controller
         return to_route('admin.proveedores.index')->with('success', 'Proveedor actualizado.');
     }
 
+    public function aprobar(Request $request, Proveedor $proveedor): RedirectResponse
+    {
+        Gate::authorize('costos.proveedores.aprobar');
+
+        if ($proveedor->estatus !== ProveedorEstatus::PendienteValidacion) {
+            return back()->withErrors(['estatus' => 'El proveedor no está pendiente de validación.']);
+        }
+
+        $proveedor->update([
+            'estatus' => ProveedorEstatus::Activo,
+            'activo' => true,
+            'validado_por' => $request->user()->id,
+            'validado_at' => now(),
+            'observacion_validacion' => null,
+        ]);
+
+        return back()->with('success', 'Proveedor aprobado y activado.');
+    }
+
     public function destroy(Proveedor $proveedor): RedirectResponse
     {
         Gate::authorize('costos.proveedores.eliminar');
