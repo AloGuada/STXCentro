@@ -38,6 +38,7 @@ export default function ProveedoresCreate({ regimenes, bancos }: Props) {
         telefono: string;
         email: string;
         contacto_nombre: string;
+        contacto_correo: string;
         numero_servicio: string;
         referencia_servicio: string;
         forma_pago: string;
@@ -71,6 +72,7 @@ export default function ProveedoresCreate({ regimenes, bancos }: Props) {
         telefono: '',
         email: '',
         contacto_nombre: '',
+        contacto_correo: '',
         numero_servicio: '',
         referencia_servicio: '',
         forma_pago: 'transferencia',
@@ -204,12 +206,12 @@ export default function ProveedoresCreate({ regimenes, bancos }: Props) {
                                     <FormField label="Teléfono" htmlFor="telefono" error={errors.telefono}>
                                         <Input id="telefono" value={data.telefono} onChange={(e) => setData('telefono', e.target.value)} />
                                     </FormField>
-                                    <FormField label={esProveedorFormal ? 'Email' : 'Email (opcional)'} htmlFor="email" error={errors.email} required={esProveedorFormal}>
-                                        <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} />
+                                    <FormField label="Nombre de Contacto" htmlFor="contacto_nombre" error={errors.contacto_nombre}>
+                                        <Input id="contacto_nombre" value={data.contacto_nombre} onChange={(e) => setData('contacto_nombre', e.target.value)} />
                                     </FormField>
                                 </div>
-                                <FormField label="Nombre de Contacto" htmlFor="contacto_nombre" error={errors.contacto_nombre}>
-                                    <Input id="contacto_nombre" value={data.contacto_nombre} onChange={(e) => setData('contacto_nombre', e.target.value)} />
+                                <FormField label="Correo del Contacto" htmlFor="contacto_correo" error={errors.contacto_correo}>
+                                    <Input id="contacto_correo" type="email" value={data.contacto_correo} onChange={(e) => setData('contacto_correo', e.target.value)} />
                                 </FormField>
 
                                 <div className="divider" />
@@ -279,6 +281,9 @@ export default function ProveedoresCreate({ regimenes, bancos }: Props) {
 
                                 <div className="divider" />
                                 <h2 className="text-lg font-medium">Acceso al Portal</h2>
+                                <FormField label={esProveedorFormal ? 'Email (usuario del portal)' : 'Email (usuario del portal, opcional)'} htmlFor="email" error={errors.email} required={esProveedorFormal}>
+                                    <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} />
+                                </FormField>
                                 <label className="label cursor-pointer gap-2 w-fit">
                                     <input type="checkbox" className="checkbox" checked={data.tiene_acceso_portal} onChange={(e) => setData('tiene_acceso_portal', e.target.checked)} />
                                     <span className="label-text">Tiene acceso al portal</span>

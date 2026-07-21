@@ -60,6 +60,7 @@ class Proveedor extends Authenticatable
         'email',
         'password',
         'contacto_nombre',
+        'contacto_correo',
         'tiene_acceso_portal',
         'maneja_credito',
         'limite_credito',

@@ -27,6 +27,7 @@ class ProveedorUpdateRequest extends FormRequest
             'nombre_comercial' => ['nullable', 'string', 'max:255'],
             'telefono' => ['nullable', 'string', 'max:50'],
             'contacto_nombre' => ['nullable', 'string', 'max:255'],
+            'contacto_correo' => ['nullable', 'email', 'max:255'],
         ];
 
         // Servicio (luz/agua): número de servicio y referencia, sin banca.

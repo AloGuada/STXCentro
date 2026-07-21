@@ -1002,6 +1002,7 @@ export type Proveedor = {
     telefono: string | null;
     email: string | null;
     contacto_nombre: string | null;
+    contacto_correo: string | null;
     banco_nombre: string | null;
     banco_id: number | null;
     titular_cuenta: string | null;

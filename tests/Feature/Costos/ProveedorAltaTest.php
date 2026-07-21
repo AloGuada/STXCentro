@@ -62,6 +62,29 @@ test('alta crea proveedor desactivado y pendiente de validación', function () {
     expect($proveedor->media()->where('descripcion', 'caratula_bancaria')->exists())->toBeTrue();
 });
 
+test('guarda el correo del contacto separado del email de acceso al portal', function () {
+    $this->actingAs($this->compras)
+        ->post('/admin/proveedores', payloadProveedor([
+            'email' => 'acceso@aceros.mx',
+            'contacto_nombre' => 'Juan Pérez',
+            'contacto_correo' => 'juan.contacto@aceros.mx',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $proveedor = Proveedor::first();
+    expect($proveedor->email)->toBe('acceso@aceros.mx');
+    expect($proveedor->contacto_correo)->toBe('juan.contacto@aceros.mx');
+});
+
+test('el correo del contacto debe tener formato de email', function () {
+    $this->actingAs($this->compras)
+        ->post('/admin/proveedores', payloadProveedor(['contacto_correo' => 'no-es-correo']))
+        ->assertSessionHasErrors(['contacto_correo']);
+
+    expect(Proveedor::count())->toBe(0);
+});
+
 test('régimen, constancia y carátula son obligatorios para proveedor', function () {
     $this->actingAs($this->compras)
         ->post('/admin/proveedores', payloadProveedor([
