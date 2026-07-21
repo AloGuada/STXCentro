@@ -167,7 +167,8 @@ class HandleInertiaRequests extends Middleware
                             $sub->select(DB::raw(1))
                                 ->from('costos_requisiciones as r')
                                 ->whereColumn('r.id', 'a.aprobable_id')
-                                ->where('r.estatus', 'pendiente_aprobacion_interno');
+                                // La cadena de firmas vive en la etapa formal.
+                                ->where('r.estatus', 'pendiente_aprobacion');
                         });
                 })->orWhere(function ($q2) {
                     $q2->where('a.aprobable_type', \App\Models\Costos\SolicitudPago::class)

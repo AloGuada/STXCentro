@@ -213,7 +213,6 @@ test('badge cuenta requisiciones pendientes de aprobación gerencial con OC conf
         'operador' => '=',
         'valor_estatus' => 'pendiente_aprobacion_interno',
         'condiciones_extra' => [
-            ['campo' => 'control_verificado', 'operador' => '=', 'valor' => false],
             ['tipo' => 'existe', 'tabla' => 'costos_requisicion_ocs', 'fk' => 'requisicion_id'],
         ],
         'rol' => 'compras',
@@ -224,20 +223,20 @@ test('badge cuenta requisiciones pendientes de aprobación gerencial con OC conf
     $depto = \App\Models\Departamento::factory()->create();
     $ocData = fn () => ['proveedor_id' => \App\Models\Proveedor::factory()->create()->id, 'numero_oc' => 1];
 
-    // Cuenta: pendiente, sin aprobación gerencial, con OC configurada.
-    $conOc = \App\Models\Costos\Requisicion::factory()->pendienteAprobacion()->create([
-        'departamento_id' => $depto->id, 'control_verificado' => false,
+    // Cuenta: pendiente de aprobación interna, con OC configurada.
+    $conOc = \App\Models\Costos\Requisicion::factory()->pendienteAprobacionInterna()->create([
+        'departamento_id' => $depto->id,
     ]);
     $conOc->ocs()->create($ocData());
 
     // No cuenta: sin OC.
-    \App\Models\Costos\Requisicion::factory()->pendienteAprobacion()->create([
-        'departamento_id' => $depto->id, 'control_verificado' => false,
+    \App\Models\Costos\Requisicion::factory()->pendienteAprobacionInterna()->create([
+        'departamento_id' => $depto->id,
     ]);
 
-    // No cuenta: ya con aprobación gerencial aunque tenga OC.
-    $verificada = \App\Models\Costos\Requisicion::factory()->pendienteAprobacion()->create([
-        'departamento_id' => $depto->id, 'control_verificado' => true,
+    // No cuenta: ya con aprobación interna (aprobada_interna) aunque tenga OC.
+    $verificada = \App\Models\Costos\Requisicion::factory()->aprobadaInterna()->create([
+        'departamento_id' => $depto->id,
     ]);
     $verificada->ocs()->create($ocData());
 

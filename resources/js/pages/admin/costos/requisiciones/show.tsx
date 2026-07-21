@@ -257,8 +257,8 @@ function EnviarAprobacionModal({
                         </h2>
                         <p className="mt-3 text-sm text-base-content/70">
                             ¿Todo está correcto? Al aceptar, la requisición pasa
-                            a <strong>Pendiente de aprobación</strong> (bandeja
-                            del gerente) para su aprobación gerencial y se
+                            a <strong>Pendiente de aprobación interna</strong>{' '}
+                            (bandeja del gerente) para su aprobación interna y se
                             bloquearán las ediciones.
                         </p>
                         <div className="modal-action">
@@ -297,7 +297,7 @@ function PuntoControlModal({
     const { post, processing } = useForm({});
 
     const confirmar = () => {
-        post(`/admin/costos/requisiciones/${requisicionId}/punto-control`, {
+        post(`/admin/costos/requisiciones/${requisicionId}/aprobar-interno`, {
             preserveScroll: true,
             onSuccess: () => onClose(),
         });
@@ -306,11 +306,11 @@ function PuntoControlModal({
     return (
         <dialog className="modal-open modal">
             <div className="modal-box">
-                <h2 className="text-xl font-bold">Aprobación gerencial</h2>
+                <h2 className="text-xl font-bold">Aprobación interna</h2>
                 <p className="mt-3 text-sm text-base-content/70">
-                    ¿Estás seguro? Al dar tu aprobación gerencial confirmas que
+                    ¿Estás seguro? Al dar tu aprobación interna confirmas que
                     la cotización fue revisada y habilitas al auxiliar a{' '}
-                    <strong>mandar a firmas</strong>.
+                    <strong>mandar a aprobación</strong>.
                 </p>
                 <div className="modal-action">
                     <button
@@ -752,9 +752,29 @@ export default function RequisicionesShow({
         'aprobada',
         'liberada',
     ].includes(requisicion.estatus);
-    // La cadena de firmas ya arrancó (botón 3 ejecutado): oculta los botones de
-    // aprobación gerencial / mandar a firmas.
-    const cadenaIniciada = (requisicion.aprobaciones?.length ?? 0) > 0;
+    // Nivel/usuario que tiene la firma pendiente en la etapa formal: se muestra
+    // debajo del estatus para saber en manos de quién está la aprobación.
+    const aprobacionPendiente = useMemo(() => {
+        if (requisicion.estatus !== 'pendiente_aprobacion') {
+            return null;
+        }
+        const pendientes = (requisicion.aprobaciones ?? []).filter(
+            (a) => a.estatus === 'pendiente',
+        );
+        if (pendientes.length === 0) {
+            return null;
+        }
+        const nivel = Math.min(...pendientes.map((a) => a.nivel));
+        const nombres = [
+            ...new Set(
+                pendientes
+                    .filter((a) => a.nivel === nivel)
+                    .map((a) => a.aprobador?.name)
+                    .filter(Boolean),
+            ),
+        ].join(' / ');
+        return { nivel, nombres: nombres || 'Sin asignar' };
+    }, [requisicion.estatus, requisicion.aprobaciones]);
 
     const MIN_EMPRESAS_COTIZACION = requisicion.modo_dedazo ? 1 : 3;
     // La cotización se compara a nivel requisición: basta con tener al menos
@@ -855,6 +875,17 @@ export default function RequisicionesShow({
                                 {fmtDate(requisicion.created_at)}
                             </span>
                         </div>
+                        {aprobacionPendiente && (
+                            <div className="mt-1 text-xs text-base-content/70">
+                                Aprobación pendiente:{' '}
+                                <span className="font-medium">
+                                    {aprobacionPendiente.nivel === 0
+                                        ? 'Firma adicional'
+                                        : `Nivel ${aprobacionPendiente.nivel}`}
+                                </span>{' '}
+                                · {aprobacionPendiente.nombres}
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex gap-2">
@@ -906,7 +937,7 @@ export default function RequisicionesShow({
                             </Button>
                         )}
 
-                        {/* Botón 1 (auxiliar): borrador → pendiente de aprobación. */}
+                        {/* B1 (auxiliar): borrador → pendiente de aprobación interna. */}
                         {requisicion.estatus === 'borrador' &&
                             can('costos.requisiciones.cotizar') && (
                                 <Button
@@ -916,121 +947,86 @@ export default function RequisicionesShow({
                                 </Button>
                             )}
 
+                        {/* Etapa interna (gerente): aprobar → aprobada_interna, o
+                            rechazar → borrador para re-cotizar. */}
                         {requisicion.estatus === 'pendiente_aprobacion_interno' &&
-                            !cadenaIniciada && (
+                            can('costos.requisiciones.control') && (
                                 <>
-                                    {/* Botón 2 (gerente): aprobación gerencial. */}
-                                    {requisicion.control_verificado ? (
-                                        <span
-                                            className="badge gap-1 py-3 badge-success"
-                                            title={
-                                                requisicion.controlador
-                                                    ? `Aprobación gerencial: ${requisicion.controlador.name}`
-                                                    : 'Aprobación gerencial registrada'
+                                    <Button
+                                        onClick={() =>
+                                            setMarcandoControl(true)
+                                        }
+                                    >
+                                        Aprobación interna
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        className="text-error"
+                                        onClick={() => {
+                                            if (
+                                                confirm(
+                                                    '¿Rechazar la aprobación interna? La requisición regresa a borrador para re-cotizar.',
+                                                )
+                                            ) {
+                                                router.post(
+                                                    `/admin/costos/requisiciones/${requisicion.id}/rechazar-interno`,
+                                                    {},
+                                                    { preserveScroll: true },
+                                                );
                                             }
-                                        >
-                                            ✓ Aprobación gerencial
-                                        </span>
-                                    ) : (
-                                        can('costos.requisiciones.control') && (
-                                            <Button
-                                                variant="outline"
-                                                onClick={() =>
-                                                    setMarcandoControl(true)
-                                                }
-                                            >
-                                                Aprobación gerencial
-                                            </Button>
-                                        )
-                                    )}
-
-                                    {requisicion.control_verificado &&
-                                        can('costos.requisiciones.control') && (
-                                            <Button
-                                                variant="outline"
-                                                className="text-error"
-                                                onClick={() => {
-                                                    if (
-                                                        confirm(
-                                                            '¿Quitar la aprobación gerencial? Deshabilitará mandar a firmas.',
-                                                        )
-                                                    ) {
-                                                        router.delete(
-                                                            `/admin/costos/requisiciones/${requisicion.id}/punto-control`,
-                                                            {
-                                                                preserveScroll: true,
-                                                            },
-                                                        );
-                                                    }
-                                                }}
-                                            >
-                                                Quitar aprobación
-                                            </Button>
-                                        )}
-
-                                    {/* Botón 3 (auxiliar): mandar a firmas, o
-                                        afectar+OC directo en modo dedazo. */}
-                                    {requisicion.modo_dedazo
-                                        ? can('costos.requisiciones.liberar') && (
-                                              <Button
-                                                  onClick={() => {
-                                                      if (
-                                                          confirm(
-                                                              '¿Convertir a orden de compra? Se afectará el presupuesto y se generará la OC directamente, sin cadena de aprobación.',
-                                                          )
-                                                      ) {
-                                                          router.post(
-                                                              `/admin/costos/requisiciones/${requisicion.id}/convertir-oc`,
-                                                              {},
-                                                              {
-                                                                  preserveScroll: true,
-                                                              },
-                                                          );
-                                                      }
-                                                  }}
-                                                  disabled={
-                                                      !requisicion.control_verificado
-                                                  }
-                                                  title={
-                                                      !requisicion.control_verificado
-                                                          ? 'Falta la aprobación gerencial'
-                                                          : undefined
-                                                  }
-                                              >
-                                                  Afectar y generar OC
-                                              </Button>
-                                          )
-                                        : can('costos.requisiciones.cotizar') && (
-                                              <Button
-                                                  onClick={() => {
-                                                      if (
-                                                          confirm(
-                                                              '¿Mandar a firmas? Se apartará el presupuesto y se crearán las firmas pendientes de la cadena de aprobación.',
-                                                          )
-                                                      ) {
-                                                          router.post(
-                                                              `/admin/costos/requisiciones/${requisicion.id}/iniciar-aprobacion`,
-                                                              {},
-                                                              {
-                                                                  preserveScroll: true,
-                                                              },
-                                                          );
-                                                      }
-                                                  }}
-                                                  disabled={
-                                                      !requisicion.control_verificado
-                                                  }
-                                                  title={
-                                                      !requisicion.control_verificado
-                                                          ? 'Falta la aprobación gerencial'
-                                                          : undefined
-                                                  }
-                                              >
-                                                  Mandar a firmas
-                                              </Button>
-                                          )}
+                                        }}
+                                    >
+                                        Rechazar
+                                    </Button>
                                 </>
                             )}
+
+                        {/* Con la aprobación interna dada: mandar a la aprobación
+                            formal (cadena), o afectar+OC directo en modo dedazo. */}
+                        {requisicion.estatus === 'aprobada_interna' &&
+                            (requisicion.modo_dedazo
+                                ? can('costos.requisiciones.liberar') && (
+                                      <Button
+                                          onClick={() => {
+                                              if (
+                                                  confirm(
+                                                      '¿Convertir a orden de compra? Se afectará el presupuesto y se generará la OC directamente, sin cadena de aprobación.',
+                                                  )
+                                              ) {
+                                                  router.post(
+                                                      `/admin/costos/requisiciones/${requisicion.id}/convertir-oc`,
+                                                      {},
+                                                      {
+                                                          preserveScroll: true,
+                                                      },
+                                                  );
+                                              }
+                                          }}
+                                      >
+                                          Afectar y generar OC
+                                      </Button>
+                                  )
+                                : can('costos.requisiciones.cotizar') && (
+                                      <Button
+                                          onClick={() => {
+                                              if (
+                                                  confirm(
+                                                      '¿Mandar a aprobación? Se apartará el presupuesto y se crearán las firmas pendientes de la cadena de aprobación.',
+                                                  )
+                                              ) {
+                                                  router.post(
+                                                      `/admin/costos/requisiciones/${requisicion.id}/iniciar-aprobacion`,
+                                                      {},
+                                                      {
+                                                          preserveScroll: true,
+                                                      },
+                                                  );
+                                              }
+                                          }}
+                                      >
+                                          Mandar a aprobación
+                                      </Button>
+                                  ))}
 
                         {!['liberada', 'cancelada'].includes(
                             requisicion.estatus,

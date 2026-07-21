@@ -215,7 +215,7 @@ class AprobarDocumentoCommand extends Command
         }
 
         if ($estado !== RequisicionEstatus::PendienteAprobacion->value) {
-            $this->error("La requisición {$doc->folio} está en '{$estado}'. Debe estar en 'pendiente_aprobacion_interno' para aprobarla.");
+            $this->error("La requisición {$doc->folio} está en '{$estado}'. Debe estar en 'pendiente_aprobacion' (cadena de firmas) para aprobarla.");
 
             return self::FAILURE;
         }

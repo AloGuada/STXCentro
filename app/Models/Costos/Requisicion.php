@@ -51,7 +51,6 @@ class Requisicion extends Model implements Aprobable
         'justificacion',
         'fecha_requerida',
         'estatus',
-        'control_verificado',
         'control_por',
         'control_at',
         'modo_dedazo',
@@ -69,7 +68,6 @@ class Requisicion extends Model implements Aprobable
         return [
             'fecha_requerida' => 'date',
             'estatus' => RequisicionEstatus::class,
-            'control_verificado' => 'boolean',
             'control_at' => 'datetime',
             'modo_dedazo' => 'boolean',
             'sobre_obra_cerrada' => 'boolean',

@@ -1690,6 +1690,8 @@ export type CostosAnticipoAplicacion = {
 export type CostosRequisicionEstatus =
     | 'borrador'
     | 'pendiente_aprobacion_interno'
+    | 'aprobada_interna'
+    | 'pendiente_aprobacion'
     | 'aprobada'
     | 'rechazada'
     | 'liberada'
@@ -1698,6 +1700,8 @@ export type CostosRequisicionEstatus =
 export const REQUISICION_ESTATUS_LABELS: Record<CostosRequisicionEstatus, string> = {
     borrador: 'Borrador',
     pendiente_aprobacion_interno: 'Pendiente de aprobación interna',
+    aprobada_interna: 'Aprobada interna',
+    pendiente_aprobacion: 'Pendiente de aprobación',
     aprobada: 'Aprobada',
     rechazada: 'Rechazada',
     liberada: 'Liberada',
@@ -1707,6 +1711,8 @@ export const REQUISICION_ESTATUS_LABELS: Record<CostosRequisicionEstatus, string
 export const REQUISICION_ESTATUS_COLORS: Record<CostosRequisicionEstatus, string> = {
     borrador: 'badge-ghost',
     pendiente_aprobacion_interno: 'badge-secondary',
+    aprobada_interna: 'badge-info',
+    pendiente_aprobacion: 'badge-warning',
     aprobada: 'badge-success',
     rechazada: 'badge-error',
     liberada: 'badge-primary',
@@ -1754,7 +1760,6 @@ export type CostosRequisicion = {
     justificacion: string | null;
     fecha_requerida: string | null;
     estatus: CostosRequisicionEstatus;
-    control_verificado: boolean;
     control_por: string | null;
     control_at: string | null;
     modo_dedazo: boolean;

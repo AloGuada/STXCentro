@@ -11,12 +11,12 @@ use App\Models\User;
 use Spatie\Permission\Models\Permission;
 
 /**
- * Requisición pendiente de aprobación y COMPLETA (3 proveedores, selección al
- * 100% con precio y una OC), lista para la aprobación gerencial / mandar a firmas.
+ * Requisición en la etapa interna y COMPLETA (3 proveedores, selección al 100%
+ * con precio y una OC), lista para la aprobación interna del gerente.
  */
-function requisicionCompletaParaControl(Departamento $depto): Requisicion
+function requisicionCompletaParaControl(Departamento $depto, string $estatus = 'pendiente_aprobacion_interno'): Requisicion
 {
-    $req = Requisicion::factory()->pendienteAprobacion()->create(['departamento_id' => $depto->id]);
+    $req = Requisicion::factory()->create(['departamento_id' => $depto->id, 'estatus' => $estatus]);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
     $precio = RequisicionCotizacionPrecio::factory()->create(['requisicion_detalle_id' => $detalle->id]);
     RequisicionCotizacionPrecio::factory()->count(2)->create(['requisicion_detalle_id' => $detalle->id]);
@@ -45,88 +45,95 @@ beforeEach(function () {
     $this->compras->givePermissionTo(['costos.requisiciones.cotizar', 'costos.requisiciones.crear']);
 });
 
-test('marcar el punto de control requiere permiso propio', function () {
-    $req = Requisicion::factory()->pendienteAprobacion()->create(['departamento_id' => $this->depto->id]);
+test('la aprobación interna requiere permiso propio', function () {
+    $req = Requisicion::factory()->pendienteAprobacionInterna()->create(['departamento_id' => $this->depto->id]);
 
     $this->actingAs($this->compras)
-        ->post("/admin/costos/requisiciones/{$req->id}/punto-control")
+        ->post("/admin/costos/requisiciones/{$req->id}/aprobar-interno")
         ->assertForbidden();
 
-    expect($req->fresh()->control_verificado)->toBeFalse();
+    expect($req->fresh()->estatus->value)->toBe('pendiente_aprobacion_interno');
 });
 
-test('con permiso marca el punto de control y registra quién y cuándo', function () {
+test('con permiso aprueba internamente, transiciona a aprobada_interna y registra quién y cuándo', function () {
     $req = requisicionCompletaParaControl($this->depto);
 
     $this->actingAs($this->control)
-        ->post("/admin/costos/requisiciones/{$req->id}/punto-control")
+        ->post("/admin/costos/requisiciones/{$req->id}/aprobar-interno")
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
     $req->refresh();
-    expect($req->control_verificado)->toBeTrue()
+    expect($req->estatus->value)->toBe('aprobada_interna')
         ->and($req->control_por)->toBe($this->control->id)
         ->and($req->control_at)->not->toBeNull();
 });
 
-test('no marca el punto de control si la cotización está incompleta (mismas validaciones que enviar a aprobación)', function () {
-    // Pendiente pero sin cotizaciones/selecciones/OC: no debe pasar el control.
-    $req = Requisicion::factory()->pendienteAprobacion()->create(['departamento_id' => $this->depto->id]);
+test('no aprueba internamente si la cotización está incompleta', function () {
+    // Interna pero sin cotizaciones/selecciones/OC: no debe pasar el control.
+    $req = Requisicion::factory()->pendienteAprobacionInterna()->create(['departamento_id' => $this->depto->id]);
 
     $this->actingAs($this->control)
-        ->post("/admin/costos/requisiciones/{$req->id}/punto-control")
+        ->post("/admin/costos/requisiciones/{$req->id}/aprobar-interno")
         ->assertSessionHasErrors(['cotizaciones']);
 
-    expect($req->fresh()->control_verificado)->toBeFalse();
+    expect($req->fresh()->estatus->value)->toBe('pendiente_aprobacion_interno');
 });
 
-test('se puede quitar el punto de control', function () {
-    $req = Requisicion::factory()->pendienteAprobacion()->create([
-        'departamento_id' => $this->depto->id,
-        'control_verificado' => true,
-        'control_por' => $this->control->id,
-    ]);
+test('rechazar la aprobación interna regresa la requisición a borrador', function () {
+    $req = requisicionCompletaParaControl($this->depto);
+    $req->update(['control_por' => $this->control->id, 'control_at' => now()]);
 
     $this->actingAs($this->control)
-        ->delete("/admin/costos/requisiciones/{$req->id}/punto-control")
+        ->post("/admin/costos/requisiciones/{$req->id}/rechazar-interno")
         ->assertRedirect();
 
     $req->refresh();
-    expect($req->control_verificado)->toBeFalse()
+    expect($req->estatus->value)->toBe('borrador')
         ->and($req->control_por)->toBeNull();
 });
 
-test('la aprobación gerencial solo aplica a requisiciones pendientes de aprobación', function () {
+test('la aprobación interna solo aplica a requisiciones pendientes de aprobación interna', function () {
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
 
     $this->actingAs($this->control)
-        ->post("/admin/costos/requisiciones/{$req->id}/punto-control")
+        ->post("/admin/costos/requisiciones/{$req->id}/aprobar-interno")
         ->assertSessionHasErrors(['control']);
 
-    expect($req->fresh()->control_verificado)->toBeFalse();
+    expect($req->fresh()->estatus->value)->toBe('borrador');
 });
 
-test('no se puede mandar a firmas sin la aprobación gerencial', function () {
+test('no se puede mandar a aprobación sin la aprobación interna', function () {
     $req = requisicionCompletaParaControl($this->depto);
-    $req->update(['control_verificado' => false]);
 
     $this->actingAs($this->compras)
         ->post("/admin/costos/requisiciones/{$req->id}/iniciar-aprobacion")
-        ->assertSessionHasErrors(['control']);
+        ->assertSessionHasErrors(['estatus']);
 
     expect($req->fresh()->estatus->value)->toBe('pendiente_aprobacion_interno')
         ->and($req->cadenaAprobacion()->exists())->toBeFalse();
 });
 
-test('editar la requisición invalida un punto de control previo', function () {
+test('mandar a aprobación desde aprobada_interna transiciona a pendiente de aprobación', function () {
+    $req = requisicionCompletaParaControl($this->depto, 'aprobada_interna');
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/{$req->id}/iniciar-aprobacion")
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($req->fresh()->estatus->value)->toBe('pendiente_aprobacion');
+});
+
+test('editar la requisición invalida una aprobación interna previa', function () {
     $rubro = ObraRubro::factory()->create();
     $uso = UsoCfdi::factory()->create(['activo' => true]);
     $req = Requisicion::factory()->create([
         'departamento_id' => $this->depto->id,
         'estatus' => 'borrador',
         'presupuesto_id' => null,
-        'control_verificado' => true,
         'control_por' => $this->control->id,
+        'control_at' => now(),
     ]);
 
     $this->actingAs($this->compras)
@@ -140,6 +147,6 @@ test('editar la requisición invalida un punto de control previo', function () {
         ->assertRedirect();
 
     $req->refresh();
-    expect($req->control_verificado)->toBeFalse()
-        ->and($req->control_por)->toBeNull();
+    expect($req->control_por)->toBeNull()
+        ->and($req->control_at)->toBeNull();
 });

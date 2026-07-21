@@ -388,7 +388,7 @@ test('seleccion permite split entre dos proveedores', function () {
 });
 
 test('mandar a firmas genera cadena por niveles del departamento', function () {
-    $req = Requisicion::factory()->pendienteAprobacion()->create(['departamento_id' => $this->depto->id, 'control_verificado' => true]);
+    $req = Requisicion::factory()->aprobadaInterna()->create(['departamento_id' => $this->depto->id]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
         'cantidad' => 5,
@@ -450,7 +450,7 @@ test('mandar a firmas genera cadena por niveles del departamento', function () {
         ->assertRedirect();
 
     $req->refresh();
-    expect($req->estatus->value)->toBe('pendiente_aprobacion_interno');
+    expect($req->estatus->value)->toBe('pendiente_aprobacion');
     expect($req->aprobaciones()->count())->toBe(2);
     expect(Aprobacion::where('aprobable_type', Requisicion::class)
         ->where('aprobable_id', $req->id)
@@ -669,7 +669,7 @@ test('rechazo permite volver a borrador para re-cotizar', function () {
 
 test('Requisicion implementa Aprobable y onAprobacionCompleta transiciona a aprobada', function () {
     $req = Requisicion::factory()->create([
-        'estatus' => 'pendiente_aprobacion_interno',
+        'estatus' => 'pendiente_aprobacion',
         'departamento_id' => $this->depto->id,
     ]);
 
@@ -682,7 +682,7 @@ test('Requisicion implementa Aprobable y onAprobacionCompleta transiciona a apro
 
 test('onAprobacionRechazada guarda motivo y transiciona a rechazada', function () {
     $req = Requisicion::factory()->create([
-        'estatus' => 'pendiente_aprobacion_interno',
+        'estatus' => 'pendiente_aprobacion',
         'departamento_id' => $this->depto->id,
     ]);
 
@@ -696,7 +696,6 @@ test('onAprobacionRechazada guarda motivo y transiciona a rechazada', function (
 test('el formato comparativo de la requisicion se genera en PDF una vez en aprobación', function () {
     $req = Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $this->depto->id,
-        'control_verificado' => true,
     ]);
 
     $response = $this->actingAs($this->user)
@@ -721,7 +720,6 @@ test('el comparativo colorea solo al proveedor elegido y con IDs tipo texto (Pos
     // este test emula ese tipado para blindar las comparaciones de IDs del blade.
     $req = Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $this->depto->id,
-        'control_verificado' => true,
     ]);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 5]);
 
@@ -790,7 +788,6 @@ test('el comparativo colorea solo al proveedor elegido y con IDs tipo texto (Pos
 test('el comparativo aplica retenciones al total neto', function () {
     $req = Requisicion::factory()->pendienteAprobacion()->create([
         'departamento_id' => $this->depto->id,
-        'control_verificado' => true,
     ]);
     // Partida de flete (ISR Fletes 4%) para que haya retención.
     $detalle = RequisicionDetalle::factory()->create([

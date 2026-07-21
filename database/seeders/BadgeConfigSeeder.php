@@ -66,7 +66,6 @@ class BadgeConfigSeeder extends Seeder
                 'operador' => '=',
                 'valor_estatus' => 'pendiente_aprobacion_interno',
                 'condiciones_extra' => [
-                    ['campo' => 'control_verificado', 'operador' => '=', 'valor' => false],
                     ['tipo' => 'existe', 'tabla' => 'costos_requisicion_ocs', 'fk' => 'requisicion_id'],
                 ],
                 'rol' => 'compras',

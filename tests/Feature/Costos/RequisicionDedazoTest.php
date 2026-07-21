@@ -24,19 +24,19 @@ beforeEach(function () {
 });
 
 /**
- * Requisición en modo dedazo: pendiente de aprobación, aprobación gerencial
- * hecha, un solo proveedor con precio, selección al 100% y su OC definida.
+ * Requisición en modo dedazo con la aprobación interna dada (aprobada_interna),
+ * un solo proveedor con precio, selección al 100% y su OC definida.
  *
  * @return array{0: Requisicion, 1: ObraRubro, 2: Proveedor}
  */
-function setupRequisicionDedazo(Departamento $depto, bool $controlVerificado = true): array
+function setupRequisicionDedazo(Departamento $depto, string $estatus = 'aprobada_interna'): array
 {
     $rubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
-    $req = Requisicion::factory()->pendienteAprobacion()->create([
+    $req = Requisicion::factory()->create([
         'departamento_id' => $depto->id,
+        'estatus' => $estatus,
         'modo_dedazo' => true,
-        'control_verificado' => $controlVerificado,
-        'control_at' => $controlVerificado ? now() : null,
+        'control_at' => now(),
     ]);
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
@@ -104,12 +104,12 @@ test('dedazo funciona con un solo proveedor (sin exigir el mínimo de 3)', funct
     expect(OrdenCompra::count())->toBe(1);
 });
 
-test('dedazo exige la verificación gerencial antes de convertir a OC', function () {
-    [$req] = setupRequisicionDedazo($this->depto, controlVerificado: false);
+test('convertir-oc exige la aprobación interna (estatus aprobada_interna)', function () {
+    [$req] = setupRequisicionDedazo($this->depto, estatus: 'pendiente_aprobacion_interno');
 
     $this->actingAs($this->compras)
         ->post("/admin/costos/requisiciones/{$req->id}/convertir-oc")
-        ->assertSessionHasErrors(['control']);
+        ->assertSessionHasErrors(['estatus']);
 
     expect(OrdenCompra::count())->toBe(0);
 });

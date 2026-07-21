@@ -28,9 +28,20 @@ class RequisicionFactory extends Factory
         ];
     }
 
-    public function pendienteAprobacion(): static
+    public function pendienteAprobacionInterna(): static
     {
         return $this->state(fn () => ['estatus' => 'pendiente_aprobacion_interno']);
+    }
+
+    public function aprobadaInterna(): static
+    {
+        return $this->state(fn () => ['estatus' => 'aprobada_interna']);
+    }
+
+    /** Etapa formal: la cadena de firmas ya arrancó. */
+    public function pendienteAprobacion(): static
+    {
+        return $this->state(fn () => ['estatus' => 'pendiente_aprobacion']);
     }
 
     public function aprobada(): static

@@ -226,8 +226,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/enviar-aprobacion', [CostosRequisicionController::class, 'enviarAprobacion'])->name('requisiciones.enviar-aprobacion');
         Route::post('requisiciones/{requisicion}/iniciar-aprobacion', [CostosRequisicionController::class, 'iniciarAprobacion'])->name('requisiciones.iniciar-aprobacion');
         Route::post('requisiciones/{requisicion}/firmar-final', [CostosRequisicionController::class, 'firmarFinal'])->name('requisiciones.firmar-final');
-        Route::post('requisiciones/{requisicion}/punto-control', [CostosRequisicionController::class, 'marcarControl'])->name('requisiciones.punto-control.marcar');
-        Route::delete('requisiciones/{requisicion}/punto-control', [CostosRequisicionController::class, 'quitarControl'])->name('requisiciones.punto-control.quitar');
+        Route::post('requisiciones/{requisicion}/aprobar-interno', [CostosRequisicionController::class, 'aprobarInterno'])->name('requisiciones.aprobar-interno');
+        Route::post('requisiciones/{requisicion}/rechazar-interno', [CostosRequisicionController::class, 'rechazarInterno'])->name('requisiciones.rechazar-interno');
         Route::post('requisiciones/{requisicion}/liberar', [CostosRequisicionController::class, 'liberar'])->name('requisiciones.liberar');
         Route::post('requisiciones/{requisicion}/dedazo', [CostosRequisicionController::class, 'setDedazo'])->name('requisiciones.dedazo');
         Route::post('requisiciones/{requisicion}/convertir-oc', [CostosRequisicionController::class, 'convertirAOc'])->name('requisiciones.convertir-oc');

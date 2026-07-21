@@ -99,7 +99,6 @@ test('la bandeja expone los archivos (media) de la requisicion pendiente', funct
     AprobacionDepartamento::factory()->create(['aprobador_id' => $this->aprobador->id]);
 
     $requisicion = Requisicion::factory()->pendienteAprobacion()->create([
-        'control_verificado' => true,
     ]);
     $requisicion->media()->create([
         'descripcion' => 'Cotizacion escaneada',

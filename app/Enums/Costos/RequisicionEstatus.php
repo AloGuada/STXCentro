@@ -7,7 +7,9 @@ use App\Enums\Contracts\HasStateTransitions;
 enum RequisicionEstatus: string implements HasStateTransitions
 {
     case Borrador = 'borrador';
-    case PendienteAprobacion = 'pendiente_aprobacion_interno';
+    case PendienteAprobacionInterna = 'pendiente_aprobacion_interno';
+    case AprobadaInterna = 'aprobada_interna';
+    case PendienteAprobacion = 'pendiente_aprobacion';
     case Aprobada = 'aprobada';
     case Rechazada = 'rechazada';
     case Liberada = 'liberada';
@@ -19,8 +21,13 @@ enum RequisicionEstatus: string implements HasStateTransitions
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::Borrador => [self::PendienteAprobacion, self::Cancelada],
-            self::PendienteAprobacion => [self::Borrador, self::Aprobada, self::Rechazada, self::Cancelada],
+            self::Borrador => [self::PendienteAprobacionInterna, self::Cancelada],
+            // Etapa interna: solo el control gerencial (aprueba → interna, rechaza → borrador).
+            self::PendienteAprobacionInterna => [self::AprobadaInterna, self::Borrador, self::Rechazada, self::Cancelada],
+            // Con la aprobación interna dada: se manda a la aprobación formal (cadena
+            // de firmas) o, en dedazo, se convierte directo a OC (→ Aprobada).
+            self::AprobadaInterna => [self::PendienteAprobacion, self::Aprobada, self::Rechazada, self::Cancelada],
+            self::PendienteAprobacion => [self::Aprobada, self::Rechazada, self::Cancelada],
             self::Aprobada => [self::Liberada, self::Cancelada],
             self::Rechazada => [self::Borrador, self::Cancelada],
             self::Liberada,
@@ -32,7 +39,9 @@ enum RequisicionEstatus: string implements HasStateTransitions
     {
         return match ($this) {
             self::Borrador => 'Borrador',
-            self::PendienteAprobacion => 'Pendiente de aprobación interna',
+            self::PendienteAprobacionInterna => 'Pendiente de aprobación interna',
+            self::AprobadaInterna => 'Aprobada interna',
+            self::PendienteAprobacion => 'Pendiente de aprobación',
             self::Aprobada => 'Aprobada',
             self::Rechazada => 'Rechazada',
             self::Liberada => 'Liberada',

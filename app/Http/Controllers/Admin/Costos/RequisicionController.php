@@ -335,6 +335,8 @@ class RequisicionController extends Controller
 
         abort_unless(
             in_array($requisicion->estatus, [
+                RequisicionEstatus::PendienteAprobacionInterna,
+                RequisicionEstatus::AprobadaInterna,
                 RequisicionEstatus::PendienteAprobacion,
                 RequisicionEstatus::Aprobada,
                 RequisicionEstatus::Liberada,
@@ -640,8 +642,7 @@ class RequisicionController extends Controller
                 'presupuesto_id' => $request->integer('presupuesto_id') ?: null,
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
-                // Editar la requisición invalida un punto de control previo.
-                'control_verificado' => false,
+                // Editar la requisición invalida una aprobación interna previa.
                 'control_por' => null,
                 'control_at' => null,
             ]);
@@ -727,56 +728,53 @@ class RequisicionController extends Controller
      * cubiertas 100% por selecciones, y cada seleccion con precio capturado.
      */
     /**
-     * Marca el punto de control de la requisición: gate manual (permiso propio)
-     * que habilita el botón de enviar a aprobación. Solo en estado cotizada.
+     * Botón 2 (gerente): da la aprobación interna sobre una requisición que está
+     * en la bandeja interna. Transiciona `pendiente_aprobacion_interno →
+     * aprobada_interna` y guarda quién/cuándo. La etapa interna ES este control
+     * gerencial (no hay cadena de firmas todavía).
      */
-    /**
-     * Botón 2 (gerente): da la aprobación gerencial sobre una requisición que ya
-     * está en la bandeja (pendiente de aprobación). No cambia el estado; solo
-     * marca el visto bueno que habilita al auxiliar a mandarla a firmas.
-     */
-    public function marcarControl(Requisicion $requisicion): RedirectResponse
+    public function aprobarInterno(Requisicion $requisicion): RedirectResponse
     {
         Gate::authorize('costos.requisiciones.control');
 
-        if ($requisicion->estatus !== RequisicionEstatus::PendienteAprobacion) {
-            return back()->withErrors(['control' => 'La aprobación gerencial solo aplica a requisiciones pendientes de aprobación.']);
+        if ($requisicion->estatus !== RequisicionEstatus::PendienteAprobacionInterna) {
+            return back()->withErrors(['control' => 'La aprobación interna solo aplica a requisiciones pendientes de aprobación interna.']);
         }
 
-        // Mismas validaciones que mandar a firmas: no se da la aprobación
-        // gerencial si la cotización está incompleta.
+        // Mismas validaciones que mandar a aprobación: no se da la aprobación
+        // interna si la cotización está incompleta.
         if ($errores = $this->validarCotizacionCompleta($requisicion)) {
             return back()->withErrors($errores);
         }
 
         $requisicion->update([
-            'control_verificado' => true,
             'control_por' => auth()->id(),
             'control_at' => now(),
         ]);
+        $requisicion->transitionTo(RequisicionEstatus::AprobadaInterna);
 
-        return back()->with('success', 'Aprobación gerencial registrada.');
+        return back()->with('success', 'Aprobación interna registrada.');
     }
 
-    public function quitarControl(Requisicion $requisicion): RedirectResponse
+    /**
+     * Botón 3 (gerente): rechaza la aprobación interna y regresa la requisición a
+     * borrador para re-cotizar. Solo antes de mandarse a firmas.
+     */
+    public function rechazarInterno(Requisicion $requisicion): RedirectResponse
     {
         Gate::authorize('costos.requisiciones.control');
 
-        if ($requisicion->estatus !== RequisicionEstatus::PendienteAprobacion) {
-            return back()->withErrors(['control' => 'La aprobación gerencial solo aplica a requisiciones pendientes de aprobación.']);
-        }
-
-        if ($requisicion->cadenaAprobacion()->exists()) {
-            return back()->withErrors(['control' => 'No se puede quitar la aprobación gerencial: la requisición ya se mandó a firmas.']);
+        if ($requisicion->estatus !== RequisicionEstatus::PendienteAprobacionInterna) {
+            return back()->withErrors(['control' => 'Solo se puede rechazar una requisición pendiente de aprobación interna.']);
         }
 
         $requisicion->update([
-            'control_verificado' => false,
             'control_por' => null,
             'control_at' => null,
         ]);
+        $requisicion->transitionTo(RequisicionEstatus::Borrador);
 
-        return back()->with('success', 'Aprobación gerencial retirada.');
+        return back()->with('success', 'Requisición regresada a borrador para re-cotizar.');
     }
 
     /**
@@ -797,27 +795,24 @@ class RequisicionController extends Controller
             return back()->withErrors($errores);
         }
 
-        $requisicion->transitionTo(RequisicionEstatus::PendienteAprobacion);
+        $requisicion->transitionTo(RequisicionEstatus::PendienteAprobacionInterna);
 
-        return back()->with('success', 'Requisición enviada a aprobación gerencial.');
+        return back()->with('success', 'Requisición enviada a aprobación interna.');
     }
 
     /**
-     * Botón 3 (auxiliar): con la aprobación gerencial ya dada, dispara la cadena
-     * de firmas multinivel. Aparta el presupuesto (5 días) y crea las
-     * aprobaciones. La requisición permanece en pendiente de aprobación hasta que
-     * se firmen todos los niveles (o se aprueba sola si todos se saltan).
+     * Botón "Mandar a aprobación" (auxiliar): con la aprobación interna ya dada,
+     * mueve la requisición a la aprobación formal. Aparta el presupuesto (5 días),
+     * transiciona `aprobada_interna → pendiente_aprobacion` y crea la cadena de
+     * firmas. Permanece en pendiente de aprobación hasta que se firmen todos los
+     * niveles (o se aprueba sola si todos se saltan).
      */
     public function iniciarAprobacion(Request $request, Requisicion $requisicion): RedirectResponse
     {
         Gate::authorize('costos.requisiciones.cotizar');
 
-        if ($requisicion->estatus !== RequisicionEstatus::PendienteAprobacion) {
-            return back()->withErrors(['estatus' => 'La requisición debe estar en pendiente de aprobación.']);
-        }
-
-        if (! $requisicion->control_verificado) {
-            return back()->withErrors(['control' => 'Falta la aprobación gerencial antes de mandar a firmas.']);
+        if ($requisicion->estatus !== RequisicionEstatus::AprobadaInterna) {
+            return back()->withErrors(['estatus' => 'La requisición debe tener la aprobación interna antes de mandarse a firmas.']);
         }
 
         if ($requisicion->cadenaAprobacion()->exists()) {
@@ -847,6 +842,8 @@ class RequisicionController extends Controller
             app(ApartadoPresupuestal::class)
                 ->apartarDocumento($requisicion, $items, $request->user()->id);
 
+            $requisicion->transitionTo(RequisicionEstatus::PendienteAprobacion);
+
             $chain = app(ApprovalChainService::class);
             $creados = $chain->crearCadenaAprobaciones($requisicion);
 
@@ -857,7 +854,7 @@ class RequisicionController extends Controller
             }
         });
 
-        return back()->with('success', 'Requisición mandada a firmas.');
+        return back()->with('success', 'Requisición mandada a aprobación.');
     }
 
     /**
@@ -988,12 +985,8 @@ class RequisicionController extends Controller
             return back()->withErrors(['modo_dedazo' => 'Esta acción solo aplica a requisiciones en modo dedazo.']);
         }
 
-        if ($requisicion->estatus !== RequisicionEstatus::PendienteAprobacion) {
-            return back()->withErrors(['estatus' => 'La requisición debe estar en pendiente de aprobación para convertirse a OC.']);
-        }
-
-        if (! $requisicion->control_verificado) {
-            return back()->withErrors(['control' => 'Falta la aprobación gerencial antes de convertir a OC.']);
+        if ($requisicion->estatus !== RequisicionEstatus::AprobadaInterna) {
+            return back()->withErrors(['estatus' => 'La requisición debe tener la aprobación interna antes de convertirse a OC.']);
         }
 
         if ($errores = $this->validarCotizacionCompleta($requisicion)) {

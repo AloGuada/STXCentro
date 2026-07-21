@@ -12,7 +12,7 @@ class CancelarRequisicionesVencidasCommand extends Command
 {
     protected $signature = 'costos:cancelar-requisiciones-vencidas';
 
-    protected $description = 'Cancela requisiciones en pendiente_aprobacion_interno o aprobada que llevan mas de 10 dias sin avanzar.';
+    protected $description = 'Cancela requisiciones en cualquier etapa de aprobación (interna o formal) o aprobadas que llevan mas de 10 dias sin avanzar.';
 
     /** Valor por defecto si no hay configuración guardada. */
     public const DIAS_LIMITE = 10;
@@ -24,6 +24,8 @@ class CancelarRequisicionesVencidasCommand extends Command
 
         $requisiciones = Requisicion::query()
             ->whereIn('estatus', [
+                RequisicionEstatus::PendienteAprobacionInterna->value,
+                RequisicionEstatus::AprobadaInterna->value,
                 RequisicionEstatus::PendienteAprobacion->value,
                 RequisicionEstatus::Aprobada->value,
             ])
