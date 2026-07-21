@@ -593,10 +593,13 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
         expect($solicitud->estatus->value)->toBe('pendiente_firma');
 
         // Presupuesto YA está apartado temporalmente (5 días) desde que se creó
-        // la solicitud en pendiente_firma. La conversión a permanente ocurre
-        // al completar la aprobación (último nivel).
+        // la solicitud en pendiente_firma. El apartado es reserva viva: pesa como
+        // comprometido pero NO como ejercido (acumulado). La conversión a
+        // permanente ocurre al completar la aprobación (último nivel).
         $obraRubro->refresh();
-        expect((float) $obraRubro->acumulado)->toBe(15000.00);
+        expect((float) $obraRubro->acumulado)->toBe(0.00);
+        expect((float) $obraRubro->apartado)->toBe(15000.00);
+        expect((float) $obraRubro->comprometido)->toBe(15000.00);
         expect($solicitud->rubrosAfectados()->where('estatus', 'apartado')->count())->toBe(1);
 
         // 5. Nivel 2 aprueba
@@ -610,11 +613,12 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
         expect($aprobaciones[1]->estatus->value)->toBe('aprobada');
         expect($aprobaciones[1]->ip)->not->toBeNull();
 
-        // Aún pendiente (falta nivel 3) — apartado vigente
+        // Aún pendiente (falta nivel 3) — apartado vigente, ejercido en cero
         $solicitud->refresh();
         expect($solicitud->estatus->value)->toBe('pendiente_firma');
         $obraRubro->refresh();
-        expect((float) $obraRubro->acumulado)->toBe(15000.00);
+        expect((float) $obraRubro->acumulado)->toBe(0.00);
+        expect((float) $obraRubro->apartado)->toBe(15000.00);
 
         // 6. Nivel 3 (último) aprueba → se aplica impacto presupuestal
         $this->actingAs($aprobador3)

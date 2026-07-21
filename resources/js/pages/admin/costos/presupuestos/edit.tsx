@@ -198,7 +198,10 @@ export default function PresupuestosEdit({ presupuesto, rubros, presupuestables 
 
     const totalPresupuestado = currentRubros.reduce((sum, or) => sum + Number(or.presupuestado), 0);
     const totalAcumulado = currentRubros.reduce((sum, or) => sum + Number(or.acumulado), 0);
-    const totalDisponible = totalPresupuestado - totalAcumulado;
+    const totalApartado = currentRubros.reduce((sum, or) => sum + Number(or.apartado ?? 0), 0);
+    const totalDisponible = totalPresupuestado - totalAcumulado - totalApartado;
+
+    const disponibleDe = (or: CostosObraRubro) => Number(or.presupuestado) - Number(or.acumulado) - Number(or.apartado ?? 0);
 
     const sortValue = (or: CostosObraRubro, key: string): string | number => {
         switch (key) {
@@ -207,7 +210,8 @@ export default function PresupuestosEdit({ presupuesto, rubros, presupuestables 
             case 'tipo': return or.rubro?.tipo_rubro?.descripcion ?? '';
             case 'presupuestado': return Number(or.presupuestado);
             case 'acumulado': return Number(or.acumulado);
-            case 'disponible': return Number(or.presupuestado) - Number(or.acumulado);
+            case 'apartado': return Number(or.apartado ?? 0);
+            case 'disponible': return disponibleDe(or);
             default: return '';
         }
     };
@@ -324,7 +328,8 @@ export default function PresupuestosEdit({ presupuesto, rubros, presupuestables 
                                     <SortHeader column="descripcion" label="Centro de Costos" />
                                     <SortHeader column="tipo" label="Tipo" />
                                     <SortHeader column="presupuestado" label="Presupuestado" className="text-right" />
-                                    <SortHeader column="acumulado" label="Acumulado" className="text-right" />
+                                    <SortHeader column="acumulado" label="Ejercido" className="text-right" />
+                                    <SortHeader column="apartado" label="Apartado" className="text-right" />
                                     <SortHeader column="disponible" label="Disponible" className="text-right" />
                                     <th></th>
                                 </tr>
@@ -338,8 +343,13 @@ export default function PresupuestosEdit({ presupuesto, rubros, presupuestables 
                                         {montoEditable(or, 'presupuestado')}
                                         {montoEditable(or, 'acumulado')}
                                         <td className="text-right font-mono">
+                                            {Number(or.apartado ?? 0) > 0
+                                                ? <span className="text-info">{fmt(Number(or.apartado ?? 0))}</span>
+                                                : <span className="text-base-content/40">{fmt(0)}</span>}
+                                        </td>
+                                        <td className="text-right font-mono">
                                             {(() => {
-                                                const d = Number(or.presupuestado) - Number(or.acumulado);
+                                                const d = disponibleDe(or);
                                                 return <span className={d < 0 ? 'text-error' : ''}>{fmt(d)}</span>;
                                             })()}
                                         </td>
@@ -360,6 +370,7 @@ export default function PresupuestosEdit({ presupuesto, rubros, presupuestables 
                                     <td colSpan={3}>Total</td>
                                     <td className="text-right font-mono">{fmt(totalPresupuestado)}</td>
                                     <td className="text-right font-mono">{fmt(totalAcumulado)}</td>
+                                    <td className="text-right font-mono">{fmt(totalApartado)}</td>
                                     <td className={`text-right font-mono ${totalDisponible < 0 ? 'text-error' : ''}`}>{fmt(totalDisponible)}</td>
                                     <td></td>
                                 </tr>

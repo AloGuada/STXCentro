@@ -27,6 +27,7 @@ class ObraRubro extends Model
         'rubro_id',
         'presupuestado',
         'acumulado',
+        'apartado',
     ];
 
     /**
@@ -37,6 +38,7 @@ class ObraRubro extends Model
         return [
             'presupuestado' => 'decimal:2',
             'acumulado' => 'decimal:2',
+            'apartado' => 'decimal:2',
         ];
     }
 
@@ -104,28 +106,37 @@ class ObraRubro extends Model
     }
 
     /**
-     * Saldo disponible: presupuestado - acumulado. Negativo = sobregiro.
+     * Total comprometido: ejercido (acumulado) + reservado vivo (apartado).
+     * Es lo que realmente pesa contra el presupuesto.
      */
-    public function getDisponibleAttribute(): float
+    public function getComprometidoAttribute(): float
     {
-        return (float) $this->presupuestado - (float) $this->acumulado;
+        return (float) $this->acumulado + (float) $this->apartado;
     }
 
     /**
-     * Porcentaje de presupuesto consumido (0..100+ si hay sobregiro).
+     * Saldo disponible: presupuestado - ejercido - apartado. Negativo = sobregiro.
+     */
+    public function getDisponibleAttribute(): float
+    {
+        return (float) $this->presupuestado - $this->comprometido;
+    }
+
+    /**
+     * Porcentaje de presupuesto comprometido (0..100+ si hay sobregiro).
      */
     public function getPorcentajeConsumidoAttribute(): float
     {
         $presup = (float) $this->presupuestado;
         if ($presup <= 0.0) {
-            return (float) $this->acumulado > 0 ? 100.0 : 0.0;
+            return $this->comprometido > 0 ? 100.0 : 0.0;
         }
 
-        return ((float) $this->acumulado / $presup) * 100.0;
+        return ($this->comprometido / $presup) * 100.0;
     }
 
     /**
-     * Estado de alerta basado en el porcentaje consumido:
+     * Estado de alerta basado en el porcentaje comprometido:
      * - sobregiro: > 100%
      * - critico: >= umbral_alerta_porcentaje (default 90)
      * - normal: < umbral
@@ -133,7 +144,7 @@ class ObraRubro extends Model
     public function getEstadoAlertaAttribute(): string
     {
         // Caso especial: sin presupuesto pero con gasto = sobregiro
-        if ((float) $this->presupuestado <= 0.0 && (float) $this->acumulado > 0) {
+        if ((float) $this->presupuestado <= 0.0 && $this->comprometido > 0) {
             return 'sobregiro';
         }
 

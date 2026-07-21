@@ -1153,9 +1153,10 @@ class RequisicionController extends Controller
 
     /**
      * Lista de obra-rubros con info presupuestal para selectores.
-     * `disponible` = presupuestado - acumulado; `sobregiro` cuando es negativo.
+     * `disponible` = presupuestado - ejercido (acumulado) - apartado;
+     * `sobregiro` cuando es negativo.
      *
-     * @return \Illuminate\Support\Collection<int, array{id: int, label: string, presupuestado: float, acumulado: float, disponible: float, sobregiro: bool}>
+     * @return \Illuminate\Support\Collection<int, array{id: int, label: string, presupuestado: float, acumulado: float, apartado: float, comprometido: float, disponible: float, sobregiro: bool}>
      */
     /**
      * Marca si la requisición carga a algún centro de costos cuyo objetivo
@@ -1198,6 +1199,8 @@ class RequisicionController extends Controller
                     )),
                     'presupuestado' => (float) $or->presupuestado,
                     'acumulado' => (float) $or->acumulado,
+                    'apartado' => (float) $or->apartado,
+                    'comprometido' => $or->comprometido,
                     'disponible' => $disponible,
                     'sobregiro' => $disponible < 0,
                     'cerrado' => $or->estaCerrado(),
