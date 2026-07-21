@@ -252,6 +252,12 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                                 <span className="text-sm text-base-content/60">Concepto</span>
                                 <p>{solicitud.concepto}</p>
                             </div>
+                            {solicitud.comentarios && (
+                                <div>
+                                    <span className="text-sm text-base-content/60">Comentarios</span>
+                                    <p className="whitespace-pre-line">{solicitud.comentarios}</p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Detalles table */}

@@ -49,6 +49,7 @@ class SolicitudPago extends Model implements Aprobable
         'orden_compra_id',
         'tipo_solicitud_id',
         'concepto',
+        'comentarios',
         'monto_total',
         'tipo_pago',
         'tipo_moneda',

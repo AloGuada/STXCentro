@@ -91,6 +91,45 @@ describe('admin costos solicitudes pago', function () {
         expect(SolicitudPago::count())->toBe(0);
     });
 
+    test('guarda comentarios opcionales junto con la solicitud', function () {
+        $departamento = Departamento::factory()->create();
+        $tipoSolicitud = TipoSolicitud::factory()->create(['rubros' => false]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.store'), [
+                'departamento_id' => $departamento->id,
+                'tipo_solicitud_id' => $tipoSolicitud->id,
+                'concepto' => 'Compra de materiales',
+                'comentarios' => 'Entregar en obra antes del viernes.',
+                'tipo_pago' => 'transferencia',
+                'tipo_moneda' => 'mxn',
+                'monto_total' => 1000,
+            ])
+            ->assertRedirect();
+
+        expect(SolicitudPago::latest('id')->first()->comentarios)
+            ->toBe('Entregar en obra antes del viernes.');
+    });
+
+    test('el concepto no puede superar 75 caracteres y comentarios 250', function () {
+        $departamento = Departamento::factory()->create();
+        $tipoSolicitud = TipoSolicitud::factory()->create(['rubros' => false]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.store'), [
+                'departamento_id' => $departamento->id,
+                'tipo_solicitud_id' => $tipoSolicitud->id,
+                'concepto' => str_repeat('a', 76),
+                'comentarios' => str_repeat('b', 251),
+                'tipo_pago' => 'transferencia',
+                'tipo_moneda' => 'mxn',
+                'monto_total' => 1000,
+            ])
+            ->assertSessionHasErrors(['concepto', 'comentarios']);
+
+        expect(SolicitudPago::count())->toBe(0);
+    });
+
     test('solicitud can be stored with detalles', function () {
         $departamento = Departamento::factory()->create();
         $tipoSolicitud = TipoSolicitud::factory()->create(['rubros' => true]);

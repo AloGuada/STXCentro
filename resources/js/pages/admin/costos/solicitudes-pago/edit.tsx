@@ -69,6 +69,7 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
         proveedor_id: string;
         tipo_solicitud_id: string;
         concepto: string;
+        comentarios: string;
         tipo_pago: string;
         tipo_moneda: string;
         fecha_pago_solicitada: string;
@@ -80,6 +81,7 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
         proveedor_id: solicitud.proveedor_id ? String(solicitud.proveedor_id) : '',
         tipo_solicitud_id: String(solicitud.tipo_solicitud_id),
         concepto: solicitud.concepto,
+        comentarios: solicitud.comentarios ?? '',
         tipo_pago: solicitud.tipo_pago,
         tipo_moneda: solicitud.tipo_moneda ?? 'mxn',
         fecha_pago_solicitada: solicitud.fecha_pago_solicitada ?? '',
@@ -223,11 +225,23 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
                             </div>
 
                             <FormField label="Concepto" htmlFor="concepto" error={errors.concepto} required>
-                                <textarea
+                                <input
                                     id="concepto"
-                                    className="textarea textarea-bordered w-full"
+                                    type="text"
+                                    maxLength={75}
+                                    className={`input input-bordered w-full ${errors.concepto ? 'input-error' : ''}`}
                                     value={data.concepto}
                                     onChange={(e) => setData('concepto', e.target.value)}
+                                />
+                            </FormField>
+
+                            <FormField label="Comentarios" htmlFor="comentarios" error={errors.comentarios}>
+                                <textarea
+                                    id="comentarios"
+                                    maxLength={250}
+                                    className={`textarea textarea-bordered w-full ${errors.comentarios ? 'textarea-error' : ''}`}
+                                    value={data.comentarios}
+                                    onChange={(e) => setData('comentarios', e.target.value)}
                                     rows={2}
                                 />
                             </FormField>

@@ -108,6 +108,7 @@ export default function SolicitudesPagoCreate({
         proveedor_id: string;
         tipo_solicitud_id: string;
         concepto: string;
+        comentarios: string;
         tipo_pago: string;
         tipo_moneda: string;
         fecha_pago_solicitada: string;
@@ -121,6 +122,7 @@ export default function SolicitudesPagoCreate({
         proveedor_id: '',
         tipo_solicitud_id: '',
         concepto: '',
+        comentarios: '',
         tipo_pago: 'transferencia',
         tipo_moneda: 'mxn',
         fecha_pago_solicitada: '',
@@ -323,6 +325,7 @@ export default function SolicitudesPagoCreate({
             formData.append('proveedor_id', data.proveedor_id);
             formData.append('tipo_solicitud_id', data.tipo_solicitud_id);
             formData.append('concepto', data.concepto);
+            formData.append('comentarios', data.comentarios);
             formData.append('tipo_pago', data.tipo_pago);
             formData.append('tipo_moneda', data.tipo_moneda);
             formData.append(
@@ -471,12 +474,30 @@ export default function SolicitudesPagoCreate({
                                 error={errors.concepto}
                                 required
                             >
-                                <textarea
+                                <input
                                     id="concepto"
-                                    className={`textarea-bordered textarea w-full ${errors.concepto ? 'textarea-error' : ''}`}
+                                    type="text"
+                                    maxLength={75}
+                                    className={`input-bordered input w-full ${errors.concepto ? 'input-error' : ''}`}
                                     value={data.concepto}
                                     onChange={(e) =>
                                         setData('concepto', e.target.value)
+                                    }
+                                />
+                            </FormField>
+
+                            <FormField
+                                label="Comentarios"
+                                htmlFor="comentarios"
+                                error={errors.comentarios}
+                            >
+                                <textarea
+                                    id="comentarios"
+                                    maxLength={250}
+                                    className={`textarea-bordered textarea w-full ${errors.comentarios ? 'textarea-error' : ''}`}
+                                    value={data.comentarios}
+                                    onChange={(e) =>
+                                        setData('comentarios', e.target.value)
                                     }
                                     rows={2}
                                 />

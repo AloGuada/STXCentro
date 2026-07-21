@@ -1890,6 +1890,7 @@ export type CostosSolicitudPago = {
     orden_compra_id: number | null;
     tipo_solicitud_id: number;
     concepto: string;
+    comentarios: string | null;
     monto_total: number;
     tipo_pago: string;
     tipo_moneda: CostosTipoMoneda;
