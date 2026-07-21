@@ -114,7 +114,7 @@ test('no se puede mandar a firmas sin la aprobación gerencial', function () {
         ->post("/admin/costos/requisiciones/{$req->id}/iniciar-aprobacion")
         ->assertSessionHasErrors(['control']);
 
-    expect($req->fresh()->estatus->value)->toBe('pendiente_aprobacion')
+    expect($req->fresh()->estatus->value)->toBe('pendiente_aprobacion_interno')
         ->and($req->cadenaAprobacion()->exists())->toBeFalse();
 });
 

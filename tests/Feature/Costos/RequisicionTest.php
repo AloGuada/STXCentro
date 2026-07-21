@@ -450,7 +450,7 @@ test('mandar a firmas genera cadena por niveles del departamento', function () {
         ->assertRedirect();
 
     $req->refresh();
-    expect($req->estatus->value)->toBe('pendiente_aprobacion');
+    expect($req->estatus->value)->toBe('pendiente_aprobacion_interno');
     expect($req->aprobaciones()->count())->toBe(2);
     expect(Aprobacion::where('aprobable_type', Requisicion::class)
         ->where('aprobable_id', $req->id)
@@ -669,7 +669,7 @@ test('rechazo permite volver a borrador para re-cotizar', function () {
 
 test('Requisicion implementa Aprobable y onAprobacionCompleta transiciona a aprobada', function () {
     $req = Requisicion::factory()->create([
-        'estatus' => 'pendiente_aprobacion',
+        'estatus' => 'pendiente_aprobacion_interno',
         'departamento_id' => $this->depto->id,
     ]);
 
@@ -682,7 +682,7 @@ test('Requisicion implementa Aprobable y onAprobacionCompleta transiciona a apro
 
 test('onAprobacionRechazada guarda motivo y transiciona a rechazada', function () {
     $req = Requisicion::factory()->create([
-        'estatus' => 'pendiente_aprobacion',
+        'estatus' => 'pendiente_aprobacion_interno',
         'departamento_id' => $this->depto->id,
     ]);
 

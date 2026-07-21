@@ -12,7 +12,7 @@ class CancelarRequisicionesVencidasCommand extends Command
 {
     protected $signature = 'costos:cancelar-requisiciones-vencidas';
 
-    protected $description = 'Cancela requisiciones en pendiente_aprobacion o aprobada que llevan mas de 10 dias sin avanzar.';
+    protected $description = 'Cancela requisiciones en pendiente_aprobacion_interno o aprobada que llevan mas de 10 dias sin avanzar.';
 
     /** Valor por defecto si no hay configuración guardada. */
     public const DIAS_LIMITE = 10;

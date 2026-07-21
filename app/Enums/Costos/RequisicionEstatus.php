@@ -7,7 +7,7 @@ use App\Enums\Contracts\HasStateTransitions;
 enum RequisicionEstatus: string implements HasStateTransitions
 {
     case Borrador = 'borrador';
-    case PendienteAprobacion = 'pendiente_aprobacion';
+    case PendienteAprobacion = 'pendiente_aprobacion_interno';
     case Aprobada = 'aprobada';
     case Rechazada = 'rechazada';
     case Liberada = 'liberada';
@@ -32,7 +32,7 @@ enum RequisicionEstatus: string implements HasStateTransitions
     {
         return match ($this) {
             self::Borrador => 'Borrador',
-            self::PendienteAprobacion => 'Pendiente de aprobación',
+            self::PendienteAprobacion => 'Pendiente de aprobación interna',
             self::Aprobada => 'Aprobada',
             self::Rechazada => 'Rechazada',
             self::Liberada => 'Liberada',

@@ -30,7 +30,7 @@ class RequisicionFactory extends Factory
 
     public function pendienteAprobacion(): static
     {
-        return $this->state(fn () => ['estatus' => 'pendiente_aprobacion']);
+        return $this->state(fn () => ['estatus' => 'pendiente_aprobacion_interno']);
     }
 
     public function aprobada(): static

@@ -28,7 +28,7 @@ beforeEach(function () {
 });
 
 /**
- * Crea una requisición en pendiente_aprobacion con una partida, dos cotizaciones
+ * Crea una requisición en pendiente_aprobacion_interno con una partida, dos cotizaciones
  * (proveedor pendiente ganador + proveedor activo alterno), una selección al
  * proveedor pendiente y una aprobación de nivel 1 en turno del aprobador.
  *

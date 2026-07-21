@@ -748,7 +748,7 @@ export default function RequisicionesShow({
     // El comparativo (PDF) queda disponible una vez que la requisición entra a
     // la bandeja del gerente, para que él lo revise antes de aprobar.
     const comparativoDisponible = [
-        'pendiente_aprobacion',
+        'pendiente_aprobacion_interno',
         'aprobada',
         'liberada',
     ].includes(requisicion.estatus);
@@ -916,7 +916,7 @@ export default function RequisicionesShow({
                                 </Button>
                             )}
 
-                        {requisicion.estatus === 'pendiente_aprobacion' &&
+                        {requisicion.estatus === 'pendiente_aprobacion_interno' &&
                             !cadenaIniciada && (
                                 <>
                                     {/* Botón 2 (gerente): aprobación gerencial. */}

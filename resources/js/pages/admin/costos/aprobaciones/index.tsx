@@ -1,7 +1,8 @@
 import { DocumentoUpload } from '@/components/costos/documento-upload';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosAprobacionSolicitud, CostosSolicitudPago } from '@/types/models';
+import type { CostosAprobacionSolicitud, CostosRequisicionEstatus, CostosSolicitudPago } from '@/types/models';
+import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, CheckIcon, EyeIcon, FileCheckIcon, FileTextIcon, PaperclipIcon, XIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -246,7 +247,7 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
                 nombre: m.nombre_original || m.descripcion || 'Archivo',
             })),
             // El comparativo se genera una vez en aprobación; en la bandeja de
-            // firmas la requisición siempre está pendiente_aprobacion, así que
+            // firmas la requisición siempre está pendiente_aprobacion_interno, así que
             // el endpoint (estatus ≥ pendiente_aprobacion) lo permite.
             pdfUrl: `/admin/costos/requisiciones/${req.id}/pdf`,
             pdfTitle: `Comparativo ${req.folio}`,
@@ -388,9 +389,16 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
                             return (
                                 <tr key={a.id} className={tieneSobregiro ? 'bg-error/10' : 'hover'}>
                                     <td>
-                                        <span className={`badge badge-sm ${esRequisicion ? 'badge-info' : 'badge-ghost'}`}>
-                                            {esRequisicion ? 'Requisición' : 'Pago'}
-                                        </span>
+                                        <div className="flex flex-col items-start gap-1">
+                                            <span className={`badge badge-sm ${esRequisicion ? 'badge-info' : 'badge-ghost'}`}>
+                                                {esRequisicion ? 'Requisición' : 'Pago'}
+                                            </span>
+                                            {esRequisicion && d.estatusOrigen && REQUISICION_ESTATUS_LABELS[d.estatusOrigen as CostosRequisicionEstatus] && (
+                                                <span className={`badge badge-sm ${REQUISICION_ESTATUS_COLORS[d.estatusOrigen as CostosRequisicionEstatus]}`}>
+                                                    {REQUISICION_ESTATUS_LABELS[d.estatusOrigen as CostosRequisicionEstatus]}
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td>
                                         <div>
