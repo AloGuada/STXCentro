@@ -365,17 +365,27 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                 <div key={entrega.id} className="rounded-lg border border-base-300 p-4">
                                     <div className="flex items-center justify-between mb-2">
                                         <div>
-                                            <span className="font-medium">Entrega #{entrega.id}</span>
+                                            <span className="font-medium">{entrega.folio ?? `Entrega #${entrega.id}`}</span>
                                             <span className="ml-2 badge badge-sm badge-outline">{entrega.tipo}</span>
                                             <span className="ml-2 text-sm text-base-content/60">
                                                 {new Date(entrega.fecha_entrega).toLocaleDateString()}
                                             </span>
                                         </div>
-                                        {entrega.recibidor?.name && (
-                                            <span className="text-sm text-base-content/60">
-                                                Recibió: {entrega.recibidor.name}
-                                            </span>
-                                        )}
+                                        <div className="flex items-center gap-3">
+                                            {entrega.recibidor?.name && (
+                                                <span className="text-sm text-base-content/60">
+                                                    Recibió: {entrega.recibidor.name}
+                                                </span>
+                                            )}
+                                            <a
+                                                href={`/admin/costos/entregas/${entrega.id}/pdf`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="btn btn-xs btn-outline"
+                                            >
+                                                PDF
+                                            </a>
+                                        </div>
                                     </div>
 
                                     {entrega.observaciones && (
@@ -674,7 +684,8 @@ function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
                     ordenCompra.entregas!.map((entrega) => {
                         const evidencia = entrega.media && entrega.media.descripcion === 'evidencia_recepcion' ? entrega.media : null;
                         return (
-                            <TreeFolder key={entrega.id} label={`Entrega #${entrega.id} — ${fmtDate(entrega.fecha_entrega)}`}>
+                            <TreeFolder key={entrega.id} label={`${entrega.folio ?? `Entrega #${entrega.id}`} — ${fmtDate(entrega.fecha_entrega)}`}>
+                                <TreeFile label="Recepcion (PDF)" href={`/admin/costos/entregas/${entrega.id}/pdf`} onPreview={openPreview} />
                                 {evidencia ? (
                                     <TreeAttachment label="Evidencia de recepcion" href={`/storage/${evidencia.path}`} onPreview={openPreview} />
                                 ) : (

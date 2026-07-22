@@ -54,9 +54,16 @@ class PortalOrdenCompraController extends Controller
             'entregas',
         ]);
 
+        $ordenCompra->append('saldo_facturable');
+
+        // La factura puede subirse cualquier día y sin recepción previa: basta
+        // con que la OC no esté cancelada y tenga saldo por facturar.
+        $puedeFacturar = $ordenCompra->estatus->value !== 'cancelada'
+            && $ordenCompra->saldo_facturable > (float) config('costos.epsilon_monto');
+
         return Inertia::render('portal/ordenes-compra/show', [
             'ordenCompra' => $ordenCompra,
-            'periodoFacturacionAbierto' => now()->isDayOfWeek(\Carbon\Carbon::THURSDAY),
+            'puedeFacturar' => $puedeFacturar,
         ]);
     }
 }

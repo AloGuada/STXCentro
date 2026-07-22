@@ -1,3 +1,6 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import { type FormEvent, useState } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -5,16 +8,13 @@ import PortalLayout from '@/layouts/portal/portal-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosOrdenCompra } from '@/types/models';
 import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
 
 type Props = {
     ordenCompra: CostosOrdenCompra;
-    periodoFacturacionAbierto: boolean;
+    puedeFacturar: boolean;
 };
 
-export default function PortalOrdenCompraShow({ ordenCompra, periodoFacturacionAbierto }: Props) {
+export default function PortalOrdenCompraShow({ ordenCompra, puedeFacturar }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/portal' },
         { title: 'Ordenes de Compra', href: '/portal/ordenes-compra' },
@@ -23,8 +23,6 @@ export default function PortalOrdenCompraShow({ ordenCompra, periodoFacturacionA
 
     const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
     const [showFacturaForm, setShowFacturaForm] = useState(false);
-    const tieneEntregas = (ordenCompra.entregas?.length ?? 0) > 0;
-    const puedeFacturar = ['pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && tieneEntregas;
 
     const { data, setData, post, processing, errors } = useForm({
         orden_compra_id: ordenCompra.id,
@@ -60,27 +58,17 @@ export default function PortalOrdenCompraShow({ ordenCompra, periodoFacturacionA
                         </div>
                     </div>
                     {puedeFacturar && (
-                        <Button onClick={() => setShowFacturaForm(true)} disabled={!periodoFacturacionAbierto}>
+                        <Button onClick={() => setShowFacturaForm(true)}>
                             Subir Factura
                         </Button>
                     )}
                 </div>
 
-                <div className={`alert ${periodoFacturacionAbierto ? 'alert-success' : 'alert-info'} mb-6`}>
+                <div className="alert alert-info mb-6">
                     <span>
-                        {periodoFacturacionAbierto
-                            ? 'Periodo de facturacion abierto. Puede subir sus facturas el dia de hoy (jueves).'
-                            : 'La carga de facturas solo esta habilitada los dias jueves de cada semana.'}
+                        Puedes subir tu factura cualquier día. Tras subirla, adjunta el comprobante de recepción en la factura para que continúe a pago.
                     </span>
                 </div>
-
-                {['pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && !tieneEntregas && (
-                    <div className="alert alert-warning mb-6">
-                        <span>
-                            Esta orden aún no tiene recepción registrada por almacén. Podrás subir tu factura en cuanto se confirme la entrega.
-                        </span>
-                    </div>
-                )}
 
                 <div className="grid grid-cols-2 gap-6 mb-6">
                     <div className="space-y-3">

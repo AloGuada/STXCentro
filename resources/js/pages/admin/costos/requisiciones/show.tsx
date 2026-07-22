@@ -1630,6 +1630,30 @@ export default function RequisicionesShow({
                                                 </div>
                                             </div>
                                         )}
+
+                                    {oc.entregas && oc.entregas.length > 0 && (
+                                        <div className="border-t border-base-200 bg-base-100/50 px-3 py-2">
+                                            <div className="mb-1 text-[11px] font-medium tracking-wider text-base-content/50 uppercase">
+                                                Recepciones
+                                            </div>
+                                            <div className="space-y-1">
+                                                {oc.entregas.map((entrega) => (
+                                                    <a
+                                                        key={entrega.id}
+                                                        href={`/admin/costos/entregas/${entrega.id}/pdf`}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-base-200"
+                                                    >
+                                                        <span className="font-mono text-xs">
+                                                            {entrega.folio ?? `Entrega #${entrega.id}`}
+                                                        </span>
+                                                        <span className="text-xs text-base-content/60">Recepcion (PDF)</span>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

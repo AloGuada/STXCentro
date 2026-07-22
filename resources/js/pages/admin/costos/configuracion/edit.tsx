@@ -1,12 +1,12 @@
+import { Head, useForm } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import { type FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { Head, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import { type FormEvent } from 'react';
 
 type Configuracion = {
     id: number;
@@ -16,6 +16,7 @@ type Configuracion = {
     corte_activo: boolean;
     corte_dia: number;
     corte_hora: string;
+    dia_comprobante_recepcion: number | null;
     gerente_compras_id: string | null;
 };
 
@@ -31,6 +32,17 @@ const DIAS_SEMANA: { value: number; label: string }[] = [
     { value: 5, label: 'Viernes' },
 ];
 
+// Numeración Carbon: 0 = domingo … 6 = sábado.
+const DIAS_COMPROBANTE: { value: number; label: string }[] = [
+    { value: 0, label: 'Domingo' },
+    { value: 1, label: 'Lunes' },
+    { value: 2, label: 'Martes' },
+    { value: 3, label: 'Miércoles' },
+    { value: 4, label: 'Jueves' },
+    { value: 5, label: 'Viernes' },
+    { value: 6, label: 'Sábado' },
+];
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Costos', href: '/admin/costos/ordenes-compra' },
@@ -38,18 +50,32 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function ConfiguracionCostosEdit({ configuracion, usuarios }: Props) {
-    const { data, setData, put, processing, errors, recentlySuccessful } = useForm({
+    const { data, setData, put, transform, processing, errors, recentlySuccessful } = useForm<{
+        dias_apartado: number;
+        dias_cancelar_requisicion: number;
+        dias_cancelar_solicitud: number;
+        corte_activo: boolean;
+        corte_dia: number;
+        corte_hora: string;
+        dia_comprobante_recepcion: number | '';
+        gerente_compras_id: string;
+    }>({
         dias_apartado: configuracion.dias_apartado,
         dias_cancelar_requisicion: configuracion.dias_cancelar_requisicion,
         dias_cancelar_solicitud: configuracion.dias_cancelar_solicitud,
         corte_activo: configuracion.corte_activo,
         corte_dia: configuracion.corte_dia,
         corte_hora: configuracion.corte_hora,
+        dia_comprobante_recepcion: configuracion.dia_comprobante_recepcion ?? '',
         gerente_compras_id: configuracion.gerente_compras_id ?? '',
     });
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
+        transform((d) => ({
+            ...d,
+            dia_comprobante_recepcion: d.dia_comprobante_recepcion === '' ? null : d.dia_comprobante_recepcion,
+        }));
         put('/admin/costos/configuracion', { preserveScroll: true });
     };
 
@@ -167,6 +193,32 @@ export default function ConfiguracionCostosEdit({ configuracion, usuarios }: Pro
                                     </FormField>
                                 </div>
                             )}
+                        </div>
+
+                        <div className="rounded-lg border border-base-300 p-4">
+                            <FormField
+                                label="Día para subir el comprobante de recepción"
+                                htmlFor="dia_comprobante_recepcion"
+                                error={errors.dia_comprobante_recepcion}
+                            >
+                                <select
+                                    id="dia_comprobante_recepcion"
+                                    className="select-bordered select w-full"
+                                    value={data.dia_comprobante_recepcion === '' ? '' : String(data.dia_comprobante_recepcion)}
+                                    onChange={(e) => setData('dia_comprobante_recepcion', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                >
+                                    <option value="">Libre (cualquier día)</option>
+                                    {DIAS_COMPROBANTE.map((dia) => (
+                                        <option key={dia.value} value={dia.value}>
+                                            {dia.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-xs text-base-content/60">
+                                    Día en que el proveedor puede subir el comprobante de recepción de su factura en el
+                                    portal. Si se deja en "Libre", puede subirlo cualquier día.
+                                </p>
+                            </FormField>
                         </div>
 
                         <div className="rounded-lg border border-base-300 p-4">

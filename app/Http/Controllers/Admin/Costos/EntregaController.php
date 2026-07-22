@@ -6,12 +6,15 @@ use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\RubroAfectadoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\EntregaStoreRequest;
+use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
 use App\Services\Costos\ApartadoPresupuestal;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class EntregaController extends Controller
 {
@@ -21,6 +24,15 @@ class EntregaController extends Controller
     {
         $partidasOrden = $ordenCompra->detalles()->pluck('id')->all();
         $detallesInput = $request->input('detalles', []);
+
+        // Factura (opcional) a la que se liga la recepción: debe ser de esta OC.
+        $factura = null;
+        if ($facturaId = $request->integer('factura_id')) {
+            $factura = $ordenCompra->facturas()->find($facturaId);
+            if ($factura === null) {
+                return back()->withErrors(['factura_id' => 'La factura no pertenece a esta orden de compra.']);
+            }
+        }
 
         // 1. Validar que todas las partidas enviadas pertenezcan a esta OC
         foreach ($detallesInput as $i => $detalle) {
@@ -66,10 +78,11 @@ class EntregaController extends Controller
             }
         }
 
-        DB::transaction(function () use ($request, $ordenCompra, $detallesInput, $ordenCompraDetalles) {
+        DB::transaction(function () use ($request, $ordenCompra, $detallesInput, $ordenCompraDetalles, $factura) {
             $entrega = $ordenCompra->entregas()->create([
                 'recibido_por' => $request->user()->id,
                 'fecha_entrega' => $request->input('fecha_entrega'),
+                'factura_id' => $factura?->id,
                 'tipo' => $request->input('tipo'),
                 'observaciones' => $request->input('observaciones'),
             ]);
@@ -106,9 +119,41 @@ class EntregaController extends Controller
                     $request->user()->id,
                 );
             }
+
+            // Si esta recepción completa la factura, marcarla como entregada e
+            // intentar avanzarla a aprobación (requiere además el comprobante).
+            if ($factura !== null && $request->boolean('completa_factura')) {
+                $factura->update(['completamente_entregada' => true]);
+                $factura->intentarPasarAAprobacion();
+            }
         });
 
         return back()->with('success', 'Entrega registrada correctamente.');
+    }
+
+    /**
+     * Formato PDF de la recepción (folio REC-…), con layout de la solicitud de
+     * pago pero listando las partidas recibidas de esta entrega.
+     */
+    public function pdf(Entrega $entrega): HttpResponse
+    {
+        $entrega->load([
+            'ordenCompra.proveedor',
+            'ordenCompra.obra',
+            'factura:id,folio,folio_fiscal,uuid_fiscal',
+            'recibidoPor:id,name',
+            'detalles.ordenCompraDetalle',
+        ]);
+
+        $pdf = Pdf::loadView('pdf.costos.formato-recepcion', [
+            'entrega' => $entrega,
+        ])->setPaper('letter', 'portrait')
+            ->setOption('margin-top', 30)
+            ->setOption('margin-bottom', 40)
+            ->setOption('margin-left', 40)
+            ->setOption('margin-right', 40);
+
+        return $pdf->stream("recepcion-{$entrega->folio}.pdf");
     }
 
     /**

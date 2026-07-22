@@ -34,6 +34,9 @@ Route::prefix('portal')->name('portal.')->group(function () {
             ->only(['index', 'store', 'show'])
             ->parameters(['facturas' => 'factura']);
 
+        Route::post('facturas/{factura}/comprobante', [PortalFacturaController::class, 'subirComprobante'])
+            ->name('facturas.comprobante');
+
         Route::post('notas-credito', [PortalNotaCreditoController::class, 'store'])
             ->name('notas-credito.store');
 

@@ -9,7 +9,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
-    Carbon::setTestNow('2026-05-28 10:00:00'); // jueves: carga de facturas permitida
+    Carbon::setTestNow('2026-05-28 10:00:00'); // fecha fija; la factura ya puede subirse cualquier día
     Storage::fake('public');
     $this->proveedor = Proveedor::factory()->create([
         'email' => 'proveedor@test.com',
@@ -121,23 +121,33 @@ test('flujo two-step: preview parsea XML y store crea factura', function () {
     $this->assertDatabaseHas('costos_facturas', [
         'orden_compra_id' => $oc->id,
         'proveedor_id' => $this->proveedor->id,
-        'estatus' => 'pendiente_aprobacion',
+        'estatus' => 'pendiente_recepcion',
         'uuid_fiscal' => 'AAAA1111-AAAA-AAAA-AAAA-AAAAAAAAAAAA',
         'notas' => 'desde preview',
     ]);
 });
 
-test('preview bloquea factura cuando la OC no tiene recepción', function () {
-    $oc = OrdenCompra::factory()->pendienteEntrega()->create(['proveedor_id' => $this->proveedor->id]);
+test('permite subir factura aunque la OC no tenga recepción previa', function () {
+    $oc = OrdenCompra::factory()->pendienteEntrega()->create([
+        'proveedor_id' => $this->proveedor->id,
+        'total' => 20000,
+    ]);
 
     $this->actingAs($this->proveedor, 'proveedor')
         ->post('/portal/facturas/preview', [
             'orden_compra_id' => $oc->id,
-            'xml' => uploadXml(),
+            'xml' => uploadXml(['Uuid' => 'BBBB1111-BBBB-BBBB-BBBB-BBBBBBBBBBBB']),
         ])
-        ->assertSessionHasErrors(['orden_compra_id']);
+        ->assertRedirect('/portal/facturas/preview');
 
-    expect(Factura::count())->toBe(0);
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->post('/portal/facturas')
+        ->assertRedirect('/portal/facturas');
+
+    $this->assertDatabaseHas('costos_facturas', [
+        'orden_compra_id' => $oc->id,
+        'estatus' => 'pendiente_recepcion',
+    ]);
 });
 
 test('preview bloquea cuando el CFDI excede el saldo facturable', function () {

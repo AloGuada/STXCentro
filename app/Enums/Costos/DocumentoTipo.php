@@ -32,6 +32,9 @@ enum DocumentoTipo: string
     // Recepción
     case EvidenciaRecepcion = 'evidencia_recepcion';
 
+    // Comprobante de recepción que el proveedor adjunta a su factura
+    case ComprobanteRecepcion = 'comprobante_recepcion';
+
     // Devolución (Fase 13)
     case EvidenciaDevolucion = 'evidencia_devolucion';
 
@@ -58,6 +61,7 @@ enum DocumentoTipo: string
             self::OcPdfFormato => 'Formato de OC (PDF)',
             self::OcPdfFirmado => 'OC firmada (PDF)',
             self::EvidenciaRecepcion => 'Evidencia de recepción',
+            self::ComprobanteRecepcion => 'Comprobante de recepción',
             self::EvidenciaDevolucion => 'Evidencia de devolución',
             self::ComprobantePago => 'Comprobante de pago',
             self::Contrarecibo => 'Contrarecibo',
@@ -84,6 +88,7 @@ enum DocumentoTipo: string
             self::Contrarecibo,
             self::SolicitudFirmada => 'pdf',
             self::EvidenciaRecepcion,
+            self::ComprobanteRecepcion,
             self::EvidenciaDevolucion => 'pdf,jpg,jpeg,png,webp',
             self::OcArchivo,
             self::SolicitudArchivo => 'pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx',

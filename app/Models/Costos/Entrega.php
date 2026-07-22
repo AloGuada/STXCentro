@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,7 +17,9 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Entrega extends Model
 {
-    use HasFactory, LogsActivity;
+    use HasFactory, HasMonthlyFolio, LogsActivity;
+
+    protected static string $folioPrefix = 'REC';
 
     /**
      * Al crear/eliminar una entrega, recalcular el estatus de la OC: la primera
@@ -34,7 +37,9 @@ class Entrega extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'folio',
         'orden_compra_id',
+        'factura_id',
         'recibido_por',
         'fecha_entrega',
         'observaciones',
@@ -59,6 +64,11 @@ class Entrega extends Model
     public function ordenCompra(): BelongsTo
     {
         return $this->belongsTo(OrdenCompra::class, 'orden_compra_id');
+    }
+
+    public function factura(): BelongsTo
+    {
+        return $this->belongsTo(Factura::class, 'factura_id');
     }
 
     public function detalles(): HasMany

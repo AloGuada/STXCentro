@@ -1,10 +1,10 @@
+import { router, useForm } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import { type FormEvent, useMemo } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { CostosEntrega, CostosOrdenCompra, CostosOrdenCompraDetalle } from '@/types/models';
-import { router, useForm } from '@inertiajs/react';
-import { Loader2Icon } from 'lucide-react';
-import { type FormEvent, useMemo } from 'react';
 
 type Props = {
     open: boolean;
@@ -41,15 +41,21 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
         return map;
     }, [partidas, ordenCompra.entregas]);
 
-    const { data, setData, post, processing, errors, reset } = useForm<{
+    const facturasPendientes = (ordenCompra.facturas ?? []).filter((f) => f.estatus === 'pendiente_recepcion');
+
+    const { data, setData, processing, errors, reset } = useForm<{
         fecha_entrega: string;
         tipo: 'parcial' | 'completa';
+        factura_id: string;
+        completa_factura: boolean;
         observaciones: string;
         archivo: File | null;
         detalles: DetalleRow[];
     }>({
         fecha_entrega: new Date().toISOString().split('T')[0],
         tipo: 'parcial',
+        factura_id: '',
+        completa_factura: false,
         observaciones: '',
         archivo: null,
         detalles: partidas.map((p) => ({
@@ -83,6 +89,8 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
             {
                 fecha_entrega: data.fecha_entrega,
                 tipo: data.tipo,
+                factura_id: data.factura_id || null,
+                completa_factura: data.completa_factura,
                 observaciones: data.observaciones,
                 archivo: data.archivo,
                 detalles: filled,
@@ -123,6 +131,36 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
                                 <option value="completa">Completa</option>
                             </select>
                         </FormField>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField label="Factura a ligar (opcional)" htmlFor="factura_id" error={errors.factura_id}>
+                            <select
+                                id="factura_id"
+                                className="select select-bordered w-full"
+                                value={data.factura_id}
+                                onChange={(e) => setData({ ...data, factura_id: e.target.value, completa_factura: e.target.value ? data.completa_factura : false })}
+                            >
+                                <option value="">— Sin factura —</option>
+                                {facturasPendientes.map((f) => (
+                                    <option key={f.id} value={String(f.id)}>
+                                        {f.folio} · {fmt(Number(f.total))}
+                                    </option>
+                                ))}
+                            </select>
+                        </FormField>
+                        <div className="flex items-end pb-2">
+                            <label className="label cursor-pointer justify-start gap-2">
+                                <input
+                                    type="checkbox"
+                                    className="checkbox"
+                                    disabled={!data.factura_id}
+                                    checked={data.completa_factura}
+                                    onChange={(e) => setData('completa_factura', e.target.checked)}
+                                />
+                                <span className="label-text">Esta entrega completa la factura</span>
+                            </label>
+                        </div>
                     </div>
 
                     <FormField label="Observaciones" htmlFor="observaciones" error={errors.observaciones}>
