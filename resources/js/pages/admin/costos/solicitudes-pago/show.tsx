@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { DocumentoUpload } from '@/components/costos/documento-upload';
+import { ReasignarModal } from '@/components/costos/reasignar-modal';
 import { Button } from '@/components/ui/button';
 import { FormattedDate } from '@/components/ui/formatted-date';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, SharedData } from '@/types';
-import type { CostosObraRubro, CostosSolicitudPago, CostosSolicitudPagoEstatus } from '@/types/models';
+import type { CostosObraRubro, CostosSolicitudPago, CostosSolicitudPagoEstatus, Obra } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 
 type DocumentoPrevio = { label: string; url: string };
@@ -36,6 +37,8 @@ function calcularSobregiro(obraRubro?: CostosObraRubro): { monto: number; pct: n
 type Props = {
     solicitud: CostosSolicitudPago;
     documentosPrevios?: DocumentoPrevio[];
+    obras?: Obra[];
+    obraRubros?: CostosObraRubro[];
 };
 
 const steps: { key: CostosSolicitudPagoEstatus; label: string }[] = [
@@ -52,7 +55,7 @@ function getStepIndex(estatus: CostosSolicitudPagoEstatus): number {
     return steps.findIndex((s) => s.key === estatus);
 }
 
-export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] }: Props) {
+export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [], obras = [], obraRubros = [] }: Props) {
     const { can } = useCan();
     // El operador del módulo ve el detalle completo; el solicitante que llega
     // por propiedad solo ve Datos y Documentos.
@@ -67,6 +70,12 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
 
     const currentStep = getStepIndex(solicitud.estatus);
     const [showCancelarModal, setShowCancelarModal] = useState(false);
+    const [showReasignarModal, setShowReasignarModal] = useState(false);
+
+    const puedeReasignar =
+        Boolean(solicitud.puede_reasignar) &&
+        can('costos.centros-costos.reasignar') &&
+        (solicitud.detalles?.length ?? 0) > 0;
 
     const handleConfirmarCostos = () => {
         if (confirm('¿Confirmar esta solicitud por costos?')) {
@@ -140,6 +149,9 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                             <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleConfirmarContabilidad}>
                                 Confirmar Contabilidad
                             </Button>
+                        )}
+                        {puedeReasignar && (
+                            <Button variant="outline" onClick={() => setShowReasignarModal(true)}>Reasignar centros de costos</Button>
                         )}
                         {puedeCancelar && (
                             <Button variant="destructive" onClick={() => setShowCancelarModal(true)}>Cancelar</Button>
@@ -437,6 +449,19 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [] 
                     description="La solicitud quedará cancelada y se revertirá su impacto presupuestal si estaba aprobada."
                     submitLabel="Cancelar solicitud"
                 />
+
+                {puedeReasignar && (
+                    <ReasignarModal
+                        open={showReasignarModal}
+                        onClose={() => setShowReasignarModal(false)}
+                        url={`/admin/costos/solicitudes-pago/${solicitud.id}/reasignar`}
+                        obras={obras}
+                        obraRubros={obraRubros}
+                        detallesActuales={solicitud.detalles ?? []}
+                        totalBloqueado={solicitud.estatus === 'pagada'}
+                        montoPagado={Number(solicitud.monto_total)}
+                    />
+                )}
             </div>
         </AppLayout>
     );

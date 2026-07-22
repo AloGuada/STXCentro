@@ -263,6 +263,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('solicitudes-pago/{solicitudPago}/confirmar-costos', [CostosSolicitudPagoController::class, 'confirmarCostos'])->name('solicitudes-pago.confirmar-costos');
         Route::post('solicitudes-pago/{solicitudPago}/confirmar-contabilidad', [CostosSolicitudPagoController::class, 'confirmarContabilidad'])->name('solicitudes-pago.confirmar-contabilidad');
         Route::post('solicitudes-pago/{solicitudPago}/re-apartar', [CostosSolicitudPagoController::class, 'reApartar'])->name('solicitudes-pago.re-apartar');
+        Route::post('solicitudes-pago/{solicitudPago}/reasignar', [CostosSolicitudPagoController::class, 'reasignar'])->name('solicitudes-pago.reasignar');
 
         // Ordenes de Compra
         Route::get('ordenes-compra/exportar', [CostosOrdenCompraController::class, 'exportar'])->name('ordenes-compra.exportar');

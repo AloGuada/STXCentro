@@ -124,6 +124,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.afectaciones.crear',
             'costos.afectaciones.editar',
             'costos.afectaciones.eliminar',
+            'costos.centros-costos.reasignar',
             'costos.pagos.ver',
             'costos.pagos.crear',
             'costos.pagos.editar',

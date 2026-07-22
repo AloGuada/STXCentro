@@ -142,13 +142,19 @@ describe('admin costos solicitud pago workflow', function () {
     });
 
     test('cancelar aprobada reverts budget impact', function () {
-        $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 5000]);
+        $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
         $solicitud = SolicitudPago::factory()->aprobada()->create();
         SolicitudPagoDetalle::factory()->create([
             'solicitud_id' => $solicitud->id,
             'obra_rubro_id' => $obraRubro->id,
             'subtotal' => 5000,
         ]);
+
+        // Estado realista: el impacto aplicado crea el RubroAfectado que respalda
+        // el acumulado; la cancelación lo revierte por rubro afectado.
+        $solicitud->load('detalles');
+        $solicitud->aplicarImpactoPresupuestal();
+        expect((float) $obraRubro->fresh()->acumulado)->toBe(5000.00);
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.solicitudes-pago.cancelar', $solicitud), ['motivo' => 'Cancelación motivada por test']);

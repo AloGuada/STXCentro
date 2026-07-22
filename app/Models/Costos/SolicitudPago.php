@@ -156,6 +156,23 @@ class SolicitudPago extends Model implements Aprobable
         return (bool) $this->tipoSolicitud?->saltar_verificacion_costos;
     }
 
+    /**
+     * Una solicitud admite reasignar sus centros de costos solo si ya está
+     * aprobada/pagada y es dueña de su propio impacto presupuestal. Las
+     * generadas desde una OC (orden_compra_id) NO afectan el presupuesto —
+     * su acumulado vive en la orden de compra — así que quedan excluidas.
+     */
+    public function puedeReasignarCentroCostos(): bool
+    {
+        return $this->orden_compra_id === null
+            && in_array($this->estatus, [SolicitudPagoEstatus::Aprobada, SolicitudPagoEstatus::Pagada], true);
+    }
+
+    public function getPuedeReasignarAttribute(): bool
+    {
+        return $this->puedeReasignarCentroCostos();
+    }
+
     public function onAprobacionCompleta(?string $userId = null): void
     {
         $this->transitionTo(SolicitudPagoEstatus::Aprobada);
