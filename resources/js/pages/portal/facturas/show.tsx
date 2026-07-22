@@ -1,3 +1,6 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Loader2Icon } from 'lucide-react';
+import { type FormEvent, useState } from 'react';
 import { PortalRegistrarNotaCreditoModal } from '@/components/portal/registrar-nota-credito-modal';
 import { Button } from '@/components/ui/button';
 import PortalLayout from '@/layouts/portal/portal-layout';
@@ -11,14 +14,29 @@ import {
     PAGO_ESTATUS_COLORS,
     PAGO_ESTATUS_LABELS,
 } from '@/types/models';
-import { Head, Link } from '@inertiajs/react';
-import { useState } from 'react';
+
+type Comprobante = {
+    permitido_hoy: boolean;
+    dia: number | null;
+    subido: boolean;
+};
 
 type Props = {
     factura: CostosFactura;
+    comprobante: Comprobante;
 };
 
-export default function PortalFacturaShow({ factura }: Props) {
+const DIAS_LABEL: Record<number, string> = {
+    0: 'domingos',
+    1: 'lunes',
+    2: 'martes',
+    3: 'miércoles',
+    4: 'jueves',
+    5: 'viernes',
+    6: 'sábados',
+};
+
+export default function PortalFacturaShow({ factura, comprobante }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/portal' },
         { title: 'Facturas', href: '/portal/facturas' },
@@ -26,6 +44,15 @@ export default function PortalFacturaShow({ factura }: Props) {
     ];
 
     const [showNotaModal, setShowNotaModal] = useState(false);
+
+    const comprobanteForm = useForm<{ comprobante: File | null }>({ comprobante: null });
+    const submitComprobante = (e: FormEvent) => {
+        e.preventDefault();
+        comprobanteForm.post(`/portal/facturas/${factura.id}/comprobante`, {
+            forceFormData: true,
+            onSuccess: () => comprobanteForm.reset('comprobante'),
+        });
+    };
 
     const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
@@ -98,6 +125,56 @@ export default function PortalFacturaShow({ factura }: Props) {
                         </div>
                     </div>
                 </div>
+
+                {/* Comprobante de recepción */}
+                {(factura.estatus === 'pendiente_recepcion' || comprobante.subido) && (
+                    <div className="mb-6">
+                        <h2 className="text-lg font-medium mb-3">Comprobante de recepción</h2>
+                        <div className="rounded-lg border border-base-300 p-4 space-y-3">
+                            <div className="flex flex-wrap gap-2 text-sm">
+                                <span className={`badge ${factura.completamente_entregada ? 'badge-success' : 'badge-ghost'}`}>
+                                    {factura.completamente_entregada ? 'Entregada por almacén' : 'Pendiente de entrega'}
+                                </span>
+                                <span className={`badge ${comprobante.subido ? 'badge-success' : 'badge-ghost'}`}>
+                                    {comprobante.subido ? 'Comprobante recibido' : 'Comprobante pendiente'}
+                                </span>
+                            </div>
+
+                            {factura.estatus === 'pendiente_recepcion' ? (
+                                comprobante.permitido_hoy ? (
+                                    <form onSubmit={submitComprobante} className="space-y-2">
+                                        <input
+                                            type="file"
+                                            accept=".pdf,image/*"
+                                            className="file-input file-input-bordered w-full max-w-md"
+                                            onChange={(e) => comprobanteForm.setData('comprobante', e.target.files?.[0] ?? null)}
+                                        />
+                                        {comprobanteForm.errors.comprobante && (
+                                            <p className="text-sm text-error">{comprobanteForm.errors.comprobante}</p>
+                                        )}
+                                        <p className="text-xs text-base-content/60">
+                                            Adjunta el acuse/remisión sellado por almacén (PDF o imagen). Cuando la factura esté entregada
+                                            y con comprobante, pasará a revisión de Costos y Contabilidad.
+                                        </p>
+                                        <Button type="submit" disabled={comprobanteForm.processing || !comprobanteForm.data.comprobante}>
+                                            {comprobanteForm.processing && <Loader2Icon className="size-4 animate-spin" />}
+                                            {comprobante.subido ? 'Reemplazar comprobante' : 'Subir comprobante'}
+                                        </Button>
+                                    </form>
+                                ) : (
+                                    <p className="text-sm text-warning">
+                                        El comprobante de recepción solo puede subirse los{' '}
+                                        {comprobante.dia !== null ? DIAS_LABEL[comprobante.dia] : 'cualquier día'}.
+                                    </p>
+                                )
+                            ) : (
+                                <p className="text-sm text-base-content/60">
+                                    Comprobante recibido. La factura avanzó a revisión de Costos y Contabilidad.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Saldo y notas de crédito */}
                 <div className="mb-6">

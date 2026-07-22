@@ -274,6 +274,7 @@ class RequisicionController extends Controller
             'ordenesGeneradas:id,folio,proveedor_id,total,estatus,requisicion_id',
             'ordenesGeneradas.proveedor:id,razon_social',
             'ordenesGeneradas.solicitudesPago:id,orden_compra_id,folio,estatus,monto_total',
+            'ordenesGeneradas.entregas:id,folio,orden_compra_id,fecha_entrega',
             'media',
             'activities.causer',
         ]);

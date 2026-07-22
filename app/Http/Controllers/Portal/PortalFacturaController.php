@@ -6,6 +6,7 @@ use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\FacturaEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Portal\PortalFacturaPreviewRequest;
+use App\Models\Costos\ConfiguracionCostos;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Services\Costos\CfdiXmlParser;
@@ -51,21 +52,14 @@ class PortalFacturaController extends Controller
      */
     public function previewXml(PortalFacturaPreviewRequest $request): RedirectResponse
     {
-        if (! now()->isDayOfWeek(\Carbon\Carbon::THURSDAY)) {
-            return back()
-                ->withErrors(['xml' => 'La carga de facturas solo está permitida los días jueves.']);
-        }
-
         $proveedor = Auth::guard('proveedor')->user();
         $validated = $request->validated();
 
+        // La factura puede subirse cualquier día y sin recepción previa: las
+        // entregas y el comprobante de recepción se ligan después (la factura
+        // arranca en pendiente_recepcion y solo avanza al cumplirse ambos).
         $oc = OrdenCompra::with('facturas')->findOrFail($validated['orden_compra_id']);
         abort_if($oc->proveedor_id !== $proveedor->id, 403);
-
-        if (! $oc->entregas()->exists()) {
-            return back()
-                ->withErrors(['orden_compra_id' => 'Esta orden de compra aún no tiene recepción de almacén. No es posible facturar.']);
-        }
 
         try {
             $fiscal = $this->cfdiParser->parse(
@@ -213,7 +207,7 @@ class PortalFacturaController extends Controller
             'metodo_pago' => $fiscal['metodo_pago'] ?? null,
             'forma_pago' => $fiscal['forma_pago'] ?? null,
             'fecha_factura' => $fiscal['fecha_factura'] ?? null,
-            'estatus' => FacturaEstatus::PendienteAprobacion,
+            'estatus' => FacturaEstatus::PendienteRecepcion,
             'notas' => $validated['notas'] ?? null,
         ]);
 
@@ -311,6 +305,52 @@ class PortalFacturaController extends Controller
         session()->forget(self::SESSION_KEY);
     }
 
+    /**
+     * El proveedor adjunta el comprobante de recepción (acuse sellado por
+     * almacén) a su factura. Solo se permite el día configurado (o cualquier día
+     * si es null) y mientras la factura siga pendiente de recepción. Al subirlo,
+     * intenta pasar la factura a aprobación (requiere además estar completamente
+     * entregada).
+     */
+    public function subirComprobante(Request $request, Factura $factura): RedirectResponse
+    {
+        $proveedor = Auth::guard('proveedor')->user();
+        abort_if($factura->proveedor_id !== $proveedor->id, 403);
+
+        if ($factura->estatus !== FacturaEstatus::PendienteRecepcion) {
+            return back()->withErrors(['comprobante' => 'La factura ya no admite comprobante de recepción.']);
+        }
+
+        if (! ConfiguracionCostos::actual()->comprobanteHoyPermitido()) {
+            return back()->withErrors(['comprobante' => 'Hoy no es el día permitido para subir el comprobante de recepción.']);
+        }
+
+        $request->validate([
+            'comprobante' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
+        ]);
+
+        // Reemplaza el comprobante anterior si existía.
+        $anterior = $factura->mediaComprobanteRecepcion;
+        if ($anterior) {
+            Storage::disk('public')->delete($anterior->path);
+            $anterior->delete();
+        }
+
+        $file = $request->file('comprobante');
+        $dest = $file->store("facturas/{$proveedor->id}/{$factura->id}/comprobante", 'public');
+        $factura->media()->create([
+            'descripcion' => DocumentoTipo::ComprobanteRecepcion->value,
+            'nombre_original' => $file->getClientOriginalName(),
+            'path' => $dest,
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
+        ]);
+
+        $factura->refresh()->intentarPasarAAprobacion();
+
+        return back()->with('success', 'Comprobante de recepción subido correctamente.');
+    }
+
     public function show(Factura $factura): Response
     {
         $proveedor = Auth::guard('proveedor')->user();
@@ -320,14 +360,23 @@ class PortalFacturaController extends Controller
         $factura->load([
             'ordenCompra:id,folio',
             'entregas.recibidoPor:id,name',
+            'entregasLigadas.recibidoPor:id,name',
+            'mediaComprobanteRecepcion',
             'notasCredito' => fn ($q) => $q->latest(),
             'pago',
         ]);
 
         $factura->append(['monto_notas_credito', 'monto_anticipos', 'saldo_facturado']);
 
+        $config = ConfiguracionCostos::actual();
+
         return Inertia::render('portal/facturas/show', [
             'factura' => $factura,
+            'comprobante' => [
+                'permitido_hoy' => $config->comprobanteHoyPermitido(),
+                'dia' => $config->dia_comprobante_recepcion,
+                'subido' => $factura->tieneComprobanteRecepcion(),
+            ],
         ]);
     }
 }

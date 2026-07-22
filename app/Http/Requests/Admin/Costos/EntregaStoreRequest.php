@@ -19,6 +19,8 @@ class EntregaStoreRequest extends FormRequest
         return [
             'fecha_entrega' => ['required', 'date'],
             'tipo' => ['required', 'in:parcial,completa'],
+            'factura_id' => ['nullable', 'integer', 'exists:costos_facturas,id'],
+            'completa_factura' => ['nullable', 'boolean'],
             'observaciones' => ['nullable', 'string'],
             'archivo' => ['nullable', 'file', 'max:10240'],
             'detalles' => ['required', 'array', 'min:1'],

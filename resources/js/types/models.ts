@@ -2230,7 +2230,7 @@ export type CostosRetencionDesglose = {
 };
 
 // Facturas Types
-export type CostosFacturaEstatus = 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
+export type CostosFacturaEstatus = 'pendiente_recepcion' | 'pendiente_aprobacion' | 'pendiente_pago' | 'pagada' | 'cancelada';
 
 export type CostosBaseDiasCredito = 'factura' | 'recepcion' | 'aprobacion';
 
@@ -2249,6 +2249,7 @@ export type CostosDocumentoTipo =
     | 'oc_pdf_formato'
     | 'oc_pdf_firmado'
     | 'evidencia_recepcion'
+    | 'comprobante_recepcion'
     | 'comprobante_pago'
     | 'solicitud_archivo'
     | 'solicitud_firmada';
@@ -2260,12 +2261,14 @@ export const DOCUMENTO_TIPO_LABELS: Record<CostosDocumentoTipo, string> = {
     oc_pdf_formato: 'Formato de OC (PDF)',
     oc_pdf_firmado: 'OC firmada (PDF)',
     evidencia_recepcion: 'Evidencia de recepción',
+    comprobante_recepcion: 'Comprobante de recepción',
     comprobante_pago: 'Comprobante de pago',
     solicitud_archivo: 'Anexo de solicitud',
     solicitud_firmada: 'Solicitud firmada',
 };
 
 export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
+    pendiente_recepcion: 'Pendiente Recepción',
     pendiente_aprobacion: 'Pendiente Aprobación',
     pendiente_pago: 'Pendiente Pago',
     pagada: 'Pagada',
@@ -2273,6 +2276,7 @@ export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
 };
 
 export const FACTURA_ESTATUS_COLORS: Record<CostosFacturaEstatus, string> = {
+    pendiente_recepcion: 'badge-warning',
     pendiente_aprobacion: 'badge-accent',
     pendiente_pago: 'badge-primary',
     pagada: 'badge-success',
@@ -2317,6 +2321,7 @@ export type CostosFactura = {
     forma_pago?: string | null;
     fecha_factura: string | null;
     estatus: CostosFacturaEstatus;
+    completamente_entregada: boolean;
     notas: string | null;
     motivo_rechazo: string | null;
     dias_credito: number | null;
@@ -2331,6 +2336,7 @@ export type CostosFactura = {
     orden_compra?: CostosOrdenCompra;
     proveedor?: Proveedor;
     entregas?: CostosEntrega[];
+    entregas_ligadas?: CostosEntrega[];
     detalles?: CostosFacturaDetalle[];
     media?: Media[];
     media_pdf?: Media | null;
@@ -2424,7 +2430,9 @@ export const ENTREGA_TIPO_LABELS: Record<CostosEntregaTipo, string> = {
 
 export type CostosEntrega = {
     id: number;
+    folio: string | null;
     orden_compra_id: number;
+    factura_id: number | null;
     recibido_por: string;
     fecha_entrega: string;
     tipo: CostosEntregaTipo;

@@ -23,11 +23,15 @@ class OrdenCompraEstadoService
      * no debe recalcularse).
      *
      * Reglas (en orden):
-     *  - sin facturas activas, sin entregas → pendiente_entrega
-     *  - sin facturas activas, con entregas → pendiente_factura
-     *  - todas las facturas pagadas         → pagada
-     *  - todas en pago o pagadas            → pendiente_pago
-     *  - default (con facturas activas)     → pendiente_aprobacion
+     *  - sin facturas en pipeline, sin entregas → pendiente_entrega
+     *  - sin facturas en pipeline, con entregas → pendiente_factura
+     *  - todas las facturas pagadas             → pagada
+     *  - todas en pago o pagadas                → pendiente_pago
+     *  - default (con facturas en pipeline)     → pendiente_aprobacion
+     *
+     * Las facturas en `pendiente_recepcion` (subidas pero aún sin recepción +
+     * comprobante) no cuentan como "en pipeline": la OC sigue en fase de
+     * recepción hasta que al menos una factura avance a aprobación.
      */
     public function calcular(OrdenCompra $orden): ?OrdenCompraEstatus
     {
@@ -39,7 +43,9 @@ class OrdenCompraEstadoService
             ->where('estatus', '!=', FacturaEstatus::Cancelada->value)
             ->get();
 
-        if ($facturas->isEmpty()) {
+        $enPipeline = $facturas->reject(fn (Factura $f) => $f->estatus === FacturaEstatus::PendienteRecepcion);
+
+        if ($enPipeline->isEmpty()) {
             return $orden->entregas()->exists()
                 ? OrdenCompraEstatus::PendienteFactura
                 : OrdenCompraEstatus::PendienteEntrega;

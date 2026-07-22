@@ -58,6 +58,7 @@ class Factura extends Model
         'forma_pago',
         'fecha_factura',
         'estatus',
+        'completamente_entregada',
         'notas',
         'motivo_rechazo',
         'dias_credito',
@@ -93,6 +94,7 @@ class Factura extends Model
             'aprobada_costos_at' => 'datetime',
             'aceptada_contabilidad' => 'boolean',
             'aceptada_contabilidad_at' => 'datetime',
+            'completamente_entregada' => 'boolean',
             'estatus' => FacturaEstatus::class,
             'base_dias_credito' => BaseDiasCredito::class,
             'locked_at' => 'datetime',
@@ -121,6 +123,20 @@ class Factura extends Model
     public function mediaPdf(): MorphOne
     {
         return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', DocumentoTipo::PdfFactura->value);
+    }
+
+    /**
+     * Comprobante de recepción que el proveedor adjunta a la factura desde el
+     * portal (acuse sellado por almacén). Parte del gate para pasar a aprobación.
+     */
+    public function mediaComprobanteRecepcion(): MorphOne
+    {
+        return $this->morphOne(\App\Models\Media::class, 'mediable')->where('descripcion', DocumentoTipo::ComprobanteRecepcion->value);
+    }
+
+    public function tieneComprobanteRecepcion(): bool
+    {
+        return $this->media()->where('descripcion', DocumentoTipo::ComprobanteRecepcion->value)->exists();
     }
 
     public function ordenCompra(): BelongsTo
@@ -155,6 +171,36 @@ class Factura extends Model
     public function entregas(): HasMany
     {
         return $this->hasMany(Entrega::class, 'orden_compra_id', 'orden_compra_id');
+    }
+
+    /**
+     * Entregas ligadas directamente a esta factura (recepciones que almacén
+     * asoció a la factura, a diferencia de {@see entregas()} que trae todas las
+     * de la OC).
+     */
+    public function entregasLigadas(): HasMany
+    {
+        return $this->hasMany(Entrega::class, 'factura_id');
+    }
+
+    /**
+     * Intenta pasar la factura de pendiente_recepcion a pendiente_aprobacion.
+     * Requiere estar completamente entregada (una entrega la marcó) Y tener el
+     * comprobante de recepción del proveedor. Si falta alguna, no hace nada.
+     */
+    public function intentarPasarAAprobacion(): bool
+    {
+        if ($this->estatus !== FacturaEstatus::PendienteRecepcion) {
+            return false;
+        }
+
+        if (! $this->completamente_entregada || ! $this->tieneComprobanteRecepcion()) {
+            return false;
+        }
+
+        $this->transitionTo(FacturaEstatus::PendienteAprobacion);
+
+        return true;
     }
 
     public function detalles(): HasMany

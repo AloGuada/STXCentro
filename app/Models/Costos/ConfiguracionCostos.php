@@ -28,6 +28,7 @@ class ConfiguracionCostos extends Model
         'corte_activo',
         'corte_dia',
         'corte_hora',
+        'dia_comprobante_recepcion',
         'gerente_compras_id',
     ];
 
@@ -42,7 +43,24 @@ class ConfiguracionCostos extends Model
             'dias_cancelar_solicitud' => 'integer',
             'corte_activo' => 'boolean',
             'corte_dia' => 'integer',
+            'dia_comprobante_recepcion' => 'integer',
         ];
+    }
+
+    /**
+     * ¿Hoy es un día permitido para que el proveedor suba el comprobante de
+     * recepción? Si `dia_comprobante_recepcion` es null, cualquier día es válido;
+     * si tiene un día (numeración Carbon 0=domingo … 6=sábado), solo ese día.
+     */
+    public function comprobanteHoyPermitido(?CarbonInterface $ahora = null): bool
+    {
+        if ($this->dia_comprobante_recepcion === null) {
+            return true;
+        }
+
+        $ahora = $ahora ? $ahora->toImmutable() : CarbonImmutable::now();
+
+        return $ahora->dayOfWeek === $this->dia_comprobante_recepcion;
     }
 
     /**

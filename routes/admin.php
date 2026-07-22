@@ -281,6 +281,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->only(['index', 'show', 'create', 'store'])
             ->parameters(['facturas' => 'factura']);
         Route::post('ordenes-compra/{ordenCompra}/entregas', [CostosEntregaController::class, 'store'])->name('ordenes-compra.entregas.store');
+        Route::get('entregas/{entrega}/pdf', [CostosEntregaController::class, 'pdf'])->name('entregas.pdf');
         Route::post('facturas/{factura}/aprobar-costos', [CostosFacturaAdminController::class, 'aprobarCostos'])->name('facturas.aprobar-costos');
         Route::post('facturas/{factura}/aceptar-contabilidad', [CostosFacturaAdminController::class, 'aceptarContabilidad'])->name('facturas.aceptar-contabilidad');
         Route::post('facturas/{factura}/cancelar', [CostosFacturaAdminController::class, 'cancelar'])->name('facturas.cancelar');
