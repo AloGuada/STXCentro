@@ -14,10 +14,19 @@ use Illuminate\Support\Facades\DB;
  * Centraliza la mutación del presupuesto cuando se aparta temporalmente o se
  * convierte en afectación permanente.
  *
- * - apartarDocumento(): crea RubroAfectado(Apartado) + increment acumulado.
- * - convertirAPermanente(): muta apartados vigentes de la entrada a Aplicado.
- * - cancelarApartadosDe(): libera todos los apartados/aplicados vigentes.
- * - liberarVencidos(): worker para el scheduled command.
+ * Modelo: `acumulado` = solo ejercido (Aplicado); `apartado` = reserva viva
+ * (Apartado). El disponible = presupuestado − acumulado − apartado. Apartar NO
+ * toca el ejercido; solo convertir a permanente mueve el monto de apartado a
+ * acumulado. Así el número duro (`acumulado`) nunca se mueve solo.
+ *
+ * - apartarDocumento(): crea RubroAfectado(Apartado) + increment `apartado`.
+ * - convertirAPermanente(): apartado → aplicado (baja `apartado`, sube `acumulado`).
+ * - cancelarApartadosDe(): libera apartados (baja `apartado`) y aplicados
+ *   (reverso del `acumulado` vía ledger).
+ * - liberarVencidos(): baja `apartado` y marca Vencido; no toca el ejercido.
+ *
+ * `acumulado` es la única columna con libro de movimientos ({@see AcumuladoLedger}).
+ * `apartado` es una reserva viva, mantenida exclusivamente por este servicio.
  *
  * Los apartados siempre se permiten en sobregiro (el campo `sobre_giro` se
  * marca true cuando el rubro queda con disponible negativo).
@@ -66,30 +75,39 @@ class ApartadoPresupuestal
 
     /**
      * Convierte los apartados vigentes de la entrada en afectaciones
-     * permanentes (Aplicado). No mueve el acumulado (ya estaba contado).
-     * Si no hay apartados vigentes, lo deja pasar sin error.
+     * permanentes (Aplicado): mueve el monto de `apartado` (comprometido) a
+     * `acumulado` (ejercido). El comprometido total no cambia; el número duro
+     * sube. Si no hay apartados vigentes, lo deja pasar sin error.
      */
     public function convertirAPermanente(Model $entrada): void
     {
         DB::transaction(function () use ($entrada) {
-            RubroAfectado::query()
+            $apartados = RubroAfectado::query()
                 ->where('entrada_type', $entrada::class)
                 ->where('entrada_id', $entrada->getKey())
                 ->where('estatus', RubroAfectadoEstatus::Apartado->value)
-                ->get()
-                ->each(function (RubroAfectado $ra) {
-                    $ra->update([
-                        'estatus' => RubroAfectadoEstatus::Aplicado,
-                        'apartado_hasta' => null,
-                        'fecha_aplicacion' => now(),
-                    ]);
-                });
+                ->get();
+
+            foreach ($apartados as $ra) {
+                $obraRubro = ObraRubro::whereKey($ra->obra_rubro_id)->lockForUpdate()->firstOrFail();
+
+                $obraRubro->update(['apartado' => max(0.0, (float) $obraRubro->apartado - (float) $ra->monto)]);
+                $this->ledger->registrar($obraRubro, (float) $ra->monto, $ra->id, 'apartado → aplicado');
+
+                $ra->update([
+                    'estatus' => RubroAfectadoEstatus::Aplicado,
+                    'apartado_hasta' => null,
+                    'fecha_aplicacion' => now(),
+                ]);
+            }
         });
     }
 
     /**
-     * Cancela apartados/aplicados vigentes de la entrada y devuelve el
-     * monto al acumulado del rubro. Útil al cancelar el documento dueño.
+     * Cancela apartados/aplicados vigentes de la entrada. Un Aplicado revierte
+     * el `acumulado` (ejercido) vía el ledger; un Apartado solo baja la reserva
+     * viva (`apartado`), sin tocar el número duro. Útil al cancelar el documento
+     * dueño.
      */
     public function cancelarApartadosDe(Model $entrada, string $motivo = 'documento cancelado'): void
     {
@@ -101,7 +119,12 @@ class ApartadoPresupuestal
                 ->get();
 
             foreach ($afectaciones as $ra) {
-                $this->ledger->registrarPorId($ra->obra_rubro_id, -(float) $ra->monto, $ra->id, $motivo);
+                if ($ra->estatus === RubroAfectadoEstatus::Aplicado) {
+                    $this->ledger->registrarPorId($ra->obra_rubro_id, -(float) $ra->monto, $ra->id, $motivo);
+                } else {
+                    $obraRubro = ObraRubro::whereKey($ra->obra_rubro_id)->lockForUpdate()->firstOrFail();
+                    $obraRubro->update(['apartado' => max(0.0, (float) $obraRubro->apartado - (float) $ra->monto)]);
+                }
 
                 $ra->update([
                     'estatus' => RubroAfectadoEstatus::Cancelado,
@@ -113,7 +136,8 @@ class ApartadoPresupuestal
 
     /**
      * Procesa todos los RubroAfectado en estado Apartado cuyo apartado_hasta
-     * ya pasó: decrementa el acumulado del rubro y los marca como Vencido.
+     * ya pasó: baja la reserva viva (`apartado`) del rubro y los marca como
+     * Vencido. No toca el ejercido (`acumulado`), que nunca los contó.
      * Usado por el comando programado costos:liberar-apartados-vencidos.
      */
     public function liberarVencidos(): int
@@ -128,7 +152,8 @@ class ApartadoPresupuestal
                 ->get();
 
             foreach ($vencidos as $ra) {
-                $this->ledger->registrarPorId($ra->obra_rubro_id, -(float) $ra->monto, $ra->id, 'apartado vencido');
+                $obraRubro = ObraRubro::whereKey($ra->obra_rubro_id)->lockForUpdate()->firstOrFail();
+                $obraRubro->update(['apartado' => max(0.0, (float) $obraRubro->apartado - (float) $ra->monto)]);
 
                 $ra->update([
                     'estatus' => RubroAfectadoEstatus::Vencido,
@@ -163,9 +188,11 @@ class ApartadoPresupuestal
     }
 
     /**
-     * Aplica un cargo presupuestal a un rubro: valida sobregiro, incrementa el
-     * acumulado y registra el RubroAfectado. Primitiva compartida por el
-     * apartado temporal y la afectación permanente (trait AfectaPresupuesto).
+     * Aplica un cargo presupuestal a un rubro: valida sobregiro y registra el
+     * RubroAfectado. Un cargo `Aplicado` incrementa el ejercido (`acumulado`)
+     * vía el ledger; un `Apartado` incrementa la reserva viva (`apartado`) sin
+     * tocar el número duro. Primitiva compartida por el apartado temporal y la
+     * afectación permanente (trait AfectaPresupuesto).
      */
     public function aplicarCargo(
         Model $entrada,
@@ -184,7 +211,7 @@ class ApartadoPresupuestal
 
             $this->validador->validar($obraRubro, $monto, $entrada, allowSobregiro: $allowSobregiro);
 
-            $sobreGiro = ((float) $obraRubro->presupuestado - ((float) $obraRubro->acumulado + $monto)) < 0;
+            $sobreGiro = ($obraRubro->disponible - $monto) < 0;
 
             $ra = RubroAfectado::create([
                 'entrada_type' => $entrada::class,
@@ -200,7 +227,12 @@ class ApartadoPresupuestal
                 'fecha_aplicacion' => now(),
             ]);
 
-            $this->ledger->registrar($obraRubro, $monto, $ra->id, $descripcion ?? $estatus->value, $userId);
+            if ($estatus === RubroAfectadoEstatus::Aplicado) {
+                $this->ledger->registrar($obraRubro, $monto, $ra->id, $descripcion ?? $estatus->value, $userId);
+            } else {
+                // Reserva viva: no toca el ejercido, solo el comprometido.
+                $obraRubro->update(['apartado' => (float) $obraRubro->apartado + $monto]);
+            }
 
             return $ra;
         });

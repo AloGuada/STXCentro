@@ -51,10 +51,10 @@ class ValidadorPresupuesto
             return;
         }
 
-        $pctTrasAplicar = (((float) $obraRubro->acumulado + $montoAdicional) / $presup) * 100.0;
+        $pctTrasAplicar = (($obraRubro->comprometido + $montoAdicional) / $presup) * 100.0;
         $umbral = (int) config('costos.umbral_alerta_porcentaje', 90);
 
-        $pctActual = ((float) $obraRubro->acumulado / $presup) * 100.0;
+        $pctActual = ($obraRubro->comprometido / $presup) * 100.0;
 
         // Solo dispara si este movimiento es el que cruza el umbral
         // (de no-critico a critico) — evita ruido en cada operación.

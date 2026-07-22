@@ -1431,6 +1431,9 @@ export type CostosObraRubro = {
     rubro_id: number;
     presupuestado: number;
     acumulado: number;
+    apartado: number;
+    comprometido?: number;
+    disponible?: number;
     rubro?: CostosRubro;
     obra?: Obra;
     presupuesto?: CostosPresupuesto;
@@ -1480,6 +1483,7 @@ export type PresupuestoRow = {
     rubros_count: number;
     sum_presupuestado: number;
     sum_acumulado: number;
+    sum_apartado?: number;
 };
 
 export type CostosPermiso = {
@@ -1734,6 +1738,8 @@ export type ObraRubroOption = {
     label: string;
     presupuestado: number;
     acumulado: number;
+    apartado: number;
+    comprometido: number;
     disponible: number;
     sobregiro: boolean;
     cerrado: boolean;

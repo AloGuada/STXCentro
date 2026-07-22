@@ -100,15 +100,25 @@ function makeColumns(umbral: number): Column<PresupuestoRow>[] {
         },
         {
             key: 'rubros_sum_acumulado',
-            label: 'Acumulado',
+            label: 'Ejercido',
             sortable: true,
             render: (p) => <span className="font-mono text-sm">{fmt(p.sum_acumulado)}</span>,
+        },
+        {
+            key: 'rubros_sum_apartado',
+            label: 'Apartado',
+            sortable: true,
+            render: (p) => {
+                const apartado = p.sum_apartado ?? 0;
+                return <span className={`font-mono text-sm ${apartado > 0 ? 'text-info' : 'text-base-content/40'}`}>{fmt(apartado)}</span>;
+            },
         },
         {
             key: 'avance',
             label: 'Avance',
             render: (p) => {
-                const pct = p.sum_presupuestado > 0 ? (p.sum_acumulado / p.sum_presupuestado) * 100 : 0;
+                const comprometido = p.sum_acumulado + (p.sum_apartado ?? 0);
+                const pct = p.sum_presupuestado > 0 ? (comprometido / p.sum_presupuestado) * 100 : 0;
                 const color = avanceBarColor(pct, umbral);
                 const widthPct = Math.min(100, pct);
 
@@ -129,7 +139,7 @@ function makeColumns(umbral: number): Column<PresupuestoRow>[] {
             key: 'disponible',
             label: 'Disponible',
             render: (p) => {
-                const disponible = p.sum_presupuestado - p.sum_acumulado;
+                const disponible = p.sum_presupuestado - p.sum_acumulado - (p.sum_apartado ?? 0);
                 return <span className={`font-mono text-sm ${disponible < 0 ? 'text-error font-bold' : ''}`}>{fmt(disponible)}</span>;
             },
         },
@@ -142,6 +152,8 @@ type Stats = {
     criticos: number;
     total_presupuestado: number;
     total_acumulado: number;
+    total_apartado: number;
+    total_comprometido: number;
     umbral_alerta: number;
     bloquear_sobregiro: boolean;
 };
@@ -152,6 +164,8 @@ type StatsPlanta = {
     criticos: number;
     total_presupuestado: number;
     total_acumulado: number;
+    total_apartado: number;
+    total_comprometido: number;
 };
 
 type Disponibles = Record<PresupuestableTipo, { id: number; label: string }[]>;
@@ -316,7 +330,8 @@ function PlantaSection({ planta, statsPlanta }: { planta: PresupuestoRow | null;
 
     const presup = statsPlanta?.total_presupuestado ?? 0;
     const acum = statsPlanta?.total_acumulado ?? 0;
-    const disponible = presup - acum;
+    const apartadoPlanta = statsPlanta?.total_apartado ?? 0;
+    const disponible = presup - acum - apartadoPlanta;
 
     return (
         <Link
@@ -347,8 +362,12 @@ function PlantaSection({ planta, statsPlanta }: { planta: PresupuestoRow | null;
                     <div className="font-mono text-sm font-semibold">{fmt(presup)}</div>
                 </div>
                 <div>
-                    <div className="text-xs text-base-content/60">Acumulado</div>
+                    <div className="text-xs text-base-content/60">Ejercido</div>
                     <div className="font-mono text-sm font-semibold">{fmt(acum)}</div>
+                </div>
+                <div>
+                    <div className="text-xs text-base-content/60">Apartado</div>
+                    <div className={`font-mono text-sm font-semibold ${apartadoPlanta > 0 ? 'text-info' : 'text-base-content/40'}`}>{fmt(apartadoPlanta)}</div>
                 </div>
                 <div>
                     <div className="text-xs text-base-content/60">Disponible</div>
@@ -362,9 +381,10 @@ function PlantaSection({ planta, statsPlanta }: { planta: PresupuestoRow | null;
 export default function PresupuestosIndex({ presupuestos, planta, disponibles, statsPlanta, filters, stats, sortBy, sortDir }: Props) {
     const [showAgregar, setShowAgregar] = useState(false);
     const columns = makeColumns(stats.umbral_alerta);
-    const totalDisponible = stats.total_presupuestado - stats.total_acumulado;
+    const totalApartado = stats.total_apartado ?? 0;
+    const totalDisponible = stats.total_presupuestado - stats.total_acumulado - totalApartado;
     const pctGlobal = stats.total_presupuestado > 0
-        ? (stats.total_acumulado / stats.total_presupuestado) * 100
+        ? ((stats.total_acumulado + totalApartado) / stats.total_presupuestado) * 100
         : 0;
 
     return (
@@ -376,19 +396,24 @@ export default function PresupuestosIndex({ presupuestos, planta, disponibles, s
                 <PlantaSection planta={planta} statsPlanta={statsPlanta} />
 
                 {/* Stats panel (solo obras) */}
-                <div className="mb-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="mb-4 grid grid-cols-2 md:grid-cols-6 gap-3">
                     <div className="rounded-lg border border-base-300 p-3">
                         <div className="text-xs text-base-content/60">Total presupuestado (obras)</div>
                         <div className="font-semibold text-sm">{fmt(stats.total_presupuestado)}</div>
                     </div>
                     <div className="rounded-lg border border-base-300 p-3">
-                        <div className="text-xs text-base-content/60">Total acumulado (obras)</div>
+                        <div className="text-xs text-base-content/60">Total ejercido (obras)</div>
                         <div className="font-semibold text-sm">{fmt(stats.total_acumulado)}</div>
+                    </div>
+                    <div className="rounded-lg border border-base-300 p-3">
+                        <div className="text-xs text-base-content/60">Total apartado (obras)</div>
+                        <div className={`font-semibold text-sm ${totalApartado > 0 ? 'text-info' : 'text-base-content/40'}`}>{fmt(totalApartado)}</div>
+                        <div className="text-[10px] text-base-content/50 mt-0.5">reserva viva</div>
                     </div>
                     <div className={`rounded-lg border border-base-300 p-3 ${totalDisponible < 0 ? 'bg-error/10' : ''}`}>
                         <div className="text-xs text-base-content/60">Disponible global</div>
                         <div className={`font-semibold text-sm ${totalDisponible < 0 ? 'text-error' : ''}`}>{fmt(totalDisponible)}</div>
-                        <div className="text-[10px] text-base-content/50 mt-0.5">{pctGlobal.toFixed(1)}% consumido</div>
+                        <div className="text-[10px] text-base-content/50 mt-0.5">{pctGlobal.toFixed(1)}% comprometido</div>
                     </div>
                     <div className={`rounded-lg border ${stats.criticos > 0 ? 'border-warning bg-warning/10' : 'border-base-300'} p-3`}>
                         <div className="flex items-center gap-1 text-xs text-base-content/60">

@@ -43,6 +43,7 @@ class PresupuestoController extends Controller
             ->with('presupuestable')
             ->withSum('rubros', 'presupuestado')
             ->withSum('rubros', 'acumulado')
+            ->withSum('rubros', 'apartado')
             ->withCount('rubros')
             ->first();
 
@@ -50,6 +51,7 @@ class PresupuestoController extends Controller
             ->with('presupuestable')
             ->withSum('rubros', 'presupuestado')
             ->withSum('rubros', 'acumulado')
+            ->withSum('rubros', 'apartado')
             ->withCount('rubros')
             ->when($planta, fn ($q) => $q->whereKeyNot($planta->id));
 
@@ -61,7 +63,7 @@ class PresupuestoController extends Controller
             ->through(fn (Presupuesto $p) => $this->presentar($p));
 
         $obraRubros = ObraRubro::query()
-            ->select('id', 'presupuesto_id', 'presupuestado', 'acumulado')
+            ->select('id', 'presupuesto_id', 'presupuestado', 'acumulado', 'apartado')
             ->get();
 
         $statsObras = $this->calcularStats(
@@ -283,6 +285,7 @@ class PresupuestoController extends Controller
             ->with('presupuestable')
             ->withSum('rubros', 'presupuestado')
             ->withSum('rubros', 'acumulado')
+            ->withSum('rubros', 'apartado')
             ->withCount('rubros')
             ->where('estatus', $estatus);
 
@@ -353,6 +356,7 @@ class PresupuestoController extends Controller
             'rubros_count' => 'rubros_count',
             'rubros_sum_presupuestado' => 'rubros_sum_presupuestado',
             'rubros_sum_acumulado' => 'rubros_sum_acumulado',
+            'rubros_sum_apartado' => 'rubros_sum_apartado',
         ];
     }
 
@@ -379,6 +383,7 @@ class PresupuestoController extends Controller
             'rubros_count' => (int) ($p->rubros_count ?? 0),
             'sum_presupuestado' => (float) ($p->rubros_sum_presupuestado ?? 0),
             'sum_acumulado' => (float) ($p->rubros_sum_acumulado ?? 0),
+            'sum_apartado' => (float) ($p->rubros_sum_apartado ?? 0),
         ];
     }
 
@@ -394,6 +399,9 @@ class PresupuestoController extends Controller
                 'rubro_id' => $r->rubro_id,
                 'presupuestado' => $r->presupuestado,
                 'acumulado' => $r->acumulado,
+                'apartado' => $r->apartado,
+                'comprometido' => $r->comprometido,
+                'disponible' => $r->disponible,
                 'rubro' => $r->rubro,
             ])->values(),
         ];
@@ -401,7 +409,7 @@ class PresupuestoController extends Controller
 
     /**
      * @param  Collection<int, ObraRubro>  $obraRubros
-     * @return array{total_rubros: int, sobregiros: int, criticos: int, total_presupuestado: float, total_acumulado: float}
+     * @return array{total_rubros: int, sobregiros: int, criticos: int, total_presupuestado: float, total_acumulado: float, total_apartado: float, total_comprometido: float}
      */
     private function calcularStats(Collection $obraRubros, int $umbral): array
     {
@@ -409,23 +417,27 @@ class PresupuestoController extends Controller
         $criticos = 0;
         $totalPresupuestado = 0.0;
         $totalAcumulado = 0.0;
+        $totalApartado = 0.0;
         $umbralPct = (float) $umbral;
 
         foreach ($obraRubros as $r) {
             $presup = (float) $r->presupuestado;
             $acum = (float) $r->acumulado;
+            // El sobregiro/critico pesa contra lo comprometido (ejercido + apartado).
+            $comprometido = (float) $r->comprometido;
             $totalPresupuestado += $presup;
             $totalAcumulado += $acum;
+            $totalApartado += (float) $r->apartado;
 
             if ($presup <= 0.0) {
-                if ($acum > 0.0) {
+                if ($comprometido > 0.0) {
                     $sobregiros++;
                 }
 
                 continue;
             }
 
-            $pct = ($acum / $presup) * 100.0;
+            $pct = ($comprometido / $presup) * 100.0;
             if ($pct > 100.0) {
                 $sobregiros++;
             } elseif ($pct >= $umbralPct) {
@@ -439,6 +451,8 @@ class PresupuestoController extends Controller
             'criticos' => $criticos,
             'total_presupuestado' => $totalPresupuestado,
             'total_acumulado' => $totalAcumulado,
+            'total_apartado' => $totalApartado,
+            'total_comprometido' => $totalAcumulado + $totalApartado,
         ];
     }
 

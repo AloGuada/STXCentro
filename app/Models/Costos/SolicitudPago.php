@@ -176,9 +176,22 @@ class SolicitudPago extends Model implements Aprobable
             return;
         }
 
-        // Los apartados creados al PendienteFirma pasan a Aplicado (permanente).
-        // Si la solicitud llegó aquí sin apartado vigente (creada antes de la
-        // feature o vía factory directo), aplicar impacto desde cero.
+        $this->aplicarImpactoTrasFirma($userId);
+    }
+
+    /**
+     * Impacto presupuestal al firmarse la solicitud. Si tiene apartados vigentes
+     * (creados al PendienteFirma) los convierte a Aplicado (comprometido →
+     * ejercido); si no, aplica el impacto desde cero. Las solicitudes de una OC
+     * no afectan aquí: la OC ya aplicó su impacto al crearse. Idempotente
+     * respecto al doble conteo: nunca deja Apartado + Aplicado sumados.
+     */
+    public function aplicarImpactoTrasFirma(?string $userId = null): void
+    {
+        if ($this->orden_compra_id !== null) {
+            return;
+        }
+
         $tieneApartado = $this->rubrosAfectados()
             ->where('estatus', \App\Enums\Costos\RubroAfectadoEstatus::Apartado->value)
             ->exists();

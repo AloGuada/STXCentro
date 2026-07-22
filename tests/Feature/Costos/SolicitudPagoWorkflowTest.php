@@ -141,6 +141,36 @@ describe('admin costos solicitud pago workflow', function () {
         expect((float) $obraRubro->acumulado)->toBe(5000.00);
     });
 
+    test('upload firmado convierte el apartado sin doble conteo', function () {
+        Storage::fake('public');
+
+        $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+        $solicitud = SolicitudPago::factory()->pendienteFirma()->create();
+        SolicitudPagoDetalle::factory()->create([
+            'solicitud_id' => $solicitud->id,
+            'obra_rubro_id' => $obraRubro->id,
+            'subtotal' => 5000,
+        ]);
+
+        // La solicitud ya tiene una reserva viva (apartado) al estar PendienteFirma.
+        app(\App\Services\Costos\ApartadoPresupuestal::class)
+            ->apartarDocumento($solicitud, [['obra_rubro_id' => $obraRubro->id, 'monto' => 5000]]);
+
+        expect((float) $obraRubro->fresh()->apartado)->toBe(5000.00);
+        expect((float) $obraRubro->fresh()->acumulado)->toBe(0.00);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.solicitudes-pago.upload-firmado', $solicitud), [
+                'archivo' => UploadedFile::fake()->create('firmado.pdf', 100, 'application/pdf'),
+            ]);
+
+        $obraRubro->refresh();
+        // El apartado se convierte a ejercido: 5000 (no 10000 por doble conteo).
+        expect((float) $obraRubro->acumulado)->toBe(5000.00);
+        expect((float) $obraRubro->apartado)->toBe(0.00);
+        expect((float) $obraRubro->comprometido)->toBe(5000.00);
+    });
+
     test('cancelar aprobada reverts budget impact', function () {
         $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 5000]);
         $solicitud = SolicitudPago::factory()->aprobada()->create();

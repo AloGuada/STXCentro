@@ -695,8 +695,9 @@ class SolicitudPagoController extends Controller
             'fecha_respuesta' => now(),
         ]);
 
-        // Aplicar impacto presupuestal
-        $solicitudPago->aplicarImpactoPresupuestal($request->user()->id);
+        // Aplicar impacto presupuestal: convierte el apartado vigente a ejercido
+        // (o aplica desde cero). Evita el doble conteo apartado + aplicado.
+        $solicitudPago->aplicarImpactoTrasFirma($request->user()->id);
 
         return back()->with('success', 'Solicitud aprobada correctamente.');
     }
