@@ -7,6 +7,7 @@ use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
+use App\Http\Requests\Admin\Costos\ReasignarCentroCostosRequest;
 use App\Http\Requests\Admin\Costos\SolicitudArchivoStoreRequest;
 use App\Http\Requests\Admin\Costos\SolicitudFirmadoRequest;
 use App\Http\Requests\Admin\Costos\SolicitudPagoStoreRequest;
@@ -23,10 +24,10 @@ use App\Models\Costos\TipoSolicitud;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
-use App\Services\Costos\AcumuladoLedger;
 use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
 use App\Services\Costos\FirmasPdfBuilder;
+use App\Services\Costos\ReasignacionCentroCostos;
 use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
@@ -153,6 +154,20 @@ class SolicitudPagoController extends Controller
         ];
     }
 
+    /**
+     * Catálogo de centros de costos (obra-rubro) para los selectores de detalle
+     * en create/edit y en el modal de reasignación del show.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, ObraRubro>
+     */
+    private function obraRubrosParaSelector(): \Illuminate\Database\Eloquent\Collection
+    {
+        return ObraRubro::with([
+            'rubro',
+            'presupuesto:id,estatus',
+        ])->get();
+    }
+
     public function create(): Response
     {
         Gate::authorize('costos.solicitudes-pago.crear');
@@ -167,10 +182,7 @@ class SolicitudPagoController extends Controller
                 ->each->append('bloqueado_complemento'),
             'tipoSolicitudes' => TipoSolicitud::with('documentos')->orderBy('titulo')->get(),
             'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
-            'obraRubros' => ObraRubro::with([
-                'rubro',
-                'presupuesto:id,estatus',
-            ])->get(),
+            'obraRubros' => $this->obraRubrosParaSelector(),
             'usuarios' => \App\Models\Usuario::orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -326,6 +338,27 @@ class SolicitudPagoController extends Controller
         return back()->with('success', 'Presupuesto re-apartado por 5 días.');
     }
 
+    /**
+     * Reasigna los centros de costos de una solicitud ya aprobada/pagada sin
+     * re-firmarla: revierte los cargos aplicados y aplica el nuevo set. Acción
+     * privilegiada (permiso `costos.centros-costos.reasignar`, validado en el
+     * Form Request) con motivo obligatorio y bitácora.
+     */
+    public function reasignar(
+        ReasignarCentroCostosRequest $request,
+        SolicitudPago $solicitudPago,
+        ReasignacionCentroCostos $reasignacion,
+    ): RedirectResponse {
+        $reasignacion->reasignar(
+            $solicitudPago,
+            $request->validated('detalles'),
+            $request->validated('motivo'),
+            $request->user()->id,
+        );
+
+        return back()->with('success', 'Centros de costos reasignados.');
+    }
+
     public function show(SolicitudPago $solicitudPago): Response
     {
         Gate::authorize('costos.solicitudes-pago.ver');
@@ -365,9 +398,21 @@ class SolicitudPagoController extends Controller
             403,
         );
 
+        $solicitudPago->append('puede_reasignar');
+
+        // El catálogo de centros de costos solo se carga si la solicitud admite
+        // reasignación y el usuario tiene el permiso privilegiado, para no inflar
+        // el show del resto de solicitudes.
+        $puedeReasignar = $solicitudPago->puede_reasignar
+            && $user->can('costos.centros-costos.reasignar');
+
         return Inertia::render('admin/costos/solicitudes-pago/show', [
             'solicitud' => $solicitudPago,
             'documentosPrevios' => $this->documentosPrevios($solicitudPago),
+            'obras' => $puedeReasignar
+                ? Obra::orderBy('no')->get(['id', 'no', 'descripcion'])
+                : [],
+            'obraRubros' => $puedeReasignar ? $this->obraRubrosParaSelector() : [],
         ]);
     }
 
@@ -421,10 +466,7 @@ class SolicitudPagoController extends Controller
                 ->each->append('bloqueado_complemento'),
             'tipoSolicitudes' => TipoSolicitud::with('documentos')->orderBy('titulo')->get(),
             'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
-            'obraRubros' => ObraRubro::with([
-                'rubro',
-                'presupuesto:id,estatus',
-            ])->get(),
+            'obraRubros' => $this->obraRubrosParaSelector(),
             'usuarios' => \App\Models\Usuario::orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -717,26 +759,12 @@ class SolicitudPagoController extends Controller
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar solicitudes en borrador, pendientes o aprobadas.']);
         }
 
-        // Revertir impacto si estaba aprobada
+        // Revertir impacto si estaba aprobada. `cancelarApartadosDe` revierte por
+        // rubro afectado (no en agregado) y marca cada uno Cancelado. Para las SP
+        // generadas desde OC no revierte nada — la SP no tiene rubros afectados
+        // propios (su presupuesto vive en la OC), que es el comportamiento correcto.
         if ($solicitudPago->estatus === SolicitudPagoEstatus::Aprobada) {
-            foreach ($solicitudPago->detalles as $detalle) {
-                app(AcumuladoLedger::class)->registrarPorId(
-                    $detalle->obra_rubro_id,
-                    -(float) $detalle->subtotal,
-                    motivo: 'Cancelación de solicitud',
-                    userId: auth()->id(),
-                );
-            }
-
-            $solicitudPago->rubrosAfectados()->create([
-                'obra_rubro_id' => $solicitudPago->detalles->first()?->obra_rubro_id ?? 0,
-                'monto' => $solicitudPago->monto_total,
-                'descripcion' => 'Cancelación de solicitud',
-                'tipo_movimiento' => 'abono',
-                'estatus' => 'cancelado',
-                'usuario_aplica_id' => auth()->id(),
-                'fecha_aplicacion' => now(),
-            ]);
+            $this->apartado->cancelarApartadosDe($solicitudPago, 'Cancelación de solicitud');
         }
 
         // Cancelar las aprobaciones pendientes de la cadena para que salgan de

@@ -1,5 +1,5 @@
-import type { CostosActivity } from '@/types/models';
 import { ActivityIcon } from 'lucide-react';
+import type { CostosActivity } from '@/types/models';
 
 type Props = {
     activities: CostosActivity[];
@@ -39,6 +39,10 @@ export function ActivityTimeline({ activities }: Props) {
                 const attrs = activity.attribute_changes?.attributes ?? {};
                 const olds = activity.attribute_changes?.old ?? {};
                 const keys = Object.keys(attrs);
+                const motivo = activity.properties?.motivo;
+                // Eventos CRUD llevan etiqueta fija; los logs manuales (p. ej. la
+                // reasignación de centros de costos) muestran su descripción.
+                const titulo = EVENT_LABELS[activity.event ?? ''] ?? activity.description ?? activity.event ?? 'Evento';
 
                 return (
                     <li key={activity.id}>
@@ -48,9 +52,7 @@ export function ActivityTimeline({ activities }: Props) {
                         </div>
                         <div className="timeline-end timeline-box">
                             <div className="flex items-baseline justify-between gap-3">
-                                <span className="text-sm font-medium">
-                                    {EVENT_LABELS[activity.event ?? ''] ?? activity.event ?? 'Evento'}
-                                </span>
+                                <span className="text-sm font-medium">{titulo}</span>
                                 <span className="text-xs text-base-content/60">
                                     {new Date(activity.created_at).toLocaleString('es-MX', {
                                         dateStyle: 'short',
@@ -61,6 +63,11 @@ export function ActivityTimeline({ activities }: Props) {
                             {activity.causer && (
                                 <p className="text-xs text-base-content/70">
                                     Por <span className="font-medium">{activity.causer.name}</span>
+                                </p>
+                            )}
+                            {motivo && (
+                                <p className="mt-1 text-xs text-base-content/80">
+                                    <span className="font-medium text-base-content/70">Motivo:</span> {motivo}
                                 </p>
                             )}
                             {keys.length > 0 && (

@@ -1930,6 +1930,7 @@ export type CostosSolicitudPago = {
     confirmador_costos?: Usuario;
     confirmador_contabilidad?: Usuario;
     tiene_sobregiro?: boolean;
+    puede_reasignar?: boolean;
     activities?: CostosActivity[];
     locked_by: string | null;
     locked_at: string | null;
@@ -2287,6 +2288,11 @@ export type CostosActivity = {
     attribute_changes: {
         attributes?: Record<string, unknown>;
         old?: Record<string, unknown>;
+    } | null;
+    /** Propiedades de logs manuales (p. ej. el motivo de una reasignación). */
+    properties?: {
+        motivo?: string;
+        [key: string]: unknown;
     } | null;
     created_at: string;
     causer?: Usuario | null;
