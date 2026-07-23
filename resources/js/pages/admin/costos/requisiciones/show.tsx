@@ -15,6 +15,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { SharedData } from '@/types';
 import type {
     CostosRequisicion,
+    CostosRequisicionDetalle,
     CostosTipoFiscalPartida,
     CostosUsoCfdi,
     ObraRubroOption,
@@ -31,6 +32,7 @@ type Alternativa = {
     proveedor_id: number;
     proveedor: string | null;
     precio_unitario: number;
+    moneda: string;
 };
 
 type PartidaValidar = {
@@ -383,9 +385,6 @@ function ValidacionProveedoresModal({
             },
         }));
 
-    const fmt = (n: number) =>
-        `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-
     // Un rechazo sin reemplazo en TODAS sus partidas implica rechazar la requisición.
     const rechazaRequisicion = proveedores.some((p) => {
         const d = decisiones[p.id];
@@ -599,8 +598,9 @@ function ValidacionProveedoresModal({
                                                                         a.proveedor
                                                                     }{' '}
                                                                     ·{' '}
-                                                                    {fmt(
+                                                                    {fmtMonto(
                                                                         a.precio_unitario,
+                                                                        a.moneda,
                                                                     )}
                                                                 </option>
                                                             ),
@@ -870,9 +870,6 @@ export default function RequisicionesShow({
             setTcCargando(false);
         }
     };
-
-    const fmtMoney = (n: number) =>
-        `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -1171,7 +1168,7 @@ export default function RequisicionesShow({
                                         <th>Centro de Costos</th>
                                         <th>Uso CFDI</th>
                                         <th className="text-right">
-                                            Disponible
+                                            Disponible (MXN)
                                         </th>
                                         <th>Unidad</th>
                                         <th className="text-right">Cantidad</th>
@@ -1798,8 +1795,16 @@ function ComparativoCotizaciones({
     const columnas = grupos.flatMap((g) => g.opciones);
 
     const mejorProveedorId = requisicion.mejor_proveedor?.id ?? null;
-    const fmt = (n: number) =>
-        `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const fmt = fmtMonto;
+
+    // Divisa del importe de una partida: la de sus cotizaciones con precio
+    // (una sola si todas coinciden; MXN si se mezclan).
+    const monedaDetalle = (d: CostosRequisicionDetalle) =>
+        monedaAgregada(
+            (d.cotizaciones ?? [])
+                .filter((c) => Number(c.precio_unitario) > 0)
+                .map((c) => c.moneda),
+        );
 
     const cotizacionDe = (detalleId: number, opcionId: number) =>
         detalles
@@ -1883,6 +1888,13 @@ function ComparativoCotizaciones({
     });
     const iva = subtotal * 0.16;
     const total = subtotal + iva;
+    const monedaTotal = monedaAgregada(
+        detalles.flatMap((d) =>
+            (d.cotizaciones ?? [])
+                .filter((c) => Number(c.precio_unitario) > 0)
+                .map((c) => c.moneda),
+        ),
+    );
 
     return (
         <div className="mt-6">
@@ -2023,7 +2035,7 @@ function ComparativoCotizaciones({
                                 })}
                                 <td className="text-right font-semibold">
                                     {tieneImporte ? (
-                                        fmt(importe)
+                                        fmt(importe, monedaDetalle(d))
                                     ) : (
                                         <span className="text-base-content/30">
                                             —
@@ -2042,7 +2054,7 @@ function ComparativoCotizaciones({
                                 Subtotal
                             </td>
                             <td className="text-right font-semibold">
-                                {fmt(subtotal)}
+                                {fmt(subtotal, monedaTotal)}
                             </td>
                         </tr>
                         <tr>
@@ -2052,7 +2064,7 @@ function ComparativoCotizaciones({
                             >
                                 IVA (16%)
                             </td>
-                            <td className="text-right">{fmt(iva)}</td>
+                            <td className="text-right">{fmt(iva, monedaTotal)}</td>
                         </tr>
                         <tr className="bg-base-200">
                             <td
@@ -2062,7 +2074,7 @@ function ComparativoCotizaciones({
                                 Total
                             </td>
                             <td className="text-right text-lg font-bold text-primary">
-                                {fmt(total)}
+                                {fmt(total, monedaTotal)}
                             </td>
                         </tr>
                     </tfoot>

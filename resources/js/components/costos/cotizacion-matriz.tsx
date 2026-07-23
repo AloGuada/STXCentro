@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { FileTextIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
+import { formatMoney, monedaAgregada } from '@/components/costos/monto';
 import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
 import type {
@@ -20,8 +21,7 @@ type UsoCfdiMin = Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>;
 
 type ProveedorMin = Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial'>;
 
-const fmt = (n: number) =>
-    `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmt = formatMoney;
 
 const etiquetaOpcion = (o: CostosRequisicionCotizacionOpcion) =>
     o.etiqueta || `Opción ${o.orden}`;
@@ -401,12 +401,18 @@ export function CotizacionMatriz({
                                     {columnas.map(({ op }) => {
                                         const t = totalesPorOpcion[op.id];
                                         const isMin = t > 0 && t === totalMin;
+                                        const monedaOpcion = monedaAgregada(
+                                            detalles
+                                                .map((d) => cotizacionDe(d, op.id))
+                                                .filter((c) => Number(c?.precio_unitario ?? 0) > 0)
+                                                .map((c) => c!.moneda),
+                                        );
                                         return (
                                             <td
                                                 key={op.id}
                                                 className={`border-l border-base-300 text-right font-semibold ${isMin ? 'bg-success/10 text-success' : ''}`}
                                             >
-                                                {fmt(t)}
+                                                {fmt(t, monedaOpcion)}
                                             </td>
                                         );
                                     })}
