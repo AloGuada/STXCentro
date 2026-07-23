@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
-import { formatMoney as fmtMonto, monedaAgregada } from '@/components/costos/monto';
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { OcBuilder } from '@/components/costos/oc-builder';
 import { calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
@@ -751,6 +751,8 @@ export default function RequisicionesShow({
     // la bandeja del gerente, para que él lo revise antes de aprobar.
     const comparativoDisponible = [
         'pendiente_aprobacion_interno',
+        'aprobada_interna',
+        'pendiente_aprobacion',
         'aprobada',
         'liberada',
     ].includes(requisicion.estatus);
@@ -1308,7 +1310,10 @@ export default function RequisicionesShow({
                             </table>
                         </div>
 
-                        <ComparativoCotizaciones requisicion={requisicion} />
+                        <ComparativoCotizaciones
+                            requisicion={requisicion}
+                            tc={Number(tcRequis) || 0}
+                        />
 
                         {resumenNeto && (
                             <div className="mt-4 rounded-lg border border-base-300 bg-base-200/40 p-4">
@@ -1821,13 +1826,15 @@ export default function RequisicionesShow({
  * "Importe" usa el/los proveedor(es) seleccionado(s) de la partida una vez
  * definidos (∑ cantidad seleccionada × precio cotizado). Mientras no haya
  * selección, cae al comparativo best-case: precio del mejor proveedor global
- * si cotizó la partida, o el menor precio cotizado. Al final calcula subtotal,
- * IVA 16% y total.
+ * si cotizó la partida, o el menor precio cotizado. El pie calcula subtotal,
+ * IVA 16% y total por divisa, y el combinado en MXN con el TC del documento.
  */
 function ComparativoCotizaciones({
     requisicion,
+    tc,
 }: {
     requisicion: CostosRequisicion;
+    tc: number;
 }) {
     // Las partidas "solo cotización" (ej. fletes variables) son referencia
     // interna: no forman parte del comparativo formal ni del PDF.
@@ -1876,76 +1883,87 @@ function ComparativoCotizaciones({
     const mejorProveedorId = requisicion.mejor_proveedor?.id ?? null;
     const fmt = fmtMonto;
 
-    // Divisa del importe de una partida: la de sus cotizaciones con precio
-    // (una sola si todas coinciden; MXN si se mezclan).
-    const monedaDetalle = (d: CostosRequisicionDetalle) =>
-        monedaAgregada(
-            (d.cotizaciones ?? [])
-                .filter((c) => Number(c.precio_unitario) > 0)
-                .map((c) => c.moneda),
-        );
-
     const cotizacionDe = (detalleId: number, opcionId: number) =>
         detalles
             .find((x) => x.id === detalleId)
             ?.cotizaciones?.find((c) => c.opcion_id === opcionId);
 
-    const precioPartidaProv = (
-        detalleId: number,
-        proveedorId: number,
-    ): number | null => {
-        const d = detalles.find((x) => x.id === detalleId);
-        const precios = (d?.cotizaciones ?? [])
-            .filter((c) => c.proveedor_id === proveedorId)
-            .map((c) => Number(c.precio_unitario))
-            .filter((n) => n > 0);
-        return precios.length > 0 ? Math.min(...precios) : null;
+    const monedaDe = (c: { moneda?: string | null } | undefined) =>
+        (c?.moneda ?? 'mxn').toLowerCase();
+
+    const menorCotizacion = (
+        cots: NonNullable<CostosRequisicionDetalle['cotizaciones']>,
+    ) => {
+        const conPrecio = cots.filter((c) => Number(c.precio_unitario) > 0);
+        return conPrecio.length > 0
+            ? conPrecio.reduce((a, b) =>
+                  Number(a.precio_unitario) <= Number(b.precio_unitario)
+                      ? a
+                      : b,
+              )
+            : null;
     };
 
+    // Precio elegido para el importe best-case, con su moneda: el del mejor
+    // proveedor global si cotizó la partida; si no, el menor cotizado.
     const precioImporte = (
-        d: CostosRequisicion['detalles'] extends (infer U)[] | undefined
-            ? U
-            : never,
-    ): number | null => {
-        // Si hay mejor proveedor global y cotizó esta partida → usar ese precio
-        if (mejorProveedorId) {
-            const p = precioPartidaProv(d.id, mejorProveedorId);
-            if (p !== null) return p;
-        }
-        // Fallback: menor precio cotizado para esta partida
-        const precios = (d.cotizaciones ?? [])
-            .map((c) => Number(c.precio_unitario))
-            .filter((n) => n > 0);
-        return precios.length > 0 ? Math.min(...precios) : null;
+        d: CostosRequisicionDetalle,
+    ): { precio: number; moneda: string } | null => {
+        const cots = d.cotizaciones ?? [];
+        const delMejor = mejorProveedorId
+            ? menorCotizacion(
+                  cots.filter((c) => c.proveedor_id === mejorProveedorId),
+              )
+            : null;
+        const cot = delMejor ?? menorCotizacion(cots);
+        return cot
+            ? { precio: Number(cot.precio_unitario), moneda: monedaDe(cot) }
+            : null;
     };
 
-    // Importe de la partida: con proveedor(es) seleccionado(s), suma
-    // (cantidad seleccionada × precio cotizado) de cada selección; si aún no
-    // hay selección, usa el comparativo best-case sobre la cantidad solicitada.
+    // Importe de la partida desglosado por divisa: con proveedor(es)
+    // seleccionado(s), suma (cantidad × precio) de cada selección en su moneda;
+    // si aún no hay selección, usa el best-case sobre la cantidad solicitada.
     const importeDetalle = (
-        d: CostosRequisicion['detalles'] extends (infer U)[] | undefined
-            ? U
-            : never,
-    ): { importe: number; tieneImporte: boolean } => {
+        d: CostosRequisicionDetalle,
+    ): {
+        contribs: { moneda: string; importe: number }[];
+        tieneImporte: boolean;
+    } => {
         const selecciones = d.selecciones ?? [];
         if (selecciones.length > 0) {
-            let total = 0;
-            let tieneImporte = false;
+            const porMoneda = new Map<string, number>();
             for (const s of selecciones) {
                 const px = Number(s.cotizacion_precio?.precio_unitario ?? 0);
                 if (px > 0) {
-                    total += px * Number(s.cantidad);
-                    tieneImporte = true;
+                    const m = monedaDe(s.cotizacion_precio);
+                    porMoneda.set(
+                        m,
+                        (porMoneda.get(m) ?? 0) + px * Number(s.cantidad),
+                    );
                 }
             }
-            return { importe: total, tieneImporte };
+            return {
+                contribs: Array.from(porMoneda, ([moneda, importe]) => ({
+                    moneda,
+                    importe,
+                })),
+                tieneImporte: porMoneda.size > 0,
+            };
         }
 
-        const precio = precioImporte(d);
-        return {
-            importe: precio !== null ? precio * Number(d.cantidad) : 0,
-            tieneImporte: precio !== null,
-        };
+        const elegido = precioImporte(d);
+        return elegido
+            ? {
+                  contribs: [
+                      {
+                          moneda: elegido.moneda,
+                          importe: elegido.precio * Number(d.cantidad),
+                      },
+                  ],
+                  tieneImporte: true,
+              }
+            : { contribs: [], tieneImporte: false };
     };
 
     // Mejor (menor) precio por partida — para resaltar la celda ganadora.
@@ -1959,21 +1977,39 @@ function ComparativoCotizaciones({
         }
     }
 
-    let subtotal = 0;
-    const filas = detalles.map((d) => {
-        const { importe, tieneImporte } = importeDetalle(d);
-        subtotal += importe;
-        return { d, tieneImporte, importe };
-    });
-    const iva = subtotal * 0.16;
-    const total = subtotal + iva;
-    const monedaTotal = monedaAgregada(
-        detalles.flatMap((d) =>
-            (d.cotizaciones ?? [])
-                .filter((c) => Number(c.precio_unitario) > 0)
-                .map((c) => c.moneda),
+    const filas = detalles.map((d) => ({ d, ...importeDetalle(d) }));
+
+    // Totales del pie por divisa (divisas primero, MXN al final) + combinado
+    // en MXN con el TC del documento cuando hay exactamente una divisa.
+    const porMoneda = new Map<string, number>();
+    filas.forEach((f) =>
+        f.contribs.forEach((c) =>
+            porMoneda.set(c.moneda, (porMoneda.get(c.moneda) ?? 0) + c.importe),
         ),
     );
+    const bloquesTotales = Array.from(porMoneda, ([moneda, sub]) => ({
+        moneda,
+        subtotal: sub,
+        iva: sub * 0.16,
+        total: sub * 1.16,
+    })).sort((a, b) =>
+        a.moneda === 'mxn'
+            ? 1
+            : b.moneda === 'mxn'
+              ? -1
+              : a.moneda.localeCompare(b.moneda),
+    );
+    const divisasComp = bloquesTotales.filter((b) => b.moneda !== 'mxn');
+    const totalMxnCombinado =
+        divisasComp.length === 1 && tc > 0
+            ? bloquesTotales.reduce(
+                  (a, b) => a + (b.moneda === 'mxn' ? b.total : b.total * tc),
+                  0,
+              )
+            : null;
+    const multiMoneda = bloquesTotales.length > 1;
+    const etiquetaMoneda = (m: string) =>
+        TIPO_MONEDA_LABELS[m as CostosTipoMoneda] ?? m.toUpperCase();
 
     return (
         <div className="mt-6">
@@ -2029,7 +2065,7 @@ function ComparativoCotizaciones({
                         </tr>
                     </thead>
                     <tbody>
-                        {filas.map(({ d, tieneImporte, importe }) => (
+                        {filas.map(({ d, tieneImporte, contribs }) => (
                             <tr key={d.id}>
                                 <td className="text-right">
                                     {Number(d.cantidad).toLocaleString('es-MX')}{' '}
@@ -2114,7 +2150,9 @@ function ComparativoCotizaciones({
                                 })}
                                 <td className="text-right font-semibold">
                                     {tieneImporte ? (
-                                        fmt(importe, monedaDetalle(d))
+                                        contribs
+                                            .map((c) => fmt(c.importe, c.moneda))
+                                            .join(' + ')
                                     ) : (
                                         <span className="text-base-content/30">
                                             —
@@ -2125,37 +2163,70 @@ function ComparativoCotizaciones({
                         ))}
                     </tbody>
                     <tfoot>
-                        <tr>
-                            <td
-                                colSpan={2 + columnas.length}
-                                className="text-right text-sm text-base-content/60"
-                            >
-                                Subtotal
-                            </td>
-                            <td className="text-right font-semibold">
-                                {fmt(subtotal, monedaTotal)}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td
-                                colSpan={2 + columnas.length}
-                                className="text-right text-sm text-base-content/60"
-                            >
-                                IVA (16%)
-                            </td>
-                            <td className="text-right">{fmt(iva, monedaTotal)}</td>
-                        </tr>
-                        <tr className="bg-base-200">
-                            <td
-                                colSpan={2 + columnas.length}
-                                className="text-right text-sm font-semibold"
-                            >
-                                Total
-                            </td>
-                            <td className="text-right text-lg font-bold text-primary">
-                                {fmt(total, monedaTotal)}
-                            </td>
-                        </tr>
+                        {bloquesTotales.map((b) => (
+                            <Fragment key={b.moneda}>
+                                <tr>
+                                    <td
+                                        colSpan={2 + columnas.length}
+                                        className="text-right text-sm text-base-content/60"
+                                    >
+                                        Subtotal
+                                        {multiMoneda &&
+                                            ` (${etiquetaMoneda(b.moneda)})`}
+                                    </td>
+                                    <td className="text-right font-semibold">
+                                        {fmt(b.subtotal, b.moneda)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td
+                                        colSpan={2 + columnas.length}
+                                        className="text-right text-sm text-base-content/60"
+                                    >
+                                        IVA (16%)
+                                    </td>
+                                    <td className="text-right">
+                                        {fmt(b.iva, b.moneda)}
+                                    </td>
+                                </tr>
+                                <tr
+                                    className={
+                                        multiMoneda ? '' : 'bg-base-200'
+                                    }
+                                >
+                                    <td
+                                        colSpan={2 + columnas.length}
+                                        className="text-right text-sm font-semibold"
+                                    >
+                                        Total
+                                        {multiMoneda &&
+                                            ` (${etiquetaMoneda(b.moneda)})`}
+                                    </td>
+                                    <td
+                                        className={`text-right font-bold ${multiMoneda ? '' : 'text-lg text-primary'}`}
+                                    >
+                                        {fmt(b.total, b.moneda)}
+                                    </td>
+                                </tr>
+                            </Fragment>
+                        ))}
+                        {totalMxnCombinado != null &&
+                            (multiMoneda || tc !== 1) && (
+                                <tr className="bg-base-200">
+                                    <td
+                                        colSpan={2 + columnas.length}
+                                        className="text-right text-sm font-semibold"
+                                    >
+                                        Total en MXN
+                                        <span className="ml-1 text-xs font-normal text-base-content/50">
+                                            TC {tc}
+                                        </span>
+                                    </td>
+                                    <td className="text-right text-lg font-bold text-primary">
+                                        {fmt(totalMxnCombinado, 'mxn')}
+                                    </td>
+                                </tr>
+                            )}
                     </tfoot>
                 </table>
             </div>
