@@ -443,6 +443,7 @@ class RequisicionController extends Controller
                             'proveedor_id' => $c->proveedor_id,
                             'proveedor' => $c->proveedor?->razon_social,
                             'precio_unitario' => (float) $c->precio_unitario,
+                            'moneda' => $c->moneda ?? 'mxn',
                         ])->values();
 
                     return [
