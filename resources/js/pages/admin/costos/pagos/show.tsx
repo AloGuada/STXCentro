@@ -38,11 +38,27 @@ function getStepIndex(estatus: CostosPagoEstatus, tipoPago: string): number {
     return steps.findIndex((s) => s.key === estatus);
 }
 
-function ComprobanteUpload({ url, label }: { url: string; label: string }) {
+function ComprobanteUpload({
+    url,
+    label,
+    moneda = 'mxn',
+    montoPago = 0,
+    tipoCambio = 1,
+}: {
+    url: string;
+    label: string;
+    moneda?: string;
+    montoPago?: number | string;
+    tipoCambio?: number | string;
+}) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    const esDivisa = moneda.toLowerCase() !== 'mxn';
+    const referenciaMxn = Number(montoPago) * Number(tipoCambio);
+    const [montoRealMxn, setMontoRealMxn] = useState<string>(esDivisa ? referenciaMxn.toFixed(2) : '');
 
     const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const seleccionado = e.target.files?.[0];
@@ -61,7 +77,9 @@ function ComprobanteUpload({ url, label }: { url: string; label: string }) {
     const confirmar = () => {
         if (!file) return;
         setUploading(true);
-        router.post(url, { comprobante: file }, {
+        const payload: Record<string, string | File> = { comprobante: file };
+        if (esDivisa) payload.monto_real_mxn = montoRealMxn;
+        router.post(url, payload, {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => cerrar(),
@@ -91,9 +109,33 @@ function ComprobanteUpload({ url, label }: { url: string; label: string }) {
                             <p className="text-sm text-base-content/60">No hay vista previa disponible para este tipo de archivo.</p>
                         )}
 
+                        {esDivisa && (
+                            <div className="mt-3 rounded-lg border border-warning/40 bg-warning/5 p-3">
+                                <label className="text-sm font-medium" htmlFor="monto_real_mxn">
+                                    Monto real pagado (MXN)
+                                </label>
+                                <p className="mb-2 text-xs text-base-content/60">
+                                    Pago en {moneda.toUpperCase()}: {fmtMonto(montoPago, moneda)}. Captura los pesos que
+                                    realmente salieron del banco; con esto se ajusta el presupuesto al tipo de cambio efectivo.
+                                </p>
+                                <input
+                                    id="monto_real_mxn"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    className="input input-bordered w-full"
+                                    value={montoRealMxn}
+                                    onChange={(e) => setMontoRealMxn(e.target.value)}
+                                />
+                                <p className="mt-1 text-[11px] text-base-content/50">
+                                    Referencia (TC guardado): {fmtMonto(referenciaMxn, 'mxn')}
+                                </p>
+                            </div>
+                        )}
+
                         <div className="modal-action">
                             <Button variant="outline" onClick={cerrar} disabled={uploading}>Cancelar</Button>
-                            <Button onClick={confirmar} disabled={uploading}>
+                            <Button onClick={confirmar} disabled={uploading || (esDivisa && !(Number(montoRealMxn) > 0))}>
                                 {uploading && <Loader2Icon className="size-4 animate-spin" />}
                                 Sí, subir comprobante
                             </Button>
@@ -145,6 +187,9 @@ function ParcialidadesTable({ parciales }: { parciales: CostosPago[] }) {
                                         <ComprobanteUpload
                                             url={`/admin/costos/pagos/${p.id}/upload-comprobante`}
                                             label="Comprobante"
+                                            moneda={p.moneda}
+                                            montoPago={p.monto_pago}
+                                            tipoCambio={p.tipo_cambio}
                                         />
                                     )}
                                     {p.media?.path && (
@@ -306,6 +351,9 @@ export default function PagosShow({ pago }: Props) {
                             <ComprobanteUpload
                                 url={`/admin/costos/pagos/${pago.id}/upload-comprobante`}
                                 label="Pagar en Una Exhibición"
+                                moneda={pago.moneda}
+                                montoPago={pago.monto_pago}
+                                tipoCambio={pago.tipo_cambio}
                             />
                         </div>
                     </div>

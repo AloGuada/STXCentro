@@ -860,6 +860,28 @@ class RequisicionController extends Controller
     }
 
     /**
+     * Guarda el tipo de cambio de la requisición (una vez, a nivel documento).
+     * Se usa para convertir a MXN el apartado y la afectación de sus OC cuando
+     * las cotizaciones son en divisa. Editable mientras no se haya liberado.
+     */
+    public function guardarTipoCambio(Request $request, Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $data = $request->validate([
+            'tipo_cambio' => ['required', 'numeric', 'min:0.000001'],
+        ]);
+
+        if (in_array($requisicion->estatus, [RequisicionEstatus::Liberada, RequisicionEstatus::Cancelada], true)) {
+            return back()->withErrors(['tipo_cambio' => 'La requisición ya no admite cambios de tipo de cambio.']);
+        }
+
+        $requisicion->update(['tipo_cambio' => $data['tipo_cambio']]);
+
+        return back()->with('success', 'Tipo de cambio guardado.');
+    }
+
+    /**
      * Valida que la cotización esté completa para avanzar (verificación
      * gerencial y envío a aprobación): mínimo de proveedores comparados, uso
      * de CFDI y centro de costos por partida, partidas cubiertas 100% por

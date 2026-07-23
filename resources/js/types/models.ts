@@ -1764,6 +1764,7 @@ export type CostosRequisicion = {
     obra_id: number | null;
     presupuesto_id: number | null;
     justificacion: string | null;
+    tipo_cambio: number;
     fecha_requerida: string | null;
     estatus: CostosRequisicionEstatus;
     control_por: string | null;
