@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { AlertTriangleIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
@@ -17,6 +17,7 @@ import type {
     CostosRequisicion,
     CostosRequisicionDetalle,
     CostosTipoFiscalPartida,
+    CostosTipoMoneda,
     CostosUsoCfdi,
     ObraRubroOption,
     Proveedor,
@@ -796,22 +797,25 @@ export default function RequisicionesShow({
             string,
             {
                 proveedorId: number;
+                moneda: string;
                 lines: {
                     tipo_fiscal: CostosTipoFiscalPartida;
                     subtotal: number;
                 }[];
             }
         >();
-        const monedas: Array<string | null | undefined> = [];
         (requisicion.detalles ?? []).forEach((d) => {
             (d.selecciones ?? []).forEach((s) => {
-                const key = `${s.proveedor_id}|${s.numero_oc ?? 1}`;
+                const moneda = (
+                    s.cotizacion_precio?.moneda ?? 'mxn'
+                ).toLowerCase();
+                const key = `${s.proveedor_id}|${s.numero_oc ?? 1}|${moneda}`;
                 const sub =
                     Number(s.cotizacion_precio?.precio_unitario ?? 0) *
                     Number(s.cantidad);
-                monedas.push(s.cotizacion_precio?.moneda);
                 const g = grupos.get(key) ?? {
                     proveedorId: s.proveedor_id,
+                    moneda,
                     lines: [],
                 };
                 g.lines.push({ tipo_fiscal: d.tipo_fiscal, subtotal: sub });
@@ -819,23 +823,42 @@ export default function RequisicionesShow({
             });
         });
         if (grupos.size === 0) return null;
-        let subtotal = 0;
-        let ret = 0;
+        const porMoneda = new Map<string, { subtotal: number; ret: number }>();
         grupos.forEach((g) => {
-            subtotal += g.lines.reduce((a, l) => a + l.subtotal, 0);
-            ret += calcularRetenciones(
+            const acc = porMoneda.get(g.moneda) ?? { subtotal: 0, ret: 0 };
+            acc.subtotal += g.lines.reduce((a, l) => a + l.subtotal, 0);
+            acc.ret += calcularRetenciones(
                 provMap.get(g.proveedorId),
                 g.lines,
             ).reduce((a, r) => a + r.monto, 0);
+            porMoneda.set(g.moneda, acc);
         });
-        const iva = subtotal * IVA_RATE;
+        // Un bloque de totales por divisa (divisas primero, MXN al final); el
+        // combinado en MXN se arma en el render con el TC capturado.
+        const bloques = Array.from(porMoneda.entries())
+            .map(([moneda, { subtotal, ret }]) => {
+                const iva = subtotal * IVA_RATE;
+                return {
+                    moneda,
+                    subtotal,
+                    iva,
+                    ret,
+                    total: subtotal + iva,
+                    neto: subtotal + iva - ret,
+                };
+            })
+            .sort((a, b) =>
+                a.moneda === 'mxn'
+                    ? 1
+                    : b.moneda === 'mxn'
+                      ? -1
+                      : a.moneda.localeCompare(b.moneda),
+            );
+        const divisas = bloques.filter((b) => b.moneda !== 'mxn');
         return {
-            subtotal,
-            iva,
-            ret,
-            total: subtotal + iva,
-            neto: subtotal + iva - ret,
-            moneda: monedaAgregada(monedas),
+            bloques,
+            divisa: divisas.length === 1 ? divisas[0].moneda : null,
+            multiDivisa: divisas.length > 1,
         };
     }, [requisicion.detalles, proveedores]);
 
@@ -844,6 +867,20 @@ export default function RequisicionesShow({
     const [tcRequis, setTcRequis] = useState<string>(String(requisicion.tipo_cambio ?? '1'));
     const [tcGuardando, setTcGuardando] = useState(false);
     const [tcCargando, setTcCargando] = useState(false);
+
+    // Neto total en MXN: los pesos tal cual + la divisa convertida con el TC
+    // capturado (solo con una divisa; con varias no alcanza un solo TC).
+    const netoMxnCombinado =
+        resumenNeto?.divisa != null
+            ? resumenNeto.bloques.reduce(
+                  (a, b) =>
+                      a +
+                      (b.moneda === 'mxn'
+                          ? b.neto
+                          : b.neto * (Number(tcRequis) || 0)),
+                  0,
+              )
+            : null;
 
     const guardarTc = () => {
         setTcGuardando(true);
@@ -1279,10 +1316,10 @@ export default function RequisicionesShow({
                                     Total de las órdenes de compra
                                 </h3>
 
-                                {resumenNeto.moneda !== 'mxn' && (
+                                {resumenNeto.divisa != null && (
                                     <div className="mb-3 rounded-md border border-warning/40 bg-warning/5 p-3">
                                         <div className="mb-1 text-xs font-medium">
-                                            Tipo de cambio ({resumenNeto.moneda.toUpperCase()} → MXN)
+                                            Tipo de cambio ({resumenNeto.divisa.toUpperCase()} → MXN)
                                         </div>
                                         <div className="flex flex-wrap items-center gap-2">
                                             <input
@@ -1297,7 +1334,7 @@ export default function RequisicionesShow({
                                                 type="button"
                                                 className="btn btn-ghost btn-sm"
                                                 disabled={tcCargando}
-                                                onClick={() => sugerirTc(resumenNeto.moneda)}
+                                                onClick={() => sugerirTc(resumenNeto.divisa!)}
                                             >
                                                 {tcCargando ? '...' : 'Sugerir'}
                                             </button>
@@ -1311,44 +1348,86 @@ export default function RequisicionesShow({
                                             </button>
                                         </div>
                                         <p className="mt-1 text-[11px] text-base-content/50">
-                                            Neto en MXN: {fmtMonto(resumenNeto.neto * (Number(tcRequis) || 0), 'mxn')}.
-                                            Con este TC se aparta y ejerce el presupuesto.
+                                            Con este TC se aparta y ejerce el
+                                            presupuesto.
                                         </p>
                                     </div>
                                 )}
+                                {resumenNeto.multiDivisa && (
+                                    <div className="mb-3 rounded-md border border-error/40 bg-error/5 p-3 text-xs">
+                                        La requisición mezcla más de una divisa
+                                        extranjera; captura el tipo de cambio
+                                        manualmente.
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm md:max-w-sm">
-                                    <div className="text-base-content/60">
-                                        Subtotal
-                                    </div>
-                                    <div className="text-right">
-                                        {fmtMonto(resumenNeto.subtotal, resumenNeto.moneda)}
-                                    </div>
-                                    <div className="text-base-content/60">
-                                        IVA (16%)
-                                    </div>
-                                    <div className="text-right">
-                                        +{fmtMonto(resumenNeto.iva, resumenNeto.moneda)}
-                                    </div>
-                                    <div className="font-medium">Total</div>
-                                    <div className="text-right font-medium">
-                                        {fmtMonto(resumenNeto.total, resumenNeto.moneda)}
-                                    </div>
-                                    {resumenNeto.ret > 0 && (
-                                        <>
-                                            <div className="text-error/80">
-                                                Retenciones
+                                    {resumenNeto.bloques.map((b) => (
+                                        <Fragment key={b.moneda}>
+                                            {resumenNeto.bloques.length > 1 && (
+                                                <div className="col-span-2 mt-2 border-b border-base-300 pb-0.5 text-[10px] font-medium tracking-wider text-base-content/50 uppercase first:mt-0">
+                                                    {TIPO_MONEDA_LABELS[
+                                                        b.moneda as CostosTipoMoneda
+                                                    ] ?? b.moneda.toUpperCase()}
+                                                </div>
+                                            )}
+                                            <div className="text-base-content/60">
+                                                Subtotal
                                             </div>
-                                            <div className="text-right text-error/80">
-                                                −{fmtMonto(resumenNeto.ret, resumenNeto.moneda)}
+                                            <div className="text-right">
+                                                {fmtMonto(b.subtotal, b.moneda)}
+                                            </div>
+                                            <div className="text-base-content/60">
+                                                IVA (16%)
+                                            </div>
+                                            <div className="text-right">
+                                                +{fmtMonto(b.iva, b.moneda)}
+                                            </div>
+                                            {b.ret > 0 && (
+                                                <>
+                                                    <div className="text-error/80">
+                                                        Retenciones
+                                                    </div>
+                                                    <div className="text-right text-error/80">
+                                                        −{fmtMonto(b.ret, b.moneda)}
+                                                    </div>
+                                                </>
+                                            )}
+                                            <div
+                                                className={
+                                                    resumenNeto.bloques.length >
+                                                    1
+                                                        ? 'font-medium'
+                                                        : 'text-base font-bold'
+                                                }
+                                            >
+                                                Total neto
+                                            </div>
+                                            <div
+                                                className={`text-right ${
+                                                    resumenNeto.bloques.length >
+                                                    1
+                                                        ? 'font-medium'
+                                                        : 'text-base font-bold text-primary'
+                                                }`}
+                                            >
+                                                {fmtMonto(b.neto, b.moneda)}
+                                            </div>
+                                        </Fragment>
+                                    ))}
+                                    {netoMxnCombinado != null && (
+                                        <>
+                                            <div className="col-span-2 mt-1 border-t border-base-300"></div>
+                                            <div className="text-base font-bold">
+                                                Total neto a pagar (MXN)
+                                                <span className="ml-1 text-xs font-normal text-base-content/50">
+                                                    TC {Number(tcRequis) || 0}
+                                                </span>
+                                            </div>
+                                            <div className="text-right text-base font-bold text-primary">
+                                                {fmtMonto(netoMxnCombinado, 'mxn')}
                                             </div>
                                         </>
                                     )}
-                                    <div className="text-base font-bold">
-                                        Total neto a pagar
-                                    </div>
-                                    <div className="text-right text-base font-bold text-primary">
-                                        {fmtMonto(resumenNeto.neto, resumenNeto.moneda)}
-                                    </div>
                                 </div>
                             </div>
                         )}
