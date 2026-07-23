@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
+import { formatMoney as fmtMonto, monedaAgregada } from '@/components/costos/monto';
 import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { OcBuilder } from '@/components/costos/oc-builder';
 import { calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
@@ -801,12 +802,14 @@ export default function RequisicionesShow({
                 }[];
             }
         >();
+        const monedas: Array<string | null | undefined> = [];
         (requisicion.detalles ?? []).forEach((d) => {
             (d.selecciones ?? []).forEach((s) => {
                 const key = `${s.proveedor_id}|${s.numero_oc ?? 1}`;
                 const sub =
                     Number(s.cotizacion_precio?.precio_unitario ?? 0) *
                     Number(s.cantidad);
+                monedas.push(s.cotizacion_precio?.moneda);
                 const g = grupos.get(key) ?? {
                     proveedorId: s.proveedor_id,
                     lines: [],
@@ -832,8 +835,41 @@ export default function RequisicionesShow({
             ret,
             total: subtotal + iva,
             neto: subtotal + iva - ret,
+            moneda: monedaAgregada(monedas),
         };
     }, [requisicion.detalles, proveedores]);
+
+    // Tipo de cambio de la requisición: se guarda a nivel documento y con él se
+    // convierte a MXN el apartado/afectación cuando las cotizaciones son divisa.
+    const [tcRequis, setTcRequis] = useState<string>(String(requisicion.tipo_cambio ?? '1'));
+    const [tcGuardando, setTcGuardando] = useState(false);
+    const [tcCargando, setTcCargando] = useState(false);
+
+    const guardarTc = () => {
+        setTcGuardando(true);
+        router.post(
+            `/admin/costos/requisiciones/${requisicion.id}/tipo-cambio`,
+            { tipo_cambio: tcRequis },
+            { preserveScroll: true, onFinish: () => setTcGuardando(false) },
+        );
+    };
+
+    const sugerirTc = async (moneda: string) => {
+        setTcCargando(true);
+        try {
+            const res = await fetch(`/admin/costos/tipo-cambio/${moneda}`, {
+                headers: { Accept: 'application/json' },
+            });
+            if (res.ok) {
+                const json = await res.json();
+                setTcRequis(String(json.tipo_cambio));
+            }
+        } catch {
+            /* conserva el valor actual */
+        } finally {
+            setTcCargando(false);
+        }
+    };
 
     const fmtMoney = (n: number) =>
         `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -1245,22 +1281,60 @@ export default function RequisicionesShow({
                                 <h3 className="mb-2 text-xs tracking-wider text-base-content/60 uppercase">
                                     Total de las órdenes de compra
                                 </h3>
+
+                                {resumenNeto.moneda !== 'mxn' && (
+                                    <div className="mb-3 rounded-md border border-warning/40 bg-warning/5 p-3">
+                                        <div className="mb-1 text-xs font-medium">
+                                            Tipo de cambio ({resumenNeto.moneda.toUpperCase()} → MXN)
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <input
+                                                type="number"
+                                                step="0.000001"
+                                                min="0"
+                                                className="input input-bordered input-sm w-40"
+                                                value={tcRequis}
+                                                onChange={(e) => setTcRequis(e.target.value)}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="btn btn-ghost btn-sm"
+                                                disabled={tcCargando}
+                                                onClick={() => sugerirTc(resumenNeto.moneda)}
+                                            >
+                                                {tcCargando ? '...' : 'Sugerir'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-primary btn-sm"
+                                                disabled={tcGuardando || !(Number(tcRequis) > 0)}
+                                                onClick={guardarTc}
+                                            >
+                                                {tcGuardando ? 'Guardando...' : 'Guardar TC'}
+                                            </button>
+                                        </div>
+                                        <p className="mt-1 text-[11px] text-base-content/50">
+                                            Neto en MXN: {fmtMonto(resumenNeto.neto * (Number(tcRequis) || 0), 'mxn')}.
+                                            Con este TC se aparta y ejerce el presupuesto.
+                                        </p>
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm md:max-w-sm">
                                     <div className="text-base-content/60">
                                         Subtotal
                                     </div>
                                     <div className="text-right">
-                                        {fmtMoney(resumenNeto.subtotal)}
+                                        {fmtMonto(resumenNeto.subtotal, resumenNeto.moneda)}
                                     </div>
                                     <div className="text-base-content/60">
                                         IVA (16%)
                                     </div>
                                     <div className="text-right">
-                                        +{fmtMoney(resumenNeto.iva)}
+                                        +{fmtMonto(resumenNeto.iva, resumenNeto.moneda)}
                                     </div>
                                     <div className="font-medium">Total</div>
                                     <div className="text-right font-medium">
-                                        {fmtMoney(resumenNeto.total)}
+                                        {fmtMonto(resumenNeto.total, resumenNeto.moneda)}
                                     </div>
                                     {resumenNeto.ret > 0 && (
                                         <>
@@ -1268,7 +1342,7 @@ export default function RequisicionesShow({
                                                 Retenciones
                                             </div>
                                             <div className="text-right text-error/80">
-                                                −{fmtMoney(resumenNeto.ret)}
+                                                −{fmtMonto(resumenNeto.ret, resumenNeto.moneda)}
                                             </div>
                                         </>
                                     )}
@@ -1276,7 +1350,7 @@ export default function RequisicionesShow({
                                         Total neto a pagar
                                     </div>
                                     <div className="text-right text-base font-bold text-primary">
-                                        {fmtMoney(resumenNeto.neto)}
+                                        {fmtMonto(resumenNeto.neto, resumenNeto.moneda)}
                                     </div>
                                 </div>
                             </div>

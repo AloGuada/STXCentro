@@ -1,4 +1,5 @@
 import { CancelarModal } from '@/components/costos/cancelar-modal';
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -12,7 +13,6 @@ type Props = {
     anticipo: CostosAnticipo;
 };
 
-const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
 export default function AnticipoShow({ anticipo }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -56,15 +56,15 @@ export default function AnticipoShow({ anticipo }: Props) {
                 <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="rounded-lg border border-base-300 p-4">
                         <div className="text-xs text-base-content/60">Monto entregado</div>
-                        <div className="text-xl font-semibold">{formatMoney(anticipo.monto)} {anticipo.moneda.toUpperCase()}</div>
+                        <div className="text-xl font-semibold">{fmtMonto(anticipo.monto, anticipo.moneda)}</div>
                     </div>
                     <div className="rounded-lg border border-base-300 p-4">
                         <div className="text-xs text-base-content/60">Aplicado a facturas</div>
-                        <div className="text-xl font-semibold">{formatMoney(totalAplicado)}</div>
+                        <div className="text-xl font-semibold">{fmtMonto(totalAplicado, anticipo.moneda)}</div>
                     </div>
                     <div className="rounded-lg border border-base-300 p-4">
                         <div className="text-xs text-base-content/60">Saldo disponible</div>
-                        <div className="text-xl font-semibold text-success">{formatMoney(anticipo.saldo_disponible)}</div>
+                        <div className="text-xl font-semibold text-success">{fmtMonto(anticipo.saldo_disponible, anticipo.moneda)}</div>
                     </div>
                 </div>
 
@@ -119,7 +119,7 @@ export default function AnticipoShow({ anticipo }: Props) {
                                                 </Link>
                                             </td>
                                             <td className="text-xs text-base-content/60">{a.fecha}</td>
-                                            <td className="text-right font-medium">{formatMoney(a.monto)}</td>
+                                            <td className="text-right font-medium">{fmtMonto(a.monto, anticipo.moneda)}</td>
                                             <td className="text-xs text-base-content/60">{a.usuario?.name ?? '-'}</td>
                                             <td className="text-xs text-base-content/60">{a.notas ?? '-'}</td>
                                         </tr>

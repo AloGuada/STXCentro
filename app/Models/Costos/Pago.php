@@ -37,6 +37,7 @@ class Pago extends Model
         'monto_pago',
         'moneda',
         'tipo_cambio',
+        'monto_mxn',
         'tipo_pago',
         'fecha_pago_programada',
         'fecha_pago_maxima',
@@ -58,6 +59,7 @@ class Pago extends Model
         return [
             'monto_pago' => 'decimal:2',
             'tipo_cambio' => 'decimal:4',
+            'monto_mxn' => 'decimal:2',
             'fecha_pago_programada' => 'date',
             'fecha_pago_maxima' => 'date',
             'fecha_pago_realizada' => 'date',

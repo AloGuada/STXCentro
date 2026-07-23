@@ -1,3 +1,4 @@
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { DataTable, type Column } from '@/components/data-table';
 import PortalLayout from '@/layouts/portal/portal-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -15,7 +16,7 @@ const columns: Column<CostosPago>[] = [
     {
         key: 'monto_pago',
         label: 'Monto',
-        render: (row) => `$${Number(row.monto_pago).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+        render: (row) => fmtMonto(row.monto_pago, row.moneda),
     },
     {
         key: 'tipo_pago',

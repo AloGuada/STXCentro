@@ -194,6 +194,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('lock/{type}/{id}', [CostosEditLockController::class, 'lock'])->name('lock');
         Route::post('unlock/{type}/{id}', [CostosEditLockController::class, 'unlock'])->name('unlock');
 
+        // Tipo de cambio de referencia del día (sugerencia para el campo editable).
+        Route::get('tipo-cambio/{moneda}', [\App\Http\Controllers\Admin\Costos\TipoCambioController::class, 'show'])->name('tipo-cambio.show');
+
         Route::resource('tipo-rubros', CostosTipoRubroController::class)->parameters(['tipo-rubros' => 'tipoRubro']);
         Route::resource('usos-cfdi', CostosUsoCfdiController::class)->parameters(['usos-cfdi' => 'usoCfdi'])->except(['show']);
         Route::resource('rubros', CostosRubroController::class)->parameters(['rubros' => 'rubro']);
@@ -225,6 +228,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/cancelar', [CostosRequisicionController::class, 'cancelar'])->name('requisiciones.cancelar');
         Route::post('requisiciones/{requisicion}/enviar-aprobacion', [CostosRequisicionController::class, 'enviarAprobacion'])->name('requisiciones.enviar-aprobacion');
         Route::post('requisiciones/{requisicion}/iniciar-aprobacion', [CostosRequisicionController::class, 'iniciarAprobacion'])->name('requisiciones.iniciar-aprobacion');
+        Route::post('requisiciones/{requisicion}/tipo-cambio', [CostosRequisicionController::class, 'guardarTipoCambio'])->name('requisiciones.tipo-cambio');
         Route::post('requisiciones/{requisicion}/firmar-final', [CostosRequisicionController::class, 'firmarFinal'])->name('requisiciones.firmar-final');
         Route::post('requisiciones/{requisicion}/aprobar-interno', [CostosRequisicionController::class, 'aprobarInterno'])->name('requisiciones.aprobar-interno');
         Route::post('requisiciones/{requisicion}/rechazar-interno', [CostosRequisicionController::class, 'rechazarInterno'])->name('requisiciones.rechazar-interno');

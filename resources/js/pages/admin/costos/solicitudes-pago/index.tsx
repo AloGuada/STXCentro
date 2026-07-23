@@ -1,5 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { EyeIcon, FileDown, FileCheckIcon } from 'lucide-react';
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -72,7 +73,7 @@ const columns: Column<CostosSolicitudPago>[] = [
         label: 'Total',
         sortable: true,
         render: (row) => (
-            <span className="font-medium">${Number(row.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+            <span className="font-medium">{fmtMonto(row.monto_total, row.tipo_moneda)}</span>
         ),
     },
     {

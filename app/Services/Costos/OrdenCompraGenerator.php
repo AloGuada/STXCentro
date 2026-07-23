@@ -83,6 +83,7 @@ class OrdenCompraGenerator
             'departamento_id' => $requisicion->departamento_id,
             'creado_por' => $userId,
             'moneda' => $moneda,
+            'tipo_cambio' => $moneda === 'mxn' ? 1 : ($requisicion->tipo_cambio ?: 1),
             'tipo_pago' => $modoPago,
             'dias_credito' => $diasCredito,
             'total' => round($total, 2),

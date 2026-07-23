@@ -1,5 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { type FormEvent, useState } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,7 @@ export default function PortalOrdenCompraShow({ ordenCompra, puedeFacturar }: Pr
         { title: ordenCompra.folio, href: `/portal/ordenes-compra/${ordenCompra.id}` },
     ];
 
-    const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const formatMoney = (n: number) => fmtMonto(n, ordenCompra.moneda);
     const [showFacturaForm, setShowFacturaForm] = useState(false);
 
     const { data, setData, post, processing, errors } = useForm({

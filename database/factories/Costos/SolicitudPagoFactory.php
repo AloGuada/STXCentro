@@ -29,7 +29,7 @@ class SolicitudPagoFactory extends Factory
             'concepto' => fake()->sentence(),
             'monto_total' => fake()->randomFloat(2, 100, 50000),
             'tipo_pago' => fake()->randomElement(['transferencia', 'cheque', 'efectivo']),
-            'tipo_moneda' => fake()->randomElement(['mxn', 'usd', 'eur']),
+            'tipo_moneda' => 'mxn',
             'fecha_pago_solicitada' => fake()->optional()->date(),
             'estatus' => 'borrador',
         ];

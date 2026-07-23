@@ -152,12 +152,13 @@
             @endforeach
         </tbody>
         <tfoot>
+            @php $codMon = ($moneda ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($moneda); @endphp
             <tr class="total-row">
                 <td colspan="4" class="text-right">TOTAL RECIBIDO</td>
-                <td class="text-right">${{ number_format($total, 2) }}</td>
+                <td class="text-right">${{ number_format($total, 2) }}{{ $codMon }}</td>
             </tr>
             <tr class="letras-row">
-                <td colspan="5">{{ \App\Support\NumeroALetras::convertir($total, 'mxn') }}</td>
+                <td colspan="5">{{ \App\Support\NumeroALetras::convertir($total, $moneda ?? 'mxn') }}</td>
             </tr>
         </tfoot>
     </table>

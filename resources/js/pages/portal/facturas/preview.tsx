@@ -1,3 +1,4 @@
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,8 +29,6 @@ type Props = {
     notas: string | null;
 };
 
-const money = (n: number | null | undefined) =>
-    Number(n ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function PortalFacturaPreview({ ordenCompra, fiscal, archivos, notas }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -82,15 +81,15 @@ export default function PortalFacturaPreview({ ordenCompra, fiscal, archivos, no
                     <div className="border-t border-base-300 my-4" />
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                        <Stat label="Subtotal" value={`$${money(fiscal.subtotal)}`} />
-                        <Stat label="IVA trasladado" value={`$${money(fiscal.iva_trasladado)}`} />
-                        <Stat label="IVA retenido" value={`$${money(fiscal.iva_retenido)}`} />
-                        <Stat label="ISR retenido" value={`$${money(fiscal.isr_retenido)}`} />
+                        <Stat label="Subtotal" value={fmtMonto(fiscal.subtotal, ordenCompra.moneda)} />
+                        <Stat label="IVA trasladado" value={fmtMonto(fiscal.iva_trasladado, ordenCompra.moneda)} />
+                        <Stat label="IVA retenido" value={fmtMonto(fiscal.iva_retenido, ordenCompra.moneda)} />
+                        <Stat label="ISR retenido" value={fmtMonto(fiscal.isr_retenido, ordenCompra.moneda)} />
                     </div>
 
                     <div className="mt-4 border-t border-base-300 pt-3 flex items-center justify-between">
                         <span className="text-sm text-base-content/60">Total CFDI</span>
-                        <span className="text-2xl font-bold text-primary">${money(fiscal.total)}</span>
+                        <span className="text-2xl font-bold text-primary">{fmtMonto(fiscal.total, ordenCompra.moneda)}</span>
                     </div>
                 </div>
 

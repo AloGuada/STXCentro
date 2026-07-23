@@ -70,6 +70,7 @@ class OrdenCompra extends Model
         'departamento_id',
         'creado_por',
         'moneda',
+        'tipo_cambio',
         'tipo_pago',
         'dias_credito',
         'forma_pago',
@@ -88,6 +89,7 @@ class OrdenCompra extends Model
     {
         return [
             'total' => 'decimal:2',
+            'tipo_cambio' => 'decimal:6',
             'dias_credito' => 'integer',
             'fecha_entrega_esperada' => 'date',
             'tipo_pago' => ModoPago::class,

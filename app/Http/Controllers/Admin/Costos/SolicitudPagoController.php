@@ -302,6 +302,8 @@ class SolicitudPagoController extends Controller
                 'obra_rubro_id' => (int) $d->obra_rubro_id,
                 'monto' => (float) $d->subtotal,
                 'descripcion' => $d->concepto,
+                'moneda' => $solicitudPago->tipo_moneda ?? 'mxn',
+                'tipo_cambio' => $solicitudPago->tipo_cambio ? (float) $solicitudPago->tipo_cambio : null,
             ]);
             $this->apartado->apartarDocumento($solicitudPago, $items, auth()->id());
 
@@ -331,6 +333,8 @@ class SolicitudPagoController extends Controller
             'obra_rubro_id' => (int) $d->obra_rubro_id,
             'monto' => (float) $d->subtotal,
             'descripcion' => $d->concepto,
+            'moneda' => $solicitudPago->tipo_moneda ?? 'mxn',
+            'tipo_cambio' => $solicitudPago->tipo_cambio ? (float) $solicitudPago->tipo_cambio : null,
         ]);
 
         $this->apartado->reApartarDocumento($solicitudPago, $items, $request->user()->id);
@@ -808,6 +812,7 @@ class SolicitudPagoController extends Controller
                 'pagable_id' => $solicitudPago->id,
                 'monto_pago' => $solicitudPago->monto_total,
                 'moneda' => $solicitudPago->tipo_moneda ?? 'mxn',
+                'tipo_cambio' => $solicitudPago->tipo_cambio ?? 1,
                 'tipo_pago' => 'contado',
                 'fecha_pago_programada' => $solicitudPago->fecha_pago_solicitada,
                 'estatus' => 'programado',

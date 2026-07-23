@@ -837,6 +837,7 @@ class RequisicionController extends Controller
                         fn ($s) => (float) $s->cantidad * (float) ($s->cotizacionPrecio?->precio_unitario ?? 0)
                     ),
                     'descripcion' => $d->descripcion,
+                    'moneda' => $d->selecciones->first()?->cotizacionPrecio?->moneda ?? 'mxn',
                 ])
                 ->filter(fn ($i) => $i['monto'] > 0);
 
@@ -856,6 +857,28 @@ class RequisicionController extends Controller
         });
 
         return back()->with('success', 'Requisición mandada a aprobación.');
+    }
+
+    /**
+     * Guarda el tipo de cambio de la requisición (una vez, a nivel documento).
+     * Se usa para convertir a MXN el apartado y la afectación de sus OC cuando
+     * las cotizaciones son en divisa. Editable mientras no se haya liberado.
+     */
+    public function guardarTipoCambio(Request $request, Requisicion $requisicion): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $data = $request->validate([
+            'tipo_cambio' => ['required', 'numeric', 'min:0.000001'],
+        ]);
+
+        if (in_array($requisicion->estatus, [RequisicionEstatus::Liberada, RequisicionEstatus::Cancelada], true)) {
+            return back()->withErrors(['tipo_cambio' => 'La requisición ya no admite cambios de tipo de cambio.']);
+        }
+
+        $requisicion->update(['tipo_cambio' => $data['tipo_cambio']]);
+
+        return back()->with('success', 'Tipo de cambio guardado.');
     }
 
     /**
@@ -1137,6 +1160,8 @@ class RequisicionController extends Controller
                     fn ($s) => (float) $s->cantidad * (float) ($s->cotizacionPrecio?->precio_unitario ?? 0)
                 ),
                 'descripcion' => $d->descripcion,
+                'moneda' => $d->selecciones->first()?->cotizacionPrecio?->moneda ?? 'mxn',
+                'tipo_cambio' => $requisicion->tipo_cambio ? (float) $requisicion->tipo_cambio : null,
             ])
             ->filter(fn ($i) => $i['monto'] > 0);
 

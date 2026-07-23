@@ -1,3 +1,4 @@
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import PortalLayout from '@/layouts/portal/portal-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosFactura, CostosOcEtapaProceso, CostosOrdenCompra, PaginatedData } from '@/types/models';
@@ -23,8 +24,6 @@ type Props = {
     filters: { search?: string; estatus?: string };
 };
 
-const money = (n: number) =>
-    Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const facturasActivas = (oc: CostosOrdenCompra): CostosFactura[] =>
     (oc.facturas ?? []).filter((f) => f.estatus !== 'cancelada');
@@ -187,7 +186,7 @@ export default function PortalOrdenesCompraIndex({ ordenes, filters }: Props) {
                                                 {oc.proveedor?.razon_social ?? '—'}
                                             </div>
                                             <div className="text-base-content text-sm font-semibold mt-1">
-                                                ${money(oc.total)} MXN
+                                                {fmtMonto(oc.total, oc.moneda)}
                                             </div>
                                         </td>
                                         <td className="p-5">

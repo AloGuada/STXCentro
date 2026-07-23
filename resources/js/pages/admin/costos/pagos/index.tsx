@@ -1,3 +1,4 @@
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { DataTable, type Column } from '@/components/data-table';
 import { formatDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
@@ -35,7 +36,7 @@ const columns: Column<CostosPago>[] = [
         key: 'monto_pago',
         label: 'Monto',
         sortable: true,
-        render: (row) => `$${Number(row.monto_pago).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+        render: (row) => fmtMonto(row.monto_pago, row.moneda),
     },
     {
         key: 'moneda',

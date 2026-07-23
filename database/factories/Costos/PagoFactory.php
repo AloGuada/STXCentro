@@ -22,7 +22,7 @@ class PagoFactory extends Factory
             'pagable_type' => SolicitudPago::class,
             'pagable_id' => SolicitudPago::factory()->aprobada(),
             'monto_pago' => fake()->randomFloat(2, 100, 50000),
-            'moneda' => fake()->randomElement(['mxn', 'usd', 'eur']),
+            'moneda' => 'mxn',
             'tipo_cambio' => 1.0,
             'tipo_pago' => fake()->randomElement(['contado', 'credito']),
             'fecha_pago_programada' => fake()->dateTimeBetween('now', '+30 days'),

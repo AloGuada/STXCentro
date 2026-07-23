@@ -4,6 +4,7 @@ namespace App\Services\Costos;
 
 use App\Enums\Costos\TipoFiscalPartida;
 use App\Models\Costos\Requisicion;
+use App\Support\Moneda;
 
 /**
  * Totales del comparativo de una requisición: agrupa las opciones elegidas por
@@ -22,12 +23,14 @@ class ComparativoTotalesBuilder
      *     retenciones: list<array{concepto: string, monto: float}>,
      *     total_retenciones: float,
      *     total: float,
-     *     neto: float
+     *     neto: float,
+     *     moneda: string
      * }
      */
     public function build(Requisicion $requisicion): array
     {
         $grupos = [];
+        $monedas = [];
         foreach ($requisicion->detalles as $detalle) {
             if ($detalle->solo_cotizacion) {
                 continue;
@@ -42,6 +45,7 @@ class ComparativoTotalesBuilder
                 if ($subtotal <= 0) {
                     continue;
                 }
+                $monedas[] = $seleccion->cotizacionPrecio->moneda ?? 'mxn';
                 $clave = $seleccion->proveedor_id.'|'.($seleccion->numero_oc ?? 1);
                 $grupos[$clave] ??= ['proveedor' => $seleccion->proveedor, 'lineas' => []];
                 $grupos[$clave]['lineas'][] = ['tipo_fiscal' => $tipoFiscal, 'subtotal' => $subtotal];
@@ -79,6 +83,7 @@ class ComparativoTotalesBuilder
             'total_retenciones' => $totalRetenciones,
             'total' => round($subtotal + $iva, 2),
             'neto' => round($subtotal + $iva - $totalRetenciones, 2),
+            'moneda' => Moneda::agregada($monedas),
         ];
     }
 }

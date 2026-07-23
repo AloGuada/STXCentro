@@ -101,6 +101,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Tipo de cambio (dos momentos)
+    |--------------------------------------------------------------------------
+    |
+    | MXN es la moneda base. El TC de referencia se toma al reservar presupuesto:
+    | USD desde el FIX oficial de Banxico (serie SF43718) y EUR desde el XML
+    | diario del ECB. Si Banxico no responde (o falta el token), el USD cae al
+    | cross-rate del ECB (MXN_por_EUR / USD_por_EUR).
+    |
+    */
+    'tipo_cambio' => [
+        'base' => 'mxn',
+        'banxico' => [
+            'serie_usd' => env('COSTOS_BANXICO_SERIE_USD', 'SF43718'),
+            'url' => env('COSTOS_BANXICO_URL', 'https://www.banxico.org.mx/SieAPIRest/service/v1'),
+        ],
+        'ecb' => [
+            'url' => env('COSTOS_ECB_URL', 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Mínimo de proveedores en la cotización
     |--------------------------------------------------------------------------
     |

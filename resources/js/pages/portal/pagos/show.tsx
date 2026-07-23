@@ -1,3 +1,4 @@
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import PortalLayout from '@/layouts/portal/portal-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosPago, CostosPagoEstatus } from '@/types/models';
@@ -33,7 +34,7 @@ export default function PortalPagoShow({ pago }: Props) {
         { title: pago.folio, href: `/portal/pagos/${pago.id}` },
     ];
 
-    const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const formatMoney = (n: number) => fmtMonto(n, pago.moneda);
     const parciales = pago.pagos_parciales ?? [];
 
     return (

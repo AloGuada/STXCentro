@@ -33,8 +33,19 @@ trait AfectaPresupuesto
                 estatus: RubroAfectadoEstatus::Aplicado,
                 descripcion: $this->descripcionAfectacion($detalle, $obraRubro),
                 userId: $userId,
+                moneda: $this->monedaAfectacion(),
+                tc: $this->tipo_cambio ? (float) $this->tipo_cambio : null,
             );
         }
+    }
+
+    /**
+     * Moneda del documento para convertir el impacto a MXN. La OC la expone en
+     * `moneda`, la SolicitudPago en `tipo_moneda`; solo una existe por modelo.
+     */
+    protected function monedaAfectacion(): string
+    {
+        return $this->moneda ?? $this->tipo_moneda ?? 'mxn';
     }
 
     abstract protected function descripcionAfectacion(object $detalle, ObraRubro $obraRubro): ?string;

@@ -12,6 +12,7 @@ use App\Mail\PagoProgramadoMail;
 use App\Models\Costos\Factura;
 use App\Models\Costos\Pago;
 use App\Services\Costos\PagoProcessor;
+use App\Services\Costos\ReconciliacionCambioPago;
 use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -191,6 +192,13 @@ class PagoController extends Controller
             ]);
 
             app(PagoProcessor::class)->completar($pago);
+
+            // Segundo momento del TC: el monto real en MXN reconcilia el
+            // presupuesto ejercido contra el TC efectivo del banco.
+            $montoRealMxn = $request->filled('monto_real_mxn')
+                ? (float) $request->input('monto_real_mxn')
+                : (float) $pago->monto_pago;
+            app(ReconciliacionCambioPago::class)->reconciliar($pago, $montoRealMxn);
         });
 
         return back()->with('success', 'Comprobante subido y pago marcado como pagado.');

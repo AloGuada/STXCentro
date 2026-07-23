@@ -49,6 +49,7 @@ class Requisicion extends Model implements Aprobable
         'obra_id',
         'presupuesto_id',
         'justificacion',
+        'tipo_cambio',
         'fecha_requerida',
         'estatus',
         'control_por',
@@ -67,6 +68,7 @@ class Requisicion extends Model implements Aprobable
     {
         return [
             'fecha_requerida' => 'date',
+            'tipo_cambio' => 'decimal:6',
             'estatus' => RequisicionEstatus::class,
             'control_at' => 'datetime',
             'modo_dedazo' => 'boolean',

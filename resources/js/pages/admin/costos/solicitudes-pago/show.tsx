@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { DocumentoUpload } from '@/components/costos/documento-upload';
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { ReasignarModal } from '@/components/costos/reasignar-modal';
 import { Button } from '@/components/ui/button';
 import { FormattedDate } from '@/components/ui/formatted-date';
@@ -254,7 +255,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
                                 </div>
                                 <div>
                                     <span className="text-sm text-base-content/60">Monto Total</span>
-                                    <p className="text-xl font-bold">${Number(solicitud.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                                    <p className="text-xl font-bold">{fmtMonto(solicitud.monto_total, solicitud.tipo_moneda)}</p>
                                 </div>
                             </div>
                         </div>
@@ -306,8 +307,8 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
                                                     </td>
                                                     <td>{d.concepto}</td>
                                                     <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                                                    <td className="text-right">${Number(d.precio_unitario).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                                                    <td className="text-right">${Number(d.subtotal).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                                    <td className="text-right">{fmtMonto(d.precio_unitario, solicitud.tipo_moneda)}</td>
+                                                    <td className="text-right">{fmtMonto(d.subtotal, solicitud.tipo_moneda)}</td>
                                                     <td>
                                                         {sobregiro ? (
                                                             <div className="whitespace-nowrap">
@@ -328,7 +329,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
                                         <tfoot>
                                             <tr>
                                                 <td colSpan={5} className="text-right font-bold">Cargado a costos</td>
-                                                <td className="text-right font-bold">${Number(solicitud.monto_total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                                <td className="text-right font-bold">{fmtMonto(solicitud.monto_total, solicitud.tipo_moneda)}</td>
                                                 <td></td>
                                             </tr>
                                         </tfoot>

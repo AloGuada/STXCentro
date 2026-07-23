@@ -39,6 +39,7 @@ class ApartadoPresupuestal
     public function __construct(
         private readonly ValidadorPresupuesto $validador,
         private readonly AcumuladoLedger $ledger,
+        private readonly TipoCambioService $tipoCambio,
     ) {}
 
     private function diasApartado(): int
@@ -50,7 +51,7 @@ class ApartadoPresupuestal
      * Aparta presupuesto temporalmente para una entrada (SolicitudPago o
      * Requisicion). Cada item debe tener `obra_rubro_id` y `monto`.
      *
-     * @param  iterable<array{obra_rubro_id: int, monto: float, descripcion?: string|null}>  $items
+     * @param  iterable<array{obra_rubro_id: int, monto: float, descripcion?: string|null, moneda?: string, tipo_cambio?: float}>  $items
      */
     public function apartarDocumento(Model $entrada, iterable $items, ?string $userId = null): void
     {
@@ -68,6 +69,8 @@ class ApartadoPresupuestal
                     userId: $userId,
                     apartadoHasta: $apartadoHasta,
                     allowSobregiro: true,
+                    moneda: $item['moneda'] ?? 'mxn',
+                    tc: $item['tipo_cambio'] ?? null,
                 );
             }
         });
@@ -170,7 +173,7 @@ class ApartadoPresupuestal
      * Re-aparta presupuesto para una entrada cuyos apartados vencieron.
      * No tiene impacto si la entrada todavía tiene apartados vigentes.
      *
-     * @param  iterable<array{obra_rubro_id: int, monto: float, descripcion?: string|null}>  $items
+     * @param  iterable<array{obra_rubro_id: int, monto: float, descripcion?: string|null, moneda?: string, tipo_cambio?: float}>  $items
      */
     public function reApartarDocumento(Model $entrada, iterable $items, ?string $userId = null): void
     {
@@ -193,6 +196,12 @@ class ApartadoPresupuestal
      * vía el ledger; un `Apartado` incrementa la reserva viva (`apartado`) sin
      * tocar el número duro. Primitiva compartida por el apartado temporal y la
      * afectación permanente (trait AfectaPresupuesto).
+     *
+     * `$monto` viene en `$moneda` (la divisa del documento). El presupuesto
+     * siempre pesa en MXN: se convierte con `$tc` (el tipo de cambio guardado en
+     * el documento) y el RubroAfectado sella `moneda`, `monto_origen` (divisa) y
+     * `tipo_cambio`; `monto` queda en MXN. Si el llamador no pasa `$tc`, se toma
+     * el TC de referencia del día ({@see TipoCambioService}) como respaldo.
      */
     public function aplicarCargo(
         Model $entrada,
@@ -203,21 +212,30 @@ class ApartadoPresupuestal
         ?string $userId = null,
         ?Carbon $apartadoHasta = null,
         bool $allowSobregiro = false,
+        string $moneda = 'mxn',
+        ?float $tc = null,
     ): RubroAfectado {
         $userId = $userId ?? Auth::id();
+        $moneda = strtolower($moneda);
+        $tipoCambio = $tc ?? ($moneda === 'mxn' ? 1.0 : $this->tipoCambio->mxnPorUnidad($moneda));
+        $montoOrigen = $monto;
+        $montoMxn = round($monto * $tipoCambio, 2);
 
-        return DB::transaction(function () use ($entrada, $obraRubroId, $monto, $estatus, $descripcion, $userId, $apartadoHasta, $allowSobregiro): RubroAfectado {
+        return DB::transaction(function () use ($entrada, $obraRubroId, $montoMxn, $montoOrigen, $moneda, $tipoCambio, $estatus, $descripcion, $userId, $apartadoHasta, $allowSobregiro): RubroAfectado {
             $obraRubro = ObraRubro::whereKey($obraRubroId)->lockForUpdate()->firstOrFail();
 
-            $this->validador->validar($obraRubro, $monto, $entrada, allowSobregiro: $allowSobregiro);
+            $this->validador->validar($obraRubro, $montoMxn, $entrada, allowSobregiro: $allowSobregiro);
 
-            $sobreGiro = ($obraRubro->disponible - $monto) < 0;
+            $sobreGiro = ($obraRubro->disponible - $montoMxn) < 0;
 
             $ra = RubroAfectado::create([
                 'entrada_type' => $entrada::class,
                 'entrada_id' => $entrada->getKey(),
                 'obra_rubro_id' => $obraRubroId,
-                'monto' => $monto,
+                'monto' => $montoMxn,
+                'moneda' => $moneda,
+                'monto_origen' => $montoOrigen,
+                'tipo_cambio' => $tipoCambio,
                 'sobre_giro' => $sobreGiro,
                 'descripcion' => $descripcion,
                 'tipo_movimiento' => 'cargo',
@@ -228,10 +246,10 @@ class ApartadoPresupuestal
             ]);
 
             if ($estatus === RubroAfectadoEstatus::Aplicado) {
-                $this->ledger->registrar($obraRubro, $monto, $ra->id, $descripcion ?? $estatus->value, $userId);
+                $this->ledger->registrar($obraRubro, $montoMxn, $ra->id, $descripcion ?? $estatus->value, $userId);
             } else {
                 // Reserva viva: no toca el ejercido, solo el comprometido.
-                $obraRubro->update(['apartado' => (float) $obraRubro->apartado + $monto]);
+                $obraRubro->update(['apartado' => (float) $obraRubro->apartado + $montoMxn]);
             }
 
             return $ra;
