@@ -212,11 +212,14 @@ class SolicitudPagoController extends Controller
 
             $montoTotal = 0;
 
+            $obraRubros = ObraRubro::with(['rubro:id,codigo', 'presupuesto:id,estatus'])
+                ->findMany(collect($request->input('detalles', []))->pluck('obra_rubro_id')->filter()->unique())
+                ->keyBy('id');
+
             foreach ($request->input('detalles', []) as $detalle) {
                 $subtotal = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
 
-                $obraRubro = ObraRubro::with(['rubro:id,codigo', 'presupuesto:id,estatus'])
-                    ->find($detalle['obra_rubro_id']);
+                $obraRubro = $obraRubros->get((int) $detalle['obra_rubro_id']);
 
                 $solicitud->detalles()->create([
                     'obra_rubro_id' => $detalle['obra_rubro_id'],
@@ -502,11 +505,14 @@ class SolicitudPagoController extends Controller
 
             $montoTotal = 0;
 
+            $obraRubros = ObraRubro::with(['rubro:id,codigo', 'presupuesto:id,estatus'])
+                ->findMany(collect($request->input('detalles', []))->pluck('obra_rubro_id')->filter()->unique())
+                ->keyBy('id');
+
             foreach ($request->input('detalles', []) as $detalle) {
                 $subtotal = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
 
-                $obraRubro = ObraRubro::with(['rubro:id,codigo', 'presupuesto:id,estatus'])
-                    ->find($detalle['obra_rubro_id']);
+                $obraRubro = $obraRubros->get((int) $detalle['obra_rubro_id']);
                 $sobreObraCerrada = $obraRubro?->estaCerrado() ?? false;
 
                 if (! empty($detalle['id'])) {

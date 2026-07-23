@@ -26,6 +26,7 @@ use App\Models\Proveedor;
 use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
 use App\Services\Costos\AprobacionService;
+use App\Services\Costos\BuscadorMejorProveedor;
 use App\Services\Costos\ComparativoTotalesBuilder;
 use App\Services\Costos\FirmasPdfBuilder;
 use App\Services\Costos\OrdenCompraGenerator;
@@ -93,7 +94,13 @@ class RequisicionController extends Controller
 
         $requisiciones = $query->paginate(15)->withQueryString();
 
-        $requisiciones->getCollection()->each(fn ($r) => $r->append(['mejor_proveedor', 'proveedores_cotizadores_count', 'total_neto']));
+        $mejores = app(BuscadorMejorProveedor::class)
+            ->buscarLote($requisiciones->getCollection()->pluck('id')->all());
+
+        $requisiciones->getCollection()->each(function ($r) use ($mejores) {
+            $r->precargarMejorProveedor($mejores[$r->id] ?? null);
+            $r->append(['mejor_proveedor', 'proveedores_cotizadores_count', 'total_neto']);
+        });
 
         return Inertia::render('admin/costos/requisiciones/index', [
             'requisiciones' => $requisiciones,

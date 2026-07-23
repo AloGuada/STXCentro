@@ -285,6 +285,10 @@ class OrdenCompraController extends Controller
                 ]);
             }
 
+            $obraRubros = ObraRubro::with('rubro:id,codigo')
+                ->findMany(collect($request->input('detalles', []))->pluck('obra_rubro_id')->filter()->unique())
+                ->keyBy('id');
+
             foreach ($request->input('detalles', []) as $detalle) {
                 $cantidad = (float) $detalle['cantidad'];
                 $precioUnitario = (float) $detalle['precio_unitario'];
@@ -299,7 +303,7 @@ class OrdenCompraController extends Controller
                     'subtotal' => $subtotal,
                 ]);
 
-                $obraRubro = ObraRubro::find($detalle['obra_rubro_id']);
+                $obraRubro = $obraRubros->get((int) $detalle['obra_rubro_id']);
                 if ($obraRubro) {
                     $disponible = $obraRubro->disponible;
                     if ($subtotal > $disponible) {
