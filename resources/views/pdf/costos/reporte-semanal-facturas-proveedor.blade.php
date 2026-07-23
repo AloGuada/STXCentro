@@ -172,13 +172,19 @@
         </tr>
         @php
             $codMon = fn ($m) => ($m ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($m);
-            $codRep = fn ($col) => $codMon(\App\Support\Moneda::agregada($col->pluck('moneda')->all()));
+            // Suma por divisa: "$X + $Y USD" cuando el conjunto mezcla monedas.
+            $sumaPorMoneda = fn ($col) => $col
+                ->groupBy(fn ($f) => strtolower($f->moneda ?? 'mxn'))
+                ->map(fn ($fs) => $fs->sum('total'))
+                ->sortKeys()
+                ->map(fn ($t, $m) => '$'.number_format($t, 2).($m === 'mxn' ? '' : ' '.strtoupper($m)))
+                ->implode(' + ');
         @endphp
         <tr>
             <td class="label">Total Facturas</td>
             <td>{{ $facturas->count() }}</td>
             <td class="label">Suma Total</td>
-            <td>${{ number_format($facturas->sum('total'), 2) }}{{ $codRep($facturas) }}</td>
+            <td>{{ $sumaPorMoneda($facturas) }}</td>
         </tr>
     </table>
 
@@ -212,7 +218,7 @@
         <tfoot>
             <tr class="total-row">
                 <td colspan="4" class="text-right">TOTAL</td>
-                <td class="text-right">${{ number_format($facturas->sum('total'), 2) }}{{ $codRep($facturas) }}</td>
+                <td class="text-right">{{ $sumaPorMoneda($facturas) }}</td>
                 <td colspan="2"></td>
             </tr>
         </tfoot>

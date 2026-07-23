@@ -818,8 +818,62 @@ test('el comparativo aplica retenciones al total neto', function () {
     $totales = app(\App\Services\Costos\ComparativoTotalesBuilder::class)->build($req);
 
     // Subtotal 1000, IVA 160, ISR Fletes 4% = 40, neto = 1160 - 40 = 1120.
-    expect($totales['subtotal'])->toBe(1000.0)
-        ->and($totales['iva'])->toBe(160.0)
-        ->and($totales['total_retenciones'])->toBe(40.0)
-        ->and($totales['neto'])->toBe(1120.0);
+    expect($totales['bloques'])->toHaveCount(1)
+        ->and($totales['bloques'][0]['moneda'])->toBe('mxn')
+        ->and($totales['bloques'][0]['subtotal'])->toBe(1000.0)
+        ->and($totales['bloques'][0]['iva'])->toBe(160.0)
+        ->and($totales['bloques'][0]['total_retenciones'])->toBe(40.0)
+        ->and($totales['bloques'][0]['neto'])->toBe(1120.0);
+});
+
+test('el comparativo separa los totales por divisa y combina el neto en MXN con el TC', function () {
+    $req = Requisicion::factory()->pendienteAprobacion()->create([
+        'departamento_id' => $this->depto->id,
+        'tipo_cambio' => 17.5,
+    ]);
+    $proveedor = Proveedor::factory()->create();
+    $opcion = App\Models\Costos\RequisicionCotizacionOpcion::create([
+        'requisicion_id' => $req->id, 'proveedor_id' => $proveedor->id, 'orden' => 1,
+    ]);
+
+    $enUsd = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 2]);
+    $precioUsd = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $enUsd->id, 'proveedor_id' => $proveedor->id,
+        'opcion_id' => $opcion->id, 'precio_unitario' => 100, 'moneda' => 'usd',
+    ]);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $enUsd->id,
+        'cotizacion_precio_id' => $precioUsd->id,
+        'proveedor_id' => $proveedor->id,
+        'cantidad' => 2,
+    ]);
+
+    $enMxn = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 1]);
+    $precioMxn = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $enMxn->id, 'proveedor_id' => $proveedor->id,
+        'opcion_id' => $opcion->id, 'precio_unitario' => 500, 'moneda' => 'mxn',
+    ]);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $enMxn->id,
+        'cotizacion_precio_id' => $precioMxn->id,
+        'proveedor_id' => $proveedor->id,
+        'cantidad' => 1,
+    ]);
+
+    $req->load([
+        'detalles.selecciones.cotizacionPrecio',
+        'detalles.selecciones.proveedor.regimenFiscal',
+    ]);
+
+    $totales = app(\App\Services\Costos\ComparativoTotalesBuilder::class)->build($req);
+
+    // USD: 200 + 32 IVA = 232. MXN: 500 + 80 IVA = 580.
+    // Combinado: 232 × 17.5 + 580 = 4,640.
+    expect($totales['bloques'])->toHaveCount(2)
+        ->and($totales['bloques'][0]['moneda'])->toBe('usd')
+        ->and($totales['bloques'][0]['neto'])->toBe(232.0)
+        ->and($totales['bloques'][1]['moneda'])->toBe('mxn')
+        ->and($totales['bloques'][1]['neto'])->toBe(580.0)
+        ->and($totales['divisa'])->toBe('usd')
+        ->and($totales['neto_mxn'])->toBe(4640.0);
 });

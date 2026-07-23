@@ -169,13 +169,19 @@
             <td colspan="3">{{ $fechaInicio }} - {{ $fechaFin }}</td>
         </tr>
         @php
-            $codRep = fn ($col) => \App\Support\Moneda::agregada($col->pluck('moneda')->all()) === 'mxn' ? '' : ' '.strtoupper(\App\Support\Moneda::agregada($col->pluck('moneda')->all()));
+            // Suma por divisa: "$X + $Y USD" cuando el conjunto mezcla monedas.
+            $sumaPorMoneda = fn ($col) => $col
+                ->groupBy(fn ($f) => strtolower($f->moneda ?? 'mxn'))
+                ->map(fn ($fs) => $fs->sum('total'))
+                ->sortKeys()
+                ->map(fn ($t, $m) => '$'.number_format($t, 2).($m === 'mxn' ? '' : ' '.strtoupper($m)))
+                ->implode(' + ');
         @endphp
         <tr>
             <td class="label">Total Facturas</td>
             <td>{{ $facturas->count() }}</td>
             <td class="label">Suma Total</td>
-            <td>${{ number_format($facturas->sum('total'), 2) }}{{ $codRep($facturas) }}</td>
+            <td>{{ $sumaPorMoneda($facturas) }}</td>
         </tr>
     </table>
 
@@ -198,7 +204,7 @@
                     <td class="text-center">{{ $loop->iteration }}</td>
                     <td>{{ $proveedor?->razon_social ?? 'Sin proveedor' }}</td>
                     <td class="text-center">{{ $facturasProveedor->count() }}</td>
-                    <td class="text-right">${{ number_format($facturasProveedor->sum('total'), 2) }}{{ $codRep($facturasProveedor) }}</td>
+                    <td class="text-right">{{ $sumaPorMoneda($facturasProveedor) }}</td>
                 </tr>
                 @endforeach
             </tbody>
@@ -206,7 +212,7 @@
                 <tr class="total-row">
                     <td colspan="2" class="text-right">TOTAL</td>
                     <td class="text-center">{{ $facturas->count() }}</td>
-                    <td class="text-right">${{ number_format($facturas->sum('total'), 2) }}{{ $codRep($facturas) }}</td>
+                    <td class="text-right">{{ $sumaPorMoneda($facturas) }}</td>
                 </tr>
             </tfoot>
         </table>

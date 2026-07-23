@@ -225,32 +225,53 @@
             @endforeach
         </tbody>
         <tfoot>
+            @php
+                $multiMoneda = count($totales['bloques']) > 1;
+                $sufijoEtiqueta = fn ($m) => $multiMoneda ? ' ('.strtoupper($m).')' : '';
+                $sufijoMonto = fn ($m) => $m === 'mxn' ? '' : ' '.strtoupper($m);
+            @endphp
+            @foreach($totales['bloques'] as $b)
             <tr class="total-row">
-                <td colspan="{{ 3 + $numCols }}" class="text-right">SUBTOTAL</td>
-                <td class="text-right">${{ number_format($totales['subtotal'], 2) }}</td>
+                <td colspan="{{ 3 + $numCols }}" class="text-right">SUBTOTAL{{ $sufijoEtiqueta($b['moneda']) }}</td>
+                <td class="text-right">${{ number_format($b['subtotal'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
             </tr>
             <tr class="total-row">
                 <td colspan="{{ 3 + $numCols }}" class="text-right">IVA (16%)</td>
-                <td class="text-right">${{ number_format($totales['iva'], 2) }}</td>
+                <td class="text-right">${{ number_format($b['iva'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
             </tr>
             <tr class="total-row">
-                <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL</td>
-                <td class="text-right">${{ number_format($totales['total'], 2) }}</td>
+                <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL{{ $sufijoEtiqueta($b['moneda']) }}</td>
+                <td class="text-right">${{ number_format($b['total'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
             </tr>
-            @foreach($totales['retenciones'] as $ret)
+            @foreach($b['retenciones'] as $ret)
             <tr class="total-row">
                 <td colspan="{{ 3 + $numCols }}" class="text-right">(−) {{ $ret['concepto'] }}</td>
-                <td class="text-right">-${{ number_format($ret['monto'], 2) }}</td>
+                <td class="text-right">-${{ number_format($ret['monto'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
             </tr>
             @endforeach
-            @php $codMon = ($totales['moneda'] ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($totales['moneda']); @endphp
             <tr class="total-row">
-                <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL NETO A PAGAR</td>
-                <td class="text-right">${{ number_format($totales['neto'], 2) }}{{ $codMon }}</td>
+                <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL NETO A PAGAR{{ $sufijoEtiqueta($b['moneda']) }}</td>
+                <td class="text-right">${{ number_format($b['neto'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
             </tr>
+            @endforeach
+            @php $muestraCombinado = $totales['neto_mxn'] !== null && ($multiMoneda || abs($totales['tc'] - 1) > 1e-9); @endphp
+            @if($muestraCombinado)
+            <tr class="total-row">
+                <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL NETO EN MXN (TC {{ rtrim(rtrim(number_format($totales['tc'], 6), '0'), '.') }})</td>
+                <td class="text-right">${{ number_format($totales['neto_mxn'], 2) }}</td>
+            </tr>
+            @endif
+            @if($muestraCombinado)
             <tr class="letras-row">
-                <td colspan="{{ 4 + $numCols }}">{{ \App\Support\NumeroALetras::convertir((float) $totales['neto'], $totales['moneda'] ?? 'mxn') }}</td>
+                <td colspan="{{ 4 + $numCols }}">{{ \App\Support\NumeroALetras::convertir((float) $totales['neto_mxn'], 'mxn') }}</td>
             </tr>
+            @else
+                @foreach($totales['bloques'] as $b)
+                <tr class="letras-row">
+                    <td colspan="{{ 4 + $numCols }}">{{ \App\Support\NumeroALetras::convertir((float) $b['neto'], $b['moneda']) }}</td>
+                </tr>
+                @endforeach
+            @endif
         </tfoot>
     </table>
 

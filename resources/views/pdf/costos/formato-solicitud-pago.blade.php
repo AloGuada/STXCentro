@@ -248,9 +248,10 @@
             <td class="label">Método de pago</td>
             <td style="text-transform: capitalize;">{{ $solicitud->tipo_pago }}</td>
         </tr>
+        @php $codMon = strtolower($solicitud->tipo_moneda ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($solicitud->tipo_moneda); @endphp
         <tr>
             <td class="label">Total a pagar</td>
-            <td><strong>${{ number_format($solicitud->monto_total, 2) }}</strong></td>
+            <td><strong>${{ number_format($solicitud->monto_total, 2) }}{{ $codMon }}</strong></td>
             <td class="label">Moneda</td>
             <td>{{ strtoupper($solicitud->tipo_moneda ?? 'mxn') }}</td>
         </tr>
@@ -311,7 +312,7 @@
         <tfoot>
             <tr class="total-row">
                 <td colspan="4" class="text-right">CARGADO A COSTOS</td>
-                <td class="text-right">${{ number_format($cargadoCostos, 2) }}</td>
+                <td class="text-right">${{ number_format($cargadoCostos, 2) }}{{ $codMon }}</td>
             </tr>
         </tfoot>
     </table>
@@ -320,7 +321,7 @@
         <tbody>
             <tr class="total-row">
                 <td class="text-right" style="width: 75%;">TOTAL</td>
-                <td class="text-right">${{ number_format($solicitud->monto_total, 2) }}</td>
+                <td class="text-right">${{ number_format($solicitud->monto_total, 2) }}{{ $codMon }}</td>
             </tr>
             <tr class="letras-row">
                 <td colspan="2">{{ \App\Support\NumeroALetras::convertir((float) $solicitud->monto_total, $solicitud->tipo_moneda ?? 'mxn') }}</td>
