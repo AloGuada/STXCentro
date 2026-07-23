@@ -75,17 +75,18 @@
             <td class="label">UUID Fiscal</td>
             <td>{{ $factura->uuid_fiscal ?? '-' }}</td>
         </tr>
+        @php $codMon = $factura->moneda === 'mxn' ? '' : ' '.strtoupper($factura->moneda); @endphp
         <tr>
             <td class="label">Subtotal Factura</td>
-            <td>${{ number_format($factura->subtotal, 2) }}</td>
+            <td>${{ number_format($factura->subtotal, 2) }}{{ $codMon }}</td>
         </tr>
         <tr>
             <td class="label">IVA</td>
-            <td>${{ number_format($factura->iva, 2) }}</td>
+            <td>${{ number_format($factura->iva, 2) }}{{ $codMon }}</td>
         </tr>
         <tr>
             <td class="label">Total Factura</td>
-            <td style="font-weight: bold; font-size: 13px;">${{ number_format($factura->total, 2) }}</td>
+            <td style="font-weight: bold; font-size: 13px;">${{ number_format($factura->total, 2) }}{{ $codMon }}</td>
         </tr>
         @if($fechaPago)
         <tr>

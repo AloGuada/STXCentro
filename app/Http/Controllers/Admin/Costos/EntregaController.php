@@ -147,6 +147,7 @@ class EntregaController extends Controller
 
         $pdf = Pdf::loadView('pdf.costos.formato-recepcion', [
             'entrega' => $entrega,
+            'moneda' => $entrega->ordenCompra?->moneda ?? $entrega->factura?->moneda ?? 'mxn',
         ])->setPaper('letter', 'portrait')
             ->setOption('margin-top', 30)
             ->setOption('margin-bottom', 40)
