@@ -59,7 +59,9 @@ function cadenaSolicitudPago(Departamento $depto, int $niveles = 2): void
 
 test('genera solicitud completa desde OC de contado', function () {
     $rubro = ObraRubro::factory()->create();
-    cadenaSolicitudPago($this->depto, 2);
+    cadenaSolicitudPago($this->depto, 2); // niveles del depto: deben ignorarse (firma única del gerente)
+    $gerente = User::factory()->create();
+    \App\Models\Costos\ConfiguracionCostos::actual()->update(['gerente_compras_id' => $gerente->id]);
     $oc = ocContadoConDetalle($this->depto, $rubro);
     $userId = User::factory()->create()->id;
 
@@ -82,8 +84,8 @@ test('genera solicitud completa desde OC de contado', function () {
     Storage::disk('public')->assertExists($archivo->media->path);
 
     $aprobaciones = $solicitud->aprobaciones()->orderBy('nivel')->get();
-    expect($aprobaciones)->toHaveCount(2);
-    expect($aprobaciones->pluck('nivel')->all())->toBe([1, 2]);
+    expect($aprobaciones)->toHaveCount(1);
+    expect($aprobaciones->first()->aprobador_id)->toBe($gerente->id);
 });
 
 test('liberar OC de contado crea solicitud vinculada; credito no', function () {
@@ -129,7 +131,7 @@ test('liberar OC de contado crea solicitud vinculada; credito no', function () {
 
 test('genera N solicitudes para una OC de contado con parcialidades', function () {
     $rubro = ObraRubro::factory()->create();
-    cadenaSolicitudPago($this->depto, 1);
+    \App\Models\Costos\ConfiguracionCostos::actual()->update(['gerente_compras_id' => User::factory()->create()->id]);
     $oc = ocContadoConDetalle($this->depto, $rubro, 100, 5); // total = 580
     $userId = User::factory()->create()->id;
 
@@ -167,14 +169,17 @@ test('la solicitud usa la fecha de pago indicada en la OC', function () {
     expect((string) $solicitud->fecha_pago_solicitada)->toContain('2026-08-15');
 });
 
-test('la solicitud usa la fecha del día si la OC no indica fecha de pago', function () {
+test('la solicitud usa el próximo viernes si la OC no indica fecha de pago', function () {
     $rubro = ObraRubro::factory()->create();
     $oc = ocContadoConDetalle($this->depto, $rubro);
     $userId = User::factory()->create()->id;
 
     $solicitud = app(SolicitudPagoDesdeOrdenCompra::class)->crear($oc, $userId, 'transferencia', null);
 
-    expect((string) $solicitud->fecha_pago_solicitada)->toContain(now()->toDateString());
+    $esperada = \App\Models\Costos\ConfiguracionCostos::actual()
+        ->proximoViernes(\Carbon\CarbonImmutable::now()->startOfDay())
+        ->toDateString();
+    expect((string) $solicitud->fecha_pago_solicitada)->toContain($esperada);
 });
 
 test('liberar OC de contado con parcialidades genera una solicitud por hito', function () {
