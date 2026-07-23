@@ -851,6 +851,7 @@ class SolicitudPagoController extends Controller
             'pagable_id' => $solicitudPago->id,
             'monto_pago' => $solicitudPago->monto_total,
             'moneda' => $solicitudPago->tipo_moneda ?? 'mxn',
+            'tipo_cambio' => $solicitudPago->tipo_cambio ?? 1,
             'tipo_pago' => 'credito',
             'fecha_pago_programada' => $solicitudPago->fecha_pago_solicitada,
             'estatus' => 'programado',

@@ -838,6 +838,7 @@ class RequisicionController extends Controller
                     ),
                     'descripcion' => $d->descripcion,
                     'moneda' => $d->selecciones->first()?->cotizacionPrecio?->moneda ?? 'mxn',
+                    'tipo_cambio' => $requisicion->tipo_cambio ? (float) $requisicion->tipo_cambio : null,
                 ])
                 ->filter(fn ($i) => $i['monto'] > 0);
 
