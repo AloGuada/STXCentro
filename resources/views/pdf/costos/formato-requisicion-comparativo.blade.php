@@ -236,12 +236,13 @@
                 <td class="text-right">-${{ number_format($ret['monto'], 2) }}</td>
             </tr>
             @endforeach
+            @php $codMon = ($totales['moneda'] ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($totales['moneda']); @endphp
             <tr class="total-row">
                 <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL NETO A PAGAR</td>
-                <td class="text-right">${{ number_format($totales['neto'], 2) }}</td>
+                <td class="text-right">${{ number_format($totales['neto'], 2) }}{{ $codMon }}</td>
             </tr>
             <tr class="letras-row">
-                <td colspan="{{ 4 + $numCols }}">{{ \App\Support\NumeroALetras::convertir((float) $totales['neto'], 'mxn') }}</td>
+                <td colspan="{{ 4 + $numCols }}">{{ \App\Support\NumeroALetras::convertir((float) $totales['neto'], $totales['moneda'] ?? 'mxn') }}</td>
             </tr>
         </tfoot>
     </table>

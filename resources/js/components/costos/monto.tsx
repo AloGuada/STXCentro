@@ -7,6 +7,16 @@
  * tipo de cambio guardado del documento.
  */
 
+/**
+ * Moneda de un total agregado: una sola divisa si todas coinciden; MXN si se
+ * mezclan (o no hay ninguna). Espeja `App\Support\Moneda::agregada`.
+ */
+export function monedaAgregada(monedas: Array<string | null | undefined>): string {
+    const distintas = [...new Set(monedas.filter(Boolean).map((m) => (m as string).toLowerCase()))];
+
+    return distintas.length === 1 ? distintas[0] : 'mxn';
+}
+
 export function formatMoney(monto: number | string, moneda: string = 'mxn'): string {
     const n = Number(monto) || 0;
     const cod = (moneda || 'mxn').toLowerCase();

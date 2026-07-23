@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
+import { formatMoney as fmtMonto, monedaAgregada } from '@/components/costos/monto';
 import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { OcBuilder } from '@/components/costos/oc-builder';
 import { calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
@@ -801,12 +802,14 @@ export default function RequisicionesShow({
                 }[];
             }
         >();
+        const monedas: Array<string | null | undefined> = [];
         (requisicion.detalles ?? []).forEach((d) => {
             (d.selecciones ?? []).forEach((s) => {
                 const key = `${s.proveedor_id}|${s.numero_oc ?? 1}`;
                 const sub =
                     Number(s.cotizacion_precio?.precio_unitario ?? 0) *
                     Number(s.cantidad);
+                monedas.push(s.cotizacion_precio?.moneda);
                 const g = grupos.get(key) ?? {
                     proveedorId: s.proveedor_id,
                     lines: [],
@@ -832,6 +835,7 @@ export default function RequisicionesShow({
             ret,
             total: subtotal + iva,
             neto: subtotal + iva - ret,
+            moneda: monedaAgregada(monedas),
         };
     }, [requisicion.detalles, proveedores]);
 
@@ -1250,17 +1254,17 @@ export default function RequisicionesShow({
                                         Subtotal
                                     </div>
                                     <div className="text-right">
-                                        {fmtMoney(resumenNeto.subtotal)}
+                                        {fmtMonto(resumenNeto.subtotal, resumenNeto.moneda)}
                                     </div>
                                     <div className="text-base-content/60">
                                         IVA (16%)
                                     </div>
                                     <div className="text-right">
-                                        +{fmtMoney(resumenNeto.iva)}
+                                        +{fmtMonto(resumenNeto.iva, resumenNeto.moneda)}
                                     </div>
                                     <div className="font-medium">Total</div>
                                     <div className="text-right font-medium">
-                                        {fmtMoney(resumenNeto.total)}
+                                        {fmtMonto(resumenNeto.total, resumenNeto.moneda)}
                                     </div>
                                     {resumenNeto.ret > 0 && (
                                         <>
@@ -1268,7 +1272,7 @@ export default function RequisicionesShow({
                                                 Retenciones
                                             </div>
                                             <div className="text-right text-error/80">
-                                                −{fmtMoney(resumenNeto.ret)}
+                                                −{fmtMonto(resumenNeto.ret, resumenNeto.moneda)}
                                             </div>
                                         </>
                                     )}
@@ -1276,7 +1280,7 @@ export default function RequisicionesShow({
                                         Total neto a pagar
                                     </div>
                                     <div className="text-right text-base font-bold text-primary">
-                                        {fmtMoney(resumenNeto.neto)}
+                                        {fmtMonto(resumenNeto.neto, resumenNeto.moneda)}
                                     </div>
                                 </div>
                             </div>
