@@ -124,7 +124,8 @@ test('el comparativo de totales excluye las partidas solo cotización', function
     $totales = app(ComparativoTotalesBuilder::class)->build($req->fresh()->load('detalles.selecciones.cotizacionPrecio', 'detalles.selecciones.proveedor'));
 
     // subtotal = 4 × 100 = 400 (el flete de 999 no entra).
-    expect($totales['subtotal'])->toBe(400.0);
+    expect($totales['bloques'])->toHaveCount(1)
+        ->and($totales['bloques'][0]['subtotal'])->toBe(400.0);
 });
 
 test('el mejor proveedor ignora las partidas solo cotización', function () {

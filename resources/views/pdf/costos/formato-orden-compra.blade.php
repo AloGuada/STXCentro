@@ -106,6 +106,7 @@
     @php
         $subtotal = $oc->detalles->sum(fn($d) => (float) $d->cantidad * (float) $d->precio_unitario);
         $iva = $subtotal * 0.16;
+        $codMon = strtolower($oc->moneda ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($oc->moneda);
     @endphp
 
     <table class="detalles-table">
@@ -150,15 +151,15 @@
                 <table class="tot-inner">
                     <tr>
                         <td class="tot-label">SUBTOTAL</td>
-                        <td class="tot-value">${{ number_format($subtotal, 2) }}</td>
+                        <td class="tot-value">${{ number_format($subtotal, 2) }}{{ $codMon }}</td>
                     </tr>
                     <tr>
                         <td class="tot-label">IVA (16%)</td>
-                        <td class="tot-value">${{ number_format($iva, 2) }}</td>
+                        <td class="tot-value">${{ number_format($iva, 2) }}{{ $codMon }}</td>
                     </tr>
                     <tr class="tot-final">
                         <td class="tot-label">TOTAL</td>
-                        <td class="tot-value">${{ number_format($oc->total, 2) }}</td>
+                        <td class="tot-value">${{ number_format($oc->total, 2) }}{{ $codMon }}</td>
                     </tr>
                 </table>
             </td>
