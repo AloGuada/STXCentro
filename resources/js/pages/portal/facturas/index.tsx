@@ -1,3 +1,4 @@
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { DataTable, type Column } from '@/components/data-table';
 import PortalLayout from '@/layouts/portal/portal-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -25,7 +26,7 @@ const columns: Column<CostosFactura>[] = [
     {
         key: 'total',
         label: 'Total',
-        render: (row) => `$${Number(row.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+        render: (row) => fmtMonto(row.total, row.moneda),
     },
     {
         key: 'estatus',

@@ -1,5 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { type FormEvent, useState } from 'react';
 import { PortalRegistrarNotaCreditoModal } from '@/components/portal/registrar-nota-credito-modal';
 import { Button } from '@/components/ui/button';
@@ -54,7 +55,7 @@ export default function PortalFacturaShow({ factura, comprobante }: Props) {
         });
     };
 
-    const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const formatMoney = (n: number) => fmtMonto(n, factura.moneda);
 
     const notas = factura.notas_credito ?? [];
     const totalNotas = Number(factura.monto_notas_credito ?? 0);

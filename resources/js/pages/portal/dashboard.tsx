@@ -1,3 +1,4 @@
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import PortalLayout from '@/layouts/portal/portal-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosOrdenCompra } from '@/types/models';
@@ -62,7 +63,7 @@ export default function PortalDashboard({ ordenesCompra, stats }: Props) {
                                                 {oc.folio}
                                             </Link>
                                         </td>
-                                        <td className="text-right">{formatMoney(oc.total)}</td>
+                                        <td className="text-right">{fmtMonto(oc.total, oc.moneda)}</td>
                                         <td className="text-center">{oc.facturas_count ?? 0}</td>
                                         <td>
                                             <span className={`badge ${ORDEN_COMPRA_ESTATUS_COLORS[oc.estatus]}`}>
