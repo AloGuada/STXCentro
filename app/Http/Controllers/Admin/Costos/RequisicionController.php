@@ -837,6 +837,7 @@ class RequisicionController extends Controller
                         fn ($s) => (float) $s->cantidad * (float) ($s->cotizacionPrecio?->precio_unitario ?? 0)
                     ),
                     'descripcion' => $d->descripcion,
+                    'moneda' => $d->selecciones->first()?->cotizacionPrecio?->moneda ?? 'mxn',
                 ])
                 ->filter(fn ($i) => $i['monto'] > 0);
 
@@ -1137,6 +1138,8 @@ class RequisicionController extends Controller
                     fn ($s) => (float) $s->cantidad * (float) ($s->cotizacionPrecio?->precio_unitario ?? 0)
                 ),
                 'descripcion' => $d->descripcion,
+                'moneda' => $d->selecciones->first()?->cotizacionPrecio?->moneda ?? 'mxn',
+                'tipo_cambio' => $requisicion->tipo_cambio ? (float) $requisicion->tipo_cambio : null,
             ])
             ->filter(fn ($i) => $i['monto'] > 0);
 

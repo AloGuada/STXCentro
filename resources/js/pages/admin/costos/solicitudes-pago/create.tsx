@@ -111,6 +111,7 @@ export default function SolicitudesPagoCreate({
         comentarios: string;
         tipo_pago: string;
         tipo_moneda: string;
+        tipo_cambio: string;
         fecha_pago_solicitada: string;
         detalles: DetalleForm[];
         monto_total: string;
@@ -125,6 +126,7 @@ export default function SolicitudesPagoCreate({
         comentarios: '',
         tipo_pago: 'transferencia',
         tipo_moneda: 'mxn',
+        tipo_cambio: '1',
         fecha_pago_solicitada: '',
         detalles: [],
         monto_total: '0',
@@ -206,6 +208,42 @@ export default function SolicitudesPagoCreate({
     };
 
     const total = data.detalles.reduce((sum, d) => sum + calcSubtotal(d), 0);
+
+    const [cargandoTc, setCargandoTc] = useState(false);
+
+    const totalDivisa =
+        data.detalles.length > 0 ? total : parseFloat(data.monto_total) || 0;
+    const totalMxn = totalDivisa * (parseFloat(data.tipo_cambio) || 0);
+
+    const sugerirTipoCambio = async (moneda: string) => {
+        if (moneda === 'mxn') {
+            setData('tipo_cambio', '1');
+            return;
+        }
+        setCargandoTc(true);
+        try {
+            const res = await fetch(`/admin/costos/tipo-cambio/${moneda}`, {
+                headers: { Accept: 'application/json' },
+            });
+            if (res.ok) {
+                const json = await res.json();
+                setData('tipo_cambio', String(json.tipo_cambio));
+            }
+        } catch {
+            /* conserva el valor actual si la fuente no responde */
+        } finally {
+            setCargandoTc(false);
+        }
+    };
+
+    const handleMonedaChange = (moneda: string) => {
+        setData('tipo_moneda', moneda);
+        if (moneda === 'mxn') {
+            setData('tipo_cambio', '1');
+        } else {
+            void sugerirTipoCambio(moneda);
+        }
+    };
 
     const { totalArchivosBytes, totalArchivosCount } = useMemo(() => {
         let bytes = 0;
@@ -328,6 +366,7 @@ export default function SolicitudesPagoCreate({
             formData.append('comentarios', data.comentarios);
             formData.append('tipo_pago', data.tipo_pago);
             formData.append('tipo_moneda', data.tipo_moneda);
+            formData.append('tipo_cambio', data.tipo_cambio);
             formData.append(
                 'fecha_pago_solicitada',
                 data.fecha_pago_solicitada,
@@ -539,10 +578,7 @@ export default function SolicitudesPagoCreate({
                                         className={`select-bordered select w-full ${errors.tipo_moneda ? 'select-error' : ''}`}
                                         value={data.tipo_moneda}
                                         onChange={(e) =>
-                                            setData(
-                                                'tipo_moneda',
-                                                e.target.value,
-                                            )
+                                            handleMonedaChange(e.target.value)
                                         }
                                     >
                                         <option value="mxn">MXN</option>
@@ -550,6 +586,55 @@ export default function SolicitudesPagoCreate({
                                         <option value="eur">EUR</option>
                                     </select>
                                 </FormField>
+
+                                {data.tipo_moneda !== 'mxn' && (
+                                    <FormField
+                                        label="Tipo de cambio"
+                                        htmlFor="tipo_cambio"
+                                        error={errors.tipo_cambio}
+                                        required
+                                    >
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id="tipo_cambio"
+                                                type="number"
+                                                step="0.000001"
+                                                min="0"
+                                                error={!!errors.tipo_cambio}
+                                                value={data.tipo_cambio}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'tipo_cambio',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
+                                            <button
+                                                type="button"
+                                                className="btn btn-ghost btn-sm whitespace-nowrap"
+                                                disabled={cargandoTc}
+                                                onClick={() =>
+                                                    sugerirTipoCambio(
+                                                        data.tipo_moneda,
+                                                    )
+                                                }
+                                            >
+                                                {cargandoTc
+                                                    ? '...'
+                                                    : 'Sugerir'}
+                                            </button>
+                                        </div>
+                                        <p className="mt-1 text-[11px] text-base-content/50">
+                                            MXN por 1{' '}
+                                            {data.tipo_moneda.toUpperCase()}.
+                                            Total:{' '}
+                                            {new Intl.NumberFormat('es-MX', {
+                                                style: 'currency',
+                                                currency: 'MXN',
+                                            }).format(totalMxn)}
+                                        </p>
+                                    </FormField>
+                                )}
 
                                 <FormField
                                     label="Fecha de Pago Solicitada"

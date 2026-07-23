@@ -187,6 +187,7 @@ class EntregaController extends Controller
             descripcion: "Ajuste PU recepción · {$ocd->descripcion}",
             userId: $userId,
             allowSobregiro: true,
+            moneda: $ordenCompra->moneda ?? 'mxn',
         );
     }
 }

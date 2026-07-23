@@ -25,6 +25,9 @@ class RubroAfectado extends Model
         'entrada_id',
         'obra_rubro_id',
         'monto',
+        'moneda',
+        'monto_origen',
+        'tipo_cambio',
         'sobre_giro',
         'descripcion',
         'tipo_movimiento',
@@ -42,6 +45,8 @@ class RubroAfectado extends Model
     {
         return [
             'monto' => 'decimal:2',
+            'monto_origen' => 'decimal:2',
+            'tipo_cambio' => 'decimal:6',
             'sobre_giro' => 'boolean',
             'fecha_aplicacion' => 'datetime',
             'apartado_hasta' => 'date',

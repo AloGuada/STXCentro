@@ -24,6 +24,7 @@ class SolicitudPagoUpdateRequest extends FormRequest
             'comentarios' => ['nullable', 'string', 'max:250'],
             'tipo_pago' => ['required', 'string', 'in:transferencia,cheque,efectivo'],
             'tipo_moneda' => ['required', 'string', 'in:mxn,usd,eur'],
+            'tipo_cambio' => ['nullable', 'numeric', 'min:0.000001'],
             'fecha_pago_solicitada' => ['nullable', 'date'],
             'detalles' => ['nullable', 'array'],
             'detalles.*.id' => ['nullable', 'integer'],

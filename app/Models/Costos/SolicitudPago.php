@@ -51,6 +51,7 @@ class SolicitudPago extends Model implements Aprobable
         'concepto',
         'comentarios',
         'monto_total',
+        'tipo_cambio',
         'tipo_pago',
         'tipo_moneda',
         'fecha_pago_solicitada',
@@ -75,6 +76,7 @@ class SolicitudPago extends Model implements Aprobable
     {
         return [
             'monto_total' => 'decimal:2',
+            'tipo_cambio' => 'decimal:6',
             'fecha_pago_solicitada' => 'date',
             'fecha_pago_realizada' => 'date',
             'confirmada_costos' => 'boolean',

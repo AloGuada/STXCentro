@@ -13,6 +13,22 @@
 
 pest()->extend(Tests\TestCase::class)
     ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+    ->beforeEach(function () {
+        // Tasas de cambio deterministas: las pruebas de presupuesto en divisa
+        // no deben pegar a Banxico/ECB por red. TipoCambioServiceTest re-liga el
+        // servicio real en su propio beforeEach para probar la integración.
+        $this->app->bind(\App\Services\Costos\TipoCambioService::class, fn () => new class extends \App\Services\Costos\TipoCambioService
+        {
+            public function mxnPorUnidad(string $moneda, ?\Carbon\CarbonInterface $fecha = null): float
+            {
+                return match (strtolower($moneda)) {
+                    'usd' => 18.5,
+                    'eur' => 20.0,
+                    default => 1.0,
+                };
+            }
+        });
+    })
     ->in('Feature');
 
 /*

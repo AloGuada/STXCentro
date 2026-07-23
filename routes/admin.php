@@ -194,6 +194,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('lock/{type}/{id}', [CostosEditLockController::class, 'lock'])->name('lock');
         Route::post('unlock/{type}/{id}', [CostosEditLockController::class, 'unlock'])->name('unlock');
 
+        // Tipo de cambio de referencia del día (sugerencia para el campo editable).
+        Route::get('tipo-cambio/{moneda}', [\App\Http\Controllers\Admin\Costos\TipoCambioController::class, 'show'])->name('tipo-cambio.show');
+
         Route::resource('tipo-rubros', CostosTipoRubroController::class)->parameters(['tipo-rubros' => 'tipoRubro']);
         Route::resource('usos-cfdi', CostosUsoCfdiController::class)->parameters(['usos-cfdi' => 'usoCfdi'])->except(['show']);
         Route::resource('rubros', CostosRubroController::class)->parameters(['rubros' => 'rubro']);
