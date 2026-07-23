@@ -1,3 +1,4 @@
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { DataTable, type Column } from '@/components/data-table';
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
@@ -60,7 +61,7 @@ const columns: Column<CostosFactura>[] = [
         key: 'total',
         label: 'Total',
         sortable: true,
-        render: (row) => `$${Number(row.total).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+        render: (row) => fmtMonto(row.total, row.moneda),
     },
     {
         key: 'estatus',

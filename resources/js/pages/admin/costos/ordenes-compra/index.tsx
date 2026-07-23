@@ -1,3 +1,4 @@
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { CONTADO_STEPS, getContadoStep } from '@/components/costos/oc-contado';
 import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
@@ -37,8 +38,6 @@ const tipoPagoOptions = [
     { value: 'credito', label: 'Crédito' },
 ];
 
-const money = (n: number) =>
-    Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const facturasActivas = (oc: CostosOrdenCompra): CostosFactura[] =>
     (oc.facturas ?? []).filter((f) => f.estatus !== 'cancelada');
@@ -162,7 +161,7 @@ function PartidasTree({ oc }: { oc: CostosOrdenCompra }) {
             </div>
             <div className="mt-1.5 flex items-center justify-end gap-2 border-t border-base-300 pt-1.5 text-xs">
                 <span className="text-base-content/60">Total</span>
-                <span className="w-28 text-right font-semibold">${money(oc.total)} MXN</span>
+                <span className="w-28 text-right font-semibold">{fmtMonto(oc.total, oc.moneda)}</span>
             </div>
         </div>
     );
@@ -344,7 +343,7 @@ export default function OrdenesCompraIndex({ ordenes, filters, proveedoresFiltro
                                             {oc.proveedor?.razon_social ?? '—'}
                                         </div>
                                         <div className="text-base-content text-sm font-semibold mt-1">
-                                            ${money(oc.total)} MXN
+                                            {fmtMonto(oc.total, oc.moneda)}
                                         </div>
                                         <div className="text-base-content/50 text-xs mt-0.5">
                                             {presupuestoLabel(oc)}

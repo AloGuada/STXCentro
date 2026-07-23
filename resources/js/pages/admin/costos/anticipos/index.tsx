@@ -1,3 +1,4 @@
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -11,7 +12,6 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Anticipos', href: '/admin/costos/anticipos' },
 ];
 
-const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString('es-MX') : '-');
 
 const columns: Column<CostosAnticipo>[] = [
@@ -36,13 +36,13 @@ const columns: Column<CostosAnticipo>[] = [
         key: 'monto',
         label: 'Monto',
         sortable: true,
-        render: (r) => <span className="font-medium">{formatMoney(r.monto)}</span>,
+        render: (r) => <span className="font-medium">{fmtMonto(r.monto, r.moneda)}</span>,
     },
     {
         key: 'saldo_disponible',
         label: 'Saldo disponible',
         sortable: true,
-        render: (r) => <span className="font-medium text-success">{formatMoney(r.saldo_disponible)}</span>,
+        render: (r) => <span className="font-medium text-success">{fmtMonto(r.saldo_disponible, r.moneda)}</span>,
     },
     {
         key: 'moneda',
