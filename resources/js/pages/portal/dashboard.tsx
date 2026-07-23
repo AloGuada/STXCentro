@@ -13,11 +13,11 @@ type Props = {
         ordenes_activas: number;
         facturas_pendientes: number;
         total_facturado: number;
+        total_facturado_moneda: string;
     };
 };
 
 export default function PortalDashboard({ ordenesCompra, stats }: Props) {
-    const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
     return (
         <PortalLayout breadcrumbs={breadcrumbs}>
@@ -37,7 +37,7 @@ export default function PortalDashboard({ ordenesCompra, stats }: Props) {
                     </div>
                     <div className="stat bg-base-200 rounded-lg">
                         <div className="stat-title">Total Facturado</div>
-                        <div className="stat-value text-success text-2xl">{formatMoney(stats.total_facturado)}</div>
+                        <div className="stat-value text-success text-2xl">{fmtMonto(stats.total_facturado, stats.total_facturado_moneda)}</div>
                     </div>
                 </div>
 

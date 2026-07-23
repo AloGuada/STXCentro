@@ -112,6 +112,10 @@
                     <th style="width: 70px;">Fecha</th>
                 </tr>
             </thead>
+            @php
+                $codMon = fn ($m) => ($m ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($m);
+                $monTotal = \App\Support\Moneda::agregada($solicitudes->pluck('tipo_moneda')->all());
+            @endphp
             <tbody>
                 @foreach($solicitudes as $i => $sol)
                     <tr>
@@ -121,7 +125,7 @@
                         <td>{{ $sol->departamento?->descripcion ?? '-' }}</td>
                         <td>{{ $sol->proveedor?->razon_social ?? '-' }}</td>
                         <td>{{ $sol->concepto }}</td>
-                        <td class="text-right">${{ number_format((float) $sol->monto_total, 2) }}</td>
+                        <td class="text-right">${{ number_format((float) $sol->monto_total, 2) }}{{ $codMon($sol->tipo_moneda) }}</td>
                         <td class="text-center">{{ $sol->estatus->label() }}</td>
                         <td class="text-center">{{ $sol->created_at?->format('d/m/Y') ?? '-' }}</td>
                     </tr>
@@ -130,7 +134,7 @@
             <tfoot>
                 <tr>
                     <td colspan="6" class="text-right"><strong>Total</strong></td>
-                    <td class="text-right"><strong>${{ number_format((float) $solicitudes->sum('monto_total'), 2) }}</strong></td>
+                    <td class="text-right"><strong>${{ number_format((float) $solicitudes->sum('monto_total'), 2) }}{{ $codMon($monTotal) }}</strong></td>
                     <td colspan="2"></td>
                 </tr>
             </tfoot>

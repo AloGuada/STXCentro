@@ -168,11 +168,14 @@
             <td class="label">Periodo</td>
             <td colspan="3">{{ $fechaInicio }} - {{ $fechaFin }}</td>
         </tr>
+        @php
+            $codRep = fn ($col) => \App\Support\Moneda::agregada($col->pluck('moneda')->all()) === 'mxn' ? '' : ' '.strtoupper(\App\Support\Moneda::agregada($col->pluck('moneda')->all()));
+        @endphp
         <tr>
             <td class="label">Total Facturas</td>
             <td>{{ $facturas->count() }}</td>
             <td class="label">Suma Total</td>
-            <td>${{ number_format($facturas->sum('total'), 2) }}</td>
+            <td>${{ number_format($facturas->sum('total'), 2) }}{{ $codRep($facturas) }}</td>
         </tr>
     </table>
 
@@ -195,7 +198,7 @@
                     <td class="text-center">{{ $loop->iteration }}</td>
                     <td>{{ $proveedor?->razon_social ?? 'Sin proveedor' }}</td>
                     <td class="text-center">{{ $facturasProveedor->count() }}</td>
-                    <td class="text-right">${{ number_format($facturasProveedor->sum('total'), 2) }}</td>
+                    <td class="text-right">${{ number_format($facturasProveedor->sum('total'), 2) }}{{ $codRep($facturasProveedor) }}</td>
                 </tr>
                 @endforeach
             </tbody>
@@ -203,7 +206,7 @@
                 <tr class="total-row">
                     <td colspan="2" class="text-right">TOTAL</td>
                     <td class="text-center">{{ $facturas->count() }}</td>
-                    <td class="text-right">${{ number_format($facturas->sum('total'), 2) }}</td>
+                    <td class="text-right">${{ number_format($facturas->sum('total'), 2) }}{{ $codRep($facturas) }}</td>
                 </tr>
             </tfoot>
         </table>

@@ -170,11 +170,15 @@
             <td class="label">Año</td>
             <td>{{ $anio }}</td>
         </tr>
+        @php
+            $codMon = fn ($m) => ($m ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($m);
+            $codRep = fn ($col) => $codMon(\App\Support\Moneda::agregada($col->pluck('moneda')->all()));
+        @endphp
         <tr>
             <td class="label">Total Facturas</td>
             <td>{{ $facturas->count() }}</td>
             <td class="label">Suma Total</td>
-            <td>${{ number_format($facturas->sum('total'), 2) }}</td>
+            <td>${{ number_format($facturas->sum('total'), 2) }}{{ $codRep($facturas) }}</td>
         </tr>
     </table>
 
@@ -199,7 +203,7 @@
                 <td>{{ $factura->folio }}</td>
                 <td>{{ $factura->ordenCompra?->folio ?? '-' }}</td>
                 <td class="text-center">{{ $factura->fecha_factura?->format('d/m/Y') ?? '-' }}</td>
-                <td class="text-right">${{ number_format($factura->total, 2) }}</td>
+                <td class="text-right">${{ number_format($factura->total, 2) }}{{ $codMon($factura->moneda) }}</td>
                 <td class="text-center">{{ $factura->estatus->label() }}</td>
                 <td class="text-center">{{ ($factura->mediaPdf ? 1 : 0) + $factura->entregas->filter(fn($e) => $e->media)->count() }}</td>
             </tr>
@@ -208,7 +212,7 @@
         <tfoot>
             <tr class="total-row">
                 <td colspan="4" class="text-right">TOTAL</td>
-                <td class="text-right">${{ number_format($facturas->sum('total'), 2) }}</td>
+                <td class="text-right">${{ number_format($facturas->sum('total'), 2) }}{{ $codRep($facturas) }}</td>
                 <td colspan="2"></td>
             </tr>
         </tfoot>

@@ -34,6 +34,13 @@ class PortalDashboardController extends Controller
             'total_facturado' => Factura::where('proveedor_id', $proveedor->id)
                 ->whereNotIn('estatus', ['cancelada'])
                 ->sum('total'),
+            'total_facturado_moneda' => \App\Support\Moneda::agregada(
+                Factura::where('proveedor_id', $proveedor->id)
+                    ->whereNotIn('estatus', ['cancelada'])
+                    ->distinct()
+                    ->pluck('moneda')
+                    ->all(),
+            ),
         ];
 
         return Inertia::render('portal/dashboard', [
