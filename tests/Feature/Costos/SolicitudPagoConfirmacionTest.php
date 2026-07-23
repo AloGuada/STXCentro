@@ -54,6 +54,27 @@ describe('confirmación costos - contado', function () {
         $pago = $solicitud->pago;
         expect($pago->moneda)->toBe('usd');
     });
+
+    test('pago de crédito hereda el tipo de cambio de la solicitud', function () {
+        $solicitud = SolicitudPago::factory()->aprobada()->create([
+            'tipo_pago' => 'credito',
+            'tipo_moneda' => 'usd',
+            'tipo_cambio' => 18.5,
+            'fecha_pago_solicitada' => '2026-05-09',
+        ]);
+
+        $this->actingAs($this->adminCostos)
+            ->post(route('admin.costos.solicitudes-pago.confirmar-costos', $solicitud));
+        $this->actingAs($this->contabilidad)
+            ->post(route('admin.costos.solicitudes-pago.confirmar-contabilidad', $solicitud))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $pago = $solicitud->refresh()->pago;
+        expect($pago)->not->toBeNull();
+        expect($pago->moneda)->toBe('usd');
+        expect((float) $pago->tipo_cambio)->toBe(18.5);
+    });
 });
 
 describe('confirmación costos - crédito', function () {

@@ -261,8 +261,30 @@ class Requisicion extends Model implements Aprobable
      *
      * @return array{id: int, razon_social: string, nombre_comercial: string|null, total: float}|null
      */
+    /** @var array{id: int, razon_social: string, nombre_comercial: string|null, total: float}|null */
+    private ?array $mejorProveedorPrecargado = null;
+
+    private bool $mejorProveedorResuelto = false;
+
+    /**
+     * Precarga el resultado de `mejor_proveedor` (calculado en lote con
+     * BuscadorMejorProveedor::buscarLote) para que el accessor no dispare
+     * queries por fila en listados.
+     *
+     * @param  array{id: int, razon_social: string, nombre_comercial: string|null, total: float}|null  $mejor
+     */
+    public function precargarMejorProveedor(?array $mejor): void
+    {
+        $this->mejorProveedorPrecargado = $mejor;
+        $this->mejorProveedorResuelto = true;
+    }
+
     public function getMejorProveedorAttribute(): ?array
     {
+        if ($this->mejorProveedorResuelto) {
+            return $this->mejorProveedorPrecargado;
+        }
+
         return app(BuscadorMejorProveedor::class)->buscar($this);
     }
 

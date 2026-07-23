@@ -178,6 +178,7 @@ describe('bloqueo', function () {
                 'concepto' => 'Pago de prueba',
                 'tipo_pago' => 'transferencia',
                 'tipo_moneda' => 'mxn',
+                'monto_total' => 100,
             ])
             ->assertSessionHasErrors('proveedor_id');
     });

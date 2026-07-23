@@ -22,7 +22,11 @@ test('el show de la OC expone el comprobante de pago del anticipo de contado (vÃ
         'size' => 100,
     ]);
 
-    $this->actingAs(User::factory()->create())
+    \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.ordenes-compra.ver-todas', 'guard_name' => 'web']);
+    $user = User::factory()->create();
+    $user->givePermissionTo('costos.ordenes-compra.ver-todas');
+
+    $this->actingAs($user)
         ->get("/admin/costos/ordenes-compra/{$oc->id}")
         ->assertOk()
         ->assertInertia(fn ($page) => $page

@@ -9,6 +9,7 @@ use Spatie\Permission\Models\Permission;
 beforeEach(function () {
     $this->user = User::factory()->create();
     Permission::firstOrCreate(['name' => 'costos.facturas.ver', 'guard_name' => 'web']);
+    $this->user->givePermissionTo('costos.facturas.ver');
 });
 
 test('lista facturas', function () {

@@ -118,3 +118,67 @@ test('el accessor mejor_proveedor delega en el servicio', function () {
     expect($req->refresh()->mejor_proveedor['id'])->toBe($prov->id);
     expect($req->mejor_proveedor['total'])->toBe(50.0);
 });
+
+test('buscarLote resuelve varias requisiciones y coincide con buscar', function () {
+    $reqA = Requisicion::factory()->create();
+    $a1 = RequisicionDetalle::factory()->create(['requisicion_id' => $reqA->id, 'cantidad' => 10]);
+    $a2 = RequisicionDetalle::factory()->create(['requisicion_id' => $reqA->id, 'cantidad' => 5]);
+    $barato = Proveedor::factory()->create();
+    $caro = Proveedor::factory()->create();
+    cotizar($a1, $barato, 100);
+    cotizar($a2, $barato, 20);  // total 1100
+    cotizar($a1, $caro, 120);
+    cotizar($a2, $caro, 30);    // total 1350
+
+    $reqB = Requisicion::factory()->create();
+    $b1 = RequisicionDetalle::factory()->create(['requisicion_id' => $reqB->id, 'cantidad' => 2]);
+    $provB = Proveedor::factory()->create();
+    cotizar($b1, $provB, 25);   // total 50
+
+    $sinPartidas = Requisicion::factory()->create();
+
+    $incompleta = Requisicion::factory()->create();
+    $c1 = RequisicionDetalle::factory()->create(['requisicion_id' => $incompleta->id, 'cantidad' => 1]);
+    RequisicionDetalle::factory()->create(['requisicion_id' => $incompleta->id, 'cantidad' => 1]);
+    cotizar($c1, Proveedor::factory()->create(), 10);
+
+    $lote = $this->buscador->buscarLote([$reqA->id, $reqB->id, $sinPartidas->id, $incompleta->id]);
+
+    expect($lote[$reqA->id]['id'])->toBe($barato->id);
+    expect($lote[$reqA->id]['total'])->toBe(1100.0);
+    expect($lote[$reqB->id]['id'])->toBe($provB->id);
+    expect($lote[$reqB->id]['total'])->toBe(50.0);
+    expect($lote[$sinPartidas->id])->toBeNull();
+    expect($lote[$incompleta->id])->toBeNull();
+
+    expect($lote[$reqA->id])->toBe($this->buscador->buscar($reqA->refresh()));
+    expect($lote[$reqB->id])->toBe($this->buscador->buscar($reqB->refresh()));
+});
+
+test('buscarLote ejecuta un número constante de queries sin importar el tamaño del lote', function () {
+    $ids = [];
+    foreach (range(1, 5) as $i) {
+        $req = Requisicion::factory()->create();
+        $d = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 1]);
+        cotizar($d, Proveedor::factory()->create(), 10);
+        $ids[] = $req->id;
+    }
+
+    \Illuminate\Support\Facades\DB::enableQueryLog();
+    $this->buscador->buscarLote($ids);
+    $queries = count(\Illuminate\Support\Facades\DB::getQueryLog());
+    \Illuminate\Support\Facades\DB::disableQueryLog();
+
+    expect($queries)->toBeLessThanOrEqual(2);
+});
+
+test('el listado usa el lote y no recalcula por fila', function () {
+    $req = Requisicion::factory()->create();
+    $d = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 4]);
+    $prov = Proveedor::factory()->create();
+    cotizar($d, $prov, 5);
+
+    $req->refresh()->precargarMejorProveedor(['id' => $prov->id, 'razon_social' => 'X', 'nombre_comercial' => null, 'total' => 99.0]);
+
+    expect($req->mejor_proveedor['total'])->toBe(99.0);
+});

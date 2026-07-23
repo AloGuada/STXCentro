@@ -26,6 +26,7 @@ use App\Models\Proveedor;
 use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
 use App\Services\Costos\AprobacionService;
+use App\Services\Costos\BuscadorMejorProveedor;
 use App\Services\Costos\ComparativoTotalesBuilder;
 use App\Services\Costos\FirmasPdfBuilder;
 use App\Services\Costos\OrdenCompraGenerator;
@@ -93,7 +94,13 @@ class RequisicionController extends Controller
 
         $requisiciones = $query->paginate(15)->withQueryString();
 
-        $requisiciones->getCollection()->each(fn ($r) => $r->append(['mejor_proveedor', 'proveedores_cotizadores_count', 'total_neto']));
+        $mejores = app(BuscadorMejorProveedor::class)
+            ->buscarLote($requisiciones->getCollection()->pluck('id')->all());
+
+        $requisiciones->getCollection()->each(function ($r) use ($mejores) {
+            $r->precargarMejorProveedor($mejores[$r->id] ?? null);
+            $r->append(['mejor_proveedor', 'proveedores_cotizadores_count', 'total_neto']);
+        });
 
         return Inertia::render('admin/costos/requisiciones/index', [
             'requisiciones' => $requisiciones,
@@ -497,7 +504,11 @@ class RequisicionController extends Controller
         /** @var Aprobacion $aprobacion */
         $aprobacion = $requisicion->aprobaciones->firstWhere('id', $aprobacionPendienteId);
 
-        DB::transaction(function () use ($request, $requisicion, $aprobacion, $aprobaciones) {
+        // Resolución DNS inversa fuera de la transacción (es una llamada de red
+        // bloqueante; no debe mantener la transacción abierta).
+        $hostname = gethostbyaddr($request->ip()) ?: null;
+
+        DB::transaction(function () use ($request, $requisicion, $aprobacion, $aprobaciones, $hostname) {
             $rechazoSinReemplazo = false;
 
             foreach ($request->input('validaciones', []) as $val) {
@@ -550,7 +561,7 @@ class RequisicionController extends Controller
                     'observaciones' => $motivo,
                     'motivo_rechazo' => $motivo,
                     'ip' => $request->ip(),
-                    'hostname' => gethostbyaddr($request->ip()) ?: null,
+                    'hostname' => $hostname,
                 ]);
                 $aprobacion->transitionTo(AprobacionEstatus::Rechazada);
                 $requisicion->cadenaAprobacion()
@@ -565,7 +576,7 @@ class RequisicionController extends Controller
                 $aprobacion,
                 $request->input('observaciones'),
                 $request->ip(),
-                gethostbyaddr($request->ip()) ?: null,
+                $hostname,
             );
         });
 
@@ -631,6 +642,8 @@ class RequisicionController extends Controller
 
     public function update(RequisicionUpdateRequest $request, Requisicion $requisicion): RedirectResponse
     {
+        Gate::authorize('costos.requisiciones.crear');
+
         if (! in_array($requisicion->estatus, [RequisicionEstatus::Borrador, RequisicionEstatus::Rechazada], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden editar requisiciones en borrador o rechazadas.']);
         }
@@ -838,6 +851,7 @@ class RequisicionController extends Controller
                     ),
                     'descripcion' => $d->descripcion,
                     'moneda' => $d->selecciones->first()?->cotizacionPrecio?->moneda ?? 'mxn',
+                    'tipo_cambio' => $requisicion->tipo_cambio ? (float) $requisicion->tipo_cambio : null,
                 ])
                 ->filter(fn ($i) => $i['monto'] > 0);
 

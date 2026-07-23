@@ -6,7 +6,9 @@ use App\Models\Proveedor;
 use App\Models\User;
 
 beforeEach(function () {
+    \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.facturas.ver', 'guard_name' => 'web']);
     $this->user = User::factory()->create();
+    $this->user->givePermissionTo('costos.facturas.ver');
 });
 
 describe('ordenamiento server-side de tablas Costos', function () {

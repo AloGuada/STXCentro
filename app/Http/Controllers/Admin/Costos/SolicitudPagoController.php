@@ -212,11 +212,14 @@ class SolicitudPagoController extends Controller
 
             $montoTotal = 0;
 
+            $obraRubros = ObraRubro::with(['rubro:id,codigo', 'presupuesto:id,estatus'])
+                ->findMany(collect($request->input('detalles', []))->pluck('obra_rubro_id')->filter()->unique())
+                ->keyBy('id');
+
             foreach ($request->input('detalles', []) as $detalle) {
                 $subtotal = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
 
-                $obraRubro = ObraRubro::with(['rubro:id,codigo', 'presupuesto:id,estatus'])
-                    ->find($detalle['obra_rubro_id']);
+                $obraRubro = $obraRubros->get((int) $detalle['obra_rubro_id']);
 
                 $solicitud->detalles()->create([
                     'obra_rubro_id' => $detalle['obra_rubro_id'],
@@ -502,11 +505,14 @@ class SolicitudPagoController extends Controller
 
             $montoTotal = 0;
 
+            $obraRubros = ObraRubro::with(['rubro:id,codigo', 'presupuesto:id,estatus'])
+                ->findMany(collect($request->input('detalles', []))->pluck('obra_rubro_id')->filter()->unique())
+                ->keyBy('id');
+
             foreach ($request->input('detalles', []) as $detalle) {
                 $subtotal = round((float) $detalle['cantidad'] * (float) $detalle['precio_unitario'], 2);
 
-                $obraRubro = ObraRubro::with(['rubro:id,codigo', 'presupuesto:id,estatus'])
-                    ->find($detalle['obra_rubro_id']);
+                $obraRubro = $obraRubros->get((int) $detalle['obra_rubro_id']);
                 $sobreObraCerrada = $obraRubro?->estaCerrado() ?? false;
 
                 if (! empty($detalle['id'])) {
@@ -726,24 +732,28 @@ class SolicitudPagoController extends Controller
         }
 
         $file = $request->file('archivo');
-        $solicitudPago->media()->create([
-            'descripcion' => DocumentoTipo::SolicitudFirmada->value,
-            'nombre_original' => $file->getClientOriginalName(),
-            'path' => $file->store('costos/firmados', 'public'),
-            'mime' => $file->getMimeType(),
-            'size' => $file->getSize(),
-        ]);
-        $solicitudPago->transitionTo(SolicitudPagoEstatus::Aprobada);
+        $path = $file->store('costos/firmados', 'public');
 
-        // Marcar aprobaciones
-        $solicitudPago->aprobaciones()->update([
-            'estatus' => 'aprobada',
-            'fecha_respuesta' => now(),
-        ]);
+        DB::transaction(function () use ($solicitudPago, $file, $path, $request) {
+            $solicitudPago->media()->create([
+                'descripcion' => DocumentoTipo::SolicitudFirmada->value,
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $path,
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ]);
+            $solicitudPago->transitionTo(SolicitudPagoEstatus::Aprobada);
 
-        // Aplicar impacto presupuestal: convierte el apartado vigente a ejercido
-        // (o aplica desde cero). Evita el doble conteo apartado + aplicado.
-        $solicitudPago->aplicarImpactoTrasFirma($request->user()->id);
+            // Marcar aprobaciones
+            $solicitudPago->aprobaciones()->update([
+                'estatus' => 'aprobada',
+                'fecha_respuesta' => now(),
+            ]);
+
+            // Aplicar impacto presupuestal: convierte el apartado vigente a ejercido
+            // (o aplica desde cero). Evita el doble conteo apartado + aplicado.
+            $solicitudPago->aplicarImpactoTrasFirma($request->user()->id);
+        });
 
         return back()->with('success', 'Solicitud aprobada correctamente.');
     }
@@ -763,26 +773,28 @@ class SolicitudPagoController extends Controller
             return back()->withErrors(['estatus' => 'Solo se pueden cancelar solicitudes en borrador, pendientes o aprobadas.']);
         }
 
-        // Revertir impacto si estaba aprobada. `cancelarApartadosDe` revierte por
-        // rubro afectado (no en agregado) y marca cada uno Cancelado. Para las SP
-        // generadas desde OC no revierte nada — la SP no tiene rubros afectados
-        // propios (su presupuesto vive en la OC), que es el comportamiento correcto.
-        if ($solicitudPago->estatus === SolicitudPagoEstatus::Aprobada) {
-            $this->apartado->cancelarApartadosDe($solicitudPago, 'Cancelación de solicitud');
-        }
+        DB::transaction(function () use ($solicitudPago, $request) {
+            // Revertir impacto si estaba aprobada. `cancelarApartadosDe` revierte por
+            // rubro afectado (no en agregado) y marca cada uno Cancelado. Para las SP
+            // generadas desde OC no revierte nada — la SP no tiene rubros afectados
+            // propios (su presupuesto vive en la OC), que es el comportamiento correcto.
+            if ($solicitudPago->estatus === SolicitudPagoEstatus::Aprobada) {
+                $this->apartado->cancelarApartadosDe($solicitudPago, 'Cancelación de solicitud');
+            }
 
-        // Cancelar las aprobaciones pendientes de la cadena para que salgan de
-        // la bandeja de aprobación (mismo criterio que un rechazo). No se borran:
-        // quedan como Cancelada para conservar el historial.
-        $solicitudPago->cadenaAprobacion()
-            ->where('estatus', AprobacionEstatus::Pendiente->value)
-            ->update([
-                'estatus' => AprobacionEstatus::Cancelada->value,
-                'fecha_respuesta' => now(),
-            ]);
+            // Cancelar las aprobaciones pendientes de la cadena para que salgan de
+            // la bandeja de aprobación (mismo criterio que un rechazo). No se borran:
+            // quedan como Cancelada para conservar el historial.
+            $solicitudPago->cadenaAprobacion()
+                ->where('estatus', AprobacionEstatus::Pendiente->value)
+                ->update([
+                    'estatus' => AprobacionEstatus::Cancelada->value,
+                    'fecha_respuesta' => now(),
+                ]);
 
-        $solicitudPago->transitionTo(SolicitudPagoEstatus::Cancelada);
-        $solicitudPago->registrarCancelacion($request->validated('motivo'), $request->user()->id);
+            $solicitudPago->transitionTo(SolicitudPagoEstatus::Cancelada);
+            $solicitudPago->registrarCancelacion($request->validated('motivo'), $request->user()->id);
+        });
 
         return back()->with('success', 'Solicitud cancelada.');
     }
@@ -799,29 +811,31 @@ class SolicitudPagoController extends Controller
             return back()->withErrors(['confirmada_costos' => 'La solicitud ya fue confirmada por costos.']);
         }
 
-        $solicitudPago->update([
-            'confirmada_costos' => true,
-            'confirmada_costos_por' => $request->user()->id,
-            'confirmada_costos_at' => now(),
-        ]);
-
-        // Contado: crear pago inmediatamente
-        if ($solicitudPago->tipo_pago !== 'credito') {
-            Pago::create([
-                'pagable_type' => SolicitudPago::class,
-                'pagable_id' => $solicitudPago->id,
-                'monto_pago' => $solicitudPago->monto_total,
-                'moneda' => $solicitudPago->tipo_moneda ?? 'mxn',
-                'tipo_cambio' => $solicitudPago->tipo_cambio ?? 1,
-                'tipo_pago' => 'contado',
-                'fecha_pago_programada' => $solicitudPago->fecha_pago_solicitada,
-                'estatus' => 'programado',
+        DB::transaction(function () use ($solicitudPago, $request) {
+            $solicitudPago->update([
+                'confirmada_costos' => true,
+                'confirmada_costos_por' => $request->user()->id,
+                'confirmada_costos_at' => now(),
             ]);
 
-            return back()->with('success', 'Solicitud confirmada y pago programado.');
-        }
+            // Contado: crear pago inmediatamente
+            if ($solicitudPago->tipo_pago !== 'credito') {
+                Pago::create([
+                    'pagable_type' => SolicitudPago::class,
+                    'pagable_id' => $solicitudPago->id,
+                    'monto_pago' => $solicitudPago->monto_total,
+                    'moneda' => $solicitudPago->tipo_moneda ?? 'mxn',
+                    'tipo_cambio' => $solicitudPago->tipo_cambio ?? 1,
+                    'tipo_pago' => 'contado',
+                    'fecha_pago_programada' => $solicitudPago->fecha_pago_solicitada,
+                    'estatus' => 'programado',
+                ]);
+            }
+        });
 
-        return back()->with('success', 'Solicitud confirmada por costos. Pendiente confirmación de contabilidad.');
+        return back()->with('success', $solicitudPago->tipo_pago !== 'credito'
+            ? 'Solicitud confirmada y pago programado.'
+            : 'Solicitud confirmada por costos. Pendiente confirmación de contabilidad.');
     }
 
     public function confirmarContabilidad(Request $request, SolicitudPago $solicitudPago): RedirectResponse
@@ -840,21 +854,24 @@ class SolicitudPagoController extends Controller
             return back()->withErrors(['confirmada_contabilidad' => 'La solicitud ya fue confirmada por contabilidad.']);
         }
 
-        $solicitudPago->update([
-            'confirmada_contabilidad' => true,
-            'confirmada_contabilidad_por' => $request->user()->id,
-            'confirmada_contabilidad_at' => now(),
-        ]);
+        DB::transaction(function () use ($solicitudPago, $request) {
+            $solicitudPago->update([
+                'confirmada_contabilidad' => true,
+                'confirmada_contabilidad_por' => $request->user()->id,
+                'confirmada_contabilidad_at' => now(),
+            ]);
 
-        Pago::create([
-            'pagable_type' => SolicitudPago::class,
-            'pagable_id' => $solicitudPago->id,
-            'monto_pago' => $solicitudPago->monto_total,
-            'moneda' => $solicitudPago->tipo_moneda ?? 'mxn',
-            'tipo_pago' => 'credito',
-            'fecha_pago_programada' => $solicitudPago->fecha_pago_solicitada,
-            'estatus' => 'programado',
-        ]);
+            Pago::create([
+                'pagable_type' => SolicitudPago::class,
+                'pagable_id' => $solicitudPago->id,
+                'monto_pago' => $solicitudPago->monto_total,
+                'moneda' => $solicitudPago->tipo_moneda ?? 'mxn',
+                'tipo_cambio' => $solicitudPago->tipo_cambio ?? 1,
+                'tipo_pago' => 'credito',
+                'fecha_pago_programada' => $solicitudPago->fecha_pago_solicitada,
+                'estatus' => 'programado',
+            ]);
+        });
 
         return back()->with('success', 'Solicitud confirmada por contabilidad y pago programado.');
     }

@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -36,6 +37,8 @@ class PresupuestoController extends Controller
 
     public function index(Request $request): Response
     {
+        Gate::authorize('costos.obra-rubros.ver');
+
         $umbral = (int) config('costos.umbral_alerta_porcentaje', 90);
 
         $planta = Presupuesto::query()
@@ -96,6 +99,8 @@ class PresupuestoController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        Gate::authorize('costos.obra-rubros.crear');
+
         $validated = $request->validate([
             'presupuestable_type' => ['required', Rule::in(array_values(self::TIPOS))],
             'presupuestable_id' => ['required', 'integer'],
@@ -122,6 +127,8 @@ class PresupuestoController extends Controller
 
     public function storePlanta(PlantaStoreRequest $request): RedirectResponse
     {
+        Gate::authorize('costos.obra-rubros.crear');
+
         $planta = Obra::create([
             'no' => 'PLANTA',
             'descripcion' => $request->validated('descripcion'),
@@ -139,6 +146,8 @@ class PresupuestoController extends Controller
 
     public function edit(Presupuesto $presupuesto): Response
     {
+        Gate::authorize('costos.obra-rubros.editar');
+
         $presupuesto->load(['presupuestable', 'rubros.rubro.tipoRubro']);
         if ($presupuesto->presupuestable instanceof Partida) {
             $presupuesto->presupuestable->loadMissing('obra:id,no');
@@ -171,6 +180,8 @@ class PresupuestoController extends Controller
 
     public function update(Request $request, Presupuesto $presupuesto): RedirectResponse
     {
+        Gate::authorize('costos.obra-rubros.editar');
+
         $validated = $request->validate([
             'nombre_interno' => ['nullable', 'string', 'max:255'],
             'op_interno' => ['nullable', 'string', 'max:255'],
@@ -215,6 +226,8 @@ class PresupuestoController extends Controller
      */
     public function cambiarEstado(Presupuesto $presupuesto): RedirectResponse
     {
+        Gate::authorize('costos.obra-rubros.editar');
+
         $nuevo = $presupuesto->estaCerrado() ? PresupuestoEstatus::Activo : PresupuestoEstatus::Cerrado;
 
         $presupuesto->transitionTo($nuevo);
@@ -277,6 +290,8 @@ class PresupuestoController extends Controller
      */
     public function obrasActivas(Request $request): Response
     {
+        Gate::authorize('costos.obra-rubros.ver');
+
         $estatus = $request->string('estatus')->toString() === PresupuestoEstatus::Cerrado->value
             ? PresupuestoEstatus::Cerrado->value
             : PresupuestoEstatus::Activo->value;
@@ -458,6 +473,8 @@ class PresupuestoController extends Controller
 
     public function generarReportePdf(): HttpResponse
     {
+        Gate::authorize('costos.obra-rubros.ver');
+
         $tipos = TipoRubro::with(['rubros' => fn ($q) => $q->where('ambito', 'obra')
             ->where('ocultar_en_reporte', false)
             ->orderBy('codigo')])

@@ -36,6 +36,8 @@ class FacturaAdminController extends Controller
 
     public function index(Request $request): Response
     {
+        Gate::authorize('costos.facturas.ver');
+
         $query = Factura::query()
             ->with(['proveedor:id,razon_social,nombre_comercial', 'ordenCompra:id,folio', 'mediaPdf'])
             ->when($request->search, function ($query, $search) {
@@ -189,6 +191,8 @@ class FacturaAdminController extends Controller
 
     public function show(Factura $factura): Response
     {
+        Gate::authorize('costos.facturas.ver');
+
         $factura->load([
             'proveedor',
             'ordenCompra.detalles.obraRubro.rubro',
@@ -218,6 +222,8 @@ class FacturaAdminController extends Controller
 
     public function aprobarCostos(Request $request, Factura $factura): RedirectResponse
     {
+        Gate::authorize('costos.facturas.aprobar');
+
         if ($factura->estatus !== FacturaEstatus::PendienteAprobacion) {
             return back()->withErrors(['estatus' => 'La factura debe estar pendiente de aprobación.']);
         }
@@ -306,15 +312,18 @@ class FacturaAdminController extends Controller
                 'estatus' => 'programado',
             ]);
 
-            if ($proveedor && $proveedor->email) {
-                Mail::to($proveedor->email)->send(new FacturaAceptadaMail($factura, $proveedor));
-                Mail::to($proveedor->email)->send(new PagoProgramadoMail($pago, $proveedor));
-            }
-
             $factura->ordenCompra->recalcularEstatus();
 
             return $pago;
         });
+
+        // Correos después del commit: un SMTP lento no debe mantener la
+        // transacción abierta ni un fallo de correo revertir el pago.
+        $proveedor = $factura->proveedor;
+        if ($proveedor && $proveedor->email) {
+            Mail::to($proveedor->email)->send(new FacturaAceptadaMail($factura, $proveedor));
+            Mail::to($proveedor->email)->send(new PagoProgramadoMail($pago, $proveedor));
+        }
 
         return back()->with('success', 'Factura aceptada y pago programado para '.$pago->fecha_pago_programada->format('d/m/Y').'.');
     }
@@ -342,6 +351,7 @@ class FacturaAdminController extends Controller
 
     public function reporteSemanal(FacturaReporteRequest $request): \Symfony\Component\HttpFoundation\Response
     {
+        Gate::authorize('costos.facturas.ver');
         $anio = (int) $request->anio;
         $semana = (int) $request->semana;
 
@@ -438,6 +448,7 @@ class FacturaAdminController extends Controller
 
     public function reporteSemanalProveedor(FacturaReporteProveedorRequest $request): \Symfony\Component\HttpFoundation\Response
     {
+        Gate::authorize('costos.facturas.ver');
         $anio = (int) $request->anio;
         $semana = (int) $request->semana;
         $proveedor = Proveedor::findOrFail($request->proveedor_id);
