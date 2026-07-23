@@ -1,4 +1,5 @@
 import { CancelarModal } from '@/components/costos/cancelar-modal';
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/components/ui/formatted-date';
 import { useCan } from '@/hooks/use-can';
@@ -131,7 +132,7 @@ function ParcialidadesTable({ parciales }: { parciales: CostosPago[] }) {
                                         {p.folio}
                                     </Link>
                                 </td>
-                                <td className="text-right">${Number(p.monto_pago).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                <td className="text-right">{fmtMonto(p.monto_pago, p.moneda)}</td>
                                 <td>{formatDate(p.fecha_pago_programada) ?? '-'}</td>
                                 <td>{formatDate(p.fecha_pago_realizada) ?? '-'}</td>
                                 <td>
@@ -263,7 +264,7 @@ export default function PagosShow({ pago }: Props) {
                     <div className="space-y-3">
                         <div>
                             <span className="text-sm text-base-content/60">Monto</span>
-                            <p className="text-xl font-bold">${Number(pago.monto_pago).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                            <p className="text-xl font-bold">{fmtMonto(pago.monto_pago, pago.moneda)}</p>
                         </div>
                         <div>
                             <span className="text-sm text-base-content/60">Fecha Programada</span>
@@ -353,7 +354,7 @@ export default function PagosShow({ pago }: Props) {
                                 )}
                                 <div className="flex justify-between">
                                     <span className="text-base-content/60">Monto</span>
-                                    <span className="font-medium">${Number(pago.monto_pago).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                                    <span className="font-medium">{fmtMonto(pago.monto_pago, pago.moneda)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-base-content/60">Tipo de Pago</span>

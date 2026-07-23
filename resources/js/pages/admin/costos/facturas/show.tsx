@@ -1,6 +1,7 @@
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { AplicarAnticipoModal } from '@/components/costos/aplicar-anticipo-modal';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -29,7 +30,7 @@ export default function FacturasShow({ factura }: Props) {
     const [showCerrarModal, setShowCerrarModal] = useState(false);
     const [aprobarProcessing, setAprobarProcessing] = useState(false);
     const [aceptarProcessing, setAceptarProcessing] = useState(false);
-    const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const formatMoney = (n: number) => fmtMonto(n, factura.moneda);
 
     const fechaPago = useMemo(() => {
         const dias = factura.proveedor?.dias_credito_default;
@@ -460,7 +461,7 @@ export default function FacturasShow({ factura }: Props) {
 }
 
 function NotasCreditoPanel({ factura }: { factura: CostosFactura }) {
-    const fmt = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const fmt = (n: number) => fmtMonto(n, factura.moneda);
 
     const notas = factura.notas_credito ?? [];
     const totalNotas = Number(factura.monto_notas_credito ?? 0);
@@ -536,7 +537,7 @@ function NotasCreditoPanel({ factura }: { factura: CostosFactura }) {
 
 function AnticiposAplicadosPanel({ factura, canAplicar }: { factura: CostosFactura; canAplicar: boolean }) {
     const [open, setOpen] = useState(false);
-    const fmt = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const fmt = (n: number) => fmtMonto(n, factura.moneda);
 
     const aplicaciones = factura.anticipos_aplicados ?? [];
     const totalAnticipos = Number(factura.monto_anticipos ?? 0);

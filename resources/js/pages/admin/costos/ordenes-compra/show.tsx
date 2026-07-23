@@ -5,6 +5,7 @@ import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { DevolverItemModal } from '@/components/costos/devolver-item-modal';
 import { EntregaModal } from '@/components/costos/entrega-modal';
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { CONTADO_STEPS, getContadoStep } from '@/components/costos/oc-contado';
 import { SubirFacturaContadoModal } from '@/components/costos/subir-factura-contado-modal';
 import { Button } from '@/components/ui/button';
@@ -66,7 +67,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
         && getContadoStep(ordenCompra) === 3
         && can('costos.facturas.crear');
 
-    const formatMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const formatMoney = (n: number) => fmtMonto(n, ordenCompra.moneda);
 
     const puedeCrearAnticipo = can('costos.anticipos.crear')
         && !['cancelada', 'pagada'].includes(ordenCompra.estatus);
@@ -643,7 +644,7 @@ function DocPreviewModal({ url, title, onClose }: { url: string; title: string; 
 
 function DocumentosTree({ ordenCompra }: { ordenCompra: CostosOrdenCompra }) {
     const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
-    const fmtMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const fmtMoney = (n: number) => fmtMonto(n, ordenCompra.moneda);
     const baseUrl = `/admin/costos/ordenes-compra/${ordenCompra.id}`;
     const [preview, setPreview] = useState<{ url: string; title: string } | null>(null);
     const openPreview: PreviewFn = (url, title) => setPreview({ url, title });

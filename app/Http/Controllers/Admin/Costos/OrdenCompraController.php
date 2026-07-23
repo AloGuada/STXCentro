@@ -154,6 +154,7 @@ class OrdenCompraController extends Controller
                 'impuestos_detalle' => $fiscal['impuestos_detalle'] ?? null,
                 'total' => $fiscal['total'] ?? 0,
                 'moneda' => $ordenCompra->moneda,
+                'tipo_cambio' => $ordenCompra->tipo_cambio,
                 'metodo_pago' => $fiscal['metodo_pago'] ?? null,
                 'forma_pago' => $fiscal['forma_pago'] ?? null,
                 'fecha_factura' => $fiscal['fecha_factura'] ?? null,
