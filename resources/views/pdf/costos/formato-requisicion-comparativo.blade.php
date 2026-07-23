@@ -173,7 +173,12 @@
             @endphp
             <tr>
                 <td class="text-right">{{ number_format($d->cantidad, 2) }} {{ $d->unidad }}</td>
-                <td>{{ $d->descripcion }}</td>
+                <td>
+                    {{ $d->descripcion }}
+                    @if($d->solo_cotizacion)
+                        <span style="font-size: 8px; color: #666; font-style: italic;">(solo cotización — no suma)</span>
+                    @endif
+                </td>
                 <td>
                     @if($d->obraRubro?->obra)
                         {{ $d->obraRubro->obra->no ? 'OP-'.$d->obraRubro->obra->no.' ' : '' }}{{ $d->obraRubro->obra->descripcion }}
@@ -208,7 +213,9 @@
                     @endforeach
                 @endforeach
                 <td class="text-right">
-                    @if($info['tiene'])
+                    @if($d->solo_cotizacion)
+                        <span style="font-size: 8px; color: #666; font-style: italic;">no suma</span>
+                    @elseif($info['tiene'])
                         ${{ number_format($info['importe'], 2) }}
                     @else
                         -
