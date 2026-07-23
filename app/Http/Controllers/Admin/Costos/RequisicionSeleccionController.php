@@ -29,6 +29,12 @@ class RequisicionSeleccionController extends Controller
 
         $this->ensureEditable($cotizacion->detalle->requisicion->estatus);
 
+        if ($cotizacion->detalle->solo_cotizacion) {
+            return back()->withErrors([
+                'cotizacion_precio_id' => 'La partida es solo cotización: se compara como referencia pero no se surte en la OC.',
+            ]);
+        }
+
         $cantidad = (float) $request->input('cantidad');
         $numeroOc = (int) ($request->input('numero_oc') ?: 1);
         $cantidadPartida = (float) $cotizacion->detalle->cantidad;

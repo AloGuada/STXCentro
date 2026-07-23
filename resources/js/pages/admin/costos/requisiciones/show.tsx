@@ -1836,9 +1836,10 @@ function ComparativoCotizaciones({
     requisicion: CostosRequisicion;
     tc: number;
 }) {
-    // Las partidas "solo cotización" (ej. fletes variables) son referencia
-    // interna: no forman parte del comparativo formal ni del PDF.
-    const detalles = (requisicion.detalles ?? []).filter((d) => !d.solo_cotizacion);
+    // Las partidas "solo cotización" (ej. fletes variables) sí aparecen en el
+    // comparativo y el PDF como referencia, pero no suman a los totales ni se
+    // surten al definir la OC.
+    const detalles = requisicion.detalles ?? [];
 
     // Columnas = opciones con al menos un precio, agrupadas por proveedor.
     const opcionConPrecio = new Set<number>();
@@ -1977,7 +1978,13 @@ function ComparativoCotizaciones({
         }
     }
 
-    const filas = detalles.map((d) => ({ d, ...importeDetalle(d) }));
+    const filas = detalles.map((d) => ({
+        d,
+        esSoloCotizacion: !!d.solo_cotizacion,
+        ...(d.solo_cotizacion
+            ? { contribs: [], tieneImporte: false }
+            : importeDetalle(d)),
+    }));
 
     // Totales del pie por divisa (divisas primero, MXN al final) + combinado
     // en MXN con el TC del documento cuando hay exactamente una divisa.
@@ -2065,13 +2072,23 @@ function ComparativoCotizaciones({
                         </tr>
                     </thead>
                     <tbody>
-                        {filas.map(({ d, tieneImporte, contribs }) => (
+                        {filas.map(({ d, tieneImporte, contribs, esSoloCotizacion }) => (
                             <tr key={d.id}>
                                 <td className="text-right">
                                     {Number(d.cantidad).toLocaleString('es-MX')}{' '}
                                     {d.unidad}
                                 </td>
-                                <td>{d.descripcion}</td>
+                                <td>
+                                    {d.descripcion}
+                                    {esSoloCotizacion && (
+                                        <span
+                                            className="badge badge-ghost badge-xs ml-1 align-middle"
+                                            title="Se cotiza como referencia: no suma al total ni se surte en la OC"
+                                        >
+                                            solo cotización
+                                        </span>
+                                    )}
+                                </td>
                                 {columnas.map((op) => {
                                     const cot = cotizacionDe(d.id, op.id);
                                     const px = cot
@@ -2149,7 +2166,14 @@ function ComparativoCotizaciones({
                                     );
                                 })}
                                 <td className="text-right font-semibold">
-                                    {tieneImporte ? (
+                                    {esSoloCotizacion ? (
+                                        <span
+                                            className="text-xs font-normal text-base-content/40 italic"
+                                            title="No suma al total"
+                                        >
+                                            no suma
+                                        </span>
+                                    ) : tieneImporte ? (
                                         contribs
                                             .map((c) => fmt(c.importe, c.moneda))
                                             .join(' + ')

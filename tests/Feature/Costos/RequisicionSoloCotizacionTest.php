@@ -197,3 +197,68 @@ test('liberar no genera línea de OC para una partida solo cotización', functio
     expect($oc->detalles()->count())->toBe(1)
         ->and((float) $oc->detalles()->first()->subtotal)->toBe(100.0); // 20 × 5.
 });
+
+test('no se puede crear una selección sobre una partida solo cotización', function () {
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
+    $prov = Proveedor::factory()->create();
+
+    $flete = RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'cantidad' => 1,
+        'solo_cotizacion' => true,
+    ]);
+    $precio = precioDe($flete, $prov, 500.00);
+
+    $this->actingAs($this->compras)
+        ->post('/admin/costos/requisiciones/selecciones', [
+            'cotizacion_precio_id' => $precio->id,
+            'cantidad' => 1,
+        ])
+        ->assertSessionHasErrors('cotizacion_precio_id');
+
+    expect(RequisicionSeleccion::count())->toBe(0);
+});
+
+test('marcar solo cotización elimina las selecciones existentes de la partida', function () {
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
+    $prov = Proveedor::factory()->create();
+
+    $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 3]);
+    $precio = precioDe($detalle, $prov, 10.00);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+        'cotizacion_precio_id' => $precio->id,
+        'numero_oc' => 1,
+        'proveedor_id' => $prov->id,
+        'cantidad' => 3,
+    ]);
+
+    $this->actingAs($this->compras)
+        ->post("/admin/costos/requisiciones/detalles/{$detalle->id}/solo-cotizacion", ['solo_cotizacion' => true])
+        ->assertRedirect();
+
+    expect($detalle->fresh()->solo_cotizacion)->toBeTrue()
+        ->and($detalle->selecciones()->count())->toBe(0);
+});
+
+test('el PDF del comparativo se genera con partidas solo cotización presentes', function () {
+    Permission::firstOrCreate(['name' => 'costos.requisiciones.ver', 'guard_name' => 'web']);
+    $this->compras->givePermissionTo('costos.requisiciones.ver');
+
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'pendiente_aprobacion']);
+    $prov = Proveedor::factory()->create();
+
+    $normal = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 2]);
+    precioDe($normal, $prov, 100.00);
+
+    RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'cantidad' => 1,
+        'solo_cotizacion' => true,
+        'descripcion' => 'Flete de referencia',
+    ]);
+
+    $this->actingAs($this->compras)
+        ->get("/admin/costos/requisiciones/{$req->id}/pdf")
+        ->assertOk();
+});

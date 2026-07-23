@@ -186,10 +186,10 @@ class RequisicionCotizacionController extends Controller
     }
 
     /**
-     * Marca/desmarca una partida como "solo cotización": se cotiza como
-     * referencia (ej. un flete de cantidad variable) y suma al total de captura,
-     * pero no se adjudica a proveedor, no aparece en el comparativo/PDF ni afecta
-     * el neto a pagar ni las órdenes de compra.
+     * Marca/desmarca una partida como "solo cotización": se cotiza y aparece en
+     * el comparativo/PDF como referencia (ej. un flete de cantidad variable),
+     * pero no suma a los totales, no se adjudica a proveedor ni se surte en las
+     * órdenes de compra. Al marcarla se eliminan sus selecciones existentes.
      */
     public function soloCotizacion(Request $request, RequisicionDetalle $detalle): RedirectResponse
     {
@@ -203,6 +203,10 @@ class RequisicionCotizacionController extends Controller
         ]);
 
         $detalle->update(['solo_cotizacion' => $validated['solo_cotizacion']]);
+
+        if ($validated['solo_cotizacion']) {
+            $detalle->selecciones()->delete();
+        }
 
         return back()->with('success', 'Partida actualizada.');
     }

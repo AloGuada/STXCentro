@@ -365,13 +365,9 @@ class RequisicionController extends Controller
             'cotizacionOpciones.proveedor:id,razon_social,nombre_comercial',
         ]);
 
-        // Las partidas "solo cotización" (ej. fletes de cantidad variable) son
-        // de referencia interna y no forman parte del comparativo formal.
-        $requisicion->setRelation(
-            'detalles',
-            $requisicion->detalles->reject->solo_cotizacion->values(),
-        );
-
+        // Las partidas "solo cotización" (ej. fletes de cantidad variable) sí se
+        // muestran en el comparativo como referencia; el builder de totales las
+        // excluye de la suma y la vista las marca.
         $firmas = app(FirmasPdfBuilder::class)->build(
             $requisicion->tipoAprobacion(),
             $requisicion->departamento_id,
