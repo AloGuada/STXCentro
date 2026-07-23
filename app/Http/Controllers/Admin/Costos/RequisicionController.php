@@ -504,7 +504,11 @@ class RequisicionController extends Controller
         /** @var Aprobacion $aprobacion */
         $aprobacion = $requisicion->aprobaciones->firstWhere('id', $aprobacionPendienteId);
 
-        DB::transaction(function () use ($request, $requisicion, $aprobacion, $aprobaciones) {
+        // Resolución DNS inversa fuera de la transacción (es una llamada de red
+        // bloqueante; no debe mantener la transacción abierta).
+        $hostname = gethostbyaddr($request->ip()) ?: null;
+
+        DB::transaction(function () use ($request, $requisicion, $aprobacion, $aprobaciones, $hostname) {
             $rechazoSinReemplazo = false;
 
             foreach ($request->input('validaciones', []) as $val) {
@@ -557,7 +561,7 @@ class RequisicionController extends Controller
                     'observaciones' => $motivo,
                     'motivo_rechazo' => $motivo,
                     'ip' => $request->ip(),
-                    'hostname' => gethostbyaddr($request->ip()) ?: null,
+                    'hostname' => $hostname,
                 ]);
                 $aprobacion->transitionTo(AprobacionEstatus::Rechazada);
                 $requisicion->cadenaAprobacion()
@@ -572,7 +576,7 @@ class RequisicionController extends Controller
                 $aprobacion,
                 $request->input('observaciones'),
                 $request->ip(),
-                gethostbyaddr($request->ip()) ?: null,
+                $hostname,
             );
         });
 

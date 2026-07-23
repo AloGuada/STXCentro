@@ -312,15 +312,18 @@ class FacturaAdminController extends Controller
                 'estatus' => 'programado',
             ]);
 
-            if ($proveedor && $proveedor->email) {
-                Mail::to($proveedor->email)->send(new FacturaAceptadaMail($factura, $proveedor));
-                Mail::to($proveedor->email)->send(new PagoProgramadoMail($pago, $proveedor));
-            }
-
             $factura->ordenCompra->recalcularEstatus();
 
             return $pago;
         });
+
+        // Correos después del commit: un SMTP lento no debe mantener la
+        // transacción abierta ni un fallo de correo revertir el pago.
+        $proveedor = $factura->proveedor;
+        if ($proveedor && $proveedor->email) {
+            Mail::to($proveedor->email)->send(new FacturaAceptadaMail($factura, $proveedor));
+            Mail::to($proveedor->email)->send(new PagoProgramadoMail($pago, $proveedor));
+        }
 
         return back()->with('success', 'Factura aceptada y pago programado para '.$pago->fecha_pago_programada->format('d/m/Y').'.');
     }
