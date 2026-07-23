@@ -270,3 +270,18 @@ describe('subir factura de contado (admin / Compras)', function () {
             ->assertSessionHasErrors(['xml']);
     });
 });
+
+test('el registro de factura CFDI es atómico: si falla el adjunto no queda factura ni media', function () {
+    $oc = OrdenCompra::factory()->pendienteFactura()->create();
+
+    expect(fn () => app(\App\Services\Costos\RegistradorFacturaCfdi::class)->registrar(
+        $oc,
+        ['total' => 100, 'uuid_fiscal' => 'ATOMICO1-AAAA-AAAA-AAAA-AAAAAAAAAAAA'],
+        ['estatus' => FacturaEstatus::PendienteAprobacion->value],
+        function () {
+            throw new RuntimeException('falla simulada al adjuntar');
+        },
+    ))->toThrow(RuntimeException::class);
+
+    expect(Factura::where('uuid_fiscal', 'ATOMICO1-AAAA-AAAA-AAAA-AAAAAAAAAAAA')->exists())->toBeFalse();
+});

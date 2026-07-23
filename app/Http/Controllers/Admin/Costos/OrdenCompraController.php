@@ -19,6 +19,7 @@ use App\Models\Proveedor;
 use App\Services\Costos\CfdiXmlParser;
 use App\Services\Costos\ComparativoTotalesBuilder;
 use App\Services\Costos\FirmasPdfBuilder;
+use App\Services\Costos\RegistradorFacturaCfdi;
 use App\Services\Costos\RetencionCalculator;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +27,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -96,7 +96,7 @@ class OrdenCompraController extends Controller
      * total); no genera un segundo pago (el anticipo ya cubrió la OC). Requiere
      * recepción previa del almacén.
      */
-    public function subirFacturaContado(Request $request, OrdenCompra $ordenCompra, CfdiXmlParser $parser): RedirectResponse
+    public function subirFacturaContado(Request $request, OrdenCompra $ordenCompra, CfdiXmlParser $parser, RegistradorFacturaCfdi $registrador): RedirectResponse
     {
         Gate::authorize('costos.facturas.crear');
 
@@ -120,18 +120,8 @@ class OrdenCompraController extends Controller
             return back()->withErrors(['xml' => 'No se pudo leer el CFDI: '.$e->getMessage()]);
         }
 
-        if (! empty($fiscal['uuid_fiscal']) && Factura::where('uuid_fiscal', $fiscal['uuid_fiscal'])->exists()) {
-            return back()->withErrors(['xml' => 'Ya existe una factura registrada con ese UUID fiscal.']);
-        }
-
-        $saldoFacturable = (float) $ordenCompra->saldo_facturable;
-        $totalCfdi = (float) ($fiscal['total'] ?? 0);
-        if ($totalCfdi > $saldoFacturable + (float) config('costos.epsilon_monto')) {
-            return back()->withErrors(['xml' => sprintf(
-                'El total del CFDI ($%s) excede el saldo facturable de la OC ($%s). Verifica que el XML corresponda a esta orden.',
-                number_format($totalCfdi, 2),
-                number_format($saldoFacturable, 2),
-            )]);
+        if ($error = $registrador->validar($ordenCompra, $fiscal)) {
+            return back()->withErrors(['xml' => $error]);
         }
 
         // El anticipo de contado ya pagó la OC: la factura es solo el comprobante
@@ -140,58 +130,19 @@ class OrdenCompraController extends Controller
         $anticipoPagado = $ordenCompra->pagadaAnticipoContado();
         $userId = $request->user()->id;
 
-        $factura = DB::transaction(function () use ($ordenCompra, $fiscal, $request, $validated, $anticipoPagado, $userId) {
-            $factura = Factura::create([
-                'orden_compra_id' => $ordenCompra->id,
-                'proveedor_id' => $ordenCompra->proveedor_id,
-                'uuid_fiscal' => $fiscal['uuid_fiscal'] ?? null,
-                'folio_fiscal' => $fiscal['folio_fiscal'] ?? null,
-                'subtotal' => $fiscal['subtotal'] ?? 0,
-                'iva' => $fiscal['iva_trasladado'] ?? 0,
-                'iva_trasladado' => $fiscal['iva_trasladado'] ?? 0,
-                'iva_retenido' => $fiscal['iva_retenido'] ?? 0,
-                'isr_retenido' => $fiscal['isr_retenido'] ?? 0,
-                'impuestos_detalle' => $fiscal['impuestos_detalle'] ?? null,
-                'total' => $fiscal['total'] ?? 0,
-                'moneda' => $ordenCompra->moneda,
-                'tipo_cambio' => $ordenCompra->tipo_cambio,
-                'metodo_pago' => $fiscal['metodo_pago'] ?? null,
-                'forma_pago' => $fiscal['forma_pago'] ?? null,
-                'fecha_factura' => $fiscal['fecha_factura'] ?? null,
-                'estatus' => $anticipoPagado ? FacturaEstatus::Pagada->value : FacturaEstatus::PendienteAprobacion->value,
-                'aprobada_costos' => $anticipoPagado,
-                'aprobada_costos_por' => $anticipoPagado ? $userId : null,
-                'aprobada_costos_at' => $anticipoPagado ? now() : null,
-                'aceptada_contabilidad' => $anticipoPagado,
-                'aceptada_contabilidad_por' => $anticipoPagado ? $userId : null,
-                'aceptada_contabilidad_at' => $anticipoPagado ? now() : null,
-                'notas' => $validated['notas'] ?? null,
-            ]);
-
-            $dir = "facturas/{$ordenCompra->proveedor_id}/{$factura->id}";
-
-            $xmlPath = $request->file('xml')->storeAs($dir, 'cfdi.xml', 'public');
-            $factura->media()->create([
-                'descripcion' => DocumentoTipo::XmlFactura->value,
-                'nombre_original' => $request->file('xml')->getClientOriginalName(),
-                'path' => $xmlPath,
-                'mime' => 'application/xml',
-                'size' => Storage::disk('public')->size($xmlPath),
-            ]);
-
-            $pdfPath = $request->file('pdf')->storeAs($dir, 'cfdi.pdf', 'public');
-            $factura->media()->create([
-                'descripcion' => DocumentoTipo::PdfFactura->value,
-                'nombre_original' => $request->file('pdf')->getClientOriginalName(),
-                'path' => $pdfPath,
-                'mime' => 'application/pdf',
-                'size' => Storage::disk('public')->size($pdfPath),
-            ]);
-
-            return $factura;
+        $factura = $registrador->registrar($ordenCompra, $fiscal, [
+            'estatus' => $anticipoPagado ? FacturaEstatus::Pagada->value : FacturaEstatus::PendienteAprobacion->value,
+            'aprobada_costos' => $anticipoPagado,
+            'aprobada_costos_por' => $anticipoPagado ? $userId : null,
+            'aprobada_costos_at' => $anticipoPagado ? now() : null,
+            'aceptada_contabilidad' => $anticipoPagado,
+            'aceptada_contabilidad_por' => $anticipoPagado ? $userId : null,
+            'aceptada_contabilidad_at' => $anticipoPagado ? now() : null,
+            'notas' => $validated['notas'] ?? null,
+        ], function (Factura $factura) use ($request, $registrador) {
+            $registrador->adjuntarArchivo($factura, $request->file('xml'), DocumentoTipo::XmlFactura, 'cfdi.xml', 'application/xml');
+            $registrador->adjuntarArchivo($factura, $request->file('pdf'), DocumentoTipo::PdfFactura, 'cfdi.pdf', 'application/pdf');
         });
-
-        $ordenCompra->recalcularEstatus();
 
         return back()->with('success', "Factura {$factura->folio} registrada desde el CFDI.");
     }

@@ -10,9 +10,11 @@ use App\Models\Costos\ConfiguracionCostos;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Services\Costos\CfdiXmlParser;
+use App\Services\Costos\RegistradorFacturaCfdi;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -23,7 +25,10 @@ class PortalFacturaController extends Controller
 {
     private const SESSION_KEY = 'portal.factura.preview';
 
-    public function __construct(private readonly CfdiXmlParser $cfdiParser) {}
+    public function __construct(
+        private readonly CfdiXmlParser $cfdiParser,
+        private readonly RegistradorFacturaCfdi $registrador,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -71,22 +76,8 @@ class PortalFacturaController extends Controller
                 ->withErrors(['xml' => $e->getMessage()]);
         }
 
-        if (! empty($fiscal['uuid_fiscal'])
-            && Factura::where('uuid_fiscal', $fiscal['uuid_fiscal'])->exists()) {
-            return back()
-                ->withInput()
-                ->withErrors(['xml' => 'Ya existe una factura registrada con el UUID fiscal del XML.']);
-        }
-
-        $saldoFacturable = $oc->saldo_facturable;
-        $totalCfdi = (float) ($fiscal['total'] ?? 0);
-        if ($totalCfdi > $saldoFacturable + config('costos.epsilon_monto')) {
-            return back()
-                ->withErrors(['xml' => sprintf(
-                    'El monto del CFDI ($%s) excede el saldo facturable de la OC ($%s).',
-                    number_format($totalCfdi, 2),
-                    number_format($saldoFacturable, 2),
-                )]);
+        if ($error = $this->registrador->validar($oc, $fiscal)) {
+            return back()->withInput()->withErrors(['xml' => $error]);
         }
 
         // Limpia preview anterior si existía
@@ -168,89 +159,36 @@ class PortalFacturaController extends Controller
 
         $fiscal = $preview['fiscal'];
 
-        // Re-valida saldo (puede haber otra factura aprobada entre paso 1 y 2)
-        $saldoFacturable = $oc->saldo_facturable;
-        $totalCfdi = (float) ($fiscal['total'] ?? 0);
-        if ($totalCfdi > $saldoFacturable + config('costos.epsilon_monto')) {
+        // Re-valida saldo y UUID (puede haber otra factura entre paso 1 y 2)
+        if ($error = $this->registrador->validar($oc, $fiscal)) {
             $this->limpiarPreview();
 
             return redirect()->route('portal.ordenes-compra.show', $oc)
-                ->withErrors(['xml' => sprintf(
-                    'El monto del CFDI ($%s) ya excede el saldo facturable disponible ($%s).',
-                    number_format($totalCfdi, 2),
-                    number_format($saldoFacturable, 2),
-                )]);
+                ->withErrors(['xml' => $error]);
         }
 
-        // Re-valida UUID único
-        if (! empty($fiscal['uuid_fiscal'])
-            && Factura::where('uuid_fiscal', $fiscal['uuid_fiscal'])->exists()) {
-            $this->limpiarPreview();
-
-            return redirect()->route('portal.ordenes-compra.show', $oc)
-                ->withErrors(['xml' => 'Ya existe una factura registrada con ese UUID fiscal.']);
-        }
-
-        $factura = Factura::create([
-            'orden_compra_id' => $oc->id,
-            'proveedor_id' => $proveedor->id,
-            'uuid_fiscal' => $fiscal['uuid_fiscal'] ?? null,
-            'folio_fiscal' => $fiscal['folio_fiscal'] ?? null,
-            'subtotal' => $fiscal['subtotal'] ?? 0,
-            'iva' => $fiscal['iva_trasladado'] ?? 0,
-            'iva_trasladado' => $fiscal['iva_trasladado'] ?? 0,
-            'iva_retenido' => $fiscal['iva_retenido'] ?? 0,
-            'isr_retenido' => $fiscal['isr_retenido'] ?? 0,
-            'impuestos_detalle' => $fiscal['impuestos_detalle'] ?? null,
-            'total' => $fiscal['total'] ?? 0,
-            'moneda' => $oc->moneda,
-            'tipo_cambio' => $oc->tipo_cambio,
-            'metodo_pago' => $fiscal['metodo_pago'] ?? null,
-            'forma_pago' => $fiscal['forma_pago'] ?? null,
-            'fecha_factura' => $fiscal['fecha_factura'] ?? null,
+        $factura = $this->registrador->registrar($oc, $fiscal, [
             'estatus' => FacturaEstatus::PendienteRecepcion,
             'notas' => $validated['notas'] ?? null,
-        ]);
+        ], function (Factura $factura) use ($request, $preview) {
+            $this->registrador->adjuntarDesdeTemporal(
+                $factura, $preview['xml_path'], $preview['xml_original'],
+                DocumentoTipo::XmlFactura, 'cfdi.xml', 'application/xml',
+            );
 
-        // Mover XML temporal a definitivo
-        $xmlDest = "facturas/{$proveedor->id}/{$factura->id}/cfdi.xml";
-        Storage::disk('public')->move($preview['xml_path'], $xmlDest);
-        $factura->media()->create([
-            'descripcion' => DocumentoTipo::XmlFactura->value,
-            'nombre_original' => $preview['xml_original'],
-            'path' => $xmlDest,
-            'mime' => 'application/xml',
-            'size' => Storage::disk('public')->size($xmlDest),
-        ]);
-
-        // PDF: usa el del preview o el del paso 2 (puede haberse agregado/reemplazado)
-        $pdfFile = $request->file('pdf');
-        if ($pdfFile) {
-            // Reemplaza/agrega: descarta el del preview si existía
-            if (! empty($preview['pdf_path'])) {
-                Storage::disk('public')->delete($preview['pdf_path']);
+            // PDF: usa el del paso 2 si se agregó/reemplazó; si no, el del preview.
+            if ($pdfFile = $request->file('pdf')) {
+                if (! empty($preview['pdf_path'])) {
+                    Storage::disk('public')->delete($preview['pdf_path']);
+                }
+                $this->registrador->adjuntarArchivo($factura, $pdfFile, DocumentoTipo::PdfFactura, 'cfdi.pdf');
+            } elseif (! empty($preview['pdf_path'])) {
+                $this->registrador->adjuntarDesdeTemporal(
+                    $factura, $preview['pdf_path'], $preview['pdf_original'],
+                    DocumentoTipo::PdfFactura, 'cfdi.pdf', 'application/pdf',
+                );
             }
-            $pdfDest = $pdfFile->storeAs("facturas/{$proveedor->id}/{$factura->id}", 'cfdi.pdf', 'public');
-            $factura->media()->create([
-                'descripcion' => DocumentoTipo::PdfFactura->value,
-                'nombre_original' => $pdfFile->getClientOriginalName(),
-                'path' => $pdfDest,
-                'mime' => $pdfFile->getMimeType(),
-                'size' => $pdfFile->getSize(),
-            ]);
-        } elseif (! empty($preview['pdf_path'])) {
-            $pdfDest = "facturas/{$proveedor->id}/{$factura->id}/cfdi.pdf";
-            Storage::disk('public')->move($preview['pdf_path'], $pdfDest);
-            $factura->media()->create([
-                'descripcion' => DocumentoTipo::PdfFactura->value,
-                'nombre_original' => $preview['pdf_original'],
-                'path' => $pdfDest,
-                'mime' => 'application/pdf',
-                'size' => Storage::disk('public')->size($pdfDest),
-            ]);
-        }
-
-        $oc->recalcularEstatus();
+        });
 
         $this->limpiarPreview();
 
@@ -330,24 +268,30 @@ class PortalFacturaController extends Controller
             'comprobante' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
         ]);
 
-        // Reemplaza el comprobante anterior si existía.
         $anterior = $factura->mediaComprobanteRecepcion;
-        if ($anterior) {
-            Storage::disk('public')->delete($anterior->path);
-            $anterior->delete();
-        }
-
         $file = $request->file('comprobante');
         $dest = $file->store("facturas/{$proveedor->id}/{$factura->id}/comprobante", 'public');
-        $factura->media()->create([
-            'descripcion' => DocumentoTipo::ComprobanteRecepcion->value,
-            'nombre_original' => $file->getClientOriginalName(),
-            'path' => $dest,
-            'mime' => $file->getMimeType(),
-            'size' => $file->getSize(),
-        ]);
 
-        $factura->refresh()->intentarPasarAAprobacion();
+        DB::transaction(function () use ($factura, $anterior, $file, $dest) {
+            // Reemplaza el comprobante anterior si existía.
+            $anterior?->delete();
+
+            $factura->media()->create([
+                'descripcion' => DocumentoTipo::ComprobanteRecepcion->value,
+                'nombre_original' => $file->getClientOriginalName(),
+                'path' => $dest,
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ]);
+
+            $factura->refresh()->intentarPasarAAprobacion();
+        });
+
+        // El archivo físico anterior se borra tras el commit (si la transacción
+        // fallara, el registro y su archivo seguirían consistentes).
+        if ($anterior) {
+            Storage::disk('public')->delete($anterior->path);
+        }
 
         return back()->with('success', 'Comprobante de recepción subido correctamente.');
     }
