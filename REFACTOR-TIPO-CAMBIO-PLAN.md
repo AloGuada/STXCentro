@@ -102,8 +102,9 @@ El tipo de cambio se captura en **dos momentos**, con MXN como moneda base:
 - [x] `PagoController::uploadComprobante` llama la reconciliación tras `PagoProcessor::completar`.
 - [x] `PagoFactory` default `moneda='mxn'` (evita romper tests de comprobante con divisa random).
 - [x] Tests `ReconciliacionCambioPagoTest` (3 pasan): ajuste USD, prorrateo 2 rubros, mxn no-op.
-- [ ] (Pendiente v2) Pagos parciales / múltiples facturas por OC: escalar el delta por la
-      porción pagada. Hoy asume 1 pago por entidad presupuestal.
+- [x] Pagos parciales / múltiples facturas por OC: el delta se calcula por pago
+      (real − monto_pago × TC de referencia), prorrateado por rubro. Cada comprobante ajusta
+      solo su porción; no sobre-concilia la entidad.
 
 **Suite completo de Costos:** 792 pasan; 6 fallos preexistentes en `main` ajenos a este
 refactor (2 EditLock flaky, 1 OrdenCompraComprobante 403, 3 SolicitudPagoDesdeOc).

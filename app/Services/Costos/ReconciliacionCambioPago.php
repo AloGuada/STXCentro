@@ -16,9 +16,11 @@ use Illuminate\Support\Facades\DB;
  * (que se cargó con el TC de referencia) contra ese real, prorrateando el delta
  * entre los rubros afectados del documento vía el {@see AcumuladoLedger}.
  *
- * Supuesto v1: el pago cubre por completo la entidad presupuestal (una OC / una
- * SolicitudPago con un solo pago). Para pagos parciales o múltiples facturas por
- * OC habría que escalar el delta por la porción pagada (pendiente).
+ * El delta que se concilia es solo el de ESTE pago: real − (monto_pago × TC de
+ * referencia guardado en el pago). Así los pagos parciales y las múltiples
+ * facturas por OC ajustan cada uno su propia porción, sin sobre-conciliar la
+ * entidad completa. La ponderación entre rubros usa la participación de cada uno
+ * en el ejercido de la entidad.
  */
 class ReconciliacionCambioPago
 {
@@ -26,9 +28,10 @@ class ReconciliacionCambioPago
 
     public function reconciliar(Pago $pago, float $montoRealMxn): void
     {
+        $tcReferencia = (float) $pago->tipo_cambio;
         $tcPago = (float) $pago->monto_pago > 0.0
             ? round($montoRealMxn / (float) $pago->monto_pago, 4)
-            : (float) $pago->tipo_cambio;
+            : $tcReferencia;
 
         if (strtolower((string) $pago->moneda) === 'mxn') {
             $pago->update(['monto_mxn' => $montoRealMxn, 'tipo_cambio' => 1]);
@@ -44,7 +47,7 @@ class ReconciliacionCambioPago
             return;
         }
 
-        DB::transaction(function () use ($pago, $montoRealMxn, $tcPago, $entidad) {
+        DB::transaction(function () use ($pago, $montoRealMxn, $tcPago, $tcReferencia, $entidad) {
             $afectados = RubroAfectado::query()
                 ->where('entrada_type', $entidad::class)
                 ->where('entrada_id', $entidad->getKey())
@@ -52,15 +55,20 @@ class ReconciliacionCambioPago
                 ->lockForUpdate()
                 ->get();
 
-            $referencia = (float) $afectados->sum(fn (RubroAfectado $ra): float => (float) $ra->monto);
+            $pesoBase = (float) $afectados->sum(fn (RubroAfectado $ra): float => (float) $ra->monto);
 
-            if ($afectados->isEmpty() || $referencia <= 0.0) {
+            if ($afectados->isEmpty() || $pesoBase <= 0.0) {
                 $pago->update(['monto_mxn' => $montoRealMxn, 'tipo_cambio' => $tcPago]);
 
                 return;
             }
 
-            $delta = round($montoRealMxn - $referencia, 2);
+            // El delta a conciliar es solo la diferencia FX de ESTE pago (real −
+            // su referencia = monto_pago × TC guardado), no del total de la
+            // entidad: así los pagos parciales y las múltiples facturas por OC
+            // ajustan cada uno su porción sin sobre-conciliar.
+            $referenciaPago = round((float) $pago->monto_pago * $tcReferencia, 2);
+            $delta = round($montoRealMxn - $referenciaPago, 2);
             $repartido = 0.0;
             $ultimo = $afectados->count() - 1;
 
@@ -69,7 +77,7 @@ class ReconciliacionCambioPago
                 // Σ deltas == delta total exacto.
                 $deltaRubro = $i === $ultimo
                     ? round($delta - $repartido, 2)
-                    : round($delta * ((float) $ra->monto / $referencia), 2);
+                    : round($delta * ((float) $ra->monto / $pesoBase), 2);
                 $repartido += $deltaRubro;
 
                 if (abs($deltaRubro) >= 0.005) {
