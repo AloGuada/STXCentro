@@ -10,7 +10,11 @@ use App\Models\Proyecto;
 use App\Models\User;
 
 beforeEach(function () {
+    foreach (['ver', 'crear', 'editar'] as $accion) {
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => "costos.obra-rubros.{$accion}", 'guard_name' => 'web']);
+    }
     $this->user = User::factory()->create();
+    $this->user->givePermissionTo(['costos.obra-rubros.ver', 'costos.obra-rubros.crear', 'costos.obra-rubros.editar']);
 });
 
 describe('entidad presupuesto', function () {

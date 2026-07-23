@@ -11,6 +11,7 @@ use Spatie\Permission\Models\Permission;
 beforeEach(function () {
     $this->user = User::factory()->create();
     Permission::firstOrCreate(['name' => 'costos.facturas.aprobar', 'guard_name' => 'web']);
+    $this->user->givePermissionTo('costos.facturas.aprobar');
 });
 
 function crearFacturaPendienteAprobacion(): Factura

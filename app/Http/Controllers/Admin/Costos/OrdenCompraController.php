@@ -202,6 +202,8 @@ class OrdenCompraController extends Controller
      */
     public function exportar(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
+        Gate::authorize('costos.ordenes-compra.ver-todas');
+
         $filtros = $request->only('search', 'estatus', 'proveedor_id', 'presupuesto_id', 'tipo_pago');
 
         return Excel::download(
@@ -248,6 +250,8 @@ class OrdenCompraController extends Controller
 
     public function create(): Response
     {
+        Gate::authorize('costos.ordenes-compra.crear');
+
         return Inertia::render('admin/costos/ordenes-compra/create', [
             'proveedores' => Proveedor::where('activo', true)->orderBy('razon_social')->get(['id', 'razon_social', 'nombre_comercial']),
             'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
@@ -258,6 +262,8 @@ class OrdenCompraController extends Controller
 
     public function store(OrdenCompraStoreRequest $request): RedirectResponse
     {
+        Gate::authorize('costos.ordenes-compra.crear');
+
         $warnings = [];
         $oc = null;
 
@@ -315,10 +321,12 @@ class OrdenCompraController extends Controller
         return $redirect;
     }
 
-    public function show(OrdenCompra $ordenCompra, RetencionCalculator $retenciones): Response
+    /**
+     * Solo ve la OC quien puede ver todas, quien la creó, o el solicitante
+     * de la requisición que la originó (acceso de solo lectura por propiedad).
+     */
+    private function autorizarVer(OrdenCompra $ordenCompra): void
     {
-        // Solo ve la OC quien puede ver todas, quien la creó, o el solicitante
-        // de la requisición que la originó (acceso de solo lectura por propiedad).
         $ordenCompra->loadMissing('requisicion:id,solicitante_id');
         $user = auth()->user();
         abort_unless(
@@ -327,6 +335,11 @@ class OrdenCompraController extends Controller
                 || $ordenCompra->requisicion?->solicitante_id === $user->id,
             403,
         );
+    }
+
+    public function show(OrdenCompra $ordenCompra, RetencionCalculator $retenciones): Response
+    {
+        $this->autorizarVer($ordenCompra);
 
         $ordenCompra->load([
             'proveedor.regimenFiscal:id,clave,descripcion',
@@ -368,6 +381,8 @@ class OrdenCompraController extends Controller
 
     public function destroy(OrdenCompra $ordenCompra): RedirectResponse
     {
+        Gate::authorize('costos.ordenes-compra.eliminar');
+
         if ($ordenCompra->facturas()->exists()) {
             return back()->withErrors(['estatus' => 'No se puede eliminar una orden con facturas asociadas.']);
         }
@@ -409,6 +424,8 @@ class OrdenCompraController extends Controller
 
     public function pdfOc(Request $request, OrdenCompra $ordenCompra): HttpResponse
     {
+        $this->autorizarVer($ordenCompra);
+
         $ordenCompra->load([
             'proveedor',
             'departamento',
@@ -430,6 +447,8 @@ class OrdenCompraController extends Controller
 
     public function pdfRequisicion(OrdenCompra $ordenCompra): HttpResponse
     {
+        $this->autorizarVer($ordenCompra);
+
         $requisicion = $ordenCompra->requisicion;
         abort_if(! $requisicion, 404, 'Esta OC no tiene requisición de origen.');
 
@@ -468,6 +487,8 @@ class OrdenCompraController extends Controller
 
     public function pdfContrarecibo(OrdenCompra $ordenCompra, Factura $factura): HttpResponse
     {
+        $this->autorizarVer($ordenCompra);
+
         abort_if($factura->orden_compra_id !== $ordenCompra->id, 404);
 
         $ordenCompra->load('proveedor');

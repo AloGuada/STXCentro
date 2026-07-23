@@ -5,7 +5,9 @@ use App\Models\Obra;
 use App\Models\User;
 
 beforeEach(function () {
+    \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.obra-rubros.ver', 'guard_name' => 'web']);
     $this->user = User::factory()->create();
+    $this->user->givePermissionTo('costos.obra-rubros.ver');
 });
 
 it('lista solo los presupuestos activos por defecto y cuenta ambos', function () {

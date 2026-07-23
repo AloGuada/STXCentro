@@ -202,7 +202,9 @@ describe('PresupuestoController dashboard stats', function () {
         ObraRubro::factory()->create(['obra_id' => $obra->id, 'presupuestado' => 1000, 'acumulado' => 950]); // 95%
         ObraRubro::factory()->create(['obra_id' => $obra->id, 'presupuestado' => 1000, 'acumulado' => 1200]); // 120%
 
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.obra-rubros.ver', 'guard_name' => 'web']);
         $user = User::factory()->create();
+        $user->givePermissionTo('costos.obra-rubros.ver');
 
         $this->actingAs($user)
             ->get('/admin/costos/presupuestos')

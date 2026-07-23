@@ -631,6 +631,8 @@ class RequisicionController extends Controller
 
     public function update(RequisicionUpdateRequest $request, Requisicion $requisicion): RedirectResponse
     {
+        Gate::authorize('costos.requisiciones.crear');
+
         if (! in_array($requisicion->estatus, [RequisicionEstatus::Borrador, RequisicionEstatus::Rechazada], true)) {
             return back()->withErrors(['estatus' => 'Solo se pueden editar requisiciones en borrador o rechazadas.']);
         }

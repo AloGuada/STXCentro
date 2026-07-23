@@ -10,11 +10,11 @@ use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
-    foreach (['ver', 'ver-todas', 'crear', 'cancelar'] as $accion) {
+    foreach (['ver', 'ver-todas', 'crear', 'cancelar', 'eliminar'] as $accion) {
         Permission::firstOrCreate(['name' => "costos.ordenes-compra.{$accion}", 'guard_name' => 'web']);
     }
     // ver-todas: el index filtra por dueño salvo que el usuario pueda ver todas.
-    $this->user->givePermissionTo('costos.ordenes-compra.ver-todas');
+    $this->user->givePermissionTo(['costos.ordenes-compra.ver-todas', 'costos.ordenes-compra.crear', 'costos.ordenes-compra.eliminar']);
 });
 
 test('lista ordenes de compra', function () {
