@@ -5,8 +5,11 @@ use App\Models\User;
 use Illuminate\Support\Carbon;
 
 beforeEach(function () {
+    \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.requisiciones.crear', 'guard_name' => 'web']);
     $this->userA = User::factory()->create();
+    $this->userA->givePermissionTo('costos.requisiciones.crear');
     $this->userB = User::factory()->create();
+    $this->userB->givePermissionTo('costos.requisiciones.crear');
     darPermisosSolicitudesPago($this->userA);
     darPermisosSolicitudesPago($this->userB);
 });
@@ -106,6 +109,7 @@ describe('optimistic lock via updated_at en update', function () {
                 'concepto' => 'Actualizado',
                 'tipo_pago' => $solicitud->tipo_pago,
                 'tipo_moneda' => $solicitud->tipo_moneda ?? 'mxn',
+                'monto_total' => 100,
                 'detalles' => [],
                 '_version' => $solicitud->updated_at->toIso8601String(),
             ]);
@@ -130,6 +134,7 @@ describe('optimistic lock via updated_at en update', function () {
                 'concepto' => 'mi intento',
                 'tipo_pago' => $solicitud->tipo_pago,
                 'tipo_moneda' => $solicitud->tipo_moneda ?? 'mxn',
+                'monto_total' => 100,
                 'detalles' => [],
                 '_version' => $versionVieja,
             ])
@@ -150,6 +155,7 @@ describe('optimistic lock via updated_at en update', function () {
                 'concepto' => 'Actualizado',
                 'tipo_pago' => $solicitud->tipo_pago,
                 'tipo_moneda' => $solicitud->tipo_moneda ?? 'mxn',
+                'monto_total' => 100,
                 'detalles' => [],
                 '_version' => $solicitud->fresh()->updated_at->toIso8601String(),
             ])
