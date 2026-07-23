@@ -56,7 +56,7 @@ class SolicitudPagoDesdeOrdenCompra
                 'monto_total' => $oc->total,
                 'tipo_pago' => $metodoPago,
                 'tipo_moneda' => $oc->moneda,
-                'tipo_cambio' => $oc->tipo_cambio,
+                'tipo_cambio' => $oc->tipo_cambio ?? 1,
                 'fecha_pago_solicitada' => $this->fechaPagoInicial($fechaPago),
                 'estatus' => SolicitudPagoEstatus::PendienteFirma->value,
             ]);
@@ -136,6 +136,7 @@ class SolicitudPagoDesdeOrdenCompra
                     'monto_total' => $monto,
                     'tipo_pago' => $metodoPago,
                     'tipo_moneda' => $oc->moneda,
+                    'tipo_cambio' => $oc->tipo_cambio ?? 1,
                     'fecha_pago_solicitada' => $this->fechaPagoInicial($fechaPago),
                     'estatus' => SolicitudPagoEstatus::PendienteFirma->value,
                 ]);
