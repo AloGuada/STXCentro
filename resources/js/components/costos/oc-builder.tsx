@@ -16,8 +16,8 @@ import { TIPO_MONEDA_LABELS } from '@/types/models';
 
 type ProveedorMin = Pick<Proveedor, 'id' | 'razon_social' | 'nombre_comercial' | 'maneja_credito' | 'tipo_persona' | 'regimen_fiscal'>;
 
-const fmt = (n: number) =>
-    `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmt = (n: number, moneda?: CostosTipoMoneda) =>
+    `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${moneda ? ` ${TIPO_MONEDA_LABELS[moneda]}` : ''}`;
 
 const groupKey = (proveedorId: number, numeroOc: number) => `${proveedorId}|${numeroOc}`;
 
@@ -320,6 +320,7 @@ function OcCard({
     const monedas = new Set(lineas.map((l) => l.moneda));
     const monedaConflicto = monedas.size > 1;
     const moneda = lineas[0]?.moneda ?? 'mxn';
+    const monedaCard = monedaConflicto ? undefined : moneda;
 
     // Cada opción cotizada del proveedor para una partida no cubierta es una
     // entrada agregable: si el proveedor tiene varias opciones, el comprador
@@ -391,7 +392,7 @@ function OcCard({
                     {monedaConflicto ? (
                         <span className="badge badge-error badge-sm">Monedas mezcladas</span>
                     ) : (
-                        <span className="badge badge-ghost badge-sm">{TIPO_MONEDA_LABELS[moneda]}</span>
+                        <span className={`badge badge-sm ${moneda === 'mxn' ? 'badge-ghost' : 'badge-warning'}`}>{TIPO_MONEDA_LABELS[moneda]}</span>
                     )}
                 </div>
                 <div className="flex items-center gap-3 text-xs">
@@ -434,7 +435,7 @@ function OcCard({
             )}
 
             <div className="px-3 py-2">
-                <div className="grid grid-cols-[1fr_70px_90px_90px_30px] gap-2 border-b border-base-200 pb-1 text-[10px] uppercase tracking-wider text-base-content/60">
+                <div className="grid grid-cols-[1fr_70px_110px_110px_30px] gap-2 border-b border-base-200 pb-1 text-[10px] uppercase tracking-wider text-base-content/60">
                     <div>Concepto</div>
                     <div className="text-right">Cant.</div>
                     <div className="text-right">P. unit</div>
@@ -468,7 +469,7 @@ function OcCard({
                                 return (
                                     <option key={c.cot.id} value={c.cot.id}>
                                         {c.detalle.descripcion}
-                                        {etq ? ` · ${etq}` : ''} · faltan {c.restante.toLocaleString('es-MX')} {c.detalle.unidad} · {fmt(Number(c.cot.precio_unitario))}
+                                        {etq ? ` · ${etq}` : ''} · faltan {c.restante.toLocaleString('es-MX')} {c.detalle.unidad} · {fmt(Number(c.cot.precio_unitario), (c.cot.moneda ?? 'mxn') as CostosTipoMoneda)}
                                     </option>
                                 );
                             })}
@@ -478,29 +479,29 @@ function OcCard({
 
                 <div className="mt-2 grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 border-t border-base-200 pt-2 text-xs">
                     <div className="text-base-content/60">Subtotal</div>
-                    <div className="text-right">{fmt(subtotal)}</div>
+                    <div className="text-right">{fmt(subtotal, monedaCard)}</div>
 
                     <div className="text-base-content/60">IVA (16%)</div>
-                    <div className="text-right">+{fmt(iva)}</div>
+                    <div className="text-right">+{fmt(iva, monedaCard)}</div>
 
                     {/* Total (subtotal + IVA) antes de retenciones. Si no hay
                         retenciones, este es el total final y lleva el badge. */}
                     <div className={tieneRet ? 'font-medium' : 'text-sm font-bold'}>Total</div>
                     <div className={`text-right ${tieneRet ? 'font-medium' : 'text-sm font-bold'}`}>
-                        {fmt(total)}{!tieneRet && pagoBadge}
+                        {fmt(total, monedaCard)}{!tieneRet && pagoBadge}
                     </div>
 
                     {retenciones.map((r) => (
                         <Fragment key={r.clave}>
                             <div className="text-error/80">Ret. {r.concepto} ({(r.tasa * 100).toFixed(2)}%)</div>
-                            <div className="text-right text-error/80">−{fmt(r.monto)}</div>
+                            <div className="text-right text-error/80">−{fmt(r.monto, monedaCard)}</div>
                         </Fragment>
                     ))}
 
                     {tieneRet && (
                         <>
                             <div className="text-sm font-bold">Total neto a pagar</div>
-                            <div className="text-right text-sm font-bold">{fmt(total - totalRet)}{pagoBadge}</div>
+                            <div className="text-right text-sm font-bold">{fmt(total - totalRet, monedaCard)}{pagoBadge}</div>
                         </>
                     )}
                 </div>
@@ -604,7 +605,7 @@ function OcCard({
                                             onChange={(e) => setPagoCampo(idx, 'concepto', e.target.value)}
                                             onBlur={() => guardarPagos(pagos)}
                                         />
-                                        <div className="text-right text-base-content/70">{fmt(total * Number(p.porcentaje || 0) / 100)}</div>
+                                        <div className="text-right text-base-content/70">{fmt(total * Number(p.porcentaje || 0) / 100, monedaCard)}</div>
                                         <div className="flex justify-end">
                                             {editable && (
                                                 <button type="button" className="btn btn-ghost btn-xs text-error" onClick={() => quitarPago(idx)} title="Quitar pago">
@@ -665,7 +666,7 @@ function OcLinea({
     const eliminar = () => router.delete(`/admin/costos/requisiciones/selecciones/${linea.seleccion_id}`, { preserveScroll: true });
 
     return (
-        <div className="grid grid-cols-[1fr_70px_90px_90px_30px] items-center gap-2 py-1 text-xs">
+        <div className="grid grid-cols-[1fr_70px_110px_110px_30px] items-center gap-2 py-1 text-xs">
             <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate" title={linea.detalle.descripcion}>{linea.detalle.descripcion}</span>
                 <input
@@ -688,8 +689,8 @@ function OcLinea({
                 onChange={(e) => setCantidad(e.target.value)}
                 onBlur={guardarCantidad}
             />
-            <div className="text-right">{fmt(linea.precio_unitario)}</div>
-            <div className="text-right">{fmt(linea.precio_unitario * Number(cantidad || 0))}</div>
+            <div className="text-right">{fmt(linea.precio_unitario, linea.moneda)}</div>
+            <div className="text-right">{fmt(linea.precio_unitario * Number(cantidad || 0), linea.moneda)}</div>
             <div className="flex justify-end">
                 {editable && (
                     <button type="button" className="btn btn-ghost btn-xs text-error" onClick={eliminar} title="Quitar partida">
