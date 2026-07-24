@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
+    BadgeCheck,
     BadgeDollarSign,
     BookOpen,
     Briefcase,
@@ -219,6 +220,11 @@ const navGroups: NavGroup[] = [
                 title: 'Mis Aprobaciones',
                 href: '/admin/costos/aprobaciones',
                 icon: ClipboardCheck,
+            },
+            {
+                title: 'Por confirmar',
+                href: '/admin/costos/confirmaciones',
+                icon: BadgeCheck,
             },
             {
                 title: 'Afectaciones',
@@ -1003,6 +1009,11 @@ function SidebarContent({
                     // costos_aprobacion_departamento), no por permiso de rol.
                     if (i.href === '/admin/costos/aprobaciones') {
                         return auth?.es_aprobador_costos ?? false;
+                    }
+                    // "Por confirmar": para quien tenga algún permiso de control
+                    // post-cadena (Costos o Contabilidad), no por asignación.
+                    if (i.href === '/admin/costos/confirmaciones') {
+                        return auth?.es_confirmador_costos ?? false;
                     }
                     // Ítem contenedor (submenú): se oculta si no quedó ningún hijo visible.
                     if (Array.isArray(i.children)) {

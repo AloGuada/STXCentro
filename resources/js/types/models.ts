@@ -1940,6 +1940,24 @@ export type CostosSolicitudPago = {
     updated_at: string;
 };
 
+/**
+ * Fila de la bandeja "Por confirmar" (puntos de control Costos/Contabilidad).
+ * Forma normalizada que sirve tanto para Solicitudes de Pago como Facturas.
+ */
+export type CostosPuntoControl = {
+    tipo: 'solicitud_pago' | 'factura';
+    paso: 'costos' | 'contabilidad';
+    id: number;
+    folio: string;
+    proveedor: string | null;
+    concepto: string | null;
+    monto: number;
+    moneda: string;
+    fecha: string | null;
+    accion_url: string;
+    detalle_href: string;
+};
+
 export type CostosSolicitudPagoDetalle = {
     id: number;
     solicitud_id: number;
