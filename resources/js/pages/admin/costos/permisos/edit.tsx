@@ -27,6 +27,7 @@ export default function PermisosEdit({ permiso }: Props) {
         nivel: permiso.nivel,
         tipo_aprobacion: permiso.tipo_aprobacion ?? 'solicitud_pago',
         omitir_si_presupuesto_reservado: permiso.omitir_si_presupuesto_reservado ?? false,
+        es_costos: permiso.es_costos ?? false,
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -93,6 +94,22 @@ export default function PermisosEdit({ permiso }: Props) {
                                 <span className="block text-xs text-base-content/60">
                                     Este nivel se omite automáticamente cuando el documento tiene presupuesto reservado
                                     (apartado vigente). Si el apartado venció, el nivel vuelve a requerir firma.
+                                </span>
+                            </span>
+                        </label>
+
+                        <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-base-300 p-3">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm mt-0.5"
+                                checked={data.es_costos}
+                                onChange={(e) => setData('es_costos', e.target.checked)}
+                            />
+                            <span className="text-sm">
+                                <span className="font-medium">Firma de Costos</span>
+                                <span className="block text-xs text-base-content/60">
+                                    Marca este nivel como aprobación de Costos. En el PDF de solicitud de pago las
+                                    firmas de Costos van en el primer bloque; las demás en el segundo.
                                 </span>
                             </span>
                         </label>

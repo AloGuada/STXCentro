@@ -50,6 +50,40 @@ describe('admin costos permisos', function () {
         ]);
     });
 
+    test('permiso can be stored as firma de costos', function () {
+        $this->actingAs($this->user)
+            ->post(route('admin.costos.permisos.store'), [
+                'descripcion' => 'Costos',
+                'nivel' => 1,
+                'tipo_aprobacion' => 'solicitud_pago',
+                'es_costos' => true,
+            ])
+            ->assertRedirect(route('admin.costos.permisos.index'));
+
+        $this->assertDatabaseHas('costos_permisos', [
+            'descripcion' => 'Costos',
+            'es_costos' => true,
+        ]);
+    });
+
+    test('permiso es_costos can be toggled on update', function () {
+        $permiso = Permiso::factory()->create(['es_costos' => false]);
+
+        $this->actingAs($this->user)
+            ->put(route('admin.costos.permisos.update', $permiso), [
+                'descripcion' => $permiso->descripcion,
+                'nivel' => $permiso->nivel,
+                'tipo_aprobacion' => 'solicitud_pago',
+                'es_costos' => true,
+            ])
+            ->assertRedirect(route('admin.costos.permisos.index'));
+
+        $this->assertDatabaseHas('costos_permisos', [
+            'id' => $permiso->id,
+            'es_costos' => true,
+        ]);
+    });
+
     test('show page loads departamentos and usuarios', function () {
         $permiso = Permiso::factory()->create();
         Departamento::factory()->count(2)->create();
