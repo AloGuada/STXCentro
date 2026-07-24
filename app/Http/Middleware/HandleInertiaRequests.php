@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\BadgeConfig;
+use App\Services\Costos\PuntosDeControl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -90,6 +91,13 @@ class HandleInertiaRequests extends Middleware
                             : false,
                         'es_aprobador_costos' => $request->user()
                             ? $request->user()->can('aprobador-costos')
+                            : false,
+                        'es_confirmador_costos' => $request->user()
+                            ? $request->user()->canAny([
+                                PuntosDeControl::PERMISO_SP_COSTOS,
+                                PuntosDeControl::PERMISO_FACTURA_COSTOS,
+                                PuntosDeControl::PERMISO_CONTABILIDAD,
+                            ])
                             : false,
                     ]),
             'flash' => fn () => [
@@ -195,6 +203,17 @@ class HandleInertiaRequests extends Middleware
             $badges['/admin/costos/aprobaciones'] = [
                 'count' => $pendientes,
                 'filterHref' => '/admin/costos/aprobaciones',
+            ];
+        }
+
+        // Puntos de control post-cadena (Costos / Contabilidad) que este usuario
+        // puede confirmar. El conteo se calcula con la misma fuente que la
+        // pantalla "Por confirmar" para que no diverjan.
+        $porConfirmar = app(PuntosDeControl::class)->contar($request->user());
+        if ($porConfirmar > 0) {
+            $badges['/admin/costos/confirmaciones'] = [
+                'count' => $porConfirmar,
+                'filterHref' => null,
             ];
         }
 

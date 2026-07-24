@@ -22,6 +22,7 @@ export type Auth = {
     badges: Record<string, BadgeInfo>;
     dg_puede_subir?: boolean;
     es_aprobador_costos?: boolean;
+    es_confirmador_costos?: boolean;
 };
 
 export type TwoFactorSetupData = {

@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\Costos\AfectacionPresupuestalController as Costos
 use App\Http\Controllers\Admin\Costos\AnticipoController as CostosAnticipoController;
 use App\Http\Controllers\Admin\Costos\AprobacionController as CostosAprobacionController;
 use App\Http\Controllers\Admin\Costos\ConfiguracionCostosController as CostosConfiguracionController;
+use App\Http\Controllers\Admin\Costos\ConfirmacionController as CostosConfirmacionController;
 use App\Http\Controllers\Admin\Costos\CuentaInternaController as CostosCuentaInternaController;
 use App\Http\Controllers\Admin\Costos\DevolucionController as CostosDevolucionController;
 use App\Http\Controllers\Admin\Costos\EditLockController as CostosEditLockController;
@@ -314,6 +315,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('aprobaciones/{aprobacionSolicitud}', [CostosAprobacionController::class, 'show'])->name('aprobaciones.show');
         Route::post('aprobaciones/{aprobacionSolicitud}/aprobar', [CostosAprobacionController::class, 'aprobar'])->name('aprobaciones.aprobar');
         Route::post('aprobaciones/{aprobacionSolicitud}/rechazar', [CostosAprobacionController::class, 'rechazar'])->name('aprobaciones.rechazar');
+
+        // Puntos de control post-cadena (Costos / Contabilidad)
+        Route::get('confirmaciones', [CostosConfirmacionController::class, 'index'])->name('confirmaciones.index');
 
         // Afectaciones presupuestales
         Route::resource('afectaciones', CostosAfectacionPresupuestalController::class)->parameters(['afectaciones' => 'afectacion']);
