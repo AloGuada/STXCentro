@@ -2294,6 +2294,13 @@ export const FACTURA_ESTATUS_LABELS: Record<CostosFacturaEstatus, string> = {
     cancelada: 'Cancelada',
 };
 
+// Labels de estatus de factura como los ve el proveedor en el portal.
+// "pendiente_aprobacion" se muestra como "Contrarecibo pendiente".
+export const FACTURA_ESTATUS_LABELS_PORTAL: Record<CostosFacturaEstatus, string> = {
+    ...FACTURA_ESTATUS_LABELS,
+    pendiente_aprobacion: 'Contrarecibo pendiente',
+};
+
 export const FACTURA_ESTATUS_COLORS: Record<CostosFacturaEstatus, string> = {
     pendiente_recepcion: 'badge-warning',
     pendiente_aprobacion: 'badge-accent',

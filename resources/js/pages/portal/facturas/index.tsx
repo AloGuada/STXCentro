@@ -3,7 +3,7 @@ import { DataTable, type Column } from '@/components/data-table';
 import PortalLayout from '@/layouts/portal/portal-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosFactura, PaginatedData } from '@/types/models';
-import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS } from '@/types/models';
+import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS_PORTAL } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -32,14 +32,14 @@ const columns: Column<CostosFactura>[] = [
         key: 'estatus',
         label: 'Estatus',
         render: (row) => (
-            <span className={`badge ${FACTURA_ESTATUS_COLORS[row.estatus]}`}>{FACTURA_ESTATUS_LABELS[row.estatus]}</span>
+            <span className={`badge ${FACTURA_ESTATUS_COLORS[row.estatus]}`}>{FACTURA_ESTATUS_LABELS_PORTAL[row.estatus]}</span>
         ),
     },
 ];
 
 const estatusOptions = [
     { value: '', label: 'Todos' },
-    { value: 'pendiente_aprobacion', label: 'Pendiente Aprobación' },
+    { value: 'pendiente_aprobacion', label: 'Contrarecibo pendiente' },
     { value: 'pendiente_pago', label: 'Pendiente Pago' },
     { value: 'pagada', label: 'Pagada' },
     { value: 'cancelada', label: 'Cancelada' },

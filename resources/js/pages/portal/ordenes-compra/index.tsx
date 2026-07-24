@@ -14,7 +14,7 @@ const estatusOptions = [
     { value: '', label: 'Todos' },
     { value: 'pendiente_entrega', label: 'Pend. Entrega' },
     { value: 'pendiente_factura', label: 'Pend. Factura' },
-    { value: 'pendiente_aprobacion', label: 'Pend. Aprobación' },
+    { value: 'pendiente_aprobacion', label: 'Contrarecibo pendiente' },
     { value: 'pendiente_pago', label: 'Pend. Pago' },
     { value: 'pagada', label: 'Pagada' },
 ];
