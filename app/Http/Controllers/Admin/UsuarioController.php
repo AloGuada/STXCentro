@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UsuarioStoreRequest;
 use App\Http\Requests\Admin\UsuarioUpdateRequest;
+use App\Models\Departamento;
 use App\Models\Usuario;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,6 +36,7 @@ class UsuarioController extends Controller
     {
         return Inertia::render('admin/usuarios/create', [
             'roles' => Role::select('id', 'name')->orderBy('name')->get(),
+            'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
         ]);
     }
 
@@ -54,6 +56,7 @@ class UsuarioController extends Controller
         return Inertia::render('admin/usuarios/edit', [
             'usuario' => $usuario->load('roles'),
             'roles' => Role::select('id', 'name')->orderBy('name')->get(),
+            'departamentos' => Departamento::orderBy('descripcion')->get(['id', 'descripcion']),
         ]);
     }
 

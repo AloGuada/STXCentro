@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Role } from '@/types/models';
+import type { Departamento, Role } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
@@ -18,11 +19,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 type Props = {
     roles: Pick<Role, 'id' | 'name'>[];
+    departamentos: Pick<Departamento, 'id' | 'descripcion'>[];
 };
 
-export default function UsuariosCreate({ roles }: Props) {
+export default function UsuariosCreate({ roles, departamentos }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         empleado: '',
+        departamento_id: '',
         name: '',
         email: '',
         password: '',
@@ -98,6 +101,27 @@ export default function UsuariosCreate({ roles }: Props) {
                                 onChange={(e) => setData('empleado', e.target.value)}
                                 placeholder="Ej: 12345"
                             />
+                        </FormField>
+
+                        <FormField
+                            label="Departamento"
+                            htmlFor="departamento_id"
+                            error={errors.departamento_id}
+                            description="Departamento al que pertenece el usuario (opcional)"
+                        >
+                            <Select
+                                id="departamento_id"
+                                value={data.departamento_id}
+                                onValueChange={(v) => setData('departamento_id', v)}
+                                error={!!errors.departamento_id}
+                            >
+                                <SelectItem value="">Sin departamento</SelectItem>
+                                {departamentos.map((d) => (
+                                    <SelectItem key={d.id} value={d.id}>
+                                        {d.descripcion}
+                                    </SelectItem>
+                                ))}
+                            </Select>
                         </FormField>
 
                         <FormField

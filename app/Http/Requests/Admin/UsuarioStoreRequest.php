@@ -20,6 +20,7 @@ class UsuarioStoreRequest extends FormRequest
     {
         return [
             'empleado' => ['nullable', 'integer'],
+            'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique(Usuario::class)],
             'password' => ['required', 'string', 'min:8'],

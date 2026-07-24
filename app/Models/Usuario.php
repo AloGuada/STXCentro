@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -30,6 +31,7 @@ class Usuario extends Authenticatable
      */
     protected $fillable = [
         'empleado',
+        'departamento_id',
         'name',
         'email',
         'password',
@@ -59,6 +61,11 @@ class Usuario extends Authenticatable
             'activo' => 'boolean',
             'fecha_baja' => 'datetime',
         ];
+    }
+
+    public function departamento(): BelongsTo
+    {
+        return $this->belongsTo(Departamento::class);
     }
 
     public function departamentoComoManager(): HasOne

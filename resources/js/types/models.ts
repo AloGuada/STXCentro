@@ -1,6 +1,7 @@
 export type Usuario = {
     id: string;
     empleado: number | null;
+    departamento_id: number | null;
     name: string;
     email: string;
     email_verified_at: string | null;
@@ -8,6 +9,7 @@ export type Usuario = {
     fecha_baja: string | null;
     firma_path: string | null;
     roles?: Role[];
+    departamento?: Departamento;
     created_at: string;
     updated_at: string;
 };

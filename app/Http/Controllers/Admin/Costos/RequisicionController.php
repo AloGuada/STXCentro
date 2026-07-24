@@ -66,7 +66,9 @@ class RequisicionController extends Controller
             ])
             // Los usuarios comunes solo ven sus requisiciones; los operadores con
             // `ver-todas` ven las de todos. Con `ver-departamentos-aprobador`, un
-            // aprobador también ve las de los departamentos que aprueba.
+            // aprobador también ve las de los departamentos que aprueba. Con
+            // `ver-departamento-propio`, un usuario ve lo creado por colegas de su
+            // mismo departamento.
             ->unless($request->user()->can('costos.requisiciones.ver-todas'), function ($q) use ($request) {
                 $user = $request->user();
                 $q->where(function ($sub) use ($user) {
@@ -77,6 +79,10 @@ class RequisicionController extends Controller
                         if ($deptos !== []) {
                             $sub->orWhereIn('departamento_id', $deptos);
                         }
+                    }
+
+                    if ($user->departamento_id && $user->can('costos.requisiciones.ver-departamento-propio')) {
+                        $sub->orWhereHas('solicitante', fn ($u) => $u->where('departamento_id', $user->departamento_id));
                     }
                 });
             })
