@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import PortalLayout from '@/layouts/portal/portal-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosOrdenCompra } from '@/types/models';
-import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS } from '@/types/models';
+import { FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS_PORTAL, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS } from '@/types/models';
 
 type Props = {
     ordenCompra: CostosOrdenCompra;
@@ -120,7 +120,7 @@ export default function PortalOrdenCompraShow({ ordenCompra, puedeFacturar }: Pr
                                             <td className="text-right">{formatMoney(f.total)}</td>
                                             <td>
                                                 <span className={`badge ${FACTURA_ESTATUS_COLORS[f.estatus]}`}>
-                                                    {FACTURA_ESTATUS_LABELS[f.estatus]}
+                                                    {FACTURA_ESTATUS_LABELS_PORTAL[f.estatus]}
                                                 </span>
                                             </td>
                                         </tr>

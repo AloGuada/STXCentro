@@ -9,7 +9,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { CostosFactura } from '@/types/models';
 import {
     FACTURA_ESTATUS_COLORS,
-    FACTURA_ESTATUS_LABELS,
+    FACTURA_ESTATUS_LABELS_PORTAL,
     NOTA_CREDITO_ESTATUS_COLORS,
     NOTA_CREDITO_ESTATUS_LABELS,
     PAGO_ESTATUS_COLORS,
@@ -73,7 +73,7 @@ export default function PortalFacturaShow({ factura, comprobante }: Props) {
                         <h1 className="text-2xl font-semibold">{factura.folio}</h1>
                         <div className="flex items-center gap-2 mt-1">
                             <span className={`badge ${FACTURA_ESTATUS_COLORS[factura.estatus]}`}>
-                                {FACTURA_ESTATUS_LABELS[factura.estatus]}
+                                {FACTURA_ESTATUS_LABELS_PORTAL[factura.estatus]}
                             </span>
                             {factura.aprobada_costos && (
                                 <span className="badge badge-success">Aprobada Costos</span>
