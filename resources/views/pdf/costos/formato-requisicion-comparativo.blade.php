@@ -176,7 +176,7 @@
                 <td>
                     {{ $d->descripcion }}
                     @if($d->solo_cotizacion)
-                        <span style="font-size: 8px; color: #666; font-style: italic;">(solo cotización — no suma)</span>
+                        <span style="font-size: 8px; color: #666; font-style: italic;">(solo cotización — no se surte en OC)</span>
                     @endif
                 </td>
                 <td>
@@ -214,7 +214,12 @@
                 @endforeach
                 <td class="text-right">
                     @if($d->solo_cotizacion)
-                        <span style="font-size: 8px; color: #666; font-style: italic;">no suma</span>
+                        @php $ref = $totales['referencias'][$d->id] ?? null; @endphp
+                        @if($ref)
+                            ${{ number_format($ref['importe'], 2) }}@if($ref['moneda'] !== 'mxn') <span style="font-size: 8px; color: #666;">{{ strtoupper($ref['moneda']) }}</span>@endif
+                        @else
+                            -
+                        @endif
                     @elseif($info['tiene'])
                         ${{ number_format($info['importe'], 2) }}
                     @else
@@ -249,6 +254,12 @@
                 <td class="text-right">-${{ number_format($ret['monto'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
             </tr>
             @endforeach
+            @if($b['solo_cotizacion'] > 0)
+            <tr class="total-row">
+                <td colspan="{{ 3 + $numCols }}" class="text-right">(−) SOLO COTIZACIÓN (NO SE SURTE EN OC)</td>
+                <td class="text-right">-${{ number_format($b['solo_cotizacion'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
+            </tr>
+            @endif
             <tr class="total-row">
                 <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL NETO A PAGAR{{ $sufijoEtiqueta($b['moneda']) }}</td>
                 <td class="text-right">${{ number_format($b['neto'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>

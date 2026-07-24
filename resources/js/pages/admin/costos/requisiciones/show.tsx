@@ -1836,9 +1836,9 @@ function ComparativoCotizaciones({
     requisicion: CostosRequisicion;
     tc: number;
 }) {
-    // Las partidas "solo cotización" (ej. fletes variables) sí aparecen en el
-    // comparativo y el PDF como referencia, pero no suman a los totales ni se
-    // surten al definir la OC.
+    // Las partidas "solo cotización" (ej. fletes variables) aparecen y suman al
+    // total del comparativo con su precio de referencia, pero no se surten al
+    // definir la OC (por eso el total del comparativo difiere del neto a pagar).
     const detalles = requisicion.detalles ?? [];
 
     // Columnas = opciones con al menos un precio, agrupadas por proveedor.
@@ -1981,9 +1981,7 @@ function ComparativoCotizaciones({
     const filas = detalles.map((d) => ({
         d,
         esSoloCotizacion: !!d.solo_cotizacion,
-        ...(d.solo_cotizacion
-            ? { contribs: [], tieneImporte: false }
-            : importeDetalle(d)),
+        ...importeDetalle(d),
     }));
 
     // Totales del pie por divisa (divisas primero, MXN al final) + combinado
@@ -2083,7 +2081,7 @@ function ComparativoCotizaciones({
                                     {esSoloCotizacion && (
                                         <span
                                             className="badge badge-ghost badge-xs ml-1 align-middle"
-                                            title="Se cotiza como referencia: no suma al total ni se surte en la OC"
+                                            title="Suma al total del comparativo con su precio de referencia, pero no se surte en la OC (no entra al neto a pagar)"
                                         >
                                             solo cotización
                                         </span>
@@ -2166,14 +2164,7 @@ function ComparativoCotizaciones({
                                     );
                                 })}
                                 <td className="text-right font-semibold">
-                                    {esSoloCotizacion ? (
-                                        <span
-                                            className="text-xs font-normal text-base-content/40 italic"
-                                            title="No suma al total"
-                                        >
-                                            no suma
-                                        </span>
-                                    ) : tieneImporte ? (
+                                    {tieneImporte ? (
                                         contribs
                                             .map((c) => fmt(c.importe, c.moneda))
                                             .join(' + ')
