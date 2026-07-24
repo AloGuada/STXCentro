@@ -2477,6 +2477,24 @@ export type CostosEntregaDetalle = {
     updated_at: string;
 };
 
+/**
+ * Fila del listado global de recepciones (pantalla "Recepciones"). Forma
+ * normalizada por el backend con la OC y las Solicitudes de Pago ligadas.
+ */
+export type CostosRecepcionRow = {
+    id: number;
+    folio: string | null;
+    fecha_entrega: string | null;
+    tipo: CostosEntregaTipo;
+    recibido_por: string | null;
+    oc: { id: number; folio: string; tipo_pago: string | null; url: string } | null;
+    proveedor: string | null;
+    obra: string | null;
+    solicitudes_pago: { id: number; folio: string; estatus: string | null; url: string }[];
+    factura: { id: number; folio: string | null } | null;
+    pdf_url: string;
+};
+
 // Pagos Types
 export type CostosPagoEstatus = 'pendiente' | 'programado' | 'parcial' | 'pagado';
 

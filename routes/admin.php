@@ -285,6 +285,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('facturas', CostosFacturaAdminController::class)
             ->only(['index', 'show', 'create', 'store'])
             ->parameters(['facturas' => 'factura']);
+        Route::get('recepciones', [CostosEntregaController::class, 'index'])
+            ->middleware('can:costos.ordenes-compra.ver')
+            ->name('recepciones.index');
         Route::post('ordenes-compra/{ordenCompra}/entregas', [CostosEntregaController::class, 'store'])->name('ordenes-compra.entregas.store');
         Route::get('entregas/{entrega}/pdf', [CostosEntregaController::class, 'pdf'])->name('entregas.pdf');
         Route::post('facturas/{factura}/aprobar-costos', [CostosFacturaAdminController::class, 'aprobarCostos'])->name('facturas.aprobar-costos');

@@ -31,6 +31,7 @@ import {
     Monitor,
     Network,
     Package,
+    PackageCheck,
     PanelLeftClose,
     PanelLeftOpen,
     PenTool,
@@ -243,6 +244,12 @@ const navGroups: NavGroup[] = [
                 href: '/admin/costos/facturas',
                 icon: Receipt,
                 permission: 'costos.facturas.ver',
+            },
+            {
+                title: 'Recepciones',
+                href: '/admin/costos/recepciones',
+                icon: PackageCheck,
+                permission: 'costos.ordenes-compra.ver',
             },
             {
                 title: 'Pagos',
