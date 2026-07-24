@@ -221,7 +221,7 @@ class EntregaController extends Controller
         $entrega->load([
             'ordenCompra.proveedor',
             'ordenCompra.obra',
-            'factura:id,folio,folio_fiscal,uuid_fiscal',
+            'factura:id,folio,folio_fiscal,uuid_fiscal,subtotal,iva,total,moneda',
             'recibidoPor:id,name',
             'detalles.ordenCompraDetalle',
         ]);

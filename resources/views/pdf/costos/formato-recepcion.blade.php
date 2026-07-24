@@ -38,13 +38,22 @@
         .detalles-table td { border: 1px solid #000; padding: 4px 8px; font-size: 10px; }
         .detalles-table .text-right { text-align: right; }
         .detalles-table .total-row td { font-weight: bold; background-color: #f0f0f0; }
+        .detalles-table .pago-row td { background-color: #e0e0e0; font-size: 11px; }
         .detalles-table .letras-row td { font-size: 9px; font-style: italic; text-transform: uppercase; }
 
-        .signatures-table { width: 60%; margin-top: 45px; }
-        .signatures-table td { text-align: center; vertical-align: bottom; padding: 0 15px; }
-        .sig-placeholder { height: 50px; }
-        .sig-name { font-weight: bold; font-size: 10px; border-top: 1px solid #000; padding-top: 5px; }
-        .sig-role { font-size: 9px; color: #555; }
+        .conditions {
+            position: fixed;
+            bottom: 16px;
+            left: 40px;
+            right: 40px;
+            font-size: 8px;
+            line-height: 1.4;
+            border-top: 1px solid #000;
+            padding-top: 4px;
+        }
+        .conditions .cond-title { font-weight: bold; font-size: 9.5px; margin-bottom: 3px; }
+        .conditions ol { margin-left: 16px; }
+        .conditions li { margin-bottom: 2px; text-align: justify; }
     </style>
 </head>
 <body>
@@ -152,26 +161,42 @@
             @endforeach
         </tbody>
         <tfoot>
-            @php $codMon = ($moneda ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($moneda); @endphp
+            @php
+                $codMon = ($moneda ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($moneda);
+                $factura = $entrega->factura;
+                $monFac = $factura?->moneda ?? ($moneda ?? 'mxn');
+                $codFac = $monFac === 'mxn' ? '' : ' '.strtoupper($monFac);
+                $totalPagar = $factura ? (float) $factura->total : $total;
+                $monPagar = $factura ? $monFac : ($moneda ?? 'mxn');
+            @endphp
             <tr class="total-row">
-                <td colspan="4" class="text-right">TOTAL RECIBIDO</td>
+                <td colspan="4" class="text-right">SUBTOTAL (RECIBIDO)</td>
                 <td class="text-right">${{ number_format($total, 2) }}{{ $codMon }}</td>
             </tr>
+            @if($factura)
+            <tr class="total-row">
+                <td colspan="4" class="text-right">IVA / IMPUESTOS</td>
+                <td class="text-right">${{ number_format((float) $factura->iva, 2) }}{{ $codFac }}</td>
+            </tr>
+            @endif
+            <tr class="total-row pago-row">
+                <td colspan="4" class="text-right">TOTAL DE LA FACTURA{{ $factura ? ' ('.($factura->folio_fiscal ?? $factura->folio).')' : '' }}</td>
+                <td class="text-right">${{ number_format($totalPagar, 2) }}{{ $factura ? $codFac : $codMon }}</td>
+            </tr>
             <tr class="letras-row">
-                <td colspan="5">{{ \App\Support\NumeroALetras::convertir($total, $moneda ?? 'mxn') }}</td>
+                <td colspan="5">{{ \App\Support\NumeroALetras::convertir($totalPagar, $monPagar) }}</td>
             </tr>
         </tfoot>
     </table>
 
-    {{-- Firma de recepción --}}
-    <table class="signatures-table">
-        <tr>
-            <td>
-                <div class="sig-placeholder"></div>
-                <div class="sig-name">{{ $entrega->recibidoPor?->name ?? 'Almacén' }}</div>
-                <div class="sig-role">Recibió</div>
-            </td>
-        </tr>
-    </table>
+    {{-- Condiciones (pie de página) --}}
+    <div class="conditions">
+        <div class="cond-title">Condiciones</div>
+        <ol>
+            <li>EL MATERIAL SE ENTREGA CON CERTIFICADO DE CALIDAD</li>
+            <li>SE REQUIERE INVARIABLEMENTE LA FACTURA ORIGINAL Y DOS COPIAS PARA SU RECEPCIÓN EN EL HORARIO ESTABLECIDO DE 8:00 A 13:00 Y DE 14:00 A 16:00 HORAS</li>
+            <li>LA FACTURA ELECTRÓNICA DEBE SUBIRSE AL PORTAL STX.STEELEX.COM.MX/PORTAL EN ASOCIACIÓN A SU O.C. UNA VEZ EMITIDA</li>
+        </ol>
+    </div>
 </body>
 </html>
