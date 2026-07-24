@@ -126,21 +126,17 @@
             padding: 4px 8px;
         }
 
-        /* Firma del primer nivel bajo los datos */
-        .firma-primer-nivel {
-            width: 45%;
-            margin: 5px 0 20px;
-        }
-        .firma-primer-nivel td {
-            text-align: center;
-            vertical-align: bottom;
-            padding: 0 15px;
-        }
-
         /* Signatures */
         .signatures-table {
             width: 100%;
-            margin-top: 40px;
+            margin-top: 10px;
+        }
+        /* Primera área (Costos), bajo los datos: separa del detalle siguiente y
+           ocupa solo la mitad de la fila. */
+        .firmas-costos {
+            width: 50%;
+            margin-top: 5px;
+            margin-bottom: 15px;
         }
         .signatures-table td {
             text-align: center;
@@ -265,21 +261,25 @@
         </tr>
     </table>
 
-    {{-- Firma del primer nivel (justo bajo los datos). No aplica a solicitudes
-         generadas por OC, que usan el bloque fijo de dos firmas al final. --}}
-    @php $primeraFirma = ($firmasOc ?? null) ? null : $firmasPdf->first(); @endphp
-    @if($primeraFirma)
-    <table class="firma-primer-nivel">
+    {{-- Primera área de firmas: SOLO aprobaciones de Costos (niveles marcados
+         como "Firma de Costos"). No aplica a solicitudes generadas por OC, que
+         usan el bloque fijo de dos firmas al final. Si no hay firmas de Costos,
+         no se dibuja el bloque. --}}
+    @php $firmasCostos = ($firmasOc ?? null) ? collect() : $firmasPdf->filter(fn ($f) => $f->permiso->es_costos ?? false)->values(); @endphp
+    @if($firmasCostos->isNotEmpty())
+    <table class="signatures-table firmas-costos">
         <tr>
+            @foreach($firmasCostos as $firma)
             <td>
-                @if($primeraFirma->aprobada && $primeraFirma->aprobador?->firma_path && file_exists(storage_path('app/public/' . $primeraFirma->aprobador->firma_path)))
-                    <img class="sig-img" src="{{ storage_path('app/public/' . $primeraFirma->aprobador->firma_path) }}" alt="Firma">
+                @if($firma->aprobada && $firma->aprobador?->firma_path && file_exists(storage_path('app/public/' . $firma->aprobador->firma_path)))
+                    <img class="sig-img" src="{{ storage_path('app/public/' . $firma->aprobador->firma_path) }}" alt="Firma">
                 @else
                     <div class="sig-placeholder"></div>
                 @endif
-                <div class="sig-name">{{ $primeraFirma->aprobada ? $primeraFirma->aprobador?->name : ($primeraFirma->candidatos->isNotEmpty() ? $primeraFirma->candidatos->implode(' / ') : 'Pendiente') }}</div>
-                <div class="sig-role">{{ $primeraFirma->aprobada ? 'Firmado '.$primeraFirma->fecha : 'Pendiente de firma' }}</div>
+                <div class="sig-name">{{ $firma->aprobada ? $firma->aprobador?->name : ($firma->candidatos->isNotEmpty() ? $firma->candidatos->implode(' / ') : 'Pendiente') }}</div>
+                <div class="sig-role">{{ $firma->aprobada ? 'Firmado '.$firma->fecha : 'Pendiente de firma' }}</div>
             </td>
+            @endforeach
         </tr>
     </table>
     @endif
@@ -349,12 +349,13 @@
         </tr>
     </table>
     @else
-    {{-- Signatures (niveles restantes; el primero va bajo los datos) --}}
-    @php $firmasRestantes = $firmasPdf->slice(1); @endphp
-    @if($firmasRestantes->isNotEmpty())
+    {{-- Segunda área de firmas: SOLO aprobaciones que NO son de Costos (las de
+         Costos van en el primer bloque, bajo los datos). Si no hay, no se dibuja. --}}
+    @php $firmasNoCostos = $firmasPdf->filter(fn ($f) => ! ($f->permiso->es_costos ?? false))->values(); @endphp
+    @if($firmasNoCostos->isNotEmpty())
     <table class="signatures-table">
         <tr>
-            @foreach($firmasRestantes as $firma)
+            @foreach($firmasNoCostos as $firma)
             <td>
                 @if($firma->aprobada && $firma->aprobador?->firma_path && file_exists(storage_path('app/public/' . $firma->aprobador->firma_path)))
                     <img class="sig-img" src="{{ storage_path('app/public/' . $firma->aprobador->firma_path) }}" alt="Firma">

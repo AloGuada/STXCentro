@@ -1494,6 +1494,7 @@ export type CostosPermiso = {
     nivel: number;
     tipo_aprobacion: 'solicitud_pago' | 'requisicion';
     omitir_si_presupuesto_reservado: boolean;
+    es_costos: boolean;
     created_at: string;
     updated_at: string;
 };

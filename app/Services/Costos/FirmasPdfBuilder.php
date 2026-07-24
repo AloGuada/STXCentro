@@ -51,9 +51,9 @@ class FirmasPdfBuilder
 
                 return (object) [
                     'permiso' => $esAdicional
-                        ? (object) ['descripcion' => 'Firma adicional', 'nivel' => (int) $nivel]
+                        ? (object) ['descripcion' => 'Firma adicional', 'nivel' => (int) $nivel, 'es_costos' => false]
                         : ($permisosPorNivel->get($nivel)
-                            ?? (object) ['descripcion' => '', 'nivel' => (int) $nivel]),
+                            ?? (object) ['descripcion' => '', 'nivel' => (int) $nivel, 'es_costos' => false]),
                     'aprobador' => $aprobada?->aprobador,
                     'aprobada' => $aprobada !== null,
                     'fecha' => $aprobada?->fecha_respuesta?->format('d/m/Y H:i'),

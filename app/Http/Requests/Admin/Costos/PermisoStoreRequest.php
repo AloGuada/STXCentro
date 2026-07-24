@@ -21,6 +21,7 @@ class PermisoStoreRequest extends FormRequest
             'nivel' => ['required', 'integer', 'min:1'],
             'tipo_aprobacion' => ['required', 'in:solicitud_pago,requisicion'],
             'omitir_si_presupuesto_reservado' => ['boolean'],
+            'es_costos' => ['boolean'],
         ];
     }
 
