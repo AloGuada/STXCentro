@@ -4,19 +4,24 @@ namespace App\Services\Costos;
 
 use App\Enums\Costos\TipoFiscalPartida;
 use App\Models\Costos\Requisicion;
+use Illuminate\Support\Collection;
 
 /**
  * Totales del comparativo de una requisición, desglosados por divisa: agrupa
  * las opciones elegidas por (proveedor, OC, moneda) y aplica
  * {@see RetencionCalculator} por grupo (las retenciones dependen del
- * proveedor), igual que el resumen neto en pantalla. Devuelve un bloque
- * (subtotal, IVA, retenciones, total, neto) por cada divisa presente y, cuando
- * hay exactamente una divisa extranjera con tipo de cambio capturado, el neto
- * combinado en MXN. Las partidas "solo cotización" no suman.
+ * proveedor), igual que el resumen neto en pantalla. Las partidas "solo
+ * cotización" suman al subtotal/IVA/total con su precio de referencia (mejor
+ * proveedor o menor cotizado), pero como no se surten en las OCs se restan del
+ * neto a pagar. Cuando hay exactamente una divisa extranjera con tipo de
+ * cambio capturado, incluye además el neto combinado en MXN.
  */
 class ComparativoTotalesBuilder
 {
-    public function __construct(private RetencionCalculator $calculator) {}
+    public function __construct(
+        private RetencionCalculator $calculator,
+        private BuscadorMejorProveedor $buscador,
+    ) {}
 
     /**
      * @return array{
@@ -27,8 +32,10 @@ class ComparativoTotalesBuilder
      *         retenciones: list<array{concepto: string, monto: float}>,
      *         total_retenciones: float,
      *         total: float,
+     *         solo_cotizacion: float,
      *         neto: float
      *     }>,
+     *     referencias: array<int, array{importe: float, moneda: string}>,
      *     divisa: string|null,
      *     multi_divisa: bool,
      *     tc: float,
@@ -75,23 +82,28 @@ class ComparativoTotalesBuilder
             }
         }
 
+        [$referenciaPorMoneda, $referencias] = $this->referenciasSoloCotizacion($requisicion);
+
         $bloques = [];
-        foreach ($porMoneda as $moneda => $datos) {
-            $subtotal = round($datos['subtotal'], 2);
-            $iva = round($datos['iva'], 2);
+        foreach (array_unique([...array_keys($porMoneda), ...array_keys($referenciaPorMoneda)]) as $moneda) {
+            $subtotalOc = round($porMoneda[$moneda]['subtotal'] ?? 0.0, 2);
+            $ivaOc = round($porMoneda[$moneda]['iva'] ?? 0.0, 2);
+            $refSubtotal = round($referenciaPorMoneda[$moneda] ?? 0.0, 2);
+            $refIva = round($refSubtotal * 0.16, 2);
             $desglose = array_map(
                 fn (array $r) => ['concepto' => $r['concepto'], 'monto' => round($r['monto'], 2)],
-                array_values($datos['retenciones']),
+                array_values($porMoneda[$moneda]['retenciones'] ?? []),
             );
             $totalRetenciones = round(array_sum(array_column($desglose, 'monto')), 2);
             $bloques[] = [
                 'moneda' => $moneda,
-                'subtotal' => $subtotal,
-                'iva' => $iva,
+                'subtotal' => round($subtotalOc + $refSubtotal, 2),
+                'iva' => round($ivaOc + $refIva, 2),
                 'retenciones' => $desglose,
                 'total_retenciones' => $totalRetenciones,
-                'total' => round($subtotal + $iva, 2),
-                'neto' => round($subtotal + $iva - $totalRetenciones, 2),
+                'total' => round($subtotalOc + $refSubtotal + $ivaOc + $refIva, 2),
+                'solo_cotizacion' => round($refSubtotal + $refIva, 2),
+                'neto' => round($subtotalOc + $ivaOc - $totalRetenciones, 2),
             ];
         }
 
@@ -117,10 +129,49 @@ class ComparativoTotalesBuilder
 
         return [
             'bloques' => $bloques,
+            'referencias' => $referencias,
             'divisa' => count($divisas) === 1 ? $divisas[0]['moneda'] : null,
             'multi_divisa' => count($divisas) > 1,
             'tc' => $tc,
             'neto_mxn' => $netoMxn,
         ];
+    }
+
+    /**
+     * Importe de referencia de cada partida "solo cotización": precio del mejor
+     * proveedor global si la cotizó, si no el menor precio cotizado (misma
+     * regla best-case que el comparativo en pantalla), por la cantidad
+     * solicitada.
+     *
+     * @return array{0: array<string, float>, 1: array<int, array{importe: float, moneda: string}>}
+     */
+    private function referenciasSoloCotizacion(Requisicion $requisicion): array
+    {
+        $soloCotizacion = $requisicion->detalles
+            ->filter(fn ($d) => $d->solo_cotizacion && $d->cotizaciones->contains(fn ($c) => (float) $c->precio_unitario > 0));
+
+        if ($soloCotizacion->isEmpty()) {
+            return [[], []];
+        }
+
+        $mejorId = $this->buscador->buscar($requisicion)['id'] ?? null;
+
+        $porMoneda = [];
+        $porDetalle = [];
+        foreach ($soloCotizacion as $detalle) {
+            /** @var Collection $conPrecio */
+            $conPrecio = $detalle->cotizaciones->filter(fn ($c) => (float) $c->precio_unitario > 0);
+            $delMejor = $mejorId ? $conPrecio->where('proveedor_id', $mejorId) : collect();
+            $cot = ($delMejor->isNotEmpty() ? $delMejor : $conPrecio)
+                ->sortBy(fn ($c) => (float) $c->precio_unitario)
+                ->first();
+
+            $importe = (float) $cot->precio_unitario * (float) $detalle->cantidad;
+            $moneda = strtolower($cot->moneda ?? 'mxn');
+            $porMoneda[$moneda] = ($porMoneda[$moneda] ?? 0.0) + $importe;
+            $porDetalle[$detalle->id] = ['importe' => round($importe, 2), 'moneda' => $moneda];
+        }
+
+        return [$porMoneda, $porDetalle];
     }
 }

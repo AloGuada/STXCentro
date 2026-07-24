@@ -93,7 +93,7 @@ test('una partida solo cotización no afecta el total neto a pagar', function ()
     expect($req->fresh()->total_neto)->toBe($netoSinFlete);
 });
 
-test('el comparativo de totales excluye las partidas solo cotización', function () {
+test('el comparativo suma la partida solo cotización al total pero no al neto a pagar', function () {
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $prov = Proveedor::factory()->create();
 
@@ -121,11 +121,17 @@ test('el comparativo de totales excluye las partidas solo cotización', function
         'cantidad' => 1,
     ]);
 
-    $totales = app(ComparativoTotalesBuilder::class)->build($req->fresh()->load('detalles.selecciones.cotizacionPrecio', 'detalles.selecciones.proveedor'));
+    $totales = app(ComparativoTotalesBuilder::class)->build(
+        $req->fresh()->load('detalles.selecciones.cotizacionPrecio', 'detalles.selecciones.proveedor', 'detalles.cotizaciones'),
+    );
 
-    // subtotal = 4 × 100 = 400 (el flete de 999 no entra).
+    // El flete de referencia (999) SÍ suma al subtotal del comparativo:
+    // 4 × 100 + 999 = 1,399. Pero como no se surte en OC, el neto a pagar
+    // solo lleva lo surtible: 400 × 1.16 = 464.
     expect($totales['bloques'])->toHaveCount(1)
-        ->and($totales['bloques'][0]['subtotal'])->toBe(400.0);
+        ->and($totales['bloques'][0]['subtotal'])->toBe(1399.0)
+        ->and($totales['bloques'][0]['solo_cotizacion'])->toBe(round(999 * 1.16, 2))
+        ->and($totales['bloques'][0]['neto'])->toBe(464.0);
 });
 
 test('el mejor proveedor ignora las partidas solo cotización', function () {
