@@ -20,6 +20,7 @@ class UsuarioUpdateRequest extends FormRequest
     {
         return [
             'empleado' => ['nullable', 'integer'],
+            'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique(Usuario::class)->ignore($this->usuario)],
             'password' => ['nullable', 'string', 'min:8'],

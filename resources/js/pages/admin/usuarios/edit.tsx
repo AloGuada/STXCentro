@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, SharedData } from '@/types';
-import type { Role, Usuario } from '@/types/models';
+import type { Departamento, Role, Usuario } from '@/types/models';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Loader2Icon, UserCheck, UserX } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
@@ -15,9 +16,10 @@ import { useState, type FormEvent } from 'react';
 type Props = {
     usuario: Usuario;
     roles: Pick<Role, 'id' | 'name'>[];
+    departamentos: Pick<Departamento, 'id' | 'descripcion'>[];
 };
 
-export default function UsuariosEdit({ usuario, roles }: Props) {
+export default function UsuariosEdit({ usuario, roles, departamentos }: Props) {
     const { auth } = usePage<SharedData>().props;
     const esMiCuenta = String(auth.user?.id) === usuario.id;
     const [cambiandoEstado, setCambiandoEstado] = useState(false);
@@ -45,6 +47,7 @@ export default function UsuariosEdit({ usuario, roles }: Props) {
 
     const { data, setData, put, processing, errors } = useForm({
         empleado: usuario.empleado?.toString() ?? '',
+        departamento_id: usuario.departamento_id?.toString() ?? '',
         name: usuario.name,
         email: usuario.email,
         password: '',
@@ -164,6 +167,27 @@ export default function UsuariosEdit({ usuario, roles }: Props) {
                                 onChange={(e) => setData('empleado', e.target.value)}
                                 placeholder="Ej: 12345"
                             />
+                        </FormField>
+
+                        <FormField
+                            label="Departamento"
+                            htmlFor="departamento_id"
+                            error={errors.departamento_id}
+                            description="Departamento al que pertenece el usuario (opcional)"
+                        >
+                            <Select
+                                id="departamento_id"
+                                value={data.departamento_id}
+                                onValueChange={(v) => setData('departamento_id', v)}
+                                error={!!errors.departamento_id}
+                            >
+                                <SelectItem value="">Sin departamento</SelectItem>
+                                {departamentos.map((d) => (
+                                    <SelectItem key={d.id} value={d.id}>
+                                        {d.descripcion}
+                                    </SelectItem>
+                                ))}
+                            </Select>
                         </FormField>
 
                         <FormField
