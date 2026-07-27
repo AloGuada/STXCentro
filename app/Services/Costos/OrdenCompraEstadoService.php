@@ -46,7 +46,7 @@ class OrdenCompraEstadoService
         $enPipeline = $facturas->reject(fn (Factura $f) => $f->estatus === FacturaEstatus::PendienteRecepcion);
 
         if ($enPipeline->isEmpty()) {
-            return $orden->entregas()->exists()
+            return $orden->entregas()->activa()->exists()
                 ? OrdenCompraEstatus::PendienteFactura
                 : OrdenCompraEstatus::PendienteEntrega;
         }

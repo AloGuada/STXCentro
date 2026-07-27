@@ -24,6 +24,7 @@ const fmt = (n: number) =>
 
 function saldoDePartida(ocd: CostosOrdenCompraDetalle, entregas: CostosEntrega[] | undefined): number {
     const yaRecibido = (entregas ?? [])
+        .filter((e) => !e.cancelada_at)
         .flatMap((e) => e.detalles ?? [])
         .filter((d) => d.orden_compra_detalle_id === ocd.id)
         .reduce((acc, d) => acc + Number(d.cantidad_recibida), 0);

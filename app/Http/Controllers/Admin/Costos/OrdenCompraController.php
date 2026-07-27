@@ -104,7 +104,7 @@ class OrdenCompraController extends Controller
             return back()->withErrors(['xml' => 'Esta acción es solo para órdenes de compra de contado.']);
         }
 
-        if (! $ordenCompra->entregas()->exists()) {
+        if (! $ordenCompra->entregas()->activa()->exists()) {
             return back()->withErrors(['xml' => 'No se puede facturar hasta registrar la recepción del almacén.']);
         }
 
@@ -307,6 +307,7 @@ class OrdenCompraController extends Controller
             'entregas.detalles.ordenCompraDetalle:id,descripcion,unidad,cantidad,precio_unitario',
             'entregas.detalles.devoluciones',
             'entregas.recibidoPor:id,name',
+            'entregas.cancelador:id,name',
             'entregas.media',
             'facturas.media',
             'facturas.pago.media',

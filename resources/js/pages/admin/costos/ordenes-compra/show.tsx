@@ -61,6 +61,8 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
     const [showEntregaModal, setShowEntregaModal] = useState(false);
     const [showSubirFacturaModal, setShowSubirFacturaModal] = useState(false);
     const [devolverTarget, setDevolverTarget] = useState<DevolverTarget | null>(null);
+    const [cancelarEntregaId, setCancelarEntregaId] = useState<number | null>(null);
+    const puedeCancelarEntrega = can('costos.entregas.cancelar');
 
     // Compras sube la factura de contado tras la recepción (paso "Subir factura").
     const puedeSubirFacturaContado = esContado
@@ -75,7 +77,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
     const puedeDevolver = can('costos.devoluciones.crear')
         && ordenCompra.estatus !== 'cancelada';
 
-    const totalRecepciones = ordenCompra.entregas?.reduce(
+    const totalRecepciones = ordenCompra.entregas?.filter((e) => !e.cancelada_at).reduce(
         (sum, e) => sum + (e.detalles?.length ?? 0),
         0,
     ) ?? 0;
@@ -374,11 +376,14 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                             <p className="text-base-content/60">No hay entregas registradas.</p>
                         ) : (
                             ordenCompra.entregas.map((entrega) => (
-                                <div key={entrega.id} className="rounded-lg border border-base-300 p-4">
+                                <div key={entrega.id} className={`rounded-lg border border-base-300 p-4 ${entrega.cancelada_at ? 'opacity-60' : ''}`}>
                                     <div className="flex items-center justify-between mb-2">
                                         <div>
                                             <span className="font-medium">{entrega.folio ?? `Entrega #${entrega.id}`}</span>
                                             <span className="ml-2 badge badge-sm badge-outline">{entrega.tipo}</span>
+                                            {entrega.cancelada_at && (
+                                                <span className="ml-2 badge badge-sm badge-error">Cancelada</span>
+                                            )}
                                             <span className="ml-2 text-sm text-base-content/60">
                                                 {new Date(entrega.fecha_entrega).toLocaleDateString()}
                                             </span>
@@ -397,8 +402,24 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                             >
                                                 PDF
                                             </a>
+                                            {!entrega.cancelada_at && puedeCancelarEntrega && (
+                                                <Button
+                                                    variant="outline"
+                                                    className="btn-xs text-error"
+                                                    onClick={() => setCancelarEntregaId(entrega.id)}
+                                                >
+                                                    Cancelar entrada
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
+
+                                    {entrega.cancelada_at && (
+                                        <p className="mb-2 text-sm text-error/80">
+                                            Cancelada{entrega.cancelador?.name ? ` por ${entrega.cancelador.name}` : ''}
+                                            {entrega.motivo_cancelacion ? ` — ${entrega.motivo_cancelacion}` : ''}
+                                        </p>
+                                    )}
 
                                     {entrega.observaciones && (
                                         <p className="text-sm text-base-content/60 mb-2">{entrega.observaciones}</p>
@@ -453,7 +474,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                                             <strong>{disponible.toLocaleString('es-MX')}</strong>
                                                         </td>
                                                         <td className="text-right">
-                                                            {puedeDevolver && disponible > 0.001 ? (
+                                                            {puedeDevolver && !entrega.cancelada_at && disponible > 0.001 ? (
                                                                 <Button
                                                                     variant="outline"
                                                                     onClick={() => setDevolverTarget({
@@ -560,6 +581,17 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                         cantidadDisponible={devolverTarget.cantidadDisponible}
                         open={true}
                         onClose={() => setDevolverTarget(null)}
+                    />
+                )}
+
+                {cancelarEntregaId !== null && (
+                    <CancelarModal
+                        open={true}
+                        onClose={() => setCancelarEntregaId(null)}
+                        url={`/admin/costos/entregas/${cancelarEntregaId}/cancelar`}
+                        title="Cancelar recepción"
+                        description="Se revertirá el movimiento: el ajuste de precio al presupuesto, el avance de la factura ligada y el estatus de la orden. La recepción quedará marcada como cancelada."
+                        submitLabel="Cancelar recepción"
                     />
                 )}
             </div>

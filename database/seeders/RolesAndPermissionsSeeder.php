@@ -143,6 +143,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'costos.facturas.cancelar',
             'costos.facturas.crear',
             'costos.entregas.crear',
+            'costos.entregas.cancelar',
             'costos.pagos.programar',
             'costos.pagos.cancelar',
             'costos.facturas.aceptar-contabilidad',

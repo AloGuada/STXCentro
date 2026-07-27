@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin\Costos;
 
 use App\Enums\Costos\DocumentoTipo;
+use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\RubroAfectadoEstatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Costos\EntregaCancelarRequest;
 use App\Http\Requests\Admin\Costos\EntregaStoreRequest;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
@@ -127,6 +129,7 @@ class EntregaController extends Controller
         // 2. Validar que cantidad_recibida <= cantidad_ordenada - ya_recibida (por partida)
         $yaRecibidoPorPartida = EntregaDetalle::query()
             ->whereIn('orden_compra_detalle_id', $partidasOrden)
+            ->whereHas('entrega', fn ($q) => $q->activa())
             ->selectRaw('orden_compra_detalle_id, SUM(cantidad_recibida) as total')
             ->groupBy('orden_compra_detalle_id')
             ->pluck('total', 'orden_compra_detalle_id')
@@ -166,6 +169,7 @@ class EntregaController extends Controller
                 'factura_id' => $factura?->id,
                 'tipo' => $request->input('tipo'),
                 'observaciones' => $request->input('observaciones'),
+                'completa_factura' => $factura !== null && $request->boolean('completa_factura'),
             ]);
 
             if ($request->hasFile('archivo')) {
@@ -210,6 +214,83 @@ class EntregaController extends Controller
         });
 
         return back()->with('success', 'Entrega registrada correctamente.');
+    }
+
+    /**
+     * Cancela una entrega (soft) y revierte su movimiento: deshace el ajuste
+     * presupuestal por diferencia de precio, revierte el avance de la factura que
+     * hubiera marcado como completa, y recalcula el estatus de la OC. Bloquea si
+     * la factura ya avanzó (aprobada/aceptada/pagada) o si hay devoluciones vigentes.
+     */
+    public function cancelar(EntregaCancelarRequest $request, Entrega $entrega): RedirectResponse
+    {
+        $entrega->loadMissing(['factura.pago', 'detalles.ordenCompraDetalle', 'detalles.devoluciones', 'ordenCompra']);
+
+        if ($entrega->estaCancelada()) {
+            return back()->withErrors(['error' => 'Esta entrega ya está cancelada.']);
+        }
+
+        $factura = $entrega->factura;
+        if ($factura !== null && ($factura->aprobada_costos || $factura->aceptada_contabilidad || $factura->pago !== null)) {
+            return back()->withErrors(['error' => 'No se puede cancelar: la factura ligada ya avanzó (aprobada, aceptada por contabilidad o pagada).']);
+        }
+
+        $conDevoluciones = $entrega->detalles->contains(fn (EntregaDetalle $d) => $d->cantidad_devuelta > 0);
+        if ($conDevoluciones) {
+            return back()->withErrors(['error' => 'No se puede cancelar: hay devoluciones vigentes sobre esta entrega. Cancélalas primero.']);
+        }
+
+        DB::transaction(function () use ($request, $entrega, $factura) {
+            // 1. Revertir el ajuste presupuestal por diferencia de precio de cada partida.
+            foreach ($entrega->detalles as $detalle) {
+                $ocd = $detalle->ordenCompraDetalle;
+                if ($ocd === null || $ocd->obra_rubro_id === null || $detalle->precio_unitario === null) {
+                    continue;
+                }
+
+                $delta = ((float) $detalle->precio_unitario - (float) $ocd->precio_unitario) * (float) $detalle->cantidad_recibida;
+                if (abs($delta) < 0.005) {
+                    continue;
+                }
+
+                $this->apartado->aplicarCargo(
+                    entrada: $entrega->ordenCompra,
+                    obraRubroId: (int) $ocd->obra_rubro_id,
+                    monto: -$delta,
+                    estatus: RubroAfectadoEstatus::Aplicado,
+                    descripcion: "Reverso ajuste PU · recepción {$entrega->folio} cancelada",
+                    userId: $request->user()->id,
+                    allowSobregiro: true,
+                    moneda: $entrega->ordenCompra->moneda ?? 'mxn',
+                );
+            }
+
+            // 2. Si esta entrega marcó la factura como completa, revertir ese avance.
+            if ($factura !== null && $entrega->completa_factura
+                && in_array($factura->estatus, [FacturaEstatus::PendienteRecepcion, FacturaEstatus::PendienteAprobacion], true)) {
+                $factura->update(['completamente_entregada' => false]);
+                if ($factura->estatus === FacturaEstatus::PendienteAprobacion) {
+                    $factura->transitionTo(FacturaEstatus::PendienteRecepcion);
+                }
+            }
+
+            // 3. Marcar cancelada (soft) con bitácora.
+            $entrega->update([
+                'cancelada_at' => now(),
+                'cancelada_por' => $request->user()->id,
+                'motivo_cancelacion' => $request->input('motivo'),
+            ]);
+
+            // 4. Recalcular el estatus de la OC: esta entrega ya no cuenta.
+            $entrega->ordenCompra?->recalcularEstatus();
+
+            activity('costos')
+                ->performedOn($entrega)
+                ->withProperties(['motivo' => $request->input('motivo')])
+                ->log('Entrega cancelada');
+        });
+
+        return back()->with('success', 'Entrega cancelada y movimiento revertido.');
     }
 
     /**

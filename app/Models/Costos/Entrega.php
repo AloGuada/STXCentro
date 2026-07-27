@@ -44,6 +44,10 @@ class Entrega extends Model
         'fecha_entrega',
         'observaciones',
         'tipo',
+        'completa_factura',
+        'cancelada_at',
+        'cancelada_por',
+        'motivo_cancelacion',
     ];
 
     /**
@@ -53,7 +57,28 @@ class Entrega extends Model
     {
         return [
             'fecha_entrega' => 'date',
+            'completa_factura' => 'boolean',
+            'cancelada_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Solo entregas vigentes (no canceladas). Se usa en los cálculos de estatus
+     * y saldo; las canceladas siguen visibles en las vistas pero no cuentan.
+     */
+    public function scopeActiva(\Illuminate\Database\Eloquent\Builder $query): void
+    {
+        $query->whereNull('cancelada_at');
+    }
+
+    public function estaCancelada(): bool
+    {
+        return $this->cancelada_at !== null;
+    }
+
+    public function cancelador(): BelongsTo
+    {
+        return $this->belongsTo(Usuario::class, 'cancelada_por');
     }
 
     public function media(): MorphOne

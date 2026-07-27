@@ -360,7 +360,7 @@ class FacturaAdminController extends Controller
 
         $facturas = Factura::query()
             ->with(['proveedor:id,razon_social', 'ordenCompra:id,folio', 'ordenCompra.pdfFirmado', 'ordenCompra.pdfFormato', 'ordenCompra.archivo', 'mediaPdf', 'entregas.media'])
-            ->whereHas('entregas', fn ($q) => $q->whereBetween('fecha_entrega', [$inicioSemana->toDateString(), $finSemana->toDateString()]))
+            ->whereHas('entregas', fn ($q) => $q->activa()->whereBetween('fecha_entrega', [$inicioSemana->toDateString(), $finSemana->toDateString()]))
             ->orderBy('orden_compra_id')
             ->orderBy('fecha_factura')
             ->get();
@@ -459,7 +459,7 @@ class FacturaAdminController extends Controller
         $facturas = Factura::query()
             ->with(['proveedor:id,razon_social', 'ordenCompra:id,folio', 'ordenCompra.pdfFirmado', 'ordenCompra.pdfFormato', 'ordenCompra.archivo', 'mediaPdf', 'entregas.media'])
             ->where('proveedor_id', $proveedor->id)
-            ->whereHas('entregas', fn ($q) => $q->whereBetween('fecha_entrega', [$inicioSemana->toDateString(), $finSemana->toDateString()]))
+            ->whereHas('entregas', fn ($q) => $q->activa()->whereBetween('fecha_entrega', [$inicioSemana->toDateString(), $finSemana->toDateString()]))
             ->orderBy('orden_compra_id')
             ->orderBy('fecha_factura')
             ->get();

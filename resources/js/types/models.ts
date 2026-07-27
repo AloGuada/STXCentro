@@ -2466,8 +2466,13 @@ export type CostosEntrega = {
     fecha_entrega: string;
     tipo: CostosEntregaTipo;
     observaciones: string | null;
+    completa_factura: boolean;
+    cancelada_at: string | null;
+    cancelada_por: string | null;
+    motivo_cancelacion: string | null;
     media?: Media | null;
     recibidor?: Usuario;
+    cancelador?: Usuario;
     detalles?: CostosEntregaDetalle[];
     created_at: string;
     updated_at: string;
