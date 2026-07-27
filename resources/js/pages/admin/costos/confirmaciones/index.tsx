@@ -68,11 +68,12 @@ function ConfirmarModal({ item, onClose }: { item: CostosPuntoControl; onClose: 
                         onClick={handleConfirm}
                         disabled={processing}
                     >
-                        {titulo}
+                        {processing && <span className="loading loading-spinner loading-sm" />}
+                        {processing ? 'Procesando...' : titulo}
                     </button>
                 </div>
             </div>
-            <div className="modal-backdrop" onClick={onClose} />
+            <div className="modal-backdrop" onClick={() => !processing && onClose()} />
         </dialog>
     );
 }
