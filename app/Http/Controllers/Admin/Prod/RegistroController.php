@@ -3,70 +3,120 @@
 namespace App\Http\Controllers\Admin\Prod;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Prod\RegistroImportCsvRequest;
 use App\Http\Requests\Admin\Prod\RegistroStoreRequest;
 use App\Models\Concepto;
+use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Registro;
-use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class RegistroController extends Controller
 {
-    public function index(Request $request): Response
+    public function store(RegistroStoreRequest $request, Destajo $destajo): RedirectResponse
     {
-        $registros = Registro::query()
-            ->with(['concepto.obra', 'grupoTrabajo'])
-            ->when($request->grupo_trabajo_id, fn ($q, $id) => $q->where('grupo_trabajo_id', $id))
-            ->when($request->semana, function ($q, $semana) {
-                $year = now()->year;
-                $inicioSemana = Carbon::now()->setISODate($year, (int) $semana)->startOfWeek(Carbon::MONDAY);
-                $finSemana = $inicioSemana->copy()->endOfWeek(Carbon::SUNDAY);
-                $q->whereBetween('fecha', [$inicioSemana->toDateString(), $finSemana->toDateString()]);
-            })
-            ->when(! $request->semana && $request->fecha_inicio, fn ($q) => $q->where('fecha', '>=', $request->fecha_inicio))
-            ->when(! $request->semana && $request->fecha_fin, fn ($q) => $q->where('fecha', '<=', $request->fecha_fin))
-            ->orderByDesc('fecha')
-            ->paginate(15)
-            ->withQueryString();
+        if ($destajo->cerrado) {
+            return back()->withErrors(['error' => 'No se puede capturar produccion en un destajo cerrado.']);
+        }
 
-        return Inertia::render('admin/prod/registros/index', [
-            'registros' => $registros,
-            'gruposTrabajo' => GrupoTrabajo::where('activo', true)->orderBy('descripcion')->get(),
-            'filters' => $request->only(['grupo_trabajo_id', 'fecha_inicio', 'fecha_fin', 'semana']),
-        ]);
+        if ($request->date('fecha')->lt($destajo->fecha_inicio) || $request->date('fecha')->gt($destajo->fecha_fin)) {
+            return back()->withErrors(['fecha' => 'La fecha debe estar dentro del periodo del destajo.']);
+        }
+
+        Registro::create($request->validated());
+
+        return to_route('admin.prod.destajos.show', $destajo);
     }
 
-    public function create(): Response
+    public function destroy(Destajo $destajo, Registro $registro): RedirectResponse
     {
-        return Inertia::render('admin/prod/registros/create', [
-            'conceptos' => Concepto::with('obra')
-                ->withSum('registros', 'cantidad')
-                ->where('activo', true)
-                ->orderBy('marca')
-                ->get(),
-            'gruposTrabajo' => GrupoTrabajo::where('activo', true)->orderBy('descripcion')->get(),
-        ]);
-    }
+        if ($destajo->cerrado) {
+            return back()->withErrors(['error' => 'No se puede eliminar produccion de un destajo cerrado.']);
+        }
 
-    public function store(RegistroStoreRequest $request): RedirectResponse
-    {
-        Registro::create([
-            'fecha' => $request->fecha,
-            'concepto_id' => $request->concepto_id,
-            'grupo_trabajo_id' => $request->grupo_trabajo_id,
-            'cantidad' => $request->cantidad,
-        ]);
-
-        return to_route('admin.prod.registros.index');
-    }
-
-    public function destroy(Registro $registro): RedirectResponse
-    {
         $registro->delete();
 
-        return to_route('admin.prod.registros.index');
+        return to_route('admin.prod.destajos.show', $destajo);
+    }
+
+    /**
+     * Carga masiva de produccion. Columnas: GRUPO, MARCA, CANTIDAD.
+     * Todos los renglones toman la fecha (dia) enviada en el formulario.
+     */
+    public function importCsv(RegistroImportCsvRequest $request, Destajo $destajo): RedirectResponse
+    {
+        if ($destajo->cerrado) {
+            return back()->withErrors(['error' => 'No se puede importar produccion en un destajo cerrado.']);
+        }
+
+        $fecha = $request->date('fecha');
+        if ($fecha->lt($destajo->fecha_inicio) || $fecha->gt($destajo->fecha_fin)) {
+            return back()->withErrors(['fecha' => 'La fecha debe estar dentro del periodo del destajo.']);
+        }
+
+        $handle = fopen($request->file('csv_file')->getRealPath(), 'r');
+        $header = array_map(fn ($col) => mb_strtoupper(trim($col)), fgetcsv($handle) ?: []);
+
+        $importados = 0;
+        $errores = [];
+        $linea = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $linea++;
+            if (count($row) < count($header)) {
+                continue;
+            }
+
+            $data = array_combine($header, $row);
+            $grupoNombre = trim($data['GRUPO'] ?? '');
+            $marca = trim($data['MARCA'] ?? '');
+            $cantidad = (int) trim($data['CANTIDAD'] ?? '0');
+
+            if ($grupoNombre === '' && $marca === '') {
+                continue;
+            }
+
+            $grupo = GrupoTrabajo::where('descripcion', $grupoNombre)->first();
+            if ($grupo === null) {
+                $errores[] = "Linea {$linea}: grupo \"{$grupoNombre}\" no encontrado.";
+
+                continue;
+            }
+
+            $conceptos = Concepto::where('marca', $marca)->where('activo', true)->get();
+            if ($conceptos->isEmpty()) {
+                $errores[] = "Linea {$linea}: pieza \"{$marca}\" no encontrada.";
+
+                continue;
+            }
+            if ($conceptos->count() > 1) {
+                $errores[] = "Linea {$linea}: pieza \"{$marca}\" existe en varias obras (ambigua).";
+
+                continue;
+            }
+            if ($cantidad < 1) {
+                $errores[] = "Linea {$linea}: cantidad invalida.";
+
+                continue;
+            }
+
+            Registro::create([
+                'fecha' => $fecha,
+                'concepto_id' => $conceptos->first()->id,
+                'grupo_trabajo_id' => $grupo->id,
+                'cantidad' => $cantidad,
+            ]);
+            $importados++;
+        }
+
+        fclose($handle);
+
+        if ($errores !== []) {
+            return back()
+                ->with('success', "Se importaron {$importados} registros.")
+                ->withErrors(['csv_file' => implode(' ', $errores)]);
+        }
+
+        return back()->with('success', "Se importaron {$importados} registros correctamente.");
     }
 }

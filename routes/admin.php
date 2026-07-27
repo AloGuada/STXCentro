@@ -93,7 +93,7 @@ use App\Http\Controllers\Admin\Intra\SeccionEstaticaController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\ObraController;
 use App\Http\Controllers\Admin\Prod\ConceptoController as ProdConceptoController;
-use App\Http\Controllers\Admin\Prod\CorteController as ProdCorteController;
+use App\Http\Controllers\Admin\Prod\DestajoController as ProdDestajoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioConceptoController as ProdGrupoPrecioConceptoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioController as ProdGrupoPrecioController;
 use App\Http\Controllers\Admin\Prod\GrupoTrabajoController as ProdGrupoTrabajoController;
@@ -171,13 +171,16 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // Catalogos
         Route::resource('tipos-pago-extra', ProdTipoPagoExtraController::class)->parameters(['tipos-pago-extra' => 'tipoPagoExtra']);
 
-        // Registros y Pagos Extra
-        Route::resource('registros', ProdRegistroController::class)->parameters(['registros' => 'registro'])->except(['edit', 'update']);
-        Route::resource('pagos-extra', ProdPagoExtraController::class)->parameters(['pagos-extra' => 'pagoExtra'])->except(['edit', 'update', 'show']);
+        // Destajos (semanal) y liquidaciones
+        Route::resource('destajos', ProdDestajoController::class)->except(['edit', 'update'])->parameters(['destajos' => 'destajo']);
+        Route::post('destajos/{destajo}/cerrar', [ProdDestajoController::class, 'cerrar'])->name('destajos.cerrar');
 
-        // Cortes y liquidaciones
-        Route::resource('cortes', ProdCorteController::class)->except(['edit', 'update'])->parameters(['cortes' => 'corte']);
-        Route::post('cortes/{corte}/cerrar', [ProdCorteController::class, 'cerrar'])->name('cortes.cerrar');
+        // Produccion y pagos extra dentro del destajo
+        Route::post('destajos/{destajo}/registros', [ProdRegistroController::class, 'store'])->name('destajos.registros.store');
+        Route::post('destajos/{destajo}/registros/import-csv', [ProdRegistroController::class, 'importCsv'])->name('destajos.registros.import-csv');
+        Route::delete('destajos/{destajo}/registros/{registro}', [ProdRegistroController::class, 'destroy'])->name('destajos.registros.destroy');
+        Route::post('destajos/{destajo}/pagos-extra', [ProdPagoExtraController::class, 'store'])->name('destajos.pagos-extra.store');
+        Route::delete('destajos/{destajo}/pagos-extra/{pagoExtra}', [ProdPagoExtraController::class, 'destroy'])->name('destajos.pagos-extra.destroy');
     });
 
     // Infraestructura admin routes

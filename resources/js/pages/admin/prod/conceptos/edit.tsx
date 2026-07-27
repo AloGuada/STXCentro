@@ -1,10 +1,11 @@
+import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Concepto, Obra } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
@@ -17,7 +18,7 @@ export default function ConceptosEdit({ concepto }: Props) {
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Produccion', href: '/admin/prod/cortes' },
+        { title: 'Produccion', href: '/admin/prod/destajos' },
         { title: 'Conceptos', href: '/admin/prod/conceptos' },
         { title: `${obra.no} - ${obra.descripcion}`, href: `/admin/prod/conceptos/obra/${obra.id}` },
         { title: concepto.marca, href: `/admin/prod/conceptos/${concepto.id}/edit` },
@@ -38,20 +39,14 @@ export default function ConceptosEdit({ concepto }: Props) {
         put(`/admin/prod/conceptos/${concepto.id}`);
     };
 
-    const handleDelete = () => {
-        if (confirm('Estas seguro de eliminar este concepto?')) {
-            router.delete(`/admin/prod/conceptos/${concepto.id}`);
-        }
-    };
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Editar ${concepto.marca}`} />
 
             <div className="p-6">
-                <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Editar Concepto</h1>
-                    <p className="mb-4 text-sm text-gray-500">Obra: {obra.no} - {obra.descripcion}</p>
+                <div className="w-full max-w-2xl">
+                    <h1 className="text-2xl font-semibold">Editar pieza</h1>
+                    <p className="mb-6 mt-1 text-sm text-base-content/60">Obra: {obra.no} - {obra.descripcion}</p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
@@ -59,6 +54,7 @@ export default function ConceptosEdit({ concepto }: Props) {
                                 id="marca"
                                 value={data.marca}
                                 onChange={(e) => setData('marca', e.target.value)}
+                                error={!!errors.marca}
                             />
                         </FormField>
 
@@ -67,16 +63,18 @@ export default function ConceptosEdit({ concepto }: Props) {
                                 id="descripcion"
                                 value={data.descripcion}
                                 onChange={(e) => setData('descripcion', e.target.value)}
+                                error={!!errors.descripcion}
                             />
                         </FormField>
 
-                        <FormField label="Cantidad (piezas)" htmlFor="cantidad" error={errors.cantidad} required>
+                        <FormField label="Cantidad (piezas)" htmlFor="cantidad" error={errors.cantidad}>
                             <Input
                                 id="cantidad"
                                 type="number"
                                 min="0"
                                 value={data.cantidad}
                                 onChange={(e) => setData('cantidad', e.target.value)}
+                                error={!!errors.cantidad}
                             />
                         </FormField>
 
@@ -89,6 +87,7 @@ export default function ConceptosEdit({ concepto }: Props) {
                                     min="0"
                                     value={data.peso_unitario}
                                     onChange={(e) => setData('peso_unitario', e.target.value)}
+                                    error={!!errors.peso_unitario}
                                 />
                             </FormField>
 
@@ -99,26 +98,27 @@ export default function ConceptosEdit({ concepto }: Props) {
                                     min="1"
                                     value={data.version}
                                     onChange={(e) => setData('version', e.target.value)}
+                                    error={!!errors.version}
                                 />
                             </FormField>
                         </div>
 
-                        <FormField label="Estado" htmlFor="activo">
-                            <label className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={data.activo}
-                                    onChange={(e) => setData('activo', e.target.checked)}
-                                    className="rounded border-gray-300"
-                                />
-                                <span className="text-sm">Activo</span>
-                            </label>
-                        </FormField>
+                        <label className="flex cursor-pointer items-center gap-2">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm"
+                                checked={data.activo}
+                                onChange={(e) => setData('activo', e.target.checked)}
+                            />
+                            <span className="text-sm">Activo</span>
+                        </label>
 
-                        <div className="flex justify-between">
-                            <Button type="button" variant="destructive" onClick={handleDelete}>
-                                Eliminar
-                            </Button>
+                        <div className="flex items-center justify-between">
+                            <DeleteDialog
+                                title="Eliminar pieza"
+                                description={`¿Eliminar la pieza "${concepto.marca}"? Esta acción no se puede deshacer.`}
+                                deleteUrl={`/admin/prod/conceptos/${concepto.id}`}
+                            />
                             <div className="flex gap-2">
                                 <Button variant="outline" asChild>
                                     <Link href={`/admin/prod/conceptos/obra/${obra.id}`}>Cancelar</Link>

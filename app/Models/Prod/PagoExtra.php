@@ -19,7 +19,7 @@ class PagoExtra extends Model
     protected $fillable = [
         'descripcion',
         'tipo_id',
-        'corte_id',
+        'destajo_id',
         'grupo_trabajo_id',
         'precio',
         'dias',
@@ -50,9 +50,9 @@ class PagoExtra extends Model
         return $this->belongsTo(TipoPagoExtra::class, 'tipo_id');
     }
 
-    public function corte(): BelongsTo
+    public function destajo(): BelongsTo
     {
-        return $this->belongsTo(Corte::class, 'corte_id');
+        return $this->belongsTo(Destajo::class, 'destajo_id');
     }
 
     public function grupoTrabajo(): BelongsTo

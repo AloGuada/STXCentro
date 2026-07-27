@@ -636,8 +636,9 @@ export type ProdRegistro = {
     updated_at: string;
 };
 
-export type ProdCorte = {
+export type ProdDestajo = {
     id: number;
+    anio: number;
     semana: number;
     fecha_inicio: string;
     fecha_fin: string;
@@ -649,9 +650,16 @@ export type ProdCorte = {
     updated_at: string;
 };
 
+export type ProdPiezaSinPrecio = {
+    concepto_id: number;
+    marca: string;
+    descripcion: string;
+    cantidad: number;
+};
+
 export type ProdLiquidacion = {
     id: number;
-    corte_id: number;
+    destajo_id: number;
     grupo_trabajo_id: number;
     total_kilos: number;
     total_produccion: number;
@@ -659,7 +667,7 @@ export type ProdLiquidacion = {
     total_final: number;
     generado_en: string;
     generado_por: string;
-    corte?: ProdCorte;
+    destajo?: ProdDestajo;
     grupo_trabajo?: ProdGrupoTrabajo;
     generador?: Usuario;
     detalles?: ProdLiquidacionDetalle[];
@@ -678,6 +686,7 @@ export type ProdLiquidacionDetalle = {
     kilos: number;
     precio_kilo_aplicado: number;
     total: number;
+    concepto?: Concepto;
     created_at: string;
     updated_at: string;
 };
@@ -695,14 +704,14 @@ export type ProdPagoExtra = {
     id: number;
     descripcion: string;
     tipo_id: number;
-    corte_id: number;
+    destajo_id: number;
     grupo_trabajo_id: number;
     precio: number;
     dias: number;
     personas: number;
     monto?: number;
     tipo?: ProdTipoPagoExtra;
-    corte?: ProdCorte;
+    destajo?: ProdDestajo;
     grupo_trabajo?: ProdGrupoTrabajo;
     created_at: string;
     updated_at: string;

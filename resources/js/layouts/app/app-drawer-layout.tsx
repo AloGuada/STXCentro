@@ -110,12 +110,6 @@ const navGroups: NavGroup[] = [
                 permission: 'obras.ver',
             },
             {
-                title: 'Conceptos',
-                href: '/admin/prod/conceptos',
-                icon: Puzzle,
-                permission: 'prod.conceptos.ver',
-            },
-            {
                 title: 'Media',
                 href: '/admin/media',
                 icon: Image,
@@ -158,28 +152,28 @@ const navGroups: NavGroup[] = [
         icon: Factory,
         items: [
             {
-                title: 'Registros',
-                href: '/admin/prod/registros',
-                icon: ClipboardList,
-                permission: 'prod.registros.ver',
-            },
-            {
-                title: 'Cortes',
-                href: '/admin/prod/cortes',
+                title: 'Destajos',
+                href: '/admin/prod/destajos',
                 icon: DollarSign,
-                permission: 'prod.cortes.ver',
+                permission: 'prod.destajos.ver',
             },
             {
-                title: 'Grupos Trabajo',
-                href: '/admin/prod/grupos-trabajo',
-                icon: Users,
-                permission: 'prod.grupos-trabajo.ver',
+                title: 'Conceptos',
+                href: '/admin/prod/conceptos',
+                icon: Puzzle,
+                permission: 'prod.conceptos.ver',
             },
             {
                 title: 'Grupo Precios',
                 href: '/admin/prod/grupo-precios',
                 icon: Layers,
                 permission: 'prod.grupo-precios.ver',
+            },
+            {
+                title: 'Grupos Trabajo',
+                href: '/admin/prod/grupos-trabajo',
+                icon: Users,
+                permission: 'prod.grupos-trabajo.ver',
             },
             {
                 title: 'Tipos Pago Extra',

@@ -19,7 +19,7 @@ class Liquidacion extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'corte_id',
+        'destajo_id',
         'grupo_trabajo_id',
         'total_kilos',
         'total_produccion',
@@ -43,9 +43,9 @@ class Liquidacion extends Model
         ];
     }
 
-    public function corte(): BelongsTo
+    public function destajo(): BelongsTo
     {
-        return $this->belongsTo(Corte::class, 'corte_id');
+        return $this->belongsTo(Destajo::class, 'destajo_id');
     }
 
     public function grupoTrabajo(): BelongsTo

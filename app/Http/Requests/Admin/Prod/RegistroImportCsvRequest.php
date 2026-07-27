@@ -4,7 +4,7 @@ namespace App\Http\Requests\Admin\Prod;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class ExtraStoreRequest extends FormRequest
+class RegistroImportCsvRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -17,8 +17,8 @@ class ExtraStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'descripcion' => ['required', 'string', 'max:255'],
-            'monto' => ['required', 'numeric', 'min:0'],
+            'csv_file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
+            'fecha' => ['required', 'date'],
         ];
     }
 
@@ -28,9 +28,10 @@ class ExtraStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'descripcion.required' => 'La descripcion es obligatoria.',
-            'monto.required' => 'El monto es obligatorio.',
-            'monto.min' => 'El monto no puede ser negativo.',
+            'csv_file.required' => 'El archivo CSV es obligatorio.',
+            'csv_file.mimes' => 'El archivo debe ser de tipo CSV.',
+            'csv_file.max' => 'El archivo no debe superar los 5MB.',
+            'fecha.required' => 'La fecha es obligatoria.',
         ];
     }
 }

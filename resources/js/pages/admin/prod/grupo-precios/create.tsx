@@ -1,24 +1,24 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Obra } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { type FormEvent, useMemo } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Produccion', href: '/admin/prod/cortes' },
+    { title: 'Produccion', href: '/admin/prod/destajos' },
     { title: 'Grupo Precios', href: '/admin/prod/grupo-precios' },
     { title: 'Nuevo', href: '/admin/prod/grupo-precios/create' },
 ];
 
 type Props = {
     obras: Obra[];
-    obraId?: string;
+    obraId?: string | null;
 };
 
 export default function GrupoPreciosCreate({ obras, obraId }: Props) {
@@ -27,6 +27,11 @@ export default function GrupoPreciosCreate({ obras, obraId }: Props) {
         descripcion: '',
         precio_kilo: '',
     });
+
+    const obraOptions = useMemo(
+        () => obras.map((obra) => ({ value: String(obra.id), label: `${obra.no} - ${obra.descripcion}` })),
+        [obras],
+    );
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -38,23 +43,17 @@ export default function GrupoPreciosCreate({ obras, obraId }: Props) {
             <Head title="Nuevo Grupo de Precios" />
 
             <div className="p-6">
-                <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Nuevo Grupo de Precios</h1>
+                <div className="w-full max-w-2xl">
+                    <h1 className="mb-6 text-2xl font-semibold">Nuevo grupo de precios</h1>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Obra" htmlFor="obra_id" error={errors.obra_id} required>
-                            <Select
-                                id="obra_id"
+                            <SearchSelect
+                                options={obraOptions}
                                 value={data.obra_id}
                                 onValueChange={(value) => setData('obra_id', value)}
-                                placeholder="Seleccionar obra"
-                            >
-                                {obras.map((obra) => (
-                                    <option key={obra.id} value={obra.id}>
-                                        {obra.no} - {obra.descripcion}
-                                    </option>
-                                ))}
-                            </Select>
+                                placeholder="Buscar obra..."
+                            />
                         </FormField>
 
                         <FormField label="Descripcion" htmlFor="descripcion" error={errors.descripcion} required>
@@ -62,6 +61,7 @@ export default function GrupoPreciosCreate({ obras, obraId }: Props) {
                                 id="descripcion"
                                 value={data.descripcion}
                                 onChange={(e) => setData('descripcion', e.target.value)}
+                                error={!!errors.descripcion}
                                 placeholder="Nombre del grupo de precios"
                             />
                         </FormField>
@@ -74,6 +74,7 @@ export default function GrupoPreciosCreate({ obras, obraId }: Props) {
                                 min="0"
                                 value={data.precio_kilo}
                                 onChange={(e) => setData('precio_kilo', e.target.value)}
+                                error={!!errors.precio_kilo}
                                 placeholder="0.0000"
                             />
                         </FormField>

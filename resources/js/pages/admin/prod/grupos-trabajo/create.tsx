@@ -9,7 +9,7 @@ import type { FormEvent } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Produccion', href: '/admin/prod/cortes' },
+    { title: 'Produccion', href: '/admin/prod/destajos' },
     { title: 'Grupos Trabajo', href: '/admin/prod/grupos-trabajo' },
     { title: 'Nuevo Grupo', href: '/admin/prod/grupos-trabajo/create' },
 ];
@@ -55,8 +55,8 @@ export default function GruposTrabajoCreate() {
             <Head title="Nuevo Grupo de Trabajo" />
 
             <div className="p-6">
-                <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Nuevo Grupo de Trabajo</h1>
+                <div className="w-full max-w-3xl">
+                    <h1 className="mb-6 text-2xl font-semibold">Nuevo grupo de trabajo</h1>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Descripcion" htmlFor="descripcion" error={errors.descripcion} required>
@@ -64,6 +64,7 @@ export default function GruposTrabajoCreate() {
                                 id="descripcion"
                                 value={data.descripcion}
                                 onChange={(e) => setData('descripcion', e.target.value)}
+                                error={!!errors.descripcion}
                                 placeholder="Nombre del grupo"
                             />
                         </FormField>
@@ -76,6 +77,7 @@ export default function GruposTrabajoCreate() {
                                     min="0"
                                     value={data.linea}
                                     onChange={(e) => setData('linea', e.target.value)}
+                                    error={!!errors.linea}
                                 />
                             </FormField>
 
@@ -86,50 +88,88 @@ export default function GruposTrabajoCreate() {
                                     min="0"
                                     value={data.modulo}
                                     onChange={(e) => setData('modulo', e.target.value)}
+                                    error={!!errors.modulo}
                                 />
                             </FormField>
                         </div>
 
+                        <label className="flex cursor-pointer items-center gap-2">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm"
+                                checked={data.activo}
+                                onChange={(e) => setData('activo', e.target.checked)}
+                            />
+                            <span className="text-sm">Activo</span>
+                        </label>
+
                         <div>
                             <div className="mb-2 flex items-center justify-between">
-                                <h3 className="text-lg font-medium">Empleados</h3>
+                                <h2 className="text-lg font-semibold">Empleados</h2>
                                 <Button type="button" variant="outline" size="sm" onClick={addEmpleado}>
-                                    <PlusIcon className="mr-1 size-4" /> Agregar
+                                    <PlusIcon className="size-4" /> Agregar
                                 </Button>
                             </div>
 
-                            {data.empleados.map((emp, index) => (
-                                <div key={index} className="mb-2 flex items-end gap-2">
-                                    <div className="flex-1">
-                                        <Input
-                                            value={emp.nombre}
-                                            onChange={(e) => updateEmpleado(index, 'nombre', e.target.value)}
-                                            placeholder="Nombre"
-                                        />
-                                    </div>
-                                    <div className="w-32">
-                                        <Input
-                                            value={emp.no_empleado}
-                                            onChange={(e) => updateEmpleado(index, 'no_empleado', e.target.value)}
-                                            placeholder="No. Emp."
-                                        />
-                                    </div>
-                                    <div className="w-24">
-                                        <Input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            max="100"
-                                            value={emp.porcentaje}
-                                            onChange={(e) => updateEmpleado(index, 'porcentaje', e.target.value)}
-                                            placeholder="%"
-                                        />
-                                    </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeEmpleado(index)}>
-                                        <TrashIcon className="size-4 text-red-500" />
-                                    </Button>
-                                </div>
-                            ))}
+                            <div className="rounded-box border border-base-300 overflow-hidden">
+                                <table className="table table-sm">
+                                    <thead className="bg-base-200">
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th className="w-36">No. Empleado</th>
+                                            <th className="w-28 text-right">%</th>
+                                            <th className="w-12"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {data.empleados.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} className="text-center text-base-content/50 py-6">
+                                                    Sin empleados. Usa "Agregar" para añadir integrantes.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            data.empleados.map((emp, index) => (
+                                                <tr key={index} className="hover">
+                                                    <td>
+                                                        <Input
+                                                            value={emp.nombre}
+                                                            onChange={(e) => updateEmpleado(index, 'nombre', e.target.value)}
+                                                            placeholder="Nombre"
+                                                            className="input-sm"
+                                                        />
+                                                    </td>
+                                                    <td>
+                                                        <Input
+                                                            value={emp.no_empleado}
+                                                            onChange={(e) => updateEmpleado(index, 'no_empleado', e.target.value)}
+                                                            placeholder="No. Emp."
+                                                            className="input-sm"
+                                                        />
+                                                    </td>
+                                                    <td>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            max="100"
+                                                            value={emp.porcentaje}
+                                                            onChange={(e) => updateEmpleado(index, 'porcentaje', e.target.value)}
+                                                            placeholder="%"
+                                                            className="input-sm text-right font-mono"
+                                                        />
+                                                    </td>
+                                                    <td>
+                                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeEmpleado(index)}>
+                                                            <TrashIcon className="size-4 text-error" />
+                                                        </Button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-2">

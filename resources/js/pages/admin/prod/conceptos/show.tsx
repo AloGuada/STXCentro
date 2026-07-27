@@ -1,14 +1,14 @@
 import { FormField } from '@/components/form';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Concepto, Obra } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { PlusIcon, UploadIcon } from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
 
-const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 3 });
+const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 type Props = {
     obra: Obra;
@@ -19,7 +19,7 @@ type Props = {
 export default function ConceptosShow({ obra, conceptos, filters }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Produccion', href: '/admin/prod/cortes' },
+        { title: 'Produccion', href: '/admin/prod/destajos' },
         { title: 'Conceptos', href: '/admin/prod/conceptos' },
         { title: `${obra.no} - ${obra.descripcion}`, href: `/admin/prod/conceptos/obra/${obra.id}` },
     ];
@@ -60,25 +60,28 @@ export default function ConceptosShow({ obra, conceptos, filters }: Props) {
             <Head title={`Conceptos - Obra ${obra.no}`} />
 
             <div className="p-6">
-                <div className="mb-4 flex items-center justify-between">
-                    <div className="w-72">
-                        <Input
-                            placeholder="Buscar por marca o descripcion..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
+                <div className="mb-6 flex items-end justify-between gap-3">
+                    <div>
+                        <h1 className="text-2xl font-semibold">Obra {obra.no}</h1>
+                        <p className="mt-1 text-sm text-base-content/60">{obra.descripcion}</p>
                     </div>
-                    <Button asChild>
-                        <Link href={`/admin/prod/conceptos/create?obra_id=${obra.id}`}>
-                            <PlusIcon className="mr-1 size-4" />
-                            Nuevo Concepto
-                        </Link>
-                    </Button>
+                    <ButtonLink href={`/admin/prod/conceptos/create?obra_id=${obra.id}`} variant="primary">
+                        <PlusIcon className="size-4" />
+                        Nueva pieza
+                    </ButtonLink>
                 </div>
 
-                <div className="overflow-hidden rounded-lg border border-base-300">
+                <div className="mb-4 w-full max-w-xs">
+                    <Input
+                        placeholder="Buscar por marca o descripcion..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+
+                <div className="rounded-box border border-base-300 overflow-hidden">
                     <div className="max-h-[60vh] overflow-auto">
-                        <table className="table table-sm w-full">
+                        <table className="table table-sm">
                             <thead className="sticky top-0 z-10 bg-base-200">
                                 <tr>
                                     <th>Marca</th>
@@ -91,19 +94,23 @@ export default function ConceptosShow({ obra, conceptos, filters }: Props) {
                             <tbody>
                                 {filtered.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="py-8 text-center text-gray-500">
+                                        <td colSpan={5} className="text-center text-base-content/50 py-6">
                                             No hay conceptos para esta obra
                                         </td>
                                     </tr>
                                 ) : (
                                     filtered.map((c) => (
-                                        <tr key={c.id} className="hover cursor-pointer" onClick={() => window.location.href = `/admin/prod/conceptos/${c.id}/edit`}>
+                                        <tr
+                                            key={c.id}
+                                            className="hover cursor-pointer"
+                                            onClick={() => router.visit(`/admin/prod/conceptos/${c.id}/edit`)}
+                                        >
                                             <td className="font-medium">{c.marca}</td>
                                             <td>{c.descripcion}</td>
-                                            <td className="text-right font-mono text-sm">{fmt(c.peso_unitario)}</td>
-                                            <td className="text-center font-mono text-sm">{c.version}</td>
+                                            <td className="text-right font-mono">{fmt(c.peso_unitario)}</td>
+                                            <td className="text-center font-mono">{c.version}</td>
                                             <td className="text-center">
-                                                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${c.activo ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
+                                                <span className={`badge badge-sm ${c.activo ? 'badge-success' : 'badge-ghost'}`}>
                                                     {c.activo ? 'Activo' : 'Inactivo'}
                                                 </span>
                                             </td>
@@ -123,14 +130,14 @@ export default function ConceptosShow({ obra, conceptos, filters }: Props) {
                 </div>
 
                 <div className="mt-8 space-y-3">
-                    <h2 className="text-lg font-semibold">Importar Conceptos desde CSV</h2>
-                    <p className="text-sm text-gray-500">
+                    <h2 className="text-lg font-semibold">Importar conceptos desde CSV</h2>
+                    <p className="text-sm text-base-content/60">
                         Columnas: Marca, Descripcion, Peso(T) (se convierte a kg), Revision de documentos (ej. REV 2).
                         Si la marca ya existe, solo se actualiza si la version importada es mayor.
                     </p>
 
                     <form onSubmit={handleCsvImport} className="flex items-end gap-4">
-                        <FormField label="Archivo CSV" htmlFor="csv_file" error={csvForm.errors.csv_file}>
+                        <FormField label="Archivo CSV" htmlFor="csv_file" error={csvForm.errors.csv_file} className="max-w-md">
                             <input
                                 id="csv_file"
                                 type="file"
@@ -139,8 +146,8 @@ export default function ConceptosShow({ obra, conceptos, filters }: Props) {
                                 onChange={(e) => csvForm.setData('csv_file', e.target.files?.[0] ?? null)}
                             />
                         </FormField>
-                        <Button type="submit" disabled={csvForm.processing || !csvForm.data.csv_file}>
-                            {csvForm.processing ? <Loader2Icon className="size-4 animate-spin" /> : <UploadIcon className="size-4" />}
+                        <Button type="submit" disabled={csvForm.processing || !csvForm.data.csv_file} loading={csvForm.processing}>
+                            {!csvForm.processing && <UploadIcon className="size-4" />}
                             Importar CSV
                         </Button>
                     </form>

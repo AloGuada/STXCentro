@@ -2,6 +2,7 @@
 
 namespace App\Models\Prod;
 
+use App\Models\Concepto;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -42,5 +43,14 @@ class LiquidacionDetalle extends Model
     public function liquidacion(): BelongsTo
     {
         return $this->belongsTo(Liquidacion::class, 'liquidacion_id');
+    }
+
+    /**
+     * Snapshot: concepto_id no tiene FK (el detalle sobrevive al borrado del concepto).
+     * La relacion es solo para resolver marca/descripcion cuando el concepto aun existe.
+     */
+    public function concepto(): BelongsTo
+    {
+        return $this->belongsTo(Concepto::class, 'concepto_id');
     }
 }

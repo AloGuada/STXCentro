@@ -6,7 +6,7 @@ import { Head } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Produccion', href: '/admin/prod/cortes' },
+    { title: 'Produccion', href: '/admin/prod/destajos' },
     { title: 'Grupos Trabajo', href: '/admin/prod/grupos-trabajo' },
 ];
 
@@ -17,18 +17,20 @@ const columns: Column<GrupoTrabajoRow>[] = [
     {
         key: 'linea',
         label: 'Linea',
+        className: 'text-right',
         render: (g) => <span className="font-mono text-sm">{g.linea}</span>,
     },
     {
         key: 'modulo',
         label: 'Modulo',
+        className: 'text-right',
         render: (g) => <span className="font-mono text-sm">{g.modulo}</span>,
     },
     {
         key: 'activo',
         label: 'Estado',
         render: (g) => (
-            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${g.activo ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
+            <span className={`badge badge-sm ${g.activo ? 'badge-success' : 'badge-ghost'}`}>
                 {g.activo ? 'Activo' : 'Inactivo'}
             </span>
         ),
@@ -36,6 +38,7 @@ const columns: Column<GrupoTrabajoRow>[] = [
     {
         key: 'empleados_count',
         label: 'Empleados',
+        className: 'text-right',
         render: (g) => <span className="font-mono text-sm">{g.empleados_count}</span>,
     },
 ];
@@ -51,6 +54,11 @@ export default function GruposTrabajoIndex({ grupos, filters }: Props) {
             <Head title="Grupos de Trabajo" />
 
             <div className="p-6">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-semibold">Grupos de trabajo</h1>
+                    <p className="mt-1 text-sm text-base-content/60">Equipos de producción y sus integrantes.</p>
+                </div>
+
                 <DataTable
                     columns={columns}
                     data={grupos}
@@ -58,7 +66,7 @@ export default function GruposTrabajoIndex({ grupos, filters }: Props) {
                     searchValue={filters.search}
                     searchPlaceholder="Buscar grupos..."
                     createHref="/admin/prod/grupos-trabajo/create"
-                    createLabel="Nuevo Grupo"
+                    createLabel="Nuevo grupo"
                     emptyMessage="No hay grupos de trabajo registrados"
                     getRowHref={(g) => `/admin/prod/grupos-trabajo/${g.id}/edit`}
                 />

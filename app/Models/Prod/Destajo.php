@@ -6,17 +6,18 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Corte extends Model
+class Destajo extends Model
 {
-    /** @use HasFactory<\Database\Factories\Prod\CorteFactory> */
+    /** @use HasFactory<\Database\Factories\Prod\DestajoFactory> */
     use HasFactory;
 
-    protected $table = 'prod_cortes';
+    protected $table = 'prod_destajos';
 
     /**
      * @var list<string>
      */
     protected $fillable = [
+        'anio',
         'semana',
         'fecha_inicio',
         'fecha_fin',
@@ -30,6 +31,7 @@ class Corte extends Model
     protected function casts(): array
     {
         return [
+            'anio' => 'integer',
             'semana' => 'integer',
             'fecha_inicio' => 'date',
             'fecha_fin' => 'date',
@@ -40,11 +42,11 @@ class Corte extends Model
 
     public function liquidaciones(): HasMany
     {
-        return $this->hasMany(Liquidacion::class, 'corte_id');
+        return $this->hasMany(Liquidacion::class, 'destajo_id');
     }
 
     public function pagosExtra(): HasMany
     {
-        return $this->hasMany(PagoExtra::class, 'corte_id');
+        return $this->hasMany(PagoExtra::class, 'destajo_id');
     }
 }

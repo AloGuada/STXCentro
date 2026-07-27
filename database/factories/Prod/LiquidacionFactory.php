@@ -2,7 +2,7 @@
 
 namespace Database\Factories\Prod;
 
-use App\Models\Prod\Corte;
+use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Liquidacion;
 use App\Models\Usuario;
@@ -21,7 +21,7 @@ class LiquidacionFactory extends Factory
     public function definition(): array
     {
         return [
-            'corte_id' => Corte::factory(),
+            'destajo_id' => Destajo::factory(),
             'grupo_trabajo_id' => GrupoTrabajo::factory(),
             'total_kilos' => 0,
             'total_produccion' => 0,

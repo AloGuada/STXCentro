@@ -6,7 +6,7 @@ import { Head } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Produccion', href: '/admin/prod/cortes' },
+    { title: 'Produccion', href: '/admin/prod/destajos' },
     { title: 'Conceptos', href: '/admin/prod/conceptos' },
 ];
 
@@ -16,13 +16,15 @@ const columns: Column<ObraRow>[] = [
     { key: 'no', label: 'No. Obra' },
     { key: 'descripcion', label: 'Descripcion' },
     {
-        key: 'estatus',
+        key: 'conceptos_activos_count',
         label: 'Activos',
+        className: 'text-right',
         render: (obra) => <span className="font-mono text-sm">{obra.conceptos_activos_count}</span>,
     },
     {
-        key: 'id',
+        key: 'conceptos_count',
         label: 'Total',
+        className: 'text-right',
         render: (obra) => <span className="font-mono text-sm">{obra.conceptos_count}</span>,
     },
 ];
@@ -35,9 +37,14 @@ type Props = {
 export default function ConceptosIndex({ obras, filters }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Conceptos" />
+            <Head title="Conceptos / Piezas" />
 
             <div className="p-6">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-semibold">Conceptos / Piezas</h1>
+                    <p className="mt-1 text-sm text-base-content/60">Catálogo de piezas por obra.</p>
+                </div>
+
                 <DataTable
                     columns={columns}
                     data={obras}
