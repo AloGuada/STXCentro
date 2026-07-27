@@ -202,6 +202,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'prod.conceptos.crear',
             'prod.conceptos.editar',
             'prod.conceptos.eliminar',
+            'prod.categorias.ver',
+            'prod.categorias.crear',
+            'prod.categorias.editar',
+            'prod.categorias.eliminar',
         ];
 
         // Permisos del módulo Infraestructura

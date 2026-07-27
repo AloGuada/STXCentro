@@ -86,6 +86,8 @@ export default function ConceptosShow({ obra, conceptos, filters }: Props) {
                                 <tr>
                                     <th>Marca</th>
                                     <th>Descripcion</th>
+                                    <th>Categoria</th>
+                                    <th className="text-right">Longitud (mm)</th>
                                     <th className="text-right">Peso Unit. (kg)</th>
                                     <th className="text-center">Version</th>
                                     <th className="text-center">Estado</th>
@@ -94,7 +96,7 @@ export default function ConceptosShow({ obra, conceptos, filters }: Props) {
                             <tbody>
                                 {filtered.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="text-center text-base-content/50 py-6">
+                                        <td colSpan={7} className="text-center text-base-content/50 py-6">
                                             No hay conceptos para esta obra
                                         </td>
                                     </tr>
@@ -107,6 +109,16 @@ export default function ConceptosShow({ obra, conceptos, filters }: Props) {
                                         >
                                             <td className="font-medium">{c.marca}</td>
                                             <td>{c.descripcion}</td>
+                                            <td>
+                                                {c.categoria ? (
+                                                    <span className="badge badge-sm badge-ghost">{c.categoria.nombre}</span>
+                                                ) : (
+                                                    <span className="text-base-content/40">—</span>
+                                                )}
+                                            </td>
+                                            <td className="text-right font-mono">
+                                                {c.longitud != null ? c.longitud.toLocaleString('es-MX') : '—'}
+                                            </td>
                                             <td className="text-right font-mono">{fmt(c.peso_unitario)}</td>
                                             <td className="text-center font-mono">{c.version}</td>
                                             <td className="text-center">

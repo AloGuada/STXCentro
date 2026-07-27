@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Concepto;
 use App\Models\Obra;
+use App\Models\Prod\Categoria;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -24,6 +25,8 @@ class ConceptoFactory extends Factory
             'descripcion' => fake()->words(3, true),
             'cantidad' => fake()->numberBetween(10, 500),
             'peso_unitario' => fake()->randomFloat(3, 5, 500),
+            'longitud' => fake()->numberBetween(500, 12000),
+            'categoria_id' => Categoria::factory(),
             'version' => 1,
             'activo' => true,
         ];

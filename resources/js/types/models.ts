@@ -571,11 +571,22 @@ export type Concepto = {
     descripcion: string;
     cantidad: number;
     peso_unitario: number;
+    longitud: number | null;
+    categoria_id: number | null;
     version: number;
     activo: boolean;
     obra?: Obra;
+    categoria?: ProdCategoria;
     registros_sum_cantidad?: number;
     grupo_precio_conceptos?: ProdGrupoPrecioConcepto[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdCategoria = {
+    id: number;
+    nombre: string;
+    conceptos_count?: number;
     created_at: string;
     updated_at: string;
 };

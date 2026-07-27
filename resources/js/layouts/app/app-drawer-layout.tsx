@@ -164,6 +164,12 @@ const navGroups: NavGroup[] = [
                 permission: 'prod.conceptos.ver',
             },
             {
+                title: 'Categorias',
+                href: '/admin/prod/categorias',
+                icon: Tag,
+                permission: 'prod.categorias.ver',
+            },
+            {
                 title: 'Grupo Precios',
                 href: '/admin/prod/grupo-precios',
                 icon: Layers,

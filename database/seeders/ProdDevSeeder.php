@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Concepto;
 use App\Models\Obra;
+use App\Models\Prod\Categoria;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
@@ -107,6 +108,9 @@ class ProdDevSeeder extends Seeder
             ]],
         ];
 
+        $categorias = collect(['Viga', 'Columna', 'Placa', 'Angulo', 'Conexion'])
+            ->map(fn ($nombre) => Categoria::firstOrCreate(['nombre' => $nombre]));
+
         $conceptos = new Collection;
 
         foreach ($obrasData as $od) {
@@ -128,6 +132,8 @@ class ProdDevSeeder extends Seeder
                     'descripcion' => $desc,
                     'cantidad' => fake()->numberBetween(10, 60),
                     'peso_unitario' => $peso,
+                    'longitud' => fake()->numberBetween(500, 12000),
+                    'categoria_id' => $categorias->random()->id,
                     'version' => 1,
                     'activo' => true,
                 ]);

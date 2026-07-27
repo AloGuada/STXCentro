@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Prod\Categoria;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\Registro;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,6 +26,8 @@ class Concepto extends Model
         'descripcion',
         'cantidad',
         'peso_unitario',
+        'longitud',
+        'categoria_id',
         'version',
         'activo',
     ];
@@ -37,6 +40,7 @@ class Concepto extends Model
         return [
             'cantidad' => 'integer',
             'peso_unitario' => 'decimal:3',
+            'longitud' => 'integer',
             'version' => 'integer',
             'activo' => 'boolean',
         ];
@@ -45,6 +49,11 @@ class Concepto extends Model
     public function obra(): BelongsTo
     {
         return $this->belongsTo(Obra::class, 'obra_id');
+    }
+
+    public function categoria(): BelongsTo
+    {
+        return $this->belongsTo(Categoria::class, 'categoria_id');
     }
 
     public function grupoPrecioConceptos(): HasMany

@@ -2,6 +2,7 @@
 
 use App\Models\Concepto;
 use App\Models\Obra;
+use App\Models\Prod\Categoria;
 use App\Models\Prod\Registro;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -56,6 +57,7 @@ describe('admin conceptos', function () {
 
     test('concepto can be stored', function () {
         $obra = Obra::factory()->create();
+        $categoria = Categoria::factory()->create();
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.prod.conceptos.store'), [
@@ -64,6 +66,8 @@ describe('admin conceptos', function () {
                 'descripcion' => 'Concepto de prueba',
                 'cantidad' => 12,
                 'peso_unitario' => 25.500,
+                'longitud' => 6250,
+                'categoria_id' => $categoria->id,
                 'version' => 1,
                 'activo' => true,
             ]);
@@ -75,19 +79,24 @@ describe('admin conceptos', function () {
             'marca' => 'MK-001',
             'descripcion' => 'Concepto de prueba',
             'cantidad' => 12,
+            'longitud' => 6250,
+            'categoria_id' => $categoria->id,
         ]);
     });
 
-    test('concepto can be stored without optional fields', function () {
+    test('concepto can be stored without version and activo defaults', function () {
         $obra = Obra::factory()->create();
+        $categoria = Categoria::factory()->create();
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.prod.conceptos.store'), [
                 'obra_id' => $obra->id,
                 'marca' => 'MK-002',
-                'descripcion' => 'Sin opcionales',
+                'descripcion' => 'Sin version ni activo',
                 'cantidad' => 0,
                 'peso_unitario' => 10.000,
+                'longitud' => 3000,
+                'categoria_id' => $categoria->id,
             ]);
 
         $response->assertRedirect(route('admin.prod.conceptos.show-by-obra', $obra));
@@ -101,6 +110,7 @@ describe('admin conceptos', function () {
 
     test('concepto can be updated', function () {
         $concepto = Concepto::factory()->create();
+        $categoria = Categoria::factory()->create();
 
         $response = $this->actingAs($this->user)
             ->put(route('admin.prod.conceptos.update', $concepto), [
@@ -109,6 +119,8 @@ describe('admin conceptos', function () {
                 'descripcion' => 'Updated',
                 'cantidad' => 7,
                 'peso_unitario' => 15.250,
+                'longitud' => 9000,
+                'categoria_id' => $categoria->id,
                 'version' => 2,
                 'activo' => false,
             ]);
@@ -119,6 +131,8 @@ describe('admin conceptos', function () {
             'id' => $concepto->id,
             'marca' => 'MK-UPD',
             'cantidad' => 7,
+            'longitud' => 9000,
+            'categoria_id' => $categoria->id,
             'version' => 2,
             'activo' => false,
         ]);
@@ -155,6 +169,34 @@ describe('admin conceptos', function () {
             ]);
 
         $response->assertSessionHasErrors(['marca', 'descripcion']);
+    });
+
+    test('validation requires longitud and categoria', function () {
+        $obra = Obra::factory()->create();
+
+        $response = $this->actingAs($this->user)
+            ->post(route('admin.prod.conceptos.store'), [
+                'obra_id' => $obra->id,
+                'marca' => 'MK-003',
+                'descripcion' => 'Falta longitud y categoria',
+                'cantidad' => 1,
+                'peso_unitario' => 10,
+            ]);
+
+        $response->assertSessionHasErrors(['longitud', 'categoria_id']);
+    });
+
+    test('create page passes categorias', function () {
+        $obra = Obra::factory()->create();
+        Categoria::factory()->count(2)->create();
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.prod.conceptos.create', ['obra_id' => $obra->id]));
+
+        $response->assertInertia(fn ($page) => $page
+            ->component('admin/prod/conceptos/create')
+            ->has('categorias', 2)
+        );
     });
 });
 

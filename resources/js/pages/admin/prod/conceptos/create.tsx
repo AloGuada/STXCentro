@@ -1,18 +1,20 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Obra } from '@/types/models';
+import type { Obra, ProdCategoria } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 type Props = {
     obra: Obra;
+    categorias: ProdCategoria[];
 };
 
-export default function ConceptosCreate({ obra }: Props) {
+export default function ConceptosCreate({ obra, categorias }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
@@ -27,6 +29,8 @@ export default function ConceptosCreate({ obra }: Props) {
         descripcion: '',
         cantidad: '0',
         peso_unitario: '',
+        longitud: '',
+        categoria_id: '',
         version: '1',
         activo: true,
     });
@@ -66,17 +70,46 @@ export default function ConceptosCreate({ obra }: Props) {
                             />
                         </FormField>
 
-                        <FormField label="Cantidad (piezas)" htmlFor="cantidad" error={errors.cantidad}>
-                            <Input
-                                id="cantidad"
-                                type="number"
-                                min="0"
-                                value={data.cantidad}
-                                onChange={(e) => setData('cantidad', e.target.value)}
-                                error={!!errors.cantidad}
-                                placeholder="0"
-                            />
+                        <FormField label="Categoria" htmlFor="categoria_id" error={errors.categoria_id} required>
+                            <Select
+                                value={data.categoria_id}
+                                onValueChange={(v) => setData('categoria_id', v)}
+                                placeholder="Selecciona categoria"
+                                error={!!errors.categoria_id}
+                            >
+                                {categorias.map((c) => (
+                                    <SelectItem key={c.id} value={String(c.id)}>
+                                        {c.nombre}
+                                    </SelectItem>
+                                ))}
+                            </Select>
                         </FormField>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Cantidad (piezas)" htmlFor="cantidad" error={errors.cantidad}>
+                                <Input
+                                    id="cantidad"
+                                    type="number"
+                                    min="0"
+                                    value={data.cantidad}
+                                    onChange={(e) => setData('cantidad', e.target.value)}
+                                    error={!!errors.cantidad}
+                                    placeholder="0"
+                                />
+                            </FormField>
+
+                            <FormField label="Longitud (mm)" htmlFor="longitud" error={errors.longitud} required>
+                                <Input
+                                    id="longitud"
+                                    type="number"
+                                    min="0"
+                                    value={data.longitud}
+                                    onChange={(e) => setData('longitud', e.target.value)}
+                                    error={!!errors.longitud}
+                                    placeholder="0"
+                                />
+                            </FormField>
+                        </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <FormField label="Peso Unitario (kg)" htmlFor="peso_unitario" error={errors.peso_unitario} required>

@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\Prod\ConceptoStoreRequest;
 use App\Http\Requests\Admin\Prod\ConceptoUpdateRequest;
 use App\Models\Concepto;
 use App\Models\Obra;
+use App\Models\Prod\Categoria;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -41,6 +42,7 @@ class ConceptoController extends Controller
 
         $conceptos = Concepto::query()
             ->where('obra_id', $obra->id)
+            ->with('categoria')
             ->when($request->search, fn ($q, $s) => $q->where('marca', 'like', "%{$s}%")
                 ->orWhere('descripcion', 'like', "%{$s}%"))
             ->orderBy('marca')
@@ -59,6 +61,7 @@ class ConceptoController extends Controller
 
         return Inertia::render('admin/prod/conceptos/create', [
             'obra' => $obra,
+            'categorias' => Categoria::orderBy('nombre')->get(),
         ]);
     }
 
@@ -70,6 +73,8 @@ class ConceptoController extends Controller
             'descripcion' => $request->descripcion,
             'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,
+            'longitud' => $request->longitud,
+            'categoria_id' => $request->categoria_id,
             'version' => $request->version ?? 1,
             'activo' => $request->boolean('activo', true),
         ]);
@@ -83,6 +88,7 @@ class ConceptoController extends Controller
 
         return Inertia::render('admin/prod/conceptos/edit', [
             'concepto' => $concepto,
+            'categorias' => Categoria::orderBy('nombre')->get(),
         ]);
     }
 
@@ -94,6 +100,8 @@ class ConceptoController extends Controller
             'descripcion' => $request->descripcion,
             'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,
+            'longitud' => $request->longitud,
+            'categoria_id' => $request->categoria_id,
             'version' => $request->version ?? $concepto->version,
             'activo' => $request->boolean('activo', $concepto->activo),
         ]);

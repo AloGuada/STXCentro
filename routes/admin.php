@@ -92,6 +92,7 @@ use App\Http\Controllers\Admin\Intra\DocumentoController as IntraDocumentoContro
 use App\Http\Controllers\Admin\Intra\SeccionEstaticaController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\ObraController;
+use App\Http\Controllers\Admin\Prod\CategoriaController as ProdCategoriaController;
 use App\Http\Controllers\Admin\Prod\ConceptoController as ProdConceptoController;
 use App\Http\Controllers\Admin\Prod\DestajoController as ProdDestajoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioConceptoController as ProdGrupoPrecioConceptoController;
@@ -170,6 +171,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Catalogos
         Route::resource('tipos-pago-extra', ProdTipoPagoExtraController::class)->parameters(['tipos-pago-extra' => 'tipoPagoExtra']);
+        Route::resource('categorias', ProdCategoriaController::class)->parameters(['categorias' => 'categoria'])->except(['show']);
 
         // Destajos (semanal) y liquidaciones
         Route::resource('destajos', ProdDestajoController::class)->except(['edit', 'update'])->parameters(['destajos' => 'destajo']);
