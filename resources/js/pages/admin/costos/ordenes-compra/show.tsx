@@ -136,9 +136,6 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                         >
                             <DownloadIcon className="size-4" /> Descargar OC
                         </a>
-                        {['pendiente_entrega', 'pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.entregas.crear') && (
-                            <Button onClick={() => setShowEntregaModal(true)}>Registrar entrega</Button>
-                        )}
                         {puedeSubirFacturaContado && (
                             <Button onClick={() => setShowSubirFacturaModal(true)}>Subir factura</Button>
                         )}
@@ -372,6 +369,11 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
 
                 {activeTab === 'recepciones' && (
                     <div className="space-y-4">
+                        {['pendiente_entrega', 'pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.entregas.crear') && (
+                            <div className="flex justify-end">
+                                <Button onClick={() => setShowEntregaModal(true)}>Registrar entrega</Button>
+                            </div>
+                        )}
                         {(!ordenCompra.entregas || ordenCompra.entregas.length === 0) ? (
                             <p className="text-base-content/60">No hay entregas registradas.</p>
                         ) : (
@@ -402,15 +404,6 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                             >
                                                 PDF
                                             </a>
-                                            {!entrega.cancelada_at && puedeCancelarEntrega && (
-                                                <Button
-                                                    variant="outline"
-                                                    className="btn-xs text-error"
-                                                    onClick={() => setCancelarEntregaId(entrega.id)}
-                                                >
-                                                    Cancelar entrada
-                                                </Button>
-                                            )}
                                         </div>
                                     </div>
 
@@ -536,6 +529,18 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                                     )}
                                                 </tbody>
                                             </table>
+                                        </div>
+                                    )}
+
+                                    {!entrega.cancelada_at && puedeCancelarEntrega && (
+                                        <div className="mt-3 flex justify-end border-t border-base-200 pt-3">
+                                            <Button
+                                                variant="outline"
+                                                className="text-error"
+                                                onClick={() => setCancelarEntregaId(entrega.id)}
+                                            >
+                                                Cancelar recepción
+                                            </Button>
                                         </div>
                                     )}
                                 </div>
