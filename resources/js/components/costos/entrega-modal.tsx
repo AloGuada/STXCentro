@@ -48,7 +48,6 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
 
     const { data, setData, processing, errors, reset } = useForm<{
         fecha_entrega: string;
-        tipo: 'parcial' | 'completa';
         factura_id: string;
         completa_factura: boolean;
         observaciones: string;
@@ -56,7 +55,6 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
         detalles: DetalleRow[];
     }>({
         fecha_entrega: new Date().toISOString().split('T')[0],
-        tipo: 'parcial',
         factura_id: '',
         completa_factura: false,
         observaciones: '',
@@ -85,6 +83,15 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
     const facturaLigada = data.factura_id
         ? facturasPendientes.find((f) => String(f.id) === data.factura_id) ?? null
         : null;
+
+    // El tipo (parcial/completa) se infiere: es completa si esta recepción deja
+    // todos los saldos de la OC en cero.
+    const tipoCalculado: 'parcial' | 'completa' = partidas.every((p, idx) => {
+        const recibida = parseFloat(data.detalles[idx]?.cantidad_recibida ?? '') || 0;
+        return (saldos[p.id] ?? 0) - recibida <= 0.001;
+    })
+        ? 'completa'
+        : 'parcial';
 
     if (!open) {
         return null;
@@ -122,7 +129,7 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
             `/admin/costos/ordenes-compra/${ordenCompra.id}/entregas`,
             {
                 fecha_entrega: data.fecha_entrega,
-                tipo: data.tipo,
+                tipo: tipoCalculado,
                 factura_id: data.factura_id || null,
                 completa_factura: data.completa_factura,
                 observaciones: data.observaciones,
@@ -164,20 +171,6 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
                                     onChange={(e) => setData('fecha_entrega', e.target.value)}
                                 />
                             </FormField>
-                            <FormField label="Tipo" htmlFor="tipo" error={errors.tipo} required>
-                                <select
-                                    id="tipo"
-                                    className="select select-bordered w-full"
-                                    value={data.tipo}
-                                    onChange={(e) => setData('tipo', e.target.value as 'parcial' | 'completa')}
-                                >
-                                    <option value="parcial">Parcial</option>
-                                    <option value="completa">Completa</option>
-                                </select>
-                            </FormField>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
                             <FormField label="Factura a ligar (opcional)" htmlFor="factura_id" error={errors.factura_id}>
                                 <select
                                     id="factura_id"
@@ -193,19 +186,18 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
                                     ))}
                                 </select>
                             </FormField>
-                            <div className="flex items-end pb-2">
-                                <label className="label cursor-pointer justify-start gap-2">
-                                    <input
-                                        type="checkbox"
-                                        className="checkbox"
-                                        disabled={!data.factura_id}
-                                        checked={data.completa_factura}
-                                        onChange={(e) => setData('completa_factura', e.target.checked)}
-                                    />
-                                    <span className="label-text">Esta entrega completa la factura</span>
-                                </label>
-                            </div>
                         </div>
+
+                        <label className="label cursor-pointer justify-start gap-2">
+                            <input
+                                type="checkbox"
+                                className="checkbox"
+                                disabled={!data.factura_id}
+                                checked={data.completa_factura}
+                                onChange={(e) => setData('completa_factura', e.target.checked)}
+                            />
+                            <span className="label-text">Esta entrega completa la factura</span>
+                        </label>
 
                         <FormField label="Observaciones" htmlFor="observaciones" error={errors.observaciones}>
                             <textarea
@@ -328,7 +320,7 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
                             </div>
                             <div>
                                 <div className="text-base-content/60">Tipo</div>
-                                <div className="font-medium capitalize">{data.tipo}</div>
+                                <div className="font-medium capitalize">{tipoCalculado}</div>
                             </div>
                             <div>
                                 <div className="text-base-content/60">Factura</div>
