@@ -28,10 +28,14 @@ trait HasEditLock
             return false;
         }
 
-        $this->forceFill([
+        // El candado es metadato de edición, no un cambio de contenido: no debe
+        // tocar `updated_at`, que es la version del bloqueo optimista. Si lo
+        // bumpeara, el `_version` que ya tiene el cliente quedaria invalidado y
+        // su primer guardado fallaria con 409.
+        static::withoutTimestamps(fn () => $this->forceFill([
             'locked_by' => $usuarioId,
             'locked_at' => now(),
-        ])->save();
+        ])->save());
 
         return true;
     }
@@ -42,10 +46,10 @@ trait HasEditLock
             return;
         }
 
-        $this->forceFill([
+        static::withoutTimestamps(fn () => $this->forceFill([
             'locked_by' => null,
             'locked_at' => null,
-        ])->save();
+        ])->save());
     }
 
     public function isLocked(): bool

@@ -144,6 +144,35 @@ describe('optimistic lock via updated_at en update', function () {
         expect($solicitud->fresh()->concepto)->toBe('modificado por otro');
     });
 
+    test('tomar el lock no invalida el _version que ya tiene el cliente', function () {
+        $solicitud = SolicitudPago::factory()->create(['estatus' => 'borrador']);
+        // El cliente renderizo la edicion con este _version, ANTES de tomar el lock.
+        $versionCliente = $solicitud->updated_at->toIso8601String();
+
+        // Al abrir la edicion, el front toma el lock (endpoint real). Antes esto
+        // bumpeaba updated_at y el primer guardado del cliente moria con 409.
+        Carbon::setTestNow(now()->addMinutes(1));
+        $this->actingAs($this->userA)
+            ->post("/admin/costos/lock/solicitud-pago/{$solicitud->id}")
+            ->assertOk();
+        Carbon::setTestNow();
+
+        $this->actingAs($this->userA)
+            ->put("/admin/costos/solicitudes-pago/{$solicitud->id}", [
+                'departamento_id' => $solicitud->departamento_id,
+                'tipo_solicitud_id' => $solicitud->tipo_solicitud_id,
+                'concepto' => 'Con comentario nuevo',
+                'tipo_pago' => $solicitud->tipo_pago,
+                'tipo_moneda' => $solicitud->tipo_moneda ?? 'mxn',
+                'monto_total' => 100,
+                'detalles' => [],
+                '_version' => $versionCliente,
+            ])
+            ->assertRedirect();
+
+        expect($solicitud->fresh()->concepto)->toBe('Con comentario nuevo');
+    });
+
     test('update libera el lock si estaba tomado', function () {
         $solicitud = SolicitudPago::factory()->create(['estatus' => 'borrador']);
         $solicitud->lock($this->userA->id);
