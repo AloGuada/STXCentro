@@ -93,6 +93,19 @@ test('tras cancelar, el saldo se libera y se puede volver a recibir', function (
     expect(Entrega::where('orden_compra_id', $oc->id)->activa()->count())->toBe(1);
 });
 
+test('una entrega cancelada deja de contar para monto_recibido', function () {
+    [$oc, $partida] = ocParaCancelacion();
+    $entrega = registrarEntregaSimple($this, $oc, $partida, 10);
+
+    expect((float) $oc->fresh()->monto_recibido)->toBeGreaterThan(0.0);
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/entregas/{$entrega->id}/cancelar", ['motivo' => 'Error de captura'])
+        ->assertRedirect();
+
+    expect((float) $oc->fresh()->monto_recibido)->toBe(0.0);
+});
+
 test('no cancela si la factura ligada ya fue aprobada por costos', function () {
     [$oc, $partida] = ocParaCancelacion();
     $factura = Factura::factory()->create([

@@ -305,7 +305,7 @@ class OrdenCompra extends Model
             return false;
         }
 
-        return ! $this->entregas()->exists();
+        return ! $this->entregas()->activa()->exists();
     }
 
     /**
@@ -319,7 +319,7 @@ class OrdenCompra extends Model
         $this->loadMissing(['entregas.detalles.ordenCompraDetalle', 'entregas.detalles.devoluciones']);
 
         $total = 0.0;
-        foreach ($this->entregas as $entrega) {
+        foreach ($this->entregas->whereNull('cancelada_at') as $entrega) {
             foreach ($entrega->detalles as $ed) {
                 $total += $ed->cantidad_neta_recibida * $ed->precio_unitario_efectivo;
             }
@@ -377,7 +377,7 @@ class OrdenCompra extends Model
             return 'espera_factura';
         }
 
-        if (! $this->entregas()->exists()) {
+        if (! $this->entregas()->activa()->exists()) {
             return 'recepcion';
         }
 
@@ -424,7 +424,7 @@ class OrdenCompra extends Model
     {
         $this->loadMissing('entregas.detalles.devoluciones');
 
-        foreach ($this->entregas as $entrega) {
+        foreach ($this->entregas->whereNull('cancelada_at') as $entrega) {
             foreach ($entrega->detalles as $ed) {
                 if ($ed->devoluciones->where('estatus', 'vigente')->isNotEmpty()) {
                     return true;

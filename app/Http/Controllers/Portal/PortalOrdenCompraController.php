@@ -25,7 +25,7 @@ class PortalOrdenCompraController extends Controller
                 'entregas.detalles.devoluciones',
                 'facturas.pago',
             ])
-            ->withCount(['facturas', 'entregas', 'detalles'])
+            ->withCount(['facturas', 'entregas' => fn ($q) => $q->activa(), 'detalles'])
             ->when($request->search, function ($query, $search) {
                 $query->where('folio', 'like', "%{$search}%");
             })

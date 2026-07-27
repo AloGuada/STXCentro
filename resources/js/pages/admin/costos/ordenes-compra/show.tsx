@@ -71,6 +71,18 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
 
     const formatMoney = (n: number) => fmtMonto(n, ordenCompra.moneda);
 
+    // Cantidad pendiente por recibir de una partida = ordenado − recibido (solo
+    // recepciones vigentes, las canceladas no cuentan).
+    const pendientePorRecibir = (detalleId: number, ordenado: number): number => {
+        const recibido = (ordenCompra.entregas ?? [])
+            .filter((e) => !e.cancelada_at)
+            .flatMap((e) => e.detalles ?? [])
+            .filter((ed) => ed.orden_compra_detalle_id === detalleId)
+            .reduce((acc, ed) => acc + Number(ed.cantidad_recibida), 0);
+
+        return Math.max(0, Number(ordenado) - recibido);
+    };
+
     const puedeCrearAnticipo = can('costos.anticipos.crear')
         && !['cancelada', 'pagada'].includes(ordenCompra.estatus);
 
@@ -260,6 +272,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                             <th>Uso CFDI</th>
                                             <th className="text-right">Cantidad</th>
                                             <th>Unidad</th>
+                                            <th className="text-right">Pendiente por recibir</th>
                                             <th className="text-right">P. Unitario</th>
                                             <th className="text-right">Subtotal</th>
                                         </tr>
@@ -282,6 +295,12 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                                 <td>{d.uso_cfdi ? `${d.uso_cfdi.clave}` : '-'}</td>
                                                 <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
                                                 <td>{d.unidad}</td>
+                                                <td className="text-right">
+                                                    {(() => {
+                                                        const pend = pendientePorRecibir(d.id, d.cantidad);
+                                                        return <span className={pend <= 0 ? 'text-success' : 'font-medium'}>{pend.toLocaleString('es-MX')}</span>;
+                                                    })()}
+                                                </td>
                                                 <td className="text-right">{formatMoney(d.precio_unitario)}</td>
                                                 <td className="text-right">{formatMoney(d.subtotal)}</td>
                                             </tr>

@@ -45,7 +45,7 @@ class OrdenCompraController extends Controller
                 'facturas.pago',
                 'solicitudesPago:id,orden_compra_id,folio,estatus',
             ])
-            ->withCount(['facturas', 'entregas', 'detalles'])
+            ->withCount(['facturas', 'entregas' => fn ($q) => $q->activa(), 'detalles'])
             ->addSelect([
                 'pagos_count' => DB::table('costos_pagos')
                     ->join('costos_facturas', function ($join) {
