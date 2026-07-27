@@ -257,6 +257,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                         <tr>
                                             <th>Descripción</th>
                                             <th>Centro de Costos</th>
+                                            <th>Obra (C. Costos)</th>
                                             <th>Uso CFDI</th>
                                             <th className="text-right">Cantidad</th>
                                             <th>Unidad</th>
@@ -269,6 +270,16 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                             <tr key={d.id}>
                                                 <td>{d.descripcion}</td>
                                                 <td>{d.obra_rubro?.rubro?.codigo} - {d.obra_rubro?.rubro?.descripcion}</td>
+                                                <td>
+                                                    {d.obra_rubro?.obra ? (
+                                                        <div>
+                                                            <div className="font-medium">{d.obra_rubro.obra.no}</div>
+                                                            <div className="text-xs text-base-content/60">{d.obra_rubro.obra.descripcion}</div>
+                                                        </div>
+                                                    ) : (
+                                                        '-'
+                                                    )}
+                                                </td>
                                                 <td>{d.uso_cfdi ? `${d.uso_cfdi.clave}` : '-'}</td>
                                                 <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
                                                 <td>{d.unidad}</td>

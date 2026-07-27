@@ -66,6 +66,14 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
         })),
     });
 
+    const importeLinea = (d: DetalleRow): number =>
+        (parseFloat(d.cantidad_recibida) || 0) * (parseFloat(d.precio_unitario) || 0);
+
+    const subtotalRecepcion = useMemo(
+        () => data.detalles.reduce((acc, d) => acc + importeLinea(d), 0),
+        [data.detalles],
+    );
+
     if (!open) {
         return null;
     }
@@ -194,6 +202,7 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
                                         <th className="w-28">Recibir ahora</th>
                                         <th className="text-right">P.U. OC</th>
                                         <th className="w-28">P.U. recibido</th>
+                                        <th className="text-right">Importe</th>
                                         <th>Notas</th>
                                     </tr>
                                 </thead>
@@ -235,6 +244,9 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
                                                         onChange={(e) => updateDetalle(idx, 'precio_unitario', e.target.value)}
                                                     />
                                                 </td>
+                                                <td className="text-right font-medium">
+                                                    {fmt(importeLinea(data.detalles[idx] ?? { cantidad_recibida: '', precio_unitario: '', observaciones: '', orden_compra_detalle_id: p.id }))}
+                                                </td>
                                                 <td>
                                                     <Input
                                                         value={data.detalles[idx]?.observaciones ?? ''}
@@ -246,6 +258,13 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
                                         );
                                     })}
                                 </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colSpan={6} className="text-right font-medium">Subtotal</td>
+                                        <td className="text-right font-semibold">{fmt(subtotalRecepcion)}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                         {errors.detalles && <p className="text-sm text-error mt-2">{errors.detalles}</p>}
