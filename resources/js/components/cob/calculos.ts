@@ -195,8 +195,13 @@ export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
         .filter((c) => c.estado === 'implementado' || c.estado === 'aprobado')
         .reduce((s, c) => s + Number(c.monto_impacto), 0);
 
-    // Estimaciones: sumadas de todas las obras del proyecto.
-    const est = calcularResumen([], obras.flatMap((o) => o.estimaciones ?? []), [], [], tipoContrato);
+    // Estimaciones del proyecto: las de cada obra (nivel obra/partida, que traen
+    // obra_id) más las globales (nivel proyecto, sin obra) que cuelgan directo del
+    // proyecto. Las globales viven en `proyecto.estimaciones`, no en ninguna obra,
+    // por lo que hay que sumarlas aparte para que cuenten en el rollup.
+    const estimacionesObra = obras.flatMap((o) => o.estimaciones ?? []);
+    const estimacionesGlobales = (proyecto.estimaciones ?? []).filter((e) => e.obra_id == null);
+    const est = calcularResumen([], [...estimacionesObra, ...estimacionesGlobales], [], [], tipoContrato);
 
     const totalFacturado = totalAnticiposFacturados + est.totalEstimacionesFacturadas;
     const totalCobrado = totalAnticiposCobrados + est.totalEstimacionesCobradas;

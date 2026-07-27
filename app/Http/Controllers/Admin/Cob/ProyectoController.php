@@ -37,6 +37,10 @@ class ProyectoController extends Controller
                 'obras.deducciones',
                 'obras.estimaciones.pagos',
                 'obras.estimaciones.historial',
+                // Estimaciones globales (nivel proyecto, sin obra): cuentan en el
+                // rollup financiero igual que las de obra.
+                'estimaciones' => fn ($q) => $q->whereNull('obra_id'),
+                'estimaciones.pagos',
             ])
             ->when($estatus !== 'todas', fn ($q) => $q->where('estatus', $estatus))
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->whereLike('no', "%{$s}%")

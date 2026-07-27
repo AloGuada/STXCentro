@@ -94,3 +94,49 @@ it('una estimación pertenece a su obra', function () {
     expect($est->obra->id)->toBe($obra->id)
         ->and($obra->estimaciones()->count())->toBe(1);
 });
+
+it('carga las estimaciones globales en el show para que cuenten en el rollup', function () {
+    $proyecto = Proyecto::factory()->create();
+    Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
+
+    Estimacion::factory()->create([
+        'proyecto_id' => $proyecto->id,
+        'obra_id' => null,
+        'nivel' => 'proyecto',
+        'estado' => 'facturada',
+        'monto_estimado' => 100000,
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('admin.cob.proyectos.show', $proyecto))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('proyecto.estimaciones', 1)
+            ->where('proyecto.estimaciones.0.obra_id', null)
+        );
+});
+
+it('carga solo las estimaciones globales en el index para el rollup', function () {
+    $proyecto = Proyecto::factory()->create();
+    $obra = Obra::factory()->create(['proyecto_id' => $proyecto->id, 'tipo' => 'base']);
+
+    // Estimación de obra: cuelga de la obra, NO debe venir en proyecto.estimaciones del index.
+    Estimacion::factory()->create(['proyecto_id' => $proyecto->id, 'obra_id' => $obra->id, 'nivel' => 'obra']);
+
+    // Estimación global: sí debe venir cargada a nivel proyecto.
+    Estimacion::factory()->create([
+        'proyecto_id' => $proyecto->id,
+        'obra_id' => null,
+        'nivel' => 'proyecto',
+        'estado' => 'facturada',
+        'monto_estimado' => 50000,
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('admin.cob.proyectos.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('proyectos.0.estimaciones', 1)
+            ->where('proyectos.0.estimaciones.0.obra_id', null)
+        );
+});
