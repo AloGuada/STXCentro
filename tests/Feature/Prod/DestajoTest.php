@@ -83,6 +83,25 @@ describe('admin destajos', function () {
             ->assertOk();
     });
 
+    test('pantalla de asistencia lista grupos, empleados y dias del periodo', function () {
+        $grupo = GrupoTrabajo::factory()->create();
+        GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id]);
+        $concepto = Concepto::factory()->create();
+
+        $destajo = Destajo::factory()->create(['cerrado' => false, 'fecha_inicio' => '2026-03-02', 'fecha_fin' => '2026-03-08']);
+        Registro::factory()->create(['fecha' => '2026-03-04', 'concepto_id' => $concepto->id, 'grupo_trabajo_id' => $grupo->id, 'cantidad' => 5]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.destajos.asistencia', $destajo))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/prod/destajos/asistencia')
+                ->has('grupos', 1)
+                ->has('grupos.0.empleados', 1)
+                ->has('dias', 7)
+            );
+    });
+
     test('destajo semana is unique per year', function () {
         Destajo::factory()->create(['anio' => 2026, 'semana' => 6]);
 

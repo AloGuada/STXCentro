@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Concepto, Obra, ProdDestajo, ProdGrupoTrabajo, ProdPiezaSinPrecio, ProdTipoPagoExtra } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
-import { AlertTriangleIcon, FileDownIcon, LockIcon, Trash2Icon } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { AlertTriangleIcon, CalendarCheckIcon, FileDownIcon, LockIcon, Trash2Icon } from 'lucide-react';
 
 type DestajoFull = ProdDestajo & { liquidaciones: LiquidacionFull[] };
 
@@ -77,6 +77,9 @@ export default function DestajosShow({
                         </p>
                     </div>
                     <div className="flex gap-2">
+                        <Link href={`/admin/prod/destajos/${destajo.id}/asistencia`} className="btn btn-outline">
+                            <CalendarCheckIcon className="size-4" /> Asistencia
+                        </Link>
                         <a
                             href={`/admin/prod/destajos/${destajo.id}/orden-pago`}
                             target="_blank"

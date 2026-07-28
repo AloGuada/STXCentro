@@ -100,6 +100,41 @@ class DestajoController extends Controller
         return to_route('admin.prod.destajos.index');
     }
 
+    public function asistencia(Destajo $destajo): Response
+    {
+        $grupoIds = Registro::query()
+            ->whereBetween('fecha', [$destajo->fecha_inicio, $destajo->fecha_fin])
+            ->distinct()
+            ->pluck('grupo_trabajo_id')
+            ->merge(PagoExtra::where('destajo_id', $destajo->id)->distinct()->pluck('grupo_trabajo_id'))
+            ->merge($destajo->liquidaciones()->pluck('grupo_trabajo_id'))
+            ->unique()
+            ->values();
+
+        $grupos = GrupoTrabajo::query()
+            ->with('empleados')
+            ->whereIn('id', $grupoIds)
+            ->orderBy('descripcion')
+            ->get();
+
+        $diasSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+        $dias = [];
+        $cursor = $destajo->fecha_inicio->copy();
+        while ($cursor->lte($destajo->fecha_fin)) {
+            $dias[] = [
+                'fecha' => $cursor->format('Y-m-d'),
+                'label' => $diasSemana[$cursor->dayOfWeekIso - 1].' '.$cursor->format('d/m'),
+            ];
+            $cursor = $cursor->addDay();
+        }
+
+        return Inertia::render('admin/prod/destajos/asistencia', [
+            'destajo' => $destajo,
+            'grupos' => $grupos,
+            'dias' => $dias,
+        ]);
+    }
+
     public function ordenPagoPdf(Destajo $destajo, GeneradorLiquidaciones $generador): HttpResponse
     {
         $grupos = $generador->ordenDePago($destajo);
