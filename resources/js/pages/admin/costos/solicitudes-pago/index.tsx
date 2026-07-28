@@ -195,7 +195,7 @@ export default function SolicitudesPagoIndex({ solicitudes, filters, sortBy, sor
                     data={solicitudes}
                     searchable
                     searchValue={filters.search}
-                    searchPlaceholder="Buscar por folio o concepto..."
+                    searchPlaceholder="Buscar por folio, concepto, solicitante o proveedor..."
                     createHref="/admin/costos/solicitudes-pago/create"
                     createLabel="Nueva Solicitud"
                     emptyMessage="No hay solicitudes de pago"

@@ -41,6 +41,32 @@ describe('admin costos solicitudes pago', function () {
         );
     });
 
+    test('search matches proveedor razon_social', function () {
+        darPermisoVerTodasSolicitudes($this->user);
+        $proveedor = \App\Models\Proveedor::factory()->create(['razon_social' => 'Aceros del Norte SA']);
+        SolicitudPago::factory()->create(['proveedor_id' => $proveedor->id]);
+        SolicitudPago::factory()->count(2)->create();
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.costos.solicitudes-pago.index', ['search' => 'Aceros del Norte']));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page->has('solicitudes.data', 1));
+    });
+
+    test('search matches solicitante name', function () {
+        darPermisoVerTodasSolicitudes($this->user);
+        $solicitante = User::factory()->create(['name' => 'Juan Buscable Perez']);
+        SolicitudPago::factory()->create(['solicitante_id' => $solicitante->id]);
+        SolicitudPago::factory()->count(2)->create();
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.costos.solicitudes-pago.index', ['search' => 'Buscable']));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page->has('solicitudes.data', 1));
+    });
+
     test('create page can be rendered', function () {
         $response = $this->actingAs($this->user)
             ->get(route('admin.costos.solicitudes-pago.create'));

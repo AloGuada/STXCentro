@@ -83,3 +83,15 @@ function darPermisosSolicitudesPago(\App\Models\User $user): \App\Models\User
 
     return $user;
 }
+
+function darPermisoVerTodasSolicitudes(\App\Models\User $user): \App\Models\User
+{
+    \Spatie\Permission\Models\Permission::firstOrCreate([
+        'name' => 'costos.solicitudes-pago.ver-todas',
+        'guard_name' => 'web',
+    ]);
+
+    $user->givePermissionTo('costos.solicitudes-pago.ver-todas');
+
+    return $user;
+}

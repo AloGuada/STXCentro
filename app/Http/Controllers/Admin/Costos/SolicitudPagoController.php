@@ -63,7 +63,10 @@ class SolicitudPagoController extends Controller
             ->with(['departamento', 'proveedor', 'solicitante'])
             ->when($search, fn ($q, $s) => $q->where(fn ($w) => $w
                 ->where('folio', 'like', "%{$s}%")
-                ->orWhere('concepto', 'like', "%{$s}%")))
+                ->orWhere('concepto', 'like', "%{$s}%")
+                ->orWhereHas('solicitante', fn ($u) => $u->where('name', 'like', "%{$s}%"))
+                ->orWhereHas('proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$s}%")
+                    ->orWhere('nombre_comercial', 'like', "%{$s}%"))))
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
             ->latest()
             ->get();
@@ -115,7 +118,10 @@ class SolicitudPagoController extends Controller
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('folio', 'like', "%{$search}%")
-                        ->orWhere('concepto', 'like', "%{$search}%");
+                        ->orWhere('concepto', 'like', "%{$search}%")
+                        ->orWhereHas('solicitante', fn ($u) => $u->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$search}%")
+                            ->orWhere('nombre_comercial', 'like', "%{$search}%"));
                 });
             })
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e));
