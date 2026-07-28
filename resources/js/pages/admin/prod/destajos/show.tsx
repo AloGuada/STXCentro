@@ -7,7 +7,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Concepto, Obra, ProdDestajo, ProdGrupoTrabajo, ProdPiezaSinPrecio, ProdTipoPagoExtra } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
-import { AlertTriangleIcon, LockIcon, Trash2Icon } from 'lucide-react';
+import { AlertTriangleIcon, FileDownIcon, LockIcon, Trash2Icon } from 'lucide-react';
 
 type DestajoFull = ProdDestajo & { liquidaciones: LiquidacionFull[] };
 
@@ -76,16 +76,26 @@ export default function DestajosShow({
                             Año {destajo.anio} · {destajo.fecha_inicio} — {destajo.fecha_fin}
                         </p>
                     </div>
-                    {!destajo.cerrado && (
-                        <div className="flex gap-2">
-                            <Button variant="outline" className="text-error" onClick={eliminar}>
-                                <Trash2Icon className="size-4" /> Eliminar
-                            </Button>
-                            <Button onClick={cerrar}>
-                                <LockIcon className="size-4" /> Cerrar destajo
-                            </Button>
-                        </div>
-                    )}
+                    <div className="flex gap-2">
+                        <a
+                            href={`/admin/prod/destajos/${destajo.id}/orden-pago`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-outline"
+                        >
+                            <FileDownIcon className="size-4" /> Orden de pago
+                        </a>
+                        {!destajo.cerrado && (
+                            <>
+                                <Button variant="outline" className="text-error" onClick={eliminar}>
+                                    <Trash2Icon className="size-4" /> Eliminar
+                                </Button>
+                                <Button onClick={cerrar}>
+                                    <LockIcon className="size-4" /> Cerrar destajo
+                                </Button>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {!destajo.cerrado && (

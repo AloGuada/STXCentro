@@ -11,10 +11,12 @@ use App\Models\Prod\PagoExtra;
 use App\Models\Prod\Registro;
 use App\Models\Prod\TipoPagoExtra;
 use App\Services\Prod\GeneradorLiquidaciones;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class DestajoController extends Controller
 {
@@ -96,6 +98,18 @@ class DestajoController extends Controller
         $destajo->delete();
 
         return to_route('admin.prod.destajos.index');
+    }
+
+    public function ordenPagoPdf(Destajo $destajo, GeneradorLiquidaciones $generador): HttpResponse
+    {
+        $grupos = $generador->ordenDePago($destajo);
+
+        $pdf = Pdf::loadView('pdf.prod.orden-pago', [
+            'destajo' => $destajo,
+            'grupos' => $grupos,
+        ])->setPaper('letter', 'landscape');
+
+        return $pdf->stream("orden-pago-{$destajo->anio}-S{$destajo->semana}.pdf");
     }
 
     public function cerrar(Destajo $destajo, GeneradorLiquidaciones $generador): RedirectResponse

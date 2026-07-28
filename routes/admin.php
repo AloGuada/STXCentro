@@ -177,6 +177,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // Destajos (semanal) y liquidaciones
         Route::resource('destajos', ProdDestajoController::class)->except(['edit', 'update'])->parameters(['destajos' => 'destajo']);
         Route::post('destajos/{destajo}/cerrar', [ProdDestajoController::class, 'cerrar'])->name('destajos.cerrar');
+        Route::get('destajos/{destajo}/orden-pago', [ProdDestajoController::class, 'ordenPagoPdf'])->name('destajos.orden-pago');
 
         // Produccion y pagos extra dentro del destajo
         Route::post('destajos/{destajo}/registros', [ProdRegistroController::class, 'store'])->name('destajos.registros.store');

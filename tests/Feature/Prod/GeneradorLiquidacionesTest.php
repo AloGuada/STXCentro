@@ -7,7 +7,9 @@ use App\Models\Prod\GrupoEmpleado;
 use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\GrupoTrabajo;
+use App\Models\Prod\PagoExtra;
 use App\Models\Prod\Registro;
+use App\Models\Prod\TipoPagoExtra;
 use App\Models\User;
 use App\Services\Prod\GeneradorLiquidaciones;
 
@@ -60,4 +62,64 @@ test('piezasSinPrecio detecta conceptos sin grupo de precio', function () {
 
     expect($piezas)->toHaveCount(1);
     expect($piezas->first()['marca'])->toBe('SIN');
+});
+
+test('ordenDePago (abierto) calcula del preview con secciones y empleados', function () {
+    $obra = Obra::factory()->create();
+    $concepto = Concepto::factory()->create(['obra_id' => $obra->id, 'peso_unitario' => 10.000]);
+    $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id, 'precio_kilo' => 5.0000]);
+    GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
+
+    $grupo = GrupoTrabajo::factory()->create();
+    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'porcentaje' => 100]);
+
+    $destajo = Destajo::factory()->create(['cerrado' => false, 'fecha_inicio' => '2026-03-02', 'fecha_fin' => '2026-03-08']);
+    Registro::factory()->create(['fecha' => '2026-03-04', 'concepto_id' => $concepto->id, 'grupo_trabajo_id' => $grupo->id, 'cantidad' => 30]);
+
+    $tipo = TipoPagoExtra::create(['descripcion' => 'Horas Extra', 'orden' => 1, 'desgloce' => false]);
+    PagoExtra::create([
+        'destajo_id' => $destajo->id,
+        'grupo_trabajo_id' => $grupo->id,
+        'tipo_id' => $tipo->id,
+        'descripcion' => 'Sabado',
+        'precio' => 100,
+        'dias' => 2,
+        'personas' => 3,
+    ]);
+
+    $orden = $this->service->ordenDePago($destajo);
+
+    expect($orden)->toHaveCount(1);
+    $g = $orden->first();
+    // 30 * 10kg = 300kg * 5 = 1500 produccion; 100*2*3 = 600 extras
+    expect($g['total_produccion'])->toBe(1500.0)
+        ->and($g['total_extras'])->toBe(600.0)
+        ->and($g['total_final'])->toBe(2100.0)
+        ->and($g['piezas'])->toHaveCount(1)
+        ->and($g['empleados'][0]['monto'])->toBe(2100.0);
+
+    $seccionHorasExtra = collect($g['secciones'])->firstWhere('tipo', 'Horas Extra');
+    expect($seccionHorasExtra['subtotal'])->toBe(600.0)
+        ->and($seccionHorasExtra['pagos'])->toHaveCount(1);
+});
+
+test('ordenDePago (cerrado) lee de las liquidaciones inmutables', function () {
+    $obra = Obra::factory()->create();
+    $concepto = Concepto::factory()->create(['obra_id' => $obra->id, 'peso_unitario' => 10.000]);
+    $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id, 'precio_kilo' => 5.0000]);
+    GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
+
+    $grupo = GrupoTrabajo::factory()->create();
+    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'porcentaje' => 100]);
+
+    $destajo = Destajo::factory()->create(['cerrado' => false, 'fecha_inicio' => '2026-03-02', 'fecha_fin' => '2026-03-08']);
+    Registro::factory()->create(['fecha' => '2026-03-04', 'concepto_id' => $concepto->id, 'grupo_trabajo_id' => $grupo->id, 'cantidad' => 30]);
+
+    $this->service->generar($destajo);
+
+    $orden = $this->service->ordenDePago($destajo->fresh());
+
+    expect($orden)->toHaveCount(1);
+    expect($orden->first()['total_final'])->toBe(1500.0)
+        ->and($orden->first()['piezas'])->toHaveCount(1);
 });

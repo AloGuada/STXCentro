@@ -2,12 +2,15 @@
 
 namespace App\Services\Prod;
 
+use App\Models\Concepto;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Liquidacion;
+use App\Models\Prod\LiquidacionDetalle;
 use App\Models\Prod\PagoExtra;
 use App\Models\Prod\Registro;
+use App\Models\Prod\TipoPagoExtra;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -145,12 +148,208 @@ class GeneradorLiquidaciones
     }
 
     /**
+     * Datos normalizados de la orden de pago, una entrada por grupo de trabajo.
+     * Si el destajo esta cerrado se lee de las liquidaciones inmutables; si esta
+     * abierto se calcula del preview (los numeros aun pueden cambiar al cerrar).
+     * Las secciones de pagos extra salen del catalogo TipoPagoExtra en ambos casos.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function ordenDePago(Destajo $destajo): Collection
+    {
+        $tipos = TipoPagoExtra::orderBy('orden')->get();
+
+        $pagosPorGrupo = PagoExtra::query()
+            ->where('destajo_id', $destajo->id)
+            ->get()
+            ->groupBy('grupo_trabajo_id');
+
+        return $destajo->cerrado
+            ? $this->ordenDesdeLiquidaciones($destajo, $tipos, $pagosPorGrupo)
+            : $this->ordenDesdePreview($destajo, $tipos, $pagosPorGrupo);
+    }
+
+    /**
+     * @param  Collection<int, TipoPagoExtra>  $tipos
+     * @param  Collection<int, Collection<int, PagoExtra>>  $pagosPorGrupo
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function ordenDesdeLiquidaciones(Destajo $destajo, Collection $tipos, Collection $pagosPorGrupo): Collection
+    {
+        $destajo->loadMissing([
+            'liquidaciones.grupoTrabajo',
+            'liquidaciones.detalles.concepto.obra',
+            'liquidaciones.empleados',
+        ]);
+
+        return $destajo->liquidaciones->map(function (Liquidacion $liq) use ($tipos, $pagosPorGrupo) {
+            $piezas = $liq->detalles->map(fn (LiquidacionDetalle $d) => [
+                'marca' => $d->concepto?->marca ?? "#{$d->concepto_id}",
+                'descripcion' => $d->concepto?->descripcion ?? '',
+                'obra' => $this->nombreObra($d->concepto),
+                'pzs' => (int) $d->cantidad,
+                'largo' => $d->concepto?->longitud,
+                'peso_unitario' => $d->concepto ? (float) $d->concepto->peso_unitario : null,
+                'kilos' => (float) $d->kilos,
+                'precio_kilo' => (float) $d->precio_kilo_aplicado,
+                'importe' => (float) $d->total,
+            ])->all();
+
+            $empleados = $liq->empleados->map(fn ($e) => [
+                'nombre' => $e->nombre,
+                'no_empleado' => $e->no_empleado,
+                'porcentaje' => (float) $e->porcentaje,
+                'monto' => (float) $e->monto_asignado,
+            ])->all();
+
+            return $this->armarGrupo(
+                $liq->grupoTrabajo,
+                $piezas,
+                (float) $liq->total_kilos,
+                (float) $liq->total_produccion,
+                (float) $liq->total_extras,
+                (float) $liq->total_final,
+                $empleados,
+                $tipos,
+                $pagosPorGrupo->get($liq->grupo_trabajo_id, collect()),
+            );
+        })->values();
+    }
+
+    /**
+     * @param  Collection<int, TipoPagoExtra>  $tipos
+     * @param  Collection<int, Collection<int, PagoExtra>>  $pagosPorGrupo
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function ordenDesdePreview(Destajo $destajo, Collection $tipos, Collection $pagosPorGrupo): Collection
+    {
+        $registrosPorGrupo = $this->registrosDelDestajo($destajo)->groupBy('grupo_trabajo_id');
+        $grupoIds = $registrosPorGrupo->keys()->merge($pagosPorGrupo->keys())->unique();
+
+        return $grupoIds->map(function ($grupoId) use ($registrosPorGrupo, $pagosPorGrupo, $tipos) {
+            $grupoId = (int) $grupoId;
+            $registrosGrupo = $registrosPorGrupo->get($grupoId, collect());
+
+            $piezas = [];
+            $totalKilos = 0.0;
+            $totalProduccion = 0.0;
+
+            foreach ($registrosGrupo->groupBy('concepto_id') as $conceptoId => $registrosConcepto) {
+                $concepto = $registrosConcepto->first()->concepto;
+                if ($concepto === null) {
+                    continue;
+                }
+
+                $cantidad = (int) $registrosConcepto->sum('cantidad');
+                $kilos = round($cantidad * (float) $concepto->peso_unitario, 3);
+                $precioKilo = (float) ($this->grupoPrecioConcepto((int) $conceptoId, $concepto->obra_id)?->grupoPrecio?->precio_kilo ?? 0);
+                $importe = round($kilos * $precioKilo, 2);
+
+                $totalKilos += $kilos;
+                $totalProduccion += $importe;
+
+                $piezas[] = [
+                    'marca' => $concepto->marca,
+                    'descripcion' => $concepto->descripcion,
+                    'obra' => $this->nombreObra($concepto),
+                    'pzs' => $cantidad,
+                    'largo' => $concepto->longitud,
+                    'peso_unitario' => (float) $concepto->peso_unitario,
+                    'kilos' => $kilos,
+                    'precio_kilo' => $precioKilo,
+                    'importe' => $importe,
+                ];
+            }
+
+            $pagosGrupo = $pagosPorGrupo->get($grupoId, collect());
+            $totalExtras = (float) $pagosGrupo->sum(fn (PagoExtra $pe) => $pe->monto);
+            $totalFinal = $totalProduccion + $totalExtras;
+
+            $grupoTrabajo = $registrosGrupo->isNotEmpty()
+                ? $registrosGrupo->first()->grupoTrabajo
+                : GrupoTrabajo::with('empleados')->find($grupoId);
+
+            $empleados = ($grupoTrabajo?->empleados ?? collect())->map(fn ($e) => [
+                'nombre' => $e->nombre,
+                'no_empleado' => $e->no_empleado,
+                'porcentaje' => (float) $e->porcentaje,
+                'monto' => round($totalFinal * ((float) $e->porcentaje / 100), 2),
+            ])->all();
+
+            return $this->armarGrupo($grupoTrabajo, $piezas, $totalKilos, $totalProduccion, $totalExtras, $totalFinal, $empleados, $tipos, $pagosGrupo);
+        })->values();
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $piezas
+     * @param  array<int, array<string, mixed>>  $empleados
+     * @param  Collection<int, TipoPagoExtra>  $tipos
+     * @param  Collection<int, PagoExtra>  $pagosGrupo
+     * @return array<string, mixed>
+     */
+    private function armarGrupo(?GrupoTrabajo $grupo, array $piezas, float $totalKilos, float $totalProduccion, float $totalExtras, float $totalFinal, array $empleados, Collection $tipos, Collection $pagosGrupo): array
+    {
+        return [
+            'grupo' => [
+                'descripcion' => $grupo?->descripcion ?? 'Grupo',
+                'linea' => $grupo?->linea,
+                'modulo' => $grupo?->modulo,
+            ],
+            'piezas' => $piezas,
+            'total_kilos' => $totalKilos,
+            'total_produccion' => $totalProduccion,
+            'total_extras' => $totalExtras,
+            'total_final' => $totalFinal,
+            'empleados' => $empleados,
+            'secciones' => $this->seccionesExtra($tipos, $pagosGrupo),
+        ];
+    }
+
+    /**
+     * Una seccion por cada tipo del catalogo (aunque no tenga pagos), con sus
+     * lineas descripcion/precio/dias/personas y el subtotal del tipo.
+     *
+     * @param  Collection<int, TipoPagoExtra>  $tipos
+     * @param  Collection<int, PagoExtra>  $pagosGrupo
+     * @return array<int, array<string, mixed>>
+     */
+    private function seccionesExtra(Collection $tipos, Collection $pagosGrupo): array
+    {
+        return $tipos->map(function (TipoPagoExtra $tipo) use ($pagosGrupo) {
+            $pagos = $pagosGrupo->where('tipo_id', $tipo->id)->values();
+
+            return [
+                'tipo' => $tipo->descripcion,
+                'pagos' => $pagos->map(fn (PagoExtra $p) => [
+                    'descripcion' => $p->descripcion,
+                    'precio' => (float) $p->precio,
+                    'dias' => (int) $p->dias,
+                    'personas' => (int) $p->personas,
+                    'importe' => (float) $p->monto,
+                ])->all(),
+                'subtotal' => (float) $pagos->sum(fn (PagoExtra $p) => $p->monto),
+            ];
+        })->all();
+    }
+
+    private function nombreObra(?Concepto $concepto): string
+    {
+        $obra = $concepto?->obra;
+
+        if ($obra === null) {
+            return '-';
+        }
+
+        return trim(($obra->no ? $obra->no.' - ' : '').$obra->descripcion);
+    }
+
+    /**
      * @return \Illuminate\Database\Eloquent\Collection<int, Registro>
      */
     private function registrosDelDestajo(Destajo $destajo)
     {
         return Registro::query()
-            ->with(['concepto', 'grupoTrabajo.empleados'])
+            ->with(['concepto.obra', 'grupoTrabajo.empleados'])
             ->whereBetween('fecha', [$destajo->fecha_inicio, $destajo->fecha_fin])
             ->get();
     }

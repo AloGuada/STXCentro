@@ -57,6 +57,32 @@ describe('admin destajos', function () {
         ]);
     });
 
+    test('orden de pago pdf se genera en destajo abierto', function () {
+        $obra = Obra::factory()->create();
+        $concepto = Concepto::factory()->create(['obra_id' => $obra->id, 'peso_unitario' => 10.000]);
+        $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id, 'precio_kilo' => 5.0000]);
+        GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
+        $grupo = GrupoTrabajo::factory()->create();
+        GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'porcentaje' => 100]);
+
+        $destajo = Destajo::factory()->create(['cerrado' => false, 'fecha_inicio' => '2026-03-02', 'fecha_fin' => '2026-03-08']);
+        Registro::factory()->create(['fecha' => '2026-03-04', 'concepto_id' => $concepto->id, 'grupo_trabajo_id' => $grupo->id, 'cantidad' => 30]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.prod.destajos.orden-pago', $destajo));
+
+        $response->assertOk();
+        expect($response->headers->get('content-type'))->toContain('application/pdf');
+    });
+
+    test('orden de pago pdf se genera en destajo sin datos', function () {
+        $destajo = Destajo::factory()->create(['cerrado' => false]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.destajos.orden-pago', $destajo))
+            ->assertOk();
+    });
+
     test('destajo semana is unique per year', function () {
         Destajo::factory()->create(['anio' => 2026, 'semana' => 6]);
 
