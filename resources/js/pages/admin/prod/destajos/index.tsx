@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedData, ProdDestajo } from '@/types/models';
 import { Head } from '@inertiajs/react';
+import { FileDownIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -46,6 +47,23 @@ export default function DestajosIndex({ destajos, filters }: Props) {
             label: 'Liquidaciones',
             className: 'text-right',
             render: (d) => <span className="font-mono">{d.liquidaciones_count ?? 0}</span>,
+        },
+        {
+            key: 'acciones',
+            label: '',
+            className: 'text-right',
+            render: (d) => (
+                <a
+                    href={`/admin/prod/destajos/${d.id}/orden-pago`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="btn btn-ghost btn-xs"
+                    title="Orden de pago (PDF)"
+                >
+                    <FileDownIcon className="size-4" /> Orden de pago
+                </a>
+            ),
         },
     ];
 
