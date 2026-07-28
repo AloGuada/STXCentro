@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Concepto, Obra } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { PlusIcon, UploadIcon } from 'lucide-react';
+import { DownloadIcon, PlusIcon, UploadIcon } from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
 
 const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -142,10 +142,17 @@ export default function ConceptosShow({ obra, conceptos, filters }: Props) {
                 </div>
 
                 <div className="mt-8 space-y-3">
-                    <h2 className="text-lg font-semibold">Importar conceptos desde CSV</h2>
+                    <div className="flex items-center justify-between gap-3">
+                        <h2 className="text-lg font-semibold">Importar conceptos desde CSV</h2>
+                        <a href="/admin/prod/conceptos/layout" className="btn btn-sm btn-outline">
+                            <DownloadIcon className="size-4" />
+                            Descargar layout
+                        </a>
+                    </div>
                     <p className="text-sm text-base-content/60">
-                        Columnas: Marca, Descripcion, Peso(T) (se convierte a kg), Revision de documentos (ej. REV 2).
-                        Si la marca ya existe, solo se actualiza si la version importada es mayor.
+                        Columnas: Marca, Descripcion, Categoria, Cantidad, PesoKg, Area, LongitudMm.
+                        La categoria se crea automaticamente si no existe. Si la marca ya existe en la obra,
+                        se sobrescriben sus datos.
                     </p>
 
                     <form onSubmit={handleCsvImport} className="flex items-end gap-4">

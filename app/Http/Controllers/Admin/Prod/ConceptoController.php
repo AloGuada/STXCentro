@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Prod;
 
+use App\Exports\Prod\ConceptosLayoutExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ConceptoImportCsvRequest;
 use App\Http\Requests\Admin\Prod\ConceptoStoreRequest;
@@ -13,6 +14,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ConceptoController extends Controller
 {
@@ -122,6 +125,11 @@ class ConceptoController extends Controller
         return to_route('admin.prod.conceptos.show-by-obra', $obraId);
     }
 
+    public function descargarLayout(): BinaryFileResponse
+    {
+        return Excel::download(new ConceptosLayoutExport, 'layout-conceptos.xlsx');
+    }
+
     public function importCsv(ConceptoImportCsvRequest $request, Obra $obra): RedirectResponse
     {
         $file = $request->file('csv_file');
@@ -130,6 +138,7 @@ class ConceptoController extends Controller
         $header = fgetcsv($handle);
         $header = array_map(fn ($col) => mb_strtoupper(trim($col)), $header);
 
+        $categoriasCache = [];
         $rows = [];
         while (($row = fgetcsv($handle)) !== false) {
             if (count($row) < count($header)) {
@@ -143,23 +152,27 @@ class ConceptoController extends Controller
                 continue;
             }
 
-            // Peso viene en toneladas, convertir a kilos (* 1000)
-            $pesoToneladas = (float) str_replace(',', '', $data['PESO(T)'] ?? '0');
-            $pesoKilos = $pesoToneladas * 1000;
+            $cantidad = (int) str_replace(',', '', $data['CANTIDAD'] ?? '');
+            $peso = (float) str_replace(',', '', $data['PESOKG'] ?? '');
 
-            // Version viene como "REV X", extraer el numero
-            $versionRaw = trim($data['REVISIÓN DE DOCUMENTOS'] ?? $data['REVISION DE DOCUMENTOS'] ?? '1');
-            preg_match('/(\d+)/', $versionRaw, $matches);
-            $version = (int) ($matches[1] ?? 1);
-            if ($version < 1) {
-                $version = 1;
+            // Ignorar filas de resumen/totales al pie del layout (sin cantidad ni peso reales).
+            if ($cantidad < 1 && $peso <= 0) {
+                continue;
+            }
+
+            $categoriaNombre = trim($data['CATEGORIA'] ?? '');
+            $categoriaId = null;
+            if ($categoriaNombre !== '') {
+                $categoriaId = $categoriasCache[$categoriaNombre] ??= Categoria::firstOrCreate(['nombre' => $categoriaNombre])->id;
             }
 
             $rows[$marca] = [
                 'marca' => $marca,
-                'descripcion' => trim($data['DESCRIPCIÓN'] ?? $data['DESCRIPCION'] ?? ''),
-                'peso_unitario' => $pesoKilos,
-                'version' => $version,
+                'descripcion' => trim($data['DESCRIPCION'] ?? $data['DESCRIPCIÓN'] ?? ''),
+                'categoria_id' => $categoriaId,
+                'cantidad' => max($cantidad, 1),
+                'peso_unitario' => $peso,
+                'longitud' => (int) round((float) str_replace(',', '', $data['LONGITUDMM'] ?? '0')),
             ];
         }
 
@@ -168,19 +181,11 @@ class ConceptoController extends Controller
         $count = 0;
 
         foreach ($rows as $rowData) {
-            $existing = Concepto::where('obra_id', $obra->id)
-                ->where('marca', $rowData['marca'])
-                ->first();
-
-            if ($existing) {
-                if ($rowData['version'] > $existing->version) {
-                    $existing->update($rowData);
-                    $count++;
-                }
-            } else {
-                Concepto::create(array_merge($rowData, ['obra_id' => $obra->id]));
-                $count++;
-            }
+            Concepto::updateOrCreate(
+                ['obra_id' => $obra->id, 'marca' => $rowData['marca']],
+                $rowData,
+            );
+            $count++;
         }
 
         return back()->with('success', "Se importaron {$count} conceptos correctamente.");

@@ -201,12 +201,12 @@ describe('admin conceptos', function () {
 });
 
 describe('conceptos csv import from show-by-obra', function () {
-    test('csv imports with new format correctly', function () {
+    test('csv imports with the detailed layout correctly', function () {
         $obra = Obra::factory()->create();
 
-        $csvContent = "ID de Marca,Marca,Descripción,cantidad,Peso(T),Revisión de documentos,(Long_Ensamble)\n";
-        $csvContent .= "1,MK-100,Viga principal,10,0.0255,REV 1,3.50\n";
-        $csvContent .= "2,MK-101,Columna,5,0.015,REV 2,2.00\n";
+        $csvContent = "MARCA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
+        $csvContent .= "TG-BAR-1,OC-BAR,Barandales,1,29.751,1.397,3542.177\n";
+        $csvContent .= "TG-CEM-2,CE-MURO,Canal de muro,6,1251.576,44.586,12200\n";
 
         $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
 
@@ -218,29 +218,38 @@ describe('conceptos csv import from show-by-obra', function () {
         $response->assertRedirect();
         $response->assertSessionHas('success');
 
+        $barandales = Categoria::where('nombre', 'Barandales')->first();
+        expect($barandales)->not->toBeNull();
+
         $this->assertDatabaseHas('conceptos', [
             'obra_id' => $obra->id,
-            'marca' => 'MK-100',
-            'descripcion' => 'Viga principal',
-            'peso_unitario' => 25.500, // 0.0255 T * 1000
+            'marca' => 'TG-BAR-1',
+            'descripcion' => 'OC-BAR',
+            'categoria_id' => $barandales->id,
+            'cantidad' => 1,
+            'peso_unitario' => 29.751, // ya viene en kg
+            'longitud' => 3542, // mm redondeado
             'version' => 1,
+            'activo' => true,
         ]);
 
         $this->assertDatabaseHas('conceptos', [
             'obra_id' => $obra->id,
-            'marca' => 'MK-101',
-            'peso_unitario' => 15.000, // 0.015 T * 1000
-            'version' => 2,
+            'marca' => 'TG-CEM-2',
+            'cantidad' => 6,
+            'peso_unitario' => 1251.576,
+            'longitud' => 12200,
         ]);
 
         expect(Concepto::where('obra_id', $obra->id)->count())->toBe(2);
     });
 
-    test('csv import converts tons to kilos and extracts REV version', function () {
+    test('csv import creates categorias on the fly and reuses them', function () {
         $obra = Obra::factory()->create();
 
-        $csvContent = "ID de Marca,Marca,Descripción,cantidad,Peso(T),Revisión de documentos,(Long_Ensamble)\n";
-        $csvContent .= "1,MK-200,Placa base,4,1.5,REV 3,1.00\n";
+        $csvContent = "MARCA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
+        $csvContent .= "TG-CFC-1,LI-CFC,Contraflambeos,24,44.664,3.768,797.114\n";
+        $csvContent .= "TG-CFC-2,LI-CFC,Contraflambeos,90,189.09,16.02,995.424\n";
 
         $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
 
@@ -249,27 +258,25 @@ describe('conceptos csv import from show-by-obra', function () {
                 'csv_file' => $file,
             ]);
 
-        $this->assertDatabaseHas('conceptos', [
-            'obra_id' => $obra->id,
-            'marca' => 'MK-200',
-            'peso_unitario' => 1500.000, // 1.5 T * 1000
-            'version' => 3,
-        ]);
+        expect(Categoria::where('nombre', 'Contraflambeos')->count())->toBe(1);
     });
 
-    test('csv import dedup only updates higher version', function () {
+    test('csv import overwrites existing marca in the same obra', function () {
         $obra = Obra::factory()->create();
+        $categoria = Categoria::factory()->create();
         Concepto::factory()->create([
             'obra_id' => $obra->id,
-            'marca' => 'MK-100',
+            'marca' => 'TG-BAR-1',
             'descripcion' => 'Original',
-            'peso_unitario' => 25.500,
+            'cantidad' => 1,
+            'peso_unitario' => 10.000,
+            'longitud' => 1000,
+            'categoria_id' => $categoria->id,
             'version' => 3,
         ]);
 
-        // Lower version should NOT update
-        $csvContent = "ID de Marca,Marca,Descripción,cantidad,Peso(T),Revisión de documentos,(Long_Ensamble)\n";
-        $csvContent .= "1,MK-100,Updated lower,10,0.030,REV 2,3.50\n";
+        $csvContent = "MARCA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
+        $csvContent .= "TG-BAR-1,Actualizado,Barandales,4,29.751,1.397,3542.177\n";
 
         $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
 
@@ -280,31 +287,33 @@ describe('conceptos csv import from show-by-obra', function () {
 
         $this->assertDatabaseHas('conceptos', [
             'obra_id' => $obra->id,
-            'marca' => 'MK-100',
-            'descripcion' => 'Original',
-            'version' => 3,
+            'marca' => 'TG-BAR-1',
+            'descripcion' => 'Actualizado',
+            'cantidad' => 4,
+            'peso_unitario' => 29.751,
+            'longitud' => 3542,
+            'version' => 3, // la version se conserva
         ]);
 
-        // Higher version SHOULD update
-        $csvContent2 = "ID de Marca,Marca,Descripción,cantidad,Peso(T),Revisión de documentos,(Long_Ensamble)\n";
-        $csvContent2 .= "1,MK-100,Updated higher,10,0.050,REV 5,4.00\n";
+        expect(Concepto::where('obra_id', $obra->id)->where('marca', 'TG-BAR-1')->count())->toBe(1);
+    });
 
-        $file2 = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent2);
+    test('csv import skips summary/footer rows', function () {
+        $obra = Obra::factory()->create();
+
+        $csvContent = "MARCA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
+        $csvContent .= "TG-BAR-1,OC-BAR,Barandales,1,29.751,1.397,3542.177\n";
+        $csvContent .= "Resúmenes generales,,,,,,\n";
+        $csvContent .= "Cuenta = 257,,,\"Suma = 4,218.000\",\"Suma = 177,920.590\",,\n";
+
+        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
 
         $this->actingAs($this->user)
             ->post(route('admin.prod.conceptos.import-csv', $obra), [
-                'csv_file' => $file2,
+                'csv_file' => $file,
             ]);
 
-        $this->assertDatabaseHas('conceptos', [
-            'obra_id' => $obra->id,
-            'marca' => 'MK-100',
-            'descripcion' => 'Updated higher',
-            'peso_unitario' => 50.000,
-            'version' => 5,
-        ]);
-
-        expect(Concepto::where('obra_id', $obra->id)->where('marca', 'MK-100')->count())->toBe(1);
+        expect(Concepto::where('obra_id', $obra->id)->count())->toBe(1);
     });
 
     test('csv import requires file', function () {
@@ -314,6 +323,14 @@ describe('conceptos csv import from show-by-obra', function () {
             ->post(route('admin.prod.conceptos.import-csv', $obra), []);
 
         $response->assertSessionHasErrors(['csv_file']);
+    });
+
+    test('layout can be downloaded as xlsx', function () {
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.prod.conceptos.layout'));
+
+        $response->assertOk();
+        expect($response->headers->get('content-disposition'))->toContain('layout-conceptos.xlsx');
     });
 });
 

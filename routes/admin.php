@@ -153,6 +153,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     // Produccion admin routes
     Route::prefix('prod')->name('prod.')->group(function () {
+        Route::get('conceptos/layout', [ProdConceptoController::class, 'descargarLayout'])->name('conceptos.layout');
         Route::get('conceptos/obra/{obra}', [ProdConceptoController::class, 'showByObra'])->name('conceptos.show-by-obra');
         Route::post('conceptos/obra/{obra}/import-csv', [ProdConceptoController::class, 'importCsv'])->name('conceptos.import-csv');
         Route::resource('conceptos', ProdConceptoController::class)->parameters(['conceptos' => 'concepto']);
