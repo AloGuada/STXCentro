@@ -139,26 +139,29 @@
 
     <table class="cols">
         <tr>
-            {{-- Pagos extra (una sección por tipo) --}}
+            {{-- Pagos extra (una sola tabla; el tipo es una columna) --}}
             <td class="col-left">
+                @php
+                    $pagosPlanos = collect($g['secciones'])
+                        ->flatMap(fn ($sec) => collect($sec['pagos'])->map(fn ($p) => $p + ['tipo' => $sec['tipo']]))
+                        ->all();
+                @endphp
                 <div class="section-title">Pagos extra</div>
-                @foreach($g['secciones'] as $sec)
                 <table class="grid">
                     <thead>
                         <tr>
-                            <th colspan="5" style="text-align: left; background-color: #e8e8e8;">{{ $sec['tipo'] }}</th>
-                        </tr>
-                        <tr>
+                            <th style="width: 22%;">Tipo</th>
                             <th>Descripción</th>
-                            <th style="width: 16%;">Precio</th>
-                            <th style="width: 12%;">Días</th>
-                            <th style="width: 12%;"># Pers.</th>
-                            <th style="width: 18%;">Importe</th>
+                            <th style="width: 14%;">Precio</th>
+                            <th style="width: 9%;">Días</th>
+                            <th style="width: 10%;"># Pers.</th>
+                            <th style="width: 16%;">Importe</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($sec['pagos'] as $pago)
+                        @forelse($pagosPlanos as $pago)
                         <tr>
+                            <td>{{ $pago['tipo'] }}</td>
                             <td>{{ $pago['descripcion'] ?: '-' }}</td>
                             <td class="text-right">{{ $mon($pago['precio']) }}</td>
                             <td class="text-center">{{ $pago['dias'] }}</td>
@@ -166,17 +169,16 @@
                             <td class="text-right">{{ $mon($pago['importe']) }}</td>
                         </tr>
                         @empty
-                        <tr><td colspan="5" class="empty-cell">—</td></tr>
+                        <tr><td colspan="6" class="empty-cell">Sin pagos extra</td></tr>
                         @endforelse
                     </tbody>
                     <tfoot>
                         <tr class="total-row">
-                            <td colspan="4" class="text-right">Subtotal {{ $sec['tipo'] }}</td>
-                            <td class="text-right">{{ $mon($sec['subtotal']) }}</td>
+                            <td colspan="5" class="text-right">TOTAL PAGOS EXTRA</td>
+                            <td class="text-right">{{ $mon($g['total_extras']) }}</td>
                         </tr>
                     </tfoot>
                 </table>
-                @endforeach
             </td>
 
             {{-- Totales + distribución --}}
