@@ -1,3 +1,4 @@
+import { FormattedDate } from '@/components/ui/formatted-date';
 import type { Concepto, Obra, ProdGrupoTrabajo, ProdPagoExtra, ProdRegistro, ProdTipoPagoExtra } from '@/types/models';
 import { router } from '@inertiajs/react';
 import { Trash2Icon } from 'lucide-react';
@@ -72,7 +73,7 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                                                 <span className="font-medium">{r.concepto?.marca}</span>{' '}
                                                 <span className="text-base-content/60">{r.concepto?.descripcion}</span>
                                             </td>
-                                            <td className="font-mono text-xs">{r.fecha}</td>
+                                            <td className="font-mono text-xs"><FormattedDate value={r.fecha} /></td>
                                             <td className="text-right font-mono">{r.cantidad}</td>
                                             <td className="text-right">
                                                 <button

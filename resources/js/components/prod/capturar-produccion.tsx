@@ -1,5 +1,6 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
+import { formatDate } from '@/components/ui/formatted-date';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import { SearchSelect } from '@/components/ui/search-select';
@@ -15,8 +16,10 @@ type Props = {
 };
 
 export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props) {
+    const soloFecha = (v: string) => v.slice(0, 10);
+
     const registroForm = useForm<{ fecha: string; concepto_id: string; grupo_trabajo_id: string; cantidad: number }>({
-        fecha: destajo.fecha_inicio,
+        fecha: soloFecha(destajo.fecha_inicio),
         concepto_id: '',
         grupo_trabajo_id: '',
         cantidad: 1,
@@ -24,7 +27,7 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
 
     const csvForm = useForm<{ csv_file: File | null; fecha: string }>({
         csv_file: null,
-        fecha: destajo.fecha_inicio,
+        fecha: soloFecha(destajo.fecha_inicio),
     });
 
     const conceptoOptions = conceptos.map((c) => ({
@@ -96,14 +99,14 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
                         label="Fecha"
                         htmlFor="fecha"
                         error={registroForm.errors.fecha}
-                        description={`Dentro del periodo ${destajo.fecha_inicio} — ${destajo.fecha_fin}`}
+                        description={`Dentro del periodo ${formatDate(destajo.fecha_inicio)} — ${formatDate(destajo.fecha_fin)}`}
                         required
                     >
                         <Input
                             id="fecha"
                             type="date"
-                            min={destajo.fecha_inicio}
-                            max={destajo.fecha_fin}
+                            min={soloFecha(destajo.fecha_inicio)}
+                            max={soloFecha(destajo.fecha_fin)}
                             value={registroForm.data.fecha}
                             onChange={(e) => registroForm.setData('fecha', e.target.value)}
                             error={!!registroForm.errors.fecha}
@@ -138,8 +141,8 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
                         <Input
                             id="csv_fecha"
                             type="date"
-                            min={destajo.fecha_inicio}
-                            max={destajo.fecha_fin}
+                            min={soloFecha(destajo.fecha_inicio)}
+                            max={soloFecha(destajo.fecha_fin)}
                             value={csvForm.data.fecha}
                             onChange={(e) => csvForm.setData('fecha', e.target.value)}
                             error={!!csvForm.errors.fecha}

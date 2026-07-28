@@ -1,4 +1,5 @@
 import { DataTable, type Column } from '@/components/data-table';
+import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedData, ProdDestajo } from '@/types/models';
@@ -29,7 +30,7 @@ export default function DestajosIndex({ destajos, filters }: Props) {
             label: 'Periodo',
             render: (d) => (
                 <span className="text-base-content/70 font-mono text-sm">
-                    {d.fecha_inicio} — {d.fecha_fin}
+                    <FormattedDate value={d.fecha_inicio} /> — <FormattedDate value={d.fecha_fin} />
                 </span>
             ),
         },

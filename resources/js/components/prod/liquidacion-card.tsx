@@ -1,3 +1,4 @@
+import { FormattedDate } from '@/components/ui/formatted-date';
 import type { ProdLiquidacion, ProdLiquidacionDetalle, ProdLiquidacionEmpleado, ProdGrupoTrabajo, Usuario } from '@/types/models';
 
 export type LiquidacionFull = ProdLiquidacion & {
@@ -16,7 +17,7 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
             <div className="flex items-center justify-between border-b border-base-300 bg-base-200 px-4 py-2">
                 <span className="font-semibold">{liquidacion.grupo_trabajo?.descripcion ?? 'Grupo'}</span>
                 <span className="text-base-content/60 text-xs">
-                    Generado {liquidacion.generado_en}
+                    Generado <FormattedDate value={liquidacion.generado_en} />
                     {liquidacion.generador?.name ? ` · ${liquidacion.generador.name}` : ''}
                 </span>
             </div>

@@ -3,6 +3,7 @@ import { CapturarProduccion } from '@/components/prod/capturar-produccion';
 import { GrupoDestajoCard, type PagoExtraPreview, type RegistroPreview } from '@/components/prod/grupo-destajo-card';
 import { LiquidacionCard, type LiquidacionFull } from '@/components/prod/liquidacion-card';
 import { Button } from '@/components/ui/button';
+import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Concepto, Obra, ProdDestajo, ProdGrupoTrabajo, ProdPiezaSinPrecio, ProdTipoPagoExtra } from '@/types/models';
@@ -73,7 +74,7 @@ export default function DestajosShow({
                             </span>
                         </h1>
                         <p className="text-base-content/60 text-sm">
-                            Año {destajo.anio} · {destajo.fecha_inicio} — {destajo.fecha_fin}
+                            Año {destajo.anio} · <FormattedDate value={destajo.fecha_inicio} /> — <FormattedDate value={destajo.fecha_fin} />
                         </p>
                     </div>
                     <div className="flex gap-2">

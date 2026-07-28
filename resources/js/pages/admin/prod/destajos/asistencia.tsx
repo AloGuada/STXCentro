@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
@@ -57,8 +58,8 @@ export default function DestajoAsistencia({ destajo, grupos, dias }: Props) {
                     <div>
                         <h1 className="text-2xl font-semibold">Asistencia · Semana {destajo.semana}</h1>
                         <p className="text-base-content/60 text-sm">
-                            Año {destajo.anio} · {destajo.fecha_inicio} — {destajo.fecha_fin}. Clic en cada celda para
-                            cambiar el estado.
+                            Año {destajo.anio} · <FormattedDate value={destajo.fecha_inicio} /> —{' '}
+                            <FormattedDate value={destajo.fecha_fin} />. Clic en cada celda para cambiar el estado.
                         </p>
                     </div>
                     <div className="flex gap-2">
