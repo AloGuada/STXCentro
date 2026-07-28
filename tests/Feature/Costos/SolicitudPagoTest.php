@@ -54,6 +54,19 @@ describe('admin costos solicitudes pago', function () {
         $response->assertInertia(fn ($page) => $page->has('solicitudes.data', 1));
     });
 
+    test('search is case insensitive', function () {
+        darPermisoVerTodasSolicitudes($this->user);
+        $proveedor = \App\Models\Proveedor::factory()->create(['razon_social' => 'Aceros del Norte SA']);
+        SolicitudPago::factory()->create(['proveedor_id' => $proveedor->id]);
+        SolicitudPago::factory()->count(2)->create();
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.costos.solicitudes-pago.index', ['search' => 'aceros DEL norte']));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page->has('solicitudes.data', 1));
+    });
+
     test('search matches solicitante name', function () {
         darPermisoVerTodasSolicitudes($this->user);
         $solicitante = User::factory()->create(['name' => 'Juan Buscable Perez']);
