@@ -497,7 +497,10 @@ class SolicitudPagoController extends Controller
         $warnings = [];
 
         DB::transaction(function () use ($request, $solicitudPago, &$warnings) {
-            $solicitudPago->update($request->safe()->except('detalles'));
+            // `monto_total` se calcula del desglose (o del total capturado) y se
+            // fija más abajo; no debe venir del request en el mass-assign porque en
+            // solicitudes desglosadas llega null y viola el NOT NULL de la columna.
+            $solicitudPago->update($request->safe()->except(['detalles', 'monto_total']));
 
             // Sync detalles (same pattern as TipoSolicitudController)
             $incomingIds = collect($request->input('detalles', []))

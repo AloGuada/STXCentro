@@ -316,6 +316,39 @@ describe('admin costos solicitudes pago', function () {
         ]);
     });
 
+    test('solicitud desglosada se actualiza aunque el request mande monto_total null', function () {
+        $solicitud = SolicitudPago::factory()->create(['estatus' => 'borrador', 'monto_total' => 500]);
+        $obraRubro = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+        $detalle = SolicitudPagoDetalle::factory()->create([
+            'solicitud_id' => $solicitud->id,
+            'obra_rubro_id' => $obraRubro->id,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->put(route('admin.costos.solicitudes-pago.update', $solicitud), [
+                'departamento_id' => $solicitud->departamento_id,
+                'tipo_solicitud_id' => $solicitud->tipo_solicitud_id,
+                'concepto' => 'Con desglose',
+                'tipo_pago' => 'transferencia',
+                'tipo_moneda' => 'mxn',
+                'monto_total' => null, // el front lo manda vacío cuando hay desglose
+                'detalles' => [
+                    [
+                        'id' => $detalle->id,
+                        'obra_rubro_id' => $obraRubro->id,
+                        'concepto' => 'Renglon',
+                        'cantidad' => 5,
+                        'precio_unitario' => 200,
+                    ],
+                ],
+                '_version' => $solicitud->updated_at->toIso8601String(),
+            ]);
+
+        $response->assertRedirect(route('admin.costos.solicitudes-pago.index'));
+        // El total se recalcula del desglose (5 * 200), nunca queda en null.
+        expect((float) $solicitud->fresh()->monto_total)->toBe(1000.00);
+    });
+
     test('non-borrador solicitud cannot be updated', function () {
         $solicitud = SolicitudPago::factory()->aprobada()->create();
 
