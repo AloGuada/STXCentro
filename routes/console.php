@@ -14,4 +14,5 @@ Schedule::command('costos:liberar-apartados-vencidos')->dailyAt('02:00');
 Schedule::command('costos:cancelar-requisiciones-vencidas')->dailyAt('03:00');
 Schedule::command('costos:cancelar-solicitudes-vencidas')->dailyAt('03:30');
 Schedule::command('costos:complementos-vencidos')->dailyAt('04:00');
+Schedule::command('costos:limpiar-productos --force')->weeklyOn(0, '05:00');
 Schedule::command('rh:resolve-cv')->everyFiveMinutes()->withoutOverlapping();

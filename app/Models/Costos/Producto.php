@@ -47,6 +47,14 @@ class Producto extends Model
         return $this->hasMany(ProductoPrecio::class)->latest('fecha');
     }
 
+    /**
+     * @return HasMany<RequisicionDetalle, $this>
+     */
+    public function requisicionDetalles(): HasMany
+    {
+        return $this->hasMany(RequisicionDetalle::class, 'producto_id');
+    }
+
     public function creador(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'creado_por');
