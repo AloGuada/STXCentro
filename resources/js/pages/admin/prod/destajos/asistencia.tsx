@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
@@ -17,11 +16,11 @@ type Estado = 'asistencia' | 'falta' | 'vacaciones' | 'no_aplica';
 
 const ESTADOS: Estado[] = ['asistencia', 'falta', 'vacaciones', 'no_aplica'];
 
-const META: Record<Estado, { letra: string; label: string; cls: string; selectCls: string }> = {
-    asistencia: { letra: 'A', label: 'Asistencia', cls: 'bg-emerald-500 text-white', selectCls: '!bg-emerald-100 !text-emerald-900' },
-    falta: { letra: 'F', label: 'Falta', cls: 'bg-red-500 text-white', selectCls: '!bg-red-100 !text-red-900' },
-    vacaciones: { letra: 'V', label: 'Vacaciones', cls: 'bg-sky-500 text-white', selectCls: '!bg-sky-100 !text-sky-900' },
-    no_aplica: { letra: 'N', label: 'No aplica', cls: 'bg-base-300 text-base-content/50', selectCls: '!bg-base-200 !text-base-content/60' },
+const META: Record<Estado, { letra: string; label: string; cls: string }> = {
+    asistencia: { letra: 'A', label: 'Asistencia', cls: 'bg-emerald-500 text-white' },
+    falta: { letra: 'F', label: 'Falta', cls: 'bg-red-500 text-white' },
+    vacaciones: { letra: 'V', label: 'Vacaciones', cls: 'bg-sky-500 text-white' },
+    no_aplica: { letra: 'N', label: 'No aplica', cls: 'bg-base-300 text-base-content/50' },
 };
 
 export default function DestajoAsistencia({ destajo, grupos, dias }: Props) {
@@ -36,8 +35,11 @@ export default function DestajoAsistencia({ destajo, grupos, dias }: Props) {
     const [marcas, setMarcas] = useState<Record<string, Estado>>({});
     const get = (empId: number, fecha: string): Estado => marcas[`${empId}:${fecha}`] ?? 'asistencia';
 
-    const set = (empId: number, fecha: string, estado: Estado) => {
-        setMarcas((m) => ({ ...m, [`${empId}:${fecha}`]: estado }));
+    const cycle = (empId: number, fecha: string) => {
+        const key = `${empId}:${fecha}`;
+        const actual = marcas[key] ?? 'asistencia';
+        const next = ESTADOS[(ESTADOS.indexOf(actual) + 1) % ESTADOS.length];
+        setMarcas((m) => ({ ...m, [key]: next }));
     };
 
     const totales = (empId: number): Record<Estado, number> => {
@@ -139,18 +141,15 @@ export default function DestajoAsistencia({ destajo, grupos, dias }: Props) {
                                                             {dias.map((d) => {
                                                                 const estado = get(emp.id, d.fecha);
                                                                 return (
-                                                                    <td key={d.fecha} className="p-1">
-                                                                        <Select
-                                                                            value={estado}
-                                                                            onValueChange={(v) => set(emp.id, d.fecha, v as Estado)}
-                                                                            className={`select-xs min-w-[104px] ${META[estado].selectCls}`}
+                                                                    <td key={d.fecha} className="text-center">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => cycle(emp.id, d.fecha)}
+                                                                            title={META[estado].label}
+                                                                            className={`inline-flex size-7 items-center justify-center rounded text-xs font-bold ${META[estado].cls}`}
                                                                         >
-                                                                            {ESTADOS.map((e) => (
-                                                                                <SelectItem key={e} value={e}>
-                                                                                    {META[e].label}
-                                                                                </SelectItem>
-                                                                            ))}
-                                                                        </Select>
+                                                                            {META[estado].letra}
+                                                                        </button>
                                                                     </td>
                                                                 );
                                                             })}
