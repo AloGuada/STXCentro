@@ -12,6 +12,8 @@ export type NavItem = {
     icon?: LucideIcon | null;
     isActive?: boolean;
     permission?: string;
+    /** Visible con cualquier permiso del módulo. Ej: 'costos'. */
+    permissionModulo?: string;
     role?: string;
     children?: NavItem[];
 };

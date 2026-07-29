@@ -290,7 +290,8 @@ class PresupuestoController extends Controller
      */
     public function obrasActivas(Request $request): Response
     {
-        Gate::authorize('costos.obra-rubros.ver');
+        // Pantalla de consulta transversal: basta con pertenecer al modulo.
+        Gate::authorize('costos.acceso');
 
         $estatus = $request->string('estatus')->toString() === PresupuestoEstatus::Cerrado->value
             ? PresupuestoEstatus::Cerrado->value

@@ -10,6 +10,51 @@ beforeEach(function () {
     $this->user->givePermissionTo('costos.obra-rubros.ver');
 });
 
+describe('acceso', function () {
+    test('basta cualquier permiso de costos, no el de presupuestos', function () {
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.facturas.ver', 'guard_name' => 'web']);
+        $user = User::factory()->create();
+        $user->givePermissionTo('costos.facturas.ver');
+
+        $this->actingAs($user)
+            ->get(route('admin.costos.obras-activas.index'))
+            ->assertOk();
+    });
+
+    test('tambien entra por un rol con permisos de costos', function () {
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.pagos.ver', 'guard_name' => 'web']);
+        $rol = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'tesoreria', 'guard_name' => 'web']);
+        $rol->givePermissionTo('costos.pagos.ver');
+
+        $user = User::factory()->create();
+        $user->assignRole($rol);
+
+        $this->actingAs($user)
+            ->get(route('admin.costos.obras-activas.index'))
+            ->assertOk();
+    });
+
+    test('sin ningun permiso de costos sigue bloqueado', function () {
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'prod.destajos.ver', 'guard_name' => 'web']);
+        $user = User::factory()->create();
+        $user->givePermissionTo('prod.destajos.ver');
+
+        $this->actingAs($user)
+            ->get(route('admin.costos.obras-activas.index'))
+            ->assertForbidden();
+    });
+
+    test('el indice de presupuestos si sigue pidiendo su permiso', function () {
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.facturas.ver', 'guard_name' => 'web']);
+        $user = User::factory()->create();
+        $user->givePermissionTo('costos.facturas.ver');
+
+        $this->actingAs($user)
+            ->get(route('admin.costos.presupuestos.index'))
+            ->assertForbidden();
+    });
+});
+
 it('lista solo los presupuestos activos por defecto y cuenta ambos', function () {
     Presupuesto::factory()->paraObra(Obra::factory()->create())->create();
     Presupuesto::factory()->paraObra(Obra::factory()->create())->create();

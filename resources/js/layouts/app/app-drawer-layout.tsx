@@ -203,7 +203,8 @@ const navGroups: NavGroup[] = [
                 title: 'Obras activas',
                 href: '/admin/costos/obras-activas',
                 icon: Building2,
-                permission: 'costos.obra-rubros.ver',
+                // Consulta transversal: cualquiera del modulo de costos.
+                permissionModulo: 'costos',
             },
             {
                 title: 'Requisiciones',
@@ -991,7 +992,7 @@ function SidebarContent({
 }) {
     const { auth } = usePage<SharedData>().props;
     const { isCurrentUrl } = useCurrentUrl();
-    const { can, hasRole } = useCan();
+    const { can, canModulo, hasRole } = useCan();
 
     const dgPuedeSubir = auth?.dg_puede_subir ?? false;
 
@@ -1004,6 +1005,7 @@ function SidebarContent({
                     children: i.children?.filter(
                         (c) =>
                             (!c.permission || can(c.permission)) &&
+                            (!c.permissionModulo || canModulo(c.permissionModulo)) &&
                             (!c.role || hasRole(c.role)),
                     ),
                 }))
@@ -1028,6 +1030,7 @@ function SidebarContent({
                     }
                     return (
                         (!i.permission || can(i.permission)) &&
+                        (!i.permissionModulo || canModulo(i.permissionModulo)) &&
                         (!i.role || hasRole(i.role))
                     );
                 }),
