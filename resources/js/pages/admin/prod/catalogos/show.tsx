@@ -41,7 +41,10 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
         () => ({
             count: filtered.length,
             activos: filtered.filter((c) => c.activo).length,
-            pesoTotal: filtered.reduce((sum, c) => sum + Number(c.peso_unitario), 0),
+            piezas: filtered.reduce((sum, c) => sum + Number(c.cantidad), 0),
+            pagadas: filtered.reduce((sum, c) => sum + Number(c.capturado ?? 0), 0),
+            faltan: filtered.reduce((sum, c) => sum + Number(c.disponible ?? 0), 0),
+            pesoTotal: filtered.reduce((sum, c) => sum + Number(c.cantidad) * Number(c.peso_unitario), 0),
         }),
         [filtered],
     );
@@ -160,15 +163,19 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                                     <th>Marca</th>
                                     <th>Descripcion</th>
                                     <th>Categoria</th>
+                                    <th className="text-right">Cantidad</th>
+                                    <th className="text-right">Pagadas</th>
+                                    <th className="text-right">Faltan</th>
                                     <th className="text-right">Longitud (mm)</th>
                                     <th className="text-right">Peso Unit. (kg)</th>
+                                    <th className="text-right">Peso Total (kg)</th>
                                     <th className="text-center">Estado</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filtered.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="text-base-content/50 py-6 text-center">
+                                        <td colSpan={10} className="text-base-content/50 py-6 text-center">
                                             Este catálogo no tiene piezas todavía
                                         </td>
                                     </tr>
@@ -193,9 +200,25 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                                                 )}
                                             </td>
                                             <td className="text-right font-mono">
+                                                {Number(c.cantidad).toLocaleString('es-MX')}
+                                            </td>
+                                            <td className="text-right font-mono">
+                                                {Number(c.capturado ?? 0).toLocaleString('es-MX')}
+                                            </td>
+                                            <td className="text-right font-mono">
+                                                {(c.disponible ?? 0) === 0 ? (
+                                                    <span className="badge badge-sm badge-success">Completa</span>
+                                                ) : (
+                                                    Number(c.disponible).toLocaleString('es-MX')
+                                                )}
+                                            </td>
+                                            <td className="text-right font-mono">
                                                 {c.longitud != null ? c.longitud.toLocaleString('es-MX') : '—'}
                                             </td>
                                             <td className="text-right font-mono">{fmt(c.peso_unitario)}</td>
+                                            <td className="text-right font-mono">
+                                                {fmt(Number(c.cantidad) * Number(c.peso_unitario))}
+                                            </td>
                                             <td className="text-center">
                                                 <span
                                                     className={`badge badge-sm ${c.activo ? 'badge-success' : 'badge-ghost'}`}
@@ -213,7 +236,10 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                     {filtered.length > 0 && (
                         <div className="border-base-300 bg-base-200 flex items-center justify-between border-t px-4 py-2 text-sm">
                             <span>
-                                {totals.count} piezas ({totals.activos} activas)
+                                {totals.count} marcas ({totals.activos} activas) ·{' '}
+                                <span className="font-mono">{totals.piezas.toLocaleString('es-MX')}</span> piezas ·{' '}
+                                <span className="font-mono">{totals.pagadas.toLocaleString('es-MX')}</span> pagadas ·{' '}
+                                <span className="font-mono">{totals.faltan.toLocaleString('es-MX')}</span> por pagar
                             </span>
                             <span className="font-mono">Peso total: {fmt(totals.pesoTotal)} kg</span>
                         </div>

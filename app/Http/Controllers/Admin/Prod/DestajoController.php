@@ -10,7 +10,9 @@ use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\PagoExtra;
 use App\Models\Prod\Registro;
 use App\Models\Prod\TipoPagoExtra;
+use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\GeneradorLiquidaciones;
+use App\Services\Prod\PendientesDeLiquidar;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -51,8 +53,12 @@ class DestajoController extends Controller
         return to_route('admin.prod.destajos.show', $destajo);
     }
 
-    public function show(Destajo $destajo, GeneradorLiquidaciones $generador): Response
-    {
+    public function show(
+        Destajo $destajo,
+        GeneradorLiquidaciones $generador,
+        AvanceDePiezas $avance,
+        PendientesDeLiquidar $pendientes,
+    ): Response {
         $destajo->load([
             'liquidaciones.grupoTrabajo',
             'liquidaciones.detalles.concepto',
@@ -81,8 +87,11 @@ class DestajoController extends Controller
 
         $data['piezasSinPrecio'] = $generador->piezasSinPrecio($destajo);
         $data['gruposTrabajo'] = GrupoTrabajo::where('activo', true)->orderBy('descripcion')->get();
-        $data['conceptos'] = Concepto::with('obra')->deCatalogoVigente()->where('activo', true)->orderBy('marca')->get();
+        $data['conceptos'] = $avance->decorar(
+            Concepto::with('obra')->deCatalogoVigente()->where('activo', true)->orderBy('marca')->get()
+        );
         $data['tipos'] = TipoPagoExtra::orderBy('orden')->get();
+        $data['pendientes'] = $pendientes->paraDestajo($destajo);
 
         return Inertia::render('admin/prod/destajos/show', $data);
     }

@@ -18,11 +18,18 @@ type Props = {
 export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props) {
     const soloFecha = (v: string) => v.slice(0, 10);
 
-    const registroForm = useForm<{ fecha: string; concepto_id: string; grupo_trabajo_id: string; cantidad: number }>({
+    const registroForm = useForm<{
+        fecha: string;
+        concepto_id: string;
+        grupo_trabajo_id: string;
+        cantidad: number;
+        porcentaje: number;
+    }>({
         fecha: soloFecha(destajo.fecha_inicio),
         concepto_id: '',
         grupo_trabajo_id: '',
         cantidad: 1,
+        porcentaje: 100,
     });
 
     const csvForm = useForm<{ csv_file: File | null; fecha: string }>({
@@ -30,16 +37,32 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
         fecha: soloFecha(destajo.fecha_inicio),
     });
 
-    const conceptoOptions = conceptos.map((c) => ({
-        value: String(c.id),
-        label: `${c.obra ? `[${c.obra.no}] ` : ''}${c.marca} - ${c.descripcion}`,
-    }));
+    const conceptoOptions = conceptos.map((c) => {
+        const faltan = c.disponible ?? 0;
+
+        return {
+            value: String(c.id),
+            label:
+                `${c.obra ? `[${c.obra.no}] ` : ''}${c.marca} - ${c.descripcion} · ` +
+                (faltan === 0 ? 'completa' : `faltan ${faltan} de ${c.cantidad}`),
+            // Pintadas en rojo: ya se pagó todo lo que el catálogo manda.
+            danger: faltan === 0,
+        };
+    });
+
+    const conceptoElegido = conceptos.find((c) => String(c.id) === registroForm.data.concepto_id);
+    const disponible = conceptoElegido?.disponible ?? 0;
+
+    // Piezas equivalentes que consume la captura: 10 al 60% gastan 6.
+    const consumo = (registroForm.data.cantidad * registroForm.data.porcentaje) / 100;
+    const rebasa = !!conceptoElegido && consumo > disponible + 0.0001;
+    const esParcial = registroForm.data.porcentaje < 100;
 
     const submitRegistro = (e: FormEvent) => {
         e.preventDefault();
         registroForm.post(`/admin/prod/destajos/${destajo.id}/registros`, {
             preserveScroll: true,
-            onSuccess: () => registroForm.reset('concepto_id', 'cantidad'),
+            onSuccess: () => registroForm.reset('concepto_id', 'cantidad', 'porcentaje'),
         });
     };
 
@@ -90,10 +113,34 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
                                 min={1}
                                 value={registroForm.data.cantidad}
                                 onChange={(e) => registroForm.setData('cantidad', Number(e.target.value))}
-                                error={!!registroForm.errors.cantidad}
+                                error={!!registroForm.errors.cantidad || rebasa}
                             />
                         </FormField>
                     </div>
+
+                    <FormField
+                        label="% a pagar"
+                        htmlFor="porcentaje"
+                        error={registroForm.errors.porcentaje}
+                        description={
+                            conceptoElegido
+                                ? `Pagadas ${conceptoElegido.capturado ?? 0} de ${conceptoElegido.cantidad} · faltan ${disponible}` +
+                                  (esParcial ? ` · esta captura consume ${consumo.toLocaleString('es-MX')}` : '')
+                                : 'Usa menos de 100% para pagar un avance y liquidar el resto en otra semana.'
+                        }
+                        required
+                    >
+                        <Input
+                            id="porcentaje"
+                            type="number"
+                            min={1}
+                            max={100}
+                            step="0.01"
+                            value={registroForm.data.porcentaje}
+                            onChange={(e) => registroForm.setData('porcentaje', Number(e.target.value))}
+                            error={!!registroForm.errors.porcentaje || rebasa}
+                        />
+                    </FormField>
 
                     <FormField
                         label="Fecha"
@@ -113,8 +160,25 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
                         />
                     </FormField>
 
-                    <div className="flex justify-end">
-                        <Button type="submit" size="sm" disabled={registroForm.processing}>
+                    <div className="flex items-center justify-between gap-3">
+                        {conceptoElegido && disponible === 0 ? (
+                            <span className="text-error text-xs">
+                                Pieza pagada al 100%. Si son piezas rehechas, págalas como pago extra.
+                            </span>
+                        ) : (
+                            rebasa && (
+                                <span className="text-error text-xs">
+                                    Se pasa por {(consumo - disponible).toLocaleString('es-MX')} pieza(s): solo
+                                    quedan {disponible} por pagar.
+                                </span>
+                            )
+                        )}
+                        <Button
+                            type="submit"
+                            size="sm"
+                            className="ml-auto"
+                            disabled={registroForm.processing || rebasa || (!!conceptoElegido && disponible === 0)}
+                        >
                             {registroForm.processing && <Loader2Icon className="size-4 animate-spin" />}
                             Agregar
                         </Button>
@@ -150,8 +214,10 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
                     </FormField>
 
                     <p className="text-base-content/60 text-xs">
-                        Columnas: <span className="font-mono">Grupo, Marca, Cantidad</span>. El grupo debe coincidir con su
-                        descripción y la marca con una pieza activa. Todos los renglones toman la fecha seleccionada.
+                        Columnas: <span className="font-mono">Grupo, Marca, Cantidad</span> y opcionalmente{' '}
+                        <span className="font-mono">Porcentaje</span> (si no viene, se paga al 100%). El grupo debe
+                        coincidir con su descripción y la marca con una pieza activa. Todos los renglones toman la
+                        fecha seleccionada.
                     </p>
 
                     <div className="flex justify-end">

@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\Prod\NuevaVersionCatalogoRequest;
 use App\Models\Obra;
 use App\Models\Prod\Catalogo;
 use App\Models\Proyecto;
+use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\VersionadorCatalogo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -80,16 +81,18 @@ class CatalogoController extends Controller
         return to_route('admin.prod.catalogos.show', $catalogo);
     }
 
-    public function show(Request $request, Catalogo $catalogo): Response
+    public function show(Request $request, Catalogo $catalogo, AvanceDePiezas $avance): Response
     {
         $catalogo->load('obra:id,no,descripcion');
 
-        $conceptos = $catalogo->conceptos()
-            ->with('categoria')
-            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('marca', 'like', "%{$s}%")
-                ->orWhere('descripcion', 'like', "%{$s}%")))
-            ->orderBy('marca')
-            ->get();
+        $conceptos = $avance->decorar(
+            $catalogo->conceptos()
+                ->with('categoria')
+                ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('marca', 'like', "%{$s}%")
+                    ->orWhere('descripcion', 'like', "%{$s}%")))
+                ->orderBy('marca')
+                ->get()
+        );
 
         return Inertia::render('admin/prod/catalogos/show', [
             'catalogo' => $catalogo,

@@ -31,6 +31,7 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                                 <tr>
                                     <th>Pieza</th>
                                     <th className="text-right">Cantidad</th>
+                                    <th className="text-right">%</th>
                                     <th className="text-right">Kilos</th>
                                     <th className="text-right">$/kg</th>
                                     <th className="text-right">Total</th>
@@ -39,7 +40,7 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                             <tbody>
                                 {(liquidacion.detalles ?? []).length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="text-base-content/50 py-4 text-center">
+                                        <td colSpan={6} className="text-base-content/50 py-4 text-center">
                                             Sin producción
                                         </td>
                                     </tr>
@@ -57,6 +58,15 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                                                 )}
                                             </td>
                                             <td className="text-right font-mono">{d.cantidad}</td>
+                                            <td className="text-right font-mono">
+                                                {Number(d.porcentaje ?? 100) < 100 ? (
+                                                    <span className="badge badge-sm badge-warning">
+                                                        {Number(d.porcentaje)}%
+                                                    </span>
+                                                ) : (
+                                                    '100%'
+                                                )}
+                                            </td>
                                             <td className="text-right font-mono">{num(d.kilos, 3)}</td>
                                             <td className="text-right font-mono">{num(d.precio_kilo_aplicado, 4)}</td>
                                             <td className="text-right font-mono">${num(d.total)}</td>

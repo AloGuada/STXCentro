@@ -103,6 +103,7 @@
                 <th>Descripción</th>
                 <th style="width: 16%;">Obra</th>
                 <th style="width: 6%;">Pzs</th>
+                <th style="width: 5%;">%</th>
                 <th style="width: 8%;">Largo (mm)</th>
                 <th style="width: 9%;">Peso u. (kg)</th>
                 <th style="width: 9%;">Kilos</th>
@@ -117,6 +118,7 @@
                 <td>{{ $p['descripcion'] }}</td>
                 <td>{{ $p['obra'] }}</td>
                 <td class="text-right">{{ number_format($p['pzs']) }}</td>
+                <td class="text-right">{{ rtrim(rtrim(number_format($p['porcentaje'] ?? 100, 2), '0'), '.') }}%</td>
                 <td class="text-right">{{ $p['largo'] !== null ? number_format($p['largo']) : '-' }}</td>
                 <td class="text-right">{{ $p['peso_unitario'] !== null ? number_format($p['peso_unitario'], 3) : '-' }}</td>
                 <td class="text-right">{{ number_format($p['kilos'], 3) }}</td>
@@ -124,12 +126,12 @@
                 <td class="text-right">{{ $mon($p['importe']) }}</td>
             </tr>
             @empty
-            <tr><td colspan="9" class="empty-cell">Sin producción capturada</td></tr>
+            <tr><td colspan="10" class="empty-cell">Sin producción capturada</td></tr>
             @endforelse
         </tbody>
         <tfoot>
             <tr class="total-row">
-                <td colspan="6" class="text-right">TOTAL PRODUCCIÓN</td>
+                <td colspan="7" class="text-right">TOTAL PRODUCCIÓN</td>
                 <td class="text-right">{{ number_format($g['total_kilos'], 3) }}</td>
                 <td></td>
                 <td class="text-right">{{ $mon($g['total_produccion']) }}</td>

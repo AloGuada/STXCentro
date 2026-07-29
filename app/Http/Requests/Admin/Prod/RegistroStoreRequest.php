@@ -21,6 +21,7 @@ class RegistroStoreRequest extends FormRequest
             'concepto_id' => ['required', 'exists:conceptos,id'],
             'grupo_trabajo_id' => ['required', 'exists:prod_grupos_trabajo,id'],
             'cantidad' => ['required', 'integer', 'min:1'],
+            'porcentaje' => ['nullable', 'numeric', 'min:0.01', 'max:100'],
         ];
     }
 
@@ -37,6 +38,8 @@ class RegistroStoreRequest extends FormRequest
             'grupo_trabajo_id.exists' => 'El grupo de trabajo seleccionado no existe.',
             'cantidad.required' => 'La cantidad es obligatoria.',
             'cantidad.min' => 'La cantidad debe ser al menos 1.',
+            'porcentaje.min' => 'El porcentaje debe ser mayor a 0.',
+            'porcentaje.max' => 'El porcentaje no puede pasar de 100.',
         ];
     }
 }

@@ -25,6 +25,12 @@ type Props = {
 export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra }: Props) {
     const totalExtras = pagosExtra.reduce((acc, pe) => acc + Number(pe.monto ?? pe.precio * pe.dias * pe.personas), 0);
     const totalPiezas = registros.reduce((acc, r) => acc + r.cantidad, 0);
+    // Equivalentes: lo que realmente se gasta del catalogo con las parcialidades.
+    const totalEquivalentes = registros.reduce(
+        (acc, r) => acc + (r.cantidad * Number(r.porcentaje ?? 100)) / 100,
+        0,
+    );
+    const hayParciales = registros.some((r) => Number(r.porcentaje ?? 100) < 100);
 
     const eliminarRegistro = (id: number) => {
         router.delete(`/admin/prod/destajos/${destajoId}/registros/${id}`, { preserveScroll: true });
@@ -39,7 +45,9 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
             <div className="flex items-center justify-between border-b border-base-300 bg-base-200 px-4 py-2">
                 <span className="font-semibold">{grupoNombre}</span>
                 <span className="text-base-content/60 text-xs">
-                    {totalPiezas} piezas · {pagosExtra.length} pagos extra
+                    {totalPiezas} piezas
+                    {hayParciales && ` (${totalEquivalentes.toLocaleString('es-MX')} equivalentes)`} ·{' '}
+                    {pagosExtra.length} pagos extra
                 </span>
             </div>
 
@@ -56,13 +64,14 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                                     <th>Pieza</th>
                                     <th>Fecha</th>
                                     <th className="text-right">Cantidad</th>
+                                    <th className="text-right">%</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {registros.length === 0 ? (
                                     <tr>
-                                        <td colSpan={4} className="text-base-content/50 py-4 text-center">
+                                        <td colSpan={5} className="text-base-content/50 py-4 text-center">
                                             Sin producción capturada
                                         </td>
                                     </tr>
@@ -75,6 +84,15 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                                             </td>
                                             <td className="font-mono text-xs"><FormattedDate value={r.fecha} /></td>
                                             <td className="text-right font-mono">{r.cantidad}</td>
+                                            <td className="text-right font-mono">
+                                                {Number(r.porcentaje ?? 100) < 100 ? (
+                                                    <span className="badge badge-sm badge-warning">
+                                                        {Number(r.porcentaje)}%
+                                                    </span>
+                                                ) : (
+                                                    '100%'
+                                                )}
+                                            </td>
                                             <td className="text-right">
                                                 <button
                                                     className="btn btn-ghost btn-xs text-error"

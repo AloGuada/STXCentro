@@ -564,6 +564,21 @@ export type StiGrupo = {
 };
 
 // Produccion Types
+/** Pieza pagada a medias que todavía tiene saldo por liquidar. */
+export type ProdPendienteLiquidar = {
+    concepto_id: number;
+    marca: string;
+    descripcion: string;
+    obra: string;
+    grupo_trabajo_id: number | null;
+    grupo_trabajo: string | null;
+    cantidad_catalogo: number;
+    pagado: number;
+    saldo: number;
+    cantidad_sugerida: number;
+    porcentaje_sugerido: number;
+};
+
 /** Catálogo de piezas de una obra; sólo una versión está vigente a la vez. */
 export type ProdCatalogo = {
     id: number;
@@ -595,6 +610,10 @@ export type Concepto = {
     obra?: Obra;
     categoria?: ProdCategoria;
     registros_sum_cantidad?: number;
+    /** Piezas ya capturadas de esta marca en la obra (todas las versiones del catálogo). */
+    capturado?: number;
+    /** Piezas que aún se pueden capturar segun el catalogo vigente. */
+    disponible?: number;
     grupo_precio_conceptos?: ProdGrupoPrecioConcepto[];
     created_at: string;
     updated_at: string;
@@ -658,6 +677,8 @@ export type ProdRegistro = {
     concepto_id: number;
     grupo_trabajo_id: number;
     cantidad: number;
+    /** Avance pagado de ese lote; menos de 100 deja saldo por liquidar después. */
+    porcentaje: number;
     concepto?: Concepto;
     grupo_trabajo?: ProdGrupoTrabajo;
     created_at: string;
@@ -711,6 +732,8 @@ export type ProdLiquidacionDetalle = {
     concepto_id: number;
     grupo_precio_id: number;
     cantidad: number;
+    /** Avance pagado de ese lote; los kilos ya vienen prorrateados por este %. */
+    porcentaje: number;
     kilos: number;
     precio_kilo_aplicado: number;
     total: number;

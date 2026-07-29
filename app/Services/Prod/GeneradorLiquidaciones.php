@@ -51,6 +51,12 @@ class GeneradorLiquidaciones
         });
     }
 
+    /** Clave de agrupacion: misma pieza pagada al mismo porcentaje. */
+    private function clavePiezaPorcentaje(Registro $registro): string
+    {
+        return $registro->concepto_id.'|'.number_format((float) $registro->porcentaje, 2, '.', '');
+    }
+
     /**
      * Piezas con produccion en el destajo que no tienen precio asignado.
      * Se pagarian en cero silenciosamente; se usa para advertir antes de cerrar.
@@ -89,12 +95,18 @@ class GeneradorLiquidaciones
         $totalProduccion = 0.0;
         $detallesData = [];
 
-        foreach ($registrosGrupo->groupBy('concepto_id') as $conceptoId => $registrosConcepto) {
-            $concepto = $registrosConcepto->first()->concepto;
-            $cantidadTotal = (int) $registrosConcepto->sum('cantidad');
-            $kilos = round($cantidadTotal * (float) $concepto->peso_unitario, 3);
+        // Se agrupa por pieza Y porcentaje: un mismo lote pagado al 60% y otro
+        // al 100% en la misma semana son renglones distintos de la orden.
+        foreach ($registrosGrupo->groupBy($this->clavePiezaPorcentaje(...)) as $registrosConcepto) {
+            $primero = $registrosConcepto->first();
+            $concepto = $primero->concepto;
+            $conceptoId = (int) $primero->concepto_id;
+            $porcentaje = (float) $primero->porcentaje;
 
-            $grupoPrecioConcepto = $this->grupoPrecioConcepto((int) $conceptoId, $concepto->obra_id);
+            $cantidadTotal = (int) $registrosConcepto->sum('cantidad');
+            $kilos = round($cantidadTotal * (float) $concepto->peso_unitario * ($porcentaje / 100), 3);
+
+            $grupoPrecioConcepto = $this->grupoPrecioConcepto($conceptoId, $concepto->obra_id);
             $precioKilo = (float) ($grupoPrecioConcepto?->grupoPrecio?->precio_kilo ?? 0);
             $total = round($kilos * $precioKilo, 2);
 
@@ -102,9 +114,10 @@ class GeneradorLiquidaciones
             $totalProduccion += $total;
 
             $detallesData[] = [
-                'concepto_id' => (int) $conceptoId,
+                'concepto_id' => $conceptoId,
                 'grupo_precio_id' => $grupoPrecioConcepto?->grupo_precio_id ?? 0,
                 'cantidad' => $cantidadTotal,
+                'porcentaje' => $porcentaje,
                 'kilos' => $kilos,
                 'precio_kilo_aplicado' => $precioKilo,
                 'total' => $total,
@@ -188,6 +201,7 @@ class GeneradorLiquidaciones
                 'descripcion' => $d->concepto?->descripcion ?? '',
                 'obra' => $this->nombreObra($d->concepto),
                 'pzs' => (int) $d->cantidad,
+                'porcentaje' => (float) $d->porcentaje,
                 'largo' => $d->concepto?->longitud,
                 'peso_unitario' => $d->concepto ? (float) $d->concepto->peso_unitario : null,
                 'kilos' => (float) $d->kilos,
@@ -234,15 +248,17 @@ class GeneradorLiquidaciones
             $totalKilos = 0.0;
             $totalProduccion = 0.0;
 
-            foreach ($registrosGrupo->groupBy('concepto_id') as $conceptoId => $registrosConcepto) {
-                $concepto = $registrosConcepto->first()->concepto;
+            foreach ($registrosGrupo->groupBy($this->clavePiezaPorcentaje(...)) as $registrosConcepto) {
+                $primero = $registrosConcepto->first();
+                $concepto = $primero->concepto;
                 if ($concepto === null) {
                     continue;
                 }
 
+                $porcentaje = (float) $primero->porcentaje;
                 $cantidad = (int) $registrosConcepto->sum('cantidad');
-                $kilos = round($cantidad * (float) $concepto->peso_unitario, 3);
-                $precioKilo = (float) ($this->grupoPrecioConcepto((int) $conceptoId, $concepto->obra_id)?->grupoPrecio?->precio_kilo ?? 0);
+                $kilos = round($cantidad * (float) $concepto->peso_unitario * ($porcentaje / 100), 3);
+                $precioKilo = (float) ($this->grupoPrecioConcepto((int) $primero->concepto_id, $concepto->obra_id)?->grupoPrecio?->precio_kilo ?? 0);
                 $importe = round($kilos * $precioKilo, 2);
 
                 $totalKilos += $kilos;
@@ -253,6 +269,7 @@ class GeneradorLiquidaciones
                     'descripcion' => $concepto->descripcion,
                     'obra' => $this->nombreObra($concepto),
                     'pzs' => $cantidad,
+                    'porcentaje' => $porcentaje,
                     'largo' => $concepto->longitud,
                     'peso_unitario' => (float) $concepto->peso_unitario,
                     'kilos' => $kilos,

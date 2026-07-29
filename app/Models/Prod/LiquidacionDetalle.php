@@ -22,6 +22,7 @@ class LiquidacionDetalle extends Model
         'concepto_id',
         'grupo_precio_id',
         'cantidad',
+        'porcentaje',
         'kilos',
         'precio_kilo_aplicado',
         'total',
@@ -34,6 +35,7 @@ class LiquidacionDetalle extends Model
     {
         return [
             'cantidad' => 'integer',
+            'porcentaje' => 'decimal:2',
             'kilos' => 'decimal:3',
             'precio_kilo_aplicado' => 'decimal:4',
             'total' => 'decimal:2',

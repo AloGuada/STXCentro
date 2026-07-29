@@ -2,11 +2,20 @@ import { AgregarPagoExtra } from '@/components/prod/agregar-pago-extra';
 import { CapturarProduccion } from '@/components/prod/capturar-produccion';
 import { GrupoDestajoCard, type PagoExtraPreview, type RegistroPreview } from '@/components/prod/grupo-destajo-card';
 import { LiquidacionCard, type LiquidacionFull } from '@/components/prod/liquidacion-card';
+import { PendientesLiquidar } from '@/components/prod/pendientes-liquidar';
 import { Button } from '@/components/ui/button';
 import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Concepto, Obra, ProdDestajo, ProdGrupoTrabajo, ProdPiezaSinPrecio, ProdTipoPagoExtra } from '@/types/models';
+import type {
+    Concepto,
+    Obra,
+    ProdDestajo,
+    ProdGrupoTrabajo,
+    ProdPendienteLiquidar,
+    ProdPiezaSinPrecio,
+    ProdTipoPagoExtra,
+} from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
 import { AlertTriangleIcon, CalendarCheckIcon, FileDownIcon, LockIcon, Trash2Icon } from 'lucide-react';
 
@@ -20,6 +29,7 @@ type Props = {
     gruposTrabajo?: ProdGrupoTrabajo[];
     conceptos?: (Concepto & { obra?: Obra })[];
     tipos?: ProdTipoPagoExtra[];
+    pendientes?: ProdPendienteLiquidar[];
 };
 
 export default function DestajosShow({
@@ -30,6 +40,7 @@ export default function DestajosShow({
     gruposTrabajo = [],
     conceptos = [],
     tipos = [],
+    pendientes = [],
 }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -118,6 +129,12 @@ export default function DestajosShow({
                                 </div>
                             </div>
                         )}
+
+                        <PendientesLiquidar
+                            destajo={destajo}
+                            pendientes={pendientes}
+                            gruposTrabajo={gruposTrabajo}
+                        />
 
                         <CapturarProduccion destajo={destajo} conceptos={conceptos} gruposTrabajo={gruposTrabajo} />
                         <AgregarPagoExtra destajo={destajo} tipos={tipos} gruposTrabajo={gruposTrabajo} />
