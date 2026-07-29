@@ -4,6 +4,7 @@ namespace App\Models\Prod;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GrupoTrabajo extends Model
@@ -18,8 +19,6 @@ class GrupoTrabajo extends Model
      */
     protected $fillable = [
         'descripcion',
-        'linea',
-        'modulo',
         'activo',
     ];
 
@@ -29,10 +28,19 @@ class GrupoTrabajo extends Model
     protected function casts(): array
     {
         return [
-            'linea' => 'integer',
-            'modulo' => 'integer',
             'activo' => 'boolean',
         ];
+    }
+
+    /** Ubicaciones donde trabaja el grupo; sustituyen a `linea` y `modulo`. */
+    public function ubicaciones(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Ubicacion::class,
+            'prod_grupo_trabajo_ubicaciones',
+            'grupo_trabajo_id',
+            'ubicacion_id',
+        );
     }
 
     public function empleados(): HasMany

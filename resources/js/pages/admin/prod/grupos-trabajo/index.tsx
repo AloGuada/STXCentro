@@ -15,16 +15,20 @@ type GrupoTrabajoRow = ProdGrupoTrabajo & { empleados_count: number };
 const columns: Column<GrupoTrabajoRow>[] = [
     { key: 'descripcion', label: 'Descripcion' },
     {
-        key: 'linea',
-        label: 'Linea',
-        className: 'text-right',
-        render: (g) => <span className="font-mono text-sm">{g.linea}</span>,
-    },
-    {
-        key: 'modulo',
-        label: 'Modulo',
-        className: 'text-right',
-        render: (g) => <span className="font-mono text-sm">{g.modulo}</span>,
+        key: 'ubicaciones',
+        label: 'Ubicaciones',
+        render: (g) =>
+            (g.ubicaciones ?? []).length > 0 ? (
+                <span className="flex flex-wrap gap-1">
+                    {g.ubicaciones?.map((u) => (
+                        <span key={u.id} className="badge badge-sm badge-ghost">
+                            {u.nombre}
+                        </span>
+                    ))}
+                </span>
+            ) : (
+                <span className="text-base-content/40 text-sm">Sin ubicacion</span>
+            ),
     },
     {
         key: 'activo',

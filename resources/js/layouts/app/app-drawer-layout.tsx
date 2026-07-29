@@ -182,10 +182,28 @@ const navGroups: NavGroup[] = [
                 permission: 'prod.grupos-trabajo.ver',
             },
             {
+                title: 'Ubicaciones',
+                href: '/admin/prod/ubicaciones',
+                icon: Building,
+                permission: 'prod.grupos-trabajo.ver',
+            },
+            {
+                title: 'Categorias Empleado',
+                href: '/admin/prod/categorias-empleado',
+                icon: UserCheck,
+                permission: 'prod.grupos-trabajo.ver',
+            },
+            {
                 title: 'Tipos Pago Extra',
                 href: '/admin/prod/tipos-pago-extra',
                 icon: Layers,
                 permission: 'prod.tipos-pago-extra.ver',
+            },
+            {
+                title: 'Configuracion',
+                href: '/admin/prod/configuracion',
+                icon: Settings,
+                permission: 'prod.destajos.ver',
             },
         ],
     },

@@ -20,6 +20,12 @@ class LiquidacionEmpleado extends Model
         'liquidacion_id',
         'nombre',
         'no_empleado',
+        'dias_pagados',
+        'categoria_nombre',
+        'categoria_valor',
+        'salario_diario',
+        'sueldo_base',
+        'monto_destajo',
         'porcentaje',
         'monto_asignado',
     ];
@@ -30,6 +36,11 @@ class LiquidacionEmpleado extends Model
     protected function casts(): array
     {
         return [
+            'dias_pagados' => 'integer',
+            'categoria_valor' => 'integer',
+            'salario_diario' => 'decimal:2',
+            'sueldo_base' => 'decimal:2',
+            'monto_destajo' => 'decimal:2',
             'porcentaje' => 'decimal:2',
             'monto_asignado' => 'decimal:2',
         ];

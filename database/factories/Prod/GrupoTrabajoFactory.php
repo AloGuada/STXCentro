@@ -19,8 +19,6 @@ class GrupoTrabajoFactory extends Factory
     {
         return [
             'descripcion' => 'Grupo '.fake()->unique()->word(),
-            'linea' => fake()->numberBetween(1, 5),
-            'modulo' => fake()->numberBetween(1, 10),
             'activo' => true,
         ];
     }

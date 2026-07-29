@@ -179,7 +179,7 @@ describe('liquidacion con parcialidades', function () {
         ]);
         GrupoEmpleado::factory()->create([
             'grupo_trabajo_id' => $this->grupo->id,
-            'porcentaje' => 100,
+
         ]);
         Auth::login($this->user);
     });

@@ -40,7 +40,7 @@ beforeEach(function () {
     ]);
 
     $this->grupo = GrupoTrabajo::factory()->create();
-    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $this->grupo->id, 'porcentaje' => 100]);
+    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $this->grupo->id]);
 
     $this->destajo = Destajo::factory()->create([
         'anio' => 2026,

@@ -20,21 +20,17 @@ class GrupoEmpleado extends Model
         'grupo_trabajo_id',
         'nombre',
         'no_empleado',
-        'porcentaje',
+        'categoria_empleado_id',
     ];
-
-    /**
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'porcentaje' => 'decimal:2',
-        ];
-    }
 
     public function grupoTrabajo(): BelongsTo
     {
         return $this->belongsTo(GrupoTrabajo::class, 'grupo_trabajo_id');
+    }
+
+    /** Peso con el que participa en el reparto del excedente del destajo. */
+    public function categoria(): BelongsTo
+    {
+        return $this->belongsTo(CategoriaEmpleado::class, 'categoria_empleado_id');
     }
 }

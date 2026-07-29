@@ -1,20 +1,24 @@
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
+import { UbicacionesMultiselect } from '@/components/prod/ubicaciones-multiselect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { ProdGrupoEmpleado, ProdGrupoTrabajo } from '@/types/models';
+import type { ProdCategoriaEmpleado, ProdGrupoEmpleado, ProdGrupoTrabajo, ProdUbicacion } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Loader2Icon, PlusIcon, TrashIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
 type Props = {
-    grupo: ProdGrupoTrabajo & { empleados: ProdGrupoEmpleado[] };
+    grupo: ProdGrupoTrabajo & { empleados: ProdGrupoEmpleado[]; ubicaciones: ProdUbicacion[] };
+    ubicaciones: Pick<ProdUbicacion, 'id' | 'nombre'>[];
+    categorias: Pick<ProdCategoriaEmpleado, 'id' | 'nombre' | 'valor'>[];
 };
 
-export default function GruposTrabajoEdit({ grupo }: Props) {
+export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
@@ -24,12 +28,16 @@ export default function GruposTrabajoEdit({ grupo }: Props) {
 
     const { data, setData, put, processing, errors } = useForm({
         descripcion: grupo.descripcion,
-        linea: String(grupo.linea),
-        modulo: String(grupo.modulo),
         activo: grupo.activo,
+        ubicacion_ids: (grupo.ubicaciones ?? []).map((u) => u.id),
     });
 
-    const [newEmpleado, setNewEmpleado] = useState({ nombre: '', no_empleado: '', porcentaje: '100' });
+    const empleadoVacio = {
+        nombre: '',
+        no_empleado: '',
+        categoria_empleado_id: categorias[0] ? String(categorias[0].id) : '',
+    };
+    const [newEmpleado, setNewEmpleado] = useState(empleadoVacio);
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -40,7 +48,7 @@ export default function GruposTrabajoEdit({ grupo }: Props) {
         if (!newEmpleado.nombre.trim()) return;
         router.post(`/admin/prod/grupos-trabajo/${grupo.id}/empleados`, newEmpleado, {
             preserveScroll: true,
-            onSuccess: () => setNewEmpleado({ nombre: '', no_empleado: '', porcentaje: '100' }),
+            onSuccess: () => setNewEmpleado(empleadoVacio),
         });
     };
 
@@ -66,29 +74,18 @@ export default function GruposTrabajoEdit({ grupo }: Props) {
                             />
                         </FormField>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Linea" htmlFor="linea" error={errors.linea}>
-                                <Input
-                                    id="linea"
-                                    type="number"
-                                    min="0"
-                                    value={data.linea}
-                                    onChange={(e) => setData('linea', e.target.value)}
-                                    error={!!errors.linea}
-                                />
-                            </FormField>
-
-                            <FormField label="Modulo" htmlFor="modulo" error={errors.modulo}>
-                                <Input
-                                    id="modulo"
-                                    type="number"
-                                    min="0"
-                                    value={data.modulo}
-                                    onChange={(e) => setData('modulo', e.target.value)}
-                                    error={!!errors.modulo}
-                                />
-                            </FormField>
-                        </div>
+                        <FormField
+                            label="Ubicaciones"
+                            htmlFor="ubicacion_ids"
+                            error={errors.ubicacion_ids}
+                            description="Dónde trabaja el grupo. Puede ser más de una."
+                        >
+                            <UbicacionesMultiselect
+                                ubicaciones={ubicaciones}
+                                seleccionadas={data.ubicacion_ids}
+                                onChange={(ids) => setData('ubicacion_ids', ids)}
+                            />
+                        </FormField>
 
                         <label className="flex cursor-pointer items-center gap-2">
                             <input
@@ -127,7 +124,7 @@ export default function GruposTrabajoEdit({ grupo }: Props) {
                                     <tr>
                                         <th>Nombre</th>
                                         <th className="w-36">No. Empleado</th>
-                                        <th className="w-28 text-right">%</th>
+                                        <th className="w-48">Categoria</th>
                                         <th className="w-12"></th>
                                     </tr>
                                 </thead>
@@ -143,7 +140,15 @@ export default function GruposTrabajoEdit({ grupo }: Props) {
                                             <tr key={emp.id} className="hover">
                                                 <td className="font-medium">{emp.nombre}</td>
                                                 <td>{emp.no_empleado || '-'}</td>
-                                                <td className="text-right font-mono">{Number(emp.porcentaje).toFixed(2)}%</td>
+                                                <td>
+                                                    {emp.categoria ? (
+                                                        <span className="badge badge-sm badge-ghost">
+                                                            {emp.categoria.nombre} ({emp.categoria.valor})
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-warning text-xs">Sin categoria</span>
+                                                    )}
+                                                </td>
                                                 <td>
                                                     <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveEmpleado(emp.id)}>
                                                         <TrashIcon className="size-4 text-error" />
@@ -172,16 +177,20 @@ export default function GruposTrabajoEdit({ grupo }: Props) {
                                             />
                                         </td>
                                         <td>
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value={newEmpleado.porcentaje}
-                                                onChange={(e) => setNewEmpleado({ ...newEmpleado, porcentaje: e.target.value })}
-                                                placeholder="%"
-                                                className="input-sm text-right font-mono"
-                                            />
+                                            <Select
+                                                value={newEmpleado.categoria_empleado_id}
+                                                onValueChange={(v) =>
+                                                    setNewEmpleado({ ...newEmpleado, categoria_empleado_id: v })
+                                                }
+                                                className="select-sm"
+                                                placeholder="Sin categoria"
+                                            >
+                                                {categorias.map((c) => (
+                                                    <SelectItem key={c.id} value={String(c.id)}>
+                                                        {c.nombre} ({c.valor})
+                                                    </SelectItem>
+                                                ))}
+                                            </Select>
                                         </td>
                                         <td>
                                             <Button type="button" size="icon" onClick={handleAddEmpleado} disabled={!newEmpleado.nombre.trim()}>

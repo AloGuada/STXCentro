@@ -95,7 +95,9 @@ use App\Http\Controllers\Admin\ObraController;
 use App\Http\Controllers\Admin\Prod\AsistenciaController as ProdAsistenciaController;
 use App\Http\Controllers\Admin\Prod\CatalogoController as ProdCatalogoController;
 use App\Http\Controllers\Admin\Prod\CategoriaController as ProdCategoriaController;
+use App\Http\Controllers\Admin\Prod\CategoriaEmpleadoController as ProdCategoriaEmpleadoController;
 use App\Http\Controllers\Admin\Prod\ConceptoController as ProdConceptoController;
+use App\Http\Controllers\Admin\Prod\ConfiguracionController as ProdConfiguracionController;
 use App\Http\Controllers\Admin\Prod\DestajoController as ProdDestajoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioConceptoController as ProdGrupoPrecioConceptoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioController as ProdGrupoPrecioController;
@@ -103,6 +105,7 @@ use App\Http\Controllers\Admin\Prod\GrupoTrabajoController as ProdGrupoTrabajoCo
 use App\Http\Controllers\Admin\Prod\PagoExtraController as ProdPagoExtraController;
 use App\Http\Controllers\Admin\Prod\RegistroController as ProdRegistroController;
 use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtraController;
+use App\Http\Controllers\Admin\Prod\UbicacionController as ProdUbicacionController;
 use App\Http\Controllers\Admin\ProveedorController;
 use App\Http\Controllers\Admin\RegimenFiscalController;
 use App\Http\Controllers\Admin\Rh\DashboardController as RhDashboardController;
@@ -183,6 +186,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // Catalogos
         Route::resource('tipos-pago-extra', ProdTipoPagoExtraController::class)->parameters(['tipos-pago-extra' => 'tipoPagoExtra']);
         Route::resource('categorias', ProdCategoriaController::class)->parameters(['categorias' => 'categoria'])->except(['show']);
+        Route::resource('ubicaciones', ProdUbicacionController::class)->parameters(['ubicaciones' => 'ubicacion'])->except(['show']);
+        Route::resource('categorias-empleado', ProdCategoriaEmpleadoController::class)
+            ->parameters(['categorias-empleado' => 'categoriaEmpleado'])
+            ->except(['show']);
+
+        // Configuracion del modulo (salario minimo diario)
+        Route::get('configuracion', [ProdConfiguracionController::class, 'edit'])->name('configuracion.edit');
+        Route::put('configuracion', [ProdConfiguracionController::class, 'update'])->name('configuracion.update');
 
         // Destajos (semanal) y liquidaciones
         Route::resource('destajos', ProdDestajoController::class)->except(['edit', 'update'])->parameters(['destajos' => 'destajo']);

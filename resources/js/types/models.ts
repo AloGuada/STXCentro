@@ -564,6 +564,31 @@ export type StiGrupo = {
 };
 
 // Produccion Types
+/** Ubicación de trabajo; sustituye a los enteros linea y modulo del grupo. */
+export type ProdUbicacion = {
+    id: number;
+    nombre: string;
+    activo: boolean;
+    grupos_trabajo_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+/**
+ * Categoría del trabajador. `valor` es un peso para repartir el excedente del
+ * destajo, no un sueldo.
+ */
+export type ProdCategoriaEmpleado = {
+    id: number;
+    nombre: string;
+    valor: number;
+    orden: number;
+    activo: boolean;
+    empleados_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
 /** Pieza pagada a medias que todavía tiene saldo por liquidar. */
 export type ProdPendienteLiquidar = {
     concepto_id: number;
@@ -652,9 +677,8 @@ export type ProdGrupoPrecioConcepto = {
 export type ProdGrupoTrabajo = {
     id: number;
     descripcion: string;
-    linea: number;
-    modulo: number;
     activo: boolean;
+    ubicaciones?: ProdUbicacion[];
     empleados?: ProdGrupoEmpleado[];
     empleados_count?: number;
     created_at: string;
@@ -666,7 +690,8 @@ export type ProdGrupoEmpleado = {
     grupo_trabajo_id: number;
     nombre: string;
     no_empleado: string | null;
-    porcentaje: number;
+    categoria_empleado_id: number | null;
+    categoria?: ProdCategoriaEmpleado | null;
     created_at: string;
     updated_at: string;
 };
@@ -779,6 +804,14 @@ export type ProdLiquidacionEmpleado = {
     liquidacion_id: number;
     nombre: string;
     no_empleado: string | null;
+    /** Snapshot del reparto al cerrar la semana. */
+    dias_pagados: number;
+    categoria_nombre: string | null;
+    categoria_valor: number;
+    salario_diario: number;
+    sueldo_base: number;
+    monto_destajo: number;
+    /** Proporción del excedente que le tocó, como referencia. */
     porcentaje: number;
     monto_asignado: number;
     created_at: string;

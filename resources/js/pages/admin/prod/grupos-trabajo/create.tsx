@@ -1,8 +1,11 @@
 import { FormField } from '@/components/form';
+import { UbicacionesMultiselect } from '@/components/prod/ubicaciones-multiselect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import type { ProdCategoriaEmpleado, ProdUbicacion } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon, PlusIcon, TrashIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
@@ -14,25 +17,31 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Nuevo Grupo', href: '/admin/prod/grupos-trabajo/create' },
 ];
 
-type EmpleadoForm = { nombre: string; no_empleado: string; porcentaje: string };
+type EmpleadoForm = { nombre: string; no_empleado: string; categoria_empleado_id: string };
 
-export default function GruposTrabajoCreate() {
+type Props = {
+    ubicaciones: Pick<ProdUbicacion, 'id' | 'nombre'>[];
+    categorias: Pick<ProdCategoriaEmpleado, 'id' | 'nombre' | 'valor'>[];
+};
+
+export default function GruposTrabajoCreate({ ubicaciones, categorias }: Props) {
     const { data, setData, post, processing, errors } = useForm<{
         descripcion: string;
-        linea: string;
-        modulo: string;
         activo: boolean;
+        ubicacion_ids: number[];
         empleados: EmpleadoForm[];
     }>({
         descripcion: '',
-        linea: '0',
-        modulo: '0',
         activo: true,
+        ubicacion_ids: [],
         empleados: [],
     });
 
     const addEmpleado = () => {
-        setData('empleados', [...data.empleados, { nombre: '', no_empleado: '', porcentaje: '100' }]);
+        setData('empleados', [
+            ...data.empleados,
+            { nombre: '', no_empleado: '', categoria_empleado_id: categorias[0] ? String(categorias[0].id) : '' },
+        ]);
     };
 
     const removeEmpleado = (index: number) => {
@@ -69,29 +78,18 @@ export default function GruposTrabajoCreate() {
                             />
                         </FormField>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Linea" htmlFor="linea" error={errors.linea}>
-                                <Input
-                                    id="linea"
-                                    type="number"
-                                    min="0"
-                                    value={data.linea}
-                                    onChange={(e) => setData('linea', e.target.value)}
-                                    error={!!errors.linea}
-                                />
-                            </FormField>
-
-                            <FormField label="Modulo" htmlFor="modulo" error={errors.modulo}>
-                                <Input
-                                    id="modulo"
-                                    type="number"
-                                    min="0"
-                                    value={data.modulo}
-                                    onChange={(e) => setData('modulo', e.target.value)}
-                                    error={!!errors.modulo}
-                                />
-                            </FormField>
-                        </div>
+                        <FormField
+                            label="Ubicaciones"
+                            htmlFor="ubicacion_ids"
+                            error={errors.ubicacion_ids}
+                            description="Dónde trabaja el grupo. Puede ser más de una."
+                        >
+                            <UbicacionesMultiselect
+                                ubicaciones={ubicaciones}
+                                seleccionadas={data.ubicacion_ids}
+                                onChange={(ids) => setData('ubicacion_ids', ids)}
+                            />
+                        </FormField>
 
                         <label className="flex cursor-pointer items-center gap-2">
                             <input
@@ -117,7 +115,7 @@ export default function GruposTrabajoCreate() {
                                         <tr>
                                             <th>Nombre</th>
                                             <th className="w-36">No. Empleado</th>
-                                            <th className="w-28 text-right">%</th>
+                                            <th className="w-48">Categoria</th>
                                             <th className="w-12"></th>
                                         </tr>
                                     </thead>
@@ -148,16 +146,18 @@ export default function GruposTrabajoCreate() {
                                                         />
                                                     </td>
                                                     <td>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            min="0"
-                                                            max="100"
-                                                            value={emp.porcentaje}
-                                                            onChange={(e) => updateEmpleado(index, 'porcentaje', e.target.value)}
-                                                            placeholder="%"
-                                                            className="input-sm text-right font-mono"
-                                                        />
+                                                        <Select
+                                                            value={emp.categoria_empleado_id}
+                                                            onValueChange={(v) => updateEmpleado(index, 'categoria_empleado_id', v)}
+                                                            className="select-sm"
+                                                            placeholder="Sin categoria"
+                                                        >
+                                                            {categorias.map((c) => (
+                                                                <SelectItem key={c.id} value={String(c.id)}>
+                                                                    {c.nombre} ({c.valor})
+                                                                </SelectItem>
+                                                            ))}
+                                                        </Select>
                                                     </td>
                                                     <td>
                                                         <Button type="button" variant="ghost" size="icon" onClick={() => removeEmpleado(index)}>

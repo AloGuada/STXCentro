@@ -8,6 +8,8 @@ use App\Models\Obra;
 use App\Models\Prod\Asistencia;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
+use App\Models\Prod\CategoriaEmpleado;
+use App\Models\Prod\ConfiguracionProd;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
@@ -15,6 +17,7 @@ use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\PagoExtra;
 use App\Models\Prod\Registro;
 use App\Models\Prod\TipoPagoExtra;
+use App\Models\Prod\Ubicacion;
 use App\Models\User;
 use App\Services\Prod\GeneradorLiquidaciones;
 use Illuminate\Database\Eloquent\Collection;
@@ -36,6 +39,10 @@ class ProdDevSeeder extends Seeder
     public function run(): void
     {
         $this->call(ProdTipoSeeder::class);
+
+        // Sin salario minimo el sueldo base saldria en cero y el reparto no se
+        // podria leer en los datos de ejemplo.
+        ConfiguracionProd::actual()->update(['salario_minimo_diario' => 300]);
 
         // La generación de liquidaciones usa auth()->id() para generado_por.
         $usuario = User::query()->first() ?? User::factory()->create();
@@ -75,21 +82,35 @@ class ProdDevSeeder extends Seeder
     private function crearGruposTrabajo(): Collection
     {
         $data = [
-            ['descripcion' => 'Cuadrilla A', 'linea' => 1, 'modulo' => 1, 'empleados' => [['Juan Pérez', '1001', 40], ['Luis Gómez', '1002', 35], ['Mario Ruiz', '1003', 25]]],
-            ['descripcion' => 'Cuadrilla B', 'linea' => 1, 'modulo' => 2, 'empleados' => [['Ana López', '2001', 50], ['Rosa Díaz', '2002', 50]]],
-            ['descripcion' => 'Cuadrilla C', 'linea' => 2, 'modulo' => 1, 'empleados' => [['Pedro Sánchez', '3001', 60], ['Sara Vega', '3002', 40]]],
+            ['descripcion' => 'Cuadrilla A', 'ubicaciones' => ['Línea 1 · Módulo 1'], 'empleados' => [['Juan Pérez', '1001', 'Oficial'], ['Luis Gómez', '1002', 'Media cuchara'], ['Mario Ruiz', '1003', 'Ayudante']]],
+            ['descripcion' => 'Cuadrilla B', 'ubicaciones' => ['Línea 1 · Módulo 2', 'Patio'], 'empleados' => [['Ana López', '2001', 'Oficial'], ['Rosa Díaz', '2002', 'Ayudante']]],
+            ['descripcion' => 'Cuadrilla C', 'ubicaciones' => ['Línea 2 · Módulo 1'], 'empleados' => [['Pedro Sánchez', '3001', 'Oficial'], ['Sara Vega', '3002', 'Media cuchara']]],
         ];
 
-        return new Collection(array_map(function (array $g): GrupoTrabajo {
+        $categorias = collect(['Oficial' => 2000, 'Media cuchara' => 1500, 'Ayudante' => 1000])
+            ->map(fn (int $valor, string $nombre) => CategoriaEmpleado::firstOrCreate(
+                ['nombre' => $nombre],
+                ['valor' => $valor, 'activo' => true],
+            ));
+
+        return new Collection(array_map(function (array $g) use ($categorias): GrupoTrabajo {
             $grupo = GrupoTrabajo::create([
                 'descripcion' => $g['descripcion'],
-                'linea' => $g['linea'],
-                'modulo' => $g['modulo'],
                 'activo' => true,
             ]);
 
-            foreach ($g['empleados'] as [$nombre, $no, $pct]) {
-                $grupo->empleados()->create(['nombre' => $nombre, 'no_empleado' => $no, 'porcentaje' => $pct]);
+            $grupo->ubicaciones()->sync(
+                collect($g['ubicaciones'])
+                    ->map(fn (string $nombre) => Ubicacion::firstOrCreate(['nombre' => $nombre], ['activo' => true])->id)
+                    ->all()
+            );
+
+            foreach ($g['empleados'] as [$nombre, $no, $categoria]) {
+                $grupo->empleados()->create([
+                    'nombre' => $nombre,
+                    'no_empleado' => $no,
+                    'categoria_empleado_id' => $categorias[$categoria]->id,
+                ]);
             }
 
             return $grupo;

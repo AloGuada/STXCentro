@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\Prod\CategoriaEmpleado;
 use App\Models\Prod\GrupoEmpleado;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Registro;
+use App\Models\Prod\Ubicacion;
 use App\Models\User;
 
 beforeEach(function () {
@@ -33,40 +35,42 @@ describe('admin grupos trabajo', function () {
         );
     });
 
-    test('grupo trabajo can be stored with empleados', function () {
+    test('grupo trabajo can be stored with ubicaciones y empleados', function () {
+        $ubicaciones = Ubicacion::factory()->count(2)->create();
+        $categoria = CategoriaEmpleado::factory()->create();
+
         $response = $this->actingAs($this->user)
             ->post(route('admin.prod.grupos-trabajo.store'), [
                 'descripcion' => 'Grupo Alpha',
-                'linea' => 1,
-                'modulo' => 2,
                 'activo' => true,
+                'ubicacion_ids' => $ubicaciones->pluck('id')->all(),
                 'empleados' => [
-                    ['nombre' => 'Juan', 'no_empleado' => 'E001', 'porcentaje' => 50],
-                    ['nombre' => 'Pedro', 'no_empleado' => 'E002', 'porcentaje' => 50],
+                    ['nombre' => 'Juan', 'no_empleado' => 'E001', 'categoria_empleado_id' => $categoria->id],
+                    ['nombre' => 'Pedro', 'no_empleado' => 'E002', 'categoria_empleado_id' => $categoria->id],
                 ],
             ]);
 
         $grupo = GrupoTrabajo::first();
         $response->assertRedirect(route('admin.prod.grupos-trabajo.edit', $grupo));
 
-        $this->assertDatabaseHas('prod_grupos_trabajo', [
-            'descripcion' => 'Grupo Alpha',
-            'linea' => 1,
-            'modulo' => 2,
-        ]);
+        $this->assertDatabaseHas('prod_grupos_trabajo', ['descripcion' => 'Grupo Alpha']);
 
-        expect(GrupoEmpleado::where('grupo_trabajo_id', $grupo->id)->count())->toBe(2);
+        expect(GrupoEmpleado::where('grupo_trabajo_id', $grupo->id)->count())->toBe(2)
+            ->and($grupo->ubicaciones)->toHaveCount(2)
+            ->and($grupo->empleados()->first()->categoria_empleado_id)->toBe($categoria->id);
     });
 
-    test('grupo trabajo can be updated', function () {
+    test('grupo trabajo can be updated y resincroniza ubicaciones', function () {
         $grupo = GrupoTrabajo::factory()->create();
+        $vieja = Ubicacion::factory()->create();
+        $nueva = Ubicacion::factory()->create();
+        $grupo->ubicaciones()->sync([$vieja->id]);
 
         $response = $this->actingAs($this->user)
             ->put(route('admin.prod.grupos-trabajo.update', $grupo), [
                 'descripcion' => 'Updated',
-                'linea' => 5,
-                'modulo' => 3,
                 'activo' => false,
+                'ubicacion_ids' => [$nueva->id],
             ]);
 
         $response->assertRedirect(route('admin.prod.grupos-trabajo.index'));
@@ -74,9 +78,24 @@ describe('admin grupos trabajo', function () {
         $this->assertDatabaseHas('prod_grupos_trabajo', [
             'id' => $grupo->id,
             'descripcion' => 'Updated',
-            'linea' => 5,
             'activo' => false,
         ]);
+
+        expect($grupo->fresh()->ubicaciones->pluck('id')->all())->toBe([$nueva->id]);
+    });
+
+    test('un grupo puede usar varias ubicaciones', function () {
+        $grupo = GrupoTrabajo::factory()->create();
+        $ubicaciones = Ubicacion::factory()->count(3)->create();
+
+        $this->actingAs($this->user)
+            ->put(route('admin.prod.grupos-trabajo.update', $grupo), [
+                'descripcion' => $grupo->descripcion,
+                'ubicacion_ids' => $ubicaciones->pluck('id')->all(),
+            ])
+            ->assertSessionHasNoErrors();
+
+        expect($grupo->fresh()->ubicaciones)->toHaveCount(3);
     });
 
     test('grupo trabajo can be deleted', function () {
@@ -109,7 +128,7 @@ describe('admin grupos trabajo', function () {
             ->post(route('admin.prod.grupos-trabajo.empleados.store', $grupo), [
                 'nombre' => 'Nuevo Empleado',
                 'no_empleado' => 'E099',
-                'porcentaje' => 100,
+                'categoria_empleado_id' => CategoriaEmpleado::factory()->create()->id,
             ]);
 
         $response->assertRedirect();

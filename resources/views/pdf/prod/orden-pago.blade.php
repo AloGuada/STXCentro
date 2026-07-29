@@ -57,7 +57,8 @@
 @endphp
 
 @forelse($grupos as $g)
-<div @if(!$loop->last) style="page-break-after: always;" @endif>
+{{-- Cada grupo ocupa dos hojas: la orden de pago y su reparto por categoría. --}}
+<div style="page-break-after: always;">
     {{-- Header estilo costos --}}
     <table class="header-table">
         <tr>
@@ -229,6 +230,95 @@
     </tr></table>
 
     <div class="form-code">F-STX-PR-2T-06 · Revisión: 00</div>
+</div>
+
+{{-- Hoja de reparto: sueldo base garantizado + excedente por categoría --}}
+<div @if(!$loop->last) style="page-break-after: always;" @endif>
+    <table class="header-table">
+        <tr>
+            <td class="logo-cell">@include('pdf.partials.logo')</td>
+            <td class="company-cell">
+                <div class="company-name">TIM DEL MAYAB, S.A. DE C.V.</div>
+                <div class="company-address">Reparto por categoría</div>
+            </td>
+            <td class="doc-cell">
+                <div class="doc-title">REPARTO</div>
+                <div class="doc-meta">
+                    Semana {{ $destajo->semana }} / {{ $destajo->anio }}<br>
+                    {{ $periodo }}
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="section-title">
+        {{ $g['grupo']['descripcion'] }}
+        @if(!empty($g['grupo']['ubicaciones'])) · {{ $g['grupo']['ubicaciones'] }} @endif
+    </div>
+
+    <p style="font-size: 9px; color: #555; margin: 0 0 8px;">
+        Cada trabajador cobra su sueldo base (días pagados × salario mínimo diario). El excedente del destajo
+        &mdash;lo que sobra después de cubrir todas las bases&mdash; se reparte según el valor de su categoría.
+        Si no hay excedente, cada quien conserva su base.
+    </p>
+
+    <table class="grid">
+        <thead>
+            <tr>
+                <th style="text-align: left;">Empleado</th>
+                <th style="width: 13%;">Categoría</th>
+                <th style="width: 7%;">Valor</th>
+                <th style="width: 7%;">Días</th>
+                <th style="width: 10%;">$/día</th>
+                <th style="width: 12%;">Sueldo base</th>
+                <th style="width: 12%;">Destajo</th>
+                <th style="width: 13%;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($g['empleados'] as $emp)
+            <tr>
+                <td>{{ $emp['nombre'] }} <span style="color:#666;">({{ $emp['no_empleado'] ?: 's/n' }})</span></td>
+                <td>{{ $emp['categoria'] ?? '—' }}</td>
+                <td class="text-right">{{ number_format((float) ($emp['categoria_valor'] ?? 0)) }}</td>
+                <td class="text-right">{{ (int) ($emp['dias_pagados'] ?? 0) }}</td>
+                <td class="text-right">{{ $mon($emp['salario_diario'] ?? 0) }}</td>
+                <td class="text-right">{{ $mon($emp['sueldo_base'] ?? 0) }}</td>
+                <td class="text-right">{{ $mon($emp['monto_destajo'] ?? 0) }}</td>
+                <td class="text-right">{{ $mon($emp['monto']) }}</td>
+            </tr>
+            @empty
+            <tr><td colspan="8" class="empty-cell">Sin empleados en el grupo</td></tr>
+            @endforelse
+        </tbody>
+        <tfoot>
+            <tr class="total-row">
+                <td colspan="5" class="text-right">TOTALES</td>
+                <td class="text-right">{{ $mon($g['total_bases'] ?? 0) }}</td>
+                <td class="text-right">{{ $mon($g['total_destajo_repartido'] ?? 0) }}</td>
+                <td class="text-right">{{ $mon($g['total_final']) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <table style="width: 100%; margin-top: 24px;"><tr>
+        <td style="width: 50%;">
+            <div class="firma">
+                <div class="firma-line">
+                    <span class="cargo">ELABORÓ</span>
+                </div>
+            </div>
+        </td>
+        <td style="width: 50%;">
+            <div class="firma">
+                <div class="firma-line">
+                    <span class="cargo">JEFE DE PRODUCCIÓN</span>
+                </div>
+            </div>
+        </td>
+    </tr></table>
+
+    <div class="form-code">F-STX-PR-2T-07 · Revisión: 00</div>
 </div>
 @empty
 <div class="no-data">

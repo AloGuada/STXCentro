@@ -3,6 +3,7 @@
 use App\Models\Concepto;
 use App\Models\Obra;
 use App\Models\Prod\Asistencia;
+use App\Models\Prod\CategoriaEmpleado;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoEmpleado;
 use App\Models\Prod\GrupoPrecio;
@@ -64,7 +65,7 @@ describe('admin destajos', function () {
         $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id, 'precio_kilo' => 5.0000]);
         GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
         $grupo = GrupoTrabajo::factory()->create();
-        GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'porcentaje' => 100]);
+        GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id]);
 
         $destajo = Destajo::factory()->create(['cerrado' => false, 'fecha_inicio' => '2026-03-02', 'fecha_fin' => '2026-03-08']);
         Registro::factory()->create(['fecha' => '2026-03-04', 'concepto_id' => $concepto->id, 'grupo_trabajo_id' => $grupo->id, 'cantidad' => 30]);
@@ -188,8 +189,16 @@ describe('admin destajos', function () {
         GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
 
         $grupo = GrupoTrabajo::factory()->create();
-        GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'nombre' => 'Juan', 'porcentaje' => 60]);
-        GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'nombre' => 'Pedro', 'porcentaje' => 40]);
+        GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => $grupo->id,
+            'nombre' => 'Juan',
+            'categoria_empleado_id' => CategoriaEmpleado::factory()->create(['valor' => 600])->id,
+        ]);
+        GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => $grupo->id,
+            'nombre' => 'Pedro',
+            'categoria_empleado_id' => CategoriaEmpleado::factory()->create(['valor' => 400])->id,
+        ]);
 
         $destajo = Destajo::factory()->create([
             'fecha_inicio' => '2026-02-03',
@@ -232,6 +241,8 @@ describe('admin destajos', function () {
         expect($liquidacion->detalles)->toHaveCount(1);
         expect($liquidacion->detalles->first()->cantidad)->toBe(20);
 
+        // Sin salario minimo configurado el sueldo base es 0, asi que los 1000
+        // son excedente y se reparten por el peso de la categoria: 600 y 400.
         expect($liquidacion->empleados)->toHaveCount(2);
         $juan = $liquidacion->empleados->firstWhere('nombre', 'Juan');
         expect((float) $juan->porcentaje)->toBe(60.0);

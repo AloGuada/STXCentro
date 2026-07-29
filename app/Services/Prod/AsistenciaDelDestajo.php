@@ -116,4 +116,20 @@ class AsistenciaDelDestajo
     {
         return $this->faltantes($destajo)->isEmpty();
     }
+
+    /**
+     * Días que se le pagan a cada empleado en la semana: asistencia y
+     * vacaciones cuentan, falta y "no aplica" no. Base del sueldo garantizado.
+     *
+     * @return array<int, int>
+     */
+    public function diasPagadosPorEmpleado(Destajo $destajo): array
+    {
+        return Asistencia::query()
+            ->where('destajo_id', $destajo->id)
+            ->get(['grupo_empleado_id', 'estado'])
+            ->filter(fn (Asistencia $a) => $a->estado->cuentaComoPagado())
+            ->countBy('grupo_empleado_id')
+            ->all();
+    }
 }

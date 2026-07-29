@@ -2,6 +2,7 @@
 
 use App\Models\Concepto;
 use App\Models\Obra;
+use App\Models\Prod\CategoriaEmpleado;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoEmpleado;
 use App\Models\Prod\GrupoPrecio;
@@ -18,15 +19,21 @@ beforeEach(function () {
     $this->service = app(GeneradorLiquidaciones::class);
 });
 
-test('generar reparte el total por porcentaje del empleado', function () {
+test('generar reparte el total por el peso de la categoria', function () {
     $obra = Obra::factory()->create();
     $concepto = Concepto::factory()->create(['obra_id' => $obra->id, 'peso_unitario' => 10.000]);
     $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id, 'precio_kilo' => 5.0000]);
     GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
 
     $grupo = GrupoTrabajo::factory()->create();
-    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'porcentaje' => 70]);
-    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'porcentaje' => 30]);
+    GrupoEmpleado::factory()->create([
+        'grupo_trabajo_id' => $grupo->id,
+        'categoria_empleado_id' => CategoriaEmpleado::factory()->create(['valor' => 700])->id,
+    ]);
+    GrupoEmpleado::factory()->create([
+        'grupo_trabajo_id' => $grupo->id,
+        'categoria_empleado_id' => CategoriaEmpleado::factory()->create(['valor' => 300])->id,
+    ]);
 
     $destajo = Destajo::factory()->create(['fecha_inicio' => '2026-03-02', 'fecha_fin' => '2026-03-08']);
     Registro::factory()->create([
@@ -38,11 +45,12 @@ test('generar reparte el total por porcentaje del empleado', function () {
 
     $this->service->generar($destajo);
 
-    // 30 * 10kg = 300kg * 5 = 1500
+    // 30 * 10kg = 300kg * 5 = 1500. Sin asistencia capturada el sueldo base es
+    // 0, asi que los 1500 son excedente y se reparten 70/30 por peso.
     $liq = $destajo->liquidaciones()->with('empleados')->first();
     expect((float) $liq->total_final)->toBe(1500.0);
-    expect((float) $liq->empleados->firstWhere('porcentaje', 70.0)->monto_asignado)->toBe(1050.0);
-    expect((float) $liq->empleados->firstWhere('porcentaje', 30.0)->monto_asignado)->toBe(450.0);
+    expect((float) $liq->empleados->firstWhere('categoria_valor', 700)->monto_asignado)->toBe(1050.0);
+    expect((float) $liq->empleados->firstWhere('categoria_valor', 300)->monto_asignado)->toBe(450.0);
     expect($destajo->fresh()->cerrado)->toBeTrue();
 });
 
@@ -71,7 +79,7 @@ test('ordenDePago (abierto) calcula del preview con secciones y empleados', func
     GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
 
     $grupo = GrupoTrabajo::factory()->create();
-    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'porcentaje' => 100]);
+    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id]);
 
     $destajo = Destajo::factory()->create(['cerrado' => false, 'fecha_inicio' => '2026-03-02', 'fecha_fin' => '2026-03-08']);
     Registro::factory()->create(['fecha' => '2026-03-04', 'concepto_id' => $concepto->id, 'grupo_trabajo_id' => $grupo->id, 'cantidad' => 30]);
@@ -110,7 +118,7 @@ test('ordenDePago (cerrado) lee de las liquidaciones inmutables', function () {
     GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
 
     $grupo = GrupoTrabajo::factory()->create();
-    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'porcentaje' => 100]);
+    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id]);
 
     $destajo = Destajo::factory()->create(['cerrado' => false, 'fecha_inicio' => '2026-03-02', 'fecha_fin' => '2026-03-08']);
     Registro::factory()->create(['fecha' => '2026-03-04', 'concepto_id' => $concepto->id, 'grupo_trabajo_id' => $grupo->id, 'cantidad' => 30]);

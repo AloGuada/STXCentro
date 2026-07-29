@@ -17,12 +17,16 @@ use Illuminate\Support\Facades\DB;
 
 class GeneradorLiquidaciones
 {
+    public function __construct(private RepartoDelGrupo $reparto) {}
+
     /**
      * Cierra el destajo generando una liquidacion inmutable por grupo de trabajo.
      *
      * Por grupo: agrupa la produccion por concepto (kilos = cantidad x peso_unitario,
      * total = kilos x precio_kilo del grupo de precio), suma los pagos extra
-     * (precio x dias x personas) y reparte el total a cada empleado por su porcentaje.
+     * (precio x dias x personas) y reparte el total entre los empleados con
+     * RepartoDelGrupo: sueldo base por dia asistido mas el excedente prorrateado
+     * por el peso de su categoria.
      */
     public function generar(Destajo $destajo): void
     {
@@ -150,21 +154,16 @@ class GeneradorLiquidaciones
             $liquidacion->detalles()->create($detalle);
         }
 
-        $grupoTrabajo = $registrosGrupo->isNotEmpty()
-            ? $registrosGrupo->first()->grupoTrabajo
-            : GrupoTrabajo::with('empleados')->find($grupoTrabajoId);
+        $grupoTrabajo = GrupoTrabajo::with(['empleados.categoria', 'ubicaciones'])->find($grupoTrabajoId);
 
         if ($grupoTrabajo === null) {
             return;
         }
 
-        foreach ($grupoTrabajo->empleados as $empleado) {
-            $liquidacion->empleados()->create([
-                'nombre' => $empleado->nombre,
-                'no_empleado' => $empleado->no_empleado,
-                'porcentaje' => $empleado->porcentaje,
-                'monto_asignado' => round($totalFinal * ((float) $empleado->porcentaje / 100), 2),
-            ]);
+        $reparto = $this->reparto->calcular($destajo, $grupoTrabajo, $totalFinal);
+
+        foreach ($reparto['empleados'] as $fila) {
+            $liquidacion->empleados()->create($fila);
         }
     }
 
@@ -198,7 +197,7 @@ class GeneradorLiquidaciones
     private function ordenDesdeLiquidaciones(Destajo $destajo, Collection $tipos, Collection $pagosPorGrupo): Collection
     {
         $destajo->loadMissing([
-            'liquidaciones.grupoTrabajo',
+            'liquidaciones.grupoTrabajo.ubicaciones',
             'liquidaciones.detalles.concepto.obra',
             'liquidaciones.empleados',
         ]);
@@ -223,9 +222,16 @@ class GeneradorLiquidaciones
                 'importe' => (float) $d->total,
             ])->all();
 
+            // Snapshot del reparto: no se recalcula ni se relee la categoria.
             $empleados = $liq->empleados->map(fn ($e) => [
                 'nombre' => $e->nombre,
                 'no_empleado' => $e->no_empleado,
+                'dias_pagados' => (int) $e->dias_pagados,
+                'categoria' => $e->categoria_nombre,
+                'categoria_valor' => (int) $e->categoria_valor,
+                'salario_diario' => (float) $e->salario_diario,
+                'sueldo_base' => (float) $e->sueldo_base,
+                'monto_destajo' => (float) $e->monto_destajo,
                 'porcentaje' => (float) $e->porcentaje,
                 'monto' => (float) $e->monto_asignado,
             ])->all();
@@ -254,7 +260,7 @@ class GeneradorLiquidaciones
         $registrosPorGrupo = $this->registrosDelDestajo($destajo)->groupBy('grupo_trabajo_id');
         $grupoIds = $registrosPorGrupo->keys()->merge($pagosPorGrupo->keys())->unique();
 
-        return $grupoIds->map(function ($grupoId) use ($registrosPorGrupo, $pagosPorGrupo, $tipos) {
+        return $grupoIds->map(function ($grupoId) use ($destajo, $registrosPorGrupo, $pagosPorGrupo, $tipos) {
             $grupoId = (int) $grupoId;
             $registrosGrupo = $registrosPorGrupo->get($grupoId, collect());
 
@@ -296,16 +302,23 @@ class GeneradorLiquidaciones
             $totalExtras = (float) $pagosGrupo->sum(fn (PagoExtra $pe) => $pe->monto);
             $totalFinal = $totalProduccion + $totalExtras;
 
-            $grupoTrabajo = $registrosGrupo->isNotEmpty()
-                ? $registrosGrupo->first()->grupoTrabajo
-                : GrupoTrabajo::with('empleados')->find($grupoId);
+            $grupoTrabajo = GrupoTrabajo::with(['empleados.categoria', 'ubicaciones'])->find($grupoId);
 
-            $empleados = ($grupoTrabajo?->empleados ?? collect())->map(fn ($e) => [
-                'nombre' => $e->nombre,
-                'no_empleado' => $e->no_empleado,
-                'porcentaje' => (float) $e->porcentaje,
-                'monto' => round($totalFinal * ((float) $e->porcentaje / 100), 2),
-            ])->all();
+            // Mismo calculo que al cerrar, para que el preview no mienta.
+            $empleados = collect($this->reparto->calcular($destajo, $grupoTrabajo, $totalFinal)['empleados'])
+                ->map(fn (array $fila) => [
+                    'nombre' => $fila['nombre'],
+                    'no_empleado' => $fila['no_empleado'],
+                    'dias_pagados' => $fila['dias_pagados'],
+                    'categoria' => $fila['categoria_nombre'],
+                    'categoria_valor' => $fila['categoria_valor'],
+                    'salario_diario' => $fila['salario_diario'],
+                    'sueldo_base' => $fila['sueldo_base'],
+                    'monto_destajo' => $fila['monto_destajo'],
+                    'porcentaje' => $fila['porcentaje'],
+                    'monto' => $fila['monto_asignado'],
+                ])
+                ->all();
 
             return $this->armarGrupo($grupoTrabajo, $piezas, $totalKilos, $totalProduccion, $totalExtras, $totalFinal, $empleados, $tipos, $pagosGrupo);
         })->values();
@@ -323,9 +336,11 @@ class GeneradorLiquidaciones
         return [
             'grupo' => [
                 'descripcion' => $grupo?->descripcion ?? 'Grupo',
-                'linea' => $grupo?->linea,
-                'modulo' => $grupo?->modulo,
+                'ubicaciones' => $grupo?->ubicaciones->pluck('nombre')->implode(' · ') ?: null,
             ],
+            // Resumen de la hoja de reparto: bases garantizadas y excedente.
+            'total_bases' => round((float) collect($empleados)->sum('sueldo_base'), 2),
+            'total_destajo_repartido' => round((float) collect($empleados)->sum('monto_destajo'), 2),
             'piezas' => $piezas,
             'total_kilos' => $totalKilos,
             'total_produccion' => $totalProduccion,
