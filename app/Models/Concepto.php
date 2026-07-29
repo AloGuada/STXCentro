@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\Registro;
@@ -22,6 +23,7 @@ class Concepto extends Model
      */
     protected $fillable = [
         'obra_id',
+        'catalogo_id',
         'marca',
         'descripcion',
         'cantidad',
@@ -49,6 +51,24 @@ class Concepto extends Model
     public function obra(): BelongsTo
     {
         return $this->belongsTo(Obra::class, 'obra_id');
+    }
+
+    public function catalogo(): BelongsTo
+    {
+        return $this->belongsTo(Catalogo::class, 'catalogo_id');
+    }
+
+    /**
+     * Sólo las piezas del catálogo vigente de su obra. Indispensable en captura
+     * de producción y asignación de precios: tras copiar una versión la misma
+     * marca existe en varios catálogos y sin este filtro queda ambigua.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<self>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<self>
+     */
+    public function scopeDeCatalogoVigente($query)
+    {
+        return $query->whereHas('catalogo', fn ($q) => $q->where('vigente', true));
     }
 
     public function categoria(): BelongsTo

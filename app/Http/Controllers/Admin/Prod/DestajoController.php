@@ -81,7 +81,7 @@ class DestajoController extends Controller
 
         $data['piezasSinPrecio'] = $generador->piezasSinPrecio($destajo);
         $data['gruposTrabajo'] = GrupoTrabajo::where('activo', true)->orderBy('descripcion')->get();
-        $data['conceptos'] = Concepto::with('obra')->where('activo', true)->orderBy('marca')->get();
+        $data['conceptos'] = Concepto::with('obra')->deCatalogoVigente()->where('activo', true)->orderBy('marca')->get();
         $data['tipos'] = TipoPagoExtra::orderBy('orden')->get();
 
         return Inertia::render('admin/prod/destajos/show', $data);

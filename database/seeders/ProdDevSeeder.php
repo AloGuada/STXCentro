@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Concepto;
 use App\Models\Obra;
+use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoPrecio;
@@ -125,9 +126,15 @@ class ProdDevSeeder extends Seeder
                 'precio_kilo' => $od['precioKilo'],
             ]);
 
+            $catalogo = Catalogo::firstOrCreate(
+                ['obra_id' => $obra->id, 'version' => 1],
+                ['nombre' => 'Catálogo '.$obra->no, 'vigente' => true],
+            );
+
             foreach ($od['piezas'] as [$marca, $desc, $peso]) {
                 $concepto = Concepto::create([
                     'obra_id' => $obra->id,
+                    'catalogo_id' => $catalogo->id,
                     'marca' => $marca,
                     'descripcion' => $desc,
                     'cantidad' => fake()->numberBetween(10, 60),

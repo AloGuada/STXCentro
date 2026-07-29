@@ -51,20 +51,24 @@ describe('visibilidad del proyecto de planta fuera de costos', function () {
             ->assertNotFound();
     });
 
-    test('no aparece en conceptos de produccion', function () {
+    test('no se ofrece al crear un catalogo de conceptos', function () {
         $response = $this->actingAs($this->user)
-            ->get(route('admin.prod.conceptos.index'));
+            ->get(route('admin.prod.catalogos.index'));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
-            ->has('obras.data', 1)
-            ->where('obras.data.0.id', $this->obra->id)
+            ->has('obrasDisponibles', 1)
+            ->where('obrasDisponibles.0.id', $this->obra->id)
         );
     });
 
-    test('sus conceptos de produccion regresan 404', function () {
+    test('no se le puede crear un catalogo de conceptos', function () {
         $this->actingAs($this->user)
-            ->get(route('admin.prod.conceptos.show-by-obra', $this->planta))
+            ->post(route('admin.prod.catalogos.store'), [
+                'modo' => 'existente',
+                'obra_id' => $this->planta->id,
+                'nombre' => 'Catalogo de planta',
+            ])
             ->assertNotFound();
     });
 

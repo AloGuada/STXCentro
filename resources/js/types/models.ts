@@ -564,9 +564,26 @@ export type StiGrupo = {
 };
 
 // Produccion Types
+/** Catálogo de piezas de una obra; sólo una versión está vigente a la vez. */
+export type ProdCatalogo = {
+    id: number;
+    obra_id: number;
+    catalogo_origen_id: number | null;
+    nombre: string;
+    version: number;
+    vigente: boolean;
+    notas: string | null;
+    obra?: Obra;
+    conceptos?: Concepto[];
+    created_at: string;
+    updated_at: string;
+};
+
 export type Concepto = {
     id: number;
     obra_id: number;
+    catalogo_id: number | null;
+    catalogo?: ProdCatalogo;
     marca: string;
     descripcion: string;
     cantidad: number;

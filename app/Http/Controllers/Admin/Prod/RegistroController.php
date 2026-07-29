@@ -83,7 +83,7 @@ class RegistroController extends Controller
                 continue;
             }
 
-            $conceptos = Concepto::where('marca', $marca)->where('activo', true)->get();
+            $conceptos = Concepto::deCatalogoVigente()->where('marca', $marca)->where('activo', true)->get();
             if ($conceptos->isEmpty()) {
                 $errores[] = "Linea {$linea}: pieza \"{$marca}\" no encontrada.";
 

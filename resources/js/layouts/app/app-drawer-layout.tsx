@@ -158,8 +158,8 @@ const navGroups: NavGroup[] = [
                 permission: 'prod.destajos.ver',
             },
             {
-                title: 'Conceptos',
-                href: '/admin/prod/conceptos',
+                title: 'Catalogos',
+                href: '/admin/prod/catalogos',
                 icon: Puzzle,
                 permission: 'prod.conceptos.ver',
             },

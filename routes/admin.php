@@ -92,6 +92,7 @@ use App\Http\Controllers\Admin\Intra\DocumentoController as IntraDocumentoContro
 use App\Http\Controllers\Admin\Intra\SeccionEstaticaController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\ObraController;
+use App\Http\Controllers\Admin\Prod\CatalogoController as ProdCatalogoController;
 use App\Http\Controllers\Admin\Prod\CategoriaController as ProdCategoriaController;
 use App\Http\Controllers\Admin\Prod\ConceptoController as ProdConceptoController;
 use App\Http\Controllers\Admin\Prod\DestajoController as ProdDestajoController;
@@ -153,10 +154,18 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     // Produccion admin routes
     Route::prefix('prod')->name('prod.')->group(function () {
+        // Catalogos de piezas (versionados, uno vigente por obra)
+        Route::post('catalogos/{catalogo}/nueva-version', [ProdCatalogoController::class, 'nuevaVersion'])->name('catalogos.nueva-version');
+        Route::get('catalogos/{catalogo}/comparar/{contra}', [ProdCatalogoController::class, 'comparar'])->name('catalogos.comparar');
+        Route::post('catalogos/{catalogo}/import-csv', [ProdConceptoController::class, 'importCsv'])->name('catalogos.import-csv');
+        Route::resource('catalogos', ProdCatalogoController::class)
+            ->parameters(['catalogos' => 'catalogo'])
+            ->except(['create', 'edit']);
+
         Route::get('conceptos/layout', [ProdConceptoController::class, 'descargarLayout'])->name('conceptos.layout');
-        Route::get('conceptos/obra/{obra}', [ProdConceptoController::class, 'showByObra'])->name('conceptos.show-by-obra');
-        Route::post('conceptos/obra/{obra}/import-csv', [ProdConceptoController::class, 'importCsv'])->name('conceptos.import-csv');
-        Route::resource('conceptos', ProdConceptoController::class)->parameters(['conceptos' => 'concepto']);
+        Route::resource('conceptos', ProdConceptoController::class)
+            ->parameters(['conceptos' => 'concepto'])
+            ->only(['create', 'store', 'edit', 'update', 'destroy']);
         Route::get('grupo-precios/obra/{obra}', [ProdGrupoPrecioController::class, 'showByObra'])->name('grupo-precios.show-by-obra');
         Route::resource('grupo-precios', ProdGrupoPrecioController::class)->parameters(['grupo-precios' => 'grupoPrecio'])->except(['show']);
         Route::post('grupo-precios/{grupoPrecio}/assign-conceptos', [ProdGrupoPrecioController::class, 'assignConceptos'])->name('grupo-precios.assign-conceptos');

@@ -17,7 +17,6 @@ class ConceptoUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'obra_id' => ['required', 'exists:obras,id'],
             'marca' => ['required', 'string', 'max:255'],
             'descripcion' => ['required', 'string', 'max:255'],
             'cantidad' => ['required', 'integer', 'min:0'],
@@ -35,8 +34,6 @@ class ConceptoUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'obra_id.required' => 'La obra es obligatoria.',
-            'obra_id.exists' => 'La obra seleccionada no existe.',
             'marca.required' => 'La marca es obligatoria.',
             'descripcion.required' => 'La descripcion es obligatoria.',
             'peso_unitario.required' => 'El peso unitario es obligatorio.',

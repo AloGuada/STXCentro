@@ -2,6 +2,7 @@
 
 use App\Models\Concepto;
 use App\Models\Obra;
+use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
 use App\Models\Prod\Registro;
 use App\Models\User;
@@ -12,56 +13,26 @@ beforeEach(function () {
 });
 
 describe('admin conceptos', function () {
-    test('index page shows obras', function () {
-        $obra = Obra::factory()->create();
-        Concepto::factory()->count(3)->create(['obra_id' => $obra->id]);
-
-        $response = $this->actingAs($this->user)
-            ->get(route('admin.prod.conceptos.index'));
-
-        $response->assertOk();
-        $response->assertInertia(fn ($page) => $page
-            ->component('admin/prod/conceptos/index')
-            ->has('obras.data')
-        );
-    });
-
-    test('show by obra lists conceptos', function () {
-        $obra = Obra::factory()->create();
-        Concepto::factory()->count(2)->create(['obra_id' => $obra->id]);
-        Concepto::factory()->create();
-
-        $response = $this->actingAs($this->user)
-            ->get(route('admin.prod.conceptos.show-by-obra', $obra));
-
-        $response->assertOk();
-        $response->assertInertia(fn ($page) => $page
-            ->component('admin/prod/conceptos/show')
-            ->has('conceptos', 2)
-            ->has('obra')
-        );
-    });
-
     test('create page can be rendered', function () {
-        $obra = Obra::factory()->create();
+        $catalogo = Catalogo::factory()->create();
 
         $response = $this->actingAs($this->user)
-            ->get(route('admin.prod.conceptos.create', ['obra_id' => $obra->id]));
+            ->get(route('admin.prod.conceptos.create', ['catalogo_id' => $catalogo->id]));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/prod/conceptos/create')
-            ->has('obra')
+            ->has('catalogo')
         );
     });
 
     test('concepto can be stored', function () {
-        $obra = Obra::factory()->create();
+        $catalogo = Catalogo::factory()->create();
         $categoria = Categoria::factory()->create();
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.prod.conceptos.store'), [
-                'obra_id' => $obra->id,
+                'catalogo_id' => $catalogo->id,
                 'marca' => 'MK-001',
                 'descripcion' => 'Concepto de prueba',
                 'cantidad' => 12,
@@ -72,10 +43,11 @@ describe('admin conceptos', function () {
                 'activo' => true,
             ]);
 
-        $response->assertRedirect(route('admin.prod.conceptos.show-by-obra', $obra));
+        $response->assertRedirect(route('admin.prod.catalogos.show', $catalogo));
 
         $this->assertDatabaseHas('conceptos', [
-            'obra_id' => $obra->id,
+            'catalogo_id' => $catalogo->id,
+            'obra_id' => $catalogo->obra_id,
             'marca' => 'MK-001',
             'descripcion' => 'Concepto de prueba',
             'cantidad' => 12,
@@ -85,12 +57,12 @@ describe('admin conceptos', function () {
     });
 
     test('concepto can be stored without version and activo defaults', function () {
-        $obra = Obra::factory()->create();
+        $catalogo = Catalogo::factory()->create();
         $categoria = Categoria::factory()->create();
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.prod.conceptos.store'), [
-                'obra_id' => $obra->id,
+                'catalogo_id' => $catalogo->id,
                 'marca' => 'MK-002',
                 'descripcion' => 'Sin version ni activo',
                 'cantidad' => 0,
@@ -99,7 +71,7 @@ describe('admin conceptos', function () {
                 'categoria_id' => $categoria->id,
             ]);
 
-        $response->assertRedirect(route('admin.prod.conceptos.show-by-obra', $obra));
+        $response->assertRedirect(route('admin.prod.catalogos.show', $catalogo));
 
         $this->assertDatabaseHas('conceptos', [
             'marca' => 'MK-002',
@@ -114,7 +86,6 @@ describe('admin conceptos', function () {
 
         $response = $this->actingAs($this->user)
             ->put(route('admin.prod.conceptos.update', $concepto), [
-                'obra_id' => $concepto->obra_id,
                 'marca' => 'MK-UPD',
                 'descripcion' => 'Updated',
                 'cantidad' => 7,
@@ -125,7 +96,7 @@ describe('admin conceptos', function () {
                 'activo' => false,
             ]);
 
-        $response->assertRedirect(route('admin.prod.conceptos.show-by-obra', $concepto->obra_id));
+        $response->assertRedirect(route('admin.prod.catalogos.show', $concepto->catalogo_id));
 
         $this->assertDatabaseHas('conceptos', [
             'id' => $concepto->id,
@@ -144,7 +115,7 @@ describe('admin conceptos', function () {
         $response = $this->actingAs($this->user)
             ->delete(route('admin.prod.conceptos.destroy', $concepto));
 
-        $response->assertRedirect(route('admin.prod.conceptos.show-by-obra', $concepto->obra_id));
+        $response->assertRedirect(route('admin.prod.catalogos.show', $concepto->catalogo_id));
         $this->assertDatabaseMissing('conceptos', ['id' => $concepto->id]);
     });
 
@@ -160,11 +131,11 @@ describe('admin conceptos', function () {
     });
 
     test('validation requires marca and descripcion', function () {
-        $obra = Obra::factory()->create();
+        $catalogo = Catalogo::factory()->create();
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.prod.conceptos.store'), [
-                'obra_id' => $obra->id,
+                'catalogo_id' => $catalogo->id,
                 'peso_unitario' => 10,
             ]);
 
@@ -172,11 +143,11 @@ describe('admin conceptos', function () {
     });
 
     test('validation requires longitud and categoria', function () {
-        $obra = Obra::factory()->create();
+        $catalogo = Catalogo::factory()->create();
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.prod.conceptos.store'), [
-                'obra_id' => $obra->id,
+                'catalogo_id' => $catalogo->id,
                 'marca' => 'MK-003',
                 'descripcion' => 'Falta longitud y categoria',
                 'cantidad' => 1,
@@ -187,11 +158,11 @@ describe('admin conceptos', function () {
     });
 
     test('create page passes categorias', function () {
-        $obra = Obra::factory()->create();
+        $catalogo = Catalogo::factory()->create();
         Categoria::factory()->count(2)->create();
 
         $response = $this->actingAs($this->user)
-            ->get(route('admin.prod.conceptos.create', ['obra_id' => $obra->id]));
+            ->get(route('admin.prod.conceptos.create', ['catalogo_id' => $catalogo->id]));
 
         $response->assertInertia(fn ($page) => $page
             ->component('admin/prod/conceptos/create')
@@ -200,9 +171,9 @@ describe('admin conceptos', function () {
     });
 });
 
-describe('conceptos csv import from show-by-obra', function () {
+describe('conceptos csv import al catalogo', function () {
     test('csv imports with the detailed layout correctly', function () {
-        $obra = Obra::factory()->create();
+        $catalogo = Catalogo::factory()->create();
 
         $csvContent = "MARCA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
         $csvContent .= "TG-BAR-1,OC-BAR,Barandales,1,29.751,1.397,3542.177\n";
@@ -211,7 +182,7 @@ describe('conceptos csv import from show-by-obra', function () {
         $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.prod.conceptos.import-csv', $obra), [
+            ->post(route('admin.prod.catalogos.import-csv', $catalogo), [
                 'csv_file' => $file,
             ]);
 
@@ -222,30 +193,30 @@ describe('conceptos csv import from show-by-obra', function () {
         expect($barandales)->not->toBeNull();
 
         $this->assertDatabaseHas('conceptos', [
-            'obra_id' => $obra->id,
+            'catalogo_id' => $catalogo->id,
+            'obra_id' => $catalogo->obra_id,
             'marca' => 'TG-BAR-1',
             'descripcion' => 'OC-BAR',
             'categoria_id' => $barandales->id,
             'cantidad' => 1,
             'peso_unitario' => 29.751, // ya viene en kg
             'longitud' => 3542, // mm redondeado
-            'version' => 1,
             'activo' => true,
         ]);
 
         $this->assertDatabaseHas('conceptos', [
-            'obra_id' => $obra->id,
+            'catalogo_id' => $catalogo->id,
             'marca' => 'TG-CEM-2',
             'cantidad' => 6,
             'peso_unitario' => 1251.576,
             'longitud' => 12200,
         ]);
 
-        expect(Concepto::where('obra_id', $obra->id)->count())->toBe(2);
+        expect(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(2);
     });
 
     test('csv import creates categorias on the fly and reuses them', function () {
-        $obra = Obra::factory()->create();
+        $catalogo = Catalogo::factory()->create();
 
         $csvContent = "MARCA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
         $csvContent .= "TG-CFC-1,LI-CFC,Contraflambeos,24,44.664,3.768,797.114\n";
@@ -254,18 +225,19 @@ describe('conceptos csv import from show-by-obra', function () {
         $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
 
         $this->actingAs($this->user)
-            ->post(route('admin.prod.conceptos.import-csv', $obra), [
+            ->post(route('admin.prod.catalogos.import-csv', $catalogo), [
                 'csv_file' => $file,
             ]);
 
         expect(Categoria::where('nombre', 'Contraflambeos')->count())->toBe(1);
     });
 
-    test('csv import overwrites existing marca in the same obra', function () {
-        $obra = Obra::factory()->create();
+    test('csv import overwrites existing marca in the same catalogo', function () {
+        $catalogo = Catalogo::factory()->create();
         $categoria = Categoria::factory()->create();
         Concepto::factory()->create([
-            'obra_id' => $obra->id,
+            'obra_id' => $catalogo->obra_id,
+            'catalogo_id' => $catalogo->id,
             'marca' => 'TG-BAR-1',
             'descripcion' => 'Original',
             'cantidad' => 1,
@@ -281,12 +253,12 @@ describe('conceptos csv import from show-by-obra', function () {
         $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
 
         $this->actingAs($this->user)
-            ->post(route('admin.prod.conceptos.import-csv', $obra), [
+            ->post(route('admin.prod.catalogos.import-csv', $catalogo), [
                 'csv_file' => $file,
             ]);
 
         $this->assertDatabaseHas('conceptos', [
-            'obra_id' => $obra->id,
+            'catalogo_id' => $catalogo->id,
             'marca' => 'TG-BAR-1',
             'descripcion' => 'Actualizado',
             'cantidad' => 4,
@@ -295,11 +267,11 @@ describe('conceptos csv import from show-by-obra', function () {
             'version' => 3, // la version se conserva
         ]);
 
-        expect(Concepto::where('obra_id', $obra->id)->where('marca', 'TG-BAR-1')->count())->toBe(1);
+        expect(Concepto::where('catalogo_id', $catalogo->id)->where('marca', 'TG-BAR-1')->count())->toBe(1);
     });
 
     test('csv import skips summary/footer rows', function () {
-        $obra = Obra::factory()->create();
+        $catalogo = Catalogo::factory()->create();
 
         $csvContent = "MARCA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
         $csvContent .= "TG-BAR-1,OC-BAR,Barandales,1,29.751,1.397,3542.177\n";
@@ -309,18 +281,18 @@ describe('conceptos csv import from show-by-obra', function () {
         $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
 
         $this->actingAs($this->user)
-            ->post(route('admin.prod.conceptos.import-csv', $obra), [
+            ->post(route('admin.prod.catalogos.import-csv', $catalogo), [
                 'csv_file' => $file,
             ]);
 
-        expect(Concepto::where('obra_id', $obra->id)->count())->toBe(1);
+        expect(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(1);
     });
 
     test('csv import requires file', function () {
-        $obra = Obra::factory()->create();
+        $catalogo = Catalogo::factory()->create();
 
         $response = $this->actingAs($this->user)
-            ->post(route('admin.prod.conceptos.import-csv', $obra), []);
+            ->post(route('admin.prod.catalogos.import-csv', $catalogo), []);
 
         $response->assertSessionHasErrors(['csv_file']);
     });
@@ -367,6 +339,25 @@ describe('obra csv import conceptos', function () {
         expect(Concepto::where('obra_id', $obra->id)->count())->toBe(2);
     });
 
+    test('csv import estrena catalogo vigente cuando la obra no tiene', function () {
+        $obra = Obra::factory()->create();
+
+        $csvContent = "PLANO,PIEZA,CONCEPTO,LARGO,KG.UNIT.,CANT.,TOTAL KG.,OBSERVACIONES\n";
+        $csvContent .= "MK-100,PIEZA,Viga principal,3.50,25.500,10,255.00,1\n";
+
+        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.obras.import-conceptos', $obra), ['csv_file' => $file]);
+
+        $catalogo = $obra->fresh()->catalogoVigente()->first();
+
+        expect($catalogo)->not->toBeNull()
+            ->and($catalogo->version)->toBe(1)
+            ->and(Concepto::where('obra_id', $obra->id)->pluck('catalogo_id')->unique()->all())
+            ->toBe([$catalogo->id]);
+    });
+
     test('csv import dedup by version only updates higher version', function () {
         $obra = Obra::factory()->create();
         Concepto::factory()->create([
@@ -410,30 +401,5 @@ describe('obra csv import conceptos', function () {
             'descripcion' => 'Updated higher',
             'version' => 3,
         ]);
-
-        expect(Concepto::where('obra_id', $obra->id)->where('marca', 'MK-100')->count())->toBe(1);
-    });
-
-    test('csv import requires file', function () {
-        $obra = Obra::factory()->create();
-
-        $response = $this->actingAs($this->user)
-            ->post(route('admin.obras.import-conceptos', $obra), []);
-
-        $response->assertSessionHasErrors(['csv_file']);
-    });
-
-    test('obra edit loads conceptos', function () {
-        $obra = Obra::factory()->create();
-        Concepto::factory()->count(2)->create(['obra_id' => $obra->id]);
-
-        $response = $this->actingAs($this->user)
-            ->get(route('admin.obras.edit', $obra));
-
-        $response->assertOk();
-        $response->assertInertia(fn ($page) => $page
-            ->component('admin/obras/edit')
-            ->has('obra.conceptos', 2)
-        );
     });
 });

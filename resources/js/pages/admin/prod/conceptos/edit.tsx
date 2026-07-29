@@ -5,29 +5,28 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Concepto, Obra, ProdCategoria } from '@/types/models';
+import type { Concepto, ProdCatalogo, ProdCategoria } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 type Props = {
-    concepto: Concepto & { obra: Obra };
+    concepto: Concepto & { catalogo: ProdCatalogo };
     categorias: ProdCategoria[];
 };
 
 export default function ConceptosEdit({ concepto, categorias }: Props) {
-    const obra = concepto.obra;
+    const catalogo = concepto.catalogo;
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
-        { title: 'Conceptos', href: '/admin/prod/conceptos' },
-        { title: `${obra.no} - ${obra.descripcion}`, href: `/admin/prod/conceptos/obra/${obra.id}` },
+        { title: 'Catalogos', href: '/admin/prod/catalogos' },
+        { title: `${catalogo.nombre} v${catalogo.version}`, href: `/admin/prod/catalogos/${catalogo.id}` },
         { title: concepto.marca, href: `/admin/prod/conceptos/${concepto.id}/edit` },
     ];
 
     const { data, setData, put, processing, errors } = useForm({
-        obra_id: String(concepto.obra_id),
         marca: concepto.marca,
         descripcion: concepto.descripcion,
         cantidad: String(concepto.cantidad),
@@ -50,7 +49,10 @@ export default function ConceptosEdit({ concepto, categorias }: Props) {
             <div className="p-6">
                 <div className="w-full max-w-2xl">
                     <h1 className="text-2xl font-semibold">Editar pieza</h1>
-                    <p className="mb-6 mt-1 text-sm text-base-content/60">Obra: {obra.no} - {obra.descripcion}</p>
+                    <p className="mb-6 mt-1 text-sm text-base-content/60">
+                        {catalogo.nombre} v{catalogo.version}
+                        {catalogo.obra ? ` · Obra ${catalogo.obra.no} - ${catalogo.obra.descripcion}` : ''}
+                    </p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
@@ -153,7 +155,7 @@ export default function ConceptosEdit({ concepto, categorias }: Props) {
                             />
                             <div className="flex gap-2">
                                 <Button variant="outline" asChild>
-                                    <Link href={`/admin/prod/conceptos/obra/${obra.id}`}>Cancelar</Link>
+                                    <Link href={`/admin/prod/catalogos/${catalogo.id}`}>Cancelar</Link>
                                 </Button>
                                 <Button type="submit" disabled={processing}>
                                     {processing && <Loader2Icon className="size-4 animate-spin" />}
