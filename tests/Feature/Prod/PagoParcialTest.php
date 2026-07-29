@@ -271,6 +271,26 @@ describe('pendientes por liquidar', function () {
             ->and($pendientes[0]['porcentaje_sugerido'])->toBe(40.0);
     });
 
+    test('la sugerencia cierra el lote aunque el catalogo tenga mucho saldo', function () {
+        // Catalogo holgado: 100 piezas, de las que solo 10 se pagaron al 60%.
+        $this->pieza->update(['cantidad' => 100]);
+
+        Registro::create([
+            'fecha' => '2026-02-04',
+            'concepto_id' => $this->pieza->id,
+            'grupo_trabajo_id' => $this->grupo->id,
+            'cantidad' => 10,
+            'porcentaje' => 60,
+        ]);
+
+        $pendientes = app(PendientesDeLiquidar::class)->paraDestajo($this->semana2);
+
+        // El saldo del catalogo (94) no debe inflar la sugerencia a 100%:
+        // lo que falta del lote es el 40%.
+        expect($pendientes[0]['saldo'])->toBe(94.0)
+            ->and($pendientes[0]['porcentaje_sugerido'])->toBe(40.0);
+    });
+
     test('desaparece cuando se salda', function () {
         Registro::create([
             'fecha' => '2026-02-04',

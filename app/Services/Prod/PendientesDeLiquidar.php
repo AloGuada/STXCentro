@@ -64,12 +64,17 @@ class PendientesDeLiquidar
                     return null;
                 }
 
-                // Se sugiere cerrar el mismo lote: las piezas del último
-                // parcial al porcentaje que les falta para llegar al 100%.
+                // Se sugiere cerrar el mismo lote: las piezas del último parcial
+                // al porcentaje que les falta para llegar al 100%. El saldo del
+                // catálogo sólo actúa como techo — si la pieza todavía tiene
+                // mucho pendiente, no debe inflar la sugerencia a 100%.
                 $cantidadSugerida = min($registro->cantidad, (int) $concepto->cantidad);
+                $faltaDelLote = round(100 - (float) $registro->porcentaje, 2);
+                $topeDelSaldo = $cantidadSugerida > 0 ? $saldo / $cantidadSugerida * 100 : 0.0;
+
                 $porcentajeSugerido = $cantidadSugerida > 0
-                    ? round(min(100, $saldo / $cantidadSugerida * 100), 2)
-                    : 100.0;
+                    ? round(max(0, min($faltaDelLote, $topeDelSaldo)), 2)
+                    : 0.0;
 
                 return [
                     'concepto_id' => $concepto->id,
