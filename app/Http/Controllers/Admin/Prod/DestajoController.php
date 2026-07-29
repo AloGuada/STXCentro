@@ -10,6 +10,7 @@ use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\PagoExtra;
 use App\Models\Prod\Registro;
 use App\Models\Prod\TipoPagoExtra;
+use App\Services\Prod\AsistenciaDelDestajo;
 use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\GeneradorLiquidaciones;
 use App\Services\Prod\PendientesDeLiquidar;
@@ -58,6 +59,7 @@ class DestajoController extends Controller
         GeneradorLiquidaciones $generador,
         AvanceDePiezas $avance,
         PendientesDeLiquidar $pendientes,
+        AsistenciaDelDestajo $asistencia,
     ): Response {
         $destajo->load([
             'liquidaciones.grupoTrabajo',
@@ -92,6 +94,7 @@ class DestajoController extends Controller
         );
         $data['tipos'] = TipoPagoExtra::orderBy('orden')->get();
         $data['pendientes'] = $pendientes->paraDestajo($destajo);
+        $data['asistenciaFaltante'] = $asistencia->faltantes($destajo);
 
         return Inertia::render('admin/prod/destajos/show', $data);
     }
@@ -109,41 +112,6 @@ class DestajoController extends Controller
         return to_route('admin.prod.destajos.index');
     }
 
-    public function asistencia(Destajo $destajo): Response
-    {
-        $grupoIds = Registro::query()
-            ->whereBetween('fecha', [$destajo->fecha_inicio, $destajo->fecha_fin])
-            ->distinct()
-            ->pluck('grupo_trabajo_id')
-            ->merge(PagoExtra::where('destajo_id', $destajo->id)->distinct()->pluck('grupo_trabajo_id'))
-            ->merge($destajo->liquidaciones()->pluck('grupo_trabajo_id'))
-            ->unique()
-            ->values();
-
-        $grupos = GrupoTrabajo::query()
-            ->with('empleados')
-            ->whereIn('id', $grupoIds)
-            ->orderBy('descripcion')
-            ->get();
-
-        $diasSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-        $dias = [];
-        $cursor = $destajo->fecha_inicio->copy();
-        while ($cursor->lte($destajo->fecha_fin)) {
-            $dias[] = [
-                'fecha' => $cursor->format('Y-m-d'),
-                'label' => $diasSemana[$cursor->dayOfWeekIso - 1].' '.$cursor->format('d/m'),
-            ];
-            $cursor = $cursor->addDay();
-        }
-
-        return Inertia::render('admin/prod/destajos/asistencia', [
-            'destajo' => $destajo,
-            'grupos' => $grupos,
-            'dias' => $dias,
-        ]);
-    }
-
     public function ordenPagoPdf(Destajo $destajo, GeneradorLiquidaciones $generador): HttpResponse
     {
         $grupos = $generador->ordenDePago($destajo);
@@ -156,10 +124,27 @@ class DestajoController extends Controller
         return $pdf->stream("orden-pago-{$destajo->anio}-S{$destajo->semana}.pdf");
     }
 
-    public function cerrar(Destajo $destajo, GeneradorLiquidaciones $generador): RedirectResponse
-    {
+    public function cerrar(
+        Destajo $destajo,
+        GeneradorLiquidaciones $generador,
+        AsistenciaDelDestajo $asistencia,
+    ): RedirectResponse {
         if ($destajo->cerrado) {
             return back()->withErrors(['error' => 'Este destajo ya esta cerrado.']);
+        }
+
+        // Parte del pago va a salario base y depende de los dias trabajados:
+        // sin asistencia completa no se puede liquidar la semana.
+        $faltantes = $asistencia->faltantes($destajo);
+
+        if ($faltantes->isNotEmpty()) {
+            $detalle = $faltantes
+                ->map(fn (array $f) => $f['grupo'].' ('.implode(', ', $f['empleados']).')')
+                ->implode('; ');
+
+            return back()->withErrors([
+                'error' => "Falta capturar la asistencia antes de cerrar: {$detalle}.",
+            ]);
         }
 
         $generador->generar($destajo);

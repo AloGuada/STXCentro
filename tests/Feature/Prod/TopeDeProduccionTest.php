@@ -250,5 +250,7 @@ describe('visibilidad del avance', function () {
 test('una obra sin catalogo no rompe el avance', function () {
     $obra = Obra::factory()->create();
 
-    expect(app(AvanceDePiezas::class)->capturadoPorMarca($obra->id)->all())->toBe([]);
+    $pieza = Concepto::factory()->create(['obra_id' => $obra->id, 'cantidad' => 5]);
+
+    expect(app(AvanceDePiezas::class)->mapaDeObra($obra->id)->capturadoDe($pieza))->toBe(0.0);
 });

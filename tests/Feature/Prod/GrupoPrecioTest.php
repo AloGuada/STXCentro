@@ -45,6 +45,50 @@ describe('admin grupo precios', function () {
         );
     });
 
+    test('create asume la obra que viene en la url', function () {
+        $obra = Obra::factory()->create();
+        Obra::factory()->count(2)->create();
+
+        $response = $this->actingAs($this->user)
+            ->get(route('admin.prod.grupo-precios.create', ['obra_id' => $obra->id]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('admin/prod/grupo-precios/create')
+            ->where('obra.id', $obra->id)
+            // Con la obra dada no hace falta mandar el catalogo completo.
+            ->has('obras', 0)
+        );
+    });
+
+    test('create sin obra en la url ofrece el selector', function () {
+        Obra::factory()->count(2)->create();
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.grupo-precios.create'))
+            ->assertInertia(fn ($page) => $page
+                ->where('obra', null)
+                ->has('obras', 2)
+            );
+    });
+
+    test('create cae al selector si la obra de la url no existe', function () {
+        Obra::factory()->create();
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.grupo-precios.create', ['obra_id' => 99999]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('obra', null)->has('obras', 1));
+    });
+
+    test('create no asume el proyecto de planta', function () {
+        $planta = Obra::factory()->planta()->create();
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.grupo-precios.create', ['obra_id' => $planta->id]))
+            ->assertInertia(fn ($page) => $page->where('obra', null));
+    });
+
     test('grupo precio can be stored', function () {
         $obra = Obra::factory()->create();
 

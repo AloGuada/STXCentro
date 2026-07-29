@@ -30,6 +30,7 @@ type Props = {
     conceptos?: (Concepto & { obra?: Obra })[];
     tipos?: ProdTipoPagoExtra[];
     pendientes?: ProdPendienteLiquidar[];
+    asistenciaFaltante?: { grupo: string; empleados: string[] }[];
 };
 
 export default function DestajosShow({
@@ -41,6 +42,7 @@ export default function DestajosShow({
     conceptos = [],
     tipos = [],
     pendientes = [],
+    asistenciaFaltante = [],
 }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -105,7 +107,15 @@ export default function DestajosShow({
                                 <Button variant="outline" className="text-error" onClick={eliminar}>
                                     <Trash2Icon className="size-4" /> Eliminar
                                 </Button>
-                                <Button onClick={cerrar}>
+                                <Button
+                                    onClick={cerrar}
+                                    disabled={asistenciaFaltante.length > 0}
+                                    title={
+                                        asistenciaFaltante.length > 0
+                                            ? 'Captura la asistencia de la semana antes de cerrar'
+                                            : undefined
+                                    }
+                                >
                                     <LockIcon className="size-4" /> Cerrar destajo
                                 </Button>
                             </>
@@ -115,6 +125,28 @@ export default function DestajosShow({
 
                 {!destajo.cerrado && (
                     <div className="space-y-6">
+                        {asistenciaFaltante.length > 0 && (
+                            <div className="alert alert-warning">
+                                <CalendarCheckIcon className="size-5" />
+                                <div>
+                                    <div className="font-semibold">Falta capturar asistencia</div>
+                                    <div className="text-sm">
+                                        No se podrá cerrar el destajo hasta tenerla completa:{' '}
+                                        {asistenciaFaltante
+                                            .map((f) => `${f.grupo} (${f.empleados.join(', ')})`)
+                                            .join('; ')}
+                                        .
+                                    </div>
+                                </div>
+                                <Link
+                                    href={`/admin/prod/destajos/${destajo.id}/asistencia`}
+                                    className="btn btn-sm"
+                                >
+                                    Capturar
+                                </Link>
+                            </div>
+                        )}
+
                         {piezasSinPrecio.length > 0 && (
                             <div className="alert alert-warning">
                                 <AlertTriangleIcon className="size-5" />

@@ -20,6 +20,11 @@ class LiquidacionDetalle extends Model
     protected $fillable = [
         'liquidacion_id',
         'concepto_id',
+        'obra_id',
+        'marca',
+        'descripcion',
+        'peso_unitario',
+        'longitud',
         'grupo_precio_id',
         'cantidad',
         'porcentaje',
@@ -35,6 +40,8 @@ class LiquidacionDetalle extends Model
     {
         return [
             'cantidad' => 'integer',
+            'peso_unitario' => 'decimal:3',
+            'longitud' => 'integer',
             'porcentaje' => 'decimal:2',
             'kilos' => 'decimal:3',
             'precio_kilo_aplicado' => 'decimal:4',
@@ -48,8 +55,10 @@ class LiquidacionDetalle extends Model
     }
 
     /**
-     * Snapshot: concepto_id no tiene FK (el detalle sobrevive al borrado del concepto).
-     * La relacion es solo para resolver marca/descripcion cuando el concepto aun existe.
+     * Snapshot: concepto_id no tiene FK (el detalle sobrevive al borrado del
+     * concepto). El renglon guarda su propia copia de marca, descripcion, peso
+     * y longitud, asi que esta relacion es solo un puente para navegar a la
+     * pieza actual; nunca debe usarse para mostrar o calcular lo ya pagado.
      */
     public function concepto(): BelongsTo
     {

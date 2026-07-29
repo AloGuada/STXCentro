@@ -9,21 +9,25 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import { type FormEvent, useMemo } from 'react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Produccion', href: '/admin/prod/destajos' },
-    { title: 'Grupo Precios', href: '/admin/prod/grupo-precios' },
-    { title: 'Nuevo', href: '/admin/prod/grupo-precios/create' },
-];
-
 type Props = {
     obras: Obra[];
-    obraId?: string | null;
+    /** Cuando se llega desde una obra, se da por dada y no se vuelve a elegir. */
+    obra?: Obra | null;
 };
 
-export default function GrupoPreciosCreate({ obras, obraId }: Props) {
+export default function GrupoPreciosCreate({ obras, obra }: Props) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Produccion', href: '/admin/prod/destajos' },
+        { title: 'Grupo Precios', href: '/admin/prod/grupo-precios' },
+        ...(obra
+            ? [{ title: `${obra.no} - ${obra.descripcion}`, href: `/admin/prod/grupo-precios/obra/${obra.id}` }]
+            : []),
+        { title: 'Nuevo', href: '/admin/prod/grupo-precios/create' },
+    ];
+
     const { data, setData, post, processing, errors } = useForm({
-        obra_id: obraId ?? '',
+        obra_id: obra ? String(obra.id) : '',
         descripcion: '',
         precio_kilo: '',
     });
@@ -44,17 +48,30 @@ export default function GrupoPreciosCreate({ obras, obraId }: Props) {
 
             <div className="p-6">
                 <div className="w-full max-w-2xl">
-                    <h1 className="mb-6 text-2xl font-semibold">Nuevo grupo de precios</h1>
+                    <h1 className="text-2xl font-semibold">Nuevo grupo de precios</h1>
+                    {obra ? (
+                        <p className="text-base-content/60 mb-6 mt-1 text-sm">
+                            Obra {obra.no} — {obra.descripcion}
+                        </p>
+                    ) : (
+                        <div className="mb-6" />
+                    )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <FormField label="Obra" htmlFor="obra_id" error={errors.obra_id} required>
-                            <SearchSelect
-                                options={obraOptions}
-                                value={data.obra_id}
-                                onValueChange={(value) => setData('obra_id', value)}
-                                placeholder="Buscar obra..."
-                            />
-                        </FormField>
+                        {!obra && (
+                            <FormField label="Obra" htmlFor="obra_id" error={errors.obra_id} required>
+                                <SearchSelect
+                                    options={obraOptions}
+                                    value={data.obra_id}
+                                    onValueChange={(value) => setData('obra_id', value)}
+                                    placeholder="Buscar obra..."
+                                />
+                            </FormField>
+                        )}
+
+                        {obra && errors.obra_id && (
+                            <div className="alert alert-error text-sm">{errors.obra_id}</div>
+                        )}
 
                         <FormField label="Descripcion" htmlFor="descripcion" error={errors.descripcion} required>
                             <Input

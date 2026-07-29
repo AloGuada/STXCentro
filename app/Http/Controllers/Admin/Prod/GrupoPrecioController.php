@@ -38,9 +38,14 @@ class GrupoPrecioController extends Controller
 
     public function create(Request $request): Response
     {
+        // Si se llega desde una obra, se da por dada y no se vuelve a elegir.
+        $obra = $request->obra_id
+            ? Obra::sinPlanta()->find($request->obra_id)
+            : null;
+
         return Inertia::render('admin/prod/grupo-precios/create', [
-            'obras' => Obra::sinPlanta()->orderBy('no')->get(),
-            'obraId' => $request->obra_id,
+            'obra' => $obra,
+            'obras' => $obra ? [] : Obra::sinPlanta()->orderBy('no')->get(['id', 'no', 'descripcion']),
         ]);
     }
 

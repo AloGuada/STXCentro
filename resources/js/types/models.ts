@@ -730,6 +730,12 @@ export type ProdLiquidacionDetalle = {
     id: number;
     liquidacion_id: number;
     concepto_id: number;
+    /** Snapshot del renglón al cerrar: no se relee del catálogo. */
+    obra_id: number | null;
+    marca: string | null;
+    descripcion: string | null;
+    peso_unitario: number | null;
+    longitud: number | null;
     grupo_precio_id: number;
     cantidad: number;
     /** Avance pagado de ese lote; los kilos ya vienen prorrateados por este %. */

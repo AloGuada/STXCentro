@@ -92,6 +92,7 @@ use App\Http\Controllers\Admin\Intra\DocumentoController as IntraDocumentoContro
 use App\Http\Controllers\Admin\Intra\SeccionEstaticaController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\ObraController;
+use App\Http\Controllers\Admin\Prod\AsistenciaController as ProdAsistenciaController;
 use App\Http\Controllers\Admin\Prod\CatalogoController as ProdCatalogoController;
 use App\Http\Controllers\Admin\Prod\CategoriaController as ProdCategoriaController;
 use App\Http\Controllers\Admin\Prod\ConceptoController as ProdConceptoController;
@@ -187,7 +188,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('destajos', ProdDestajoController::class)->except(['edit', 'update'])->parameters(['destajos' => 'destajo']);
         Route::post('destajos/{destajo}/cerrar', [ProdDestajoController::class, 'cerrar'])->name('destajos.cerrar');
         Route::get('destajos/{destajo}/orden-pago', [ProdDestajoController::class, 'ordenPagoPdf'])->name('destajos.orden-pago');
-        Route::get('destajos/{destajo}/asistencia', [ProdDestajoController::class, 'asistencia'])->name('destajos.asistencia');
+        Route::get('destajos/{destajo}/asistencia', [ProdAsistenciaController::class, 'show'])->name('destajos.asistencia');
+        Route::post('destajos/{destajo}/asistencia', [ProdAsistenciaController::class, 'store'])->name('destajos.asistencia.store');
 
         // Produccion y pagos extra dentro del destajo
         Route::post('destajos/{destajo}/registros', [ProdRegistroController::class, 'store'])->name('destajos.registros.store');

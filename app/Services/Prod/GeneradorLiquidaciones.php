@@ -3,6 +3,7 @@
 namespace App\Services\Prod;
 
 use App\Models\Concepto;
+use App\Models\Obra;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\GrupoTrabajo;
@@ -115,6 +116,13 @@ class GeneradorLiquidaciones
 
             $detallesData[] = [
                 'concepto_id' => $conceptoId,
+                // Snapshot del renglon: la orden de pago de una semana cerrada
+                // no debe cambiar aunque despues se edite o borre la pieza.
+                'obra_id' => $concepto->obra_id,
+                'marca' => $concepto->marca,
+                'descripcion' => $concepto->descripcion,
+                'peso_unitario' => $concepto->peso_unitario,
+                'longitud' => $concepto->longitud,
                 'grupo_precio_id' => $grupoPrecioConcepto?->grupo_precio_id ?? 0,
                 'cantidad' => $cantidadTotal,
                 'porcentaje' => $porcentaje,
@@ -195,15 +203,21 @@ class GeneradorLiquidaciones
             'liquidaciones.empleados',
         ]);
 
-        return $destajo->liquidaciones->map(function (Liquidacion $liq) use ($tipos, $pagosPorGrupo) {
+        $obras = Obra::query()
+            ->whereIn('id', $destajo->liquidaciones->flatMap->detalles->pluck('obra_id')->filter()->unique())
+            ->get()
+            ->keyBy('id');
+
+        return $destajo->liquidaciones->map(function (Liquidacion $liq) use ($tipos, $pagosPorGrupo, $obras) {
+            // Todo sale del snapshot del renglon, nunca del concepto vivo.
             $piezas = $liq->detalles->map(fn (LiquidacionDetalle $d) => [
-                'marca' => $d->concepto?->marca ?? "#{$d->concepto_id}",
-                'descripcion' => $d->concepto?->descripcion ?? '',
-                'obra' => $this->nombreObra($d->concepto),
+                'marca' => $d->marca ?? "#{$d->concepto_id}",
+                'descripcion' => $d->descripcion ?? '',
+                'obra' => $this->nombreObraSnapshot($d, $obras),
                 'pzs' => (int) $d->cantidad,
                 'porcentaje' => (float) $d->porcentaje,
-                'largo' => $d->concepto?->longitud,
-                'peso_unitario' => $d->concepto ? (float) $d->concepto->peso_unitario : null,
+                'largo' => $d->longitud,
+                'peso_unitario' => $d->peso_unitario !== null ? (float) $d->peso_unitario : null,
                 'kilos' => (float) $d->kilos,
                 'precio_kilo' => (float) $d->precio_kilo_aplicado,
                 'importe' => (float) $d->total,
@@ -351,8 +365,24 @@ class GeneradorLiquidaciones
 
     private function nombreObra(?Concepto $concepto): string
     {
-        $obra = $concepto?->obra;
+        return $this->etiquetaObra($concepto?->obra);
+    }
 
+    /**
+     * La obra del renglon liquidado se resuelve por el obra_id del snapshot,
+     * no por el concepto (que pudo cambiar de catalogo o desaparecer).
+     *
+     * @param  \Illuminate\Support\Collection<int, Obra>  $obras
+     */
+    private function nombreObraSnapshot(LiquidacionDetalle $detalle, Collection $obras): string
+    {
+        return $this->etiquetaObra(
+            $detalle->obra_id !== null ? $obras->get($detalle->obra_id) : $detalle->concepto?->obra
+        );
+    }
+
+    private function etiquetaObra(?Obra $obra): string
+    {
         if ($obra === null) {
             return '-';
         }

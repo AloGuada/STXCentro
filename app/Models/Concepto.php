@@ -24,6 +24,7 @@ class Concepto extends Model
     protected $fillable = [
         'obra_id',
         'catalogo_id',
+        'concepto_origen_id',
         'marca',
         'descripcion',
         'cantidad',
@@ -56,6 +57,15 @@ class Concepto extends Model
     public function catalogo(): BelongsTo
     {
         return $this->belongsTo(Catalogo::class, 'catalogo_id');
+    }
+
+    /**
+     * Pieza de la que se copió esta al versionar el catálogo. Sostiene el
+     * conteo de lo pagado cuando la marca cambia entre versiones.
+     */
+    public function origen(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'concepto_origen_id');
     }
 
     /**

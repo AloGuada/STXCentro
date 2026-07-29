@@ -3,6 +3,7 @@
 namespace App\Services\Prod;
 
 use App\Models\Concepto;
+use App\Models\Prod\LiquidacionDetalle;
 use App\Models\Prod\Registro;
 use Illuminate\Support\Collection;
 
@@ -14,10 +15,11 @@ use Illuminate\Support\Collection;
  * deja 4 para liquidarse en un destajo posterior. Así el mismo lote se puede
  * pagar en parcialidades sin rebasar nunca lo que pide el catálogo.
  *
- * El acumulado se cuenta **por marca dentro de la obra, sumando todas las
+ * El acumulado se cuenta **por linaje dentro de la obra, sumando todas las
  * versiones del catálogo**: al versionar, las piezas copiadas son filas nuevas
- * sin registros propios, así que contarlas por `concepto_id` dejaría el avance
- * en cero y permitiría volver a pagar lo ya fabricado.
+ * sin registros propios, así que contarlas por `concepto_id` a secas dejaría el
+ * avance en cero y permitiría volver a pagar lo ya fabricado. Cada copia recuerda
+ * de qué pieza viene (`concepto_origen_id`) y todas comparten la misma raíz.
  */
 class AvanceDePiezas
 {
@@ -25,21 +27,96 @@ class AvanceDePiezas
     private const EPSILON = 0.0001;
 
     /**
-     * Piezas equivalentes ya pagadas por marca, en toda la historia de la obra.
+     * Piezas equivalentes ya comprometidas en la obra, agrupadas por linaje.
      *
-     * @return Collection<string, float>
+     * Se suman dos fuentes que no se solapan:
+     *  - lo **pagado**, leído del snapshot inmutable de las liquidaciones, que
+     *    no se mueve aunque después se edite, renombre o borre la pieza;
+     *  - lo **capturado en semanas todavía abiertas**, que sigue siendo
+     *    editable y por eso se lee de los registros.
+     *
+     * La clave es la pieza raíz del linaje (`concepto_origen_id` hacia arriba),
+     * no el texto de la marca: así renombrar una pieza al versionar el catálogo
+     * no reinicia el acumulado. Cuando la pieza ya no existe se cae a la marca
+     * del snapshot, para no perder lo pagado.
      */
-    public function capturadoPorMarca(int $obraId): Collection
+    public function mapaDeObra(int $obraId): AvanceDeObra
+    {
+        $raices = $this->raicesDeLinaje($obraId);
+
+        $totales = [];
+
+        foreach (LiquidacionDetalle::where('obra_id', $obraId)->get(['concepto_id', 'marca', 'cantidad', 'porcentaje']) as $detalle) {
+            $clave = $this->clave($raices, $detalle->concepto_id, $detalle->marca);
+            $totales[$clave] = ($totales[$clave] ?? 0) + $detalle->cantidad * ((float) $detalle->porcentaje / 100);
+        }
+
+        foreach ($this->registrosNoLiquidados($obraId) as $registro) {
+            $clave = $this->clave($raices, $registro->concepto_id, $registro->concepto?->marca);
+            $totales[$clave] = ($totales[$clave] ?? 0) + $registro->piezasEquivalentes();
+        }
+
+        return new AvanceDeObra($raices, $totales);
+    }
+
+    /**
+     * Mapa conceptoId => id de la pieza raíz de su linaje, para toda la obra.
+     *
+     * @return array<int, int>
+     */
+    private function raicesDeLinaje(int $obraId): array
+    {
+        $origenes = Concepto::query()
+            ->where('obra_id', $obraId)
+            ->pluck('concepto_origen_id', 'id')
+            ->all();
+
+        $raices = [];
+
+        foreach (array_keys($origenes) as $id) {
+            $actual = $id;
+            $vistos = [];
+
+            // El `isset($vistos)` corta cualquier ciclo por datos corruptos.
+            while (! empty($origenes[$actual]) && ! isset($vistos[$actual])) {
+                $vistos[$actual] = true;
+                $actual = $origenes[$actual];
+            }
+
+            $raices[$id] = $actual;
+        }
+
+        return $raices;
+    }
+
+    /**
+     * @param  array<int, int>  $raices
+     */
+    private function clave(array $raices, ?int $conceptoId, ?string $marca): string
+    {
+        return isset($raices[$conceptoId])
+            ? 'raiz:'.$raices[$conceptoId]
+            : 'marca:'.($marca ?? '');
+    }
+
+    /**
+     * Registros que aún no están respaldados por una liquidación: los de
+     * semanas abiertas y los sueltos (capturados en un destajo que se borró).
+     * Se cuentan por prudencia: mejor topar de más que pagar dos veces.
+     *
+     * @return Collection<int, Registro>
+     */
+    private function registrosNoLiquidados(int $obraId): Collection
     {
         return Registro::query()
             ->with('concepto:id,marca')
             ->whereHas('concepto', fn ($q) => $q->where('obra_id', $obraId))
-            ->get(['id', 'concepto_id', 'cantidad', 'porcentaje'])
-            ->groupBy(fn (Registro $registro) => $registro->concepto?->marca)
-            ->map(fn (Collection $registros) => round(
-                $registros->sum(fn (Registro $registro) => $registro->piezasEquivalentes()),
-                4
-            ));
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')
+                ->from('prod_destajos')
+                ->where('prod_destajos.cerrado', true)
+                ->whereColumn('prod_destajos.fecha_inicio', '<=', 'prod_registros.fecha')
+                ->whereColumn('prod_destajos.fecha_fin', '>=', 'prod_registros.fecha'))
+            ->get(['id', 'concepto_id', 'cantidad', 'porcentaje']);
     }
 
     /**
@@ -51,10 +128,10 @@ class AvanceDePiezas
         return round(max(0, (float) $concepto->cantidad - $this->capturado($concepto)), 4);
     }
 
-    /** Piezas equivalentes ya pagadas de esta marca en la obra. */
+    /** Piezas equivalentes ya pagadas o comprometidas de esta pieza. */
     public function capturado(Concepto $concepto): float
     {
-        return (float) $this->capturadoPorMarca($concepto->obra_id)->get($concepto->marca, 0.0);
+        return $this->mapaDeObra($concepto->obra_id)->capturadoDe($concepto);
     }
 
     /** ¿Cabe pagar esta cantidad a este porcentaje sin rebasar el catálogo? */
@@ -77,10 +154,10 @@ class AvanceDePiezas
         $porObra = $conceptos
             ->pluck('obra_id')
             ->unique()
-            ->mapWithKeys(fn (int $obraId) => [$obraId => $this->capturadoPorMarca($obraId)]);
+            ->mapWithKeys(fn (int $obraId) => [$obraId => $this->mapaDeObra($obraId)]);
 
         return $conceptos->each(function (Concepto $concepto) use ($porObra): void {
-            $capturado = (float) $porObra->get($concepto->obra_id)?->get($concepto->marca, 0.0);
+            $capturado = $porObra->get($concepto->obra_id)?->capturadoDe($concepto) ?? 0.0;
 
             $concepto->setAttribute('capturado', $capturado);
             $concepto->setAttribute('disponible', round(max(0, (float) $concepto->cantidad - $capturado), 4));

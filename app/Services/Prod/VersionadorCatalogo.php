@@ -118,6 +118,9 @@ class VersionadorCatalogo
             $copia = Concepto::create([
                 'obra_id' => $destino->obra_id,
                 'catalogo_id' => $destino->id,
+                // Linaje: sostiene el conteo de lo pagado aunque la marca
+                // cambie de nombre en esta version.
+                'concepto_origen_id' => $pieza->id,
                 'marca' => $pieza->marca,
                 'descripcion' => $pieza->descripcion,
                 'cantidad' => $pieza->cantidad,

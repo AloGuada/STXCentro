@@ -48,10 +48,11 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                                     liquidacion.detalles?.map((d) => (
                                         <tr key={d.id} className="hover">
                                             <td>
-                                                {d.concepto ? (
+                                                {/* Snapshot del renglon: no se relee la pieza viva. */}
+                                                {d.marca ? (
                                                     <>
-                                                        <span className="font-medium">{d.concepto.marca}</span>{' '}
-                                                        <span className="text-base-content/60">{d.concepto.descripcion}</span>
+                                                        <span className="font-medium">{d.marca}</span>{' '}
+                                                        <span className="text-base-content/60">{d.descripcion}</span>
                                                     </>
                                                 ) : (
                                                     <span className="text-base-content/60">Concepto #{d.concepto_id}</span>

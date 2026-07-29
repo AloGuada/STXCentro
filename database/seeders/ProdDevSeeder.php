@@ -2,8 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Prod\EstadoAsistencia;
 use App\Models\Concepto;
 use App\Models\Obra;
+use App\Models\Prod\Asistencia;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
 use App\Models\Prod\Destajo;
@@ -154,6 +156,32 @@ class ProdDevSeeder extends Seeder
     }
 
     /**
+     * La asistencia es obligatoria para cerrar el destajo, asi que los datos de
+     * ejemplo la traen completa (con alguna falta suelta para que se note).
+     */
+    private function poblarAsistencia(Destajo $destajo, GrupoTrabajo $grupo): void
+    {
+        foreach ($grupo->empleados as $empleado) {
+            $cursor = Carbon::parse($destajo->fecha_inicio);
+            $fin = Carbon::parse($destajo->fecha_fin);
+
+            while ($cursor->lte($fin)) {
+                Asistencia::updateOrCreate(
+                    ['grupo_empleado_id' => $empleado->id, 'fecha' => $cursor->copy()->startOfDay()],
+                    [
+                        'destajo_id' => $destajo->id,
+                        'estado' => fake()->boolean(90)
+                            ? EstadoAsistencia::Asistencia
+                            : fake()->randomElement([EstadoAsistencia::Falta, EstadoAsistencia::Vacaciones]),
+                    ],
+                );
+
+                $cursor = $cursor->addDay();
+            }
+        }
+    }
+
+    /**
      * @param  Collection<int, GrupoTrabajo>  $grupos
      * @param  Collection<int, Concepto>  $conceptos
      * @param  Collection<int, TipoPagoExtra>  $tipos
@@ -161,6 +189,8 @@ class ProdDevSeeder extends Seeder
     private function poblarProduccion(Destajo $destajo, Collection $grupos, Collection $conceptos, Collection $tipos): void
     {
         foreach ($grupos as $grupo) {
+            $this->poblarAsistencia($destajo, $grupo);
+
             foreach ($conceptos->random(min(3, $conceptos->count())) as $concepto) {
                 Registro::create([
                     'fecha' => Carbon::parse($destajo->fecha_inicio)->addDays(fake()->numberBetween(0, 4))->toDateString(),

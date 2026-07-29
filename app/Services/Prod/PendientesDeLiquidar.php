@@ -49,7 +49,7 @@ class PendientesDeLiquidar
         $capturadoPorObra = $parciales
             ->pluck('concepto.obra_id')
             ->unique()
-            ->mapWithKeys(fn (int $obraId) => [$obraId => $this->avance->capturadoPorMarca($obraId)]);
+            ->mapWithKeys(fn (int $obraId) => [$obraId => $this->avance->mapaDeObra($obraId)]);
 
         return $parciales
             // Una fila por pieza: el último parcial manda para sugerir grupo y cantidad.
@@ -57,7 +57,7 @@ class PendientesDeLiquidar
             ->map(function (Registro $registro) use ($capturadoPorObra) {
                 $concepto = $registro->concepto;
 
-                $pagado = (float) $capturadoPorObra->get($concepto->obra_id)?->get($concepto->marca, 0.0);
+                $pagado = $capturadoPorObra->get($concepto->obra_id)?->capturadoDe($concepto) ?? 0.0;
                 $saldo = round(max(0, (float) $concepto->cantidad - $pagado), 4);
 
                 if ($saldo <= 0) {

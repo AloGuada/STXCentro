@@ -2,6 +2,7 @@
 
 use App\Models\Concepto;
 use App\Models\Obra;
+use App\Models\Prod\Asistencia;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoEmpleado;
 use App\Models\Prod\GrupoPrecio;
@@ -201,6 +202,17 @@ describe('admin destajos', function () {
             'grupo_trabajo_id' => $grupo->id,
             'cantidad' => 20,
         ]);
+
+        // Sin asistencia completa el cierre queda bloqueado.
+        foreach ($grupo->empleados as $empleado) {
+            for ($dia = 3; $dia <= 9; $dia++) {
+                Asistencia::factory()->create([
+                    'destajo_id' => $destajo->id,
+                    'grupo_empleado_id' => $empleado->id,
+                    'fecha' => sprintf('2026-02-%02d', $dia),
+                ]);
+            }
+        }
 
         $this->actingAs($this->user)
             ->post(route('admin.prod.destajos.cerrar', $destajo))
