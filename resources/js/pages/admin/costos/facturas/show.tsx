@@ -2,6 +2,7 @@ import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { AplicarAnticipoModal } from '@/components/costos/aplicar-anticipo-modal';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { formatMoney as fmtMonto } from '@/components/costos/monto';
+import { FormattedDate } from '@/components/ui/formatted-date';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -280,7 +281,7 @@ export default function FacturasShow({ factura }: Props) {
                                             </span>
                                         </div>
                                         <span className="text-sm text-base-content/60">
-                                            {new Date(e.fecha_entrega).toLocaleDateString()} - {e.recibidor?.name}
+                                            <FormattedDate value={e.fecha_entrega} /> - {e.recibidor?.name}
                                         </span>
                                     </div>
                                     {e.observaciones && (

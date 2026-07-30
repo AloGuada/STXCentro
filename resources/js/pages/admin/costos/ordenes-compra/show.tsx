@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { ChevronDownIcon, ChevronRightIcon, DownloadIcon, FileIcon, FileTextIcon, FolderIcon, FolderOpenIcon, PaperclipIcon } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
+import { FormattedDate } from '@/components/ui/formatted-date';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { DevolverItemModal } from '@/components/costos/devolver-item-modal';
 import { EntregaModal } from '@/components/costos/entrega-modal';
@@ -406,7 +407,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                                 <span className="ml-2 badge badge-sm badge-error">Cancelada</span>
                                             )}
                                             <span className="ml-2 text-sm text-base-content/60">
-                                                {new Date(entrega.fecha_entrega).toLocaleDateString()}
+                                                <FormattedDate value={entrega.fecha_entrega} />
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-3">

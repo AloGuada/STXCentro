@@ -1,3 +1,4 @@
+import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosRecepcionRow, PaginatedData } from '@/types/models';
@@ -16,8 +17,6 @@ type Props = {
     filters: { search?: string; tipo?: string };
 };
 
-const fmtDate = (date: string | null) =>
-    date ? new Date(date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
 
 export default function RecepcionesIndex({ recepciones, filters }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
@@ -111,7 +110,9 @@ export default function RecepcionesIndex({ recepciones, filters }: Props) {
                                 recepciones.data.map((r) => (
                                     <tr key={r.id}>
                                         <td className="font-medium">{r.folio ?? '-'}</td>
-                                        <td className="whitespace-nowrap">{fmtDate(r.fecha_entrega)}</td>
+                                        <td className="whitespace-nowrap">
+                                            <FormattedDate value={r.fecha_entrega} />
+                                        </td>
                                         <td>
                                             {r.oc ? (
                                                 <Link href={r.oc.url} className="link link-primary flex items-center gap-1">
