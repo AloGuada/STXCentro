@@ -864,6 +864,29 @@ export default function RequisicionesShow({
         };
     }, [requisicion.detalles, proveedores]);
 
+    // Divisa a convertir: la de lo ya seleccionado y, si todavía no hay
+    // selección, la que traigan las cotizaciones. Con ella se pide el TC arriba
+    // del comparativo, para leerlo ya convertido a pesos.
+    const divisasCotizadas = useMemo(() => {
+        const monedas = new Set<string>();
+        (requisicion.detalles ?? []).forEach((d) =>
+            (d.cotizaciones ?? []).forEach((c) => {
+                const moneda = (c.moneda ?? 'mxn').toLowerCase();
+                if (moneda !== 'mxn') {
+                    monedas.add(moneda);
+                }
+            }),
+        );
+
+        return Array.from(monedas);
+    }, [requisicion.detalles]);
+
+    const divisaTc =
+        resumenNeto?.divisa ??
+        (divisasCotizadas.length === 1 ? divisasCotizadas[0] : null);
+    const multiDivisaTc =
+        (resumenNeto?.multiDivisa ?? false) || divisasCotizadas.length > 1;
+
     // Tipo de cambio de la requisición: se guarda a nivel documento y con él se
     // convierte a MXN el apartado/afectación cuando las cotizaciones son divisa.
     const [tcRequis, setTcRequis] = useState<string>(String(requisicion.tipo_cambio ?? '1'));
@@ -1310,6 +1333,60 @@ export default function RequisicionesShow({
                             </table>
                         </div>
 
+                        {divisaTc != null && (
+                            <div className="mt-6 rounded-md border border-warning/40 bg-warning/5 p-3">
+                                <div className="mb-1 text-xs font-medium">
+                                    Tipo de cambio ({divisaTc.toUpperCase()} →
+                                    MXN)
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                        type="number"
+                                        step="0.000001"
+                                        min="0"
+                                        className="input input-bordered input-sm w-40"
+                                        value={tcRequis}
+                                        onChange={(e) =>
+                                            setTcRequis(e.target.value)
+                                        }
+                                    />
+                                    <button
+                                        type="button"
+                                        className="btn btn-ghost btn-sm"
+                                        disabled={tcCargando}
+                                        onClick={() => sugerirTc(divisaTc)}
+                                    >
+                                        {tcCargando ? '...' : 'Sugerir'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary btn-sm"
+                                        disabled={
+                                            tcGuardando ||
+                                            !(Number(tcRequis) > 0)
+                                        }
+                                        onClick={guardarTc}
+                                    >
+                                        {tcGuardando
+                                            ? 'Guardando...'
+                                            : 'Guardar TC'}
+                                    </button>
+                                </div>
+                                <p className="mt-1 text-[11px] text-base-content/50">
+                                    Con este TC se convierten los precios del
+                                    comparativo y se aparta y ejerce el
+                                    presupuesto.
+                                </p>
+                            </div>
+                        )}
+                        {multiDivisaTc && (
+                            <div className="mt-6 rounded-md border border-error/40 bg-error/5 p-3 text-xs">
+                                La requisición mezcla más de una divisa
+                                extranjera; captura el tipo de cambio
+                                manualmente.
+                            </div>
+                        )}
+
                         <ComparativoCotizaciones
                             requisicion={requisicion}
                             tc={Number(tcRequis) || 0}
@@ -1321,50 +1398,6 @@ export default function RequisicionesShow({
                                     Total de las órdenes de compra
                                 </h3>
 
-                                {resumenNeto.divisa != null && (
-                                    <div className="mb-3 rounded-md border border-warning/40 bg-warning/5 p-3">
-                                        <div className="mb-1 text-xs font-medium">
-                                            Tipo de cambio ({resumenNeto.divisa.toUpperCase()} → MXN)
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <input
-                                                type="number"
-                                                step="0.000001"
-                                                min="0"
-                                                className="input input-bordered input-sm w-40"
-                                                value={tcRequis}
-                                                onChange={(e) => setTcRequis(e.target.value)}
-                                            />
-                                            <button
-                                                type="button"
-                                                className="btn btn-ghost btn-sm"
-                                                disabled={tcCargando}
-                                                onClick={() => sugerirTc(resumenNeto.divisa!)}
-                                            >
-                                                {tcCargando ? '...' : 'Sugerir'}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="btn btn-primary btn-sm"
-                                                disabled={tcGuardando || !(Number(tcRequis) > 0)}
-                                                onClick={guardarTc}
-                                            >
-                                                {tcGuardando ? 'Guardando...' : 'Guardar TC'}
-                                            </button>
-                                        </div>
-                                        <p className="mt-1 text-[11px] text-base-content/50">
-                                            Con este TC se aparta y ejerce el
-                                            presupuesto.
-                                        </p>
-                                    </div>
-                                )}
-                                {resumenNeto.multiDivisa && (
-                                    <div className="mb-3 rounded-md border border-error/40 bg-error/5 p-3 text-xs">
-                                        La requisición mezcla más de una divisa
-                                        extranjera; captura el tipo de cambio
-                                        manualmente.
-                                    </div>
-                                )}
                                 <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm md:max-w-sm">
                                     {resumenNeto.bloques.map((b) => (
                                         <Fragment key={b.moneda}>
@@ -2138,6 +2171,17 @@ function ComparativoCotizaciones({
                                                                 ]
                                                             }
                                                         </span>
+                                                        {moneda !== 'mxn' &&
+                                                            tc > 0 && (
+                                                                <span className="ml-1 text-[10px] font-normal text-base-content/50">
+                                                                    (
+                                                                    {fmt(
+                                                                        px * tc,
+                                                                        'mxn',
+                                                                    )}
+                                                                    )
+                                                                </span>
+                                                            )}
                                                     </div>
                                                     {cot?.descripcion && (
                                                         <div className="text-[10px] font-normal text-base-content/60">
