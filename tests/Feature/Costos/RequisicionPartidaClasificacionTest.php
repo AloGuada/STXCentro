@@ -76,8 +76,14 @@ test('el codigo de producto se guarda por linea y por opcion en la cotizacion', 
 });
 
 test('duplicar copia partidas y cotizaciones en una nueva requisicion borrador', function () {
+    $producto = \App\Models\Costos\Producto::factory()->create();
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'aprobada']);
-    $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'tipo_fiscal' => 'flete']);
+    $detalle = RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'tipo_fiscal' => 'flete',
+        'producto_id' => $producto->id,
+        'solo_cotizacion' => true,
+    ]);
     $prov = \App\Models\Proveedor::factory()->create();
     \App\Models\Costos\RequisicionCotizacionPrecio::factory()->create([
         'requisicion_detalle_id' => $detalle->id,
@@ -97,11 +103,31 @@ test('duplicar copia partidas y cotizaciones en una nueva requisicion borrador',
 
     $nuevoDetalle = $nueva->detalles()->first();
     expect($nuevoDetalle->tipo_fiscal->value)->toBe('flete');
+    expect($nuevoDetalle->producto_id)->toBe($producto->id);
+    expect((bool) $nuevoDetalle->solo_cotizacion)->toBeTrue();
     expect($nuevoDetalle->cotizaciones()->count())->toBe(1);
     expect($nuevoDetalle->cotizaciones()->first()->codigo_producto)->toBe('COD-X');
 
     // La original no se altera.
     expect($req->fresh()->estatus->value)->toBe('aprobada');
+});
+
+test('duplicar conserva al solicitante original, no al de compras', function () {
+    $solicitante = User::factory()->create();
+    $req = Requisicion::factory()->create([
+        'departamento_id' => $this->depto->id,
+        'solicitante_id' => $solicitante->id,
+        'estatus' => 'aprobada',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/requisiciones/{$req->id}/duplicar")
+        ->assertRedirect();
+
+    $nueva = Requisicion::where('id', '!=', $req->id)->latest('id')->first();
+    expect($nueva->solicitante_id)->toBe($solicitante->id)
+        ->and($nueva->solicitante_id)->not->toBe($this->user->id)
+        ->and($nueva->departamento_id)->toBe($req->departamento_id);
 });
 
 test('duplicar requiere permiso de cotizar (compras), no solo crear', function () {

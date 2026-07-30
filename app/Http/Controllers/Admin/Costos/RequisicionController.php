@@ -206,6 +206,9 @@ class RequisicionController extends Controller
      * folio nuevo: copia partidas y cotizaciones (precios, proveedores, código,
      * días). NO copia selecciones, OCs ni aprobaciones. Útil para Compras para
      * re-cotizar o editar sin tocar la original.
+     *
+     * La copia conserva al solicitante original: Compras duplica en nombre de
+     * quien pidió, no se adueña de la requisición.
      */
     public function duplicar(Requisicion $requisicion): RedirectResponse
     {
@@ -214,7 +217,7 @@ class RequisicionController extends Controller
 
         $nueva = DB::transaction(function () use ($requisicion) {
             $nueva = Requisicion::create([
-                'solicitante_id' => request()->user()->id,
+                'solicitante_id' => $requisicion->solicitante_id,
                 'departamento_id' => $requisicion->departamento_id,
                 'presupuesto_id' => $requisicion->presupuesto_id,
                 'justificacion' => $requisicion->justificacion,
@@ -227,6 +230,8 @@ class RequisicionController extends Controller
             foreach ($requisicion->detalles as $detalle) {
                 $nuevoDetalle = $nueva->detalles()->create([
                     'descripcion' => $detalle->descripcion,
+                    'producto_id' => $detalle->producto_id,
+                    'solo_cotizacion' => $detalle->solo_cotizacion,
                     'codigo_producto' => $detalle->codigo_producto,
                     'unidad' => $detalle->unidad,
                     'cantidad' => $detalle->cantidad,
