@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin\Prod;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Prod\GrupoTrabajoStoreRequest;
 use App\Http\Requests\Admin\Prod\GrupoTrabajoUpdateRequest;
+use App\Models\Prod\CategoriaEmpleado;
 use App\Models\Prod\GrupoEmpleado;
 use App\Models\Prod\GrupoTrabajo;
+use App\Models\Prod\Ubicacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +20,7 @@ class GrupoTrabajoController extends Controller
     public function index(Request $request): Response
     {
         $grupos = GrupoTrabajo::query()
+            ->with('ubicaciones:id,nombre')
             ->withCount('empleados')
             ->when($request->search, fn ($q, $s) => $q->where('descripcion', 'like', "%{$s}%"))
             ->orderBy('descripcion')
@@ -32,7 +35,24 @@ class GrupoTrabajoController extends Controller
 
     public function create(): Response
     {
-        return Inertia::render('admin/prod/grupos-trabajo/create');
+        return Inertia::render('admin/prod/grupos-trabajo/create', $this->catalogos());
+    }
+
+    /**
+     * Catálogos que alimentan el formulario: ubicaciones donde trabaja el grupo
+     * y categorías con las que se reparte el excedente.
+     *
+     * @return array<string, mixed>
+     */
+    private function catalogos(): array
+    {
+        return [
+            'ubicaciones' => Ubicacion::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            'categorias' => CategoriaEmpleado::where('activo', true)
+                ->orderBy('orden')
+                ->orderBy('nombre')
+                ->get(['id', 'nombre', 'valor']),
+        ];
     }
 
     public function store(GrupoTrabajoStoreRequest $request): RedirectResponse
@@ -40,17 +60,17 @@ class GrupoTrabajoController extends Controller
         return DB::transaction(function () use ($request) {
             $grupo = GrupoTrabajo::create([
                 'descripcion' => $request->descripcion,
-                'linea' => $request->linea ?? 0,
-                'modulo' => $request->modulo ?? 0,
                 'activo' => $request->boolean('activo', true),
             ]);
+
+            $grupo->ubicaciones()->sync($request->ubicacion_ids ?? []);
 
             if ($request->filled('empleados')) {
                 foreach ($request->empleados as $empData) {
                     $grupo->empleados()->create([
                         'nombre' => $empData['nombre'],
                         'no_empleado' => $empData['no_empleado'] ?? null,
-                        'porcentaje' => $empData['porcentaje'] ?? 100.00,
+                        'categoria_empleado_id' => $empData['categoria_empleado_id'] ?? null,
                     ]);
                 }
             }
@@ -61,10 +81,11 @@ class GrupoTrabajoController extends Controller
 
     public function edit(GrupoTrabajo $grupoTrabajo): Response
     {
-        $grupoTrabajo->load('empleados');
+        $grupoTrabajo->load(['empleados.categoria', 'ubicaciones']);
 
         return Inertia::render('admin/prod/grupos-trabajo/edit', [
             'grupo' => $grupoTrabajo,
+            ...$this->catalogos(),
         ]);
     }
 
@@ -72,10 +93,12 @@ class GrupoTrabajoController extends Controller
     {
         $grupoTrabajo->update([
             'descripcion' => $request->descripcion,
-            'linea' => $request->linea ?? $grupoTrabajo->linea,
-            'modulo' => $request->modulo ?? $grupoTrabajo->modulo,
             'activo' => $request->boolean('activo', $grupoTrabajo->activo),
         ]);
+
+        if ($request->has('ubicacion_ids')) {
+            $grupoTrabajo->ubicaciones()->sync($request->ubicacion_ids ?? []);
+        }
 
         return to_route('admin.prod.grupos-trabajo.index');
     }
@@ -97,13 +120,13 @@ class GrupoTrabajoController extends Controller
         $request->validate([
             'nombre' => ['required', 'string', 'max:255'],
             'no_empleado' => ['nullable', 'string', 'max:50'],
-            'porcentaje' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'categoria_empleado_id' => ['nullable', 'exists:prod_categorias_empleado,id'],
         ]);
 
         $grupoTrabajo->empleados()->create([
             'nombre' => $request->nombre,
             'no_empleado' => $request->no_empleado,
-            'porcentaje' => $request->porcentaje ?? 100.00,
+            'categoria_empleado_id' => $request->categoria_empleado_id,
         ]);
 
         return back();

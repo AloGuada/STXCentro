@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Prod\Catalogo;
+use App\Models\Prod\Categoria;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\Registro;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,10 +23,14 @@ class Concepto extends Model
      */
     protected $fillable = [
         'obra_id',
+        'catalogo_id',
+        'concepto_origen_id',
         'marca',
         'descripcion',
         'cantidad',
         'peso_unitario',
+        'longitud',
+        'categoria_id',
         'version',
         'activo',
     ];
@@ -37,6 +43,7 @@ class Concepto extends Model
         return [
             'cantidad' => 'integer',
             'peso_unitario' => 'decimal:3',
+            'longitud' => 'integer',
             'version' => 'integer',
             'activo' => 'boolean',
         ];
@@ -45,6 +52,38 @@ class Concepto extends Model
     public function obra(): BelongsTo
     {
         return $this->belongsTo(Obra::class, 'obra_id');
+    }
+
+    public function catalogo(): BelongsTo
+    {
+        return $this->belongsTo(Catalogo::class, 'catalogo_id');
+    }
+
+    /**
+     * Pieza de la que se copió esta al versionar el catálogo. Sostiene el
+     * conteo de lo pagado cuando la marca cambia entre versiones.
+     */
+    public function origen(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'concepto_origen_id');
+    }
+
+    /**
+     * Sólo las piezas del catálogo vigente de su obra. Indispensable en captura
+     * de producción y asignación de precios: tras copiar una versión la misma
+     * marca existe en varios catálogos y sin este filtro queda ambigua.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<self>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<self>
+     */
+    public function scopeDeCatalogoVigente($query)
+    {
+        return $query->whereHas('catalogo', fn ($q) => $q->where('vigente', true));
+    }
+
+    public function categoria(): BelongsTo
+    {
+        return $this->belongsTo(Categoria::class, 'categoria_id');
     }
 
     public function grupoPrecioConceptos(): HasMany

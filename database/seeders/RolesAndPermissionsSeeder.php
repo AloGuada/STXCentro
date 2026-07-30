@@ -184,9 +184,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'prod.registros.ver',
             'prod.registros.crear',
             'prod.registros.eliminar',
-            'prod.cortes.ver',
-            'prod.cortes.crear',
-            'prod.cortes.cerrar',
+            'prod.destajos.ver',
+            'prod.destajos.crear',
+            'prod.destajos.cerrar',
             'prod.grupos-trabajo.ver',
             'prod.grupos-trabajo.crear',
             'prod.grupos-trabajo.editar',
@@ -203,6 +203,37 @@ class RolesAndPermissionsSeeder extends Seeder
             'prod.conceptos.crear',
             'prod.conceptos.editar',
             'prod.conceptos.eliminar',
+            'prod.categorias.ver',
+            'prod.categorias.crear',
+            'prod.categorias.editar',
+            'prod.categorias.eliminar',
+            // Catalogo de piezas versionado (uno vigente por obra)
+            'prod.catalogos.ver',
+            'prod.catalogos.crear',
+            'prod.catalogos.editar',
+            'prod.catalogos.eliminar',
+            // Ubicaciones del grupo de trabajo
+            'prod.ubicaciones.ver',
+            'prod.ubicaciones.crear',
+            'prod.ubicaciones.editar',
+            'prod.ubicaciones.eliminar',
+            // Categorias de empleado (peso del reparto)
+            'prod.categorias-empleado.ver',
+            'prod.categorias-empleado.crear',
+            'prod.categorias-empleado.editar',
+            'prod.categorias-empleado.eliminar',
+            // Asistencia del destajo (obligatoria para cerrar)
+            'prod.asistencia.ver',
+            'prod.asistencia.registrar',
+            // Pagos extra dentro del destajo
+            'prod.pagos-extra.ver',
+            'prod.pagos-extra.crear',
+            'prod.pagos-extra.eliminar',
+            // Liquidaciones y orden de pago
+            'prod.liquidaciones.ver',
+            // Configuracion del modulo (salario minimo diario)
+            'prod.configuracion.ver',
+            'prod.configuracion.editar',
         ];
 
         // Permisos del módulo Infraestructura

@@ -17,11 +17,13 @@ class ConceptoStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'obra_id' => ['required', 'exists:obras,id'],
+            'catalogo_id' => ['required', 'exists:prod_catalogos,id'],
             'marca' => ['required', 'string', 'max:255'],
             'descripcion' => ['required', 'string', 'max:255'],
             'cantidad' => ['required', 'integer', 'min:0'],
             'peso_unitario' => ['required', 'numeric', 'min:0'],
+            'longitud' => ['required', 'integer', 'min:0'],
+            'categoria_id' => ['required', 'exists:prod_categorias,id'],
             'version' => ['nullable', 'integer', 'min:1'],
             'activo' => ['nullable', 'boolean'],
         ];
@@ -33,11 +35,14 @@ class ConceptoStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'obra_id.required' => 'La obra es obligatoria.',
-            'obra_id.exists' => 'La obra seleccionada no existe.',
+            'catalogo_id.required' => 'El catálogo es obligatorio.',
+            'catalogo_id.exists' => 'El catálogo seleccionado no existe.',
             'marca.required' => 'La marca es obligatoria.',
             'descripcion.required' => 'La descripcion es obligatoria.',
             'peso_unitario.required' => 'El peso unitario es obligatorio.',
+            'longitud.required' => 'La longitud es obligatoria.',
+            'categoria_id.required' => 'La categoria es obligatoria.',
+            'categoria_id.exists' => 'La categoria seleccionada no existe.',
         ];
     }
 }

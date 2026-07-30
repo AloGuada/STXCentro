@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Obra extends Model
@@ -82,6 +83,17 @@ class Obra extends Model
     public function conceptos(): HasMany
     {
         return $this->hasMany(Concepto::class, 'obra_id');
+    }
+
+    public function catalogos(): HasMany
+    {
+        return $this->hasMany(Prod\Catalogo::class, 'obra_id');
+    }
+
+    /** Catálogo de piezas en uso; las versiones anteriores quedan de historia. */
+    public function catalogoVigente(): HasOne
+    {
+        return $this->hasOne(Prod\Catalogo::class, 'obra_id')->where('vigente', true);
     }
 
     public function gruposPrecios(): HasMany

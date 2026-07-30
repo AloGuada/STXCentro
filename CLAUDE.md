@@ -358,12 +358,11 @@ Sistema integrador empresarial que centraliza 8 módulos: autenticación con rol
 | `prod_grupo_precio_conceptos` | Pivote grupo-precio ↔ concepto |
 | `prod_grupos_trabajo` | Grupos de trabajo |
 | `prod_grupo_empleados` | Empleados asignados a grupo |
-| `prod_registros` | Registros diarios de producción |
+| `prod_registros` | Registros diarios de producción (dentro de un destajo por rango de fechas) |
 | `prod_tipos` | Tipos de pago extra (catálogo) |
-| `prod_extras` | Extras de producción |
-| `prod_pagos_extra` | Pagos extra |
-| `prod_cortes` | Cortes de producción |
-| `prod_liquidaciones` | Liquidaciones de corte |
+| `prod_pagos_extra` | Pagos extra (por destajo y grupo) |
+| `prod_destajos` | Destajo semanal (máx. 52 por año; unique anio+semana) |
+| `prod_liquidaciones` | Liquidaciones de destajo (por grupo, inmutables al cerrar) |
 | `prod_liquidacion_detalle` | Detalle de liquidación |
 | `prod_liquidacion_empleados` | Liquidación por empleado |
 

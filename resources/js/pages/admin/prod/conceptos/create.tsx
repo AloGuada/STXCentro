@@ -1,32 +1,36 @@
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Obra } from '@/types/models';
+import type { ProdCatalogo, ProdCategoria } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 type Props = {
-    obra: Obra;
+    catalogo: ProdCatalogo;
+    categorias: ProdCategoria[];
 };
 
-export default function ConceptosCreate({ obra }: Props) {
+export default function ConceptosCreate({ catalogo, categorias }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Produccion', href: '/admin/prod/cortes' },
-        { title: 'Conceptos', href: '/admin/prod/conceptos' },
-        { title: `${obra.no} - ${obra.descripcion}`, href: `/admin/prod/conceptos/obra/${obra.id}` },
-        { title: 'Nuevo Concepto', href: `/admin/prod/conceptos/create?obra_id=${obra.id}` },
+        { title: 'Produccion', href: '/admin/prod/destajos' },
+        { title: 'Catalogos', href: '/admin/prod/catalogos' },
+        { title: `${catalogo.nombre} v${catalogo.version}`, href: `/admin/prod/catalogos/${catalogo.id}` },
+        { title: 'Nueva pieza', href: `/admin/prod/conceptos/create?catalogo_id=${catalogo.id}` },
     ];
 
     const { data, setData, post, processing, errors } = useForm({
-        obra_id: String(obra.id),
+        catalogo_id: String(catalogo.id),
         marca: '',
         descripcion: '',
-        cantidad: '',
+        cantidad: '0',
         peso_unitario: '',
+        longitud: '',
+        categoria_id: '',
         version: '1',
         activo: true,
     });
@@ -38,12 +42,15 @@ export default function ConceptosCreate({ obra }: Props) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Nuevo Concepto" />
+            <Head title="Nueva pieza" />
 
             <div className="p-6">
-                <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Nuevo Concepto</h1>
-                    <p className="mb-4 text-sm text-gray-500">Obra: {obra.no} - {obra.descripcion}</p>
+                <div className="w-full max-w-2xl">
+                    <h1 className="text-2xl font-semibold">Nueva pieza</h1>
+                    <p className="mb-6 mt-1 text-sm text-base-content/60">
+                        {catalogo.nombre} v{catalogo.version}
+                        {catalogo.obra ? ` · Obra ${catalogo.obra.no} - ${catalogo.obra.descripcion}` : ''}
+                    </p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
@@ -51,7 +58,8 @@ export default function ConceptosCreate({ obra }: Props) {
                                 id="marca"
                                 value={data.marca}
                                 onChange={(e) => setData('marca', e.target.value)}
-                                placeholder="Identificador del concepto"
+                                error={!!errors.marca}
+                                placeholder="Identificador de la pieza"
                             />
                         </FormField>
 
@@ -60,20 +68,51 @@ export default function ConceptosCreate({ obra }: Props) {
                                 id="descripcion"
                                 value={data.descripcion}
                                 onChange={(e) => setData('descripcion', e.target.value)}
-                                placeholder="Descripcion del concepto"
+                                error={!!errors.descripcion}
+                                placeholder="Descripcion de la pieza"
                             />
                         </FormField>
 
-                        <FormField label="Cantidad (piezas)" htmlFor="cantidad" error={errors.cantidad} required>
-                            <Input
-                                id="cantidad"
-                                type="number"
-                                min="0"
-                                value={data.cantidad}
-                                onChange={(e) => setData('cantidad', e.target.value)}
-                                placeholder="0"
-                            />
+                        <FormField label="Categoria" htmlFor="categoria_id" error={errors.categoria_id} required>
+                            <Select
+                                value={data.categoria_id}
+                                onValueChange={(v) => setData('categoria_id', v)}
+                                placeholder="Selecciona categoria"
+                                error={!!errors.categoria_id}
+                            >
+                                {categorias.map((c) => (
+                                    <SelectItem key={c.id} value={String(c.id)}>
+                                        {c.nombre}
+                                    </SelectItem>
+                                ))}
+                            </Select>
                         </FormField>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Cantidad (piezas)" htmlFor="cantidad" error={errors.cantidad}>
+                                <Input
+                                    id="cantidad"
+                                    type="number"
+                                    min="0"
+                                    value={data.cantidad}
+                                    onChange={(e) => setData('cantidad', e.target.value)}
+                                    error={!!errors.cantidad}
+                                    placeholder="0"
+                                />
+                            </FormField>
+
+                            <FormField label="Longitud (mm)" htmlFor="longitud" error={errors.longitud} required>
+                                <Input
+                                    id="longitud"
+                                    type="number"
+                                    min="0"
+                                    value={data.longitud}
+                                    onChange={(e) => setData('longitud', e.target.value)}
+                                    error={!!errors.longitud}
+                                    placeholder="0"
+                                />
+                            </FormField>
+                        </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <FormField label="Peso Unitario (kg)" htmlFor="peso_unitario" error={errors.peso_unitario} required>
@@ -84,6 +123,7 @@ export default function ConceptosCreate({ obra }: Props) {
                                     min="0"
                                     value={data.peso_unitario}
                                     onChange={(e) => setData('peso_unitario', e.target.value)}
+                                    error={!!errors.peso_unitario}
                                     placeholder="0.000"
                                 />
                             </FormField>
@@ -95,14 +135,25 @@ export default function ConceptosCreate({ obra }: Props) {
                                     min="1"
                                     value={data.version}
                                     onChange={(e) => setData('version', e.target.value)}
+                                    error={!!errors.version}
                                     placeholder="1"
                                 />
                             </FormField>
                         </div>
 
+                        <label className="flex cursor-pointer items-center gap-2">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm"
+                                checked={data.activo}
+                                onChange={(e) => setData('activo', e.target.checked)}
+                            />
+                            <span className="text-sm">Activo</span>
+                        </label>
+
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>
-                                <Link href={`/admin/prod/conceptos/obra/${obra.id}`}>Cancelar</Link>
+                                <Link href={`/admin/prod/catalogos/${catalogo.id}`}>Cancelar</Link>
                             </Button>
                             <Button type="submit" disabled={processing}>
                                 {processing && <Loader2Icon className="size-4 animate-spin" />}

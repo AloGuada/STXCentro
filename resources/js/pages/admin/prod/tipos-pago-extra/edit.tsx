@@ -1,11 +1,11 @@
+import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { ProdTipoPagoExtra } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
@@ -16,7 +16,7 @@ type Props = {
 export default function TiposPagoExtraEdit({ tipo }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Produccion', href: '/admin/prod/cortes' },
+        { title: 'Produccion', href: '/admin/prod/destajos' },
         { title: 'Tipos Pago Extra', href: '/admin/prod/tipos-pago-extra' },
         { title: tipo.descripcion, href: `/admin/prod/tipos-pago-extra/${tipo.id}/edit` },
     ];
@@ -24,7 +24,7 @@ export default function TiposPagoExtraEdit({ tipo }: Props) {
     const { data, setData, put, processing, errors } = useForm({
         descripcion: tipo.descripcion,
         orden: String(tipo.orden),
-        desgloce: tipo.desgloce ? '1' : '0',
+        desgloce: tipo.desgloce,
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -32,19 +32,13 @@ export default function TiposPagoExtraEdit({ tipo }: Props) {
         put(`/admin/prod/tipos-pago-extra/${tipo.id}`);
     };
 
-    const handleDelete = () => {
-        if (confirm('Estas seguro de eliminar este tipo?')) {
-            router.delete(`/admin/prod/tipos-pago-extra/${tipo.id}`);
-        }
-    };
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Editar ${tipo.descripcion}`} />
 
             <div className="p-6">
-                <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Editar Tipo de Pago Extra</h1>
+                <div className="w-full max-w-2xl">
+                    <h1 className="mb-6 text-2xl font-semibold">Editar tipo de pago extra</h1>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Descripcion" htmlFor="descripcion" error={errors.descripcion} required>
@@ -52,6 +46,7 @@ export default function TiposPagoExtraEdit({ tipo }: Props) {
                                 id="descripcion"
                                 value={data.descripcion}
                                 onChange={(e) => setData('descripcion', e.target.value)}
+                                error={!!errors.descripcion}
                             />
                         </FormField>
 
@@ -62,24 +57,26 @@ export default function TiposPagoExtraEdit({ tipo }: Props) {
                                 min="0"
                                 value={data.orden}
                                 onChange={(e) => setData('orden', e.target.value)}
+                                error={!!errors.orden}
                             />
                         </FormField>
 
-                        <FormField label="Desgloce" htmlFor="desgloce" error={errors.desgloce} required>
-                            <Select
-                                id="desgloce"
-                                value={data.desgloce}
-                                onValueChange={(value) => setData('desgloce', value)}
-                            >
-                                <option value="0">No</option>
-                                <option value="1">Si</option>
-                            </Select>
-                        </FormField>
+                        <label className="flex cursor-pointer items-center gap-2">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm"
+                                checked={data.desgloce}
+                                onChange={(e) => setData('desgloce', e.target.checked)}
+                            />
+                            <span className="text-sm">Desgloce</span>
+                        </label>
 
-                        <div className="flex justify-between">
-                            <Button type="button" variant="destructive" onClick={handleDelete}>
-                                Eliminar
-                            </Button>
+                        <div className="flex items-center justify-between">
+                            <DeleteDialog
+                                title="Eliminar tipo"
+                                description={`¿Eliminar el tipo "${tipo.descripcion}"? Esta acción no se puede deshacer.`}
+                                deleteUrl={`/admin/prod/tipos-pago-extra/${tipo.id}`}
+                            />
                             <div className="flex gap-2">
                                 <Button variant="outline" asChild>
                                     <Link href="/admin/prod/tipos-pago-extra">Cancelar</Link>

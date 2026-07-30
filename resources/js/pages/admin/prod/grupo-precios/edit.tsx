@@ -1,13 +1,14 @@
+import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Obra, ProdGrupoPrecio } from '@/types/models';
-import { Head, Link, useForm, router } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { type FormEvent, useMemo } from 'react';
 
 type Props = {
     grupoPrecio: ProdGrupoPrecio;
@@ -17,9 +18,9 @@ type Props = {
 export default function GrupoPreciosEdit({ grupoPrecio, obras }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Produccion', href: '/admin/prod/cortes' },
+        { title: 'Produccion', href: '/admin/prod/destajos' },
         { title: 'Grupo Precios', href: '/admin/prod/grupo-precios' },
-        { title: `Obra`, href: `/admin/prod/grupo-precios/obra/${grupoPrecio.obra_id}` },
+        { title: 'Obra', href: `/admin/prod/grupo-precios/obra/${grupoPrecio.obra_id}` },
         { title: grupoPrecio.descripcion, href: `/admin/prod/grupo-precios/${grupoPrecio.id}/edit` },
     ];
 
@@ -29,17 +30,14 @@ export default function GrupoPreciosEdit({ grupoPrecio, obras }: Props) {
         precio_kilo: String(grupoPrecio.precio_kilo),
     });
 
+    const obraOptions = useMemo(
+        () => obras.map((obra) => ({ value: String(obra.id), label: `${obra.no} - ${obra.descripcion}` })),
+        [obras],
+    );
+
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         put(`/admin/prod/grupo-precios/${grupoPrecio.id}`);
-    };
-
-    const handleDelete = () => {
-        if (confirm('Estas seguro de eliminar este grupo de precios?')) {
-            router.delete(`/admin/prod/grupo-precios/${grupoPrecio.id}`, {
-                preserveScroll: false,
-            });
-        }
     };
 
     return (
@@ -47,23 +45,17 @@ export default function GrupoPreciosEdit({ grupoPrecio, obras }: Props) {
             <Head title={`Editar ${grupoPrecio.descripcion}`} />
 
             <div className="p-6">
-                <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Editar Grupo de Precios</h1>
+                <div className="w-full max-w-2xl">
+                    <h1 className="mb-6 text-2xl font-semibold">Editar grupo de precios</h1>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Obra" htmlFor="obra_id" error={errors.obra_id} required>
-                            <Select
-                                id="obra_id"
+                            <SearchSelect
+                                options={obraOptions}
                                 value={data.obra_id}
                                 onValueChange={(value) => setData('obra_id', value)}
-                                placeholder="Seleccionar obra"
-                            >
-                                {obras.map((obra) => (
-                                    <option key={obra.id} value={obra.id}>
-                                        {obra.no} - {obra.descripcion}
-                                    </option>
-                                ))}
-                            </Select>
+                                placeholder="Buscar obra..."
+                            />
                         </FormField>
 
                         <FormField label="Descripcion" htmlFor="descripcion" error={errors.descripcion} required>
@@ -71,6 +63,7 @@ export default function GrupoPreciosEdit({ grupoPrecio, obras }: Props) {
                                 id="descripcion"
                                 value={data.descripcion}
                                 onChange={(e) => setData('descripcion', e.target.value)}
+                                error={!!errors.descripcion}
                             />
                         </FormField>
 
@@ -82,13 +75,16 @@ export default function GrupoPreciosEdit({ grupoPrecio, obras }: Props) {
                                 min="0"
                                 value={data.precio_kilo}
                                 onChange={(e) => setData('precio_kilo', e.target.value)}
+                                error={!!errors.precio_kilo}
                             />
                         </FormField>
 
-                        <div className="flex justify-between">
-                            <Button type="button" variant="destructive" onClick={handleDelete}>
-                                Eliminar
-                            </Button>
+                        <div className="flex items-center justify-between">
+                            <DeleteDialog
+                                title="Eliminar grupo de precios"
+                                description={`¿Eliminar el grupo "${grupoPrecio.descripcion}"? Esta acción no se puede deshacer.`}
+                                deleteUrl={`/admin/prod/grupo-precios/${grupoPrecio.id}`}
+                            />
                             <div className="flex gap-2">
                                 <Button variant="outline" asChild>
                                     <Link href={`/admin/prod/grupo-precios/obra/${grupoPrecio.obra_id}`}>Cancelar</Link>

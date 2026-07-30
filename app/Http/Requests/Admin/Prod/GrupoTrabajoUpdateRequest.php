@@ -18,8 +18,8 @@ class GrupoTrabajoUpdateRequest extends FormRequest
     {
         return [
             'descripcion' => ['required', 'string', 'max:255'],
-            'linea' => ['nullable', 'integer', 'min:0'],
-            'modulo' => ['nullable', 'integer', 'min:0'],
+            'ubicacion_ids' => ['nullable', 'array'],
+            'ubicacion_ids.*' => ['exists:prod_ubicaciones,id'],
             'activo' => ['nullable', 'boolean'],
         ];
     }

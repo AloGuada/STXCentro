@@ -92,14 +92,20 @@ use App\Http\Controllers\Admin\Intra\DocumentoController as IntraDocumentoContro
 use App\Http\Controllers\Admin\Intra\SeccionEstaticaController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\ObraController;
+use App\Http\Controllers\Admin\Prod\AsistenciaController as ProdAsistenciaController;
+use App\Http\Controllers\Admin\Prod\CatalogoController as ProdCatalogoController;
+use App\Http\Controllers\Admin\Prod\CategoriaController as ProdCategoriaController;
+use App\Http\Controllers\Admin\Prod\CategoriaEmpleadoController as ProdCategoriaEmpleadoController;
 use App\Http\Controllers\Admin\Prod\ConceptoController as ProdConceptoController;
-use App\Http\Controllers\Admin\Prod\CorteController as ProdCorteController;
+use App\Http\Controllers\Admin\Prod\ConfiguracionController as ProdConfiguracionController;
+use App\Http\Controllers\Admin\Prod\DestajoController as ProdDestajoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioConceptoController as ProdGrupoPrecioConceptoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioController as ProdGrupoPrecioController;
 use App\Http\Controllers\Admin\Prod\GrupoTrabajoController as ProdGrupoTrabajoController;
 use App\Http\Controllers\Admin\Prod\PagoExtraController as ProdPagoExtraController;
 use App\Http\Controllers\Admin\Prod\RegistroController as ProdRegistroController;
 use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtraController;
+use App\Http\Controllers\Admin\Prod\UbicacionController as ProdUbicacionController;
 use App\Http\Controllers\Admin\ProveedorController;
 use App\Http\Controllers\Admin\RegimenFiscalController;
 use App\Http\Controllers\Admin\Rh\DashboardController as RhDashboardController;
@@ -152,9 +158,18 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     // Produccion admin routes
     Route::prefix('prod')->name('prod.')->group(function () {
-        Route::get('conceptos/obra/{obra}', [ProdConceptoController::class, 'showByObra'])->name('conceptos.show-by-obra');
-        Route::post('conceptos/obra/{obra}/import-csv', [ProdConceptoController::class, 'importCsv'])->name('conceptos.import-csv');
-        Route::resource('conceptos', ProdConceptoController::class)->parameters(['conceptos' => 'concepto']);
+        // Catalogos de piezas (versionados, uno vigente por obra)
+        Route::post('catalogos/{catalogo}/nueva-version', [ProdCatalogoController::class, 'nuevaVersion'])->name('catalogos.nueva-version');
+        Route::get('catalogos/{catalogo}/comparar/{contra}', [ProdCatalogoController::class, 'comparar'])->name('catalogos.comparar');
+        Route::post('catalogos/{catalogo}/import-csv', [ProdConceptoController::class, 'importCsv'])->name('catalogos.import-csv');
+        Route::resource('catalogos', ProdCatalogoController::class)
+            ->parameters(['catalogos' => 'catalogo'])
+            ->except(['create', 'edit']);
+
+        Route::get('conceptos/layout', [ProdConceptoController::class, 'descargarLayout'])->name('conceptos.layout');
+        Route::resource('conceptos', ProdConceptoController::class)
+            ->parameters(['conceptos' => 'concepto'])
+            ->only(['create', 'store', 'edit', 'update', 'destroy']);
         Route::get('grupo-precios/obra/{obra}', [ProdGrupoPrecioController::class, 'showByObra'])->name('grupo-precios.show-by-obra');
         Route::resource('grupo-precios', ProdGrupoPrecioController::class)->parameters(['grupo-precios' => 'grupoPrecio'])->except(['show']);
         Route::post('grupo-precios/{grupoPrecio}/assign-conceptos', [ProdGrupoPrecioController::class, 'assignConceptos'])->name('grupo-precios.assign-conceptos');
@@ -170,14 +185,29 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Catalogos
         Route::resource('tipos-pago-extra', ProdTipoPagoExtraController::class)->parameters(['tipos-pago-extra' => 'tipoPagoExtra']);
+        Route::resource('categorias', ProdCategoriaController::class)->parameters(['categorias' => 'categoria'])->except(['show']);
+        Route::resource('ubicaciones', ProdUbicacionController::class)->parameters(['ubicaciones' => 'ubicacion'])->except(['show']);
+        Route::resource('categorias-empleado', ProdCategoriaEmpleadoController::class)
+            ->parameters(['categorias-empleado' => 'categoriaEmpleado'])
+            ->except(['show']);
 
-        // Registros y Pagos Extra
-        Route::resource('registros', ProdRegistroController::class)->parameters(['registros' => 'registro'])->except(['edit', 'update']);
-        Route::resource('pagos-extra', ProdPagoExtraController::class)->parameters(['pagos-extra' => 'pagoExtra'])->except(['edit', 'update', 'show']);
+        // Configuracion del modulo (salario minimo diario)
+        Route::get('configuracion', [ProdConfiguracionController::class, 'edit'])->name('configuracion.edit');
+        Route::put('configuracion', [ProdConfiguracionController::class, 'update'])->name('configuracion.update');
 
-        // Cortes y liquidaciones
-        Route::resource('cortes', ProdCorteController::class)->except(['edit', 'update'])->parameters(['cortes' => 'corte']);
-        Route::post('cortes/{corte}/cerrar', [ProdCorteController::class, 'cerrar'])->name('cortes.cerrar');
+        // Destajos (semanal) y liquidaciones
+        Route::resource('destajos', ProdDestajoController::class)->except(['edit', 'update'])->parameters(['destajos' => 'destajo']);
+        Route::post('destajos/{destajo}/cerrar', [ProdDestajoController::class, 'cerrar'])->name('destajos.cerrar');
+        Route::get('destajos/{destajo}/orden-pago', [ProdDestajoController::class, 'ordenPagoPdf'])->name('destajos.orden-pago');
+        Route::get('destajos/{destajo}/asistencia', [ProdAsistenciaController::class, 'show'])->name('destajos.asistencia');
+        Route::post('destajos/{destajo}/asistencia', [ProdAsistenciaController::class, 'store'])->name('destajos.asistencia.store');
+
+        // Produccion y pagos extra dentro del destajo
+        Route::post('destajos/{destajo}/registros', [ProdRegistroController::class, 'store'])->name('destajos.registros.store');
+        Route::post('destajos/{destajo}/registros/import-csv', [ProdRegistroController::class, 'importCsv'])->name('destajos.registros.import-csv');
+        Route::delete('destajos/{destajo}/registros/{registro}', [ProdRegistroController::class, 'destroy'])->name('destajos.registros.destroy');
+        Route::post('destajos/{destajo}/pagos-extra', [ProdPagoExtraController::class, 'store'])->name('destajos.pagos-extra.store');
+        Route::delete('destajos/{destajo}/pagos-extra/{pagoExtra}', [ProdPagoExtraController::class, 'destroy'])->name('destajos.pagos-extra.destroy');
     });
 
     // Infraestructura admin routes

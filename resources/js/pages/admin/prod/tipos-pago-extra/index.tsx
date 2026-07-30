@@ -6,7 +6,7 @@ import { Head } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Produccion', href: '/admin/prod/cortes' },
+    { title: 'Produccion', href: '/admin/prod/destajos' },
     { title: 'Tipos Pago Extra', href: '/admin/prod/tipos-pago-extra' },
 ];
 
@@ -15,6 +15,7 @@ const columns: Column<ProdTipoPagoExtra>[] = [
     {
         key: 'orden',
         label: 'Orden',
+        className: 'text-right',
         render: (t) => <span className="font-mono text-sm">{t.orden}</span>,
     },
     {
@@ -39,6 +40,11 @@ export default function TiposPagoExtraIndex({ tipos, filters }: Props) {
             <Head title="Tipos Pago Extra" />
 
             <div className="p-6">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-semibold">Tipos de pago extra</h1>
+                    <p className="mt-1 text-sm text-base-content/60">Catálogo de conceptos de pago adicional.</p>
+                </div>
+
                 <DataTable
                     columns={columns}
                     data={tipos}
@@ -46,7 +52,7 @@ export default function TiposPagoExtraIndex({ tipos, filters }: Props) {
                     searchValue={filters.search}
                     searchPlaceholder="Buscar tipos..."
                     createHref="/admin/prod/tipos-pago-extra/create"
-                    createLabel="Nuevo Tipo"
+                    createLabel="Nuevo tipo"
                     emptyMessage="No hay tipos de pago extra registrados"
                     getRowHref={(t) => `/admin/prod/tipos-pago-extra/${t.id}/edit`}
                 />

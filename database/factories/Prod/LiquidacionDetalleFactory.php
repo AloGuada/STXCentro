@@ -2,6 +2,8 @@
 
 namespace Database\Factories\Prod;
 
+use App\Models\Concepto;
+use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\Liquidacion;
 use App\Models\Prod\LiquidacionDetalle;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -25,8 +27,8 @@ class LiquidacionDetalleFactory extends Factory
 
         return [
             'liquidacion_id' => Liquidacion::factory(),
-            'concepto_id' => 1,
-            'grupo_precio_id' => 1,
+            'concepto_id' => Concepto::factory(),
+            'grupo_precio_id' => GrupoPrecio::factory(),
             'cantidad' => $cantidad,
             'kilos' => $kilos,
             'precio_kilo_aplicado' => $precioKilo,

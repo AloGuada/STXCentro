@@ -21,8 +21,8 @@ class GrupoPrecioController extends Controller
         $obras = Obra::query()
             ->sinPlanta()
             ->withCount([
-                'conceptos as conceptos_count' => fn ($q) => $q->where('activo', true),
-                'conceptos as conceptos_sin_precio_count' => fn ($q) => $q->where('activo', true)->whereDoesntHave('grupoPrecioConceptos'),
+                'conceptos as conceptos_count' => fn ($q) => $q->deCatalogoVigente()->where('activo', true),
+                'conceptos as conceptos_sin_precio_count' => fn ($q) => $q->deCatalogoVigente()->where('activo', true)->whereDoesntHave('grupoPrecioConceptos'),
             ])
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
                 ->orWhere('descripcion', 'like', "%{$s}%")))
@@ -38,9 +38,14 @@ class GrupoPrecioController extends Controller
 
     public function create(Request $request): Response
     {
+        // Si se llega desde una obra, se da por dada y no se vuelve a elegir.
+        $obra = $request->obra_id
+            ? Obra::sinPlanta()->find($request->obra_id)
+            : null;
+
         return Inertia::render('admin/prod/grupo-precios/create', [
-            'obras' => Obra::sinPlanta()->orderBy('no')->get(),
-            'obraId' => $request->obra_id,
+            'obra' => $obra,
+            'obras' => $obra ? [] : Obra::sinPlanta()->orderBy('no')->get(['id', 'no', 'descripcion']),
         ]);
     }
 
@@ -68,6 +73,7 @@ class GrupoPrecioController extends Controller
 
         $unassignedConceptos = Concepto::query()
             ->where('obra_id', $obra->id)
+            ->deCatalogoVigente()
             ->where('activo', true)
             ->whereDoesntHave('grupoPrecioConceptos')
             ->orderBy('marca')
@@ -86,7 +92,7 @@ class GrupoPrecioController extends Controller
 
         return Inertia::render('admin/prod/grupo-precios/edit', [
             'grupoPrecio' => $grupoPrecio,
-            'obras' => Obra::sinPlanta()->with(['conceptos' => fn ($q) => $q->where('activo', true)->orderBy('marca')])->orderBy('no')->get(),
+            'obras' => Obra::sinPlanta()->with(['conceptos' => fn ($q) => $q->deCatalogoVigente()->where('activo', true)->orderBy('marca')])->orderBy('no')->get(),
         ]);
     }
 

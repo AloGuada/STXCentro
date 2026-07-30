@@ -2,103 +2,77 @@
 
 namespace App\Http\Controllers\Admin\Prod;
 
+use App\Exports\Prod\ConceptosLayoutExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ConceptoImportCsvRequest;
 use App\Http\Requests\Admin\Prod\ConceptoStoreRequest;
 use App\Http\Requests\Admin\Prod\ConceptoUpdateRequest;
 use App\Models\Concepto;
-use App\Models\Obra;
+use App\Models\Prod\Catalogo;
+use App\Models\Prod\Categoria;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ConceptoController extends Controller
 {
-    public function index(Request $request): Response
-    {
-        $obras = Obra::query()
-            ->sinPlanta()
-            ->withCount([
-                'conceptos as conceptos_count',
-                'conceptos as conceptos_activos_count' => fn ($q) => $q->where('activo', true),
-            ])
-            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('no', 'like', "%{$s}%")
-                ->orWhere('descripcion', 'like', "%{$s}%")))
-            ->orderBy('no')
-            ->paginate(15)
-            ->withQueryString();
-
-        return Inertia::render('admin/prod/conceptos/index', [
-            'obras' => $obras,
-            'filters' => $request->only(['search']),
-        ]);
-    }
-
-    public function showByObra(Request $request, Obra $obra): Response
-    {
-        abort_if($obra->es_planta, 404);
-
-        $conceptos = Concepto::query()
-            ->where('obra_id', $obra->id)
-            ->when($request->search, fn ($q, $s) => $q->where('marca', 'like', "%{$s}%")
-                ->orWhere('descripcion', 'like', "%{$s}%"))
-            ->orderBy('marca')
-            ->get();
-
-        return Inertia::render('admin/prod/conceptos/show', [
-            'obra' => $obra,
-            'conceptos' => $conceptos,
-            'filters' => $request->only(['search']),
-        ]);
-    }
-
     public function create(Request $request): Response
     {
-        $obra = Obra::sinPlanta()->findOrFail($request->obra_id);
+        $catalogo = Catalogo::with('obra:id,no,descripcion')->findOrFail($request->catalogo_id);
 
         return Inertia::render('admin/prod/conceptos/create', [
-            'obra' => $obra,
+            'catalogo' => $catalogo,
+            'categorias' => Categoria::orderBy('nombre')->get(),
         ]);
     }
 
     public function store(ConceptoStoreRequest $request): RedirectResponse
     {
+        $catalogo = Catalogo::findOrFail($request->catalogo_id);
+
         Concepto::create([
-            'obra_id' => $request->obra_id,
+            'catalogo_id' => $catalogo->id,
+            'obra_id' => $catalogo->obra_id,
             'marca' => $request->marca,
             'descripcion' => $request->descripcion,
             'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,
-            'version' => $request->version ?? 1,
+            'longitud' => $request->longitud,
+            'categoria_id' => $request->categoria_id,
+            'version' => $request->version ?? $catalogo->version,
             'activo' => $request->boolean('activo', true),
         ]);
 
-        return to_route('admin.prod.conceptos.show-by-obra', $request->obra_id);
+        return to_route('admin.prod.catalogos.show', $catalogo);
     }
 
     public function edit(Concepto $concepto): Response
     {
-        $concepto->load(['obra', 'grupoPrecioConceptos.grupoPrecio']);
+        $concepto->load(['catalogo.obra:id,no,descripcion', 'grupoPrecioConceptos.grupoPrecio']);
 
         return Inertia::render('admin/prod/conceptos/edit', [
             'concepto' => $concepto,
+            'categorias' => Categoria::orderBy('nombre')->get(),
         ]);
     }
 
     public function update(ConceptoUpdateRequest $request, Concepto $concepto): RedirectResponse
     {
         $concepto->update([
-            'obra_id' => $request->obra_id,
             'marca' => $request->marca,
             'descripcion' => $request->descripcion,
             'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,
+            'longitud' => $request->longitud,
+            'categoria_id' => $request->categoria_id,
             'version' => $request->version ?? $concepto->version,
             'activo' => $request->boolean('activo', $concepto->activo),
         ]);
 
-        return to_route('admin.prod.conceptos.show-by-obra', $concepto->obra_id);
+        return to_route('admin.prod.catalogos.show', $concepto->catalogo_id);
     }
 
     public function destroy(Concepto $concepto): RedirectResponse
@@ -107,14 +81,23 @@ class ConceptoController extends Controller
             return back()->withErrors(['error' => 'No se puede eliminar un concepto que tiene registros asociados.']);
         }
 
-        $obraId = $concepto->obra_id;
+        $catalogoId = $concepto->catalogo_id;
         $concepto->grupoPrecioConceptos()->delete();
         $concepto->delete();
 
-        return to_route('admin.prod.conceptos.show-by-obra', $obraId);
+        return to_route('admin.prod.catalogos.show', $catalogoId);
     }
 
-    public function importCsv(ConceptoImportCsvRequest $request, Obra $obra): RedirectResponse
+    public function descargarLayout(): BinaryFileResponse
+    {
+        return Excel::download(new ConceptosLayoutExport, 'layout-conceptos.xlsx');
+    }
+
+    /**
+     * Importa el layout sobre un catálogo. Las marcas que ya existen en esa
+     * versión se sobrescriben; las nuevas se agregan.
+     */
+    public function importCsv(ConceptoImportCsvRequest $request, Catalogo $catalogo): RedirectResponse
     {
         $file = $request->file('csv_file');
         $handle = fopen($file->getRealPath(), 'r');
@@ -122,6 +105,7 @@ class ConceptoController extends Controller
         $header = fgetcsv($handle);
         $header = array_map(fn ($col) => mb_strtoupper(trim($col)), $header);
 
+        $categoriasCache = [];
         $rows = [];
         while (($row = fgetcsv($handle)) !== false) {
             if (count($row) < count($header)) {
@@ -135,23 +119,28 @@ class ConceptoController extends Controller
                 continue;
             }
 
-            // Peso viene en toneladas, convertir a kilos (* 1000)
-            $pesoToneladas = (float) str_replace(',', '', $data['PESO(T)'] ?? '0');
-            $pesoKilos = $pesoToneladas * 1000;
+            $cantidad = (int) str_replace(',', '', $data['CANTIDAD'] ?? '');
+            $peso = (float) str_replace(',', '', $data['PESOKG'] ?? '');
 
-            // Version viene como "REV X", extraer el numero
-            $versionRaw = trim($data['REVISIÓN DE DOCUMENTOS'] ?? $data['REVISION DE DOCUMENTOS'] ?? '1');
-            preg_match('/(\d+)/', $versionRaw, $matches);
-            $version = (int) ($matches[1] ?? 1);
-            if ($version < 1) {
-                $version = 1;
+            // Ignorar filas de resumen/totales al pie del layout (sin cantidad ni peso reales).
+            if ($cantidad < 1 && $peso <= 0) {
+                continue;
+            }
+
+            $categoriaNombre = trim($data['CATEGORIA'] ?? '');
+            $categoriaId = null;
+            if ($categoriaNombre !== '') {
+                $categoriaId = $categoriasCache[$categoriaNombre] ??= Categoria::firstOrCreate(['nombre' => $categoriaNombre])->id;
             }
 
             $rows[$marca] = [
                 'marca' => $marca,
-                'descripcion' => trim($data['DESCRIPCIÓN'] ?? $data['DESCRIPCION'] ?? ''),
-                'peso_unitario' => $pesoKilos,
-                'version' => $version,
+                'descripcion' => trim($data['DESCRIPCION'] ?? $data['DESCRIPCIÓN'] ?? ''),
+                'categoria_id' => $categoriaId,
+                'cantidad' => max($cantidad, 1),
+                'peso_unitario' => $peso,
+                'longitud' => (int) round((float) str_replace(',', '', $data['LONGITUDMM'] ?? '0')),
+                'obra_id' => $catalogo->obra_id,
             ];
         }
 
@@ -160,19 +149,11 @@ class ConceptoController extends Controller
         $count = 0;
 
         foreach ($rows as $rowData) {
-            $existing = Concepto::where('obra_id', $obra->id)
-                ->where('marca', $rowData['marca'])
-                ->first();
-
-            if ($existing) {
-                if ($rowData['version'] > $existing->version) {
-                    $existing->update($rowData);
-                    $count++;
-                }
-            } else {
-                Concepto::create(array_merge($rowData, ['obra_id' => $obra->id]));
-                $count++;
-            }
+            Concepto::updateOrCreate(
+                ['catalogo_id' => $catalogo->id, 'marca' => $rowData['marca']],
+                $rowData,
+            );
+            $count++;
         }
 
         return back()->with('success', "Se importaron {$count} conceptos correctamente.");

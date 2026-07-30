@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\ObraUpdateRequest;
 use App\Models\Concepto;
 use App\Models\Costos\Rubro;
 use App\Models\Obra;
+use App\Models\Prod\Catalogo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -98,9 +99,10 @@ class ObraController extends Controller
         fclose($handle);
 
         $count = 0;
+        $catalogo = $this->catalogoVigenteDe($obra);
 
         foreach ($rows as $rowData) {
-            $existing = Concepto::where('obra_id', $obra->id)
+            $existing = Concepto::where('catalogo_id', $catalogo->id)
                 ->where('marca', $rowData['marca'])
                 ->first();
 
@@ -110,12 +112,30 @@ class ObraController extends Controller
                     $count++;
                 }
             } else {
-                Concepto::create(array_merge($rowData, ['obra_id' => $obra->id]));
+                Concepto::create(array_merge($rowData, [
+                    'obra_id' => $obra->id,
+                    'catalogo_id' => $catalogo->id,
+                ]));
                 $count++;
             }
         }
 
         return back()->with('success', "Se importaron {$count} conceptos correctamente.");
+    }
+
+    /**
+     * Las piezas siempre viven en un catálogo versionado; si la obra todavía no
+     * tiene uno, esta importación lo estrena.
+     */
+    private function catalogoVigenteDe(Obra $obra): Catalogo
+    {
+        return $obra->catalogoVigente()->first()
+            ?? Catalogo::create([
+                'obra_id' => $obra->id,
+                'nombre' => 'Catálogo '.$obra->no,
+                'version' => 1,
+                'vigente' => true,
+            ]);
     }
 
     public function update(ObraUpdateRequest $request, Obra $obra): RedirectResponse

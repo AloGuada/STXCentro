@@ -564,18 +564,90 @@ export type StiGrupo = {
 };
 
 // Produccion Types
+/** Ubicación de trabajo; sustituye a los enteros linea y modulo del grupo. */
+export type ProdUbicacion = {
+    id: number;
+    nombre: string;
+    activo: boolean;
+    grupos_trabajo_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+/**
+ * Categoría del trabajador. `valor` es un peso para repartir el excedente del
+ * destajo, no un sueldo.
+ */
+export type ProdCategoriaEmpleado = {
+    id: number;
+    nombre: string;
+    valor: number;
+    orden: number;
+    activo: boolean;
+    empleados_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+/** Pieza pagada a medias que todavía tiene saldo por liquidar. */
+export type ProdPendienteLiquidar = {
+    concepto_id: number;
+    marca: string;
+    descripcion: string;
+    obra: string;
+    grupo_trabajo_id: number | null;
+    grupo_trabajo: string | null;
+    cantidad_catalogo: number;
+    pagado: number;
+    saldo: number;
+    cantidad_sugerida: number;
+    porcentaje_sugerido: number;
+};
+
+/** Catálogo de piezas de una obra; sólo una versión está vigente a la vez. */
+export type ProdCatalogo = {
+    id: number;
+    obra_id: number;
+    catalogo_origen_id: number | null;
+    nombre: string;
+    version: number;
+    vigente: boolean;
+    notas: string | null;
+    obra?: Obra;
+    conceptos?: Concepto[];
+    created_at: string;
+    updated_at: string;
+};
+
 export type Concepto = {
     id: number;
     obra_id: number;
+    catalogo_id: number | null;
+    catalogo?: ProdCatalogo;
     marca: string;
     descripcion: string;
     cantidad: number;
     peso_unitario: number;
+    longitud: number | null;
+    categoria_id: number | null;
     version: number;
     activo: boolean;
     obra?: Obra;
+    categoria?: ProdCategoria;
     registros_sum_cantidad?: number;
+    /** Piezas ya capturadas de esta marca en la obra (todas las versiones del catálogo). */
+    capturado?: number;
+    /** Piezas que aún se pueden capturar segun el catalogo vigente. */
+    disponible?: number;
     grupo_precio_conceptos?: ProdGrupoPrecioConcepto[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type ProdCategoria = {
+    id: number;
+    nombre: string;
+    conceptos_count?: number;
     created_at: string;
     updated_at: string;
 };
@@ -605,9 +677,8 @@ export type ProdGrupoPrecioConcepto = {
 export type ProdGrupoTrabajo = {
     id: number;
     descripcion: string;
-    linea: number;
-    modulo: number;
     activo: boolean;
+    ubicaciones?: ProdUbicacion[];
     empleados?: ProdGrupoEmpleado[];
     empleados_count?: number;
     created_at: string;
@@ -619,7 +690,8 @@ export type ProdGrupoEmpleado = {
     grupo_trabajo_id: number;
     nombre: string;
     no_empleado: string | null;
-    porcentaje: number;
+    categoria_empleado_id: number | null;
+    categoria?: ProdCategoriaEmpleado | null;
     created_at: string;
     updated_at: string;
 };
@@ -630,14 +702,17 @@ export type ProdRegistro = {
     concepto_id: number;
     grupo_trabajo_id: number;
     cantidad: number;
+    /** Avance pagado de ese lote; menos de 100 deja saldo por liquidar después. */
+    porcentaje: number;
     concepto?: Concepto;
     grupo_trabajo?: ProdGrupoTrabajo;
     created_at: string;
     updated_at: string;
 };
 
-export type ProdCorte = {
+export type ProdDestajo = {
     id: number;
+    anio: number;
     semana: number;
     fecha_inicio: string;
     fecha_fin: string;
@@ -649,9 +724,16 @@ export type ProdCorte = {
     updated_at: string;
 };
 
+export type ProdPiezaSinPrecio = {
+    concepto_id: number;
+    marca: string;
+    descripcion: string;
+    cantidad: number;
+};
+
 export type ProdLiquidacion = {
     id: number;
-    corte_id: number;
+    destajo_id: number;
     grupo_trabajo_id: number;
     total_kilos: number;
     total_produccion: number;
@@ -659,7 +741,7 @@ export type ProdLiquidacion = {
     total_final: number;
     generado_en: string;
     generado_por: string;
-    corte?: ProdCorte;
+    destajo?: ProdDestajo;
     grupo_trabajo?: ProdGrupoTrabajo;
     generador?: Usuario;
     detalles?: ProdLiquidacionDetalle[];
@@ -673,11 +755,20 @@ export type ProdLiquidacionDetalle = {
     id: number;
     liquidacion_id: number;
     concepto_id: number;
+    /** Snapshot del renglón al cerrar: no se relee del catálogo. */
+    obra_id: number | null;
+    marca: string | null;
+    descripcion: string | null;
+    peso_unitario: number | null;
+    longitud: number | null;
     grupo_precio_id: number;
     cantidad: number;
+    /** Avance pagado de ese lote; los kilos ya vienen prorrateados por este %. */
+    porcentaje: number;
     kilos: number;
     precio_kilo_aplicado: number;
     total: number;
+    concepto?: Concepto;
     created_at: string;
     updated_at: string;
 };
@@ -695,14 +786,14 @@ export type ProdPagoExtra = {
     id: number;
     descripcion: string;
     tipo_id: number;
-    corte_id: number;
+    destajo_id: number;
     grupo_trabajo_id: number;
     precio: number;
     dias: number;
     personas: number;
     monto?: number;
     tipo?: ProdTipoPagoExtra;
-    corte?: ProdCorte;
+    destajo?: ProdDestajo;
     grupo_trabajo?: ProdGrupoTrabajo;
     created_at: string;
     updated_at: string;
@@ -713,6 +804,14 @@ export type ProdLiquidacionEmpleado = {
     liquidacion_id: number;
     nombre: string;
     no_empleado: string | null;
+    /** Snapshot del reparto al cerrar la semana. */
+    dias_pagados: number;
+    categoria_nombre: string | null;
+    categoria_valor: number;
+    salario_diario: number;
+    sueldo_base: number;
+    monto_destajo: number;
+    /** Proporción del excedente que le tocó, como referencia. */
     porcentaje: number;
     monto_asignado: number;
     created_at: string;

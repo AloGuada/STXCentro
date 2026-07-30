@@ -18,13 +18,13 @@ class GrupoTrabajoStoreRequest extends FormRequest
     {
         return [
             'descripcion' => ['required', 'string', 'max:255'],
-            'linea' => ['nullable', 'integer', 'min:0'],
-            'modulo' => ['nullable', 'integer', 'min:0'],
             'activo' => ['nullable', 'boolean'],
+            'ubicacion_ids' => ['nullable', 'array'],
+            'ubicacion_ids.*' => ['exists:prod_ubicaciones,id'],
             'empleados' => ['nullable', 'array'],
             'empleados.*.nombre' => ['required_with:empleados', 'string', 'max:255'],
             'empleados.*.no_empleado' => ['nullable', 'string', 'max:50'],
-            'empleados.*.porcentaje' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'empleados.*.categoria_empleado_id' => ['nullable', 'exists:prod_categorias_empleado,id'],
         ];
     }
 

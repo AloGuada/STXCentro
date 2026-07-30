@@ -19,7 +19,6 @@ class PagoExtraStoreRequest extends FormRequest
         return [
             'descripcion' => ['required', 'string', 'max:255'],
             'tipo_id' => ['required', 'exists:prod_tipos,id'],
-            'corte_id' => ['required', 'exists:prod_cortes,id'],
             'grupo_trabajo_id' => ['required', 'exists:prod_grupos_trabajo,id'],
             'precio' => ['required', 'numeric', 'min:0'],
             'dias' => ['required', 'integer', 'min:1'],
@@ -35,7 +34,6 @@ class PagoExtraStoreRequest extends FormRequest
         return [
             'descripcion.required' => 'La descripcion es obligatoria.',
             'tipo_id.required' => 'El tipo es obligatorio.',
-            'corte_id.required' => 'El corte es obligatorio.',
             'grupo_trabajo_id.required' => 'El grupo de trabajo es obligatorio.',
             'precio.required' => 'El precio es obligatorio.',
             'precio.min' => 'El precio no puede ser negativo.',

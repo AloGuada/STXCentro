@@ -2,6 +2,7 @@
 
 namespace Database\Factories\Prod;
 
+use App\Models\Prod\CategoriaEmpleado;
 use App\Models\Prod\GrupoEmpleado;
 use App\Models\Prod\GrupoTrabajo;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -22,7 +23,12 @@ class GrupoEmpleadoFactory extends Factory
             'grupo_trabajo_id' => GrupoTrabajo::factory(),
             'nombre' => fake()->name(),
             'no_empleado' => fake()->unique()->regexify('[0-9]{4}'),
-            'porcentaje' => 100.00,
+            // Reutiliza una sola categoria para que los grupos de prueba
+            // reparten el excedente en partes iguales por defecto.
+            'categoria_empleado_id' => fn () => CategoriaEmpleado::query()->firstOrCreate(
+                ['nombre' => 'Categoria de prueba'],
+                ['valor' => 1500, 'orden' => 0, 'activo' => true],
+            )->id,
         ];
     }
 }

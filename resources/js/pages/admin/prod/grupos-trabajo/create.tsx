@@ -1,38 +1,47 @@
 import { FormField } from '@/components/form';
+import { UbicacionesMultiselect } from '@/components/prod/ubicaciones-multiselect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import type { ProdCategoriaEmpleado, ProdUbicacion } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon, PlusIcon, TrashIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Produccion', href: '/admin/prod/cortes' },
+    { title: 'Produccion', href: '/admin/prod/destajos' },
     { title: 'Grupos Trabajo', href: '/admin/prod/grupos-trabajo' },
     { title: 'Nuevo Grupo', href: '/admin/prod/grupos-trabajo/create' },
 ];
 
-type EmpleadoForm = { nombre: string; no_empleado: string; porcentaje: string };
+type EmpleadoForm = { nombre: string; no_empleado: string; categoria_empleado_id: string };
 
-export default function GruposTrabajoCreate() {
+type Props = {
+    ubicaciones: Pick<ProdUbicacion, 'id' | 'nombre'>[];
+    categorias: Pick<ProdCategoriaEmpleado, 'id' | 'nombre' | 'valor'>[];
+};
+
+export default function GruposTrabajoCreate({ ubicaciones, categorias }: Props) {
     const { data, setData, post, processing, errors } = useForm<{
         descripcion: string;
-        linea: string;
-        modulo: string;
         activo: boolean;
+        ubicacion_ids: number[];
         empleados: EmpleadoForm[];
     }>({
         descripcion: '',
-        linea: '0',
-        modulo: '0',
         activo: true,
+        ubicacion_ids: [],
         empleados: [],
     });
 
     const addEmpleado = () => {
-        setData('empleados', [...data.empleados, { nombre: '', no_empleado: '', porcentaje: '100' }]);
+        setData('empleados', [
+            ...data.empleados,
+            { nombre: '', no_empleado: '', categoria_empleado_id: categorias[0] ? String(categorias[0].id) : '' },
+        ]);
     };
 
     const removeEmpleado = (index: number) => {
@@ -55,8 +64,8 @@ export default function GruposTrabajoCreate() {
             <Head title="Nuevo Grupo de Trabajo" />
 
             <div className="p-6">
-                <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Nuevo Grupo de Trabajo</h1>
+                <div className="w-full max-w-3xl">
+                    <h1 className="mb-6 text-2xl font-semibold">Nuevo grupo de trabajo</h1>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Descripcion" htmlFor="descripcion" error={errors.descripcion} required>
@@ -64,72 +73,103 @@ export default function GruposTrabajoCreate() {
                                 id="descripcion"
                                 value={data.descripcion}
                                 onChange={(e) => setData('descripcion', e.target.value)}
+                                error={!!errors.descripcion}
                                 placeholder="Nombre del grupo"
                             />
                         </FormField>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Linea" htmlFor="linea" error={errors.linea}>
-                                <Input
-                                    id="linea"
-                                    type="number"
-                                    min="0"
-                                    value={data.linea}
-                                    onChange={(e) => setData('linea', e.target.value)}
-                                />
-                            </FormField>
+                        <FormField
+                            label="Ubicaciones"
+                            htmlFor="ubicacion_ids"
+                            error={errors.ubicacion_ids}
+                            description="Dónde trabaja el grupo. Puede ser más de una."
+                        >
+                            <UbicacionesMultiselect
+                                ubicaciones={ubicaciones}
+                                seleccionadas={data.ubicacion_ids}
+                                onChange={(ids) => setData('ubicacion_ids', ids)}
+                            />
+                        </FormField>
 
-                            <FormField label="Modulo" htmlFor="modulo" error={errors.modulo}>
-                                <Input
-                                    id="modulo"
-                                    type="number"
-                                    min="0"
-                                    value={data.modulo}
-                                    onChange={(e) => setData('modulo', e.target.value)}
-                                />
-                            </FormField>
-                        </div>
+                        <label className="flex cursor-pointer items-center gap-2">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm"
+                                checked={data.activo}
+                                onChange={(e) => setData('activo', e.target.checked)}
+                            />
+                            <span className="text-sm">Activo</span>
+                        </label>
 
                         <div>
                             <div className="mb-2 flex items-center justify-between">
-                                <h3 className="text-lg font-medium">Empleados</h3>
+                                <h2 className="text-lg font-semibold">Empleados</h2>
                                 <Button type="button" variant="outline" size="sm" onClick={addEmpleado}>
-                                    <PlusIcon className="mr-1 size-4" /> Agregar
+                                    <PlusIcon className="size-4" /> Agregar
                                 </Button>
                             </div>
 
-                            {data.empleados.map((emp, index) => (
-                                <div key={index} className="mb-2 flex items-end gap-2">
-                                    <div className="flex-1">
-                                        <Input
-                                            value={emp.nombre}
-                                            onChange={(e) => updateEmpleado(index, 'nombre', e.target.value)}
-                                            placeholder="Nombre"
-                                        />
-                                    </div>
-                                    <div className="w-32">
-                                        <Input
-                                            value={emp.no_empleado}
-                                            onChange={(e) => updateEmpleado(index, 'no_empleado', e.target.value)}
-                                            placeholder="No. Emp."
-                                        />
-                                    </div>
-                                    <div className="w-24">
-                                        <Input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            max="100"
-                                            value={emp.porcentaje}
-                                            onChange={(e) => updateEmpleado(index, 'porcentaje', e.target.value)}
-                                            placeholder="%"
-                                        />
-                                    </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeEmpleado(index)}>
-                                        <TrashIcon className="size-4 text-red-500" />
-                                    </Button>
-                                </div>
-                            ))}
+                            <div className="rounded-box border border-base-300 overflow-hidden">
+                                <table className="table table-sm">
+                                    <thead className="bg-base-200">
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th className="w-36">No. Empleado</th>
+                                            <th className="w-48">Categoria</th>
+                                            <th className="w-12"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {data.empleados.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} className="text-center text-base-content/50 py-6">
+                                                    Sin empleados. Usa "Agregar" para añadir integrantes.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            data.empleados.map((emp, index) => (
+                                                <tr key={index} className="hover">
+                                                    <td>
+                                                        <Input
+                                                            value={emp.nombre}
+                                                            onChange={(e) => updateEmpleado(index, 'nombre', e.target.value)}
+                                                            placeholder="Nombre"
+                                                            className="input-sm"
+                                                        />
+                                                    </td>
+                                                    <td>
+                                                        <Input
+                                                            value={emp.no_empleado}
+                                                            onChange={(e) => updateEmpleado(index, 'no_empleado', e.target.value)}
+                                                            placeholder="No. Emp."
+                                                            className="input-sm"
+                                                        />
+                                                    </td>
+                                                    <td>
+                                                        <Select
+                                                            value={emp.categoria_empleado_id}
+                                                            onValueChange={(v) => updateEmpleado(index, 'categoria_empleado_id', v)}
+                                                            className="select-sm"
+                                                            placeholder="Sin categoria"
+                                                        >
+                                                            {categorias.map((c) => (
+                                                                <SelectItem key={c.id} value={String(c.id)}>
+                                                                    {c.nombre} ({c.valor})
+                                                                </SelectItem>
+                                                            ))}
+                                                        </Select>
+                                                    </td>
+                                                    <td>
+                                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeEmpleado(index)}>
+                                                            <TrashIcon className="size-4 text-error" />
+                                                        </Button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-2">

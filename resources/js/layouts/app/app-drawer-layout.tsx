@@ -110,12 +110,6 @@ const navGroups: NavGroup[] = [
                 permission: 'obras.ver',
             },
             {
-                title: 'Conceptos',
-                href: '/admin/prod/conceptos',
-                icon: Puzzle,
-                permission: 'prod.conceptos.ver',
-            },
-            {
                 title: 'Media',
                 href: '/admin/media',
                 icon: Image,
@@ -158,22 +152,22 @@ const navGroups: NavGroup[] = [
         icon: Factory,
         items: [
             {
-                title: 'Registros',
-                href: '/admin/prod/registros',
-                icon: ClipboardList,
-                permission: 'prod.registros.ver',
-            },
-            {
-                title: 'Cortes',
-                href: '/admin/prod/cortes',
+                title: 'Destajos',
+                href: '/admin/prod/destajos',
                 icon: DollarSign,
-                permission: 'prod.cortes.ver',
+                permission: 'prod.destajos.ver',
             },
             {
-                title: 'Grupos Trabajo',
-                href: '/admin/prod/grupos-trabajo',
-                icon: Users,
-                permission: 'prod.grupos-trabajo.ver',
+                title: 'Catalogos',
+                href: '/admin/prod/catalogos',
+                icon: Puzzle,
+                permission: 'prod.catalogos.ver',
+            },
+            {
+                title: 'Categorias',
+                href: '/admin/prod/categorias',
+                icon: Tag,
+                permission: 'prod.categorias.ver',
             },
             {
                 title: 'Grupo Precios',
@@ -182,10 +176,34 @@ const navGroups: NavGroup[] = [
                 permission: 'prod.grupo-precios.ver',
             },
             {
+                title: 'Grupos Trabajo',
+                href: '/admin/prod/grupos-trabajo',
+                icon: Users,
+                permission: 'prod.grupos-trabajo.ver',
+            },
+            {
+                title: 'Ubicaciones',
+                href: '/admin/prod/ubicaciones',
+                icon: Building,
+                permission: 'prod.ubicaciones.ver',
+            },
+            {
+                title: 'Categorias Empleado',
+                href: '/admin/prod/categorias-empleado',
+                icon: UserCheck,
+                permission: 'prod.categorias-empleado.ver',
+            },
+            {
                 title: 'Tipos Pago Extra',
                 href: '/admin/prod/tipos-pago-extra',
                 icon: Layers,
                 permission: 'prod.tipos-pago-extra.ver',
+            },
+            {
+                title: 'Configuracion',
+                href: '/admin/prod/configuracion',
+                icon: Settings,
+                permission: 'prod.configuracion.ver',
             },
         ],
     },

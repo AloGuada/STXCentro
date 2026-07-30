@@ -1,11 +1,12 @@
-import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
+import { Button, ButtonLink } from '@/components/ui/button';
+import { Select, SelectItem } from '@/components/ui/select';
+import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Concepto, Obra, ProdGrupoPrecio, ProdGrupoPrecioConcepto } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
 import { ChevronRightIcon, PlusIcon, TrashIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 type GrupoPrecioWithConceptos = ProdGrupoPrecio & {
     grupo_precio_conceptos: (ProdGrupoPrecioConcepto & { concepto: Concepto })[];
@@ -18,10 +19,12 @@ type Props = {
     unassignedConceptos: Concepto[];
 };
 
+const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+
 export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConceptos }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Produccion', href: '/admin/prod/cortes' },
+        { title: 'Produccion', href: '/admin/prod/destajos' },
         { title: 'Grupo Precios', href: '/admin/prod/grupo-precios' },
         { title: `${obra.no} - ${obra.descripcion}`, href: `/admin/prod/grupo-precios/obra/${obra.id}` },
     ];
@@ -29,7 +32,10 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
     const [selectedGrupo, setSelectedGrupo] = useState('');
     const [selectedConcepto, setSelectedConcepto] = useState('');
 
-    const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    const conceptoOptions = useMemo(
+        () => unassignedConceptos.map((c) => ({ value: String(c.id), label: `${c.marca} - ${c.descripcion}` })),
+        [unassignedConceptos],
+    );
 
     const handleAssign = () => {
         if (!selectedGrupo || !selectedConcepto) return;
@@ -50,36 +56,33 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
             <Head title={`Grupo Precios - ${obra.no}`} />
 
             <div className="p-6">
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-6 flex items-end justify-between gap-3">
                     <div>
                         <h1 className="text-2xl font-semibold">Obra {obra.no}</h1>
-                        <p className="text-sm text-gray-500">{obra.descripcion}</p>
+                        <p className="mt-1 text-sm text-base-content/60">{obra.descripcion}</p>
                     </div>
-                    <Button asChild>
-                        <Link href={`/admin/prod/grupo-precios/create?obra_id=${obra.id}`}>
-                            <PlusIcon className="mr-1 size-4" />
-                            Nuevo Grupo Precio
-                        </Link>
-                    </Button>
+                    <ButtonLink href={`/admin/prod/grupo-precios/create?obra_id=${obra.id}`} variant="primary">
+                        <PlusIcon className="size-4" />
+                        Nuevo grupo de precio
+                    </ButtonLink>
                 </div>
 
-                {/* Grupos de precio */}
                 {grupoPrecios.length === 0 ? (
-                    <div className="rounded-lg border border-base-300 p-8 text-center text-gray-500">
+                    <div className="rounded-box border border-base-300 p-8 text-center text-base-content/50">
                         No hay grupos de precio para esta obra. Crea uno para empezar a asignar conceptos.
                     </div>
                 ) : (
                     <div className="space-y-4">
                         {grupoPrecios.map((gp) => (
-                            <div key={gp.id} className="collapse collapse-arrow border border-base-300 bg-base-100">
+                            <div key={gp.id} className="collapse collapse-arrow rounded-box border border-base-300 bg-base-100">
                                 <input type="checkbox" defaultChecked />
                                 <div className="collapse-title flex items-center gap-4">
                                     <div className="flex-1">
                                         <span className="font-medium">{gp.descripcion}</span>
-                                        <span className="ml-4 font-mono text-sm text-gray-500">${fmt(gp.precio_kilo)}/kg</span>
+                                        <span className="ml-4 font-mono text-sm text-base-content/60">${fmt(gp.precio_kilo)}/kg</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="badge badge-neutral">{gp.grupo_precio_conceptos_count} piezas</span>
+                                        <span className="badge badge-sm badge-ghost">{gp.grupo_precio_conceptos_count} piezas</span>
                                         <Link
                                             href={`/admin/prod/grupo-precios/${gp.id}/edit`}
                                             className="btn btn-ghost btn-xs"
@@ -91,11 +94,9 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
                                     </div>
                                 </div>
                                 <div className="collapse-content">
-                                    {gp.grupo_precio_conceptos.length === 0 ? (
-                                        <p className="py-2 text-sm text-gray-500">Sin conceptos asignados</p>
-                                    ) : (
-                                        <table className="table table-sm w-full">
-                                            <thead>
+                                    <div className="rounded-box border border-base-300 overflow-hidden">
+                                        <table className="table table-sm">
+                                            <thead className="bg-base-200">
                                                 <tr>
                                                     <th>Marca</th>
                                                     <th>Descripcion</th>
@@ -104,44 +105,50 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {gp.grupo_precio_conceptos.map((gpc) => (
-                                                    <tr key={gpc.id}>
-                                                        <td>{gpc.concepto?.marca}</td>
-                                                        <td>{gpc.concepto?.descripcion}</td>
-                                                        <td className="text-right font-mono">{gpc.concepto?.peso_unitario}</td>
-                                                        <td>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-6 w-6"
-                                                                onClick={() => handleRemove(gpc.id)}
-                                                            >
-                                                                <TrashIcon className="size-3 text-red-500" />
-                                                            </Button>
+                                                {gp.grupo_precio_conceptos.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={4} className="text-center text-base-content/50 py-6">
+                                                            Sin conceptos asignados
                                                         </td>
                                                     </tr>
-                                                ))}
+                                                ) : (
+                                                    gp.grupo_precio_conceptos.map((gpc) => (
+                                                        <tr key={gpc.id} className="hover">
+                                                            <td className="font-medium">{gpc.concepto?.marca}</td>
+                                                            <td>{gpc.concepto?.descripcion}</td>
+                                                            <td className="text-right font-mono">{gpc.concepto?.peso_unitario}</td>
+                                                            <td>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => handleRemove(gpc.id)}
+                                                                >
+                                                                    <TrashIcon className="size-4 text-error" />
+                                                                </Button>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
                                             </tbody>
                                         </table>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
                         ))}
                     </div>
                 )}
 
-                {/* Piezas sin asignar */}
                 {unassignedConceptos.length > 0 && (
                     <div className="mt-8">
-                        <h2 className="mb-4 text-lg font-medium">
+                        <h2 className="mb-4 text-lg font-semibold">
                             Piezas sin precio
-                            <span className="badge badge-warning ml-2">{unassignedConceptos.length}</span>
+                            <span className="badge badge-sm badge-warning ml-2">{unassignedConceptos.length}</span>
                         </h2>
 
                         {grupoPrecios.length > 0 && (
-                            <div className="mb-4 flex items-end gap-2">
-                                <div className="w-48">
+                            <div className="mb-4 flex flex-wrap items-end gap-2">
+                                <div className="w-56">
                                     <label className="label text-xs">Grupo</label>
                                     <Select
                                         value={selectedGrupo}
@@ -149,25 +156,20 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
                                         placeholder="Seleccionar grupo"
                                     >
                                         {grupoPrecios.map((gp) => (
-                                            <option key={gp.id} value={gp.id}>
+                                            <SelectItem key={gp.id} value={gp.id}>
                                                 {gp.descripcion} (${fmt(gp.precio_kilo)}/kg)
-                                            </option>
+                                            </SelectItem>
                                         ))}
                                     </Select>
                                 </div>
-                                <div className="flex-1">
+                                <div className="min-w-64 flex-1">
                                     <label className="label text-xs">Concepto</label>
-                                    <Select
+                                    <SearchSelect
+                                        options={conceptoOptions}
                                         value={selectedConcepto}
                                         onValueChange={setSelectedConcepto}
-                                        placeholder="Seleccionar concepto"
-                                    >
-                                        {unassignedConceptos.map((c) => (
-                                            <option key={c.id} value={c.id}>
-                                                {c.marca} - {c.descripcion}
-                                            </option>
-                                        ))}
-                                    </Select>
+                                        placeholder="Buscar concepto..."
+                                    />
                                 </div>
                                 <Button onClick={handleAssign} disabled={!selectedGrupo || !selectedConcepto}>
                                     Asignar
@@ -175,24 +177,26 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
                             </div>
                         )}
 
-                        <table className="table table-sm w-full">
-                            <thead>
-                                <tr>
-                                    <th>Marca</th>
-                                    <th>Descripcion</th>
-                                    <th className="text-right">Peso Unitario</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {unassignedConceptos.map((c) => (
-                                    <tr key={c.id}>
-                                        <td>{c.marca}</td>
-                                        <td>{c.descripcion}</td>
-                                        <td className="text-right font-mono">{c.peso_unitario}</td>
+                        <div className="rounded-box border border-base-300 overflow-hidden">
+                            <table className="table table-sm">
+                                <thead className="bg-base-200">
+                                    <tr>
+                                        <th>Marca</th>
+                                        <th>Descripcion</th>
+                                        <th className="text-right">Peso Unitario</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {unassignedConceptos.map((c) => (
+                                        <tr key={c.id} className="hover">
+                                            <td className="font-medium">{c.marca}</td>
+                                            <td>{c.descripcion}</td>
+                                            <td className="text-right font-mono">{c.peso_unitario}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
             </div>

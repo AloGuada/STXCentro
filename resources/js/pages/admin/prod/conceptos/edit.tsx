@@ -1,34 +1,38 @@
+import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Concepto, Obra } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import type { Concepto, ProdCatalogo, ProdCategoria } from '@/types/models';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 type Props = {
-    concepto: Concepto & { obra: Obra };
+    concepto: Concepto & { catalogo: ProdCatalogo };
+    categorias: ProdCategoria[];
 };
 
-export default function ConceptosEdit({ concepto }: Props) {
-    const obra = concepto.obra;
+export default function ConceptosEdit({ concepto, categorias }: Props) {
+    const catalogo = concepto.catalogo;
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Produccion', href: '/admin/prod/cortes' },
-        { title: 'Conceptos', href: '/admin/prod/conceptos' },
-        { title: `${obra.no} - ${obra.descripcion}`, href: `/admin/prod/conceptos/obra/${obra.id}` },
+        { title: 'Produccion', href: '/admin/prod/destajos' },
+        { title: 'Catalogos', href: '/admin/prod/catalogos' },
+        { title: `${catalogo.nombre} v${catalogo.version}`, href: `/admin/prod/catalogos/${catalogo.id}` },
         { title: concepto.marca, href: `/admin/prod/conceptos/${concepto.id}/edit` },
     ];
 
     const { data, setData, put, processing, errors } = useForm({
-        obra_id: String(concepto.obra_id),
         marca: concepto.marca,
         descripcion: concepto.descripcion,
         cantidad: String(concepto.cantidad),
         peso_unitario: String(concepto.peso_unitario),
+        longitud: concepto.longitud != null ? String(concepto.longitud) : '',
+        categoria_id: concepto.categoria_id != null ? String(concepto.categoria_id) : '',
         version: String(concepto.version),
         activo: concepto.activo,
     });
@@ -38,20 +42,17 @@ export default function ConceptosEdit({ concepto }: Props) {
         put(`/admin/prod/conceptos/${concepto.id}`);
     };
 
-    const handleDelete = () => {
-        if (confirm('Estas seguro de eliminar este concepto?')) {
-            router.delete(`/admin/prod/conceptos/${concepto.id}`);
-        }
-    };
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Editar ${concepto.marca}`} />
 
             <div className="p-6">
-                <div className="w-3/4">
-                    <h1 className="mb-6 text-2xl font-semibold">Editar Concepto</h1>
-                    <p className="mb-4 text-sm text-gray-500">Obra: {obra.no} - {obra.descripcion}</p>
+                <div className="w-full max-w-2xl">
+                    <h1 className="text-2xl font-semibold">Editar pieza</h1>
+                    <p className="mb-6 mt-1 text-sm text-base-content/60">
+                        {catalogo.nombre} v{catalogo.version}
+                        {catalogo.obra ? ` · Obra ${catalogo.obra.no} - ${catalogo.obra.descripcion}` : ''}
+                    </p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
@@ -59,6 +60,7 @@ export default function ConceptosEdit({ concepto }: Props) {
                                 id="marca"
                                 value={data.marca}
                                 onChange={(e) => setData('marca', e.target.value)}
+                                error={!!errors.marca}
                             />
                         </FormField>
 
@@ -67,18 +69,48 @@ export default function ConceptosEdit({ concepto }: Props) {
                                 id="descripcion"
                                 value={data.descripcion}
                                 onChange={(e) => setData('descripcion', e.target.value)}
+                                error={!!errors.descripcion}
                             />
                         </FormField>
 
-                        <FormField label="Cantidad (piezas)" htmlFor="cantidad" error={errors.cantidad} required>
-                            <Input
-                                id="cantidad"
-                                type="number"
-                                min="0"
-                                value={data.cantidad}
-                                onChange={(e) => setData('cantidad', e.target.value)}
-                            />
+                        <FormField label="Categoria" htmlFor="categoria_id" error={errors.categoria_id} required>
+                            <Select
+                                value={data.categoria_id}
+                                onValueChange={(v) => setData('categoria_id', v)}
+                                placeholder="Selecciona categoria"
+                                error={!!errors.categoria_id}
+                            >
+                                {categorias.map((c) => (
+                                    <SelectItem key={c.id} value={String(c.id)}>
+                                        {c.nombre}
+                                    </SelectItem>
+                                ))}
+                            </Select>
                         </FormField>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Cantidad (piezas)" htmlFor="cantidad" error={errors.cantidad}>
+                                <Input
+                                    id="cantidad"
+                                    type="number"
+                                    min="0"
+                                    value={data.cantidad}
+                                    onChange={(e) => setData('cantidad', e.target.value)}
+                                    error={!!errors.cantidad}
+                                />
+                            </FormField>
+
+                            <FormField label="Longitud (mm)" htmlFor="longitud" error={errors.longitud} required>
+                                <Input
+                                    id="longitud"
+                                    type="number"
+                                    min="0"
+                                    value={data.longitud}
+                                    onChange={(e) => setData('longitud', e.target.value)}
+                                    error={!!errors.longitud}
+                                />
+                            </FormField>
+                        </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <FormField label="Peso Unitario (kg)" htmlFor="peso_unitario" error={errors.peso_unitario} required>
@@ -89,6 +121,7 @@ export default function ConceptosEdit({ concepto }: Props) {
                                     min="0"
                                     value={data.peso_unitario}
                                     onChange={(e) => setData('peso_unitario', e.target.value)}
+                                    error={!!errors.peso_unitario}
                                 />
                             </FormField>
 
@@ -99,29 +132,30 @@ export default function ConceptosEdit({ concepto }: Props) {
                                     min="1"
                                     value={data.version}
                                     onChange={(e) => setData('version', e.target.value)}
+                                    error={!!errors.version}
                                 />
                             </FormField>
                         </div>
 
-                        <FormField label="Estado" htmlFor="activo">
-                            <label className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={data.activo}
-                                    onChange={(e) => setData('activo', e.target.checked)}
-                                    className="rounded border-gray-300"
-                                />
-                                <span className="text-sm">Activo</span>
-                            </label>
-                        </FormField>
+                        <label className="flex cursor-pointer items-center gap-2">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm"
+                                checked={data.activo}
+                                onChange={(e) => setData('activo', e.target.checked)}
+                            />
+                            <span className="text-sm">Activo</span>
+                        </label>
 
-                        <div className="flex justify-between">
-                            <Button type="button" variant="destructive" onClick={handleDelete}>
-                                Eliminar
-                            </Button>
+                        <div className="flex items-center justify-between">
+                            <DeleteDialog
+                                title="Eliminar pieza"
+                                description={`¿Eliminar la pieza "${concepto.marca}"? Esta acción no se puede deshacer.`}
+                                deleteUrl={`/admin/prod/conceptos/${concepto.id}`}
+                            />
                             <div className="flex gap-2">
                                 <Button variant="outline" asChild>
-                                    <Link href={`/admin/prod/conceptos/obra/${obra.id}`}>Cancelar</Link>
+                                    <Link href={`/admin/prod/catalogos/${catalogo.id}`}>Cancelar</Link>
                                 </Button>
                                 <Button type="submit" disabled={processing}>
                                     {processing && <Loader2Icon className="size-4 animate-spin" />}
