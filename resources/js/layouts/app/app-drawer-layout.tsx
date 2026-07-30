@@ -358,7 +358,7 @@ const navGroups: NavGroup[] = [
         ],
     },
     {
-        title: 'Cotización',
+        title: 'Presupuestos',
         icon: Calculator,
         items: [
             {
