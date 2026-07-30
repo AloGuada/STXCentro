@@ -672,6 +672,11 @@ const mainNavItems: NavItem[] = [
 
 const footerNavItems: NavItem[] = [
     {
+        title: 'Tickets TI',
+        href: '/sti/reportes/tickets',
+        icon: Ticket,
+    },
+    {
         title: 'Permisos de Ausencia',
         href: '/rh/permisos',
         icon: CalendarCheck,
