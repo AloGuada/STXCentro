@@ -126,6 +126,15 @@
             padding: 4px 8px;
         }
 
+        /* Notas al pie, después de las firmas */
+        .notas-table {
+            margin-top: 25px;
+            margin-bottom: 0;
+        }
+        .notas-table td {
+            font-size: 9px;
+        }
+
         /* Signatures */
         .signatures-table {
             width: 100%;
@@ -369,6 +378,34 @@
         </tr>
     </table>
     @endif
+    @endif
+
+    {{-- Notas al pie: van después de las firmas, para no empujarlas a otra
+         página. Se dibuja el bloque solo si hay algo que decir. --}}
+    @php
+        $textosArchivos = ($solicitud->archivos ?? collect())
+            ->filter(fn ($a) => filled($a->texto_adicional))
+            ->map(fn ($a) => [
+                'etiqueta' => $a->documento?->texto ?: $a->documento?->titulo ?: 'Documento',
+                'valor' => $a->texto_adicional,
+            ])
+            ->values();
+    @endphp
+    @if(filled($solicitud->comentarios) || $textosArchivos->isNotEmpty())
+    <table class="info-table notas-table">
+        @if(filled($solicitud->comentarios))
+        <tr>
+            <td class="label">Notas</td>
+            <td>{{ $solicitud->comentarios }}</td>
+        </tr>
+        @endif
+        @foreach($textosArchivos as $texto)
+        <tr>
+            <td class="label">{{ $texto['etiqueta'] }}</td>
+            <td>{{ $texto['valor'] }}</td>
+        </tr>
+        @endforeach
+    </table>
     @endif
 </body>
 </html>

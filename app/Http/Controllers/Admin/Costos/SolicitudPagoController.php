@@ -668,6 +668,9 @@ class SolicitudPagoController extends Controller
             'tipoSolicitud',
             'detalles.obraRubro.rubro',
             'detalles.obraRubro.obra',
+            // Para el bloque de notas al pie: los textos capturados en los
+            // documentos adjuntos (folio fiscal de la factura, referencia...).
+            'archivos.documento',
         ]);
 
         // El PDF en borrador es solo previsualización; el envío a aprobación
