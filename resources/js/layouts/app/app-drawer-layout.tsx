@@ -161,7 +161,7 @@ const navGroups: NavGroup[] = [
                 title: 'Catalogos',
                 href: '/admin/prod/catalogos',
                 icon: Puzzle,
-                permission: 'prod.conceptos.ver',
+                permission: 'prod.catalogos.ver',
             },
             {
                 title: 'Categorias',
@@ -185,13 +185,13 @@ const navGroups: NavGroup[] = [
                 title: 'Ubicaciones',
                 href: '/admin/prod/ubicaciones',
                 icon: Building,
-                permission: 'prod.grupos-trabajo.ver',
+                permission: 'prod.ubicaciones.ver',
             },
             {
                 title: 'Categorias Empleado',
                 href: '/admin/prod/categorias-empleado',
                 icon: UserCheck,
-                permission: 'prod.grupos-trabajo.ver',
+                permission: 'prod.categorias-empleado.ver',
             },
             {
                 title: 'Tipos Pago Extra',
@@ -203,7 +203,7 @@ const navGroups: NavGroup[] = [
                 title: 'Configuracion',
                 href: '/admin/prod/configuracion',
                 icon: Settings,
-                permission: 'prod.destajos.ver',
+                permission: 'prod.configuracion.ver',
             },
         ],
     },
