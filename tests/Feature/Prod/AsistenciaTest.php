@@ -78,12 +78,43 @@ describe('pantalla de asistencia', function () {
         );
     });
 
-    test('no incluye grupos sin actividad en la semana', function () {
-        GrupoTrabajo::factory()->create(['descripcion' => 'Cuadrilla Z']);
+    test('incluye grupos activos aunque no tengan produccion en la semana', function () {
+        $sinProduccion = GrupoTrabajo::factory()->create(['descripcion' => 'Cuadrilla Z']);
+        GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $sinProduccion->id]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.destajos.asistencia', $this->destajo))
+            ->assertInertia(fn ($page) => $page
+                ->has('grupos', 2)
+                // Sólo el que produjo bloquea el cierre.
+                ->where('participantes', [$this->grupo->id])
+            );
+    });
+
+    test('deja fuera a los grupos inactivos y a los que no tienen gente', function () {
+        GrupoTrabajo::factory()->create(['descripcion' => 'Sin empleados']);
+
+        $inactivo = GrupoTrabajo::factory()->create(['descripcion' => 'Inactivo', 'activo' => false]);
+        GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $inactivo->id]);
 
         $this->actingAs($this->user)
             ->get(route('admin.prod.destajos.asistencia', $this->destajo))
             ->assertInertia(fn ($page) => $page->has('grupos', 1));
+    });
+
+    test('un grupo inactivo que si produjo sigue apareciendo', function () {
+        $inactivo = GrupoTrabajo::factory()->create(['descripcion' => 'Inactivo', 'activo' => false]);
+        GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $inactivo->id]);
+        Registro::factory()->create([
+            'concepto_id' => $this->pieza->id,
+            'grupo_trabajo_id' => $inactivo->id,
+            'fecha' => '2026-02-04',
+            'cantidad' => 2,
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.destajos.asistencia', $this->destajo))
+            ->assertInertia(fn ($page) => $page->has('grupos', 2));
     });
 });
 

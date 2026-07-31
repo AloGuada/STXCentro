@@ -7,7 +7,7 @@ import { ArrowLeftIcon, CheckCircle2Icon, Loader2Icon, SaveIcon } from 'lucide-r
 import { useMemo, useState } from 'react';
 
 type Empleado = { id: number; nombre: string; no_empleado: string | null; porcentaje: number };
-type Grupo = { id: number; descripcion: string; linea: number | null; modulo: number | null; empleados: Empleado[] };
+type Grupo = { id: number; descripcion: string; empleados: Empleado[] };
 type Dia = { fecha: string; label: string };
 type Destajo = { id: number; anio: number; semana: number; fecha_inicio: string; fecha_fin: string; cerrado: boolean };
 
@@ -16,6 +16,8 @@ type Estado = 'asistencia' | 'falta' | 'vacaciones' | 'incapacidad' | 'no_aplica
 type Props = {
     destajo: Destajo;
     grupos: Grupo[];
+    /** Grupos con producción o pagos extra esta semana: son los que bloquean el cierre. */
+    participantes: number[];
     dias: Dia[];
     /** Marcas ya guardadas, indexadas por "empleadoId:fecha". */
     marcas: Record<string, Estado>;
@@ -36,7 +38,7 @@ const FACTOR_SEPTIMO_DIA = 7 / 6;
 
 const PAGAN: Estado[] = ['asistencia', 'vacaciones', 'incapacidad'];
 
-export default function DestajoAsistencia({ destajo, grupos, dias, marcas: guardadas }: Props) {
+export default function DestajoAsistencia({ destajo, grupos, participantes, dias, marcas: guardadas }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
@@ -83,11 +85,15 @@ export default function DestajoAsistencia({ destajo, grupos, dias, marcas: guard
         });
     };
 
-    const totalCeldas = grupos.reduce((acc, g) => acc + g.empleados.length * dias.length, 0);
+    // El cierre sólo exige la asistencia de los grupos que cobran algo esta
+    // semana; los demás se pueden capturar, pero no son obligatorios.
+    const obligatorios = useMemo(() => grupos.filter((g) => participantes.includes(g.id)), [grupos, participantes]);
+
+    const totalCeldas = obligatorios.reduce((acc, g) => acc + g.empleados.length * dias.length, 0);
 
     const capturadas = useMemo(
         () =>
-            grupos.reduce(
+            obligatorios.reduce(
                 (acc, g) =>
                     acc +
                     g.empleados.reduce(
@@ -96,7 +102,7 @@ export default function DestajoAsistencia({ destajo, grupos, dias, marcas: guard
                     ),
                 0,
             ),
-        [grupos, dias, guardadas],
+        [obligatorios, dias, guardadas],
     );
 
     const completa = totalCeldas > 0 && capturadas === totalCeldas;
@@ -176,7 +182,8 @@ export default function DestajoAsistencia({ destajo, grupos, dias, marcas: guard
                 {grupos.length === 0 ? (
                     <div className="rounded-box border border-dashed border-base-300 p-8 text-center">
                         <p className="text-base-content/60">
-                            Este destajo no tiene grupos con producción ni pagos extra todavía.
+                            No hay grupos de trabajo activos con empleados. Da de alta el grupo y sus integrantes para
+                            poder capturar la asistencia.
                         </p>
                     </div>
                 ) : (
@@ -185,9 +192,9 @@ export default function DestajoAsistencia({ destajo, grupos, dias, marcas: guard
                             <div key={grupo.id} className="rounded-box border border-base-300 overflow-hidden">
                                 <div className="border-b border-base-300 bg-base-200 px-4 py-2 font-semibold">
                                     {grupo.descripcion}
-                                    {(grupo.linea != null || grupo.modulo != null) && (
-                                        <span className="text-base-content/60 ml-2 text-xs font-normal">
-                                            Línea {grupo.linea ?? '-'} · Módulo {grupo.modulo ?? '-'}
+                                    {!participantes.includes(grupo.id) && (
+                                        <span className="badge badge-sm badge-ghost ml-2 font-normal">
+                                            Sin producción esta semana
                                         </span>
                                     )}
                                 </div>

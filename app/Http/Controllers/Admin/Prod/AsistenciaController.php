@@ -19,7 +19,9 @@ class AsistenciaController extends Controller
     {
         return Inertia::render('admin/prod/destajos/asistencia', [
             'destajo' => $destajo,
-            'grupos' => $asistencia->gruposParticipantes($destajo),
+            'grupos' => $asistencia->gruposCapturables($destajo),
+            // Sólo estos bloquean el cierre: son los que van a cobrar algo.
+            'participantes' => $asistencia->gruposParticipantes($destajo)->pluck('id'),
             'dias' => $asistencia->dias($destajo),
             'marcas' => $asistencia->marcas($destajo),
         ]);

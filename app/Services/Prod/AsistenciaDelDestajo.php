@@ -61,7 +61,19 @@ class AsistenciaDelDestajo
      */
     public function gruposParticipantes(Destajo $destajo): Collection
     {
-        $grupoIds = Registro::query()
+        return GrupoTrabajo::query()
+            ->with('empleados')
+            ->whereIn('id', $this->idsParticipantes($destajo))
+            ->orderBy('descripcion')
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    private function idsParticipantes(Destajo $destajo): Collection
+    {
+        return Registro::query()
             ->whereBetween('fecha', [$destajo->fecha_inicio, $destajo->fecha_fin])
             ->distinct()
             ->pluck('grupo_trabajo_id')
@@ -69,10 +81,27 @@ class AsistenciaDelDestajo
             ->merge($destajo->liquidaciones()->pluck('grupo_trabajo_id'))
             ->unique()
             ->values();
+    }
+
+    /**
+     * Grupos que se pueden capturar en la cuadrícula: todos los activos con
+     * gente, participen o no. Un grupo puede haber trabajado sin que su
+     * producción esté capturada todavía —o haber estado parado— y aun así hay
+     * que registrarle la asistencia.
+     *
+     * Se agregan los participantes aunque estén inactivos, para no dejar sin
+     * captura a un grupo que sí generó producción esta semana.
+     *
+     * @return Collection<int, GrupoTrabajo>
+     */
+    public function gruposCapturables(Destajo $destajo): Collection
+    {
+        $participantes = $this->idsParticipantes($destajo);
 
         return GrupoTrabajo::query()
             ->with('empleados')
-            ->whereIn('id', $grupoIds)
+            ->where(fn ($q) => $q->where('activo', true)->orWhereIn('id', $participantes))
+            ->has('empleados')
             ->orderBy('descripcion')
             ->get();
     }
