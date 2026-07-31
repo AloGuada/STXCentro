@@ -145,7 +145,7 @@ export default function RequisicionesIndex({ requisiciones, filters, departament
                     data={requisiciones}
                     searchable
                     searchValue={filters.search}
-                    searchPlaceholder="Buscar por folio..."
+                    searchPlaceholder="Buscar por folio, solicitante o proveedor..."
                     createHref="/admin/costos/requisiciones/create"
                     createLabel="Nueva requisición"
                     emptyMessage="No hay requisiciones"

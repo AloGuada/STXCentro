@@ -86,7 +86,20 @@ class RequisicionController extends Controller
                     }
                 });
             })
-            ->when($request->search, fn ($q, $s) => $q->where('folio', 'like', "%{$s}%"))
+            // Búsqueda case-insensitive por folio, nombre del solicitante y proveedor
+            // (tanto los que cotizaron como el adjudicado).
+            ->when($request->search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->whereLike('folio', "%{$search}%")
+                        ->orWhereHas('solicitante', fn ($u) => $u->whereLike('name', "%{$search}%"))
+                        ->orWhereHas('detalles.cotizaciones.proveedor', fn ($p) => $p
+                            ->whereLike('razon_social', "%{$search}%")
+                            ->orWhereLike('nombre_comercial', "%{$search}%"))
+                        ->orWhereHas('detalles.selecciones.proveedor', fn ($p) => $p
+                            ->whereLike('razon_social', "%{$search}%")
+                            ->orWhereLike('nombre_comercial', "%{$search}%"));
+                });
+            })
             ->when($request->estatus, fn ($q, $e) => $q->where('estatus', $e))
             ->when($request->departamento_id, fn ($q, $d) => $q->where('departamento_id', $d));
 
