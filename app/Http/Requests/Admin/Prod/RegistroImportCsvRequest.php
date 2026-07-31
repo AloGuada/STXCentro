@@ -17,7 +17,9 @@ class RegistroImportCsvRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'csv_file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
+            // El export de planta trae todos los eventos del periodo y ronda los
+            // 5 MB, así que el tope va holgado.
+            'csv_file' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
             'fecha' => ['required', 'date'],
         ];
     }
@@ -30,7 +32,7 @@ class RegistroImportCsvRequest extends FormRequest
         return [
             'csv_file.required' => 'El archivo CSV es obligatorio.',
             'csv_file.mimes' => 'El archivo debe ser de tipo CSV.',
-            'csv_file.max' => 'El archivo no debe superar los 5MB.',
+            'csv_file.max' => 'El archivo no debe superar los 10MB.',
             'fecha.required' => 'La fecha es obligatoria.',
         ];
     }

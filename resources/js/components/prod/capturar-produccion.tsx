@@ -214,10 +214,13 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
                     </FormField>
 
                     <p className="text-base-content/60 text-xs">
-                        Columnas: <span className="font-mono">Grupo, Marca, Cantidad</span> y opcionalmente{' '}
-                        <span className="font-mono">Porcentaje</span> (si no viene, se paga al 100%). El grupo debe
-                        coincidir con su descripción y la marca con una pieza activa. Todos los renglones toman la
-                        fecha seleccionada.
+                        Acepta el <strong>export de avance de planta</strong>: se toman sólo los movimientos del evento{' '}
+                        <span className="font-mono">55</span> y se suman por <span className="font-mono">Ubicacion</span>{' '}
+                        y <span className="font-mono">Marca</span>; cada ubicación debe estar en el catálogo de módulos y
+                        pertenecer a un solo grupo. También acepta un CSV a mano con{' '}
+                        <span className="font-mono">Grupo, Marca, Cantidad</span> y opcionalmente{' '}
+                        <span className="font-mono">Porcentaje</span> (si no viene, se paga al 100%). Todos los renglones
+                        toman la fecha seleccionada.
                     </p>
 
                     <div className="flex justify-end">

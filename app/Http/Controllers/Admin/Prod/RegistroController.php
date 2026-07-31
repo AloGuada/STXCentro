@@ -9,7 +9,9 @@ use App\Models\Concepto;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Registro;
+use App\Models\Prod\Ubicacion;
 use App\Services\Prod\AvanceDePiezas;
+use App\Services\Prod\LectorCsvDeProduccion;
 use Illuminate\Http\RedirectResponse;
 
 class RegistroController extends Controller
@@ -50,11 +52,16 @@ class RegistroController extends Controller
     }
 
     /**
-     * Carga masiva de produccion. Columnas: GRUPO, MARCA, CANTIDAD.
-     * Todos los renglones toman la fecha (dia) enviada en el formulario.
+     * Carga masiva de produccion. Acepta el export de avance de planta (se queda
+     * con el evento 55 y usa Ubicacion, Marca y Cantidad) o un CSV a mano con
+     * GRUPO, MARCA, CANTIDAD. Todos los renglones toman la fecha del formulario.
      */
-    public function importCsv(RegistroImportCsvRequest $request, Destajo $destajo, AvanceDePiezas $avance): RedirectResponse
-    {
+    public function importCsv(
+        RegistroImportCsvRequest $request,
+        Destajo $destajo,
+        AvanceDePiezas $avance,
+        LectorCsvDeProduccion $lector,
+    ): RedirectResponse {
         if ($destajo->cerrado) {
             return back()->withErrors(['error' => 'No se puede importar produccion en un destajo cerrado.']);
         }
@@ -64,57 +71,54 @@ class RegistroController extends Controller
             return back()->withErrors(['fecha' => 'La fecha debe estar dentro del periodo del destajo.']);
         }
 
-        $handle = fopen($request->file('csv_file')->getRealPath(), 'r');
-        $header = array_map(fn ($col) => mb_strtoupper(trim($col)), fgetcsv($handle) ?: []);
+        ['formato' => $formato, 'filas' => $filas] = $lector->leer($request->file('csv_file')->getRealPath());
+
+        if ($filas === []) {
+            $vacio = $formato === LectorCsvDeProduccion::FORMATO_EXPORT
+                ? 'El archivo no trae ningun movimiento del evento '.LectorCsvDeProduccion::EVENTO_DESTAJO.'.'
+                : 'El archivo no trae renglones para importar.';
+
+            return back()->withErrors(['csv_file' => $vacio]);
+        }
 
         $importados = 0;
         $errores = [];
-        $linea = 1;
-        /** @var array<string, int> $topes */
+        /** @var array<string, float> $topes */
         $topes = [];
 
-        while (($row = fgetcsv($handle)) !== false) {
-            $linea++;
-            if (count($row) < count($header)) {
-                continue;
-            }
+        foreach ($filas as $fila) {
+            $ref = $fila['referencia'];
 
-            $data = array_combine($header, $row);
-            $grupoNombre = trim($data['GRUPO'] ?? '');
-            $marca = trim($data['MARCA'] ?? '');
-            $cantidad = (int) trim($data['CANTIDAD'] ?? '0');
+            $grupo = $fila['ubicacion'] !== null
+                ? $this->grupoDeUbicacion($fila['ubicacion'], $lector, $errores, $ref)
+                : GrupoTrabajo::where('descripcion', $fila['grupo'])->first();
 
-            if ($grupoNombre === '' && $marca === '') {
-                continue;
-            }
-
-            $grupo = GrupoTrabajo::where('descripcion', $grupoNombre)->first();
             if ($grupo === null) {
-                $errores[] = "Linea {$linea}: grupo \"{$grupoNombre}\" no encontrado.";
+                if ($fila['ubicacion'] === null) {
+                    $errores[] = "{$ref}: grupo \"{$fila['grupo']}\" no encontrado.";
+                }
 
                 continue;
             }
 
-            $conceptos = Concepto::deCatalogoVigente()->where('marca', $marca)->where('activo', true)->get();
+            $conceptos = Concepto::deCatalogoVigente()->where('marca', $fila['marca'])->where('activo', true)->get();
             if ($conceptos->isEmpty()) {
-                $errores[] = "Linea {$linea}: pieza \"{$marca}\" no encontrada.";
+                $errores[] = "{$ref}: pieza \"{$fila['marca']}\" no encontrada.";
 
                 continue;
             }
             if ($conceptos->count() > 1) {
-                $errores[] = "Linea {$linea}: pieza \"{$marca}\" existe en varias obras (ambigua).";
+                $errores[] = "{$ref}: pieza \"{$fila['marca']}\" existe en varias obras (ambigua).";
 
                 continue;
             }
-            if ($cantidad < 1) {
-                $errores[] = "Linea {$linea}: cantidad invalida.";
+            if ($fila['cantidad'] < 1) {
+                $errores[] = "{$ref}: cantidad invalida.";
 
                 continue;
             }
-
-            $porcentaje = (float) str_replace('%', '', trim($data['PORCENTAJE'] ?? '100')) ?: 100.0;
-            if ($porcentaje <= 0 || $porcentaje > 100) {
-                $errores[] = "Linea {$linea}: porcentaje invalido (debe ir de 1 a 100).";
+            if ($fila['porcentaje'] <= 0 || $fila['porcentaje'] > 100) {
+                $errores[] = "{$ref}: porcentaje invalido (debe ir de 1 a 100).";
 
                 continue;
             }
@@ -125,10 +129,10 @@ class RegistroController extends Controller
             // la misma marca no pueden rebasar juntos lo que falta.
             $clave = $concepto->obra_id.'|'.$concepto->marca;
             $disponible = $topes[$clave] ??= $avance->disponible($concepto);
-            $consumo = round($cantidad * ($porcentaje / 100), 4);
+            $consumo = round($fila['cantidad'] * ($fila['porcentaje'] / 100), 4);
 
             if ($consumo > $disponible + 0.0001) {
-                $errores[] = "Linea {$linea}: ".$this->mensajeDeTope($concepto, $disponible);
+                $errores[] = "{$ref}: ".$this->mensajeDeTope($concepto, $disponible);
 
                 continue;
             }
@@ -137,14 +141,12 @@ class RegistroController extends Controller
                 'fecha' => $fecha,
                 'concepto_id' => $concepto->id,
                 'grupo_trabajo_id' => $grupo->id,
-                'cantidad' => $cantidad,
-                'porcentaje' => $porcentaje,
+                'cantidad' => $fila['cantidad'],
+                'porcentaje' => $fila['porcentaje'],
             ]);
             $topes[$clave] -= $consumo;
             $importados++;
         }
-
-        fclose($handle);
 
         if ($errores !== []) {
             return back()
@@ -153,6 +155,44 @@ class RegistroController extends Controller
         }
 
         return back()->with('success', "Se importaron {$importados} registros correctamente.");
+    }
+
+    /**
+     * Traduce la ubicación del export al grupo que trabaja ahí. La ubicación debe
+     * existir en el catálogo y pertenecer a un solo grupo; si no, el renglón se
+     * reporta y se salta.
+     *
+     * @param  list<string>  $errores
+     */
+    private function grupoDeUbicacion(string $ubicacion, LectorCsvDeProduccion $lector, array &$errores, string $ref): ?GrupoTrabajo
+    {
+        $buscada = $lector->normalizar($ubicacion);
+
+        $candidata = Ubicacion::with('gruposTrabajo:id,descripcion')
+            ->get(['id', 'nombre'])
+            ->first(fn (Ubicacion $u) => $lector->normalizar($u->nombre) === $buscada);
+
+        if ($candidata === null) {
+            $errores[] = "{$ref}: la ubicacion \"{$ubicacion}\" no esta en el catalogo de modulos.";
+
+            return null;
+        }
+
+        $grupos = $candidata->gruposTrabajo;
+
+        if ($grupos->isEmpty()) {
+            $errores[] = "{$ref}: la ubicacion \"{$ubicacion}\" no tiene ningun grupo de trabajo asignado.";
+
+            return null;
+        }
+
+        if ($grupos->count() > 1) {
+            $errores[] = "{$ref}: la ubicacion \"{$ubicacion}\" la trabajan varios grupos ({$grupos->pluck('descripcion')->implode(', ')}).";
+
+            return null;
+        }
+
+        return $grupos->first();
     }
 
     /**
