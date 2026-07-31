@@ -11,7 +11,7 @@ type Grupo = { id: number; descripcion: string; linea: number | null; modulo: nu
 type Dia = { fecha: string; label: string };
 type Destajo = { id: number; anio: number; semana: number; fecha_inicio: string; fecha_fin: string; cerrado: boolean };
 
-type Estado = 'asistencia' | 'falta' | 'vacaciones' | 'no_aplica';
+type Estado = 'asistencia' | 'falta' | 'vacaciones' | 'incapacidad' | 'no_aplica';
 
 type Props = {
     destajo: Destajo;
@@ -21,14 +21,20 @@ type Props = {
     marcas: Record<string, Estado>;
 };
 
-const ESTADOS: Estado[] = ['asistencia', 'falta', 'vacaciones', 'no_aplica'];
+const ESTADOS: Estado[] = ['asistencia', 'falta', 'vacaciones', 'incapacidad', 'no_aplica'];
 
 const META: Record<Estado, { letra: string; label: string; cls: string }> = {
     asistencia: { letra: 'A', label: 'Asistencia', cls: 'bg-emerald-500 text-white' },
     falta: { letra: 'F', label: 'Falta', cls: 'bg-red-500 text-white' },
     vacaciones: { letra: 'V', label: 'Vacaciones', cls: 'bg-sky-500 text-white' },
+    incapacidad: { letra: 'I', label: 'Incapacidad', cls: 'bg-amber-500 text-white' },
     no_aplica: { letra: 'N', label: 'No aplica', cls: 'bg-base-300 text-base-content/50' },
 };
+
+/** Cada día cubierto vale 7/6: el séptimo día va prorrateado en los seis de trabajo. */
+const FACTOR_SEPTIMO_DIA = 7 / 6;
+
+const PAGAN: Estado[] = ['asistencia', 'vacaciones', 'incapacidad'];
 
 export default function DestajoAsistencia({ destajo, grupos, dias, marcas: guardadas }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -96,10 +102,14 @@ export default function DestajoAsistencia({ destajo, grupos, dias, marcas: guard
     const completa = totalCeldas > 0 && capturadas === totalCeldas;
 
     const totales = (empId: number): Record<Estado, number> => {
-        const t: Record<Estado, number> = { asistencia: 0, falta: 0, vacaciones: 0, no_aplica: 0 };
+        const t: Record<Estado, number> = { asistencia: 0, falta: 0, vacaciones: 0, incapacidad: 0, no_aplica: 0 };
         for (const d of dias) t[get(empId, d.fecha)]++;
         return t;
     };
+
+    /** Los mismos días que pagará la liquidación, para que no haya sorpresas al cerrar. */
+    const diasPagados = (t: Record<Estado, number>): number =>
+        t.no_aplica > 0 ? 0 : PAGAN.reduce((acc, e) => acc + t[e], 0) * FACTOR_SEPTIMO_DIA;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -145,7 +155,7 @@ export default function DestajoAsistencia({ destajo, grupos, dias, marcas: guard
                 </div>
 
                 {/* Leyenda */}
-                <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+                <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
                     {ESTADOS.map((e) => (
                         <span key={e} className="inline-flex items-center gap-1.5">
                             <span className={`inline-flex size-5 items-center justify-center rounded text-xs font-bold ${META[e].cls}`}>
@@ -155,6 +165,13 @@ export default function DestajoAsistencia({ destajo, grupos, dias, marcas: guard
                         </span>
                     ))}
                 </div>
+
+                <p className="text-base-content/60 mb-4 text-xs">
+                    Asistencia, vacaciones e incapacidad cuentan como día cubierto; la falta no. Cada día cubierto vale
+                    7/6 de día porque el séptimo día va prorrateado, así que la semana completa paga 7. Un solo{' '}
+                    <strong>No aplica</strong> deja al trabajador sin sueldo base esa semana: sólo cobra el destajo que
+                    le toque. El domingo no se captura.
+                </p>
 
                 {grupos.length === 0 ? (
                     <div className="rounded-box border border-dashed border-base-300 p-8 text-center">
@@ -189,12 +206,15 @@ export default function DestajoAsistencia({ destajo, grupos, dias, marcas: guard
                                                         {META[e].letra}
                                                     </th>
                                                 ))}
+                                                <th className="text-center whitespace-nowrap" title="Días que se pagarán, con el séptimo día prorrateado">
+                                                    Días pag.
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {grupo.empleados.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={dias.length + 5} className="text-base-content/50 py-4 text-center">
+                                                    <td colSpan={dias.length + ESTADOS.length + 2} className="text-base-content/50 py-4 text-center">
                                                         Sin empleados en el grupo
                                                     </td>
                                                 </tr>
@@ -224,10 +244,18 @@ export default function DestajoAsistencia({ destajo, grupos, dias, marcas: guard
                                                                     </td>
                                                                 );
                                                             })}
-                                                            <td className="text-center font-mono">{t.asistencia}</td>
-                                                            <td className="text-center font-mono">{t.falta}</td>
-                                                            <td className="text-center font-mono">{t.vacaciones}</td>
-                                                            <td className="text-center font-mono">{t.no_aplica}</td>
+                                                            {ESTADOS.map((e) => (
+                                                                <td key={e} className="text-center font-mono">
+                                                                    {t[e]}
+                                                                </td>
+                                                            ))}
+                                                            <td
+                                                                className={`text-center font-mono font-semibold ${
+                                                                    t.no_aplica > 0 ? 'text-base-content/40' : ''
+                                                                }`}
+                                                            >
+                                                                {diasPagados(t).toFixed(2).replace(/\.?0+$/, '')}
+                                                            </td>
                                                         </tr>
                                                     );
                                                 })

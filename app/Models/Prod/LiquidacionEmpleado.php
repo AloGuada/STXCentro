@@ -36,7 +36,8 @@ class LiquidacionEmpleado extends Model
     protected function casts(): array
     {
         return [
-            'dias_pagados' => 'integer',
+            // Fraccionario: el séptimo día va prorrateado (7/6 por día cubierto).
+            'dias_pagados' => 'decimal:4',
             'categoria_valor' => 'integer',
             'salario_diario' => 'decimal:2',
             'sueldo_base' => 'decimal:2',

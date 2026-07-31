@@ -281,7 +281,7 @@
                 <td>{{ $emp['nombre'] }} <span style="color:#666;">({{ $emp['no_empleado'] ?: 's/n' }})</span></td>
                 <td>{{ $emp['categoria'] ?? '—' }}</td>
                 <td class="text-right">{{ number_format((float) ($emp['categoria_valor'] ?? 0)) }}</td>
-                <td class="text-right">{{ (int) ($emp['dias_pagados'] ?? 0) }}</td>
+                <td class="text-right">{{ rtrim(rtrim(number_format((float) ($emp['dias_pagados'] ?? 0), 2, '.', ''), '0'), '.') }}</td>
                 <td class="text-right">{{ $mon($emp['salario_diario'] ?? 0) }}</td>
                 <td class="text-right">{{ $mon($emp['sueldo_base'] ?? 0) }}</td>
                 <td class="text-right">{{ $mon($emp['monto_destajo'] ?? 0) }}</td>

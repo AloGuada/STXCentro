@@ -72,7 +72,8 @@ describe('pantalla de asistencia', function () {
         $response->assertInertia(fn ($page) => $page
             ->component('admin/prod/destajos/asistencia')
             ->has('grupos', 1)
-            ->has('dias', 7)
+            // Lunes a sabado: el domingo no se captura.
+            ->has('dias', 6)
             ->where('marcas.'.$this->empleado->id.':2026-02-03', 'falta')
         );
     });
@@ -213,10 +214,34 @@ describe('bloqueo del cierre', function () {
 });
 
 describe('estados de asistencia', function () {
-    test('asistencia y vacaciones cuentan como dia pagado', function () {
-        expect(EstadoAsistencia::Asistencia->cuentaComoPagado())->toBeTrue()
-            ->and(EstadoAsistencia::Vacaciones->cuentaComoPagado())->toBeTrue()
-            ->and(EstadoAsistencia::Falta->cuentaComoPagado())->toBeFalse()
-            ->and(EstadoAsistencia::NoAplica->cuentaComoPagado())->toBeFalse();
+    test('asistencia, vacaciones e incapacidad cuentan como dia cubierto', function () {
+        expect(EstadoAsistencia::Asistencia->valorEnDias())->toBe(1.0)
+            ->and(EstadoAsistencia::Vacaciones->valorEnDias())->toBe(1.0)
+            ->and(EstadoAsistencia::Incapacidad->valorEnDias())->toBe(1.0)
+            ->and(EstadoAsistencia::Falta->valorEnDias())->toBe(0.0)
+            ->and(EstadoAsistencia::NoAplica->valorEnDias())->toBe(0.0);
+    });
+
+    test('solo el no aplica anula el sueldo base de la semana', function () {
+        expect(EstadoAsistencia::NoAplica->anulaSueldoBase())->toBeTrue()
+            ->and(EstadoAsistencia::Falta->anulaSueldoBase())->toBeFalse()
+            ->and(EstadoAsistencia::Incapacidad->anulaSueldoBase())->toBeFalse();
+    });
+
+    test('la incapacidad es un estado valido al guardar', function () {
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.asistencia.store', $this->destajo), [
+                'marcas' => [[
+                    'grupo_empleado_id' => $this->empleado->id,
+                    'fecha' => '2026-02-03',
+                    'estado' => 'incapacidad',
+                ]],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('prod_asistencias', [
+            'grupo_empleado_id' => $this->empleado->id,
+            'estado' => 'incapacidad',
+        ]);
     });
 });

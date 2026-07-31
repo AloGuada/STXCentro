@@ -100,7 +100,8 @@ describe('admin destajos', function () {
                 ->component('admin/prod/destajos/asistencia')
                 ->has('grupos', 1)
                 ->has('grupos.0.empleados', 1)
-                ->has('dias', 7)
+                // Lunes a sabado: el domingo no se captura.
+                ->has('dias', 6)
             );
     });
 

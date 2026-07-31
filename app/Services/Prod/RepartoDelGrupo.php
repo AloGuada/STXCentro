@@ -13,7 +13,8 @@ use Illuminate\Support\Collection;
  * El pago tiene dos capas:
  *  1. **Sueldo base garantizado** = días pagados × salario mínimo diario. Se
  *     cobra aunque el destajo no alcance, y las faltas lo recortan (por eso la
- *     asistencia es obligatoria para cerrar).
+ *     asistencia es obligatoria para cerrar). Los días vienen con el séptimo
+ *     día ya prorrateado, y valen cero si la semana trae algún "no aplica".
  *  2. **Excedente del destajo** = total del grupo − suma de las bases. Sólo si
  *     es positivo, se prorratea según el `valor` de la categoría de cada quien.
  *
@@ -32,7 +33,7 @@ class RepartoDelGrupo
      *     empleados: list<array{
      *         nombre: string,
      *         no_empleado: string|null,
-     *         dias_pagados: int,
+     *         dias_pagados: float,
      *         categoria_nombre: string|null,
      *         categoria_valor: int,
      *         salario_diario: float,
@@ -50,7 +51,7 @@ class RepartoDelGrupo
 
         $empleados = ($grupo?->empleados ?? collect())
             ->map(function ($empleado) use ($diasPagados, $salarioDiario) {
-                $dias = (int) ($diasPagados[$empleado->id] ?? 0);
+                $dias = (float) ($diasPagados[$empleado->id] ?? 0);
 
                 return [
                     'empleado' => $empleado,
@@ -73,7 +74,7 @@ class RepartoDelGrupo
     }
 
     /**
-     * @param  Collection<int, array{empleado: mixed, dias: int, base: float, peso: int}>  $empleados
+     * @param  Collection<int, array{empleado: mixed, dias: float, base: float, peso: int}>  $empleados
      * @return list<array<string, mixed>>
      */
     private function repartirExcedente(Collection $empleados, float $excedente, int $sumaPesos, float $salarioDiario): array

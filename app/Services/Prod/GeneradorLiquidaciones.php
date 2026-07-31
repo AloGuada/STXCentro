@@ -226,7 +226,7 @@ class GeneradorLiquidaciones
             $empleados = $liq->empleados->map(fn ($e) => [
                 'nombre' => $e->nombre,
                 'no_empleado' => $e->no_empleado,
-                'dias_pagados' => (int) $e->dias_pagados,
+                'dias_pagados' => (float) $e->dias_pagados,
                 'categoria' => $e->categoria_nombre,
                 'categoria_valor' => (int) $e->categoria_valor,
                 'salario_diario' => (float) $e->salario_diario,

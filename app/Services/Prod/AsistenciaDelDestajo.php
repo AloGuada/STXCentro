@@ -20,7 +20,15 @@ use Illuminate\Support\Collection;
 class AsistenciaDelDestajo
 {
     /**
-     * Días del periodo del destajo, con su etiqueta corta para la tabla.
+     * La semana paga siete días repartidos en seis de trabajo (el séptimo día
+     * de descanso se prorratea), así que cada día cubierto vale 7/6.
+     */
+    public const FACTOR_SEPTIMO_DIA = 7 / 6;
+
+    /**
+     * Días capturables del destajo, con su etiqueta corta para la tabla. El
+     * domingo queda fuera: es el día de descanso y se paga prorrateado en los
+     * otros seis, no se marca asistencia.
      *
      * @return array<int, array{fecha: string, label: string}>
      */
@@ -32,10 +40,13 @@ class AsistenciaDelDestajo
         $cursor = $destajo->fecha_inicio->copy();
 
         while ($cursor->lte($destajo->fecha_fin)) {
-            $dias[] = [
-                'fecha' => $cursor->format('Y-m-d'),
-                'label' => $diasSemana[$cursor->dayOfWeekIso - 1].' '.$cursor->format('d/m'),
-            ];
+            if ($cursor->dayOfWeekIso !== 7) {
+                $dias[] = [
+                    'fecha' => $cursor->format('Y-m-d'),
+                    'label' => $diasSemana[$cursor->dayOfWeekIso - 1].' '.$cursor->format('d/m'),
+                ];
+            }
+
             $cursor = $cursor->addDay();
         }
 
@@ -118,18 +129,36 @@ class AsistenciaDelDestajo
     }
 
     /**
-     * Días que se le pagan a cada empleado en la semana: asistencia y
-     * vacaciones cuentan, falta y "no aplica" no. Base del sueldo garantizado.
+     * Días que se le pagan a cada empleado en la semana, ya con el séptimo día
+     * prorrateado: seis días cubiertos dan siete pagados. Asistencia,
+     * vacaciones e incapacidad cuentan; la falta no (y de paso se lleva su
+     * parte del séptimo día).
      *
-     * @return array<int, int>
+     * Un solo "no aplica" en la semana deja al trabajador en cero: esa semana
+     * no cobra sueldo base, sólo el destajo que le toque.
+     *
+     * @return array<int, float>
      */
     public function diasPagadosPorEmpleado(Destajo $destajo): array
     {
         return Asistencia::query()
             ->where('destajo_id', $destajo->id)
-            ->get(['grupo_empleado_id', 'estado'])
-            ->filter(fn (Asistencia $a) => $a->estado->cuentaComoPagado())
-            ->countBy('grupo_empleado_id')
+            ->get(['grupo_empleado_id', 'fecha', 'estado'])
+            // El domingo no cuenta aunque haya quedado capturado de antes: ya va
+            // prorrateado en los otros seis días.
+            ->reject(fn (Asistencia $a) => $a->fecha->dayOfWeekIso === 7)
+            ->groupBy('grupo_empleado_id')
+            ->map(function (Collection $marcas): float {
+                if ($marcas->contains(fn (Asistencia $a) => $a->estado->anulaSueldoBase())) {
+                    return 0.0;
+                }
+
+                $cubiertos = $marcas->sum(fn (Asistencia $a) => $a->estado->valorEnDias());
+
+                // Sin redondear: 5 días son 5.8333... y a $300 diarios eso da
+                // $1,750 exactos. Redondear aquí se comería un centavo.
+                return $cubiertos * self::FACTOR_SEPTIMO_DIA;
+            })
             ->all();
     }
 }

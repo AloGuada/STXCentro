@@ -61,44 +61,90 @@ function empleadoCon(CategoriaEmpleado $categoria, int $diasAsistidos, string $n
     return $empleado;
 }
 
+/** Marca la semana de un empleado con los estados que se le pasen (lunes a sábado). */
+function marcarSemana(GrupoEmpleado $empleado, array $estados): void
+{
+    foreach ($estados as $i => $estado) {
+        Asistencia::factory()->create([
+            'destajo_id' => test()->destajo->id,
+            'grupo_empleado_id' => $empleado->id,
+            'fecha' => sprintf('2026-02-%02d', 2 + $i),
+            'estado' => $estado,
+        ]);
+    }
+}
+
 describe('sueldo base por asistencia', function () {
-    test('cada dia pagado vale un salario minimo diario', function () {
+    test('la semana completa paga siete dias: el septimo va prorrateado', function () {
         empleadoCon($this->oficial, 7, 'Completo');
-        empleadoCon($this->ayudante, 5, 'Con dos faltas');
+        empleadoCon($this->ayudante, 5, 'Con una falta');
 
         $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 0);
 
-        // 7 x 300 = 2100 ; 5 x 300 = 1500
-        expect($reparto['empleados'][0]['sueldo_base'])->toBe(2100.0)
-            ->and($reparto['empleados'][1]['sueldo_base'])->toBe(1500.0)
-            ->and($reparto['total_bases'])->toBe(3600.0);
+        // Lun-Sab cubiertos: 6 x 7/6 = 7 dias -> 7 x 300 = 2100.
+        // Con una falta en sabado: 5 x 7/6 = 5.8333 -> 1750.
+        expect($reparto['empleados'][0]['dias_pagados'])->toBe(7.0)
+            ->and($reparto['empleados'][0]['sueldo_base'])->toBe(2100.0)
+            ->and($reparto['empleados'][1]['dias_pagados'])->toEqualWithDelta(5.8333, 0.0001)
+            ->and($reparto['empleados'][1]['sueldo_base'])->toBe(1750.0)
+            ->and($reparto['total_bases'])->toBe(3850.0);
     });
 
-    test('las vacaciones cuentan como dia pagado y la falta no', function () {
+    test('el domingo no cuenta aunque este capturado', function () {
         $empleado = GrupoEmpleado::factory()->create([
             'grupo_trabajo_id' => $this->grupo->id,
             'categoria_empleado_id' => $this->oficial->id,
         ]);
 
-        foreach ([
-            ['2026-02-02', EstadoAsistencia::Asistencia],
-            ['2026-02-03', EstadoAsistencia::Vacaciones],
-            ['2026-02-04', EstadoAsistencia::Falta],
-            ['2026-02-05', EstadoAsistencia::NoAplica],
-        ] as [$fecha, $estado]) {
-            Asistencia::factory()->create([
-                'destajo_id' => $this->destajo->id,
-                'grupo_empleado_id' => $empleado->id,
-                'fecha' => $fecha,
-                'estado' => $estado,
-            ]);
-        }
+        // Lun a sab asistencia y el domingo tambien: sigue valiendo 7, no 8.16.
+        marcarSemana($empleado, array_fill(0, 7, EstadoAsistencia::Asistencia));
 
         $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 0);
 
-        // Solo asistencia + vacaciones: 2 x 300
-        expect($reparto['empleados'][0]['dias_pagados'])->toBe(2)
-            ->and($reparto['empleados'][0]['sueldo_base'])->toBe(600.0);
+        expect($reparto['empleados'][0]['dias_pagados'])->toBe(7.0);
+    });
+
+    test('vacaciones e incapacidad cuentan como dia cubierto y la falta no', function () {
+        $empleado = GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => $this->grupo->id,
+            'categoria_empleado_id' => $this->oficial->id,
+        ]);
+
+        marcarSemana($empleado, [
+            EstadoAsistencia::Asistencia,
+            EstadoAsistencia::Vacaciones,
+            EstadoAsistencia::Incapacidad,
+            EstadoAsistencia::Falta,
+        ]);
+
+        $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 0);
+
+        // 3 dias cubiertos x 7/6 = 3.5
+        expect($reparto['empleados'][0]['dias_pagados'])->toBe(3.5)
+            ->and($reparto['empleados'][0]['sueldo_base'])->toBe(1050.0);
+    });
+
+    test('un solo no aplica deja la semana sin sueldo base', function () {
+        $empleado = GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => $this->grupo->id,
+            'categoria_empleado_id' => $this->oficial->id,
+        ]);
+
+        marcarSemana($empleado, [
+            EstadoAsistencia::Asistencia,
+            EstadoAsistencia::Asistencia,
+            EstadoAsistencia::Asistencia,
+            EstadoAsistencia::Asistencia,
+            EstadoAsistencia::Asistencia,
+            EstadoAsistencia::NoAplica,
+        ]);
+
+        // El grupo genero 6000: sin base, todo es excedente y se lo lleva completo.
+        $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 6000);
+
+        expect($reparto['empleados'][0]['dias_pagados'])->toBe(0.0)
+            ->and($reparto['empleados'][0]['sueldo_base'])->toBe(0.0)
+            ->and($reparto['empleados'][0]['monto_destajo'])->toBe(6000.0);
     });
 });
 
@@ -135,9 +181,10 @@ describe('reparto del excedente', function () {
 
         $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 6000);
 
-        // Mismo peso: el excedente se parte igual, pero la base del faltista es menor.
+        // Mismo peso: el excedente se parte igual, pero la base del faltista es
+        // menor (3 dias cubiertos x 7/6 = 3.5 -> 1050).
         expect($reparto['empleados'][0]['sueldo_base'])->toBe(2100.0)
-            ->and($reparto['empleados'][1]['sueldo_base'])->toBe(900.0)
+            ->and($reparto['empleados'][1]['sueldo_base'])->toBe(1050.0)
             ->and($reparto['empleados'][0]['monto_asignado'])
             ->toBeGreaterThan($reparto['empleados'][1]['monto_asignado'])
             ->and($completo->fresh())->not->toBeNull();
@@ -188,7 +235,7 @@ describe('sin datos', function () {
 
         $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 5000);
 
-        expect($reparto['empleados'][0]['dias_pagados'])->toBe(0)
+        expect($reparto['empleados'][0]['dias_pagados'])->toBe(0.0)
             ->and($reparto['empleados'][0]['sueldo_base'])->toBe(0.0)
             // Todo el total se vuelve excedente y se le reparte.
             ->and($reparto['empleados'][0]['monto_destajo'])->toBe(5000.0);
@@ -221,7 +268,7 @@ test('la liquidacion congela el reparto del empleado', function () {
     $fila = $this->destajo->liquidaciones()->firstOrFail()->empleados()->firstOrFail();
 
     // 6 pz x 100 kg x $10 = 6000 ; base 2100 ; excedente 3900
-    expect($fila->dias_pagados)->toBe(7)
+    expect((float) $fila->dias_pagados)->toBe(7.0)
         ->and($fila->categoria_nombre)->toBe('Oficial')
         ->and($fila->categoria_valor)->toBe(2000)
         ->and((float) $fila->salario_diario)->toBe(300.0)
