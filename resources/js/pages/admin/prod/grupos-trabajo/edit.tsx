@@ -196,11 +196,6 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias, pers
                                 </tfoot>
                             </table>
                         </div>
-
-                        <p className="text-base-content/60 mt-2 text-xs">
-                            La categoria se aplica a la siguiente persona que agregues. "Sin contrato" es alguien dado de
-                            alta en RH pero sin periodo laboral vigente.
-                        </p>
                     </div>
                 </div>
             </div>

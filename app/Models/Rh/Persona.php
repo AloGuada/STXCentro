@@ -2,6 +2,7 @@
 
 namespace App\Models\Rh;
 
+use App\Models\Prod\GrupoEmpleado;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -97,6 +98,12 @@ class Persona extends Model
             ->where('estado', 'activo')
             ->latest('fecha_inicio')
             ->latest('id');
+    }
+
+    /** Grupo de destajo al que pertenece. Nadie puede estar en dos a la vez. */
+    public function grupoDeProduccion(): HasOne
+    {
+        return $this->hasOne(GrupoEmpleado::class, 'persona_id');
     }
 
     public function skillsDemostradas(): HasMany

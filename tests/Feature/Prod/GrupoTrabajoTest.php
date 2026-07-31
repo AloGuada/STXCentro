@@ -207,6 +207,54 @@ describe('admin grupos trabajo', function () {
         expect(GrupoEmpleado::first()->no_empleado)->toBe('VIGENTE');
     });
 
+    test('una persona no puede estar en dos grupos', function () {
+        $persona = Persona::factory()->create();
+        GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => GrupoTrabajo::factory()->create()->id,
+            'persona_id' => $persona->id,
+        ]);
+
+        $otro = GrupoTrabajo::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.grupos-trabajo.empleados.store', $otro), ['persona_id' => $persona->id])
+            ->assertSessionHasErrors('persona_id');
+
+        expect(GrupoEmpleado::where('grupo_trabajo_id', $otro->id)->count())->toBe(0);
+    });
+
+    test('no se puede repetir a la misma persona dentro del alta del grupo', function () {
+        $persona = Persona::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.grupos-trabajo.store'), [
+                'descripcion' => 'Grupo Repetido',
+                'empleados' => [
+                    ['persona_id' => $persona->id],
+                    ['persona_id' => $persona->id],
+                ],
+            ])
+            ->assertSessionHasErrors('empleados.1.persona_id');
+
+        expect(GrupoTrabajo::where('descripcion', 'Grupo Repetido')->exists())->toBeFalse();
+    });
+
+    test('el buscador no ofrece a quien ya esta en un grupo', function () {
+        $libre = Persona::factory()->create(['nombre' => 'Libre', 'apellido' => 'Sin Grupo']);
+        $ocupada = Persona::factory()->create(['nombre' => 'Ocupada', 'apellido' => 'Con Grupo']);
+        GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => GrupoTrabajo::factory()->create()->id,
+            'persona_id' => $ocupada->id,
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.grupos-trabajo.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('personas', fn ($personas) => collect($personas)->pluck('id')->all() === [$libre->id])
+            );
+    });
+
     test('la pantalla de edicion dice si el integrante tiene contrato vigente', function () {
         $grupo = GrupoTrabajo::factory()->create();
         $persona = Persona::factory()->create();

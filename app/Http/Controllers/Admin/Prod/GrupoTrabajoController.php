@@ -62,13 +62,15 @@ class GrupoTrabajoController extends Controller
     /**
      * Padrón para el buscador del alta. Incluye a todas las personas de RH (no
      * sólo las contratadas) para que no se dupliquen dando de alta a alguien que
-     * ya existe como prospecto.
+     * ya existe como prospecto, pero deja fuera a quien ya está en un grupo:
+     * nadie puede pertenecer a dos a la vez.
      *
      * @return list<array{id: int, nombre: string, no_empleado: string|null, contratado: bool}>
      */
     private function personasDisponibles(): array
     {
         return Persona::query()
+            ->whereDoesntHave('grupoDeProduccion')
             ->with('periodoVigente:id,persona_id,numero_empleado')
             ->orderBy('nombre')
             ->orderBy('apellido')
