@@ -1,4 +1,5 @@
 import { FormField } from '@/components/form';
+import { PersonaPicker, type PersonaOption, type PersonaSeleccion } from '@/components/prod/persona-picker';
 import { UbicacionesMultiselect } from '@/components/prod/ubicaciones-multiselect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { ProdCategoriaEmpleado, ProdUbicacion } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Loader2Icon, PlusIcon, TrashIcon } from 'lucide-react';
+import { Loader2Icon, TrashIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -17,14 +18,15 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Nuevo Grupo', href: '/admin/prod/grupos-trabajo/create' },
 ];
 
-type EmpleadoForm = { nombre: string; no_empleado: string; categoria_empleado_id: string };
+type EmpleadoForm = PersonaSeleccion & { categoria_empleado_id: string };
 
 type Props = {
     ubicaciones: Pick<ProdUbicacion, 'id' | 'nombre'>[];
     categorias: Pick<ProdCategoriaEmpleado, 'id' | 'nombre' | 'valor'>[];
+    personas: PersonaOption[];
 };
 
-export default function GruposTrabajoCreate({ ubicaciones, categorias }: Props) {
+export default function GruposTrabajoCreate({ ubicaciones, categorias, personas }: Props) {
     const { data, setData, post, processing, errors } = useForm<{
         descripcion: string;
         activo: boolean;
@@ -37,10 +39,10 @@ export default function GruposTrabajoCreate({ ubicaciones, categorias }: Props) 
         empleados: [],
     });
 
-    const addEmpleado = () => {
+    const addEmpleado = (seleccion: PersonaSeleccion) => {
         setData('empleados', [
             ...data.empleados,
-            { nombre: '', no_empleado: '', categoria_empleado_id: categorias[0] ? String(categorias[0].id) : '' },
+            { ...seleccion, categoria_empleado_id: categorias[0] ? String(categorias[0].id) : '' },
         ]);
     };
 
@@ -48,9 +50,9 @@ export default function GruposTrabajoCreate({ ubicaciones, categorias }: Props) 
         setData('empleados', data.empleados.filter((_, i) => i !== index));
     };
 
-    const updateEmpleado = (index: number, field: keyof EmpleadoForm, value: string) => {
+    const updateCategoria = (index: number, value: string) => {
         const updated = [...data.empleados];
-        updated[index] = { ...updated[index], [field]: value };
+        updated[index] = { ...updated[index], categoria_empleado_id: value };
         setData('empleados', updated);
     };
 
@@ -102,19 +104,13 @@ export default function GruposTrabajoCreate({ ubicaciones, categorias }: Props) 
                         </label>
 
                         <div>
-                            <div className="mb-2 flex items-center justify-between">
-                                <h2 className="text-lg font-semibold">Empleados</h2>
-                                <Button type="button" variant="outline" size="sm" onClick={addEmpleado}>
-                                    <PlusIcon className="size-4" /> Agregar
-                                </Button>
-                            </div>
+                            <h2 className="mb-2 text-lg font-semibold">Empleados</h2>
 
                             <div className="rounded-box border border-base-300 overflow-hidden">
                                 <table className="table table-sm">
                                     <thead className="bg-base-200">
                                         <tr>
                                             <th>Nombre</th>
-                                            <th className="w-36">No. Empleado</th>
                                             <th className="w-48">Categoria</th>
                                             <th className="w-12"></th>
                                         </tr>
@@ -122,33 +118,25 @@ export default function GruposTrabajoCreate({ ubicaciones, categorias }: Props) 
                                     <tbody>
                                         {data.empleados.length === 0 ? (
                                             <tr>
-                                                <td colSpan={4} className="text-center text-base-content/50 py-6">
-                                                    Sin empleados. Usa "Agregar" para añadir integrantes.
+                                                <td colSpan={3} className="text-center text-base-content/50 py-6">
+                                                    Sin empleados. Búscalos abajo para añadirlos.
                                                 </td>
                                             </tr>
                                         ) : (
                                             data.empleados.map((emp, index) => (
                                                 <tr key={index} className="hover">
-                                                    <td>
-                                                        <Input
-                                                            value={emp.nombre}
-                                                            onChange={(e) => updateEmpleado(index, 'nombre', e.target.value)}
-                                                            placeholder="Nombre"
-                                                            className="input-sm"
-                                                        />
-                                                    </td>
-                                                    <td>
-                                                        <Input
-                                                            value={emp.no_empleado}
-                                                            onChange={(e) => updateEmpleado(index, 'no_empleado', e.target.value)}
-                                                            placeholder="No. Emp."
-                                                            className="input-sm"
-                                                        />
+                                                    <td className="font-medium">
+                                                        {emp.etiqueta}
+                                                        {emp.persona_nueva && (
+                                                            <span className="badge badge-sm badge-info badge-outline ml-2">
+                                                                Nueva en RH
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td>
                                                         <Select
                                                             value={emp.categoria_empleado_id}
-                                                            onValueChange={(v) => updateEmpleado(index, 'categoria_empleado_id', v)}
+                                                            onValueChange={(v) => updateCategoria(index, v)}
                                                             className="select-sm"
                                                             placeholder="Sin categoria"
                                                         >
@@ -168,6 +156,17 @@ export default function GruposTrabajoCreate({ ubicaciones, categorias }: Props) 
                                             ))
                                         )}
                                     </tbody>
+                                    <tfoot>
+                                        <tr className="bg-base-100">
+                                            <td colSpan={3}>
+                                                <PersonaPicker
+                                                    personas={personas}
+                                                    excluir={data.empleados.flatMap((e) => (e.persona_id ? [e.persona_id] : []))}
+                                                    onSelect={addEmpleado}
+                                                />
+                                            </td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
                         </div>

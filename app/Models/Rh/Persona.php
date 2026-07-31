@@ -5,6 +5,7 @@ namespace App\Models\Rh;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Persona extends Model
@@ -83,6 +84,19 @@ class Persona extends Model
     public function periodosLaborales(): HasMany
     {
         return $this->hasMany(PeriodoLaboral::class, 'persona_id');
+    }
+
+    /**
+     * Contratación vigente. Una persona puede existir sin ninguna (prospecto,
+     * eventual) y acumula un periodo por cada recontratación, así que se toma
+     * el activo más reciente.
+     */
+    public function periodoVigente(): HasOne
+    {
+        return $this->hasOne(PeriodoLaboral::class, 'persona_id')
+            ->where('estado', 'activo')
+            ->latest('fecha_inicio')
+            ->latest('id');
     }
 
     public function skillsDemostradas(): HasMany

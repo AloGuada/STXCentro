@@ -1,5 +1,6 @@
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
+import { PersonaPicker, type PersonaOption, type PersonaSeleccion } from '@/components/prod/persona-picker';
 import { UbicacionesMultiselect } from '@/components/prod/ubicaciones-multiselect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { ProdCategoriaEmpleado, ProdGrupoEmpleado, ProdGrupoTrabajo, ProdUbicacion } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Loader2Icon, PlusIcon, TrashIcon } from 'lucide-react';
+import { Loader2Icon, TrashIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
@@ -16,9 +17,10 @@ type Props = {
     grupo: ProdGrupoTrabajo & { empleados: ProdGrupoEmpleado[]; ubicaciones: ProdUbicacion[] };
     ubicaciones: Pick<ProdUbicacion, 'id' | 'nombre'>[];
     categorias: Pick<ProdCategoriaEmpleado, 'id' | 'nombre' | 'valor'>[];
+    personas: PersonaOption[];
 };
 
-export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias }: Props) {
+export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias, personas }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
@@ -32,24 +34,23 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias }: Pr
         ubicacion_ids: (grupo.ubicaciones ?? []).map((u) => u.id),
     });
 
-    const empleadoVacio = {
-        nombre: '',
-        no_empleado: '',
-        categoria_empleado_id: categorias[0] ? String(categorias[0].id) : '',
-    };
-    const [newEmpleado, setNewEmpleado] = useState(empleadoVacio);
+    const [categoriaNueva, setCategoriaNueva] = useState(categorias[0] ? String(categorias[0].id) : '');
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         put(`/admin/prod/grupos-trabajo/${grupo.id}`);
     };
 
-    const handleAddEmpleado = () => {
-        if (!newEmpleado.nombre.trim()) return;
-        router.post(`/admin/prod/grupos-trabajo/${grupo.id}/empleados`, newEmpleado, {
-            preserveScroll: true,
-            onSuccess: () => setNewEmpleado(empleadoVacio),
-        });
+    const handleAddEmpleado = (seleccion: PersonaSeleccion) => {
+        router.post(
+            `/admin/prod/grupos-trabajo/${grupo.id}/empleados`,
+            {
+                persona_id: seleccion.persona_id,
+                persona_nueva: seleccion.persona_nueva,
+                categoria_empleado_id: categoriaNueva || null,
+            },
+            { preserveScroll: true },
+        );
     };
 
     const handleRemoveEmpleado = (empleadoId: number) => {
@@ -124,6 +125,7 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias }: Pr
                                     <tr>
                                         <th>Nombre</th>
                                         <th className="w-36">No. Empleado</th>
+                                        <th className="w-40">RH</th>
                                         <th className="w-48">Categoria</th>
                                         <th className="w-12"></th>
                                     </tr>
@@ -131,7 +133,7 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias }: Pr
                                 <tbody>
                                     {grupo.empleados.length === 0 ? (
                                         <tr>
-                                            <td colSpan={4} className="text-center text-base-content/50 py-6">
+                                            <td colSpan={5} className="text-center text-base-content/50 py-6">
                                                 No hay empleados en este grupo.
                                             </td>
                                         </tr>
@@ -140,6 +142,15 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias }: Pr
                                             <tr key={emp.id} className="hover">
                                                 <td className="font-medium">{emp.nombre}</td>
                                                 <td>{emp.no_empleado || '-'}</td>
+                                                <td>
+                                                    {!emp.persona_id ? (
+                                                        <span className="badge badge-sm badge-error badge-outline">Sin vincular</span>
+                                                    ) : emp.persona?.periodo_vigente ? (
+                                                        <span className="badge badge-sm badge-success badge-outline">Contratado</span>
+                                                    ) : (
+                                                        <span className="badge badge-sm badge-warning badge-outline">Sin contrato</span>
+                                                    )}
+                                                </td>
                                                 <td>
                                                     {emp.categoria ? (
                                                         <span className="badge badge-sm badge-ghost">
@@ -160,28 +171,17 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias }: Pr
                                 </tbody>
                                 <tfoot>
                                     <tr className="bg-base-100">
-                                        <td>
-                                            <Input
-                                                value={newEmpleado.nombre}
-                                                onChange={(e) => setNewEmpleado({ ...newEmpleado, nombre: e.target.value })}
-                                                placeholder="Nombre del empleado"
-                                                className="input-sm"
+                                        <td colSpan={3}>
+                                            <PersonaPicker
+                                                personas={personas}
+                                                excluir={grupo.empleados.flatMap((e) => (e.persona_id ? [e.persona_id] : []))}
+                                                onSelect={handleAddEmpleado}
                                             />
                                         </td>
-                                        <td>
-                                            <Input
-                                                value={newEmpleado.no_empleado}
-                                                onChange={(e) => setNewEmpleado({ ...newEmpleado, no_empleado: e.target.value })}
-                                                placeholder="No. Emp."
-                                                className="input-sm"
-                                            />
-                                        </td>
-                                        <td>
+                                        <td colSpan={2}>
                                             <Select
-                                                value={newEmpleado.categoria_empleado_id}
-                                                onValueChange={(v) =>
-                                                    setNewEmpleado({ ...newEmpleado, categoria_empleado_id: v })
-                                                }
+                                                value={categoriaNueva}
+                                                onValueChange={setCategoriaNueva}
                                                 className="select-sm"
                                                 placeholder="Sin categoria"
                                             >
@@ -192,15 +192,15 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias }: Pr
                                                 ))}
                                             </Select>
                                         </td>
-                                        <td>
-                                            <Button type="button" size="icon" onClick={handleAddEmpleado} disabled={!newEmpleado.nombre.trim()}>
-                                                <PlusIcon className="size-4" />
-                                            </Button>
-                                        </td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
+
+                        <p className="text-base-content/60 mt-2 text-xs">
+                            La categoria se aplica a la siguiente persona que agregues. "Sin contrato" es alguien dado de
+                            alta en RH pero sin periodo laboral vigente.
+                        </p>
                     </div>
                 </div>
             </div>

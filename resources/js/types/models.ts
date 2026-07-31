@@ -688,10 +688,13 @@ export type ProdGrupoTrabajo = {
 export type ProdGrupoEmpleado = {
     id: number;
     grupo_trabajo_id: number;
+    /** Persona de RH. Null solo en los renglones capturados antes del enlace. */
+    persona_id: number | null;
     nombre: string;
     no_empleado: string | null;
     categoria_empleado_id: number | null;
     categoria?: ProdCategoriaEmpleado | null;
+    persona?: (RhPersona & { periodo_vigente?: RhPeriodoLaboral | null }) | null;
     created_at: string;
     updated_at: string;
 };

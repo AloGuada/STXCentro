@@ -5,6 +5,8 @@ use App\Models\Prod\GrupoEmpleado;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Registro;
 use App\Models\Prod\Ubicacion;
+use App\Models\Rh\PeriodoLaboral;
+use App\Models\Rh\Persona;
 use App\Models\User;
 
 beforeEach(function () {
@@ -38,6 +40,8 @@ describe('admin grupos trabajo', function () {
     test('grupo trabajo can be stored with ubicaciones y empleados', function () {
         $ubicaciones = Ubicacion::factory()->count(2)->create();
         $categoria = CategoriaEmpleado::factory()->create();
+        $juan = Persona::factory()->create(['nombre' => 'Juan', 'apellido' => 'Perez']);
+        $pedro = Persona::factory()->create(['nombre' => 'Pedro', 'apellido' => 'Lopez']);
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.prod.grupos-trabajo.store'), [
@@ -45,8 +49,8 @@ describe('admin grupos trabajo', function () {
                 'activo' => true,
                 'ubicacion_ids' => $ubicaciones->pluck('id')->all(),
                 'empleados' => [
-                    ['nombre' => 'Juan', 'no_empleado' => 'E001', 'categoria_empleado_id' => $categoria->id],
-                    ['nombre' => 'Pedro', 'no_empleado' => 'E002', 'categoria_empleado_id' => $categoria->id],
+                    ['persona_id' => $juan->id, 'categoria_empleado_id' => $categoria->id],
+                    ['persona_id' => $pedro->id, 'categoria_empleado_id' => $categoria->id],
                 ],
             ]);
 
@@ -123,21 +127,99 @@ describe('admin grupos trabajo', function () {
 
     test('empleado can be added to grupo', function () {
         $grupo = GrupoTrabajo::factory()->create();
+        $persona = Persona::factory()->create(['nombre' => 'Nuevo', 'apellido' => 'Empleado']);
+        PeriodoLaboral::factory()->create([
+            'persona_id' => $persona->id,
+            'estado' => 'activo',
+            'numero_empleado' => 'E099',
+        ]);
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.prod.grupos-trabajo.empleados.store', $grupo), [
-                'nombre' => 'Nuevo Empleado',
-                'no_empleado' => 'E099',
+                'persona_id' => $persona->id,
                 'categoria_empleado_id' => CategoriaEmpleado::factory()->create()->id,
             ]);
 
         $response->assertRedirect();
 
+        // El nombre y el número no se teclean: se copian de RH.
         $this->assertDatabaseHas('prod_grupo_empleados', [
             'grupo_trabajo_id' => $grupo->id,
+            'persona_id' => $persona->id,
             'nombre' => 'Nuevo Empleado',
             'no_empleado' => 'E099',
         ]);
+    });
+
+    test('se puede dar de alta una persona nueva desde el grupo', function () {
+        $grupo = GrupoTrabajo::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.grupos-trabajo.empleados.store', $grupo), [
+                'persona_nueva' => ['nombre' => 'Eventual', 'apellido' => 'Sin Contrato'],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $persona = Persona::where('nombre', 'Eventual')->firstOrFail();
+
+        // Nace sin periodo laboral: es de RH, pero todavía no está contratada.
+        expect($persona->periodoVigente)->toBeNull();
+
+        $this->assertDatabaseHas('prod_grupo_empleados', [
+            'grupo_trabajo_id' => $grupo->id,
+            'persona_id' => $persona->id,
+            'nombre' => 'Eventual Sin Contrato',
+            'no_empleado' => null,
+        ]);
+    });
+
+    test('el integrante exige persona elegida o nueva', function () {
+        $grupo = GrupoTrabajo::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.grupos-trabajo.empleados.store', $grupo), [
+                'categoria_empleado_id' => CategoriaEmpleado::factory()->create()->id,
+            ])
+            ->assertSessionHasErrors('persona_id');
+
+        expect(GrupoEmpleado::count())->toBe(0);
+    });
+
+    test('el numero de empleado sale del periodo vigente, no de uno dado de baja', function () {
+        $grupo = GrupoTrabajo::factory()->create();
+        $persona = Persona::factory()->create();
+        PeriodoLaboral::factory()->create([
+            'persona_id' => $persona->id,
+            'estado' => 'baja',
+            'numero_empleado' => 'VIEJO',
+            'fecha_inicio' => '2020-01-01',
+        ]);
+        PeriodoLaboral::factory()->create([
+            'persona_id' => $persona->id,
+            'estado' => 'activo',
+            'numero_empleado' => 'VIGENTE',
+            'fecha_inicio' => '2026-01-01',
+        ]);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.grupos-trabajo.empleados.store', $grupo), ['persona_id' => $persona->id]);
+
+        expect(GrupoEmpleado::first()->no_empleado)->toBe('VIGENTE');
+    });
+
+    test('la pantalla de edicion dice si el integrante tiene contrato vigente', function () {
+        $grupo = GrupoTrabajo::factory()->create();
+        $persona = Persona::factory()->create();
+        GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'persona_id' => $persona->id]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.grupos-trabajo.edit', $grupo))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/prod/grupos-trabajo/edit')
+                ->where('grupo.empleados.0.persona.periodo_vigente', null)
+                ->has('personas')
+            );
     });
 
     test('empleado can be removed from grupo', function () {

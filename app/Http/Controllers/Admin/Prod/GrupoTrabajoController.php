@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Admin\Prod;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Prod\GrupoEmpleadoStoreRequest;
 use App\Http\Requests\Admin\Prod\GrupoTrabajoStoreRequest;
 use App\Http\Requests\Admin\Prod\GrupoTrabajoUpdateRequest;
 use App\Models\Prod\CategoriaEmpleado;
 use App\Models\Prod\GrupoEmpleado;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Ubicacion;
+use App\Models\Rh\Persona;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,8 +41,9 @@ class GrupoTrabajoController extends Controller
     }
 
     /**
-     * Catálogos que alimentan el formulario: ubicaciones donde trabaja el grupo
-     * y categorías con las que se reparte el excedente.
+     * Catálogos que alimentan el formulario: ubicaciones donde trabaja el grupo,
+     * categorías con las que se reparte el excedente y el padrón de personas de
+     * RH del que salen los integrantes.
      *
      * @return array<string, mixed>
      */
@@ -52,6 +55,55 @@ class GrupoTrabajoController extends Controller
                 ->orderBy('orden')
                 ->orderBy('nombre')
                 ->get(['id', 'nombre', 'valor']),
+            'personas' => $this->personasDisponibles(),
+        ];
+    }
+
+    /**
+     * Padrón para el buscador del alta. Incluye a todas las personas de RH (no
+     * sólo las contratadas) para que no se dupliquen dando de alta a alguien que
+     * ya existe como prospecto.
+     *
+     * @return list<array{id: int, nombre: string, no_empleado: string|null, contratado: bool}>
+     */
+    private function personasDisponibles(): array
+    {
+        return Persona::query()
+            ->with('periodoVigente:id,persona_id,numero_empleado')
+            ->orderBy('nombre')
+            ->orderBy('apellido')
+            ->get(['id', 'nombre', 'apellido'])
+            ->map(fn (Persona $persona) => [
+                'id' => $persona->id,
+                'nombre' => $persona->nombre_completo,
+                'no_empleado' => $persona->periodoVigente?->numero_empleado,
+                'contratado' => $persona->periodoVigente !== null,
+            ])
+            ->all();
+    }
+
+    /**
+     * Traduce un renglón del formulario a los datos del integrante: resuelve la
+     * persona (elegida o creada al vuelo) y copia de ella el nombre y el número
+     * de empleado que se muestran en producción.
+     *
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    private function datosDelEmpleado(array $datos): array
+    {
+        $persona = isset($datos['persona_id'])
+            ? Persona::findOrFail($datos['persona_id'])
+            : Persona::create([
+                'nombre' => $datos['persona_nueva']['nombre'],
+                'apellido' => $datos['persona_nueva']['apellido'],
+            ]);
+
+        return [
+            'persona_id' => $persona->id,
+            'nombre' => $persona->nombre_completo,
+            'no_empleado' => $persona->periodoVigente?->numero_empleado,
+            'categoria_empleado_id' => $datos['categoria_empleado_id'] ?? null,
         ];
     }
 
@@ -67,11 +119,7 @@ class GrupoTrabajoController extends Controller
 
             if ($request->filled('empleados')) {
                 foreach ($request->empleados as $empData) {
-                    $grupo->empleados()->create([
-                        'nombre' => $empData['nombre'],
-                        'no_empleado' => $empData['no_empleado'] ?? null,
-                        'categoria_empleado_id' => $empData['categoria_empleado_id'] ?? null,
-                    ]);
+                    $grupo->empleados()->create($this->datosDelEmpleado($empData));
                 }
             }
 
@@ -81,7 +129,7 @@ class GrupoTrabajoController extends Controller
 
     public function edit(GrupoTrabajo $grupoTrabajo): Response
     {
-        $grupoTrabajo->load(['empleados.categoria', 'ubicaciones']);
+        $grupoTrabajo->load(['empleados.categoria', 'empleados.persona.periodoVigente', 'ubicaciones']);
 
         return Inertia::render('admin/prod/grupos-trabajo/edit', [
             'grupo' => $grupoTrabajo,
@@ -115,19 +163,11 @@ class GrupoTrabajoController extends Controller
         return to_route('admin.prod.grupos-trabajo.index');
     }
 
-    public function storeEmpleado(Request $request, GrupoTrabajo $grupoTrabajo): RedirectResponse
+    public function storeEmpleado(GrupoEmpleadoStoreRequest $request, GrupoTrabajo $grupoTrabajo): RedirectResponse
     {
-        $request->validate([
-            'nombre' => ['required', 'string', 'max:255'],
-            'no_empleado' => ['nullable', 'string', 'max:50'],
-            'categoria_empleado_id' => ['nullable', 'exists:prod_categorias_empleado,id'],
-        ]);
-
-        $grupoTrabajo->empleados()->create([
-            'nombre' => $request->nombre,
-            'no_empleado' => $request->no_empleado,
-            'categoria_empleado_id' => $request->categoria_empleado_id,
-        ]);
+        DB::transaction(function () use ($request, $grupoTrabajo) {
+            $grupoTrabajo->empleados()->create($this->datosDelEmpleado($request->validated()));
+        });
 
         return back();
     }
