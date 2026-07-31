@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             RolesSeeder::class,
             StiStatusSeeder::class,
             ProdTipoSeeder::class,
+            ProdUbicacionSeeder::class,
             DgCarpetasSeeder::class,
             RegimenFiscalSeeder::class,
             BancosSeeder::class,
