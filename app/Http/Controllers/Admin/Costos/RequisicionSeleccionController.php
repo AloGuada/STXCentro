@@ -35,6 +35,15 @@ class RequisicionSeleccionController extends Controller
             ]);
         }
 
+        // El comparativo dibuja las celdas por opción: sin ella la cotización no
+        // tiene columna y la selección quedaría apuntando a una fila invisible
+        // (la celda que sí se ve nunca se marcaría como seleccionada).
+        if ($cotizacion->opcion_id === null) {
+            return back()->withErrors([
+                'cotizacion_precio_id' => 'Esa cotización no está ligada a una columna del comparativo. Vuelve a capturar el precio en la columna del proveedor.',
+            ]);
+        }
+
         $cantidad = (float) $request->input('cantidad');
         $numeroOc = (int) ($request->input('numero_oc') ?: 1);
         $cantidadPartida = (float) $cotizacion->detalle->cantidad;

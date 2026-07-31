@@ -24,7 +24,8 @@ function reqConCotizacion(Departamento $depto, float $cantidad = 10, bool $manej
     $req = Requisicion::factory()->create(['departamento_id' => $depto->id, 'estatus' => 'borrador']);
     $detalle = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => $cantidad]);
     $proveedor = Proveedor::factory()->create(['maneja_credito' => $manejaCredito]);
-    $cot = RequisicionCotizacionPrecio::create([
+    // Vía factory: siempre nace con su opción (columna del comparativo).
+    $cot = RequisicionCotizacionPrecio::factory()->create([
         'requisicion_detalle_id' => $detalle->id, 'proveedor_id' => $proveedor->id,
         'precio_unitario' => 50, 'moneda' => 'mxn',
     ]);

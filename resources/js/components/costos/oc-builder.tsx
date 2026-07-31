@@ -330,7 +330,10 @@ function OcCard({
         .filter((c) => c.restante > 0.001 && !idsEnOc.has(c.detalle.id))
         .flatMap((c) =>
             (c.detalle.cotizaciones ?? [])
-                .filter((x) => x.proveedor_id === proveedorId)
+                // Sólo celdas que el comparativo dibuja: una cotización sin
+                // opción no tiene columna, y seleccionarla dejaría la selección
+                // apuntando a una fila invisible.
+                .filter((x) => x.proveedor_id === proveedorId && x.opcion_id != null)
                 .map((cot) => ({ detalle: c.detalle, restante: c.restante, cot })),
         );
 

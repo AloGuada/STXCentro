@@ -17,6 +17,7 @@ use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Requisicion;
+use App\Models\Costos\RequisicionCotizacionOpcion;
 use App\Models\Costos\RequisicionCotizacionPrecio;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\RequisicionSeleccion;
@@ -238,7 +239,20 @@ class RequisicionController extends Controller
                 'estatus' => RequisicionEstatus::Borrador->value,
             ]);
 
-            $requisicion->load('detalles.cotizaciones');
+            $requisicion->load('detalles.cotizaciones', 'cotizacionOpciones');
+
+            // Las opciones (columnas del comparativo) se copian primero: una
+            // cotización sin `opcion_id` no se dibuja en ninguna columna, así que
+            // copiar precios sin sus opciones dejaría el comparativo en blanco y
+            // las selecciones apuntando a filas invisibles.
+            $mapaOpciones = $requisicion->cotizacionOpciones
+                ->mapWithKeys(fn (RequisicionCotizacionOpcion $opcion) => [
+                    $opcion->id => $nueva->cotizacionOpciones()->create([
+                        'proveedor_id' => $opcion->proveedor_id,
+                        'etiqueta' => $opcion->etiqueta,
+                        'orden' => $opcion->orden,
+                    ])->id,
+                ]);
 
             foreach ($requisicion->detalles as $detalle) {
                 $nuevoDetalle = $nueva->detalles()->create([
@@ -257,6 +271,7 @@ class RequisicionController extends Controller
                 foreach ($detalle->cotizaciones as $cotizacion) {
                     $nuevoDetalle->cotizaciones()->create([
                         'proveedor_id' => $cotizacion->proveedor_id,
+                        'opcion_id' => $mapaOpciones[$cotizacion->opcion_id] ?? null,
                         'precio_unitario' => $cotizacion->precio_unitario,
                         'codigo_producto' => $cotizacion->codigo_producto,
                         'moneda' => $cotizacion->moneda,
