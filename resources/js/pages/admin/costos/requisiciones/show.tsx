@@ -1917,6 +1917,100 @@ function ComparativoCotizaciones({
     const mejorProveedorId = requisicion.mejor_proveedor?.id ?? null;
     const fmt = fmtMonto;
 
+    /** Etiqueta de la divisa en la que está expresada la cifra principal. */
+    const EtiquetaMxn = () => (
+        <span className="text-[10px] font-normal text-base-content/50">
+            {TIPO_MONEDA_LABELS.mxn}
+        </span>
+    );
+
+    /**
+     * Dinero del comparativo con el peso al frente: MXN es la cifra que se
+     * compara y se autoriza, y la divisa original queda como referencia entre
+     * paréntesis. Sin tipo de cambio no hay conversión posible, así que el
+     * monto se muestra tal como se cotizó.
+     */
+    const MontoComparado = ({
+        valor,
+        moneda,
+        className,
+    }: {
+        valor: number;
+        moneda: string;
+        className?: string;
+    }) => {
+        const cod = (moneda || 'mxn').toLowerCase();
+
+        if (cod === 'mxn') {
+            return (
+                <span className={className}>
+                    {fmt(valor, 'mxn')} <EtiquetaMxn />
+                </span>
+            );
+        }
+
+        // `fmt` ya rotula la divisa (`$1,000.00 USD`).
+        if (tc <= 0) {
+            return <span className={className}>{fmt(valor, cod)}</span>;
+        }
+
+        return (
+            <span className={className}>
+                {fmt(valor * tc, 'mxn')} <EtiquetaMxn />{' '}
+                <span className="text-[10px] font-normal text-base-content/50">
+                    ({fmt(valor, cod)})
+                </span>
+            </span>
+        );
+    };
+
+    /**
+     * Importe de la partida en pesos. Una partida puede traer selecciones en
+     * varias monedas; con tipo de cambio se suman todas a MXN y el desglose en
+     * divisa va entre paréntesis. Sin TC no se pueden sumar y se listan aparte.
+     */
+    const ImporteComparado = ({
+        contribs,
+    }: {
+        contribs: { moneda: string; importe: number }[];
+    }) => {
+        const divisas = contribs.filter((c) => c.moneda !== 'mxn');
+
+        if (divisas.length === 0) {
+            const enMxn = contribs.reduce((acc, c) => acc + c.importe, 0);
+
+            return (
+                <>
+                    {fmt(enMxn, 'mxn')} <EtiquetaMxn />
+                </>
+            );
+        }
+
+        if (tc <= 0) {
+            return (
+                <>
+                    {contribs
+                        .map((c) => fmt(c.importe, c.moneda))
+                        .join(' + ')}
+                </>
+            );
+        }
+
+        const enMxn = contribs.reduce(
+            (acc, c) => acc + (c.moneda === 'mxn' ? c.importe : c.importe * tc),
+            0,
+        );
+
+        return (
+            <>
+                {fmt(enMxn, 'mxn')} <EtiquetaMxn />{' '}
+                <span className="text-[10px] font-normal text-base-content/50">
+                    ({divisas.map((c) => fmt(c.importe, c.moneda)).join(' + ')})
+                </span>
+            </>
+        );
+    };
+
     const cotizacionDe = (detalleId: number, opcionId: number) =>
         detalles
             .find((x) => x.id === detalleId)
@@ -2157,31 +2251,16 @@ function ComparativoCotizaciones({
                                         <td key={op.id} className={classes}>
                                             {px !== null ? (
                                                 <>
-                                                    <div>
+                                                    <div className="text-sm">
                                                         {seleccionado && (
                                                             <span className="mr-1">
                                                                 ✓
                                                             </span>
                                                         )}
-                                                        {fmt(px)}{' '}
-                                                        <span className="text-[10px] font-normal text-base-content/50">
-                                                            {
-                                                                TIPO_MONEDA_LABELS[
-                                                                    moneda
-                                                                ]
-                                                            }
-                                                        </span>
-                                                        {moneda !== 'mxn' &&
-                                                            tc > 0 && (
-                                                                <span className="ml-1 text-[10px] font-normal text-base-content/50">
-                                                                    (
-                                                                    {fmt(
-                                                                        px * tc,
-                                                                        'mxn',
-                                                                    )}
-                                                                    )
-                                                                </span>
-                                                            )}
+                                                        <MontoComparado
+                                                            valor={px}
+                                                            moneda={moneda}
+                                                        />
                                                     </div>
                                                     {cot?.descripcion && (
                                                         <div className="text-[10px] font-normal text-base-content/60">
@@ -2207,11 +2286,9 @@ function ComparativoCotizaciones({
                                         </td>
                                     );
                                 })}
-                                <td className="text-right font-semibold">
+                                <td className="text-right text-sm font-semibold">
                                     {tieneImporte ? (
-                                        contribs
-                                            .map((c) => fmt(c.importe, c.moneda))
-                                            .join(' + ')
+                                        <ImporteComparado contribs={contribs} />
                                     ) : (
                                         <span className="text-base-content/30">
                                             —
