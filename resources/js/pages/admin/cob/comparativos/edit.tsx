@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { fechaParaInput } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import { COB_COMPARATIVO_ESTADO_LABELS, type CobComparativo, type Proyecto } from '@/types/models';
 
@@ -30,7 +31,7 @@ export default function ComparativoEdit({ proyecto, obras, comparativo }: Props)
         obra_id: comparativo.obra_id ? String(comparativo.obra_id) : '',
         descripcion: comparativo.descripcion,
         monto_impacto: String(comparativo.monto_impacto),
-        fecha_identificacion: comparativo.fecha_identificacion?.substring(0, 10) ?? '',
+        fecha_identificacion: fechaParaInput(comparativo.fecha_identificacion),
         estado: comparativo.estado as string,
     });
 

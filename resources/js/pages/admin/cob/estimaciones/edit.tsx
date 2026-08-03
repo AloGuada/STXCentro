@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { fechaParaInput, formatFecha, formatFechaHora } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import {
     COB_ESTIMACION_ESTADO_LABELS,
@@ -38,7 +39,6 @@ export default function EstimacionEdit({ proyecto, obras, estimacion, partidaIds
         { title: `Estimación #${estimacion.numero_estimacion}`, href: '#' },
     ];
 
-    const toDateInput = (value: string | null | undefined): string => (value ? value.substring(0, 10) : '');
 
     const form = useForm({
         nivel: estimacion.nivel as CobEstimacionNivel,
@@ -46,9 +46,9 @@ export default function EstimacionEdit({ proyecto, obras, estimacion, partidaIds
         partida_ids: partidaIds ?? [],
         folio: estimacion.folio ?? '',
         tipo: estimacion.tipo ?? '',
-        fecha_emision: toDateInput(estimacion.fecha_emision),
-        inicio: toDateInput(estimacion.inicio),
-        fin: toDateInput(estimacion.fin),
+        fecha_emision: fechaParaInput(estimacion.fecha_emision),
+        inicio: fechaParaInput(estimacion.inicio),
+        fin: fechaParaInput(estimacion.fin),
         monto_estimado: String(estimacion.monto_estimado),
         monto_total: String(estimacion.monto_total),
         moneda: estimacion.moneda,
@@ -282,7 +282,7 @@ export default function EstimacionEdit({ proyecto, obras, estimacion, partidaIds
                         <tbody>
                             {(estimacion.pagos ?? []).map((p) => (
                                 <tr key={p.id}>
-                                    <td>{new Date(p.fecha_pago).toLocaleDateString('es-MX')}</td>
+                                    <td>{formatFecha(p.fecha_pago)}</td>
                                     <td>{p.folio ?? '-'}</td>
                                     <td className="text-right">{formatearMXN(p.monto_pagado)}</td>
                                     <td>
@@ -321,7 +321,7 @@ export default function EstimacionEdit({ proyecto, obras, estimacion, partidaIds
                         <tbody>
                             {(estimacion.historial ?? []).map((h) => (
                                 <tr key={h.id}>
-                                    <td>{new Date(h.fecha_cambio).toLocaleString('es-MX')}</td>
+                                    <td>{formatFechaHora(h.fecha_cambio)}</td>
                                     <td>{h.estado_anterior ?? '-'}</td>
                                     <td>{COB_ESTIMACION_ESTADO_LABELS[h.estado_nuevo as CobEstimacionEstado] ?? h.estado_nuevo}</td>
                                     <td>{h.folio ?? '-'}</td>

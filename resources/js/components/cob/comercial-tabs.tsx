@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { EstimacionesGantt } from '@/components/cob/estimaciones-gantt';
 import { formatearMXN } from '@/components/cob/money-display';
 import { Button } from '@/components/ui/button';
+import { formatFecha } from '@/lib/fechas';
 import {
     COB_ADENDA_ESTADO_LABELS,
     COB_ADENDA_TIPO_LABELS,
@@ -17,12 +18,6 @@ import {
  * (donde viven anticipos, adendas, comparativos, etc.); por eso los links siguen
  * usando las rutas `obras/{obra}/...` existentes.
  */
-
-function formatFecha(fecha: string | null): string {
-    if (!fecha) return '-';
-    const d = new Date(fecha);
-    return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
 
 export function AnticiposTab({ obra }: { obra: Obra }) {
     return (
@@ -129,7 +124,7 @@ export function DeduccionesTab({ obra }: { obra: Obra }) {
                             <tr key={d.id}>
                                 <td>{d.descripcion}</td>
                                 <td className="text-right">{formatearMXN(d.monto)}</td>
-                                <td>{d.fecha ?? '-'}</td>
+                                <td>{formatFecha(d.fecha)}</td>
                                 <td className="flex gap-1">
                                     <a href={`/admin/cob/obras/${obra.id}/deducciones/${d.id}/edit`} className="btn btn-ghost btn-xs">
                                         <PencilIcon className="size-3" />
@@ -167,7 +162,7 @@ export function DisputasTab({ obra }: { obra: Obra }) {
                         {(obra.disputas ?? []).map((d) => (
                             <tr key={d.id}>
                                 <td className="max-w-xs truncate">{d.descripcion}</td>
-                                <td>{d.fecha_inicio ?? '-'}</td>
+                                <td>{formatFecha(d.fecha_inicio)}</td>
                                 <td><span className="badge badge-sm">{COB_DISPUTA_ESTADO_LABELS[d.estado] ?? d.estado}</span></td>
                                 <td className="max-w-xs truncate">{d.resultado ?? '-'}</td>
                                 <td className="flex gap-1">
@@ -209,7 +204,7 @@ export function PenalizacionesTab({ obra }: { obra: Obra }) {
                                 <td>{p.descripcion}</td>
                                 <td className="text-right">{formatearMXN(p.monto)}</td>
                                 <td>{p.tipo ?? '-'}</td>
-                                <td>{p.fecha ?? '-'}</td>
+                                <td>{formatFecha(p.fecha)}</td>
                                 <td className="flex gap-1">
                                     <a href={`/admin/cob/obras/${obra.id}/penalizaciones/${p.id}/edit`} className="btn btn-ghost btn-xs">
                                         <PencilIcon className="size-3" />

@@ -1,5 +1,6 @@
-import type { CobEvento } from '@/types/models';
 import { useMemo, useState } from 'react';
+import { parseFecha } from '@/lib/fechas';
+import type { CobEvento } from '@/types/models';
 
 type ViewMode = 'dias' | 'semanas' | 'meses';
 
@@ -8,7 +9,10 @@ type Props = {
 };
 
 function getDateRange(eventos: CobEvento[]): { minDate: Date; maxDate: Date } {
-    const dates = eventos.flatMap((e) => [e.inicio, e.fin].filter(Boolean)).map((d) => new Date(d!));
+    const dates = eventos
+        .flatMap((e) => [e.inicio, e.fin])
+        .map((d) => parseFecha(d))
+        .filter((d): d is Date => d !== null);
 
     if (dates.length === 0) {
         const now = new Date();
@@ -32,13 +36,13 @@ function formatDate(d: Date): string {
 export function GanttChart({ eventos }: Props) {
     const [viewMode, setViewMode] = useState<ViewMode>('semanas');
 
-    const { minDate, maxDate, totalDays } = useMemo(() => {
+    const { minDate, totalDays } = useMemo(() => {
         const range = getDateRange(eventos);
         const padding = 7;
         const min = new Date(range.minDate.getTime() - padding * 86400000);
         const max = new Date(range.maxDate.getTime() + padding * 86400000);
 
-        return { minDate: min, maxDate: max, totalDays: daysBetween(min, max) };
+        return { minDate: min, totalDays: daysBetween(min, max) };
     }, [eventos]);
 
     const parentEvents = eventos.filter((e) => e.parent_id === null);
@@ -117,13 +121,12 @@ function GanttRow({
     chartWidth: number;
     depth: number;
 }) {
-    const startOffset = evento.inicio
-        ? daysBetween(minDate, new Date(evento.inicio)) * colWidth
-        : 0;
+    const inicio = parseFecha(evento.inicio);
+    const fin = parseFecha(evento.fin);
 
-    const duration = evento.inicio && evento.fin
-        ? Math.max(daysBetween(new Date(evento.inicio), new Date(evento.fin)), 1) * colWidth
-        : 0;
+    const startOffset = inicio ? daysBetween(minDate, inicio) * colWidth : 0;
+
+    const duration = inicio && fin ? Math.max(daysBetween(inicio, fin), 1) * colWidth : 0;
 
     return (
         <>

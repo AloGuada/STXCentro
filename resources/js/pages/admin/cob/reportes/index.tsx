@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { FileTextIcon } from 'lucide-react';
 import { formatearMXN } from '@/components/cob/money-display';
 import AppLayout from '@/layouts/app-layout';
+import { formatFecha } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import type { CobReporteFila } from '@/types/models';
 
@@ -17,9 +18,7 @@ type Props = {
     filas: CobReporteFila[];
 };
 
-function fmtFecha(fecha: string): string {
-    return new Date(fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
-}
+const FMT_DIA_MES: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
 
 export default function ReportesIndex({ anio, anios, filas }: Props) {
     const cambiarAnio = (nuevo: number) => {
@@ -71,7 +70,7 @@ export default function ReportesIndex({ anio, anios, filas }: Props) {
                                             </span>
                                         )}
                                     </td>
-                                    <td className="whitespace-nowrap">{fmtFecha(f.fecha_inicio)} – {fmtFecha(f.fecha_fin)}</td>
+                                    <td className="whitespace-nowrap">{formatFecha(f.fecha_inicio, FMT_DIA_MES)} – {formatFecha(f.fecha_fin, FMT_DIA_MES)}</td>
                                     <td className="text-right">{formatearMXN(Number(f.saldo_anterior_sin_iva))}</td>
                                     <td className="text-success text-right">{f.total_detonaciones_sin_iva > 0 ? `+${formatearMXN(Number(f.total_detonaciones_sin_iva))}` : '—'}</td>
                                     <td className="text-error text-right">{f.total_cobrado_sin_iva > 0 ? `−${formatearMXN(Number(f.total_cobrado_sin_iva))}` : '—'}</td>

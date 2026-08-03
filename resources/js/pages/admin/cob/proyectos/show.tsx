@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
+import { formatFecha } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import {
     COB_COMPARATIVO_ESTADO_LABELS,
@@ -25,6 +26,9 @@ import {
     type Obra,
     type Proyecto,
 } from '@/types/models';
+
+/** Las fechas de eventos van en columna angosta: dd/mm/aa. */
+const FMT_CORTO: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: '2-digit' };
 
 type Props = {
     proyecto: Proyecto;
@@ -299,7 +303,6 @@ function ObraCard({
 // -- Estimaciones del proyecto (hub: todos los niveles) --
 function EstimacionesTab({ proyecto }: { proyecto: Proyecto }) {
     const estimaciones = proyecto.estimaciones ?? [];
-    const fmtFecha = (f: string | null) => (f ? new Date(f + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-');
 
     return (
         <div className="space-y-4">
@@ -332,7 +335,7 @@ function EstimacionesTab({ proyecto }: { proyecto: Proyecto }) {
                                 <td>{e.folio ?? '-'}</td>
                                 <td><span className="badge badge-ghost badge-sm">{NIVEL_LABEL[e.nivel] ?? e.nivel}</span></td>
                                 <td>{e.nivel === 'proyecto' ? 'Global' : (e.obra?.no ?? '-')}</td>
-                                <td>{e.inicio && e.fin ? `${fmtFecha(e.inicio)} – ${fmtFecha(e.fin)}` : '-'}</td>
+                                <td>{e.inicio && e.fin ? `${formatFecha(e.inicio, FMT_CORTO)} – ${formatFecha(e.fin, FMT_CORTO)}` : '-'}</td>
                                 <td className="text-right">{formatearMXN(Number(e.monto_estimado))}</td>
                                 <td className="text-right">{formatearMXN(Number(e.monto_pagado))}</td>
                                 <td><EstadoBadge estado={e.estado} /></td>
@@ -427,7 +430,7 @@ function ComparativosTab({ proyecto }: { proyecto: Proyecto }) {
                                 <td className="whitespace-nowrap">{etiquetaObra(c.obra_id)}</td>
                                 <td className="max-w-xs truncate">{c.descripcion}</td>
                                 <td className="text-right">{formatearMXN(c.monto_impacto)}</td>
-                                <td>{c.fecha_identificacion ?? '-'}</td>
+                                <td>{formatFecha(c.fecha_identificacion)}</td>
                                 <td><span className="badge badge-sm">{COB_COMPARATIVO_ESTADO_LABELS[c.estado] ?? c.estado}</span></td>
                                 <td>
                                     <div className="flex justify-end gap-1">

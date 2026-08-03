@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { fechaParaInput } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import { type CobDeduccion, type Obra } from '@/types/models';
 
@@ -27,7 +28,7 @@ export default function DeduccionEdit({ obra, deduccion }: Props) {
         descripcion: deduccion.descripcion,
         monto: String(deduccion.monto),
         moneda: deduccion.moneda,
-        fecha: deduccion.fecha ?? '',
+        fecha: fechaParaInput(deduccion.fecha),
     });
 
     const handleSubmit = (e: FormEvent) => {

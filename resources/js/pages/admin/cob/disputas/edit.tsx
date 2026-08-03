@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { fechaParaInput } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import { COB_DISPUTA_ESTADO_LABELS, type CobDisputa, type Obra } from '@/types/models';
 
@@ -25,8 +26,8 @@ export default function DisputaEdit({ obra, disputa }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         _method: 'put' as const,
         descripcion: disputa.descripcion,
-        fecha_inicio: disputa.fecha_inicio ?? '',
-        fecha_resolucion: disputa.fecha_resolucion ?? '',
+        fecha_inicio: fechaParaInput(disputa.fecha_inicio),
+        fecha_resolucion: fechaParaInput(disputa.fecha_resolucion),
         estado: disputa.estado,
         resultado: disputa.resultado ?? '',
     });

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { fechaParaInput } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import { type CobPenalizacion, type Obra } from '@/types/models';
 
@@ -28,7 +29,7 @@ export default function PenalizacionEdit({ obra, penalizacion }: Props) {
         monto: String(penalizacion.monto),
         moneda: penalizacion.moneda,
         tipo: penalizacion.tipo ?? '',
-        fecha: penalizacion.fecha ?? '',
+        fecha: fechaParaInput(penalizacion.fecha),
     });
 
     const handleSubmit = (e: FormEvent) => {

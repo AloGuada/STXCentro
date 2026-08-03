@@ -6,6 +6,7 @@ import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
+import { formatFecha } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import type { CobReporteCobro, CobReporteSemana } from '@/types/models';
 
@@ -13,9 +14,7 @@ type Props = {
     reporte: CobReporteSemana;
 };
 
-function fmtFecha(fecha: string): string {
-    return new Date(fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
-}
+const FMT_LARGO: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'long', year: 'numeric' };
 
 export default function ReporteShow({ reporte }: Props) {
     const { can } = useCan();
@@ -48,7 +47,7 @@ export default function ReporteShow({ reporte }: Props) {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <h1 className="text-2xl font-semibold">Reporte semanal — {reporte.anio} · Semana {reporte.semana}</h1>
-                        <p className="text-base-content/60 text-sm">{fmtFecha(reporte.fecha_inicio)} – {fmtFecha(reporte.fecha_fin)}</p>
+                        <p className="text-base-content/60 text-sm">{formatFecha(reporte.fecha_inicio, FMT_LARGO)} – {formatFecha(reporte.fecha_fin, FMT_LARGO)}</p>
                     </div>
                     <a href={`/admin/cob/reportes/${reporte.anio}/${reporte.semana}/pdf`} className="btn btn-primary btn-sm" target="_blank" rel="noopener noreferrer">
                         Imprimir PDF

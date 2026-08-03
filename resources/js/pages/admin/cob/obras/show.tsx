@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { formatFecha } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import {
     COB_TIPO_CONTRATO_LABELS,
@@ -310,7 +311,7 @@ function EstimacionesTab({ obra }: { obra: Obra }) {
                         <tr key={e.id}>
                             <td>{e.numero_estimacion}</td>
                             <td>{e.folio ?? '-'}</td>
-                            <td>{e.inicio && e.fin ? `${fmtFecha(e.inicio)} - ${fmtFecha(e.fin)}` : '-'}</td>
+                            <td>{e.inicio && e.fin ? `${formatFecha(e.inicio)} - ${formatFecha(e.fin)}` : '-'}</td>
                             <td className="text-right">{formatearMXN(Number(e.monto_estimado))}</td>
                             <td className="text-right">{formatearMXN(Number(e.monto_pagado))}</td>
                             <td><EstadoBadge estado={e.estado} /></td>
@@ -328,9 +329,4 @@ function EstimacionesTab({ obra }: { obra: Obra }) {
             </table>
         </div>
     );
-}
-
-function fmtFecha(fecha: string | null): string {
-    if (!fecha) return '-';
-    return new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }

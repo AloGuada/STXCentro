@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { fechaParaInput } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import { COB_ADENDA_ESTADO_LABELS, COB_ADENDA_TIPO_LABELS, type CobAdenda, type Obra } from '@/types/models';
 
@@ -27,7 +28,7 @@ export default function AdendaEdit({ obra, adenda }: Props) {
         tipo: adenda.tipo,
         descripcion: adenda.descripcion,
         monto_modificacion: String(adenda.monto_modificacion),
-        fecha: adenda.fecha ?? '',
+        fecha: fechaParaInput(adenda.fecha),
         estado: adenda.estado,
     });
 

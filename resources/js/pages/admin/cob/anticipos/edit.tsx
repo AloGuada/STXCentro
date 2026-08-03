@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { fechaParaInput } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import { COB_ANTICIPO_ESTADO_LABELS, type CobAnticipo, type Obra } from '@/types/models';
 
@@ -25,11 +26,11 @@ export default function AnticipoEdit({ obra, anticipo }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         _method: 'put' as const,
         folio: anticipo.folio ?? '',
-        fecha_emision: anticipo.fecha_emision ?? '',
+        fecha_emision: fechaParaInput(anticipo.fecha_emision),
         monto: String(anticipo.monto),
         moneda: anticipo.moneda,
         estado: anticipo.estado,
-        fecha_pagado: anticipo.fecha_pagado ?? '',
+        fecha_pagado: fechaParaInput(anticipo.fecha_pagado),
         comentarios: anticipo.comentarios ?? '',
         comprobante: null as File | null,
     });
