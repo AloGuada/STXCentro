@@ -19,6 +19,34 @@ type Props = {
 };
 
 
+/** Cuántas obras se alcanzan a leer sin ensanchar la columna; el resto va al tooltip. */
+const OBRAS_VISIBLES = 2;
+
+/**
+ * Obras a las que carga la recepción. Una OC puede repartirse entre varias, y
+ * saber cuáles es justo el dato que se concilia contra presupuesto, así que se
+ * enumeran en vez de resumirlas en un "Varios presupuestos".
+ */
+function Obras({ nombres }: { nombres: string[] }) {
+    if (nombres.length === 0) {
+        return <span className="text-base-content/40">-</span>;
+    }
+
+    const visibles = nombres.slice(0, OBRAS_VISIBLES);
+    const ocultas = nombres.length - visibles.length;
+
+    return (
+        <div className="flex flex-col gap-0.5" title={nombres.join(' · ')}>
+            {visibles.map((nombre) => (
+                <span key={nombre} className="truncate">
+                    {nombre}
+                </span>
+            ))}
+            {ocultas > 0 && <span className="text-xs text-base-content/60">+{ocultas} más</span>}
+        </div>
+    );
+}
+
 /** `YYYY-MM-DD` en hora local; `toISOString()` correria el dia en zonas UTC-. */
 const aInput = (fecha: Date): string =>
     `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
@@ -212,7 +240,9 @@ export default function RecepcionesIndex({ recepciones, filters }: Props) {
                                             )}
                                         </td>
                                         <td>{r.proveedor ?? '-'}</td>
-                                        <td className="max-w-xs truncate">{r.obra ?? '-'}</td>
+                                        <td className="max-w-xs">
+                                            <Obras nombres={r.obras} />
+                                        </td>
                                         <td>{r.factura?.folio ?? '-'}</td>
                                         <td>{r.recibido_por ?? '-'}</td>
                                         <td>

@@ -78,9 +78,12 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
                 'ordenCompra.proveedor:id,razon_social,nombre_comercial',
                 // El destino presupuestal sale de las partidas: la columna
                 // `obra_id` de la OC quedó sin uso con el presupuesto polimórfico.
+                // Se precargan los tres caminos de `nombresDePresupuesto()`.
                 'ordenCompra.detalles:id,orden_compra_id,obra_rubro_id',
                 'ordenCompra.detalles.obraRubro.presupuesto.presupuestable',
-                'ordenCompra.solicitudesPago:id,orden_compra_id,folio',
+                'ordenCompra.solicitudesPago',
+                'ordenCompra.solicitudesPago.detalles.obraRubro.presupuesto.presupuestable',
+                'ordenCompra.requisicion.presupuesto.presupuestable',
                 'factura:id,folio',
                 'recibidoPor:id,name',
             ])
@@ -99,7 +102,9 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
                     // se listan en la misma celda para no romper el renglón.
                     'solicitudes_pago' => $oc?->solicitudesPago->pluck('folio')->implode(' / ') ?: '—',
                     'proveedor' => $proveedor ? ($proveedor->razon_social ?: $proveedor->nombre_comercial) : '—',
-                    'obra' => $oc?->presupuesto_label ?? '—',
+                    // Todas las obras a las que pega la recepción, no una etiqueta
+                    // genérica: el reporte se concilia contra presupuesto.
+                    'obra' => implode(' · ', $oc?->nombresDePresupuesto() ?? []) ?: '—',
                     'factura' => $entrega->factura?->folio ?? '—',
                     'recibido_por' => $entrega->recibidoPor?->name ?? '—',
                     'tipo' => $entrega->tipo === 'completa' ? 'Completa' : 'Parcial',

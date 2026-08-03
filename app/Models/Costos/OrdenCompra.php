@@ -142,6 +142,46 @@ class OrdenCompra extends Model
         };
     }
 
+    /**
+     * Nombres de las obras (presupuestos) a las que carga la orden, resueltos
+     * por el primer camino que dé resultado:
+     *
+     *  1. sus propias partidas — la fuente directa;
+     *  2. las partidas de la solicitud de pago que la paga, para las OC que
+     *     nacieron sin desglose presupuestal propio;
+     *  3. el presupuesto del encabezado de la requisición que la originó, que
+     *     está validado contra las partidas de esa requisición.
+     *
+     * Requiere precargar `detalles.obraRubro.presupuesto.presupuestable`,
+     * `solicitudesPago.detalles.obraRubro.presupuesto.presupuestable` y
+     * `requisicion.presupuesto.presupuestable` para no disparar N+1.
+     *
+     * @return list<string>
+     */
+    public function nombresDePresupuesto(): array
+    {
+        $fuentes = [
+            fn () => $this->detalles
+                ->map(fn (OrdenCompraDetalle $d) => $d->obraRubro?->presupuesto?->nombreMostrar()),
+
+            fn () => $this->solicitudesPago
+                ->flatMap(fn ($sp) => $sp->detalles
+                    ->map(fn ($d) => $d->obraRubro?->presupuesto?->nombreMostrar())),
+
+            fn () => collect([$this->requisicion?->presupuesto?->nombreMostrar()]),
+        ];
+
+        foreach ($fuentes as $fuente) {
+            $nombres = $fuente()->filter()->unique()->values();
+
+            if ($nombres->isNotEmpty()) {
+                return $nombres->all();
+            }
+        }
+
+        return [];
+    }
+
     public function facturas(): HasMany
     {
         return $this->hasMany(Factura::class, 'orden_compra_id');

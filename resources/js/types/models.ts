@@ -2606,7 +2606,8 @@ export type CostosRecepcionRow = {
     recibido_por: string | null;
     oc: { id: number; folio: string; tipo_pago: string | null; url: string } | null;
     proveedor: string | null;
-    obra: string | null;
+    /** Obras a las que carga la recepción, vía OC, su solicitud de pago o su requisición. */
+    obras: string[];
     solicitudes_pago: { id: number; folio: string; estatus: string | null; url: string }[];
     factura: { id: number; folio: string | null } | null;
     pdf_url: string;

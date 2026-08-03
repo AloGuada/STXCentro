@@ -42,10 +42,13 @@ class EntregaController extends Controller
                 'ordenCompra.proveedor:id,razon_social,nombre_comercial',
                 // El destino presupuestal vive en las partidas, no en la OC:
                 // `ordenes_compra.obra_id` quedó sin uso al volverse polimórfico
-                // el presupuesto y hoy llega null en toda OC nueva.
+                // el presupuesto y hoy llega null en toda OC nueva. Se precargan
+                // los tres caminos que resuelve `nombresDePresupuesto()`.
                 'ordenCompra.detalles:id,orden_compra_id,obra_rubro_id',
                 'ordenCompra.detalles.obraRubro.presupuesto.presupuestable',
-                'ordenCompra.solicitudesPago:id,orden_compra_id,folio,estatus',
+                'ordenCompra.solicitudesPago',
+                'ordenCompra.solicitudesPago.detalles.obraRubro.presupuesto.presupuestable',
+                'ordenCompra.requisicion.presupuesto.presupuestable',
                 'factura:id,folio',
                 'recibidoPor:id,name',
             ])
@@ -122,7 +125,7 @@ class EntregaController extends Controller
                 'url' => route('admin.costos.ordenes-compra.show', $oc),
             ] : null,
             'proveedor' => $proveedor ? ($proveedor->razon_social ?: $proveedor->nombre_comercial) : null,
-            'obra' => $oc?->presupuesto_label,
+            'obras' => $oc?->nombresDePresupuesto() ?? [],
             'solicitudes_pago' => $oc
                 ? $oc->solicitudesPago->map(fn ($sp) => [
                     'id' => $sp->id,
