@@ -1,0 +1,108 @@
+<?php
+
+namespace App\Exports\Costos;
+
+use App\Models\Costos\Entrega;
+use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithTitle;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+
+/**
+ * Exporta el listado de recepciones acotado por fecha de entrega, con las
+ * mismas columnas que la pantalla: un renglón por recepción. Los filtros
+ * (búsqueda, tipo y visibilidad) se aplican con el mismo scope que el index,
+ * para que el reporte no muestre de más ni de menos.
+ */
+class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings, WithStyles, WithTitle
+{
+    private Collection $datos;
+
+    /**
+     * @param  array{fecha_inicio?: ?string, fecha_fin?: ?string, search?: ?string, tipo?: ?string, solicitante_id?: ?string}  $filtros
+     */
+    public function __construct(private array $filtros = [])
+    {
+        $this->datos = $this->buildData();
+    }
+
+    public function title(): string
+    {
+        return 'Recepciones';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function headings(): array
+    {
+        return [
+            'Folio',
+            'Fecha de recepción',
+            'Orden de compra',
+            'Solicitudes de pago',
+            'Proveedor',
+            'Obra',
+            'Factura',
+            'Recibió',
+            'Tipo',
+            'Estatus',
+        ];
+    }
+
+    public function collection(): Collection
+    {
+        return $this->datos;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function styles(Worksheet $sheet): array
+    {
+        $sheet->getStyle('A1:J1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
+        $sheet->getStyle('A1:J1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+
+        return [];
+    }
+
+    private function buildData(): Collection
+    {
+        return Entrega::query()
+            ->with([
+                'ordenCompra:id,folio,proveedor_id,obra_id',
+                'ordenCompra.proveedor:id,razon_social,nombre_comercial',
+                'ordenCompra.obra:id,no,descripcion',
+                'ordenCompra.solicitudesPago:id,orden_compra_id,folio',
+                'factura:id,folio',
+                'recibidoPor:id,name',
+            ])
+            ->filtradas($this->filtros)
+            ->latest('fecha_entrega')
+            ->get()
+            ->map(function (Entrega $entrega): array {
+                $oc = $entrega->ordenCompra;
+                $proveedor = $oc?->proveedor;
+                $obra = $oc?->obra;
+
+                return [
+                    'folio' => $entrega->folio ?? '—',
+                    'fecha_entrega' => $entrega->fecha_entrega?->format('d/m/Y') ?? '—',
+                    'orden_compra' => $oc?->folio ?? '—',
+                    // Una OC de contado puede tener varias solicitudes ligadas;
+                    // se listan en la misma celda para no romper el renglón.
+                    'solicitudes_pago' => $oc?->solicitudesPago->pluck('folio')->implode(' / ') ?: '—',
+                    'proveedor' => $proveedor ? ($proveedor->razon_social ?: $proveedor->nombre_comercial) : '—',
+                    'obra' => $obra ? trim("{$obra->no} {$obra->descripcion}") : '—',
+                    'factura' => $entrega->factura?->folio ?? '—',
+                    'recibido_por' => $entrega->recibidoPor?->name ?? '—',
+                    'tipo' => $entrega->tipo === 'completa' ? 'Completa' : 'Parcial',
+                    'estatus' => $entrega->estaCancelada() ? 'Cancelada' : 'Vigente',
+                ];
+            });
+    }
+}

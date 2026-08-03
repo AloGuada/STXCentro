@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin\Costos;
 use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\RubroAfectadoEstatus;
+use App\Exports\Costos\RecepcionesExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\EntregaCancelarRequest;
 use App\Http\Requests\Admin\Costos\EntregaStoreRequest;
+use App\Http\Requests\Admin\Costos\RecepcionesReporteRequest;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
 use App\Models\Costos\OrdenCompra;
@@ -19,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class EntregaController extends Controller
@@ -42,17 +45,7 @@ class EntregaController extends Controller
                 'factura:id,folio',
                 'recibidoPor:id,name',
             ])
-            ->when($request->search, function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('folio', 'like', "%{$search}%")
-                        ->orWhereHas('ordenCompra', fn ($oc) => $oc->where('folio', 'like', "%{$search}%"))
-                        ->orWhereHas('ordenCompra.proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$search}%"));
-                });
-            })
-            ->when($request->tipo, fn ($q, $tipo) => $q->where('tipo', $tipo))
-            ->unless($request->user()->can('costos.ordenes-compra.ver-todas'), function ($q) use ($request) {
-                $q->whereHas('ordenCompra.requisicion', fn ($r) => $r->where('solicitante_id', $request->user()->id));
-            })
+            ->filtradas($this->filtrosDeListado($request))
             ->latest('fecha_entrega')
             ->paginate(20)
             ->withQueryString()
@@ -62,6 +55,46 @@ class EntregaController extends Controller
             'recepciones' => $recepciones,
             'filters' => $request->only('search', 'tipo'),
         ]);
+    }
+
+    /**
+     * Reporte en Excel del listado, acotado por fecha de recepción. Arrastra los
+     * filtros activos de la pantalla para que el archivo sea lo que el usuario
+     * está viendo, recortado al rango que pidió.
+     */
+    public function exportar(RecepcionesReporteRequest $request): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $filtros = [
+            ...$this->filtrosDeListado($request),
+            'fecha_inicio' => $request->validated('fecha_inicio'),
+            'fecha_fin' => $request->validated('fecha_fin'),
+        ];
+
+        $nombre = sprintf(
+            'recepciones-%s-a-%s.xlsx',
+            str_replace('-', '', $filtros['fecha_inicio']),
+            str_replace('-', '', $filtros['fecha_fin']),
+        );
+
+        return Excel::download(new RecepcionesExport($filtros), $nombre);
+    }
+
+    /**
+     * Filtros comunes a la pantalla y a su reporte, incluida la visibilidad:
+     * quien no puede ver todas las OC solo ve las recepciones de sus propias
+     * requisiciones.
+     *
+     * @return array{search: ?string, tipo: ?string, solicitante_id: ?string}
+     */
+    private function filtrosDeListado(Request $request): array
+    {
+        return [
+            'search' => $request->string('search')->toString() ?: null,
+            'tipo' => $request->string('tipo')->toString() ?: null,
+            'solicitante_id' => $request->user()->can('costos.ordenes-compra.ver-todas')
+                ? null
+                : $request->user()->id,
+        ];
     }
 
     /**

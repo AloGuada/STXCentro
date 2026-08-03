@@ -315,6 +315,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('facturas', CostosFacturaAdminController::class)
             ->only(['index', 'show', 'create', 'store'])
             ->parameters(['facturas' => 'factura']);
+        Route::get('recepciones/exportar', [CostosEntregaController::class, 'exportar'])
+            ->middleware('can:costos.ordenes-compra.ver')
+            ->name('recepciones.exportar');
         Route::get('recepciones', [CostosEntregaController::class, 'index'])
             ->middleware('can:costos.ordenes-compra.ver')
             ->name('recepciones.index');

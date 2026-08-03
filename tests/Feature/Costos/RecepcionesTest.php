@@ -1,5 +1,6 @@
 <?php
 
+use App\Exports\Costos\RecepcionesExport;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\SolicitudPago;
@@ -61,5 +62,77 @@ test('sin permiso de ver órdenes de compra no puede entrar', function () {
 
     $this->actingAs($sinPermiso)
         ->get(route('admin.costos.recepciones.index'))
+        ->assertForbidden();
+});
+
+test('el reporte solo incluye las recepciones dentro del rango de fechas', function () {
+    $dentro = Entrega::factory()->create(['fecha_entrega' => '2026-07-15']);
+    Entrega::factory()->create(['fecha_entrega' => '2026-06-30']);
+    Entrega::factory()->create(['fecha_entrega' => '2026-08-01']);
+
+    $filas = (new RecepcionesExport(['fecha_inicio' => '2026-07-01', 'fecha_fin' => '2026-07-31']))->collection();
+
+    expect($filas)->toHaveCount(1)
+        ->and($filas->first()['folio'])->toBe($dentro->folio);
+});
+
+test('el reporte incluye los límites del rango', function () {
+    Entrega::factory()->create(['fecha_entrega' => '2026-07-01']);
+    Entrega::factory()->create(['fecha_entrega' => '2026-07-31']);
+
+    $filas = (new RecepcionesExport(['fecha_inicio' => '2026-07-01', 'fecha_fin' => '2026-07-31']))->collection();
+
+    expect($filas)->toHaveCount(2);
+});
+
+test('el reporte arrastra el filtro de tipo de la pantalla', function () {
+    Entrega::factory()->create(['fecha_entrega' => '2026-07-15', 'tipo' => 'completa']);
+    Entrega::factory()->create(['fecha_entrega' => '2026-07-16', 'tipo' => 'parcial']);
+
+    $filas = (new RecepcionesExport([
+        'fecha_inicio' => '2026-07-01',
+        'fecha_fin' => '2026-07-31',
+        'tipo' => 'completa',
+    ]))->collection();
+
+    expect($filas)->toHaveCount(1)
+        ->and($filas->first()['tipo'])->toBe('Completa');
+});
+
+test('descarga el excel del rango pedido', function () {
+    Entrega::factory()->create(['fecha_entrega' => '2026-07-15']);
+
+    $this->actingAs($this->user)
+        ->get(route('admin.costos.recepciones.exportar', [
+            'fecha_inicio' => '2026-07-01',
+            'fecha_fin' => '2026-07-31',
+        ]))
+        ->assertOk()
+        ->assertDownload('recepciones-20260701-a-20260731.xlsx');
+});
+
+test('rechaza un rango con la fecha final antes de la inicial', function () {
+    $this->actingAs($this->user)
+        ->get(route('admin.costos.recepciones.exportar', [
+            'fecha_inicio' => '2026-07-31',
+            'fecha_fin' => '2026-07-01',
+        ]))
+        ->assertSessionHasErrors('fecha_fin');
+});
+
+test('exige el rango de fechas', function () {
+    $this->actingAs($this->user)
+        ->get(route('admin.costos.recepciones.exportar'))
+        ->assertSessionHasErrors(['fecha_inicio', 'fecha_fin']);
+});
+
+test('sin permiso no puede descargar el reporte', function () {
+    $sinPermiso = User::factory()->create();
+
+    $this->actingAs($sinPermiso)
+        ->get(route('admin.costos.recepciones.exportar', [
+            'fecha_inicio' => '2026-07-01',
+            'fecha_fin' => '2026-07-31',
+        ]))
         ->assertForbidden();
 });

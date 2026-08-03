@@ -1,9 +1,10 @@
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosRecepcionRow, PaginatedData } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
-import { FileTextIcon, PackageCheckIcon, ReceiptIcon, SearchIcon } from 'lucide-react';
+import { DownloadIcon, FileTextIcon, PackageCheckIcon, ReceiptIcon, SearchIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -18,9 +19,29 @@ type Props = {
 };
 
 
+/** `YYYY-MM-DD` en hora local; `toISOString()` correria el dia en zonas UTC-. */
+const aInput = (fecha: Date): string =>
+    `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+
 export default function RecepcionesIndex({ recepciones, filters }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [tipo, setTipo] = useState(filters.tipo ?? '');
+
+    const hoy = new Date();
+    const [reporteAbierto, setReporteAbierto] = useState(false);
+    const [fechaInicio, setFechaInicio] = useState(aInput(new Date(hoy.getFullYear(), hoy.getMonth(), 1)));
+    const [fechaFin, setFechaFin] = useState(aInput(hoy));
+
+    const rangoInvalido = fechaInicio === '' || fechaFin === '' || fechaFin < fechaInicio;
+
+    const generarReporte = () => {
+        const params = new URLSearchParams({ fecha_inicio: fechaInicio, fecha_fin: fechaFin });
+        if (search) params.set('search', search);
+        if (tipo) params.set('tipo', tipo);
+
+        window.location.href = `/admin/costos/recepciones/exportar?${params.toString()}`;
+        setReporteAbierto(false);
+    };
 
     const aplicarFiltros = (next: { search?: string; tipo?: string }) => {
         router.get(
@@ -40,14 +61,69 @@ export default function RecepcionesIndex({ recepciones, filters }: Props) {
             <Head title="Recepciones" />
 
             <div className="p-6">
-                <div className="mb-6">
-                    <h1 className="flex items-center gap-2 text-2xl font-semibold">
-                        <PackageCheckIcon className="h-6 w-6" /> Recepciones
-                    </h1>
-                    <p className="mt-1 text-sm text-base-content/60">
-                        Recepciones de almacén ligadas a su orden de compra y solicitud de pago.
-                    </p>
+                <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+                            <PackageCheckIcon className="h-6 w-6" /> Recepciones
+                        </h1>
+                        <p className="mt-1 text-sm text-base-content/60">
+                            Recepciones de almacén ligadas a su orden de compra y solicitud de pago.
+                        </p>
+                    </div>
+                    <button type="button" className="btn btn-outline btn-sm gap-1 self-start" onClick={() => setReporteAbierto(true)}>
+                        <DownloadIcon className="size-4" /> Reporte
+                    </button>
                 </div>
+
+                <Dialog open={reporteAbierto} onOpenChange={setReporteAbierto}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Reporte de recepciones</DialogTitle>
+                            <p className="mt-1 text-sm text-base-content/60">
+                                Se exporta a Excel lo recibido entre las dos fechas.
+                                {(search || tipo) && ' Se respetan los filtros activos de la pantalla.'}
+                            </p>
+                        </DialogHeader>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <label className="flex flex-col gap-1 text-sm">
+                                <span className="text-base-content/60">Desde</span>
+                                <input
+                                    type="date"
+                                    className="input input-bordered input-sm"
+                                    value={fechaInicio}
+                                    onChange={(e) => setFechaInicio(e.target.value)}
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1 text-sm">
+                                <span className="text-base-content/60">Hasta</span>
+                                <input
+                                    type="date"
+                                    className="input input-bordered input-sm"
+                                    value={fechaFin}
+                                    min={fechaInicio}
+                                    onChange={(e) => setFechaFin(e.target.value)}
+                                />
+                            </label>
+                        </div>
+
+                        {rangoInvalido && (
+                            <p className="mt-2 text-sm text-error">La fecha final no puede ser anterior a la inicial.</p>
+                        )}
+
+                        <DialogFooter>
+                            <DialogClose className="btn-ghost btn-sm">Cancelar</DialogClose>
+                            <button
+                                type="button"
+                                className="btn btn-primary btn-sm gap-1"
+                                disabled={rangoInvalido}
+                                onClick={generarReporte}
+                            >
+                                <DownloadIcon className="size-4" /> Generar Excel
+                            </button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 <div className="mb-4 flex flex-wrap items-end gap-3">
                     <form onSubmit={handleSearch} className="flex items-end gap-2">

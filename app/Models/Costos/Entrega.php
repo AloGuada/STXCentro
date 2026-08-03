@@ -71,6 +71,35 @@ class Entrega extends Model
         $query->whereNull('cancelada_at');
     }
 
+    /**
+     * Filtros del listado de recepciones. Vive en el modelo (y no en el
+     * controlador) porque la pantalla y su reporte en Excel deben acotar
+     * exactamente igual: si divergen, el reporte enseña filas que la tabla
+     * esconde.
+     *
+     * @param  array{search?: ?string, tipo?: ?string, fecha_inicio?: ?string, fecha_fin?: ?string, solicitante_id?: ?string}  $filtros
+     */
+    public function scopeFiltradas(\Illuminate\Database\Eloquent\Builder $query, array $filtros): void
+    {
+        $query
+            ->when($filtros['search'] ?? null, function ($q, $search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('folio', 'like', "%{$search}%")
+                        ->orWhereHas('ordenCompra', fn ($oc) => $oc->where('folio', 'like', "%{$search}%"))
+                        ->orWhereHas('ordenCompra.proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$search}%"));
+                });
+            })
+            ->when($filtros['tipo'] ?? null, fn ($q, $tipo) => $q->where('tipo', $tipo))
+            ->when($filtros['fecha_inicio'] ?? null, fn ($q, $desde) => $q->whereDate('fecha_entrega', '>=', $desde))
+            ->when($filtros['fecha_fin'] ?? null, fn ($q, $hasta) => $q->whereDate('fecha_entrega', '<=', $hasta))
+            // Quien no puede ver todas las OC solo ve las recepciones de sus
+            // propias requisiciones.
+            ->when(
+                $filtros['solicitante_id'] ?? null,
+                fn ($q, $id) => $q->whereHas('ordenCompra.requisicion', fn ($r) => $r->where('solicitante_id', $id)),
+            );
+    }
+
     public function estaCancelada(): bool
     {
         return $this->cancelada_at !== null;
