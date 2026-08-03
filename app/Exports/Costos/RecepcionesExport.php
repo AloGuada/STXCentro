@@ -74,9 +74,12 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
     {
         return Entrega::query()
             ->with([
-                'ordenCompra:id,folio,proveedor_id,obra_id',
+                'ordenCompra:id,folio,proveedor_id',
                 'ordenCompra.proveedor:id,razon_social,nombre_comercial',
-                'ordenCompra.obra:id,no,descripcion',
+                // El destino presupuestal sale de las partidas: la columna
+                // `obra_id` de la OC quedó sin uso con el presupuesto polimórfico.
+                'ordenCompra.detalles:id,orden_compra_id,obra_rubro_id',
+                'ordenCompra.detalles.obraRubro.presupuesto.presupuestable',
                 'ordenCompra.solicitudesPago:id,orden_compra_id,folio',
                 'factura:id,folio',
                 'recibidoPor:id,name',
@@ -87,7 +90,6 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
             ->map(function (Entrega $entrega): array {
                 $oc = $entrega->ordenCompra;
                 $proveedor = $oc?->proveedor;
-                $obra = $oc?->obra;
 
                 return [
                     'folio' => $entrega->folio ?? '—',
@@ -97,7 +99,7 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
                     // se listan en la misma celda para no romper el renglón.
                     'solicitudes_pago' => $oc?->solicitudesPago->pluck('folio')->implode(' / ') ?: '—',
                     'proveedor' => $proveedor ? ($proveedor->razon_social ?: $proveedor->nombre_comercial) : '—',
-                    'obra' => $obra ? trim("{$obra->no} {$obra->descripcion}") : '—',
+                    'obra' => $oc?->presupuesto_label ?? '—',
                     'factura' => $entrega->factura?->folio ?? '—',
                     'recibido_por' => $entrega->recibidoPor?->name ?? '—',
                     'tipo' => $entrega->tipo === 'completa' ? 'Completa' : 'Parcial',
