@@ -28,6 +28,8 @@ type Detalle = {
 type FormData = {
     departamento_id: number;
     presupuesto_id: number | '';
+    /** "Sin obra": la requisición no carga a ningún centro de costos. */
+    sin_centro_costos: boolean;
     justificacion: string;
     detalles: Detalle[];
     _version: string;
@@ -67,6 +69,7 @@ export default function RequisicionesEdit({
     const { data, setData, put, processing, errors } = useForm<FormData>({
         departamento_id: requisicion.departamento_id,
         presupuesto_id: requisicion.presupuesto_id ?? '',
+        sin_centro_costos: Boolean(requisicion.sin_centro_costos),
         justificacion: requisicion.justificacion ?? '',
         detalles: (requisicion.detalles ?? []).map((d) => ({
             id: d.id,
@@ -85,8 +88,9 @@ export default function RequisicionesEdit({
 
     const [incluirCerradas, setIncluirCerradas] = useState(false);
     // Multipresupuesto: se infiere de la requisición cargada (sin presupuesto = multi).
+    // Una requisición "sin obra" no es multipresupuesto: no tiene presupuesto alguno.
     const [multipresupuesto, setMultipresupuesto] = useState(
-        !requisicion.presupuesto_id,
+        !requisicion.presupuesto_id && !requisicion.sin_centro_costos,
     );
     const presupuestosVisibles = presupuestos.filter(
         (p) => incluirCerradas || !p.cerrado,
@@ -113,6 +117,26 @@ export default function RequisicionesEdit({
         setData((prev) => ({
             ...prev,
             presupuesto_id: on ? '' : prev.presupuesto_id,
+            detalles: prev.detalles.map((d) => ({
+                ...d,
+                presupuesto_id: '',
+                obra_rubro_id: '',
+            })),
+        }));
+    };
+
+    // "Sin obra": la requisición no toca presupuesto, así que se limpia y se
+    // oculta todo lo presupuestal (cabecera y centro de costos por partida).
+    const sinCentroCostos = data.sin_centro_costos;
+
+    const toggleSinCentroCostos = (on: boolean) => {
+        if (on) {
+            setMultipresupuesto(false);
+        }
+        setData((prev) => ({
+            ...prev,
+            sin_centro_costos: on,
+            presupuesto_id: '',
             detalles: prev.detalles.map((d) => ({
                 ...d,
                 presupuesto_id: '',
@@ -202,40 +226,70 @@ export default function RequisicionesEdit({
                     <div>
                         <div className="flex items-center justify-between">
                             <label className="label-text label">
-                                Presupuesto {!multipresupuesto && '*'}
+                                Presupuesto{' '}
+                                {!multipresupuesto && !sinCentroCostos && '*'}
                             </label>
                             <div className="flex items-center gap-3">
                                 <label className="label cursor-pointer gap-2 py-0">
                                     <input
                                         type="checkbox"
                                         className="checkbox checkbox-xs"
-                                        checked={multipresupuesto}
+                                        checked={sinCentroCostos}
                                         onChange={(e) =>
-                                            toggleMultipresupuesto(
+                                            toggleSinCentroCostos(
                                                 e.target.checked,
                                             )
                                         }
                                     />
                                     <span className="label-text text-xs">
-                                        Multipresupuesto
+                                        Sin obra
                                     </span>
                                 </label>
-                                <label className="label cursor-pointer gap-2 py-0">
-                                    <input
-                                        type="checkbox"
-                                        className="checkbox checkbox-xs"
-                                        checked={incluirCerradas}
-                                        onChange={(e) =>
-                                            setIncluirCerradas(e.target.checked)
-                                        }
-                                    />
-                                    <span className="label-text text-xs">
-                                        Incluir cerrados
-                                    </span>
-                                </label>
+                                {!sinCentroCostos && (
+                                    <>
+                                        <label className="label cursor-pointer gap-2 py-0">
+                                            <input
+                                                type="checkbox"
+                                                className="checkbox checkbox-xs"
+                                                checked={multipresupuesto}
+                                                onChange={(e) =>
+                                                    toggleMultipresupuesto(
+                                                        e.target.checked,
+                                                    )
+                                                }
+                                            />
+                                            <span className="label-text text-xs">
+                                                Multipresupuesto
+                                            </span>
+                                        </label>
+                                        <label className="label cursor-pointer gap-2 py-0">
+                                            <input
+                                                type="checkbox"
+                                                className="checkbox checkbox-xs"
+                                                checked={incluirCerradas}
+                                                onChange={(e) =>
+                                                    setIncluirCerradas(
+                                                        e.target.checked,
+                                                    )
+                                                }
+                                            />
+                                            <span className="label-text text-xs">
+                                                Incluir cerrados
+                                            </span>
+                                        </label>
+                                    </>
+                                )}
                             </div>
                         </div>
-                        {multipresupuesto ? (
+                        {sinCentroCostos ? (
+                            <div className="alert alert-warning py-2">
+                                <span className="text-sm">
+                                    Requisición sin obra: no afecta ningún
+                                    centro de costos ni presupuesto, y se salta
+                                    el punto de control de Costos.
+                                </span>
+                            </div>
+                        ) : multipresupuesto ? (
                             <p className="text-sm text-base-content/60">
                                 Requisición multipresupuesto: cada partida elige
                                 su centro de costos (con su presupuesto).
@@ -298,7 +352,7 @@ export default function RequisicionesEdit({
                     </Button>
                 </div>
 
-                {!multipresupuesto && !data.presupuesto_id && (
+                {!sinCentroCostos && !multipresupuesto && !data.presupuesto_id && (
                     <div className="mb-3 alert alert-info">
                         <span>
                             Selecciona primero el presupuesto para asignar el
@@ -319,9 +373,11 @@ export default function RequisicionesEdit({
                                         Presupuesto *
                                     </th>
                                 )}
-                                <th className="min-w-[200px]">
-                                    Centro de Costo *
-                                </th>
+                                {!sinCentroCostos && (
+                                    <th className="min-w-[200px]">
+                                        Centro de Costo *
+                                    </th>
+                                )}
                                 <th className="min-w-[180px]">Uso CFDI *</th>
                                 <th>Notas</th>
                                 <th className="w-12"></th>
@@ -400,40 +456,42 @@ export default function RequisicionesEdit({
                                             />
                                         </td>
                                     )}
-                                    <td>
-                                        <RubroSelector
-                                            value={d.obra_rubro_id}
-                                            options={rubrosDe(
-                                                multipresupuesto
-                                                    ? d.presupuesto_id
-                                                    : data.presupuesto_id,
-                                            )}
-                                            rubroOnly
-                                            disabled={
-                                                !(multipresupuesto
-                                                    ? d.presupuesto_id
-                                                    : data.presupuesto_id)
-                                            }
-                                            onChange={(value) =>
-                                                updateDetalle(
-                                                    i,
-                                                    'obra_rubro_id',
-                                                    value,
-                                                )
-                                            }
-                                        />
-                                        {errors[
-                                            `detalles.${i}.obra_rubro_id` as keyof typeof errors
-                                        ] && (
-                                            <p className="mt-1 text-xs text-error">
-                                                {
-                                                    errors[
-                                                        `detalles.${i}.obra_rubro_id` as keyof typeof errors
-                                                    ]
+                                    {!sinCentroCostos && (
+                                        <td>
+                                            <RubroSelector
+                                                value={d.obra_rubro_id}
+                                                options={rubrosDe(
+                                                    multipresupuesto
+                                                        ? d.presupuesto_id
+                                                        : data.presupuesto_id,
+                                                )}
+                                                rubroOnly
+                                                disabled={
+                                                    !(multipresupuesto
+                                                        ? d.presupuesto_id
+                                                        : data.presupuesto_id)
                                                 }
-                                            </p>
-                                        )}
-                                    </td>
+                                                onChange={(value) =>
+                                                    updateDetalle(
+                                                        i,
+                                                        'obra_rubro_id',
+                                                        value,
+                                                    )
+                                                }
+                                            />
+                                            {errors[
+                                                `detalles.${i}.obra_rubro_id` as keyof typeof errors
+                                            ] && (
+                                                <p className="mt-1 text-xs text-error">
+                                                    {
+                                                        errors[
+                                                            `detalles.${i}.obra_rubro_id` as keyof typeof errors
+                                                        ]
+                                                    }
+                                                </p>
+                                            )}
+                                        </td>
+                                    )}
                                     <td>
                                         <select
                                             className="select-bordered select w-full select-sm"

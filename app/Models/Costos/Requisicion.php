@@ -48,6 +48,7 @@ class Requisicion extends Model implements Aprobable
         'departamento_id',
         'obra_id',
         'presupuesto_id',
+        'sin_centro_costos',
         'justificacion',
         'tipo_cambio',
         'fecha_requerida',
@@ -69,6 +70,7 @@ class Requisicion extends Model implements Aprobable
         return [
             'fecha_requerida' => 'date',
             'tipo_cambio' => 'decimal:6',
+            'sin_centro_costos' => 'boolean',
             'estatus' => RequisicionEstatus::class,
             'control_at' => 'datetime',
             'modo_dedazo' => 'boolean',
@@ -232,9 +234,14 @@ class Requisicion extends Model implements Aprobable
         return self::TIPO_APROBACION;
     }
 
+    /**
+     * Una requisición "sin obra" no carga a ningún centro de costos, así que no
+     * hay presupuesto que verificar: se salta el punto de control de Costos
+     * (primer nivel de la cadena).
+     */
     public function saltaVerificacionCostos(): bool
     {
-        return false;
+        return (bool) $this->sin_centro_costos;
     }
 
     public function cadenaAprobacion(): MorphMany

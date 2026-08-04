@@ -24,6 +24,12 @@ trait AfectaPresupuesto
         $apartado = app(ApartadoPresupuestal::class);
 
         foreach ($this->detalles as $detalle) {
+            // Partidas sin centro de costos (requisición "sin obra"): el gasto
+            // vive fuera del presupuesto y no genera afectación alguna.
+            if (empty($detalle->obra_rubro_id)) {
+                continue;
+            }
+
             $obraRubro = ObraRubro::find($detalle->obra_rubro_id);
 
             $apartado->aplicarCargo(

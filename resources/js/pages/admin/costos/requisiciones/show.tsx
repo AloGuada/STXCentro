@@ -4,8 +4,8 @@ import { Fragment, useMemo, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
-import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
+import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { OcBuilder } from '@/components/costos/oc-builder';
 import { calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
 import { Button } from '@/components/ui/button';
@@ -959,6 +959,14 @@ export default function RequisicionesShow({
                                     title="Carga sobre presupuesto cerrado"
                                 >
                                     ⚠ Presupuesto cerrado
+                                </span>
+                            )}
+                            {requisicion.sin_centro_costos && (
+                                <span
+                                    className="badge badge-outline"
+                                    title="No afecta ningún centro de costos ni presupuesto"
+                                >
+                                    Sin obra
                                 </span>
                             )}
                             <span className="text-sm text-base-content/60">

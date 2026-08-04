@@ -1868,6 +1868,8 @@ export type CostosRequisicion = {
     departamento_id: number;
     obra_id: number | null;
     presupuesto_id: number | null;
+    /** "Sin obra": no carga a ningún centro de costos ni afecta presupuesto. */
+    sin_centro_costos: boolean;
     justificacion: string | null;
     tipo_cambio: number;
     fecha_requerida: string | null;

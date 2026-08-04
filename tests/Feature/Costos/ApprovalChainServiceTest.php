@@ -75,6 +75,33 @@ test('salta el primer nivel (verificación de costos) cuando el tipo de solicitu
     expect($sp->aprobaciones()->pluck('nivel')->map(fn ($n) => (int) $n)->sort()->values()->all())->toBe([2, 3]);
 });
 
+test('una requisición sin obra salta el punto de control de costos', function () {
+    configurarNivel($this->depto, 'requisicion', 1);
+    configurarNivel($this->depto, 'requisicion', 2);
+    configurarNivel($this->depto, 'requisicion', 3);
+
+    $req = Requisicion::factory()->create([
+        'departamento_id' => $this->depto->id,
+        'sin_centro_costos' => true,
+    ]);
+
+    $creadas = $this->service->crearCadenaAprobaciones($req);
+
+    expect($creadas)->toBe(2);
+    expect($req->aprobaciones()->pluck('nivel')->map(fn ($n) => (int) $n)->sort()->values()->all())->toBe([2, 3]);
+});
+
+test('una requisición con centro de costos conserva el punto de control de costos', function () {
+    configurarNivel($this->depto, 'requisicion', 1);
+    configurarNivel($this->depto, 'requisicion', 2);
+
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id]);
+
+    $this->service->crearCadenaAprobaciones($req);
+
+    expect($req->aprobaciones()->pluck('nivel')->map(fn ($n) => (int) $n)->sort()->values()->all())->toBe([1, 2]);
+});
+
 test('NO salta el primer nivel cuando el tipo de solicitud no lo indica', function () {
     configurarNivel($this->depto, 'solicitud_pago', 1);
     configurarNivel($this->depto, 'solicitud_pago', 2);

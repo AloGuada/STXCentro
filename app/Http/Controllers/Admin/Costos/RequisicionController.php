@@ -149,12 +149,15 @@ class RequisicionController extends Controller
 
     public function store(RequisicionStoreRequest $request): RedirectResponse
     {
-        $requisicion = DB::transaction(function () use ($request) {
+        $sinCentroCostos = $request->sinCentroCostos();
+
+        $requisicion = DB::transaction(function () use ($request, $sinCentroCostos) {
             $requisicion = Requisicion::create([
                 'solicitante_id' => $request->user()->id,
                 'firma_adicional_aprobador_id' => $request->input('firma_adicional_aprobador_id') ?: null,
                 'departamento_id' => $request->integer('departamento_id'),
-                'presupuesto_id' => $request->integer('presupuesto_id') ?: null,
+                'presupuesto_id' => $sinCentroCostos ? null : ($request->integer('presupuesto_id') ?: null),
+                'sin_centro_costos' => $sinCentroCostos,
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
                 'estatus' => RequisicionEstatus::Borrador->value,
@@ -169,7 +172,7 @@ class RequisicionController extends Controller
                     'codigo_producto' => $producto->codigo,
                     'unidad' => $producto->unidad,
                     'cantidad' => $d['cantidad'],
-                    'obra_rubro_id' => $d['obra_rubro_id'],
+                    'obra_rubro_id' => $sinCentroCostos ? null : $d['obra_rubro_id'],
                     'uso_cfdi_id' => $d['uso_cfdi_id'],
                     'tipo_fiscal' => $d['tipo_fiscal'] ?? 'mercancia',
                     'notas' => $d['notas'] ?? null,
@@ -234,6 +237,7 @@ class RequisicionController extends Controller
                 'solicitante_id' => $requisicion->solicitante_id,
                 'departamento_id' => $requisicion->departamento_id,
                 'presupuesto_id' => $requisicion->presupuesto_id,
+                'sin_centro_costos' => $requisicion->sin_centro_costos,
                 'justificacion' => $requisicion->justificacion,
                 'fecha_requerida' => $requisicion->fecha_requerida,
                 'estatus' => RequisicionEstatus::Borrador->value,
@@ -686,10 +690,13 @@ class RequisicionController extends Controller
 
         $requisicion->assertVersion($request->input('_version'));
 
-        DB::transaction(function () use ($request, $requisicion) {
+        $sinCentroCostos = $request->sinCentroCostos();
+
+        DB::transaction(function () use ($request, $requisicion, $sinCentroCostos) {
             $requisicion->update([
                 'departamento_id' => $request->integer('departamento_id'),
-                'presupuesto_id' => $request->integer('presupuesto_id') ?: null,
+                'presupuesto_id' => $sinCentroCostos ? null : ($request->integer('presupuesto_id') ?: null),
+                'sin_centro_costos' => $sinCentroCostos,
                 'justificacion' => $request->input('justificacion'),
                 'fecha_requerida' => $request->input('fecha_requerida'),
                 // Editar la requisición invalida una aprobación interna previa.
@@ -717,7 +724,7 @@ class RequisicionController extends Controller
                             'descripcion' => $d['descripcion'],
                             'unidad' => $d['unidad'] ?? 'pza',
                             'cantidad' => $d['cantidad'],
-                            'obra_rubro_id' => $d['obra_rubro_id'],
+                            'obra_rubro_id' => $sinCentroCostos ? null : $d['obra_rubro_id'],
                             'uso_cfdi_id' => $d['uso_cfdi_id'],
                             'notas' => $d['notas'] ?? null,
                         ]);
@@ -727,7 +734,7 @@ class RequisicionController extends Controller
                         'codigo_producto' => $d['codigo_producto'] ?? null,
                         'unidad' => $d['unidad'] ?? 'pza',
                         'cantidad' => $d['cantidad'],
-                        'obra_rubro_id' => $d['obra_rubro_id'],
+                        'obra_rubro_id' => $sinCentroCostos ? null : $d['obra_rubro_id'],
                         'uso_cfdi_id' => $d['uso_cfdi_id'],
                         'tipo_fiscal' => $d['tipo_fiscal'] ?? 'mercancia',
                         'notas' => $d['notas'] ?? null,
@@ -973,7 +980,7 @@ class RequisicionController extends Controller
                 return ['detalles' => "La partida \"{$detalle->descripcion}\" no tiene uso de CFDI asignado."];
             }
 
-            if (empty($detalle->obra_rubro_id)) {
+            if (! $requisicion->sin_centro_costos && empty($detalle->obra_rubro_id)) {
                 return ['detalles' => "La partida \"{$detalle->descripcion}\" no tiene centro de costos asignado."];
             }
 
@@ -1124,7 +1131,7 @@ class RequisicionController extends Controller
                 throw new OrdenCompraInvalidaException(['detalles' => "La partida \"{$detalle->descripcion}\" no tiene uso de CFDI asignado."]);
             }
 
-            if (empty($detalle->obra_rubro_id)) {
+            if (! $requisicion->sin_centro_costos && empty($detalle->obra_rubro_id)) {
                 throw new OrdenCompraInvalidaException(['detalles' => "La partida \"{$detalle->descripcion}\" no tiene centro de costos asignado."]);
             }
         }
