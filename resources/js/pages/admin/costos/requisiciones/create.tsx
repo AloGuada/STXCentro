@@ -359,21 +359,25 @@ export default function RequisicionesCreate({
                                 {!multipresupuesto && !sinCentroCostos && '*'}
                             </label>
                             <div className="flex items-center gap-3">
-                                <label className="label cursor-pointer gap-2 py-0">
-                                    <input
-                                        type="checkbox"
-                                        className="checkbox checkbox-xs"
-                                        checked={sinCentroCostos}
-                                        onChange={(e) =>
-                                            toggleSinCentroCostos(
-                                                e.target.checked,
-                                            )
-                                        }
-                                    />
-                                    <span className="label-text text-xs">
-                                        Sin obra
-                                    </span>
-                                </label>
+                                {/* El "Sin obra" solo se ofrece para desactivarlo: ya no se
+                                    puede marcar en una requisición nueva. */}
+                                {sinCentroCostos && (
+                                    <label className="label cursor-pointer gap-2 py-0">
+                                        <input
+                                            type="checkbox"
+                                            className="checkbox checkbox-xs"
+                                            checked={sinCentroCostos}
+                                            onChange={(e) =>
+                                                toggleSinCentroCostos(
+                                                    e.target.checked,
+                                                )
+                                            }
+                                        />
+                                        <span className="label-text text-xs">
+                                            Sin obra
+                                        </span>
+                                    </label>
+                                )}
                                 {!sinCentroCostos && (
                                     <>
                                         <label className="label cursor-pointer gap-2 py-0">
