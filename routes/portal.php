@@ -8,8 +8,12 @@ use App\Http\Controllers\Portal\PortalNotaCreditoController;
 use App\Http\Controllers\Portal\PortalOrdenCompraController;
 use App\Http\Controllers\Portal\PortalPagoController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::prefix('portal')->name('portal.')->group(function () {
+    /** Prototipo de portal simplificado (una sola tabla, sin backend ni auth). */
+    Route::get('prueba', fn () => Inertia::render('portal/prueba/tablero'))->name('prueba');
+
     // Guest routes
     Route::middleware('guest:proveedor')->group(function () {
         Route::get('login', [PortalAuthController::class, 'showLogin'])->name('login');
