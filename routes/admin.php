@@ -354,6 +354,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('aprobaciones/{aprobacionSolicitud}/rechazar', [CostosAprobacionController::class, 'rechazar'])->name('aprobaciones.rechazar');
 
         // Puntos de control post-cadena (Costos / Contabilidad)
+        Route::get('confirmaciones/exportar', [CostosConfirmacionController::class, 'exportar'])->name('confirmaciones.exportar');
         Route::get('confirmaciones', [CostosConfirmacionController::class, 'index'])->name('confirmaciones.index');
 
         // Afectaciones presupuestales

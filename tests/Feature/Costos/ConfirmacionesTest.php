@@ -1,5 +1,6 @@
 <?php
 
+use App\Exports\Costos\ConfirmacionesExport;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\SolicitudPago;
@@ -94,6 +95,46 @@ test('las facturas de OC de contado no aparecen en la bandeja', function () {
     $this->actingAs($this->costos)
         ->get(route('admin.costos.confirmaciones.index'))
         ->assertInertia(fn (Assert $page) => $page->has('costos', 0));
+});
+
+test('el reporte descarga la bandeja de costos con las columnas de la tabla', function () {
+    $sp = SolicitudPago::factory()->aprobada()->create(['tipo_moneda' => 'mxn', 'monto_total' => 1500]);
+
+    $this->actingAs($this->costos)
+        ->get(route('admin.costos.confirmaciones.exportar', ['paso' => 'costos']))
+        ->assertOk()
+        ->assertDownload('por-confirmar-costos-'.now()->format('Ymd').'.xlsx');
+
+    $filas = (new ConfirmacionesExport(
+        app(PuntosDeControl::class)->paraUsuario($this->costos)['costos'],
+        'costos',
+    ))->collection();
+
+    expect($filas)->toHaveCount(1)
+        ->and($filas->first())->toMatchArray([
+            'tipo' => 'Solicitud de pago',
+            'folio' => $sp->folio,
+            'monto' => 1500.0,
+            'moneda' => 'MXN',
+        ]);
+});
+
+test('el reporte solo lleva lo que el usuario puede confirmar', function () {
+    SolicitudPago::factory()->aprobada()->create();
+    Factura::factory()->pendienteAprobacion()->create();
+
+    $filas = (new ConfirmacionesExport(
+        app(PuntosDeControl::class)->paraUsuario($this->sinPermiso)['costos'],
+        'costos',
+    ))->collection();
+
+    expect($filas)->toHaveCount(0);
+});
+
+test('el reporte exige una bandeja válida', function () {
+    $this->actingAs($this->costos)
+        ->get(route('admin.costos.confirmaciones.exportar', ['paso' => 'otra']))
+        ->assertSessionHasErrors('paso');
 });
 
 test('el badge cuenta solo lo que cada usuario puede confirmar', function () {

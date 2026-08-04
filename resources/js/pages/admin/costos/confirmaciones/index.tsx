@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosPuntoControl } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
-import { BadgeCheckIcon, CheckIcon, EyeIcon, FileTextIcon, ReceiptIcon } from 'lucide-react';
+import { BadgeCheckIcon, CheckIcon, DownloadIcon, EyeIcon, FileTextIcon, ReceiptIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -78,7 +78,7 @@ function ConfirmarModal({ item, onClose }: { item: CostosPuntoControl; onClose: 
     );
 }
 
-function PuntoControlTable({ items }: { items: CostosPuntoControl[] }) {
+function PuntoControlTable({ items, paso }: { items: CostosPuntoControl[]; paso: 'costos' | 'contabilidad' }) {
     const [confirmar, setConfirmar] = useState<CostosPuntoControl | null>(null);
 
     if (items.length === 0) {
@@ -87,6 +87,16 @@ function PuntoControlTable({ items }: { items: CostosPuntoControl[] }) {
 
     return (
         <>
+            <div className="mb-3 flex justify-end">
+                <a
+                    href={`/admin/costos/confirmaciones/exportar?paso=${paso}`}
+                    className="btn btn-outline btn-sm gap-1"
+                    title="Exporta a Excel esta bandeja tal como se ve"
+                >
+                    <DownloadIcon className="size-4" /> Reporte
+                </a>
+            </div>
+
             <div className="overflow-x-auto">
                 <table className="table">
                     <thead>
@@ -172,7 +182,7 @@ export default function ConfirmacionesIndex({ costos, contabilidad }: Props) {
                         defaultChecked
                     />
                     <div role="tabpanel" className="tab-content py-4">
-                        <PuntoControlTable items={costos} />
+                        <PuntoControlTable items={costos} paso="costos" />
                     </div>
 
                     <input
@@ -183,7 +193,7 @@ export default function ConfirmacionesIndex({ costos, contabilidad }: Props) {
                         aria-label={`Contabilidad (${contabilidad.length})`}
                     />
                     <div role="tabpanel" className="tab-content py-4">
-                        <PuntoControlTable items={contabilidad} />
+                        <PuntoControlTable items={contabilidad} paso="contabilidad" />
                     </div>
                 </div>
             </div>
