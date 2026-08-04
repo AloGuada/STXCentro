@@ -1,3 +1,4 @@
+import { formatMoney } from '@/components/costos/monto';
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
@@ -16,6 +17,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 type Props = {
     recepciones: PaginatedData<CostosRecepcionRow>;
     filters: { search?: string; tipo?: string };
+    /** Recibido bajo los filtros activos (todas las páginas), por moneda. */
+    totales_recibidos: Record<string, number>;
 };
 
 
@@ -51,7 +54,7 @@ function Obras({ nombres }: { nombres: string[] }) {
 const aInput = (fecha: Date): string =>
     `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
 
-export default function RecepcionesIndex({ recepciones, filters }: Props) {
+export default function RecepcionesIndex({ recepciones, filters, totales_recibidos }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [tipo, setTipo] = useState(filters.tipo ?? '');
 
@@ -61,6 +64,19 @@ export default function RecepcionesIndex({ recepciones, filters }: Props) {
     const [fechaFin, setFechaFin] = useState(aInput(hoy));
 
     const rangoInvalido = fechaInicio === '' || fechaFin === '' || fechaFin < fechaInicio;
+
+    const hayFiltros = Boolean(filters.search || filters.tipo);
+    const totales = Object.entries(totales_recibidos);
+
+    /** Lo recibido en la página visible; las canceladas no suman. */
+    const totalesPagina = Object.entries(
+        recepciones.data.reduce<Record<string, number>>((acc, r) => {
+            if (r.cancelada) return acc;
+            const moneda = (r.oc?.moneda ?? 'mxn').toLowerCase();
+            acc[moneda] = (acc[moneda] ?? 0) + Number(r.total ?? 0);
+            return acc;
+        }, {}),
+    );
 
     const generarReporte = () => {
         const params = new URLSearchParams({ fecha_inicio: fechaInicio, fecha_fin: fechaFin });
@@ -187,6 +203,24 @@ export default function RecepcionesIndex({ recepciones, filters }: Props) {
                     </label>
                 </div>
 
+                <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-box border border-base-300 px-4 py-2">
+                    <span className="text-sm text-base-content/60">
+                        Total recibido{hayFiltros ? ' (con los filtros activos)' : ''}
+                    </span>
+                    {totales.length === 0 ? (
+                        <span className="text-lg font-semibold">{formatMoney(0)}</span>
+                    ) : (
+                        totales.map(([moneda, total]) => (
+                            <span key={moneda} className="text-lg font-semibold">
+                                {formatMoney(total, moneda)}
+                            </span>
+                        ))
+                    )}
+                    <span className="text-xs text-base-content/50">
+                        Sin IVA · no incluye recepciones canceladas
+                    </span>
+                </div>
+
                 <div className="overflow-x-auto">
                     <table className="table">
                         <thead>
@@ -199,6 +233,7 @@ export default function RecepcionesIndex({ recepciones, filters }: Props) {
                                 <th>Obra</th>
                                 <th>Factura</th>
                                 <th>Recibió</th>
+                                <th className="text-right">Total</th>
                                 <th>Tipo</th>
                                 <th></th>
                             </tr>
@@ -206,7 +241,7 @@ export default function RecepcionesIndex({ recepciones, filters }: Props) {
                         <tbody>
                             {recepciones.data.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="py-12 text-center text-base-content/60">
+                                    <td colSpan={11} className="py-12 text-center text-base-content/60">
                                         No hay recepciones.
                                     </td>
                                 </tr>
@@ -245,6 +280,11 @@ export default function RecepcionesIndex({ recepciones, filters }: Props) {
                                         </td>
                                         <td>{r.factura?.folio ?? '-'}</td>
                                         <td>{r.recibido_por ?? '-'}</td>
+                                        <td
+                                            className={`whitespace-nowrap text-right font-medium ${r.cancelada ? 'text-base-content/40 line-through' : ''}`}
+                                        >
+                                            {formatMoney(r.total, r.oc?.moneda ?? 'mxn')}
+                                        </td>
                                         <td>
                                             <span
                                                 className={`badge badge-sm ${r.tipo === 'completa' ? 'badge-success' : 'badge-warning'}`}
@@ -261,6 +301,23 @@ export default function RecepcionesIndex({ recepciones, filters }: Props) {
                                 ))
                             )}
                         </tbody>
+                        {recepciones.data.length > 0 && (
+                            <tfoot>
+                                <tr>
+                                    <td colSpan={8} className="text-right text-base-content/60">
+                                        Total en esta página
+                                    </td>
+                                    <td className="whitespace-nowrap text-right font-semibold">
+                                        {totalesPagina.length === 0
+                                            ? formatMoney(0)
+                                            : totalesPagina.map(([moneda, total]) => (
+                                                  <div key={moneda}>{formatMoney(total, moneda)}</div>
+                                              ))}
+                                    </td>
+                                    <td colSpan={2}></td>
+                                </tr>
+                            </tfoot>
+                        )}
                     </table>
                 </div>
 

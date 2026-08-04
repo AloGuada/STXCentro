@@ -50,6 +50,7 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
             'Factura',
             'Recibió',
             'Tipo',
+            'Total recibido',
             'Estatus',
         ];
     }
@@ -64,8 +65,8 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
      */
     public function styles(Worksheet $sheet): array
     {
-        $sheet->getStyle('A1:J1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
-        $sheet->getStyle('A1:J1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A1:K1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
+        $sheet->getStyle('A1:K1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
 
         return [];
     }
@@ -74,6 +75,8 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
     {
         return Entrega::query()
             ->with([
+                'detalles',
+                'detalles.ordenCompraDetalle:id,precio_unitario',
                 'ordenCompra:id,folio,proveedor_id',
                 'ordenCompra.proveedor:id,razon_social,nombre_comercial',
                 // El destino presupuestal sale de las partidas: la columna
@@ -108,6 +111,8 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
                     'factura' => $entrega->factura?->folio ?? '—',
                     'recibido_por' => $entrega->recibidoPor?->name ?? '—',
                     'tipo' => $entrega->tipo === 'completa' ? 'Completa' : 'Parcial',
+                    // Importe sin IVA de lo recibido, igual que el formato de recepción.
+                    'total' => $entrega->importeRecibido(),
                     'estatus' => $entrega->estaCancelada() ? 'Cancelada' : 'Vigente',
                 ];
             });

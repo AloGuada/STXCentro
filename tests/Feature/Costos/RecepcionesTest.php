@@ -2,6 +2,7 @@
 
 use App\Exports\Costos\RecepcionesExport;
 use App\Models\Costos\Entrega;
+use App\Models\Costos\EntregaDetalle;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
@@ -49,6 +50,99 @@ test('la recepción de una OC de contado muestra su solicitud de pago ligada', f
             ->has('recepciones.data.0.solicitudes_pago', 1)
             ->where('recepciones.data.0.solicitudes_pago.0.folio', $sp->folio)
         );
+});
+
+test('cada recepción trae el importe recibido y el total suma el filtro completo', function () {
+    $oc = OrdenCompra::factory()->create(['moneda' => 'mxn']);
+    $partida = OrdenCompraDetalle::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'precio_unitario' => 25,
+    ]);
+
+    $entrega = Entrega::factory()->create(['orden_compra_id' => $oc->id]);
+    // Renglón con precio propio y renglón que cae al precio de la OC.
+    EntregaDetalle::factory()->create([
+        'entrega_id' => $entrega->id,
+        'orden_compra_detalle_id' => $partida->id,
+        'cantidad_recibida' => 10,
+        'precio_unitario' => 100,
+    ]);
+    EntregaDetalle::factory()->create([
+        'entrega_id' => $entrega->id,
+        'orden_compra_detalle_id' => $partida->id,
+        'cantidad_recibida' => 4,
+        'precio_unitario' => null,
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('admin.costos.recepciones.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recepciones.data.0.total', 1100)
+            ->where('totales_recibidos.mxn', 1100)
+        );
+});
+
+test('el total no cuenta las recepciones canceladas', function () {
+    $partida = OrdenCompraDetalle::factory()->create(['precio_unitario' => 50]);
+
+    $cancelada = Entrega::factory()->create([
+        'orden_compra_id' => $partida->orden_compra_id,
+        'cancelada_at' => now(),
+    ]);
+    EntregaDetalle::factory()->create([
+        'entrega_id' => $cancelada->id,
+        'orden_compra_detalle_id' => $partida->id,
+        'cantidad_recibida' => 3,
+        'precio_unitario' => null,
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('admin.costos.recepciones.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recepciones.data.0.cancelada', true)
+            ->where('recepciones.data.0.total', 150)
+            ->where('totales_recibidos', [])
+        );
+});
+
+test('el total se separa por moneda de la orden de compra', function () {
+    foreach (['mxn' => 100, 'usd' => 20] as $moneda => $precio) {
+        $partida = OrdenCompraDetalle::factory()->create([
+            'orden_compra_id' => OrdenCompra::factory()->create(['moneda' => $moneda])->id,
+            'precio_unitario' => $precio,
+        ]);
+        EntregaDetalle::factory()->create([
+            'entrega_id' => Entrega::factory()->create(['orden_compra_id' => $partida->orden_compra_id])->id,
+            'orden_compra_detalle_id' => $partida->id,
+            'cantidad_recibida' => 2,
+            'precio_unitario' => null,
+        ]);
+    }
+
+    $this->actingAs($this->user)
+        ->get(route('admin.costos.recepciones.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('totales_recibidos.mxn', 200)
+            ->where('totales_recibidos.usd', 40)
+        );
+});
+
+test('el reporte incluye el importe recibido', function () {
+    $partida = OrdenCompraDetalle::factory()->create(['precio_unitario' => 30]);
+    $entrega = Entrega::factory()->create([
+        'orden_compra_id' => $partida->orden_compra_id,
+        'fecha_entrega' => '2026-07-15',
+    ]);
+    EntregaDetalle::factory()->create([
+        'entrega_id' => $entrega->id,
+        'orden_compra_detalle_id' => $partida->id,
+        'cantidad_recibida' => 5,
+        'precio_unitario' => null,
+    ]);
+
+    $filas = (new RecepcionesExport(['fecha_inicio' => '2026-07-01', 'fecha_fin' => '2026-07-31']))->collection();
+
+    expect($filas->first()['total'])->toBe(150.0);
 });
 
 test('el filtro por tipo acota los resultados', function () {

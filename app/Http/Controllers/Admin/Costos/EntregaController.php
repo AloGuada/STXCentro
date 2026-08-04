@@ -36,8 +36,14 @@ class EntregaController extends Controller
      */
     public function index(Request $request): Response
     {
+        $filtros = $this->filtrosDeListado($request);
+
         $recepciones = Entrega::query()
             ->with([
+                // El importe recibido sale de los renglones; el precio unitario
+                // cae al de la OC cuando la recepción no lo capturó.
+                'detalles',
+                'detalles.ordenCompraDetalle:id,precio_unitario',
                 'ordenCompra',
                 'ordenCompra.proveedor:id,razon_social,nombre_comercial',
                 // El destino presupuestal vive en las partidas, no en la OC:
@@ -52,7 +58,7 @@ class EntregaController extends Controller
                 'factura:id,folio',
                 'recibidoPor:id,name',
             ])
-            ->filtradas($this->filtrosDeListado($request))
+            ->filtradas($filtros)
             ->latest('fecha_entrega')
             ->paginate(20)
             ->withQueryString()
@@ -61,7 +67,39 @@ class EntregaController extends Controller
         return Inertia::render('admin/costos/recepciones/index', [
             'recepciones' => $recepciones,
             'filters' => $request->only('search', 'tipo'),
+            'totales_recibidos' => $this->totalesRecibidos($filtros),
         ]);
+    }
+
+    /**
+     * Importe de todo lo recibido bajo los filtros activos, no solo de la página
+     * en pantalla. Se calcula en SQL (una suma, sin traer los renglones) y deja
+     * fuera las recepciones canceladas, que no representan material recibido.
+     * Se agrupa por moneda de la OC para no sumar pesos con dólares.
+     *
+     * @param  array{search: ?string, tipo: ?string, solicitante_id: ?string}  $filtros
+     * @return array<string, float>
+     */
+    private function totalesRecibidos(array $filtros): array
+    {
+        return EntregaDetalle::query()
+            ->whereHas('entrega', fn ($q) => $q->filtradas($filtros)->whereNull('cancelada_at'))
+            ->leftJoin(
+                'costos_ordenes_compra_detalle',
+                'costos_ordenes_compra_detalle.id',
+                '=',
+                'costos_entrega_detalle.orden_compra_detalle_id',
+            )
+            ->leftJoin('costos_entregas', 'costos_entregas.id', '=', 'costos_entrega_detalle.entrega_id')
+            ->leftJoin('costos_ordenes_compra', 'costos_ordenes_compra.id', '=', 'costos_entregas.orden_compra_id')
+            ->selectRaw("COALESCE(costos_ordenes_compra.moneda, 'mxn') as moneda")
+            ->selectRaw(
+                'SUM(costos_entrega_detalle.cantidad_recibida * COALESCE(costos_entrega_detalle.precio_unitario, costos_ordenes_compra_detalle.precio_unitario, 0)) as total',
+            )
+            ->groupByRaw("COALESCE(costos_ordenes_compra.moneda, 'mxn')")
+            ->pluck('total', 'moneda')
+            ->map(fn ($total): float => round((float) $total, 2))
+            ->all();
     }
 
     /**
@@ -118,10 +156,13 @@ class EntregaController extends Controller
             'fecha_entrega' => $entrega->fecha_entrega?->toDateString(),
             'tipo' => $entrega->tipo,
             'recibido_por' => $entrega->recibidoPor?->name,
+            'cancelada' => $entrega->estaCancelada(),
+            'total' => $entrega->importeRecibido(),
             'oc' => $oc ? [
                 'id' => $oc->id,
                 'folio' => $oc->folio,
                 'tipo_pago' => $oc->tipo_pago?->value,
+                'moneda' => $oc->moneda,
                 'url' => route('admin.costos.ordenes-compra.show', $oc),
             ] : null,
             'proveedor' => $proveedor ? ($proveedor->razon_social ?: $proveedor->nombre_comercial) : null,

@@ -2606,7 +2606,10 @@ export type CostosRecepcionRow = {
     fecha_entrega: string | null;
     tipo: CostosEntregaTipo;
     recibido_por: string | null;
-    oc: { id: number; folio: string; tipo_pago: string | null; url: string } | null;
+    cancelada: boolean;
+    /** Importe recibido (sin IVA): cantidad × precio efectivo de cada renglón. */
+    total: number;
+    oc: { id: number; folio: string; tipo_pago: string | null; moneda: string | null; url: string } | null;
     proveedor: string | null;
     /** Obras a las que carga la recepción, vía OC, su solicitud de pago o su requisición. */
     obras: string[];

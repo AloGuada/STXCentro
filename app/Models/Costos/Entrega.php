@@ -100,6 +100,21 @@ class Entrega extends Model
             );
     }
 
+    /**
+     * Importe de lo recibido: cantidad por precio efectivo de cada renglón. Es el
+     * mismo subtotal (sin IVA) que imprime el formato de recepción, para que la
+     * pantalla, el reporte y el PDF cuenten lo mismo.
+     */
+    public function importeRecibido(): float
+    {
+        return round(
+            $this->detalles->sum(
+                fn (EntregaDetalle $detalle) => (float) $detalle->cantidad_recibida * $detalle->precio_unitario_efectivo,
+            ),
+            2,
+        );
+    }
+
     public function estaCancelada(): bool
     {
         return $this->cancelada_at !== null;
