@@ -22,6 +22,7 @@ class LiquidacionDetalle extends Model
         'concepto_id',
         'obra_id',
         'marca',
+        'etapa',
         'descripcion',
         'peso_unitario',
         'longitud',
@@ -56,8 +57,8 @@ class LiquidacionDetalle extends Model
 
     /**
      * Snapshot: concepto_id no tiene FK (el detalle sobrevive al borrado del
-     * concepto). El renglon guarda su propia copia de marca, descripcion, peso
-     * y longitud, asi que esta relacion es solo un puente para navegar a la
+     * concepto). El renglon guarda su propia copia de marca, etapa, descripcion,
+     * peso y longitud, asi que esta relacion es solo un puente para navegar a la
      * pieza actual; nunca debe usarse para mostrar o calcular lo ya pagado.
      */
     public function concepto(): BelongsTo

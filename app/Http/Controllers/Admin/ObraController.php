@@ -102,8 +102,12 @@ class ObraController extends Controller
         $catalogo = $this->catalogoVigenteDe($obra);
 
         foreach ($rows as $rowData) {
+            // Este layout no tiene etapa, así que sólo administra las piezas sin
+            // etapa: emparejar por marca a secas escogería al azar entre las
+            // etapas de una misma marca.
             $existing = Concepto::where('catalogo_id', $catalogo->id)
                 ->where('marca', $rowData['marca'])
+                ->whereNull('etapa')
                 ->first();
 
             if ($existing) {

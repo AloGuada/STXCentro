@@ -89,8 +89,11 @@ class CatalogoController extends Controller
             $catalogo->conceptos()
                 ->with('categoria')
                 ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('marca', 'like', "%{$s}%")
+                    ->orWhere('etapa', 'like', "%{$s}%")
+                    ->orWhere('qs', 'like', "%{$s}%")
                     ->orWhere('descripcion', 'like', "%{$s}%")))
                 ->orderBy('marca')
+                ->orderBy('etapa')
                 ->get()
         );
 

@@ -37,8 +37,9 @@ class AvanceDePiezas
      *
      * La clave es la pieza raíz del linaje (`concepto_origen_id` hacia arriba),
      * no el texto de la marca: así renombrar una pieza al versionar el catálogo
-     * no reinicia el acumulado. Cuando la pieza ya no existe se cae a la marca
-     * del snapshot, para no perder lo pagado.
+     * no reinicia el acumulado. Cuando la pieza ya no existe se cae al modelo del
+     * snapshot (marca + etapa), para no perder lo pagado ni mezclar dos piezas
+     * que comparten marca en etapas distintas.
      */
     public function mapaDeObra(int $obraId): AvanceDeObra
     {
@@ -46,13 +47,13 @@ class AvanceDePiezas
 
         $totales = [];
 
-        foreach (LiquidacionDetalle::where('obra_id', $obraId)->get(['concepto_id', 'marca', 'cantidad', 'porcentaje']) as $detalle) {
-            $clave = $this->clave($raices, $detalle->concepto_id, $detalle->marca);
+        foreach (LiquidacionDetalle::where('obra_id', $obraId)->get(['concepto_id', 'marca', 'etapa', 'cantidad', 'porcentaje']) as $detalle) {
+            $clave = $this->clave($raices, $detalle->concepto_id, $detalle->marca, $detalle->etapa);
             $totales[$clave] = ($totales[$clave] ?? 0) + $detalle->cantidad * ((float) $detalle->porcentaje / 100);
         }
 
         foreach ($this->registrosNoLiquidados($obraId) as $registro) {
-            $clave = $this->clave($raices, $registro->concepto_id, $registro->concepto?->marca);
+            $clave = $this->clave($raices, $registro->concepto_id, $registro->concepto?->marca, $registro->concepto?->etapa);
             $totales[$clave] = ($totales[$clave] ?? 0) + $registro->piezasEquivalentes();
         }
 
@@ -92,11 +93,11 @@ class AvanceDePiezas
     /**
      * @param  array<int, int>  $raices
      */
-    private function clave(array $raices, ?int $conceptoId, ?string $marca): string
+    private function clave(array $raices, ?int $conceptoId, ?string $marca, ?string $etapa): string
     {
         return isset($raices[$conceptoId])
             ? 'raiz:'.$raices[$conceptoId]
-            : 'marca:'.($marca ?? '');
+            : 'modelo:'.Concepto::claveDeModelo($marca, $etapa);
     }
 
     /**
@@ -109,7 +110,7 @@ class AvanceDePiezas
     private function registrosNoLiquidados(int $obraId): Collection
     {
         return Registro::query()
-            ->with('concepto:id,marca')
+            ->with('concepto:id,marca,etapa')
             ->whereHas('concepto', fn ($q) => $q->where('obra_id', $obraId))
             ->whereNotExists(fn ($q) => $q->selectRaw('1')
                 ->from('prod_destajos')

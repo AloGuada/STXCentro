@@ -6,6 +6,7 @@ import { PendientesLiquidar } from '@/components/prod/pendientes-liquidar';
 import { Button } from '@/components/ui/button';
 import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
+import { etiquetaDePieza } from '@/lib/prod/piezas';
 import type { BreadcrumbItem } from '@/types';
 import type {
     Concepto,
@@ -156,7 +157,7 @@ export default function DestajosShow({
                                     </div>
                                     <div className="text-sm">
                                         Se pagarían en $0 al cerrar:{' '}
-                                        {piezasSinPrecio.map((p) => p.marca).join(', ')}. Asígnales un grupo de precio.
+                                        {piezasSinPrecio.map((p) => etiquetaDePieza(p.marca, p.etapa)).join(', ')}. Asígnales un grupo de precio.
                                     </div>
                                 </div>
                             </div>

@@ -22,14 +22,15 @@ readonly class AvanceDeObra
     /**
      * Piezas equivalentes ya pagadas o comprometidas de esta pieza.
      *
-     * Suma el bucket de su linaje y el de su marca: el segundo recoge lo pagado
-     * de piezas que ya se borraron del catalogo y por eso no tienen linaje.
+     * Suma el bucket de su linaje y el de su modelo (marca + etapa): el segundo
+     * recoge lo pagado de piezas que ya se borraron del catalogo y por eso no
+     * tienen linaje.
      */
     public function capturadoDe(Concepto $concepto): float
     {
         $porLinaje = $this->totales['raiz:'.($this->raices[$concepto->id] ?? $concepto->id)] ?? 0;
-        $porMarca = $this->totales['marca:'.$concepto->marca] ?? 0;
+        $porModelo = $this->totales['modelo:'.$concepto->claveModelo()] ?? 0;
 
-        return round((float) $porLinaje + (float) $porMarca, 4);
+        return round((float) $porLinaje + (float) $porModelo, 4);
     }
 }

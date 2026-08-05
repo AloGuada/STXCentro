@@ -338,3 +338,50 @@ describe('baja de catalogo', function () {
         expect($v1->fresh()->vigente)->toBeTrue();
     });
 });
+
+describe('comparar versiones con marcas repetidas', function () {
+    test('empareja por marca y etapa, no solo por marca', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        foreach (['1' => 'Etapa uno', '2' => 'Etapa dos'] as $etapa => $descripcion) {
+            Concepto::factory()->create([
+                'obra_id' => $catalogo->obra_id,
+                'catalogo_id' => $catalogo->id,
+                'marca' => 'V-01',
+                'etapa' => $etapa,
+                'descripcion' => $descripcion,
+                'cantidad' => 10,
+            ]);
+        }
+
+        $nueva = app(VersionadorCatalogo::class)->nuevaVersion($catalogo);
+
+        // Sólo cambia la etapa 2: la 1 debe salir sin cambios.
+        $nueva->conceptos()->where('etapa', '2')->firstOrFail()->update(['cantidad' => 25]);
+
+        $diff = app(VersionadorCatalogo::class)->comparar($catalogo, $nueva);
+
+        expect($diff['sin_cambios'])->toBe(1)
+            ->and($diff['agregadas'])->toBeEmpty()
+            ->and($diff['eliminadas'])->toBeEmpty()
+            ->and($diff['modificadas'])->toHaveCount(1)
+            ->and($diff['modificadas'][0]['marca'])->toBe('V-01')
+            ->and($diff['modificadas'][0]['etapa'])->toBe('2');
+    });
+
+    test('versionar arrastra qs y etapa a la copia', function () {
+        $catalogo = Catalogo::factory()->create();
+        Concepto::factory()->create([
+            'obra_id' => $catalogo->obra_id,
+            'catalogo_id' => $catalogo->id,
+            'qs' => '1042',
+            'marca' => 'V-01',
+            'etapa' => 'FASE B',
+        ]);
+
+        $copia = app(VersionadorCatalogo::class)->nuevaVersion($catalogo)->conceptos()->sole();
+
+        expect($copia->qs)->toBe('1042')
+            ->and($copia->etapa)->toBe('FASE B');
+    });
+});

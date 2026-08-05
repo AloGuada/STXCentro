@@ -53,8 +53,13 @@ class RegistroController extends Controller
 
     /**
      * Carga masiva de produccion. Acepta el export de avance de planta (se queda
-     * con el evento 55 y usa Ubicacion, Marca y Cantidad) o un CSV a mano con
-     * GRUPO, MARCA, CANTIDAD. Todos los renglones toman la fecha del formulario.
+     * con el evento 55 y usa Ubicacion, Marca, Etapa y Cantidad) o un CSV a mano
+     * con GRUPO, MARCA, ETAPA, CANTIDAD. Todos los renglones toman la fecha del
+     * formulario.
+     *
+     * La pieza se resuelve por marca + etapa. Si el archivo no trae ETAPA y esa
+     * marca esta repetida en varias etapas del catalogo, el renglon se reporta en
+     * vez de cargarse: pagarlo a la pieza equivocada no tiene vuelta atras.
      */
     public function importCsv(
         RegistroImportCsvRequest $request,
@@ -101,14 +106,25 @@ class RegistroController extends Controller
                 continue;
             }
 
-            $conceptos = Concepto::deCatalogoVigente()->where('marca', $fila['marca'])->where('activo', true)->get();
+            $etiqueta = Concepto::etiquetaDeModelo($fila['marca'], $fila['etapa']);
+
+            $conceptos = Concepto::deCatalogoVigente()
+                ->where('marca', $fila['marca'])
+                ->when($fila['etapa'] !== null, fn ($q) => $q->where('etapa', $fila['etapa']))
+                ->where('activo', true)
+                ->get();
+
             if ($conceptos->isEmpty()) {
-                $errores[] = "{$ref}: pieza \"{$fila['marca']}\" no encontrada.";
+                $errores[] = "{$ref}: pieza \"{$etiqueta}\" no encontrada.";
 
                 continue;
             }
             if ($conceptos->count() > 1) {
-                $errores[] = "{$ref}: pieza \"{$fila['marca']}\" existe en varias obras (ambigua).";
+                $etapas = $conceptos->pluck('etapa')->unique();
+
+                $errores[] = $etapas->count() > 1
+                    ? "{$ref}: la marca \"{$fila['marca']}\" existe en varias etapas ({$etapas->map(fn (?string $e) => $e ?? 'sin etapa')->implode(', ')}); agrega la columna ETAPA al archivo."
+                    : "{$ref}: pieza \"{$etiqueta}\" existe en varias obras (ambigua).";
 
                 continue;
             }
@@ -125,9 +141,9 @@ class RegistroController extends Controller
 
             $concepto = $conceptos->first();
 
-            // El tope se descuenta dentro del propio archivo: dos renglones de
-            // la misma marca no pueden rebasar juntos lo que falta.
-            $clave = $concepto->obra_id.'|'.$concepto->marca;
+            // El tope se descuenta dentro del propio archivo: dos renglones del
+            // mismo modelo no pueden rebasar juntos lo que falta.
+            $clave = $concepto->obra_id.'|'.$concepto->claveModelo();
             $disponible = $topes[$clave] ??= $avance->disponible($concepto);
             $consumo = round($fila['cantidad'] * ($fila['porcentaje'] / 100), 4);
 
@@ -203,14 +219,15 @@ class RegistroController extends Controller
     private function mensajeDeTope(Concepto $concepto, float $disponible): string
     {
         $salida = ' Si son piezas rehechas, regístralas como pago extra.';
+        $etiqueta = $concepto->etiquetaModelo();
 
         if ($disponible <= 0) {
-            return "La pieza \"{$concepto->marca}\" ya está pagada al 100%: el catálogo pide {$concepto->cantidad} y no queda nada por pagar.".$salida;
+            return "La pieza \"{$etiqueta}\" ya está pagada al 100%: el catálogo pide {$concepto->cantidad} y no queda nada por pagar.".$salida;
         }
 
         $pendiente = rtrim(rtrim(number_format($disponible, 2, '.', ''), '0'), '.');
         $pagado = rtrim(rtrim(number_format((float) $concepto->cantidad - $disponible, 2, '.', ''), '0'), '.');
 
-        return "La pieza \"{$concepto->marca}\" solo tiene {$pendiente} pieza(s) por pagar: el catálogo pide {$concepto->cantidad} y ya se pagaron {$pagado} (contando parcialidades).".$salida;
+        return "La pieza \"{$etiqueta}\" solo tiene {$pendiente} pieza(s) por pagar: el catálogo pide {$concepto->cantidad} y ya se pagaron {$pagado} (contando parcialidades).".$salida;
     }
 }

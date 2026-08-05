@@ -3,6 +3,7 @@ import { Button, ButtonLink } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import { etiquetaDePieza } from '@/lib/prod/piezas';
 import type { Concepto, ProdCatalogo } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { CopyPlusIcon, DownloadIcon, GitCompareIcon, PlusIcon, UploadIcon } from 'lucide-react';
@@ -32,8 +33,8 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
     const filtered = useMemo(() => {
         if (!search) return conceptos;
         const s = search.toLowerCase();
-        return conceptos.filter(
-            (c) => c.marca.toLowerCase().includes(s) || c.descripcion.toLowerCase().includes(s),
+        return conceptos.filter((c) =>
+            [c.qs, c.marca, c.etapa, c.descripcion].some((campo) => (campo ?? '').toLowerCase().includes(s)),
         );
     }, [conceptos, search]);
 
@@ -149,7 +150,7 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
 
                 <div className="mb-4 w-full max-w-xs">
                     <Input
-                        placeholder="Buscar por marca o descripcion..."
+                        placeholder="Buscar por QS, marca, etapa o descripcion..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
@@ -160,7 +161,9 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                         <table className="table table-sm">
                             <thead className="bg-base-200 sticky top-0 z-10">
                                 <tr>
+                                    <th>QS</th>
                                     <th>Marca</th>
+                                    <th>Etapa</th>
                                     <th>Descripcion</th>
                                     <th>Categoria</th>
                                     <th className="text-right">Cantidad</th>
@@ -175,7 +178,7 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                             <tbody>
                                 {filtered.length === 0 ? (
                                     <tr>
-                                        <td colSpan={10} className="text-base-content/50 py-6 text-center">
+                                        <td colSpan={12} className="text-base-content/50 py-6 text-center">
                                             Este catálogo no tiene piezas todavía
                                         </td>
                                     </tr>
@@ -188,7 +191,17 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                                                 catalogo.vigente && router.visit(`/admin/prod/conceptos/${c.id}/edit`)
                                             }
                                         >
+                                            <td className="text-base-content/60 font-mono text-xs">
+                                                {c.qs ?? '—'}
+                                            </td>
                                             <td className="font-medium">{c.marca}</td>
+                                            <td>
+                                                {c.etapa ? (
+                                                    <span className="badge badge-sm badge-ghost">{c.etapa}</span>
+                                                ) : (
+                                                    <span className="text-base-content/40">—</span>
+                                                )}
+                                            </td>
                                             <td>{c.descripcion}</td>
                                             <td>
                                                 {c.categoria ? (
@@ -236,7 +249,7 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                     {filtered.length > 0 && (
                         <div className="border-base-300 bg-base-200 flex items-center justify-between border-t px-4 py-2 text-sm">
                             <span>
-                                {totals.count} marcas ({totals.activos} activas) ·{' '}
+                                {totals.count} modelos ({totals.activos} activos) ·{' '}
                                 <span className="font-mono">{totals.piezas.toLocaleString('es-MX')}</span> piezas ·{' '}
                                 <span className="font-mono">{totals.pagadas.toLocaleString('es-MX')}</span> pagadas ·{' '}
                                 <span className="font-mono">{totals.faltan.toLocaleString('es-MX')}</span> por pagar
@@ -256,9 +269,11 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                             </a>
                         </div>
                         <p className="text-base-content/60 text-sm">
-                            Columnas: Marca, Descripcion, Categoria, Cantidad, PesoKg, Area, LongitudMm. La categoria se
-                            crea automaticamente si no existe. Si la marca ya existe en esta versión del catálogo, se
-                            sobrescriben sus datos.
+                            Columnas: QS, Marca, Etapa, Descripcion, Categoria, Cantidad, PesoKg, Area, LongitudMm. La
+                            categoria se crea automaticamente si no existe. La pieza se identifica por{' '}
+                            <strong>marca + etapa</strong>: si esa combinación ya existe en esta versión del catálogo se
+                            sobrescriben sus datos, y si cambia la etapa entra como pieza nueva. QS es el id de planta,
+                            se guarda como referencia pero no decide el emparejado.
                         </p>
 
                         <form onSubmit={handleCsvImport} className="flex items-end gap-4">

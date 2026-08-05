@@ -234,3 +234,28 @@ test('el linaje encadena varias versiones', function () {
     // Tres nombres distintos, un solo linaje: el pagado sigue contando.
     expect(app(AvanceDePiezas::class)->disponible($nieta->fresh()))->toBe(6.0);
 });
+
+describe('snapshot con etapa', function () {
+    test('el renglon congela la etapa junto con la marca', function () {
+        $this->pieza->update(['etapa' => 'FASE B']);
+
+        cerrarConProduccion();
+
+        $detalle = $this->destajo->liquidaciones()->firstOrFail()->detalles()->firstOrFail();
+
+        expect($detalle->marca)->toBe('V-01')
+            ->and($detalle->etapa)->toBe('FASE B');
+    });
+
+    test('cambiar la etapa de la pieza no mueve la orden de pago ya cerrada', function () {
+        $this->pieza->update(['etapa' => '1']);
+
+        cerrarConProduccion();
+
+        $this->pieza->update(['etapa' => '2']);
+
+        $piezas = app(GeneradorLiquidaciones::class)->ordenDePago($this->destajo->fresh())->first()['piezas'];
+
+        expect($piezas[0]['etapa'])->toBe('1');
+    });
+});

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import { etiquetaDePieza } from '@/lib/prod/piezas';
 import type { Concepto, ProdCatalogo, ProdCategoria } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
@@ -23,11 +24,16 @@ export default function ConceptosEdit({ concepto, categorias }: Props) {
         { title: 'Produccion', href: '/admin/prod/destajos' },
         { title: 'Catalogos', href: '/admin/prod/catalogos' },
         { title: `${catalogo.nombre} v${catalogo.version}`, href: `/admin/prod/catalogos/${catalogo.id}` },
-        { title: concepto.marca, href: `/admin/prod/conceptos/${concepto.id}/edit` },
+        {
+            title: etiquetaDePieza(concepto.marca, concepto.etapa),
+            href: `/admin/prod/conceptos/${concepto.id}/edit`,
+        },
     ];
 
     const { data, setData, put, processing, errors } = useForm({
+        qs: concepto.qs ?? '',
         marca: concepto.marca,
+        etapa: concepto.etapa ?? '',
         descripcion: concepto.descripcion,
         cantidad: String(concepto.cantidad),
         peso_unitario: String(concepto.peso_unitario),
@@ -44,7 +50,7 @@ export default function ConceptosEdit({ concepto, categorias }: Props) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`Editar ${concepto.marca}`} />
+            <Head title={`Editar ${etiquetaDePieza(concepto.marca, concepto.etapa)}`} />
 
             <div className="p-6">
                 <div className="w-full max-w-2xl">
@@ -55,12 +61,44 @@ export default function ConceptosEdit({ concepto, categorias }: Props) {
                     </p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
+                                <Input
+                                    id="marca"
+                                    value={data.marca}
+                                    onChange={(e) => setData('marca', e.target.value)}
+                                    error={!!errors.marca}
+                                />
+                            </FormField>
+
+                            <FormField
+                                label="Etapa"
+                                htmlFor="etapa"
+                                error={errors.etapa}
+                                description="Junto con la marca identifica el modelo. Dejala vacia si la obra no maneja etapas."
+                            >
+                                <Input
+                                    id="etapa"
+                                    value={data.etapa}
+                                    onChange={(e) => setData('etapa', e.target.value)}
+                                    error={!!errors.etapa}
+                                    placeholder="Sin etapa"
+                                />
+                            </FormField>
+                        </div>
+
+                        <FormField
+                            label="QS"
+                            htmlFor="qs"
+                            error={errors.qs}
+                            description="Id de la pieza en el sistema de planta. Solo referencia."
+                        >
                             <Input
-                                id="marca"
-                                value={data.marca}
-                                onChange={(e) => setData('marca', e.target.value)}
-                                error={!!errors.marca}
+                                id="qs"
+                                value={data.qs}
+                                onChange={(e) => setData('qs', e.target.value)}
+                                error={!!errors.qs}
+                                placeholder="Opcional"
                             />
                         </FormField>
 
@@ -150,7 +188,7 @@ export default function ConceptosEdit({ concepto, categorias }: Props) {
                         <div className="flex items-center justify-between">
                             <DeleteDialog
                                 title="Eliminar pieza"
-                                description={`¿Eliminar la pieza "${concepto.marca}"? Esta acción no se puede deshacer.`}
+                                description={`¿Eliminar la pieza "${etiquetaDePieza(concepto.marca, concepto.etapa)}"? Esta acción no se puede deshacer.`}
                                 deleteUrl={`/admin/prod/conceptos/${concepto.id}`}
                             />
                             <div className="flex gap-2">

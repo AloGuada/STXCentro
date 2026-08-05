@@ -270,6 +270,86 @@ describe('conceptos csv import al catalogo', function () {
         expect(Concepto::where('catalogo_id', $catalogo->id)->where('marca', 'TG-BAR-1')->count())->toBe(1);
     });
 
+    test('csv import distingue dos piezas con la misma marca por su etapa', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        $csvContent = "QS,MARCA,ETAPA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
+        $csvContent .= "1041,TG-BAR-1,1,OC-BAR etapa 1,Barandales,1,29.751,1.397,3542.177\n";
+        $csvContent .= "1042,TG-BAR-1,2,OC-BAR etapa 2,Barandales,6,31.500,1.500,3600\n";
+
+        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.catalogos.import-csv', $catalogo), ['csv_file' => $file])
+            ->assertSessionHas('success');
+
+        expect(Concepto::where('catalogo_id', $catalogo->id)->where('marca', 'TG-BAR-1')->count())->toBe(2);
+
+        $this->assertDatabaseHas('conceptos', [
+            'catalogo_id' => $catalogo->id,
+            'qs' => '1041',
+            'marca' => 'TG-BAR-1',
+            'etapa' => '1',
+            'descripcion' => 'OC-BAR etapa 1',
+            'cantidad' => 1,
+        ]);
+
+        $this->assertDatabaseHas('conceptos', [
+            'catalogo_id' => $catalogo->id,
+            'qs' => '1042',
+            'marca' => 'TG-BAR-1',
+            'etapa' => '2',
+            'descripcion' => 'OC-BAR etapa 2',
+            'cantidad' => 6,
+        ]);
+    });
+
+    test('csv import sobrescribe por marca y etapa, no solo por marca', function () {
+        $catalogo = Catalogo::factory()->create();
+        Concepto::factory()->create([
+            'obra_id' => $catalogo->obra_id,
+            'catalogo_id' => $catalogo->id,
+            'marca' => 'TG-BAR-1',
+            'etapa' => '2',
+            'descripcion' => 'Etapa 2 intacta',
+            'cantidad' => 7,
+        ]);
+
+        $csvContent = "QS,MARCA,ETAPA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
+        $csvContent .= "1041,TG-BAR-1,1,Etapa 1 nueva,Barandales,1,29.751,1.397,3542.177\n";
+
+        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.catalogos.import-csv', $catalogo), ['csv_file' => $file]);
+
+        // La etapa 2 no se toca; la 1 entra como pieza nueva.
+        $this->assertDatabaseHas('conceptos', [
+            'catalogo_id' => $catalogo->id,
+            'marca' => 'TG-BAR-1',
+            'etapa' => '2',
+            'descripcion' => 'Etapa 2 intacta',
+            'cantidad' => 7,
+        ]);
+        expect(Concepto::where('catalogo_id', $catalogo->id)->where('marca', 'TG-BAR-1')->count())->toBe(2);
+    });
+
+    test('csv import normaliza la etapa y deja nula la vacia', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        $csvContent = "QS,MARCA,ETAPA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
+        $csvContent .= "1041,TG-BAR-1,  fase  b ,Con etapa,Barandales,1,29.751,1.397,3542\n";
+        $csvContent .= "1042,TG-BAR-2,   ,Sin etapa,Barandales,1,29.751,1.397,3542\n";
+
+        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.catalogos.import-csv', $catalogo), ['csv_file' => $file]);
+
+        expect(Concepto::where('marca', 'TG-BAR-1')->value('etapa'))->toBe('FASE B')
+            ->and(Concepto::where('marca', 'TG-BAR-2')->value('etapa'))->toBeNull();
+    });
+
     test('csv import skips summary/footer rows', function () {
         $catalogo = Catalogo::factory()->create();
 

@@ -5,6 +5,7 @@ use App\Models\Obra;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoTrabajo;
+use App\Models\Prod\LiquidacionDetalle;
 use App\Models\Prod\Registro;
 use App\Models\User;
 use App\Services\Prod\AvanceDePiezas;
@@ -253,4 +254,58 @@ test('una obra sin catalogo no rompe el avance', function () {
     $pieza = Concepto::factory()->create(['obra_id' => $obra->id, 'cantidad' => 5]);
 
     expect(app(AvanceDePiezas::class)->mapaDeObra($obra->id)->capturadoDe($pieza))->toBe(0.0);
+});
+
+describe('marcas repetidas en varias etapas', function () {
+    test('cada etapa de la misma marca tiene su propio tope', function () {
+        $etapa2 = Concepto::factory()->create([
+            'obra_id' => $this->catalogo->obra_id,
+            'catalogo_id' => $this->catalogo->id,
+            'marca' => 'V-01',
+            'etapa' => '2',
+            'cantidad' => 10,
+        ]);
+        $this->pieza->update(['etapa' => '1']);
+
+        // Se agota la etapa 1 completa.
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['cantidad' => 10]))
+            ->assertSessionHasNoErrors();
+
+        // La etapa 2 sigue intacta: es otra pieza aunque comparta la marca.
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar([
+                'concepto_id' => $etapa2->id,
+                'cantidad' => 10,
+            ]))
+            ->assertSessionHasNoErrors();
+
+        expect(app(AvanceDePiezas::class)->disponible($this->pieza->fresh()))->toBe(0.0)
+            ->and(app(AvanceDePiezas::class)->disponible($etapa2->fresh()))->toBe(0.0)
+            ->and(Registro::sum('cantidad'))->toBe(20);
+    });
+
+    test('borrar la pieza no traslada lo pagado a la otra etapa de la misma marca', function () {
+        $this->pieza->update(['etapa' => '1']);
+        $etapa2 = Concepto::factory()->create([
+            'obra_id' => $this->catalogo->obra_id,
+            'catalogo_id' => $this->catalogo->id,
+            'marca' => 'V-01',
+            'etapa' => '2',
+            'cantidad' => 10,
+        ]);
+
+        // Snapshot huérfano de la etapa 1: su concepto ya no existe, así que el
+        // acumulado se recupera por el modelo (marca + etapa), no por la marca.
+        LiquidacionDetalle::factory()->create([
+            'concepto_id' => 999999,
+            'obra_id' => $this->catalogo->obra_id,
+            'marca' => 'V-01',
+            'etapa' => '1',
+            'cantidad' => 10,
+            'porcentaje' => 100,
+        ]);
+
+        expect(app(AvanceDePiezas::class)->disponible($etapa2))->toBe(10.0);
+    });
 });

@@ -48,33 +48,35 @@ class VersionadorCatalogo
     }
 
     /**
-     * Diferencias entre dos versiones, emparejadas por marca.
+     * Diferencias entre dos versiones, emparejadas por modelo (marca + etapa).
+     * Emparejar sólo por marca juntaría piezas distintas cuando el catálogo
+     * repite la marca en varias etapas de la obra.
      *
      * @return array{
-     *     agregadas: list<array{marca: string, descripcion: string}>,
-     *     eliminadas: list<array{marca: string, descripcion: string}>,
-     *     modificadas: list<array{marca: string, descripcion: string, cambios: list<array{campo: string, antes: mixed, despues: mixed}>}>,
+     *     agregadas: list<array{marca: string, etapa: ?string, descripcion: string}>,
+     *     eliminadas: list<array{marca: string, etapa: ?string, descripcion: string}>,
+     *     modificadas: list<array{marca: string, etapa: ?string, descripcion: string, cambios: list<array{campo: string, antes: mixed, despues: mixed}>}>,
      *     sin_cambios: int
      * }
      */
     public function comparar(Catalogo $base, Catalogo $contra): array
     {
-        $piezasBase = $base->conceptos()->get()->keyBy('marca');
-        $piezasContra = $contra->conceptos()->get()->keyBy('marca');
+        $piezasBase = $base->conceptos()->get()->keyBy(fn (Concepto $pieza) => $pieza->claveModelo());
+        $piezasContra = $contra->conceptos()->get()->keyBy(fn (Concepto $pieza) => $pieza->claveModelo());
 
         $agregadas = [];
         $eliminadas = [];
         $modificadas = [];
         $sinCambios = 0;
 
-        foreach ($piezasContra as $marca => $pieza) {
-            if (! $piezasBase->has($marca)) {
-                $agregadas[] = ['marca' => $pieza->marca, 'descripcion' => $pieza->descripcion];
+        foreach ($piezasContra as $clave => $pieza) {
+            if (! $piezasBase->has($clave)) {
+                $agregadas[] = $this->resumenDePieza($pieza);
 
                 continue;
             }
 
-            $cambios = $this->cambiosEntrePiezas($piezasBase->get($marca), $pieza);
+            $cambios = $this->cambiosEntrePiezas($piezasBase->get($clave), $pieza);
 
             if ($cambios === []) {
                 $sinCambios++;
@@ -82,16 +84,12 @@ class VersionadorCatalogo
                 continue;
             }
 
-            $modificadas[] = [
-                'marca' => $pieza->marca,
-                'descripcion' => $pieza->descripcion,
-                'cambios' => $cambios,
-            ];
+            $modificadas[] = [...$this->resumenDePieza($pieza), 'cambios' => $cambios];
         }
 
-        foreach ($piezasBase as $marca => $pieza) {
-            if (! $piezasContra->has($marca)) {
-                $eliminadas[] = ['marca' => $pieza->marca, 'descripcion' => $pieza->descripcion];
+        foreach ($piezasBase as $clave => $pieza) {
+            if (! $piezasContra->has($clave)) {
+                $eliminadas[] = $this->resumenDePieza($pieza);
             }
         }
 
@@ -121,7 +119,9 @@ class VersionadorCatalogo
                 // Linaje: sostiene el conteo de lo pagado aunque la marca
                 // cambie de nombre en esta version.
                 'concepto_origen_id' => $pieza->id,
+                'qs' => $pieza->qs,
                 'marca' => $pieza->marca,
+                'etapa' => $pieza->etapa,
                 'descripcion' => $pieza->descripcion,
                 'cantidad' => $pieza->cantidad,
                 'peso_unitario' => $pieza->peso_unitario,
@@ -141,11 +141,24 @@ class VersionadorCatalogo
     }
 
     /**
+     * @return array{marca: string, etapa: ?string, descripcion: string}
+     */
+    private function resumenDePieza(Concepto $pieza): array
+    {
+        return [
+            'marca' => $pieza->marca,
+            'etapa' => $pieza->etapa,
+            'descripcion' => $pieza->descripcion,
+        ];
+    }
+
+    /**
      * @return list<array{campo: string, antes: mixed, despues: mixed}>
      */
     private function cambiosEntrePiezas(Concepto $antes, Concepto $despues): array
     {
         $campos = [
+            'qs' => 'QS',
             'descripcion' => 'Descripción',
             'cantidad' => 'Cantidad',
             'peso_unitario' => 'Peso unitario',

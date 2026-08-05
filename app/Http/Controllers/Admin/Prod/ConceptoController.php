@@ -36,7 +36,9 @@ class ConceptoController extends Controller
         Concepto::create([
             'catalogo_id' => $catalogo->id,
             'obra_id' => $catalogo->obra_id,
+            'qs' => $request->qs,
             'marca' => $request->marca,
+            'etapa' => Concepto::normalizarEtapa($request->etapa),
             'descripcion' => $request->descripcion,
             'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,
@@ -62,7 +64,9 @@ class ConceptoController extends Controller
     public function update(ConceptoUpdateRequest $request, Concepto $concepto): RedirectResponse
     {
         $concepto->update([
+            'qs' => $request->qs,
             'marca' => $request->marca,
+            'etapa' => Concepto::normalizarEtapa($request->etapa),
             'descripcion' => $request->descripcion,
             'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,
@@ -94,8 +98,14 @@ class ConceptoController extends Controller
     }
 
     /**
-     * Importa el layout sobre un catálogo. Las marcas que ya existen en esa
-     * versión se sobrescriben; las nuevas se agregan.
+     * Importa el layout sobre un catálogo. Los modelos que ya existen en esa
+     * versión se sobrescriben; los nuevos se agregan.
+     *
+     * El modelo es el par (marca, etapa), no la marca sola: un catálogo puede
+     * repetir la misma marca en etapas distintas de la obra. `QS` es el id que
+     * trae el layout del sistema de planta; se guarda como dato de consulta pero
+     * no decide a qué pieza pega el renglón, para que un renumerado en planta no
+     * duplique el catálogo.
      */
     public function importCsv(ConceptoImportCsvRequest $request, Catalogo $catalogo): RedirectResponse
     {
@@ -133,8 +143,13 @@ class ConceptoController extends Controller
                 $categoriaId = $categoriasCache[$categoriaNombre] ??= Categoria::firstOrCreate(['nombre' => $categoriaNombre])->id;
             }
 
-            $rows[$marca] = [
+            $etapa = Concepto::normalizarEtapa($data['ETAPA'] ?? null);
+            $qs = trim((string) ($data['QS'] ?? ''));
+
+            $rows[Concepto::claveDeModelo($marca, $etapa)] = [
+                'qs' => $qs === '' ? null : $qs,
                 'marca' => $marca,
+                'etapa' => $etapa,
                 'descripcion' => trim($data['DESCRIPCION'] ?? $data['DESCRIPCIÓN'] ?? ''),
                 'categoria_id' => $categoriaId,
                 'cantidad' => max($cantidad, 1),
@@ -150,7 +165,11 @@ class ConceptoController extends Controller
 
         foreach ($rows as $rowData) {
             Concepto::updateOrCreate(
-                ['catalogo_id' => $catalogo->id, 'marca' => $rowData['marca']],
+                [
+                    'catalogo_id' => $catalogo->id,
+                    'marca' => $rowData['marca'],
+                    'etapa' => $rowData['etapa'],
+                ],
                 $rowData,
             );
             $count++;

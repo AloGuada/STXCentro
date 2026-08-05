@@ -25,7 +25,9 @@ class Concepto extends Model
         'obra_id',
         'catalogo_id',
         'concepto_origen_id',
+        'qs',
         'marca',
+        'etapa',
         'descripcion',
         'cantidad',
         'peso_unitario',
@@ -79,6 +81,48 @@ class Concepto extends Model
     public function scopeDeCatalogoVigente($query)
     {
         return $query->whereHas('catalogo', fn ($q) => $q->where('vigente', true));
+    }
+
+    /**
+     * Etapa comparable: mayúsculas, sin espacios de más y con la cadena vacía
+     * tratada como "sin etapa". Se normaliza al guardar para que "fase b" y
+     * "FASE B" no acaben siendo dos modelos distintos.
+     */
+    public static function normalizarEtapa(?string $etapa): ?string
+    {
+        $limpia = preg_replace('/\s+/', ' ', mb_strtoupper(trim((string) $etapa))) ?? '';
+
+        return $limpia === '' ? null : $limpia;
+    }
+
+    /**
+     * Identidad del modelo dentro de un catálogo. La marca sola no basta: una
+     * misma marca puede repetirse en varias etapas de la obra. Estática porque
+     * también se usa sobre el snapshot de las liquidaciones, donde ya no hay
+     * concepto vivo que consultar.
+     */
+    public static function claveDeModelo(?string $marca, ?string $etapa): string
+    {
+        return trim((string) $marca).'|'.(self::normalizarEtapa($etapa) ?? '');
+    }
+
+    /** Cómo se nombra la pieza en pantalla y en los mensajes de error. */
+    public static function etiquetaDeModelo(?string $marca, ?string $etapa): string
+    {
+        $marca = trim((string) $marca);
+        $etapa = trim((string) $etapa);
+
+        return $etapa === '' ? $marca : "{$marca} · {$etapa}";
+    }
+
+    public function claveModelo(): string
+    {
+        return self::claveDeModelo($this->marca, $this->etapa);
+    }
+
+    public function etiquetaModelo(): string
+    {
+        return self::etiquetaDeModelo($this->marca, $this->etapa);
     }
 
     public function categoria(): BelongsTo

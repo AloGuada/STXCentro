@@ -593,6 +593,7 @@ export type ProdCategoriaEmpleado = {
 export type ProdPendienteLiquidar = {
     concepto_id: number;
     marca: string;
+    etapa: string | null;
     descripcion: string;
     obra: string;
     grupo_trabajo_id: number | null;
@@ -624,7 +625,14 @@ export type Concepto = {
     obra_id: number;
     catalogo_id: number | null;
     catalogo?: ProdCatalogo;
+    /** Id de la pieza en el sistema de planta. Informativo: no identifica al modelo. */
+    qs: string | null;
     marca: string;
+    /**
+     * Etapa de la obra. La marca sola no identifica la pieza: un catálogo puede
+     * repetirla en varias etapas, así que el modelo es el par marca + etapa.
+     */
+    etapa: string | null;
     descripcion: string;
     cantidad: number;
     peso_unitario: number;
@@ -635,7 +643,7 @@ export type Concepto = {
     obra?: Obra;
     categoria?: ProdCategoria;
     registros_sum_cantidad?: number;
-    /** Piezas ya capturadas de esta marca en la obra (todas las versiones del catálogo). */
+    /** Piezas ya capturadas de este modelo en la obra (todas las versiones del catálogo). */
     capturado?: number;
     /** Piezas que aún se pueden capturar segun el catalogo vigente. */
     disponible?: number;
@@ -730,6 +738,7 @@ export type ProdDestajo = {
 export type ProdPiezaSinPrecio = {
     concepto_id: number;
     marca: string;
+    etapa: string | null;
     descripcion: string;
     cantidad: number;
 };
@@ -761,6 +770,7 @@ export type ProdLiquidacionDetalle = {
     /** Snapshot del renglón al cerrar: no se relee del catálogo. */
     obra_id: number | null;
     marca: string | null;
+    etapa: string | null;
     descripcion: string | null;
     peso_unitario: number | null;
     longitud: number | null;

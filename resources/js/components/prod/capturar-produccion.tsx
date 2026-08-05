@@ -4,6 +4,7 @@ import { formatDate } from '@/components/ui/formatted-date';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import { SearchSelect } from '@/components/ui/search-select';
+import { etiquetaDePieza } from '@/lib/prod/piezas';
 import type { Concepto, Obra, ProdDestajo, ProdGrupoTrabajo } from '@/types/models';
 import { useForm } from '@inertiajs/react';
 import { Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
@@ -43,7 +44,7 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
         return {
             value: String(c.id),
             label:
-                `${c.obra ? `[${c.obra.no}] ` : ''}${c.marca} - ${c.descripcion} · ` +
+                `${c.obra ? `[${c.obra.no}] ` : ''}${etiquetaDePieza(c.marca, c.etapa)} - ${c.descripcion} · ` +
                 (faltan === 0 ? 'completa' : `faltan ${faltan} de ${c.cantidad}`),
             // Pintadas en rojo: ya se pagó todo lo que el catálogo manda.
             danger: faltan === 0,
@@ -215,12 +216,14 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
 
                     <p className="text-base-content/60 text-xs">
                         Acepta el <strong>export de avance de planta</strong>: se toman sólo los movimientos del evento{' '}
-                        <span className="font-mono">55</span> y se suman por <span className="font-mono">Ubicacion</span>{' '}
-                        y <span className="font-mono">Marca</span>; cada ubicación debe estar en el catálogo de módulos y
-                        pertenecer a un solo grupo. También acepta un CSV a mano con{' '}
-                        <span className="font-mono">Grupo, Marca, Cantidad</span> y opcionalmente{' '}
-                        <span className="font-mono">Porcentaje</span> (si no viene, se paga al 100%). Todos los renglones
-                        toman la fecha seleccionada.
+                        <span className="font-mono">55</span> y se suman por <span className="font-mono">Ubicacion</span>,{' '}
+                        <span className="font-mono">Marca</span> y <span className="font-mono">Etapa</span>; cada
+                        ubicación debe estar en el catálogo de módulos y pertenecer a un solo grupo. También acepta un
+                        CSV a mano con <span className="font-mono">Grupo, Marca, Cantidad</span> y opcionalmente{' '}
+                        <span className="font-mono">Etapa</span> y <span className="font-mono">Porcentaje</span> (si no
+                        viene, se paga al 100%). Si el archivo no trae <span className="font-mono">Etapa</span> y esa
+                        marca está repetida en varias etapas del catálogo, el renglón se reporta en vez de cargarse.
+                        Todos los renglones toman la fecha seleccionada.
                     </p>
 
                     <div className="flex justify-end">

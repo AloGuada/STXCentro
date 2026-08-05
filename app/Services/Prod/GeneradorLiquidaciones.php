@@ -66,7 +66,7 @@ class GeneradorLiquidaciones
      * Piezas con produccion en el destajo que no tienen precio asignado.
      * Se pagarian en cero silenciosamente; se usa para advertir antes de cerrar.
      *
-     * @return Collection<int, array{concepto_id: int, marca: string, descripcion: string, cantidad: int}>
+     * @return Collection<int, array{concepto_id: int, marca: string, etapa: ?string, descripcion: string, cantidad: int}>
      */
     public function piezasSinPrecio(Destajo $destajo): Collection
     {
@@ -82,6 +82,7 @@ class GeneradorLiquidaciones
                 return [
                     'concepto_id' => $conceptoId,
                     'marca' => $concepto->marca,
+                    'etapa' => $concepto->etapa,
                     'descripcion' => $concepto->descripcion,
                     'cantidad' => (int) $registros->sum('cantidad'),
                 ];
@@ -124,6 +125,7 @@ class GeneradorLiquidaciones
                 // no debe cambiar aunque despues se edite o borre la pieza.
                 'obra_id' => $concepto->obra_id,
                 'marca' => $concepto->marca,
+                'etapa' => $concepto->etapa,
                 'descripcion' => $concepto->descripcion,
                 'peso_unitario' => $concepto->peso_unitario,
                 'longitud' => $concepto->longitud,
@@ -211,6 +213,7 @@ class GeneradorLiquidaciones
             // Todo sale del snapshot del renglon, nunca del concepto vivo.
             $piezas = $liq->detalles->map(fn (LiquidacionDetalle $d) => [
                 'marca' => $d->marca ?? "#{$d->concepto_id}",
+                'etapa' => $d->etapa,
                 'descripcion' => $d->descripcion ?? '',
                 'obra' => $this->nombreObraSnapshot($d, $obras),
                 'pzs' => (int) $d->cantidad,
@@ -286,6 +289,7 @@ class GeneradorLiquidaciones
 
                 $piezas[] = [
                     'marca' => $concepto->marca,
+                    'etapa' => $concepto->etapa,
                     'descripcion' => $concepto->descripcion,
                     'obra' => $this->nombreObra($concepto),
                     'pzs' => $cantidad,

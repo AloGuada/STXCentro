@@ -38,6 +38,38 @@ function subirExport(string $csv)
         ]);
 }
 
+/** Mismo export, pero con la columna Etapa que ahora manda planta. */
+function encabezadoExportConEtapa(): string
+{
+    return "Proceso,Contracto,Movido el,Ubicacion,Marca,Etapa,Peso,Cantidad,Trabajador\n";
+}
+
+function renglonExportConEtapa(string $proceso, string $ubicacion, string $marca, string $etapa, int $cantidad): string
+{
+    return "{$proceso},S26-05-05 REJAS,46195,{$ubicacion},{$marca},{$etapa},1746,{$cantidad},SAUL DZUL\n";
+}
+
+/** Dos piezas distintas que comparten marca dentro del mismo catálogo. */
+function dosEtapasDeLaMismaMarca(): array
+{
+    return [
+        Concepto::factory()->create([
+            'obra_id' => test()->obra->id,
+            'marca' => 'TG-CM5-1',
+            'etapa' => '1',
+            'activo' => true,
+            'cantidad' => 100,
+        ]),
+        Concepto::factory()->create([
+            'obra_id' => test()->obra->id,
+            'marca' => 'TG-CM5-1',
+            'etapa' => '2',
+            'activo' => true,
+            'cantidad' => 100,
+        ]),
+    ];
+}
+
 function grupoConUbicacion(string $ubicacion, string $descripcion = 'Cuadrilla A'): GrupoTrabajo
 {
     $grupo = GrupoTrabajo::factory()->create(['descripcion' => $descripcion]);
@@ -149,4 +181,78 @@ test('el formato manual de grupo y marca sigue funcionando', function () {
         ->assertSessionHasNoErrors();
 
     expect(Registro::sole()->cantidad)->toBe(12);
+});
+
+describe('marcas repetidas en varias etapas', function () {
+    test('el export con etapa carga el renglon a la pieza correcta', function () {
+        grupoConUbicacion('M3.6 Fabricacion');
+        [$etapa1, $etapa2] = dosEtapasDeLaMismaMarca();
+
+        $csv = encabezadoExportConEtapa()
+            .renglonExportConEtapa('55 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-1', '2', 7);
+
+        subirExport($csv)->assertSessionHasNoErrors();
+
+        expect(Registro::sole()->concepto_id)->toBe($etapa2->id)
+            ->and(Registro::where('concepto_id', $etapa1->id)->count())->toBe(0);
+    });
+
+    test('el export con etapa suma los movimientos de la misma etapa y separa los de otra', function () {
+        grupoConUbicacion('M3.6 Fabricacion');
+        [$etapa1, $etapa2] = dosEtapasDeLaMismaMarca();
+
+        $csv = encabezadoExportConEtapa()
+            .renglonExportConEtapa('55 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-1', '1', 3)
+            .renglonExportConEtapa('55 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-1', '1', 4)
+            .renglonExportConEtapa('55 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-1', '2', 5);
+
+        subirExport($csv)->assertSessionHasNoErrors();
+
+        expect(Registro::where('concepto_id', $etapa1->id)->sum('cantidad'))->toBe(7)
+            ->and(Registro::where('concepto_id', $etapa2->id)->sum('cantidad'))->toBe(5);
+    });
+
+    test('sin columna etapa el renglon ambiguo se reporta en vez de cargarse', function () {
+        grupoConUbicacion('M3.6 Fabricacion');
+        dosEtapasDeLaMismaMarca();
+
+        $csv = encabezadoExport().renglonExport('55 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-1', 9);
+
+        subirExport($csv)->assertSessionHasErrors('csv_file');
+
+        expect(Registro::count())->toBe(0);
+    });
+
+    test('sin columna etapa una marca que no se repite sigue cargando', function () {
+        grupoConUbicacion('M3.6 Fabricacion');
+        $pieza = Concepto::factory()->create([
+            'obra_id' => $this->obra->id,
+            'marca' => 'TG-CM5-9',
+            'etapa' => '3',
+            'activo' => true,
+            'cantidad' => 100,
+        ]);
+
+        $csv = encabezadoExport().renglonExport('55 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-9', 9);
+
+        subirExport($csv)->assertSessionHasNoErrors();
+
+        expect(Registro::sole()->concepto_id)->toBe($pieza->id);
+    });
+
+    test('el formato manual acepta la columna etapa', function () {
+        GrupoTrabajo::factory()->create(['descripcion' => 'Grupo A']);
+        [, $etapa2] = dosEtapasDeLaMismaMarca();
+
+        $csv = "GRUPO,MARCA,ETAPA,CANTIDAD\nGrupo A,TG-CM5-1,2,12\n";
+
+        test()->actingAs($this->user)
+            ->post(route('admin.prod.destajos.registros.import-csv', $this->destajo), [
+                'csv_file' => UploadedFile::fake()->createWithContent('produccion.csv', $csv),
+                'fecha' => '2026-02-05',
+            ])
+            ->assertSessionHasNoErrors();
+
+        expect(Registro::sole()->concepto_id)->toBe($etapa2->id);
+    });
 });

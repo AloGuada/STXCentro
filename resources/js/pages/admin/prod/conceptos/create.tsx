@@ -25,7 +25,9 @@ export default function ConceptosCreate({ catalogo, categorias }: Props) {
 
     const { data, setData, post, processing, errors } = useForm({
         catalogo_id: String(catalogo.id),
+        qs: '',
         marca: '',
+        etapa: '',
         descripcion: '',
         cantidad: '0',
         peso_unitario: '',
@@ -53,13 +55,45 @@ export default function ConceptosCreate({ catalogo, categorias }: Props) {
                     </p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
+                                <Input
+                                    id="marca"
+                                    value={data.marca}
+                                    onChange={(e) => setData('marca', e.target.value)}
+                                    error={!!errors.marca}
+                                    placeholder="Identificador de la pieza"
+                                />
+                            </FormField>
+
+                            <FormField
+                                label="Etapa"
+                                htmlFor="etapa"
+                                error={errors.etapa}
+                                description="Junto con la marca identifica el modelo. Dejala vacia si la obra no maneja etapas."
+                            >
+                                <Input
+                                    id="etapa"
+                                    value={data.etapa}
+                                    onChange={(e) => setData('etapa', e.target.value)}
+                                    error={!!errors.etapa}
+                                    placeholder="Sin etapa"
+                                />
+                            </FormField>
+                        </div>
+
+                        <FormField
+                            label="QS"
+                            htmlFor="qs"
+                            error={errors.qs}
+                            description="Id de la pieza en el sistema de planta. Solo referencia."
+                        >
                             <Input
-                                id="marca"
-                                value={data.marca}
-                                onChange={(e) => setData('marca', e.target.value)}
-                                error={!!errors.marca}
-                                placeholder="Identificador de la pieza"
+                                id="qs"
+                                value={data.qs}
+                                onChange={(e) => setData('qs', e.target.value)}
+                                error={!!errors.qs}
+                                placeholder="Opcional"
                             />
                         </FormField>
 

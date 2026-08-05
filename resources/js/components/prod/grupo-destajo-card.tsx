@@ -1,4 +1,5 @@
 import { FormattedDate } from '@/components/ui/formatted-date';
+import { etiquetaDePieza } from '@/lib/prod/piezas';
 import type { Concepto, Obra, ProdGrupoTrabajo, ProdPagoExtra, ProdRegistro, ProdTipoPagoExtra } from '@/types/models';
 import { router } from '@inertiajs/react';
 import { Trash2Icon } from 'lucide-react';
@@ -79,7 +80,7 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                                     registros.map((r) => (
                                         <tr key={r.id} className="hover">
                                             <td>
-                                                <span className="font-medium">{r.concepto?.marca}</span>{' '}
+                                                <span className="font-medium">{etiquetaDePieza(r.concepto?.marca, r.concepto?.etapa)}</span>{' '}
                                                 <span className="text-base-content/60">{r.concepto?.descripcion}</span>
                                             </td>
                                             <td className="font-mono text-xs"><FormattedDate value={r.fecha} /></td>

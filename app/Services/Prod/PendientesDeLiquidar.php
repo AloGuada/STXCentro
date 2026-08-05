@@ -21,6 +21,7 @@ class PendientesDeLiquidar
      * @return Collection<int, array{
      *     concepto_id: int,
      *     marca: string,
+     *     etapa: ?string,
      *     descripcion: string,
      *     obra: string,
      *     grupo_trabajo_id: int|null,
@@ -53,7 +54,7 @@ class PendientesDeLiquidar
 
         return $parciales
             // Una fila por pieza: el último parcial manda para sugerir grupo y cantidad.
-            ->unique(fn (Registro $registro) => $registro->concepto->obra_id.'|'.$registro->concepto->marca)
+            ->unique(fn (Registro $registro) => $registro->concepto->obra_id.'|'.$registro->concepto->claveModelo())
             ->map(function (Registro $registro) use ($capturadoPorObra) {
                 $concepto = $registro->concepto;
 
@@ -79,6 +80,7 @@ class PendientesDeLiquidar
                 return [
                     'concepto_id' => $concepto->id,
                     'marca' => $concepto->marca,
+                    'etapa' => $concepto->etapa,
                     'descripcion' => $concepto->descripcion,
                     'obra' => $concepto->obra?->no ?? '',
                     'grupo_trabajo_id' => $registro->grupo_trabajo_id,
