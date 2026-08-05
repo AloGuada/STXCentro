@@ -54,7 +54,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             if ($request->is('portal/*')) {
-                return route('portal.dashboard');
+                return route('portal.tablero');
             }
 
             return '/dashboard';

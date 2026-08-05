@@ -14,7 +14,7 @@ class PortalAuthController extends Controller
     public function showLogin(): Response|RedirectResponse
     {
         if (Auth::guard('proveedor')->check()) {
-            return redirect()->intended(route('portal.dashboard'));
+            return redirect()->intended(route('portal.tablero'));
         }
 
         return Inertia::render('portal/auth/login');
@@ -44,7 +44,7 @@ class PortalAuthController extends Controller
 
         $request->session()->regenerate();
 
-        return to_route('portal.dashboard');
+        return to_route('portal.tablero');
     }
 
     public function logout(): RedirectResponse

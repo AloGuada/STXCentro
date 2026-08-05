@@ -1,18 +1,20 @@
+import { Link, router, usePage } from '@inertiajs/react';
+import { Gauge, LayoutGrid, LogOut, MenuIcon, Receipt, ShoppingCart, Wallet } from 'lucide-react';
+import type { ReactNode } from 'react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
-import { Link, router, usePage } from '@inertiajs/react';
-import { FileText, LayoutGrid, LogOut, MenuIcon, Receipt, ShoppingCart, Wallet } from 'lucide-react';
-import type { ReactNode } from 'react';
 
 type Props = {
     children: ReactNode;
     breadcrumbs?: BreadcrumbItem[];
 };
 
+/** El tablero es la entrada; las pantallas anteriores siguen accesibles debajo. */
 const navItems = [
-    { title: 'Dashboard', href: '/portal', icon: LayoutGrid },
+    { title: 'Tablero', href: '/portal', icon: LayoutGrid },
+    { title: 'Dashboard', href: '/portal/dashboard', icon: Gauge },
     { title: 'Ordenes de Compra', href: '/portal/ordenes-compra', icon: ShoppingCart },
     { title: 'Facturas', href: '/portal/facturas', icon: Receipt },
     { title: 'Pagos', href: '/portal/pagos', icon: Wallet },

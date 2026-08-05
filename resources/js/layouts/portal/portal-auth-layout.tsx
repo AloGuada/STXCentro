@@ -1,5 +1,5 @@
-import AppLogoIcon from '@/components/app-logo-icon';
 import type { PropsWithChildren } from 'react';
+import AppLogoIcon from '@/components/app-logo-icon';
 
 type Props = PropsWithChildren<{
     title: string;
