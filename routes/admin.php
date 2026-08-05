@@ -253,6 +253,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('facturas/{factura}/anticipos-disponibles', [CostosAnticipoController::class, 'disponiblesParaFactura'])->name('facturas.anticipos-disponibles');
 
         // Requisiciones (Fase 10.2)
+        // Antes del resource: si no, {requisicion} se traga /copiables.
+        Route::get('requisiciones/copiables', [CostosRequisicionController::class, 'copiables'])->name('requisiciones.copiables');
+        Route::get('requisiciones/{requisicion}/para-copiar', [CostosRequisicionController::class, 'paraCopiar'])->name('requisiciones.para-copiar');
         Route::resource('requisiciones', CostosRequisicionController::class)->parameters(['requisiciones' => 'requisicion']);
         Route::get('requisiciones/{requisicion}/pdf', [CostosRequisicionController::class, 'pdf'])->name('requisiciones.pdf');
         Route::post('requisiciones/{requisicion}/duplicar', [CostosRequisicionController::class, 'duplicar'])->name('requisiciones.duplicar');
