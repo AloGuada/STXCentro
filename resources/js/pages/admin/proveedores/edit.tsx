@@ -344,7 +344,7 @@ export default function ProveedoresEdit({ proveedor, documentos, tienePassword, 
 
                                 <div className="divider" />
                                 <h2 className="text-lg font-medium">Acceso al Portal</h2>
-                                <FormField label={esProveedorFormal ? 'Email (usuario del portal)' : 'Email (usuario del portal, opcional)'} htmlFor="email" error={errors.email} required={esProveedorFormal}>
+                                <FormField label={data.tiene_acceso_portal ? 'Email (usuario del portal)' : 'Email (opcional)'} htmlFor="email" error={errors.email} required={data.tiene_acceso_portal}>
                                     <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} />
                                 </FormField>
                                 <label className="label cursor-pointer gap-2 w-fit">

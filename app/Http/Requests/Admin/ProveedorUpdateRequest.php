@@ -51,7 +51,8 @@ class ProveedorUpdateRequest extends FormRequest
             'domicilio_compra' => ['nullable', 'string'],
             'giro' => ['nullable', 'string', 'max:255'],
             'direccion' => ['nullable', 'string'],
-            'email' => [$esProveedor ? 'required' : 'nullable', 'email', 'max:255'],
+            // El email es la cuenta del portal: solo se exige si se le da acceso.
+            'email' => [$this->boolean('tiene_acceso_portal') ? 'required' : 'nullable', 'email', 'max:255'],
 
             'forma_pago' => ['required', Rule::enum(FormaPago::class)],
             'banco_id' => ['nullable', 'exists:bancos,id'],
@@ -97,7 +98,7 @@ class ProveedorUpdateRequest extends FormRequest
             'regimen_fiscal_id.required' => 'El régimen fiscal es obligatorio.',
             'numero_servicio.required' => 'El número de servicio es obligatorio.',
             'referencia_servicio.required' => 'La referencia es obligatoria.',
-            'email.required' => 'El correo electrónico es obligatorio.',
+            'email.required' => 'El correo es obligatorio cuando el proveedor tiene acceso al portal.',
             'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
             'password.confirmed' => 'La confirmación de contraseña no coincide.',
         ];

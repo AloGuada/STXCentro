@@ -207,3 +207,26 @@ test('solo usuarios con permiso pueden dar de alta proveedores', function () {
 
     expect(Proveedor::count())->toBe(0);
 });
+
+test('el email solo es obligatorio si el proveedor tendrá acceso al portal', function () {
+    // Sin portal: se puede dar de alta un proveedor formal sin correo.
+    $this->actingAs($this->compras)
+        ->post('/admin/proveedores', payloadProveedor([
+            'email' => '',
+            'rfc' => 'SIN123456XY0',
+        ]))
+        ->assertSessionHasNoErrors();
+
+    expect(Proveedor::where('rfc', 'SIN123456XY0')->first()->email)->toBeNull();
+
+    // Con portal: el correo es la cuenta, así que se exige.
+    $this->actingAs($this->compras)
+        ->post('/admin/proveedores', payloadProveedor([
+            'email' => '',
+            'rfc' => 'POR123456XY0',
+            'tiene_acceso_portal' => true,
+            'password' => 'secreto123',
+            'password_confirmation' => 'secreto123',
+        ]))
+        ->assertSessionHasErrors('email');
+});

@@ -52,7 +52,8 @@ class ProveedorStoreRequest extends FormRequest
             'domicilio_compra' => ['nullable', 'string'],
             'giro' => ['nullable', 'string', 'max:255'],
             'direccion' => ['nullable', 'string'],
-            'email' => [$esProveedor ? 'required' : 'nullable', 'email', 'max:255'],
+            // El email es la cuenta del portal: solo se exige si se le da acceso.
+            'email' => [$this->boolean('tiene_acceso_portal') ? 'required' : 'nullable', 'email', 'max:255'],
 
             // Forma de pago y cuenta bancaria (la regla cuenta/CLABE según banco
             // pagador se resuelve en withValidator()).
@@ -101,7 +102,7 @@ class ProveedorStoreRequest extends FormRequest
             'caratula.required' => 'La carátula bancaria es obligatoria.',
             'numero_servicio.required' => 'El número de servicio es obligatorio.',
             'referencia_servicio.required' => 'La referencia es obligatoria.',
-            'email.required' => 'El correo electrónico es obligatorio.',
+            'email.required' => 'El correo es obligatorio cuando el proveedor tiene acceso al portal.',
             'password.required' => 'La contraseña es obligatoria cuando el proveedor tiene acceso al portal.',
             'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
             'password.confirmed' => 'La confirmación de contraseña no coincide.',
