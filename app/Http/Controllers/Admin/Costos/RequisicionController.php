@@ -313,6 +313,10 @@ class RequisicionController extends Controller
      * Se acota con el mismo criterio que `show`, no con el del listado: copiar
      * trae las partidas completas, así que no debe alcanzar a requisiciones que
      * el usuario no podría abrir.
+     *
+     * Deja fuera las canceladas: una requisición que se dio de baja no es un
+     * punto de partida, es ruido en la lista. Las rechazadas sí se ofrecen,
+     * porque corregirlas y volverlas a mandar es el caso normal.
      */
     public function copiables(Request $request): JsonResponse
     {
@@ -323,6 +327,7 @@ class RequisicionController extends Controller
         $requisiciones = Requisicion::query()
             ->with(['solicitante:id,name', 'departamento:id,descripcion'])
             ->withCount('detalles')
+            ->where('estatus', '!=', RequisicionEstatus::Cancelada->value)
             ->unless($user->can('costos.requisiciones.ver-todas'), function ($q) use ($user) {
                 $q->where(function ($sub) use ($user) {
                     $sub->where('solicitante_id', $user->id)
@@ -364,6 +369,10 @@ class RequisicionController extends Controller
     {
         Gate::authorize('costos.requisiciones.crear');
         abort_unless($this->puedeVer($requisicion), 403);
+
+        if ($requisicion->estatus === RequisicionEstatus::Cancelada) {
+            return response()->json(['message' => 'No se puede copiar una requisición cancelada.'], 422);
+        }
 
         $requisicion->load(['detalles.producto:id,codigo,descripcion,unidad', 'detalles.obraRubro:id,presupuesto_id']);
 
