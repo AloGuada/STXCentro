@@ -10,6 +10,7 @@ use App\Models\Proveedor;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -42,6 +43,7 @@ class ComplementoPago extends Model
         'pago_id',
         'proveedor_id',
         'monto_pago',
+        'monto_cubierto',
         'fecha_pago',
         'fecha_generacion',
         'fecha_limite',
@@ -57,6 +59,7 @@ class ComplementoPago extends Model
     {
         return [
             'monto_pago' => 'decimal:2',
+            'monto_cubierto' => 'decimal:2',
             'fecha_pago' => 'date',
             'fecha_generacion' => 'date',
             'fecha_limite' => 'date',
@@ -78,6 +81,27 @@ class ComplementoPago extends Model
     public function proveedor(): BelongsTo
     {
         return $this->belongsTo(Proveedor::class, 'proveedor_id');
+    }
+
+    /** Los REP aplicados: un pago se puede complementar en parcialidades. */
+    public function recibidos(): HasMany
+    {
+        return $this->hasMany(ComplementoRecibido::class, 'complemento_pago_id');
+    }
+
+    /** Lo que falta por complementar. Nunca negativo. */
+    public function saldoPorComplementar(): float
+    {
+        return round(max(0, (float) $this->monto_pago - (float) $this->monto_cubierto), 2);
+    }
+
+    /**
+     * ¿Los REP recibidos ya cubren el pago? El margen de un centavo absorbe el
+     * redondeo del CFDI, que no siempre parte el importe en cifras exactas.
+     */
+    public function estaCubierto(): bool
+    {
+        return $this->saldoPorComplementar() < 0.01;
     }
 
     public function media(): MorphMany

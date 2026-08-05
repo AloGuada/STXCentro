@@ -5,6 +5,14 @@ import { COMPLEMENTO_PAGO_ESTATUS_COLORS, COMPLEMENTO_PAGO_ESTATUS_LABELS } from
 import { Head, useForm } from '@inertiajs/react';
 import { type FormEvent } from 'react';
 
+/** Qué pasó con cada factura que referencia el complemento. */
+type ResultadoComplemento = {
+    uuid: string;
+    aplicado: boolean;
+    factura: string | null;
+    detalle: string;
+};
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/portal' },
     { title: 'Complementos de pago', href: '/portal/complementos' },
@@ -12,13 +20,15 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 type Props = {
     complementos: CostosComplementoPago[];
+    resultado?: ResultadoComplemento[] | null;
 };
 
 const money = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 const fecha = (d: string) => new Date(d).toLocaleDateString('es-MX');
 
-export default function PortalComplementosIndex({ complementos }: Props) {
+export default function PortalComplementosIndex({ complementos, resultado }: Props) {
     const pendientes = complementos.filter((c) => c.estatus !== 'cumplido');
+
 
     const form = useForm<{ xml: File | null; pdf: File | null }>({ xml: null, pdf: null });
 
@@ -78,6 +88,25 @@ export default function PortalComplementosIndex({ complementos }: Props) {
                         </button>
                     </div>
                     {form.errors.xml && <p className="text-error text-sm">{form.errors.xml}</p>}
+
+                    {resultado && resultado.length > 0 && (
+                        <div className="rounded-box border border-base-300 bg-base-100 p-3">
+                            <p className="mb-2 text-sm font-medium">Resultado del último complemento</p>
+                            <ul className="space-y-1 text-sm">
+                                {resultado.map((r) => (
+                                    <li key={r.uuid} className="flex gap-2">
+                                        <span className={r.aplicado ? 'text-success' : 'text-error'}>
+                                            {r.aplicado ? '✓' : '✗'}
+                                        </span>
+                                        <span>
+                                            <span className="font-medium">{r.factura ?? r.uuid}</span>{' '}
+                                            <span className="text-base-content/60">{r.detalle}</span>
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </form>
 
                 <div className="overflow-x-auto">
@@ -87,6 +116,7 @@ export default function PortalComplementosIndex({ complementos }: Props) {
                                 <th>Folio</th>
                                 <th>Factura</th>
                                 <th>Monto del pago</th>
+                                <th>Complementado</th>
                                 <th>Fecha de pago</th>
                                 <th>Fecha límite</th>
                                 <th>Estatus</th>
@@ -95,7 +125,7 @@ export default function PortalComplementosIndex({ complementos }: Props) {
                         <tbody>
                             {complementos.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="text-center text-base-content/60">
+                                    <td colSpan={7} className="text-center text-base-content/60">
                                         No tiene obligaciones de complemento de pago.
                                     </td>
                                 </tr>
@@ -105,6 +135,15 @@ export default function PortalComplementosIndex({ complementos }: Props) {
                                     <td>{c.folio}</td>
                                     <td>{c.factura?.folio ?? '—'}</td>
                                     <td>{money(c.monto_pago)}</td>
+                                    <td>
+                                        {money(c.monto_cubierto)}
+                                        {Number(c.monto_cubierto) > 0 &&
+                                            Number(c.monto_cubierto) < Number(c.monto_pago) && (
+                                                <span className="ml-1 text-xs text-warning">
+                                                    (faltan {money(Number(c.monto_pago) - Number(c.monto_cubierto))})
+                                                </span>
+                                            )}
+                                    </td>
                                     <td>{fecha(c.fecha_pago)}</td>
                                     <td>{fecha(c.fecha_limite)}</td>
                                     <td>

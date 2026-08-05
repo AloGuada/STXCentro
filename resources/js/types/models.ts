@@ -2513,10 +2513,13 @@ export type CostosComplementoPago = {
     pago_id: number;
     proveedor_id: number;
     monto_pago: number;
+    /** Suma de los REP recibidos: un pago se complementa por parcialidades. */
+    monto_cubierto: number;
     fecha_pago: string;
     fecha_generacion: string;
     fecha_limite: string;
     estatus: CostosComplementoPagoEstatus;
+    /** Último REP aplicado. Uno solo puede cubrir varias obligaciones. */
     complemento_uuid: string | null;
     recibido_at: string | null;
     factura?: Pick<CostosFactura, 'id' | 'folio' | 'uuid_fiscal' | 'total'>;
