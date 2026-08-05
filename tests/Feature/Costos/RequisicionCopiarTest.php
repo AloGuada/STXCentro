@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Costos\RequisicionEstatus;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionDetalle;
@@ -149,4 +150,44 @@ test('la ruta copiables no la captura el parametro del resource', function () {
         ->getJson('/admin/costos/requisiciones/copiables')
         ->assertOk()
         ->assertJsonStructure(['requisiciones']);
+});
+
+test('no lista las requisiciones canceladas', function () {
+    $viva = requisicionCopiable($this->user, $this->depto, $this->usoCfdi);
+    $cancelada = requisicionCopiable($this->user, $this->depto, $this->usoCfdi);
+    $cancelada->update(['estatus' => RequisicionEstatus::Cancelada->value]);
+
+    $respuesta = $this->actingAs($this->user)
+        ->getJson('/admin/costos/requisiciones/copiables')
+        ->assertOk();
+
+    $folios = collect($respuesta->json('requisiciones'))->pluck('folio');
+
+    expect($folios)->toContain($viva->folio)
+        ->not->toContain($cancelada->folio);
+});
+
+test('tampoco se puede copiar una cancelada por su endpoint', function () {
+    $cancelada = requisicionCopiable($this->user, $this->depto, $this->usoCfdi);
+    $cancelada->update(['estatus' => RequisicionEstatus::Cancelada->value]);
+
+    $this->actingAs($this->user)
+        ->getJson("/admin/costos/requisiciones/{$cancelada->id}/para-copiar")
+        ->assertStatus(422);
+});
+
+test('la rechazada si se puede copiar: corregirla y remandarla es lo normal', function () {
+    $rechazada = requisicionCopiable($this->user, $this->depto, $this->usoCfdi);
+    $rechazada->update(['estatus' => RequisicionEstatus::Rechazada->value]);
+
+    $respuesta = $this->actingAs($this->user)
+        ->getJson('/admin/costos/requisiciones/copiables')
+        ->assertOk();
+
+    expect(collect($respuesta->json('requisiciones'))->pluck('folio'))
+        ->toContain($rechazada->folio);
+
+    $this->actingAs($this->user)
+        ->getJson("/admin/costos/requisiciones/{$rechazada->id}/para-copiar")
+        ->assertOk();
 });

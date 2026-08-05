@@ -161,6 +161,7 @@ export function CopiarRequisicionModal({ open, onClose, onCopiar }: Props) {
                                         <th>Folio</th>
                                         <th>Solicitante</th>
                                         <th>Departamento</th>
+                                        <th>Estatus</th>
                                         <th className="text-right">Partidas</th>
                                     </tr>
                                 </thead>
@@ -186,6 +187,11 @@ export function CopiarRequisicionModal({ open, onClose, onCopiar }: Props) {
                                             </td>
                                             <td>{o.solicitante ?? '—'}</td>
                                             <td>{o.departamento ?? '—'}</td>
+                                            <td>
+                                                <span className="badge badge-ghost badge-sm">
+                                                    {o.estatus ?? '—'}
+                                                </span>
+                                            </td>
                                             <td className="text-right font-mono">
                                                 {o.partidas}
                                             </td>
