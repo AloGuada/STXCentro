@@ -1,8 +1,5 @@
 <?php
 
-use App\Models\Concepto;
-use App\Models\Obra;
-use App\Models\Prod\Catalogo;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\LiquidacionDetalle;
@@ -19,293 +16,280 @@ beforeEach(function () {
         'fecha_inicio' => '2026-02-03',
         'fecha_fin' => '2026-02-09',
     ]);
-    $this->catalogo = Catalogo::factory()->create();
-    $this->pieza = Concepto::factory()->create([
-        'obra_id' => $this->catalogo->obra_id,
-        'catalogo_id' => $this->catalogo->id,
-        'marca' => 'V-01',
-        'cantidad' => 10,
-    ]);
+
+    // Un modelo de 3 piezas: el tope es de una pieza por QS y por proceso.
+    $this->marca = marcaConPiezas(3, ['marca' => 'V-01']);
+    $this->catalogo = $this->marca->catalogo;
+    $this->pieza = $this->marca->piezas[0];
+    $this->soldadura = proceso();
+    $this->pintura = proceso('Pintura');
+
+    obraPagaProcesos($this->marca->obra_id, $this->soldadura, $this->pintura);
 });
 
-/** @param array<string, mixed> $extra */
+/**
+ * Payload de captura manual. Por default una sola pieza al 100% en soldadura.
+ *
+ * @param  array<string, mixed>  $extra
+ */
 function capturar(array $extra = []): array
 {
     return array_merge([
         'fecha' => '2026-02-05',
         'grupo_trabajo_id' => test()->grupo->id,
-        'concepto_id' => test()->pieza->id,
+        'proceso_id' => test()->soldadura->id,
+        'piezas' => [test()->pieza->id],
     ], $extra);
 }
 
+/** El CSV manual de captura: grupo, QS y proceso. */
+function subirCsvDeQs(string $filas)
+{
+    return test()->actingAs(test()->user)
+        ->post(route('admin.prod.destajos.registros.import-csv', test()->destajo), [
+            'csv_file' => UploadedFile::fake()->createWithContent(
+                'produccion.csv',
+                "GRUPO,QS,PROCESO,PORCENTAJE\n".$filas,
+            ),
+            'fecha' => '2026-02-05',
+        ]);
+}
+
 describe('tope de captura manual', function () {
-    test('permite capturar exactamente lo que manda el catalogo', function () {
+    test('permite pagar la pieza completa una vez', function () {
         $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['cantidad' => 10]))
+            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar())
             ->assertRedirect(route('admin.prod.destajos.show', $this->destajo));
 
-        $this->assertDatabaseHas('prod_registros', ['concepto_id' => $this->pieza->id, 'cantidad' => 10]);
-    });
-
-    test('bloquea capturar mas de lo que manda el catalogo', function () {
-        $response = $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['cantidad' => 11]));
-
-        $response->assertSessionHasErrors('cantidad');
-        $this->assertDatabaseCount('prod_registros', 0);
-    });
-
-    test('descuenta lo ya capturado en semanas anteriores', function () {
-        Registro::factory()->create([
-            'concepto_id' => $this->pieza->id,
-            'grupo_trabajo_id' => $this->grupo->id,
-            'fecha' => '2026-01-20',
-            'cantidad' => 7,
+        $this->assertDatabaseHas('prod_registros', [
+            'pieza_id' => $this->pieza->id,
+            'proceso_id' => $this->soldadura->id,
+            'porcentaje' => 100,
         ]);
+    });
 
-        // Quedan 3: 4 se rechaza, 3 pasa.
-        $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['cantidad' => 4]))
-            ->assertSessionHasErrors('cantidad');
+    test('bloquea volver a pagar una pieza ya pagada al 100%', function () {
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
 
         $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['cantidad' => 3]))
+            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar())
+            ->assertSessionHasErrors('piezas');
+
+        expect(Registro::count())->toBe(1);
+    });
+
+    test('descuenta lo ya pagado en parcialidades', function () {
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04', porcentaje: 60);
+
+        // Le queda 40%: pedir 50 se pasa.
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['porcentaje' => 50]))
+            ->assertSessionHasErrors('piezas');
+
+        // Y 40 exacto entra.
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['porcentaje' => 40]))
             ->assertSessionHasNoErrors();
 
-        expect(Registro::where('concepto_id', $this->pieza->id)->sum('cantidad'))->toBe(10);
+        expect(app(AvanceDePiezas::class)->disponible($this->pieza->fresh(), $this->soldadura->id))->toBe(0.0);
     });
 
-    test('bloquea cuando la pieza ya esta completa', function () {
-        Registro::factory()->create([
-            'concepto_id' => $this->pieza->id,
-            'grupo_trabajo_id' => $this->grupo->id,
-            'cantidad' => 10,
-        ]);
+    test('las piezas que no caben se reportan y las demas si se guardan', function () {
+        // La primera ya esta pagada; las otras dos siguen libres.
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
 
         $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['cantidad' => 1]))
-            ->assertSessionHasErrors('cantidad');
+            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar([
+                'piezas' => $this->marca->piezas->pluck('id')->all(),
+            ]))
+            ->assertSessionHasErrors('piezas');
+
+        expect(Registro::count())->toBe(3);
+    });
+
+    test('soldar una pieza no consume lo que le toca por pintarla', function () {
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
+
+        $avance = app(AvanceDePiezas::class);
+
+        expect($avance->disponible($this->pieza, $this->soldadura->id))->toBe(0.0)
+            ->and($avance->disponible($this->pieza, $this->pintura->id))->toBe(1.0);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar([
+                'proceso_id' => $this->pintura->id,
+            ]))
+            ->assertSessionHasNoErrors();
+    });
+
+    test('la obra no paga un proceso que no tiene configurado', function () {
+        $this->marca->obra->procesos()->detach($this->pintura->id);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar([
+                'proceso_id' => $this->pintura->id,
+            ]))
+            ->assertSessionHasErrors('proceso_id');
+
+        expect(Registro::count())->toBe(0);
     });
 
     test('cuenta el historico de versiones anteriores del catalogo', function () {
-        Registro::factory()->create([
-            'concepto_id' => $this->pieza->id,
-            'grupo_trabajo_id' => $this->grupo->id,
-            'cantidad' => 8,
-        ]);
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
 
-        $v2 = app(VersionadorCatalogo::class)->nuevaVersion($this->catalogo);
-        $copia = $v2->conceptos()->where('marca', 'V-01')->firstOrFail();
+        $nueva = app(VersionadorCatalogo::class)->nuevaVersion($this->catalogo);
+        $copia = $nueva->piezas()->where('qs', $this->pieza->qs)->firstOrFail();
 
-        // La copia no tiene registros propios, pero la marca ya lleva 8 de 10.
-        $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar([
-                'concepto_id' => $copia->id,
-                'cantidad' => 3,
-            ]))
-            ->assertSessionHasErrors('cantidad');
-
-        $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar([
-                'concepto_id' => $copia->id,
-                'cantidad' => 2,
-            ]))
-            ->assertSessionHasNoErrors();
+        // La copia es una fila nueva, pero su linaje sostiene lo ya pagado.
+        expect(app(AvanceDePiezas::class)->disponible($copia, $this->soldadura->id))->toBe(0.0);
     });
 
-    test('borrar un registro libera piezas para volver a capturar', function () {
-        $registro = Registro::factory()->create([
-            'concepto_id' => $this->pieza->id,
-            'grupo_trabajo_id' => $this->grupo->id,
-            'cantidad' => 10,
-        ]);
+    test('borrar un registro libera la pieza para volver a capturar', function () {
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
+        $registro = Registro::sole();
 
         $this->actingAs($this->user)
-            ->delete(route('admin.prod.destajos.registros.destroy', [$this->destajo, $registro]));
+            ->delete(route('admin.prod.destajos.registros.destroy', [$this->destajo, $registro]))
+            ->assertRedirect();
 
-        $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['cantidad' => 10]))
-            ->assertSessionHasNoErrors();
+        expect(app(AvanceDePiezas::class)->disponible($this->pieza->fresh(), $this->soldadura->id))->toBe(1.0);
     });
 
-    test('el tope es por obra, no afecta a la misma marca de otra obra', function () {
-        $otra = Catalogo::factory()->create();
-        $gemela = Concepto::factory()->create([
-            'obra_id' => $otra->obra_id,
-            'catalogo_id' => $otra->id,
-            'marca' => 'V-01',
-            'cantidad' => 5,
-        ]);
+    test('el tope es por pieza: pagar una no afecta a sus hermanas', function () {
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
 
-        Registro::factory()->create([
-            'concepto_id' => $this->pieza->id,
-            'grupo_trabajo_id' => $this->grupo->id,
-            'cantidad' => 10,
-        ]);
+        $avance = app(AvanceDePiezas::class);
 
-        $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar([
-                'concepto_id' => $gemela->id,
-                'cantidad' => 5,
-            ]))
-            ->assertSessionHasNoErrors();
+        expect($avance->disponible($this->marca->piezas[1], $this->soldadura->id))->toBe(1.0)
+            ->and($avance->disponible($this->marca->piezas[2], $this->soldadura->id))->toBe(1.0);
     });
 });
 
 describe('tope en la importacion CSV', function () {
     test('rechaza la linea que excede y deja pasar las demas', function () {
-        $otra = Concepto::factory()->create([
-            'obra_id' => $this->catalogo->obra_id,
-            'catalogo_id' => $this->catalogo->id,
-            'marca' => 'C-01',
-            'cantidad' => 50,
-        ]);
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
 
-        $csv = "GRUPO,MARCA,CANTIDAD\n";
-        $csv .= "Cuadrilla A,V-01,25\n";
-        $csv .= "Cuadrilla A,C-01,5\n";
+        $libre = $this->marca->piezas[1];
 
-        $response = $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.import-csv', $this->destajo), [
-                'fecha' => '2026-02-05',
-                'csv_file' => UploadedFile::fake()->createWithContent('prod.csv', $csv),
-            ]);
+        subirCsvDeQs(
+            "Cuadrilla A,{$this->pieza->qs},Soldadura,100\n".
+            "Cuadrilla A,{$libre->qs},Soldadura,100\n"
+        )->assertSessionHasErrors('csv_file');
 
-        $response->assertSessionHasErrors('csv_file');
-        $this->assertDatabaseMissing('prod_registros', ['concepto_id' => $this->pieza->id]);
-        $this->assertDatabaseHas('prod_registros', ['concepto_id' => $otra->id, 'cantidad' => 5]);
+        // La pagada se reporta, la libre entra.
+        expect(Registro::where('pieza_id', $libre->id)->count())->toBe(1)
+            ->and(Registro::where('pieza_id', $this->pieza->id)->count())->toBe(1);
     });
 
-    test('dos renglones de la misma marca no rebasan juntos el catalogo', function () {
-        $csv = "GRUPO,MARCA,CANTIDAD\n";
-        $csv .= "Cuadrilla A,V-01,6\n";
-        $csv .= "Cuadrilla A,V-01,6\n";
+    test('dos renglones de la misma pieza no rebasan juntos su tope', function () {
+        subirCsvDeQs(
+            "Cuadrilla A,{$this->pieza->qs},Soldadura,60\n".
+            "Cuadrilla A,{$this->pieza->qs},Soldadura,60\n"
+        )->assertSessionHasErrors('csv_file');
 
-        $response = $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.import-csv', $this->destajo), [
-                'fecha' => '2026-02-05',
-                'csv_file' => UploadedFile::fake()->createWithContent('prod.csv', $csv),
-            ]);
+        // El segundo 60% no cabe sobre el primero.
+        expect(Registro::where('pieza_id', $this->pieza->id)->count())->toBe(1);
+    });
 
-        $response->assertSessionHasErrors('csv_file');
-        expect(Registro::where('concepto_id', $this->pieza->id)->sum('cantidad'))->toBe(6);
+    test('reporta el QS que no esta en ningun catalogo vigente', function () {
+        subirCsvDeQs("Cuadrilla A,NO-EXISTE,Soldadura,100\n")
+            ->assertSessionHasErrors('csv_file');
+
+        expect(Registro::count())->toBe(0);
     });
 });
 
 describe('visibilidad del avance', function () {
-    test('el servicio reporta capturado y disponible', function () {
-        Registro::factory()->create([
-            'concepto_id' => $this->pieza->id,
-            'grupo_trabajo_id' => $this->grupo->id,
-            'cantidad' => 4,
-        ]);
+    test('el servicio reporta capturado y disponible por proceso', function () {
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04', porcentaje: 40);
 
         $avance = app(AvanceDePiezas::class);
 
-        expect($avance->capturado($this->pieza))->toBe(4.0)
-            ->and($avance->disponible($this->pieza))->toBe(6.0);
+        expect($avance->capturado($this->pieza, $this->soldadura->id))->toBe(0.4)
+            ->and($avance->disponible($this->pieza, $this->soldadura->id))->toBe(0.6);
     });
 
-    test('disponible nunca es negativo si el catalogo se recorta', function () {
-        Registro::factory()->create([
-            'concepto_id' => $this->pieza->id,
-            'grupo_trabajo_id' => $this->grupo->id,
-            'cantidad' => 10,
+    test('disponible nunca es negativo', function () {
+        LiquidacionDetalle::factory()->create([
+            'pieza_id' => $this->pieza->id,
+            'obra_id' => $this->marca->obra_id,
+            'qs' => $this->pieza->qs,
+            'proceso_id' => $this->soldadura->id,
+            'porcentaje' => 100,
         ]);
-        $this->pieza->update(['cantidad' => 4]);
 
-        expect(app(AvanceDePiezas::class)->disponible($this->pieza->fresh()))->toBe(0.0);
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
+
+        expect(app(AvanceDePiezas::class)->disponible($this->pieza, $this->soldadura->id))->toBe(0.0);
     });
 
-    test('el catalogo muestra pagadas y faltantes por pieza', function () {
-        Registro::factory()->create([
-            'concepto_id' => $this->pieza->id,
-            'grupo_trabajo_id' => $this->grupo->id,
-            'cantidad' => 4,
-        ]);
+    test('el catalogo muestra el avance de cada proceso', function () {
+        // Todas: el catalogo ordena por QS, asi que cualquier renglon sirve.
+        capturarPiezas($this->marca->piezas, $this->grupo, '2026-02-04');
 
         $this->actingAs($this->user)
             ->get(route('admin.prod.catalogos.show', $this->catalogo))
+            ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('conceptos.0.capturado', 4)
-                ->where('conceptos.0.disponible', 6)
+                ->has('marcas.0.piezas', 3)
+                ->has('procesos', 2)
+                ->where('marcas.0.piezas.0.avance.'.$this->soldadura->id.'.capturado', 1)
             );
     });
 
     test('el destajo comparte el avance de cada pieza para capturar', function () {
-        Registro::factory()->create([
-            'concepto_id' => $this->pieza->id,
-            'grupo_trabajo_id' => $this->grupo->id,
-            'cantidad' => 4,
-        ]);
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
 
         $this->actingAs($this->user)
             ->get(route('admin.prod.destajos.show', $this->destajo))
+            ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('conceptos.0.capturado', 4)
-                ->where('conceptos.0.disponible', 6)
+                ->has('marcas')
+                ->has('procesos')
+                ->where('avance.'.$this->pieza->id.'.'.$this->soldadura->id.'.disponible', 0)
             );
     });
 });
 
 test('una obra sin catalogo no rompe el avance', function () {
-    $obra = Obra::factory()->create();
-
-    $pieza = Concepto::factory()->create(['obra_id' => $obra->id, 'cantidad' => 5]);
-
-    expect(app(AvanceDePiezas::class)->mapaDeObra($obra->id)->capturadoDe($pieza))->toBe(0.0);
+    expect(app(AvanceDePiezas::class)->mapaDeObra(999999))->not->toBeNull();
 });
 
 describe('marcas repetidas en varias etapas', function () {
-    test('cada etapa de la misma marca tiene su propio tope', function () {
-        $etapa2 = Concepto::factory()->create([
-            'obra_id' => $this->catalogo->obra_id,
+    test('cada etapa de la misma marca tiene sus propias piezas y su propio tope', function () {
+        $etapa2 = marcaConPiezas(2, [
+            'obra_id' => $this->marca->obra_id,
             'catalogo_id' => $this->catalogo->id,
             'marca' => 'V-01',
             'etapa' => '2',
-            'cantidad' => 10,
         ]);
-        $this->pieza->update(['etapa' => '1']);
 
-        // Se agota la etapa 1 completa.
-        $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['cantidad' => 10]))
-            ->assertSessionHasNoErrors();
+        capturarPiezas($this->marca->piezas, $this->grupo, '2026-02-04');
 
-        // La etapa 2 sigue intacta: es otra pieza aunque comparta la marca.
-        $this->actingAs($this->user)
-            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar([
-                'concepto_id' => $etapa2->id,
-                'cantidad' => 10,
-            ]))
-            ->assertSessionHasNoErrors();
+        $avance = app(AvanceDePiezas::class);
 
-        expect(app(AvanceDePiezas::class)->disponible($this->pieza->fresh()))->toBe(0.0)
-            ->and(app(AvanceDePiezas::class)->disponible($etapa2->fresh()))->toBe(0.0)
-            ->and(Registro::sum('cantidad'))->toBe(20);
+        // La etapa 2 sigue intacta: son piezas distintas aunque compartan marca.
+        expect($avance->disponible($etapa2->piezas[0], $this->soldadura->id))->toBe(1.0)
+            ->and($avance->disponible($this->pieza->fresh(), $this->soldadura->id))->toBe(0.0);
     });
 
-    test('borrar la pieza no traslada lo pagado a la otra etapa de la misma marca', function () {
-        $this->pieza->update(['etapa' => '1']);
-        $etapa2 = Concepto::factory()->create([
-            'obra_id' => $this->catalogo->obra_id,
-            'catalogo_id' => $this->catalogo->id,
-            'marca' => 'V-01',
-            'etapa' => '2',
-            'cantidad' => 10,
-        ]);
+    test('el snapshot huerfano se recupera por QS, no por marca', function () {
+        $otra = $this->marca->piezas[1];
 
-        // Snapshot huérfano de la etapa 1: su concepto ya no existe, así que el
-        // acumulado se recupera por el modelo (marca + etapa), no por la marca.
+        // Snapshot de una pieza que ya no existe en el catalogo.
         LiquidacionDetalle::factory()->create([
-            'concepto_id' => 999999,
-            'obra_id' => $this->catalogo->obra_id,
+            'pieza_id' => 999999,
+            'obra_id' => $this->marca->obra_id,
+            'qs' => $this->pieza->qs,
             'marca' => 'V-01',
-            'etapa' => '1',
-            'cantidad' => 10,
+            'proceso_id' => $this->soldadura->id,
             'porcentaje' => 100,
         ]);
 
-        expect(app(AvanceDePiezas::class)->disponible($etapa2))->toBe(10.0);
+        $avance = app(AvanceDePiezas::class);
+
+        // Sólo el QS del snapshot queda tocado; su hermana no.
+        expect($avance->disponible($this->pieza, $this->soldadura->id))->toBe(0.0)
+            ->and($avance->disponible($otra, $this->soldadura->id))->toBe(1.0);
     });
 });

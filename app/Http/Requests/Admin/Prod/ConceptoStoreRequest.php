@@ -18,7 +18,6 @@ class ConceptoStoreRequest extends FormRequest
     {
         return [
             'catalogo_id' => ['required', 'exists:prod_catalogos,id'],
-            'qs' => ['nullable', 'string', 'max:50'],
             'marca' => ['required', 'string', 'max:255'],
             'etapa' => ['nullable', 'string', 'max:50'],
             'descripcion' => ['required', 'string', 'max:255'],

@@ -9,6 +9,7 @@ use App\Models\Concepto;
 use App\Models\Obra;
 use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
+use App\Models\Prod\GrupoPrecioProceso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,8 +19,10 @@ class GrupoPrecioController extends Controller
 {
     public function index(Request $request): Response
     {
+        // Sólo obras con catálogo: sin marcas no hay nada a qué ponerle precio.
         $obras = Obra::query()
             ->sinPlanta()
+            ->whereHas('catalogos', fn ($q) => $q->where('vigente', true))
             ->withCount([
                 'conceptos as conceptos_count' => fn ($q) => $q->deCatalogoVigente()->where('activo', true),
                 'conceptos as conceptos_sin_precio_count' => fn ($q) => $q->deCatalogoVigente()->where('activo', true)->whereDoesntHave('grupoPrecioConceptos'),
@@ -45,17 +48,22 @@ class GrupoPrecioController extends Controller
 
         return Inertia::render('admin/prod/grupo-precios/create', [
             'obra' => $obra,
-            'obras' => $obra ? [] : Obra::sinPlanta()->orderBy('no')->get(['id', 'no', 'descripcion']),
+            'obras' => $obra ? [] : Obra::sinPlanta()
+                ->whereHas('catalogos', fn ($q) => $q->where('vigente', true))
+                ->orderBy('no')
+                ->get(['id', 'no', 'descripcion']),
+            'procesos' => $this->procesosDeObra($obra),
         ]);
     }
 
     public function store(GrupoPrecioStoreRequest $request): RedirectResponse
     {
-        GrupoPrecio::create([
+        $grupoPrecio = GrupoPrecio::create([
             'obra_id' => $request->obra_id,
             'descripcion' => $request->descripcion,
-            'precio_kilo' => $request->precio_kilo,
         ]);
+
+        $this->guardarTarifas($grupoPrecio, $request->input('precios', []));
 
         return to_route('admin.prod.grupo-precios.show-by-obra', $request->obra_id);
     }
@@ -66,7 +74,7 @@ class GrupoPrecioController extends Controller
 
         $grupoPrecios = GrupoPrecio::query()
             ->where('obra_id', $obra->id)
-            ->with(['grupoPrecioConceptos.concepto'])
+            ->with(['grupoPrecioConceptos.concepto', 'precios.proceso'])
             ->withCount('grupoPrecioConceptos')
             ->orderBy('descripcion')
             ->get();
@@ -83,16 +91,22 @@ class GrupoPrecioController extends Controller
             'obra' => $obra,
             'grupoPrecios' => $grupoPrecios,
             'unassignedConceptos' => $unassignedConceptos,
+            'procesos' => $this->procesosDeObra($obra),
         ]);
     }
 
     public function edit(GrupoPrecio $grupoPrecio): Response
     {
-        $grupoPrecio->load('grupoPrecioConceptos.concepto.obra');
+        $grupoPrecio->load(['grupoPrecioConceptos.concepto.obra', 'precios', 'obra']);
 
         return Inertia::render('admin/prod/grupo-precios/edit', [
             'grupoPrecio' => $grupoPrecio,
-            'obras' => Obra::sinPlanta()->with(['conceptos' => fn ($q) => $q->deCatalogoVigente()->where('activo', true)->orderBy('marca')])->orderBy('no')->get(),
+            'obras' => Obra::sinPlanta()
+                ->whereHas('catalogos', fn ($q) => $q->where('vigente', true))
+                ->with(['conceptos' => fn ($q) => $q->deCatalogoVigente()->where('activo', true)->orderBy('marca')])
+                ->orderBy('no')
+                ->get(),
+            'procesos' => $this->procesosDeObra($grupoPrecio->obra),
         ]);
     }
 
@@ -118,10 +132,43 @@ class GrupoPrecioController extends Controller
         $grupoPrecio->update([
             'obra_id' => $request->obra_id,
             'descripcion' => $request->descripcion,
-            'precio_kilo' => $request->precio_kilo,
         ]);
 
+        $this->guardarTarifas($grupoPrecio, $request->input('precios', []));
+
         return to_route('admin.prod.grupo-precios.show-by-obra', $grupoPrecio->obra_id);
+    }
+
+    /**
+     * Procesos que la obra paga: son los unicos que necesitan tarifa.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\Prod\Proceso>
+     */
+    private function procesosDeObra(?Obra $obra): \Illuminate\Support\Collection
+    {
+        return $obra === null ? collect() : $obra->procesos()->where('activo', true)->get();
+    }
+
+    /**
+     * Una tarifa por proceso. Los procesos que la obra no paga se ignoran, para
+     * que un grupo no arrastre precios de trabajo que ahi no se hace.
+     *
+     * @param  array<int|string, mixed>  $precios  procesoId => precio por kilo
+     */
+    private function guardarTarifas(GrupoPrecio $grupoPrecio, array $precios): void
+    {
+        $permitidos = $this->procesosDeObra($grupoPrecio->obra)->pluck('id');
+
+        foreach ($precios as $procesoId => $precioKilo) {
+            if (! $permitidos->contains((int) $procesoId)) {
+                continue;
+            }
+
+            GrupoPrecioProceso::updateOrCreate(
+                ['grupo_precio_id' => $grupoPrecio->id, 'proceso_id' => (int) $procesoId],
+                ['precio_kilo' => (float) $precioKilo],
+            );
+        }
     }
 
     public function destroy(GrupoPrecio $grupoPrecio): RedirectResponse

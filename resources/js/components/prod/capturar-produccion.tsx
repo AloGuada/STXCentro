@@ -2,34 +2,50 @@ import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/components/ui/formatted-date';
 import { Input } from '@/components/ui/input';
-import { Select, SelectItem } from '@/components/ui/select';
 import { SearchSelect } from '@/components/ui/search-select';
+import { Select, SelectItem } from '@/components/ui/select';
 import { etiquetaDePieza } from '@/lib/prod/piezas';
-import type { Concepto, Obra, ProdDestajo, ProdGrupoTrabajo } from '@/types/models';
+import type { Concepto, Obra, ProdDestajo, ProdGrupoTrabajo, ProdPieza, ProdProceso } from '@/types/models';
 import { useForm } from '@inertiajs/react';
 import { Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
-import { type FormEvent } from 'react';
+import { useMemo, type FormEvent } from 'react';
+
+type MarcaConPiezas = Concepto & { obra?: Obra; piezas?: ProdPieza[] };
 
 type Props = {
     destajo: ProdDestajo;
-    conceptos: (Concepto & { obra?: Obra })[];
+    marcas: MarcaConPiezas[];
+    procesos: ProdProceso[];
+    /** Qué procesos paga cada obra: obraId => ids de proceso. */
+    procesosPorObra: Record<number, number[]>;
+    /** Avance por pieza y proceso, para saber cuánto le falta a cada QS. */
+    avance: Record<number, Record<number, { capturado: number; disponible: number }>>;
     gruposTrabajo: ProdGrupoTrabajo[];
 };
 
-export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props) {
+export function CapturarProduccion({
+    destajo,
+    marcas,
+    procesos,
+    procesosPorObra,
+    avance,
+    gruposTrabajo,
+}: Props) {
     const soloFecha = (v: string) => v.slice(0, 10);
 
     const registroForm = useForm<{
         fecha: string;
-        concepto_id: string;
+        marca_id: string;
+        proceso_id: string;
+        piezas: number[];
         grupo_trabajo_id: string;
-        cantidad: number;
         porcentaje: number;
     }>({
         fecha: soloFecha(destajo.fecha_inicio),
-        concepto_id: '',
+        marca_id: '',
+        proceso_id: '',
+        piezas: [],
         grupo_trabajo_id: '',
-        cantidad: 1,
         porcentaje: 100,
     });
 
@@ -38,32 +54,52 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
         fecha: soloFecha(destajo.fecha_inicio),
     });
 
-    const conceptoOptions = conceptos.map((c) => {
-        const faltan = c.disponible ?? 0;
+    const marcaOptions = marcas.map((m) => ({
+        value: String(m.id),
+        label: `${m.obra ? `[${m.obra.no}] ` : ''}${etiquetaDePieza(m.marca, m.etapa)} - ${m.descripcion}`,
+    }));
 
-        return {
-            value: String(c.id),
-            label:
-                `${c.obra ? `[${c.obra.no}] ` : ''}${etiquetaDePieza(c.marca, c.etapa)} - ${c.descripcion} · ` +
-                (faltan === 0 ? 'completa' : `faltan ${faltan} de ${c.cantidad}`),
-            // Pintadas en rojo: ya se pagó todo lo que el catálogo manda.
-            danger: faltan === 0,
-        };
-    });
+    const marcaElegida = marcas.find((m) => String(m.id) === registroForm.data.marca_id);
 
-    const conceptoElegido = conceptos.find((c) => String(c.id) === registroForm.data.concepto_id);
-    const disponible = conceptoElegido?.disponible ?? 0;
+    // Sólo los procesos que paga la obra de esa marca: capturar pintura donde
+    // nadie la presupuestó inventaría dinero.
+    const procesosDisponibles = useMemo(() => {
+        if (!marcaElegida) return [];
+        const permitidos = procesosPorObra[marcaElegida.obra_id] ?? [];
+        return procesos.filter((p) => permitidos.includes(p.id));
+    }, [marcaElegida, procesos, procesosPorObra]);
 
-    // Piezas equivalentes que consume la captura: 10 al 60% gastan 6.
-    const consumo = (registroForm.data.cantidad * registroForm.data.porcentaje) / 100;
-    const rebasa = !!conceptoElegido && consumo > disponible + 0.0001;
-    const esParcial = registroForm.data.porcentaje < 100;
+    const procesoId = Number(registroForm.data.proceso_id);
+    const disponibleDe = (piezaId: number): number => avance[piezaId]?.[procesoId]?.disponible ?? 1;
+
+    const piezasDeLaMarca = marcaElegida?.piezas ?? [];
+    const consumo = registroForm.data.porcentaje / 100;
+    const seleccionadas = registroForm.data.piezas;
+
+    // Las que ya no admiten lo que se quiere pagar: se marcan y no se pueden elegir.
+    const sinCupo = (pieza: ProdPieza) => !!procesoId && consumo > disponibleDe(pieza.id) + 0.0001;
+
+    const alternarPieza = (piezaId: number) => {
+        registroForm.setData(
+            'piezas',
+            seleccionadas.includes(piezaId)
+                ? seleccionadas.filter((id) => id !== piezaId)
+                : [...seleccionadas, piezaId],
+        );
+    };
+
+    const seleccionarTodasConCupo = () => {
+        registroForm.setData(
+            'piezas',
+            piezasDeLaMarca.filter((p) => !sinCupo(p)).map((p) => p.id),
+        );
+    };
 
     const submitRegistro = (e: FormEvent) => {
         e.preventDefault();
         registroForm.post(`/admin/prod/destajos/${destajo.id}/registros`, {
             preserveScroll: true,
-            onSuccess: () => registroForm.reset('concepto_id', 'cantidad', 'porcentaje'),
+            onSuccess: () => registroForm.setData('piezas', []),
         });
     };
 
@@ -83,17 +119,50 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
                     <PlusIcon className="size-4" /> Capturar producción
                 </h3>
                 <form onSubmit={submitRegistro} className="space-y-3">
-                    <FormField label="Pieza" htmlFor="concepto_id" error={registroForm.errors.concepto_id} required>
+                    <FormField label="Marca" htmlFor="marca_id" error={registroForm.errors.marca_id} required>
                         <SearchSelect
-                            options={conceptoOptions}
-                            value={registroForm.data.concepto_id}
-                            onValueChange={(v) => registroForm.setData('concepto_id', v)}
-                            placeholder="Buscar pieza..."
+                            options={marcaOptions}
+                            value={registroForm.data.marca_id}
+                            onValueChange={(v) => {
+                                registroForm.setData('marca_id', v);
+                                registroForm.setData('piezas', []);
+                            }}
+                            placeholder="Buscar marca..."
                         />
                     </FormField>
 
                     <div className="grid grid-cols-2 gap-3">
-                        <FormField label="Grupo" htmlFor="grupo_trabajo_id" error={registroForm.errors.grupo_trabajo_id} required>
+                        <FormField
+                            label="Proceso"
+                            htmlFor="proceso_id"
+                            error={registroForm.errors.proceso_id}
+                            description={
+                                marcaElegida && procesosDisponibles.length === 0
+                                    ? 'La obra no tiene procesos configurados.'
+                                    : undefined
+                            }
+                            required
+                        >
+                            <Select
+                                value={registroForm.data.proceso_id}
+                                onValueChange={(v) => registroForm.setData('proceso_id', v)}
+                                placeholder="Selecciona proceso"
+                                error={!!registroForm.errors.proceso_id}
+                            >
+                                {procesosDisponibles.map((p) => (
+                                    <SelectItem key={p.id} value={String(p.id)}>
+                                        {p.nombre}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+                        </FormField>
+
+                        <FormField
+                            label="Grupo"
+                            htmlFor="grupo_trabajo_id"
+                            error={registroForm.errors.grupo_trabajo_id}
+                            required
+                        >
                             <Select
                                 value={registroForm.data.grupo_trabajo_id}
                                 onValueChange={(v) => registroForm.setData('grupo_trabajo_id', v)}
@@ -107,28 +176,13 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
                                 ))}
                             </Select>
                         </FormField>
-                        <FormField label="Cantidad" htmlFor="cantidad" error={registroForm.errors.cantidad} required>
-                            <Input
-                                id="cantidad"
-                                type="number"
-                                min={1}
-                                value={registroForm.data.cantidad}
-                                onChange={(e) => registroForm.setData('cantidad', Number(e.target.value))}
-                                error={!!registroForm.errors.cantidad || rebasa}
-                            />
-                        </FormField>
                     </div>
 
                     <FormField
                         label="% a pagar"
                         htmlFor="porcentaje"
                         error={registroForm.errors.porcentaje}
-                        description={
-                            conceptoElegido
-                                ? `Pagadas ${conceptoElegido.capturado ?? 0} de ${conceptoElegido.cantidad} · faltan ${disponible}` +
-                                  (esParcial ? ` · esta captura consume ${consumo.toLocaleString('es-MX')}` : '')
-                                : 'Usa menos de 100% para pagar un avance y liquidar el resto en otra semana.'
-                        }
+                        description="Usa menos de 100% para pagar un avance y liquidar el resto en otra semana. Aplica a todas las piezas seleccionadas."
                         required
                     >
                         <Input
@@ -139,49 +193,101 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
                             step="0.01"
                             value={registroForm.data.porcentaje}
                             onChange={(e) => registroForm.setData('porcentaje', Number(e.target.value))}
-                            error={!!registroForm.errors.porcentaje || rebasa}
+                            error={!!registroForm.errors.porcentaje}
                         />
                     </FormField>
 
                     <FormField
-                        label="Fecha"
-                        htmlFor="fecha"
-                        error={registroForm.errors.fecha}
-                        description={`Dentro del periodo ${formatDate(destajo.fecha_inicio)} — ${formatDate(destajo.fecha_fin)}`}
+                        label="Piezas (QS)"
+                        htmlFor="piezas"
+                        error={registroForm.errors.piezas}
+                        description={
+                            marcaElegida
+                                ? `${seleccionadas.length} de ${piezasDeLaMarca.length} seleccionadas · el catálogo pide ${marcaElegida.cantidad}`
+                                : 'Elige primero una marca y un proceso.'
+                        }
                         required
                     >
-                        <Input
-                            id="fecha"
-                            type="date"
-                            min={soloFecha(destajo.fecha_inicio)}
-                            max={soloFecha(destajo.fecha_fin)}
-                            value={registroForm.data.fecha}
-                            onChange={(e) => registroForm.setData('fecha', e.target.value)}
-                            error={!!registroForm.errors.fecha}
-                        />
+                        <div className="rounded-box border-base-300 max-h-52 overflow-auto border p-2">
+                            {piezasDeLaMarca.length === 0 ? (
+                                <p className="text-base-content/50 py-4 text-center text-sm">
+                                    {marcaElegida ? 'Esta marca no tiene piezas cargadas.' : 'Sin marca seleccionada'}
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+                                    {piezasDeLaMarca.map((pieza) => {
+                                        const falta = procesoId ? disponibleDe(pieza.id) : 1;
+                                        const bloqueada = sinCupo(pieza);
+
+                                        return (
+                                            <label
+                                                key={pieza.id}
+                                                className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm ${
+                                                    bloqueada ? 'text-base-content/40' : 'hover:bg-base-200'
+                                                }`}
+                                                title={
+                                                    bloqueada
+                                                        ? falta <= 0
+                                                            ? 'Ya está pagada al 100% en este proceso'
+                                                            : `Sólo le falta ${(falta * 100).toFixed(0)}%`
+                                                        : undefined
+                                                }
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    className="checkbox checkbox-xs"
+                                                    checked={seleccionadas.includes(pieza.id)}
+                                                    disabled={bloqueada}
+                                                    onChange={() => alternarPieza(pieza.id)}
+                                                />
+                                                <span className="font-mono">{pieza.qs}</span>
+                                                {procesoId > 0 && falta > 0 && falta < 1 && (
+                                                    <span className="badge badge-xs badge-warning">
+                                                        {(falta * 100).toFixed(0)}%
+                                                    </span>
+                                                )}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </FormField>
 
+                    <div className="flex items-end justify-between gap-3">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={seleccionarTodasConCupo}
+                            disabled={!marcaElegida || !procesoId || piezasDeLaMarca.length === 0}
+                        >
+                            Seleccionar las que faltan
+                        </Button>
+                        <FormField label="Fecha" htmlFor="fecha" error={registroForm.errors.fecha} className="w-44">
+                            <Input
+                                id="fecha"
+                                type="date"
+                                min={soloFecha(destajo.fecha_inicio)}
+                                max={soloFecha(destajo.fecha_fin)}
+                                value={registroForm.data.fecha}
+                                onChange={(e) => registroForm.setData('fecha', e.target.value)}
+                                error={!!registroForm.errors.fecha}
+                            />
+                        </FormField>
+                    </div>
+
                     <div className="flex items-center justify-between gap-3">
-                        {conceptoElegido && disponible === 0 ? (
-                            <span className="text-error text-xs">
-                                Pieza pagada al 100%. Si son piezas rehechas, págalas como pago extra.
-                            </span>
-                        ) : (
-                            rebasa && (
-                                <span className="text-error text-xs">
-                                    Se pasa por {(consumo - disponible).toLocaleString('es-MX')} pieza(s): solo
-                                    quedan {disponible} por pagar.
-                                </span>
-                            )
-                        )}
+                        <span className="text-base-content/60 text-xs">
+                            Periodo {formatDate(destajo.fecha_inicio)} — {formatDate(destajo.fecha_fin)}
+                        </span>
                         <Button
                             type="submit"
                             size="sm"
-                            className="ml-auto"
-                            disabled={registroForm.processing || rebasa || (!!conceptoElegido && disponible === 0)}
+                            disabled={registroForm.processing || seleccionadas.length === 0 || !procesoId}
                         >
                             {registroForm.processing && <Loader2Icon className="size-4 animate-spin" />}
-                            Agregar
+                            Agregar {seleccionadas.length > 0 ? `(${seleccionadas.length})` : ''}
                         </Button>
                     </div>
                 </form>
@@ -215,19 +321,22 @@ export function CapturarProduccion({ destajo, conceptos, gruposTrabajo }: Props)
                     </FormField>
 
                     <p className="text-base-content/60 text-xs">
-                        Acepta el <strong>export de avance de planta</strong>: se toman sólo los movimientos del evento{' '}
-                        <span className="font-mono">55</span> y se suman por <span className="font-mono">Ubicacion</span>,{' '}
-                        <span className="font-mono">Marca</span> y <span className="font-mono">Etapa</span>; cada
-                        ubicación debe estar en el catálogo de módulos y pertenecer a un solo grupo. También acepta un
-                        CSV a mano con <span className="font-mono">Grupo, Marca, Cantidad</span> y opcionalmente{' '}
-                        <span className="font-mono">Etapa</span> y <span className="font-mono">Porcentaje</span> (si no
-                        viene, se paga al 100%). Si el archivo no trae <span className="font-mono">Etapa</span> y esa
-                        marca está repetida en varias etapas del catálogo, el renglón se reporta en vez de cargarse.
-                        Todos los renglones toman la fecha seleccionada.
+                        Acepta el <strong>export de avance de planta</strong>: la pieza se resuelve por{' '}
+                        <span className="font-mono">QS</span> y el número de <span className="font-mono">Proceso</span>{' '}
+                        decide qué se paga (los eventos que no son de destajo se ignoran). Cada ubicación debe estar en
+                        el catálogo de módulos y pertenecer a un solo grupo. También acepta un CSV a mano con{' '}
+                        <span className="font-mono">Grupo, QS, Proceso</span> y opcionalmente{' '}
+                        <span className="font-mono">Porcentaje</span> (si no viene, se paga al 100%). Todos los
+                        renglones toman la fecha seleccionada.
                     </p>
 
                     <div className="flex justify-end">
-                        <Button type="submit" size="sm" variant="outline" disabled={csvForm.processing || !csvForm.data.csv_file}>
+                        <Button
+                            type="submit"
+                            size="sm"
+                            variant="outline"
+                            disabled={csvForm.processing || !csvForm.data.csv_file}
+                        >
                             {csvForm.processing && <Loader2Icon className="size-4 animate-spin" />}
                             Importar
                         </Button>

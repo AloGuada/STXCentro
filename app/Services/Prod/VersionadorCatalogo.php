@@ -5,6 +5,7 @@ namespace App\Services\Prod;
 use App\Models\Concepto;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\GrupoPrecioConcepto;
+use App\Models\Prod\Pieza;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -112,26 +113,38 @@ class VersionadorCatalogo
             ->get()
             ->groupBy('concepto_id');
 
-        foreach ($origen->conceptos()->get() as $pieza) {
+        foreach ($origen->conceptos()->with('piezas')->get() as $marca) {
             $copia = Concepto::create([
                 'obra_id' => $destino->obra_id,
                 'catalogo_id' => $destino->id,
                 // Linaje: sostiene el conteo de lo pagado aunque la marca
                 // cambie de nombre en esta version.
-                'concepto_origen_id' => $pieza->id,
-                'qs' => $pieza->qs,
-                'marca' => $pieza->marca,
-                'etapa' => $pieza->etapa,
-                'descripcion' => $pieza->descripcion,
-                'cantidad' => $pieza->cantidad,
-                'peso_unitario' => $pieza->peso_unitario,
-                'longitud' => $pieza->longitud,
-                'categoria_id' => $pieza->categoria_id,
+                'concepto_origen_id' => $marca->id,
+                'marca' => $marca->marca,
+                'etapa' => $marca->etapa,
+                'descripcion' => $marca->descripcion,
+                'cantidad' => $marca->cantidad,
+                'peso_unitario' => $marca->peso_unitario,
+                'longitud' => $marca->longitud,
+                'categoria_id' => $marca->categoria_id,
                 'version' => $destino->version,
-                'activo' => $pieza->activo,
+                'activo' => $marca->activo,
             ]);
 
-            foreach ($preciosPorConcepto->get($pieza->id, collect()) as $asignacion) {
+            // Las piezas se copian con su QS y su propio linaje: el acumulado se
+            // cuenta por pieza, asi que sin esto la version nueva arrancaria en
+            // cero y se podria volver a pagar lo ya fabricado.
+            foreach ($marca->piezas as $pieza) {
+                Pieza::create([
+                    'catalogo_id' => $destino->id,
+                    'concepto_id' => $copia->id,
+                    'qs' => $pieza->qs,
+                    'pieza_origen_id' => $pieza->id,
+                    'activo' => $pieza->activo,
+                ]);
+            }
+
+            foreach ($preciosPorConcepto->get($marca->id, collect()) as $asignacion) {
                 GrupoPrecioConcepto::create([
                     'grupo_precio_id' => $asignacion->grupo_precio_id,
                     'concepto_id' => $copia->id,
@@ -158,7 +171,6 @@ class VersionadorCatalogo
     private function cambiosEntrePiezas(Concepto $antes, Concepto $despues): array
     {
         $campos = [
-            'qs' => 'QS',
             'descripcion' => 'Descripción',
             'cantidad' => 'Cantidad',
             'peso_unitario' => 'Peso unitario',

@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\Prod\CatalogoUpdateRequest;
 use App\Http\Requests\Admin\Prod\NuevaVersionCatalogoRequest;
 use App\Models\Obra;
 use App\Models\Prod\Catalogo;
+use App\Models\Prod\Proceso;
 use App\Models\Proyecto;
 use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\VersionadorCatalogo;
@@ -83,23 +84,29 @@ class CatalogoController extends Controller
 
     public function show(Request $request, Catalogo $catalogo, AvanceDePiezas $avance): Response
     {
-        $catalogo->load('obra:id,no,descripcion');
+        $catalogo->load(['obra:id,no,descripcion', 'obra.procesos']);
 
-        $conceptos = $avance->decorar(
-            $catalogo->conceptos()
-                ->with('categoria')
-                ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('marca', 'like', "%{$s}%")
-                    ->orWhere('etapa', 'like', "%{$s}%")
-                    ->orWhere('qs', 'like', "%{$s}%")
-                    ->orWhere('descripcion', 'like', "%{$s}%")))
-                ->orderBy('marca')
-                ->orderBy('etapa')
-                ->get()
-        );
+        $procesos = $catalogo->obra?->procesos ?? collect();
+
+        $marcas = $catalogo->conceptos()
+            ->with(['categoria', 'piezas' => fn ($q) => $q->orderBy('qs')])
+            ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('marca', 'like', "%{$s}%")
+                ->orWhere('etapa', 'like', "%{$s}%")
+                ->orWhere('descripcion', 'like', "%{$s}%")
+                ->orWhereHas('piezas', fn ($p) => $p->where('qs', 'like', "%{$s}%"))))
+            ->orderBy('marca')
+            ->orderBy('etapa')
+            ->get();
+
+        // El avance vive en la pieza: una marca "va al 70%" porque 7 de sus 10
+        // QS ya se pagaron en ese proceso.
+        $avance->decorar($marcas->flatMap->piezas, $procesos->pluck('id')->all());
 
         return Inertia::render('admin/prod/catalogos/show', [
             'catalogo' => $catalogo,
-            'conceptos' => $conceptos,
+            'marcas' => $marcas,
+            'procesos' => $procesos->values(),
+            'procesosDisponibles' => Proceso::activos()->orderBy('orden')->get(),
             'versiones' => Catalogo::query()
                 ->where('obra_id', $catalogo->obra_id)
                 ->withCount('conceptos as conceptos_count')
@@ -155,7 +162,7 @@ class CatalogoController extends Controller
 
     public function destroy(Catalogo $catalogo): RedirectResponse
     {
-        if ($catalogo->conceptos()->whereHas('registros')->exists()) {
+        if ($catalogo->piezas()->whereHas('registros')->exists()) {
             return back()->withErrors([
                 'error' => 'No se puede eliminar un catálogo con piezas que ya tienen producción capturada.',
             ]);
@@ -163,6 +170,7 @@ class CatalogoController extends Controller
 
         $catalogo->conceptos()->each(function ($concepto): void {
             $concepto->grupoPrecioConceptos()->delete();
+            $concepto->piezas()->delete();
             $concepto->delete();
         });
 

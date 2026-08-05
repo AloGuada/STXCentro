@@ -17,7 +17,6 @@ class ConceptoUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'qs' => ['nullable', 'string', 'max:50'],
             'marca' => ['required', 'string', 'max:255'],
             'etapa' => ['nullable', 'string', 'max:50'],
             'descripcion' => ['required', 'string', 'max:255'],

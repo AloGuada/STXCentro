@@ -84,6 +84,97 @@ function darPermisosSolicitudesPago(\App\Models\User $user): \App\Models\User
     return $user;
 }
 
+/**
+ * Una marca del catálogo con sus piezas físicas (QS), que es como llega el
+ * layout: un renglón por pieza repitiendo el modelo.
+ *
+ * @param  array<string, mixed>  $atributos  de la marca
+ */
+function marcaConPiezas(int $piezas = 1, array $atributos = []): \App\Models\Concepto
+{
+    $marca = \App\Models\Concepto::factory()->create([...$atributos, 'cantidad' => $atributos['cantidad'] ?? $piezas]);
+
+    \App\Models\Prod\Pieza::factory()->count($piezas)->create([
+        'concepto_id' => $marca->id,
+        'catalogo_id' => $marca->catalogo_id,
+    ]);
+
+    return $marca->load('piezas');
+}
+
+/**
+ * El proceso sembrado por la migración. Los tests casi siempre quieren
+ * soldadura; pintura sirve para probar que los topes no se mezclan.
+ */
+function proceso(string $nombre = 'Soldadura'): \App\Models\Prod\Proceso
+{
+    return \App\Models\Prod\Proceso::where('nombre', $nombre)->firstOrFail();
+}
+
+/**
+ * Marca la obra como pagadora de esos procesos. Sin esto la captura los rechaza,
+ * que es justo lo que se quiere en producción pero estorba al montar un test.
+ */
+function obraPagaProcesos(int $obraId, \App\Models\Prod\Proceso ...$procesos): void
+{
+    $procesos = $procesos ?: [proceso()];
+
+    \App\Models\Obra::findOrFail($obraId)->procesos()->syncWithoutDetaching(
+        collect($procesos)->pluck('id')->all()
+    );
+}
+
+/**
+ * Grupo de precios de la obra con tarifa para un proceso, ya asignado a la
+ * marca. Es el mínimo que necesita una liquidación para no pagar en cero.
+ */
+function tarifaDeMarca(
+    \App\Models\Concepto $marca,
+    float $precioKilo,
+    ?\App\Models\Prod\Proceso $proceso = null,
+    ?\App\Models\Prod\GrupoPrecio $grupoPrecio = null,
+): \App\Models\Prod\GrupoPrecio {
+    $grupoPrecio ??= \App\Models\Prod\GrupoPrecio::factory()->create(['obra_id' => $marca->obra_id]);
+
+    \App\Models\Prod\GrupoPrecioProceso::updateOrCreate(
+        ['grupo_precio_id' => $grupoPrecio->id, 'proceso_id' => ($proceso ?? proceso())->id],
+        ['precio_kilo' => $precioKilo],
+    );
+
+    \App\Models\Prod\GrupoPrecioConcepto::firstOrCreate([
+        'grupo_precio_id' => $grupoPrecio->id,
+        'concepto_id' => $marca->id,
+    ]);
+
+    return $grupoPrecio->load('precios');
+}
+
+/**
+ * Captura producción de varias piezas de golpe: un renglón por QS, que es como
+ * queda el destajo desde que se paga pieza por pieza.
+ *
+ * @param  iterable<\App\Models\Prod\Pieza>  $piezas
+ */
+function capturarPiezas(
+    iterable $piezas,
+    \App\Models\Prod\GrupoTrabajo $grupo,
+    string $fecha,
+    float $porcentaje = 100,
+    ?\App\Models\Prod\Proceso $proceso = null,
+): void {
+    $proceso ??= proceso();
+
+    foreach ($piezas as $pieza) {
+        \App\Models\Prod\Registro::create([
+            'fecha' => $fecha,
+            'pieza_id' => $pieza->id,
+            'proceso_id' => $proceso->id,
+            'grupo_trabajo_id' => $grupo->id,
+            'porcentaje' => $porcentaje,
+        ]);
+    }
+}
+
 function darPermisoVerTodasSolicitudes(\App\Models\User $user): \App\Models\User
 {
     \Spatie\Permission\Models\Permission::firstOrCreate([

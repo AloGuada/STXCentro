@@ -5,17 +5,25 @@ namespace App\Http\Controllers\Admin\Prod;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Prod\RegistroImportCsvRequest;
 use App\Http\Requests\Admin\Prod\RegistroStoreRequest;
-use App\Models\Concepto;
+use App\Models\Obra;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoTrabajo;
+use App\Models\Prod\Pieza;
+use App\Models\Prod\Proceso;
+use App\Models\Prod\ProcesoEvento;
 use App\Models\Prod\Registro;
 use App\Models\Prod\Ubicacion;
 use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\LectorCsvDeProduccion;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 
 class RegistroController extends Controller
 {
+    /**
+     * Captura manual: una o varias piezas (QS) del mismo modelo, en un proceso.
+     * Las que no caben en su tope se reportan y el resto sí se guarda.
+     */
     public function store(RegistroStoreRequest $request, Destajo $destajo, AvanceDePiezas $avance): RedirectResponse
     {
         if ($destajo->cerrado) {
@@ -26,16 +34,39 @@ class RegistroController extends Controller
             return back()->withErrors(['fecha' => 'La fecha debe estar dentro del periodo del destajo.']);
         }
 
-        $concepto = Concepto::findOrFail($request->concepto_id);
+        $proceso = Proceso::findOrFail($request->integer('proceso_id'));
         $porcentaje = (float) ($request->porcentaje ?? 100);
+        $piezas = Pieza::with(['marca', 'catalogo'])->findMany($request->input('piezas', []));
 
-        if (! $avance->cabe($concepto, $request->integer('cantidad'), $porcentaje)) {
-            return back()->withErrors([
-                'cantidad' => $this->mensajeDeTope($concepto, $avance->disponible($concepto)),
-            ]);
+        if ($error = $this->errorDeProcesoEnObra($piezas, $proceso)) {
+            return back()->withErrors(['proceso_id' => $error]);
         }
 
-        Registro::create([...$request->validated(), 'porcentaje' => $porcentaje]);
+        $rechazadas = [];
+        $guardadas = 0;
+
+        foreach ($piezas as $pieza) {
+            if (! $avance->cabe($pieza, $proceso->id, $porcentaje)) {
+                $rechazadas[] = $this->mensajeDeTope($pieza, $proceso, $avance->disponible($pieza, $proceso->id));
+
+                continue;
+            }
+
+            Registro::create([
+                'fecha' => $request->date('fecha'),
+                'pieza_id' => $pieza->id,
+                'proceso_id' => $proceso->id,
+                'grupo_trabajo_id' => $request->integer('grupo_trabajo_id'),
+                'porcentaje' => $porcentaje,
+            ]);
+            $guardadas++;
+        }
+
+        if ($rechazadas !== []) {
+            return back()
+                ->with('success', "Se capturaron {$guardadas} pieza(s).")
+                ->withErrors(['piezas' => implode(' ', $rechazadas)]);
+        }
 
         return to_route('admin.prod.destajos.show', $destajo);
     }
@@ -52,14 +83,12 @@ class RegistroController extends Controller
     }
 
     /**
-     * Carga masiva de produccion. Acepta el export de avance de planta (se queda
-     * con el evento 55 y usa Ubicacion, Marca, Etapa y Cantidad) o un CSV a mano
-     * con GRUPO, MARCA, ETAPA, CANTIDAD. Todos los renglones toman la fecha del
-     * formulario.
+     * Carga masiva de produccion. Acepta el export de avance de planta (Proceso,
+     * Ubicacion y QS) o un CSV a mano con GRUPO, QS y opcionalmente PROCESO y
+     * PORCENTAJE. Todos los renglones toman la fecha del formulario.
      *
-     * La pieza se resuelve por marca + etapa. Si el archivo no trae ETAPA y esa
-     * marca esta repetida en varias etapas del catalogo, el renglon se reporta en
-     * vez de cargarse: pagarlo a la pieza equivocada no tiene vuelta atras.
+     * La pieza se resuelve por QS contra el catalogo vigente: exacto, sin
+     * adivinar por marca. El numero de evento decide el proceso.
      */
     public function importCsv(
         RegistroImportCsvRequest $request,
@@ -80,11 +109,14 @@ class RegistroController extends Controller
 
         if ($filas === []) {
             $vacio = $formato === LectorCsvDeProduccion::FORMATO_EXPORT
-                ? 'El archivo no trae ningun movimiento del evento '.LectorCsvDeProduccion::EVENTO_DESTAJO.'.'
+                ? 'El archivo no trae ningun movimiento con QS de los eventos configurados.'
                 : 'El archivo no trae renglones para importar.';
 
             return back()->withErrors(['csv_file' => $vacio]);
         }
+
+        $procesosPorEvento = ProcesoEvento::with('proceso')->get()->keyBy('evento');
+        $procesosPorNombre = Proceso::activos()->get()->keyBy(fn (Proceso $p) => $lector->normalizar($p->nombre));
 
         $importados = 0;
         $errores = [];
@@ -93,6 +125,22 @@ class RegistroController extends Controller
 
         foreach ($filas as $fila) {
             $ref = $fila['referencia'];
+
+            $proceso = $fila['evento'] !== null
+                ? $procesosPorEvento->get($fila['evento'])?->proceso
+                : $procesosPorNombre->get($lector->normalizar((string) $fila['proceso']));
+
+            if ($proceso === null) {
+                // Los eventos que no pagan destajo (corte, inspeccion, embarque)
+                // son la mayoria del export: se saltan sin ruido.
+                if ($fila['evento'] !== null) {
+                    continue;
+                }
+
+                $errores[] = "{$ref}: proceso \"{$fila['proceso']}\" no encontrado.";
+
+                continue;
+            }
 
             $grupo = $fila['ubicacion'] !== null
                 ? $this->grupoDeUbicacion($fila['ubicacion'], $lector, $errores, $ref)
@@ -106,30 +154,19 @@ class RegistroController extends Controller
                 continue;
             }
 
-            $etiqueta = Concepto::etiquetaDeModelo($fila['marca'], $fila['etapa']);
-
-            $conceptos = Concepto::deCatalogoVigente()
-                ->where('marca', $fila['marca'])
-                ->when($fila['etapa'] !== null, fn ($q) => $q->where('etapa', $fila['etapa']))
+            $piezas = Pieza::with(['marca', 'catalogo'])
+                ->deCatalogoVigente()
+                ->where('qs', $fila['qs'])
                 ->where('activo', true)
                 ->get();
 
-            if ($conceptos->isEmpty()) {
-                $errores[] = "{$ref}: pieza \"{$etiqueta}\" no encontrada.";
+            if ($piezas->isEmpty()) {
+                $errores[] = "{$ref}: la pieza QS {$fila['qs']} no esta en ningun catalogo vigente.";
 
                 continue;
             }
-            if ($conceptos->count() > 1) {
-                $etapas = $conceptos->pluck('etapa')->unique();
-
-                $errores[] = $etapas->count() > 1
-                    ? "{$ref}: la marca \"{$fila['marca']}\" existe en varias etapas ({$etapas->map(fn (?string $e) => $e ?? 'sin etapa')->implode(', ')}); agrega la columna ETAPA al archivo."
-                    : "{$ref}: pieza \"{$etiqueta}\" existe en varias obras (ambigua).";
-
-                continue;
-            }
-            if ($fila['cantidad'] < 1) {
-                $errores[] = "{$ref}: cantidad invalida.";
+            if ($piezas->count() > 1) {
+                $errores[] = "{$ref}: el QS {$fila['qs']} existe en varias obras (ambiguo).";
 
                 continue;
             }
@@ -139,25 +176,31 @@ class RegistroController extends Controller
                 continue;
             }
 
-            $concepto = $conceptos->first();
+            $pieza = $piezas->first();
 
-            // El tope se descuenta dentro del propio archivo: dos renglones del
-            // mismo modelo no pueden rebasar juntos lo que falta.
-            $clave = $concepto->obra_id.'|'.$concepto->claveModelo();
-            $disponible = $topes[$clave] ??= $avance->disponible($concepto);
-            $consumo = round($fila['cantidad'] * ($fila['porcentaje'] / 100), 4);
+            if ($error = $this->errorDeProcesoEnObra(collect([$pieza]), $proceso)) {
+                $errores[] = "{$ref}: {$error}";
+
+                continue;
+            }
+
+            // El tope se descuenta dentro del propio archivo: dos renglones de la
+            // misma pieza y proceso no pueden rebasar juntos lo que falta.
+            $clave = $pieza->id.'|'.$proceso->id;
+            $disponible = $topes[$clave] ??= $avance->disponible($pieza, $proceso->id);
+            $consumo = round($fila['porcentaje'] / 100, 4);
 
             if ($consumo > $disponible + 0.0001) {
-                $errores[] = "{$ref}: ".$this->mensajeDeTope($concepto, $disponible);
+                $errores[] = "{$ref}: ".$this->mensajeDeTope($pieza, $proceso, $disponible);
 
                 continue;
             }
 
             Registro::create([
                 'fecha' => $fecha,
-                'concepto_id' => $concepto->id,
+                'pieza_id' => $pieza->id,
+                'proceso_id' => $proceso->id,
                 'grupo_trabajo_id' => $grupo->id,
-                'cantidad' => $fila['cantidad'],
                 'porcentaje' => $fila['porcentaje'],
             ]);
             $topes[$clave] -= $consumo;
@@ -170,7 +213,36 @@ class RegistroController extends Controller
                 ->withErrors(['csv_file' => implode(' ', $errores)]);
         }
 
+        // Un archivo lleno de eventos que no pagan destajo se salta entero sin
+        // un solo error. Decir "0 registros correctamente" haria pensar que la
+        // semana ya esta capturada.
+        if ($importados === 0) {
+            return back()->withErrors([
+                'csv_file' => 'El archivo no trae ningun movimiento de los eventos configurados en los procesos.',
+            ]);
+        }
+
         return back()->with('success', "Se importaron {$importados} registros correctamente.");
+    }
+
+    /**
+     * Una obra sólo paga los procesos que tiene configurados: capturar pintura
+     * en una obra que sólo suelda inventaría dinero que nadie presupuestó.
+     *
+     * @param  Collection<int, Pieza>  $piezas
+     */
+    private function errorDeProcesoEnObra(Collection $piezas, Proceso $proceso): ?string
+    {
+        $obraIds = $piezas->map(fn (Pieza $p) => (int) $p->catalogo?->obra_id)->filter()->unique();
+
+        $conElProceso = Obra::query()
+            ->whereIn('id', $obraIds)
+            ->whereHas('procesos', fn ($q) => $q->where('prod_procesos.id', $proceso->id))
+            ->pluck('id');
+
+        return $obraIds->diff($conElProceso)->isEmpty()
+            ? null
+            : "La obra no paga el proceso \"{$proceso->nombre}\"; configúralo en la obra antes de capturar.";
     }
 
     /**
@@ -212,22 +284,20 @@ class RegistroController extends Controller
     }
 
     /**
-     * Explica el tope con los tres números que el capturista necesita (lo que
-     * manda el catálogo, lo ya capturado y lo que queda) y hacia dónde ir: las
-     * piezas rehechas se pagan como pago extra, no como producción.
+     * Explica el tope: una pieza vale 1 en cada proceso, así que lo que queda es
+     * una fracción. Las piezas rehechas se pagan como pago extra.
      */
-    private function mensajeDeTope(Concepto $concepto, float $disponible): string
+    private function mensajeDeTope(Pieza $pieza, Proceso $proceso, float $disponible): string
     {
-        $salida = ' Si son piezas rehechas, regístralas como pago extra.';
-        $etiqueta = $concepto->etiquetaModelo();
+        $salida = ' Si es una pieza rehecha, regístrala como pago extra.';
+        $etiqueta = $pieza->etiqueta();
 
         if ($disponible <= 0) {
-            return "La pieza \"{$etiqueta}\" ya está pagada al 100%: el catálogo pide {$concepto->cantidad} y no queda nada por pagar.".$salida;
+            return "La pieza {$etiqueta} ya está pagada al 100% en {$proceso->nombre}.".$salida;
         }
 
-        $pendiente = rtrim(rtrim(number_format($disponible, 2, '.', ''), '0'), '.');
-        $pagado = rtrim(rtrim(number_format((float) $concepto->cantidad - $disponible, 2, '.', ''), '0'), '.');
+        $pendiente = rtrim(rtrim(number_format($disponible * 100, 2, '.', ''), '0'), '.');
 
-        return "La pieza \"{$etiqueta}\" solo tiene {$pendiente} pieza(s) por pagar: el catálogo pide {$concepto->cantidad} y ya se pagaron {$pagado} (contando parcialidades).".$salida;
+        return "La pieza {$etiqueta} sólo tiene {$pendiente}% por pagar en {$proceso->nombre}.".$salida;
     }
 }

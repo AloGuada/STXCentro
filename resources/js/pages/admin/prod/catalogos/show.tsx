@@ -1,26 +1,46 @@
 import { FormField } from '@/components/form';
+import { ProcesosDeObra } from '@/components/prod/procesos-de-obra';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
 import { etiquetaDePieza } from '@/lib/prod/piezas';
-import type { Concepto, ProdCatalogo } from '@/types/models';
+import type { BreadcrumbItem } from '@/types';
+import type { Concepto, ProdCatalogo, ProdPieza, ProdProceso } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { CopyPlusIcon, DownloadIcon, GitCompareIcon, PlusIcon, UploadIcon } from 'lucide-react';
+import {
+    ChevronDownIcon,
+    ChevronRightIcon,
+    CopyPlusIcon,
+    DownloadIcon,
+    GitCompareIcon,
+    PlusIcon,
+    UploadIcon,
+} from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
 
 const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 type VersionRow = ProdCatalogo & { conceptos_count: number };
+type MarcaConPiezas = Concepto & { piezas?: ProdPieza[] };
 
 type Props = {
     catalogo: ProdCatalogo;
-    conceptos: Concepto[];
+    marcas: MarcaConPiezas[];
+    /** Los que paga la obra: una columna de avance por cada uno. */
+    procesos: ProdProceso[];
+    procesosDisponibles: ProdProceso[];
     versiones: VersionRow[];
     filters: { search?: string };
 };
 
-export default function CatalogoShow({ catalogo, conceptos, versiones, filters }: Props) {
+export default function CatalogoShow({
+    catalogo,
+    marcas,
+    procesos,
+    procesosDisponibles,
+    versiones,
+    filters,
+}: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
@@ -29,23 +49,31 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
     ];
 
     const [search, setSearch] = useState(filters.search ?? '');
+    const [abiertas, setAbiertas] = useState<number[]>([]);
+
+    const alternar = (marcaId: number) =>
+        setAbiertas((prev) => (prev.includes(marcaId) ? prev.filter((id) => id !== marcaId) : [...prev, marcaId]));
 
     const filtered = useMemo(() => {
-        if (!search) return conceptos;
+        if (!search) return marcas;
         const s = search.toLowerCase();
-        return conceptos.filter((c) =>
-            [c.qs, c.marca, c.etapa, c.descripcion].some((campo) => (campo ?? '').toLowerCase().includes(s)),
+        return marcas.filter(
+            (m) =>
+                [m.marca, m.etapa, m.descripcion].some((campo) => (campo ?? '').toLowerCase().includes(s)) ||
+                (m.piezas ?? []).some((p) => p.qs.toLowerCase().includes(s)),
         );
-    }, [conceptos, search]);
+    }, [marcas, search]);
+
+    /** Piezas pagadas de la marca en un proceso: la suma del avance de sus QS. */
+    const pagadasEn = (marca: MarcaConPiezas, procesoId: number) =>
+        (marca.piezas ?? []).reduce((sum, p) => sum + (p.avance?.[procesoId]?.capturado ?? 0), 0);
 
     const totals = useMemo(
         () => ({
-            count: filtered.length,
-            activos: filtered.filter((c) => c.activo).length,
-            piezas: filtered.reduce((sum, c) => sum + Number(c.cantidad), 0),
-            pagadas: filtered.reduce((sum, c) => sum + Number(c.capturado ?? 0), 0),
-            faltan: filtered.reduce((sum, c) => sum + Number(c.disponible ?? 0), 0),
-            pesoTotal: filtered.reduce((sum, c) => sum + Number(c.cantidad) * Number(c.peso_unitario), 0),
+            marcas: filtered.length,
+            piezas: filtered.reduce((sum, m) => sum + (m.piezas?.length ?? 0), 0),
+            declaradas: filtered.reduce((sum, m) => sum + Number(m.cantidad), 0),
+            pesoTotal: filtered.reduce((sum, m) => sum + (m.piezas?.length ?? 0) * Number(m.peso_unitario), 0),
         }),
         [filtered],
     );
@@ -66,8 +94,8 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
     const nuevaVersion = () => {
         if (
             confirm(
-                `¿Crear la versión ${catalogo.version + 1}? Se copian las ${conceptos.length} piezas y sus precios; ` +
-                    `la v${catalogo.version} queda congelada como histórico.`,
+                `¿Crear la versión ${catalogo.version + 1}? Se copian las ${totals.marcas} marcas con sus piezas y ` +
+                    `precios; la v${catalogo.version} queda congelada como histórico.`,
             )
         ) {
             router.post(`/admin/prod/catalogos/${catalogo.id}/nueva-version`);
@@ -116,7 +144,7 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                                     variant="primary"
                                 >
                                     <PlusIcon className="size-4" />
-                                    Nueva pieza
+                                    Nueva marca
                                 </ButtonLink>
                             </>
                         )}
@@ -129,6 +157,16 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                             Esta es una versión histórica: se conserva para consulta y para sostener la producción que
                             se capturó con ella, pero ya no se edita.
                         </span>
+                    </div>
+                )}
+
+                {catalogo.obra && catalogo.vigente && (
+                    <div className="mb-4">
+                        <ProcesosDeObra
+                            obra={catalogo.obra}
+                            procesosDeLaObra={procesos}
+                            procesosDisponibles={procesosDisponibles}
+                        />
                     </div>
                 )}
 
@@ -150,7 +188,7 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
 
                 <div className="mb-4 w-full max-w-xs">
                     <Input
-                        placeholder="Buscar por QS, marca, etapa o descripcion..."
+                        placeholder="Buscar por marca, etapa, QS o descripcion..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
@@ -161,86 +199,158 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                         <table className="table table-sm">
                             <thead className="bg-base-200 sticky top-0 z-10">
                                 <tr>
-                                    <th>QS</th>
+                                    <th></th>
                                     <th>Marca</th>
                                     <th>Etapa</th>
                                     <th>Descripcion</th>
                                     <th>Categoria</th>
-                                    <th className="text-right">Cantidad</th>
-                                    <th className="text-right">Pagadas</th>
-                                    <th className="text-right">Faltan</th>
-                                    <th className="text-right">Longitud (mm)</th>
+                                    <th className="text-right">Piezas</th>
+                                    {procesos.map((p) => (
+                                        <th key={p.id} className="text-right">
+                                            {p.nombre}
+                                        </th>
+                                    ))}
                                     <th className="text-right">Peso Unit. (kg)</th>
-                                    <th className="text-right">Peso Total (kg)</th>
                                     <th className="text-center">Estado</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filtered.length === 0 ? (
                                     <tr>
-                                        <td colSpan={12} className="text-base-content/50 py-6 text-center">
-                                            Este catálogo no tiene piezas todavía
+                                        <td
+                                            colSpan={9 + procesos.length}
+                                            className="text-base-content/50 py-6 text-center"
+                                        >
+                                            Este catálogo no tiene marcas todavía
                                         </td>
                                     </tr>
                                 ) : (
-                                    filtered.map((c) => (
-                                        <tr
-                                            key={c.id}
-                                            className={`hover ${catalogo.vigente ? 'cursor-pointer' : ''}`}
-                                            onClick={() =>
-                                                catalogo.vigente && router.visit(`/admin/prod/conceptos/${c.id}/edit`)
-                                            }
-                                        >
-                                            <td className="text-base-content/60 font-mono text-xs">
-                                                {c.qs ?? '—'}
-                                            </td>
-                                            <td className="font-medium">{c.marca}</td>
-                                            <td>
-                                                {c.etapa ? (
-                                                    <span className="badge badge-sm badge-ghost">{c.etapa}</span>
-                                                ) : (
-                                                    <span className="text-base-content/40">—</span>
-                                                )}
-                                            </td>
-                                            <td>{c.descripcion}</td>
-                                            <td>
-                                                {c.categoria ? (
-                                                    <span className="badge badge-sm badge-ghost">
-                                                        {c.categoria.nombre}
+                                    filtered.flatMap((m) => {
+                                        const piezas = m.piezas ?? [];
+                                        const abierta = abiertas.includes(m.id);
+                                        // El layout declara cuántas piezas tiene el modelo; si no
+                                        // cuadra con los QS cargados, el archivo vino incompleto.
+                                        const descuadre = piezas.length !== Number(m.cantidad);
+
+                                        const fila = (
+                                            <tr key={m.id} className="hover">
+                                                <td className="w-8">
+                                                    <button
+                                                        className="btn btn-ghost btn-xs"
+                                                        onClick={() => alternar(m.id)}
+                                                        aria-label={abierta ? 'Ocultar piezas' : 'Ver piezas'}
+                                                    >
+                                                        {abierta ? (
+                                                            <ChevronDownIcon className="size-4" />
+                                                        ) : (
+                                                            <ChevronRightIcon className="size-4" />
+                                                        )}
+                                                    </button>
+                                                </td>
+                                                <td className="font-medium">
+                                                    <Link
+                                                        href={`/admin/prod/conceptos/${m.id}/edit`}
+                                                        className="hover:underline"
+                                                    >
+                                                        {m.marca}
+                                                    </Link>
+                                                </td>
+                                                <td>
+                                                    {m.etapa ? (
+                                                        <span className="badge badge-sm badge-ghost">{m.etapa}</span>
+                                                    ) : (
+                                                        <span className="text-base-content/40">—</span>
+                                                    )}
+                                                </td>
+                                                <td>{m.descripcion}</td>
+                                                <td>
+                                                    {m.categoria ? (
+                                                        <span className="badge badge-sm badge-ghost">
+                                                            {m.categoria.nombre}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-base-content/40">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="text-right font-mono">
+                                                    <span className={descuadre ? 'text-warning font-semibold' : ''}>
+                                                        {piezas.length}
                                                     </span>
-                                                ) : (
-                                                    <span className="text-base-content/40">—</span>
-                                                )}
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {Number(c.cantidad).toLocaleString('es-MX')}
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {Number(c.capturado ?? 0).toLocaleString('es-MX')}
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {(c.disponible ?? 0) === 0 ? (
-                                                    <span className="badge badge-sm badge-success">Completa</span>
-                                                ) : (
-                                                    Number(c.disponible).toLocaleString('es-MX')
-                                                )}
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {c.longitud != null ? c.longitud.toLocaleString('es-MX') : '—'}
-                                            </td>
-                                            <td className="text-right font-mono">{fmt(c.peso_unitario)}</td>
-                                            <td className="text-right font-mono">
-                                                {fmt(Number(c.cantidad) * Number(c.peso_unitario))}
-                                            </td>
-                                            <td className="text-center">
-                                                <span
-                                                    className={`badge badge-sm ${c.activo ? 'badge-success' : 'badge-ghost'}`}
-                                                >
-                                                    {c.activo ? 'Activo' : 'Inactivo'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                    <span className="text-base-content/40"> / {m.cantidad}</span>
+                                                </td>
+                                                {procesos.map((p) => {
+                                                    const pagadas = pagadasEn(m, p.id);
+                                                    const completo = piezas.length > 0 && pagadas >= piezas.length;
+
+                                                    return (
+                                                        <td key={p.id} className="text-right font-mono">
+                                                            {completo ? (
+                                                                <span className="badge badge-sm badge-success">
+                                                                    Completa
+                                                                </span>
+                                                            ) : (
+                                                                <>
+                                                                    {pagadas.toLocaleString('es-MX', {
+                                                                        maximumFractionDigits: 2,
+                                                                    })}
+                                                                    <span className="text-base-content/40">
+                                                                        {' '}
+                                                                        / {piezas.length}
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                        </td>
+                                                    );
+                                                })}
+                                                <td className="text-right font-mono">{fmt(m.peso_unitario)}</td>
+                                                <td className="text-center">
+                                                    <span
+                                                        className={`badge badge-sm ${m.activo ? 'badge-success' : 'badge-ghost'}`}
+                                                    >
+                                                        {m.activo ? 'Activa' : 'Inactiva'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+
+                                        if (!abierta) {
+                                            return [fila];
+                                        }
+
+                                        return [
+                                            fila,
+                                            <tr key={`${m.id}-piezas`} className="bg-base-100">
+                                                <td></td>
+                                                <td colSpan={8 + procesos.length} className="py-3">
+                                                    <div className="mb-1 text-xs font-medium">
+                                                        Piezas de {etiquetaDePieza(m.marca, m.etapa)}
+                                                    </div>
+                                                    {piezas.length === 0 ? (
+                                                        <p className="text-base-content/50 text-sm">
+                                                            Esta marca no tiene QS cargados: vuelve a subir el layout.
+                                                        </p>
+                                                    ) : (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {piezas.map((pieza) => (
+                                                                <span
+                                                                    key={pieza.id}
+                                                                    className="badge badge-sm badge-ghost font-mono"
+                                                                    title={procesos
+                                                                        .map(
+                                                                            (p) =>
+                                                                                `${p.nombre}: ${Math.round((pieza.avance?.[p.id]?.capturado ?? 0) * 100)}%`,
+                                                                        )
+                                                                        .join(' · ')}
+                                                                >
+                                                                    {pieza.qs}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>,
+                                        ];
+                                    })
                                 )}
                             </tbody>
                         </table>
@@ -249,10 +359,11 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                     {filtered.length > 0 && (
                         <div className="border-base-300 bg-base-200 flex items-center justify-between border-t px-4 py-2 text-sm">
                             <span>
-                                {totals.count} modelos ({totals.activos} activos) ·{' '}
-                                <span className="font-mono">{totals.piezas.toLocaleString('es-MX')}</span> piezas ·{' '}
-                                <span className="font-mono">{totals.pagadas.toLocaleString('es-MX')}</span> pagadas ·{' '}
-                                <span className="font-mono">{totals.faltan.toLocaleString('es-MX')}</span> por pagar
+                                {totals.marcas} marcas ·{' '}
+                                <span className="font-mono">{totals.piezas.toLocaleString('es-MX')}</span> piezas
+                                cargadas de{' '}
+                                <span className="font-mono">{totals.declaradas.toLocaleString('es-MX')}</span> que
+                                declara el layout
                             </span>
                             <span className="font-mono">Peso total: {fmt(totals.pesoTotal)} kg</span>
                         </div>
@@ -269,11 +380,11 @@ export default function CatalogoShow({ catalogo, conceptos, versiones, filters }
                             </a>
                         </div>
                         <p className="text-base-content/60 text-sm">
-                            Columnas: QS, Marca, Etapa, Descripcion, Categoria, Cantidad, PesoKg, Area, LongitudMm. La
-                            categoria se crea automaticamente si no existe. La pieza se identifica por{' '}
-                            <strong>marca + etapa</strong>: si esa combinación ya existe en esta versión del catálogo se
-                            sobrescriben sus datos, y si cambia la etapa entra como pieza nueva. QS es el id de planta,
-                            se guarda como referencia pero no decide el emparejado.
+                            Columnas: QS, Marca, Etapa, Descripcion, Categoria, Cantidad, PesoKg, Area, LongitudMm. El
+                            archivo es una <strong>lista de piezas</strong>: un renglón por QS, repitiendo marca y etapa
+                            tantas veces como piezas tenga el modelo. La marca se identifica por{' '}
+                            <strong>marca + etapa</strong> y la pieza por su <strong>QS</strong>; si ya existen, se
+                            sobrescriben sus datos. La categoria se crea automaticamente si no existe.
                         </p>
 
                         <form onSubmit={handleCsvImport} className="flex items-end gap-4">

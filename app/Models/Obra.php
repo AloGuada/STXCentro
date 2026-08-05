@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -99,6 +100,17 @@ class Obra extends Model
     public function gruposPrecios(): HasMany
     {
         return $this->hasMany(Prod\GrupoPrecio::class, 'obra_id');
+    }
+
+    /**
+     * Procesos que se pagan como destajo en esta obra. Una obra que sólo suelda
+     * no ofrece pintura en la captura ni le pide tarifa al grupo de precios.
+     */
+    public function procesos(): BelongsToMany
+    {
+        return $this->belongsToMany(Prod\Proceso::class, 'prod_obra_procesos', 'obra_id', 'proceso_id')
+            ->withTimestamps()
+            ->orderBy('prod_procesos.orden');
     }
 
     /**

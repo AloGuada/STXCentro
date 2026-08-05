@@ -31,7 +31,6 @@ export default function ConceptosEdit({ concepto, categorias }: Props) {
     ];
 
     const { data, setData, put, processing, errors } = useForm({
-        qs: concepto.qs ?? '',
         marca: concepto.marca,
         etapa: concepto.etapa ?? '',
         descripcion: concepto.descripcion,
@@ -54,7 +53,7 @@ export default function ConceptosEdit({ concepto, categorias }: Props) {
 
             <div className="p-6">
                 <div className="w-full max-w-2xl">
-                    <h1 className="text-2xl font-semibold">Editar pieza</h1>
+                    <h1 className="text-2xl font-semibold">Editar marca</h1>
                     <p className="mb-6 mt-1 text-sm text-base-content/60">
                         {catalogo.nombre} v{catalogo.version}
                         {catalogo.obra ? ` · Obra ${catalogo.obra.no} - ${catalogo.obra.descripcion}` : ''}
@@ -86,21 +85,6 @@ export default function ConceptosEdit({ concepto, categorias }: Props) {
                                 />
                             </FormField>
                         </div>
-
-                        <FormField
-                            label="QS"
-                            htmlFor="qs"
-                            error={errors.qs}
-                            description="Id de la pieza en el sistema de planta. Solo referencia."
-                        >
-                            <Input
-                                id="qs"
-                                value={data.qs}
-                                onChange={(e) => setData('qs', e.target.value)}
-                                error={!!errors.qs}
-                                placeholder="Opcional"
-                            />
-                        </FormField>
 
                         <FormField label="Descripcion" htmlFor="descripcion" error={errors.descripcion} required>
                             <Input

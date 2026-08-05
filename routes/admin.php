@@ -102,7 +102,9 @@ use App\Http\Controllers\Admin\Prod\DestajoController as ProdDestajoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioConceptoController as ProdGrupoPrecioConceptoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioController as ProdGrupoPrecioController;
 use App\Http\Controllers\Admin\Prod\GrupoTrabajoController as ProdGrupoTrabajoController;
+use App\Http\Controllers\Admin\Prod\ObraProcesoController as ProdObraProcesoController;
 use App\Http\Controllers\Admin\Prod\PagoExtraController as ProdPagoExtraController;
+use App\Http\Controllers\Admin\Prod\ProcesoController as ProdProcesoController;
 use App\Http\Controllers\Admin\Prod\RegistroController as ProdRegistroController;
 use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtraController;
 use App\Http\Controllers\Admin\Prod\UbicacionController as ProdUbicacionController;
@@ -136,7 +138,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::resource('roles', RoleController::class);
     Route::resource('departamentos', DepartamentoController::class);
     Route::resource('obras', ObraController::class);
-    Route::post('obras/{obra}/import-conceptos', [ObraController::class, 'importConceptos'])->name('obras.import-conceptos');
     Route::post('proveedores/{proveedor}/aprobar', [ProveedorController::class, 'aprobar'])->name('proveedores.aprobar');
     Route::resource('proveedores', ProveedorController::class)->parameters(['proveedores' => 'proveedor']);
     Route::resource('regimenes-fiscales', RegimenFiscalController::class)
@@ -165,6 +166,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('catalogos', ProdCatalogoController::class)
             ->parameters(['catalogos' => 'catalogo'])
             ->except(['create', 'edit']);
+
+        // Procesos que se pagan como destajo y sus eventos del export de planta
+        Route::resource('procesos', ProdProcesoController::class)->parameters(['procesos' => 'proceso'])->except(['show']);
+        Route::put('obras/{obra}/procesos', [ProdObraProcesoController::class, 'update'])->name('obras.procesos.update');
 
         Route::get('conceptos/layout', [ProdConceptoController::class, 'descargarLayout'])->name('conceptos.layout');
         Route::resource('conceptos', ProdConceptoController::class)

@@ -1,10 +1,11 @@
 import { FormField } from '@/components/form';
+import { TarifasPorProceso } from '@/components/prod/tarifas-por-proceso';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Obra } from '@/types/models';
+import type { Obra, ProdProceso } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import { type FormEvent, useMemo } from 'react';
@@ -13,9 +14,11 @@ type Props = {
     obras: Obra[];
     /** Cuando se llega desde una obra, se da por dada y no se vuelve a elegir. */
     obra?: Obra | null;
+    /** Procesos que paga la obra: una tarifa por cada uno. */
+    procesos: ProdProceso[];
 };
 
-export default function GrupoPreciosCreate({ obras, obra }: Props) {
+export default function GrupoPreciosCreate({ obras, obra, procesos }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
@@ -26,10 +29,14 @@ export default function GrupoPreciosCreate({ obras, obra }: Props) {
         { title: 'Nuevo', href: '/admin/prod/grupo-precios/create' },
     ];
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors } = useForm<{
+        obra_id: string;
+        descripcion: string;
+        precios: Record<number, string>;
+    }>({
         obra_id: obra ? String(obra.id) : '',
         descripcion: '',
-        precio_kilo: '',
+        precios: {},
     });
 
     const obraOptions = useMemo(
@@ -83,18 +90,14 @@ export default function GrupoPreciosCreate({ obras, obra }: Props) {
                             />
                         </FormField>
 
-                        <FormField label="Precio por Kilo" htmlFor="precio_kilo" error={errors.precio_kilo} required>
-                            <Input
-                                id="precio_kilo"
-                                type="number"
-                                step="0.0001"
-                                min="0"
-                                value={data.precio_kilo}
-                                onChange={(e) => setData('precio_kilo', e.target.value)}
-                                error={!!errors.precio_kilo}
-                                placeholder="0.0000"
-                            />
-                        </FormField>
+                        <TarifasPorProceso
+                            procesos={procesos}
+                            valores={data.precios}
+                            onChange={(procesoId, valor) =>
+                                setData('precios', { ...data.precios, [procesoId]: valor })
+                            }
+                            errors={errors as Record<string, string>}
+                        />
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>

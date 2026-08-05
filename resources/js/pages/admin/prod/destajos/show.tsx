@@ -10,6 +10,8 @@ import { etiquetaDePieza } from '@/lib/prod/piezas';
 import type { BreadcrumbItem } from '@/types';
 import type {
     Concepto,
+    ProdPieza,
+    ProdProceso,
     Obra,
     ProdDestajo,
     ProdGrupoTrabajo,
@@ -28,7 +30,10 @@ type Props = {
     pagosExtraPreview?: Record<string, PagoExtraPreview[]>;
     piezasSinPrecio?: ProdPiezaSinPrecio[];
     gruposTrabajo?: ProdGrupoTrabajo[];
-    conceptos?: (Concepto & { obra?: Obra })[];
+    marcas?: (Concepto & { obra?: Obra; piezas?: ProdPieza[] })[];
+    procesos?: ProdProceso[];
+    procesosPorObra?: Record<number, number[]>;
+    avance?: Record<number, Record<number, { capturado: number; disponible: number }>>;
     tipos?: ProdTipoPagoExtra[];
     pendientes?: ProdPendienteLiquidar[];
     asistenciaFaltante?: { grupo: string; empleados: string[] }[];
@@ -40,7 +45,10 @@ export default function DestajosShow({
     pagosExtraPreview = {},
     piezasSinPrecio = [],
     gruposTrabajo = [],
-    conceptos = [],
+    marcas = [],
+    procesos = [],
+    procesosPorObra = {},
+    avance = {},
     tipos = [],
     pendientes = [],
     asistenciaFaltante = [],
@@ -157,7 +165,10 @@ export default function DestajosShow({
                                     </div>
                                     <div className="text-sm">
                                         Se pagarían en $0 al cerrar:{' '}
-                                        {piezasSinPrecio.map((p) => etiquetaDePieza(p.marca, p.etapa)).join(', ')}. Asígnales un grupo de precio.
+                                        {piezasSinPrecio
+                                            .map((p) => `${etiquetaDePieza(p.marca, p.etapa)} (${p.proceso})`)
+                                            .join(', ')}
+                                        . Asígnales un grupo de precio con tarifa para ese proceso.
                                     </div>
                                 </div>
                             </div>
@@ -169,7 +180,14 @@ export default function DestajosShow({
                             gruposTrabajo={gruposTrabajo}
                         />
 
-                        <CapturarProduccion destajo={destajo} conceptos={conceptos} gruposTrabajo={gruposTrabajo} />
+                        <CapturarProduccion
+                            destajo={destajo}
+                            marcas={marcas}
+                            procesos={procesos}
+                            procesosPorObra={procesosPorObra}
+                            avance={avance}
+                            gruposTrabajo={gruposTrabajo}
+                        />
                         <AgregarPagoExtra destajo={destajo} tipos={tipos} gruposTrabajo={gruposTrabajo} />
 
                         <div>

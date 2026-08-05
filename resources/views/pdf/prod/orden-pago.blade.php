@@ -100,10 +100,11 @@
     <table class="grid">
         <thead>
             <tr>
-                <th style="width: 11%;">Marca</th>
-                <th style="width: 7%;">Etapa</th>
+                <th style="width: 10%;">Marca</th>
+                <th style="width: 6%;">Etapa</th>
+                <th style="width: 9%;">Proceso</th>
                 <th>Descripción</th>
-                <th style="width: 13%;">Obra</th>
+                <th style="width: 12%;">Obra</th>
                 <th style="width: 6%;">Pzs</th>
                 <th style="width: 5%;">%</th>
                 <th style="width: 8%;">Largo (mm)</th>
@@ -118,6 +119,7 @@
             <tr>
                 <td>{{ $p['marca'] }}</td>
                 <td>{{ $p['etapa'] ?? '-' }}</td>
+                <td>{{ $p['proceso'] ?? '-' }}</td>
                 <td>{{ $p['descripcion'] }}</td>
                 <td>{{ $p['obra'] }}</td>
                 <td class="text-right">{{ number_format($p['pzs']) }}</td>
@@ -129,12 +131,12 @@
                 <td class="text-right">{{ $mon($p['importe']) }}</td>
             </tr>
             @empty
-            <tr><td colspan="11" class="empty-cell">Sin producción capturada</td></tr>
+            <tr><td colspan="12" class="empty-cell">Sin producción capturada</td></tr>
             @endforelse
         </tbody>
         <tfoot>
             <tr class="total-row">
-                <td colspan="8" class="text-right">TOTAL PRODUCCIÓN</td>
+                <td colspan="9" class="text-right">TOTAL PRODUCCIÓN</td>
                 <td class="text-right">{{ number_format($g['total_kilos'], 3) }}</td>
                 <td></td>
                 <td class="text-right">{{ $mon($g['total_produccion']) }}</td>

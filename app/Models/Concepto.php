@@ -5,12 +5,22 @@ namespace App\Models;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
 use App\Models\Prod\GrupoPrecioConcepto;
+use App\Models\Prod\Pieza;
 use App\Models\Prod\Registro;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
+/**
+ * La marca: el modelo del catálogo, con su descripción, peso, longitud y
+ * categoría.
+ *
+ * No se paga contra esta fila. `cantidad` dice cuántas piezas pide el modelo y
+ * de aquí cuelgan esas unidades como `Pieza`, una por QS; el destajo se paga
+ * pieza por pieza. La tabla conserva el nombre `conceptos` por su historia.
+ */
 class Concepto extends Model
 {
     /** @use HasFactory<\Database\Factories\ConceptoFactory> */
@@ -25,7 +35,6 @@ class Concepto extends Model
         'obra_id',
         'catalogo_id',
         'concepto_origen_id',
-        'qs',
         'marca',
         'etapa',
         'descripcion',
@@ -62,18 +71,24 @@ class Concepto extends Model
     }
 
     /**
-     * Pieza de la que se copió esta al versionar el catálogo. Sostiene el
-     * conteo de lo pagado cuando la marca cambia entre versiones.
+     * Marca de la que se copió ésta al versionar el catálogo. Mantiene atado el
+     * histórico cuando la marca cambia de nombre entre versiones.
      */
     public function origen(): BelongsTo
     {
         return $this->belongsTo(self::class, 'concepto_origen_id');
     }
 
+    /** Las unidades físicas del modelo, una por QS del layout. */
+    public function piezas(): HasMany
+    {
+        return $this->hasMany(Pieza::class, 'concepto_id');
+    }
+
     /**
-     * Sólo las piezas del catálogo vigente de su obra. Indispensable en captura
-     * de producción y asignación de precios: tras copiar una versión la misma
-     * marca existe en varios catálogos y sin este filtro queda ambigua.
+     * Sólo las marcas del catálogo vigente de su obra. Indispensable en la
+     * asignación de precios: tras copiar una versión la misma marca existe en
+     * varios catálogos y sin este filtro queda ambigua.
      *
      * @param  \Illuminate\Database\Eloquent\Builder<self>  $query
      * @return \Illuminate\Database\Eloquent\Builder<self>
@@ -135,8 +150,9 @@ class Concepto extends Model
         return $this->hasMany(GrupoPrecioConcepto::class, 'concepto_id');
     }
 
-    public function registros(): HasMany
+    /** Producción capturada de cualquiera de sus piezas, en cualquier proceso. */
+    public function registros(): HasManyThrough
     {
-        return $this->hasMany(Registro::class, 'concepto_id');
+        return $this->hasManyThrough(Registro::class, Pieza::class, 'concepto_id', 'pieza_id');
     }
 }

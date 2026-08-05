@@ -2,6 +2,7 @@
 
 use App\Models\Concepto;
 use App\Models\Obra;
+use App\Models\Prod\Catalogo;
 use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\User;
@@ -62,7 +63,10 @@ describe('admin grupo precios', function () {
     });
 
     test('create sin obra en la url ofrece el selector', function () {
-        Obra::factory()->count(2)->create();
+        // Solo obras con catalogo: sin marcas no hay a que ponerle precio.
+        Obra::factory()->count(2)->create()->each(
+            fn (Obra $obra) => Catalogo::factory()->create(['obra_id' => $obra->id, 'vigente' => true])
+        );
 
         $this->actingAs($this->user)
             ->get(route('admin.prod.grupo-precios.create'))
@@ -73,7 +77,7 @@ describe('admin grupo precios', function () {
     });
 
     test('create cae al selector si la obra de la url no existe', function () {
-        Obra::factory()->create();
+        Catalogo::factory()->create(['vigente' => true]);
 
         $this->actingAs($this->user)
             ->get(route('admin.prod.grupo-precios.create', ['obra_id' => 99999]))

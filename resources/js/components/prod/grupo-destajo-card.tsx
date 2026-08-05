@@ -1,11 +1,21 @@
 import { FormattedDate } from '@/components/ui/formatted-date';
 import { etiquetaDePieza } from '@/lib/prod/piezas';
-import type { Concepto, Obra, ProdGrupoTrabajo, ProdPagoExtra, ProdRegistro, ProdTipoPagoExtra } from '@/types/models';
+import type {
+    Concepto,
+    Obra,
+    ProdGrupoTrabajo,
+    ProdPagoExtra,
+    ProdPieza,
+    ProdProceso,
+    ProdRegistro,
+    ProdTipoPagoExtra,
+} from '@/types/models';
 import { router } from '@inertiajs/react';
 import { Trash2Icon } from 'lucide-react';
 
 export type RegistroPreview = ProdRegistro & {
-    concepto: Concepto & { obra?: Obra };
+    pieza?: ProdPieza & { marca?: Concepto & { obra?: Obra } };
+    proceso?: ProdProceso;
     grupo_trabajo?: ProdGrupoTrabajo;
 };
 
@@ -25,12 +35,10 @@ type Props = {
 
 export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra }: Props) {
     const totalExtras = pagosExtra.reduce((acc, pe) => acc + Number(pe.monto ?? pe.precio * pe.dias * pe.personas), 0);
-    const totalPiezas = registros.reduce((acc, r) => acc + r.cantidad, 0);
-    // Equivalentes: lo que realmente se gasta del catalogo con las parcialidades.
-    const totalEquivalentes = registros.reduce(
-        (acc, r) => acc + (r.cantidad * Number(r.porcentaje ?? 100)) / 100,
-        0,
-    );
+    // Un renglon es una pieza; los equivalentes son lo que realmente se gasta
+    // del catalogo cuando hay parcialidades.
+    const totalPiezas = registros.length;
+    const totalEquivalentes = registros.reduce((acc, r) => acc + Number(r.porcentaje ?? 100) / 100, 0);
     const hayParciales = registros.some((r) => Number(r.porcentaje ?? 100) < 100);
 
     const eliminarRegistro = (id: number) => {
@@ -63,8 +71,8 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                             <thead>
                                 <tr>
                                     <th>Pieza</th>
+                                    <th>Proceso</th>
                                     <th>Fecha</th>
-                                    <th className="text-right">Cantidad</th>
                                     <th className="text-right">%</th>
                                     <th></th>
                                 </tr>
@@ -80,11 +88,22 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                                     registros.map((r) => (
                                         <tr key={r.id} className="hover">
                                             <td>
-                                                <span className="font-medium">{etiquetaDePieza(r.concepto?.marca, r.concepto?.etapa)}</span>{' '}
-                                                <span className="text-base-content/60">{r.concepto?.descripcion}</span>
+                                                <span className="font-medium">
+                                                    {etiquetaDePieza(r.pieza?.marca?.marca, r.pieza?.marca?.etapa)}
+                                                </span>{' '}
+                                                <span className="font-mono text-xs">QS {r.pieza?.qs}</span>{' '}
+                                                <span className="text-base-content/60">
+                                                    {r.pieza?.marca?.descripcion}
+                                                </span>
                                             </td>
-                                            <td className="font-mono text-xs"><FormattedDate value={r.fecha} /></td>
-                                            <td className="text-right font-mono">{r.cantidad}</td>
+                                            <td>
+                                                <span className="badge badge-sm badge-ghost">
+                                                    {r.proceso?.nombre ?? '—'}
+                                                </span>
+                                            </td>
+                                            <td className="font-mono text-xs">
+                                                <FormattedDate value={r.fecha} />
+                                            </td>
                                             <td className="text-right font-mono">
                                                 {Number(r.porcentaje ?? 100) < 100 ? (
                                                     <span className="badge badge-sm badge-warning">

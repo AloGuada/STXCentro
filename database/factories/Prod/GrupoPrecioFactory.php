@@ -21,7 +21,6 @@ class GrupoPrecioFactory extends Factory
         return [
             'obra_id' => Obra::factory(),
             'descripcion' => fake()->words(2, true),
-            'precio_kilo' => fake()->randomFloat(4, 1, 50),
         ];
     }
 }

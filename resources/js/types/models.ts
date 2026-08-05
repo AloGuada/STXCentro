@@ -591,17 +591,18 @@ export type ProdCategoriaEmpleado = {
 
 /** Pieza pagada a medias que todavía tiene saldo por liquidar. */
 export type ProdPendienteLiquidar = {
-    concepto_id: number;
+    pieza_id: number;
+    qs: string;
     marca: string;
     etapa: string | null;
     descripcion: string;
+    proceso_id: number;
+    proceso: string;
     obra: string;
     grupo_trabajo_id: number | null;
     grupo_trabajo: string | null;
-    cantidad_catalogo: number;
     pagado: number;
     saldo: number;
-    cantidad_sugerida: number;
     porcentaje_sugerido: number;
 };
 
@@ -620,18 +621,18 @@ export type ProdCatalogo = {
     updated_at: string;
 };
 
+/**
+ * La marca: el modelo del catálogo. `cantidad` dice cuántas piezas pide, y esas
+ * unidades viven en `piezas`, una por QS. El destajo se paga contra la pieza,
+ * no contra la marca.
+ */
 export type Concepto = {
     id: number;
     obra_id: number;
     catalogo_id: number | null;
     catalogo?: ProdCatalogo;
-    /** Id de la pieza en el sistema de planta. Informativo: no identifica al modelo. */
-    qs: string | null;
     marca: string;
-    /**
-     * Etapa de la obra. La marca sola no identifica la pieza: un catálogo puede
-     * repetirla en varias etapas, así que el modelo es el par marca + etapa.
-     */
+    /** Etapa de la obra. Junto con la marca identifica el modelo. */
     etapa: string | null;
     descripcion: string;
     cantidad: number;
@@ -642,12 +643,56 @@ export type Concepto = {
     activo: boolean;
     obra?: Obra;
     categoria?: ProdCategoria;
-    registros_sum_cantidad?: number;
-    /** Piezas ya capturadas de este modelo en la obra (todas las versiones del catálogo). */
-    capturado?: number;
-    /** Piezas que aún se pueden capturar segun el catalogo vigente. */
-    disponible?: number;
+    piezas?: ProdPieza[];
     grupo_precio_conceptos?: ProdGrupoPrecioConcepto[];
+    created_at: string;
+    updated_at: string;
+};
+
+/** Una pieza física del catálogo, identificada por su QS. */
+export type ProdPieza = {
+    id: number;
+    catalogo_id: number;
+    concepto_id: number;
+    qs: string;
+    pieza_origen_id: number | null;
+    activo: boolean;
+    marca?: Concepto;
+    /** Avance por proceso, inyectado por AvanceDePiezas: procesoId => fracción. */
+    avance?: Record<number, { capturado: number; disponible: number }>;
+    created_at: string;
+    updated_at: string;
+};
+
+/** Proceso que se paga como destajo: soldadura, pintura, etc. */
+export type ProdProceso = {
+    id: number;
+    nombre: string;
+    orden: number;
+    activo: boolean;
+    eventos?: ProdProcesoEvento[];
+    registros_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+/** Número de evento del export de planta que dispara el pago de un proceso. */
+export type ProdProcesoEvento = {
+    id: number;
+    proceso_id: number;
+    evento: string;
+    descripcion: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+/** Tarifa por kilo de un proceso dentro de un grupo de precios. */
+export type ProdGrupoPrecioProceso = {
+    id: number;
+    grupo_precio_id: number;
+    proceso_id: number;
+    precio_kilo: number;
+    proceso?: ProdProceso;
     created_at: string;
     updated_at: string;
 };
@@ -664,7 +709,8 @@ export type ProdGrupoPrecio = {
     id: number;
     obra_id: number;
     descripcion: string;
-    precio_kilo: number;
+    /** Una tarifa por proceso: soldar y pintar la misma pieza no valen igual. */
+    precios?: ProdGrupoPrecioProceso[];
     obra?: Obra;
     grupo_precio_conceptos_count?: number;
     conceptos?: Concepto[];
@@ -707,15 +753,17 @@ export type ProdGrupoEmpleado = {
     updated_at: string;
 };
 
+/** Una pieza, en un proceso, en una fecha. Sin cantidad: un renglón es un QS. */
 export type ProdRegistro = {
     id: number;
     fecha: string;
-    concepto_id: number;
+    pieza_id: number;
+    proceso_id: number;
     grupo_trabajo_id: number;
-    cantidad: number;
-    /** Avance pagado de ese lote; menos de 100 deja saldo por liquidar después. */
+    /** Avance pagado de esa pieza; menos de 100 deja saldo por liquidar después. */
     porcentaje: number;
-    concepto?: Concepto;
+    pieza?: ProdPieza;
+    proceso?: ProdProceso;
     grupo_trabajo?: ProdGrupoTrabajo;
     created_at: string;
     updated_at: string;
@@ -735,12 +783,13 @@ export type ProdDestajo = {
     updated_at: string;
 };
 
+/** Marca con producción capturada que no tiene tarifa para ese proceso. */
 export type ProdPiezaSinPrecio = {
     concepto_id: number;
     marca: string;
     etapa: string | null;
-    descripcion: string;
-    cantidad: number;
+    proceso: string;
+    piezas: number;
 };
 
 export type ProdLiquidacion = {
@@ -766,22 +815,24 @@ export type ProdLiquidacion = {
 export type ProdLiquidacionDetalle = {
     id: number;
     liquidacion_id: number;
-    concepto_id: number;
+    concepto_id: number | null;
     /** Snapshot del renglón al cerrar: no se relee del catálogo. */
+    pieza_id: number | null;
+    qs: string | null;
     obra_id: number | null;
     marca: string | null;
     etapa: string | null;
+    proceso_id: number | null;
+    proceso_nombre: string | null;
     descripcion: string | null;
     peso_unitario: number | null;
     longitud: number | null;
     grupo_precio_id: number;
-    cantidad: number;
-    /** Avance pagado de ese lote; los kilos ya vienen prorrateados por este %. */
+    /** Avance pagado de esa pieza; los kilos ya vienen prorrateados por este %. */
     porcentaje: number;
     kilos: number;
     precio_kilo_aplicado: number;
     total: number;
-    concepto?: Concepto;
     created_at: string;
     updated_at: string;
 };

@@ -5,6 +5,7 @@ use App\Models\Obra;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
+use App\Models\Prod\Pieza;
 use App\Models\Prod\Registro;
 use App\Models\Proyecto;
 use App\Models\User;
@@ -155,7 +156,7 @@ describe('show del catalogo', function () {
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/prod/catalogos/show')
-            ->has('conceptos', 2)
+            ->has('marcas', 2)
             ->has('versiones', 2)
         );
     });
@@ -209,12 +210,16 @@ describe('nueva version del catalogo', function () {
             'obra_id' => $catalogo->obra_id,
             'catalogo_id' => $catalogo->id,
         ]);
-        $registro = Registro::factory()->create(['concepto_id' => $concepto->id]);
+        $pieza = Pieza::factory()->create([
+            'concepto_id' => $concepto->id,
+            'catalogo_id' => $catalogo->id,
+        ]);
+        $registro = Registro::factory()->create(['pieza_id' => $pieza->id]);
 
         app(VersionadorCatalogo::class)->nuevaVersion($catalogo);
 
-        expect($registro->fresh()->concepto_id)->toBe($concepto->id)
-            ->and($concepto->fresh()->catalogo_id)->toBe($catalogo->id);
+        expect($registro->fresh()->pieza_id)->toBe($pieza->id)
+            ->and($pieza->fresh()->catalogo_id)->toBe($catalogo->id);
     });
 
     test('no se puede versionar un catalogo historico', function () {
@@ -318,7 +323,12 @@ describe('baja de catalogo', function () {
             'obra_id' => $catalogo->obra_id,
             'catalogo_id' => $catalogo->id,
         ]);
-        Registro::factory()->create(['concepto_id' => $concepto->id]);
+        Registro::factory()->create([
+            'pieza_id' => Pieza::factory()->create([
+                'concepto_id' => $concepto->id,
+                'catalogo_id' => $catalogo->id,
+            ])->id,
+        ]);
 
         $response = $this->actingAs($this->user)
             ->delete(route('admin.prod.catalogos.destroy', $catalogo));
@@ -369,19 +379,28 @@ describe('comparar versiones con marcas repetidas', function () {
             ->and($diff['modificadas'][0]['etapa'])->toBe('2');
     });
 
-    test('versionar arrastra qs y etapa a la copia', function () {
+    test('versionar arrastra la etapa y copia las piezas con su QS', function () {
         $catalogo = Catalogo::factory()->create();
-        Concepto::factory()->create([
+        $marca = Concepto::factory()->create([
             'obra_id' => $catalogo->obra_id,
             'catalogo_id' => $catalogo->id,
-            'qs' => '1042',
             'marca' => 'V-01',
             'etapa' => 'FASE B',
         ]);
+        $original = Pieza::factory()->create([
+            'concepto_id' => $marca->id,
+            'catalogo_id' => $catalogo->id,
+            'qs' => '1042',
+        ]);
 
-        $copia = app(VersionadorCatalogo::class)->nuevaVersion($catalogo)->conceptos()->sole();
+        $nueva = app(VersionadorCatalogo::class)->nuevaVersion($catalogo);
+        $copiaMarca = $nueva->conceptos()->sole();
+        $copiaPieza = $nueva->piezas()->sole();
 
-        expect($copia->qs)->toBe('1042')
-            ->and($copia->etapa)->toBe('FASE B');
+        expect($copiaMarca->etapa)->toBe('FASE B')
+            ->and($copiaPieza->qs)->toBe('1042')
+            ->and($copiaPieza->concepto_id)->toBe($copiaMarca->id)
+            // El linaje es lo que sostiene el acumulado entre versiones.
+            ->and($copiaPieza->pieza_origen_id)->toBe($original->id);
     });
 });
