@@ -270,3 +270,28 @@ describe('estados de asistencia', function () {
         ]);
     });
 });
+
+describe('semana sin grupos participantes', function () {
+    test('la cuadricula ofrece los grupos activos aunque nadie tenga produccion', function () {
+        Registro::query()->delete();
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.destajos.asistencia', $this->destajo))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('grupos', 1)
+                // Nadie cobra: nada bloquea el cierre, pero la captura sigue viva.
+                ->has('participantes', 0)
+            );
+    });
+
+    test('se puede guardar la asistencia aunque ningun grupo participe', function () {
+        Registro::query()->delete();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.asistencia.store', $this->destajo), ['marcas' => guardarSemana()])
+            ->assertSessionHasNoErrors();
+
+        expect(Asistencia::where('destajo_id', $this->destajo->id)->count())->toBe(7);
+    });
+});
