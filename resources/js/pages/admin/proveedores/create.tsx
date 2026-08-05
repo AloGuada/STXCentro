@@ -281,23 +281,26 @@ export default function ProveedoresCreate({ regimenes, bancos }: Props) {
 
                                 <div className="divider" />
                                 <h2 className="text-lg font-medium">Acceso al Portal</h2>
-                                <FormField label={data.tiene_acceso_portal ? 'Email (usuario del portal)' : 'Email (opcional)'} htmlFor="email" error={errors.email} required={data.tiene_acceso_portal}>
-                                    <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} />
-                                </FormField>
                                 <label className="label cursor-pointer gap-2 w-fit">
                                     <input type="checkbox" className="checkbox" checked={data.tiene_acceso_portal} onChange={(e) => setData('tiene_acceso_portal', e.target.checked)} />
                                     <span className="label-text">Tiene acceso al portal</span>
                                 </label>
 
+                                {/* El email y la contraseña son la cuenta del portal: sin acceso no aplican. */}
                                 {data.tiene_acceso_portal && (
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <FormField label="Contraseña" htmlFor="password" error={errors.password} required>
-                                            <Input id="password" type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} />
+                                    <>
+                                        <FormField label="Email (usuario del portal)" htmlFor="email" error={errors.email} required>
+                                            <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} />
                                         </FormField>
-                                        <FormField label="Confirmar Contraseña" htmlFor="password_confirmation" error={errors.password_confirmation} required>
-                                            <Input id="password_confirmation" type="password" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} />
-                                        </FormField>
-                                    </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FormField label="Contraseña" htmlFor="password" error={errors.password} required>
+                                                <Input id="password" type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} />
+                                            </FormField>
+                                            <FormField label="Confirmar Contraseña" htmlFor="password_confirmation" error={errors.password_confirmation} required>
+                                                <Input id="password_confirmation" type="password" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} />
+                                            </FormField>
+                                        </div>
+                                    </>
                                 )}
 
                                 <div className="divider" />

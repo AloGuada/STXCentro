@@ -1,7 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { CheckCircle2Icon, Loader2Icon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { useCan } from '@/hooks/use-can';
 import { DocumentoField, type DocumentoActual } from '@/components/costos/documento-field';
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
@@ -9,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
 import { Select } from '@/components/ui/select';
+import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Banco, Proveedor, RegimenFiscal } from '@/types/models';
@@ -344,16 +344,17 @@ export default function ProveedoresEdit({ proveedor, documentos, tienePassword, 
 
                                 <div className="divider" />
                                 <h2 className="text-lg font-medium">Acceso al Portal</h2>
-                                <FormField label={data.tiene_acceso_portal ? 'Email (usuario del portal)' : 'Email (opcional)'} htmlFor="email" error={errors.email} required={data.tiene_acceso_portal}>
-                                    <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} />
-                                </FormField>
                                 <label className="label cursor-pointer gap-2 w-fit">
                                     <input type="checkbox" className="checkbox" checked={data.tiene_acceso_portal} onChange={(e) => setData('tiene_acceso_portal', e.target.checked)} />
                                     <span className="label-text">Tiene acceso al portal</span>
                                 </label>
 
+                                {/* El email y la contraseña son la cuenta del portal: sin acceso no aplican. */}
                                 {data.tiene_acceso_portal && (
                                     <>
+                                        <FormField label="Email (usuario del portal)" htmlFor="email" error={errors.email} required>
+                                            <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} />
+                                        </FormField>
                                         {tienePassword && (
                                             <p className="text-sm text-base-content/60">El proveedor ya tiene una contraseña. Deja los campos vacíos para mantenerla.</p>
                                         )}
