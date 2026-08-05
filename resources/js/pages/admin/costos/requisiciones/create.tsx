@@ -1,11 +1,16 @@
 import { Head, useForm } from '@inertiajs/react';
 import {
     AlertCircleIcon,
+    CopyIcon,
     FileTextIcon,
     PlusIcon,
     Trash2Icon,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import {
+    CopiarRequisicionModal,
+    type RequisicionCopiada,
+} from '@/components/costos/copiar-requisicion-modal';
 import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
 import { CreatableCombobox } from '@/components/ui/creatable-combobox';
@@ -140,6 +145,42 @@ export default function RequisicionesCreate({
     const [requiereFirmaAdicional, setRequiereFirmaAdicional] = useState(
         Boolean(cached?.firma_adicional_aprobador_id),
     );
+
+    const [copiarAbierto, setCopiarAbierto] = useState(false);
+
+    /**
+     * Vuelca una requisición anterior en el formulario.
+     *
+     * Sin centro de costos se traen sólo los materiales, que es el caso de pedir
+     * lo mismo para otra obra: el destino presupuestal se elige de nuevo.
+     */
+    const copiarRequisicion = (origen: RequisicionCopiada, conCentroCostos: boolean) => {
+        const traePresupuesto = conCentroCostos && !origen.cabecera.sin_centro_costos;
+
+        // Multipresupuesto es cuando las partidas cargan a presupuestos distintos:
+        // la cabecera va vacía y cada renglón trae el suyo.
+        setMultipresupuesto(traePresupuesto && origen.cabecera.presupuesto_id === null);
+
+        setData((prev) => ({
+            ...prev,
+            departamento_id: origen.cabecera.departamento_id ?? prev.departamento_id,
+            sin_centro_costos: conCentroCostos ? origen.cabecera.sin_centro_costos : false,
+            presupuesto_id: traePresupuesto ? (origen.cabecera.presupuesto_id ?? '') : '',
+            justificacion: origen.cabecera.justificacion ?? '',
+            detalles: origen.detalles.map((d) => ({
+                producto_id: d.producto_id,
+                descripcion: d.descripcion,
+                unidad: d.unidad,
+                cantidad: d.cantidad,
+                presupuesto_id: traePresupuesto ? (d.presupuesto_id ?? '') : '',
+                obra_rubro_id: traePresupuesto ? (d.obra_rubro_id ?? '') : '',
+                uso_cfdi_id: d.uso_cfdi_id ?? defaultUsoId,
+                notas: d.notas ?? '',
+            })),
+        }));
+
+        clearErrors();
+    };
 
     const addDocumentos = (files: FileList | null) => {
         if (!files || files.length === 0) {
@@ -286,9 +327,17 @@ export default function RequisicionesCreate({
             <Head title="Nueva requisición" />
 
             <form onSubmit={handleSubmit} className="p-6">
-                <h1 className="mb-4 text-2xl font-semibold">
-                    Nueva requisición
-                </h1>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <h1 className="text-2xl font-semibold">Nueva requisición</h1>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setCopiarAbierto(true)}
+                    >
+                        <CopyIcon className="size-4" />
+                        Copiar de otra requisición
+                    </Button>
+                </div>
 
                 {Object.keys(errors).length > 0 && (
                     <div className="mb-4 alert items-start alert-error">
@@ -862,6 +911,12 @@ export default function RequisicionesCreate({
                     </Button>
                 </div>
             </form>
+
+            <CopiarRequisicionModal
+                open={copiarAbierto}
+                onClose={() => setCopiarAbierto(false)}
+                onCopiar={copiarRequisicion}
+            />
         </AppLayout>
     );
 }

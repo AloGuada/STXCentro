@@ -34,6 +34,7 @@ use App\Services\Costos\OrdenCompraGenerator;
 use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -293,19 +294,107 @@ class RequisicionController extends Controller
             ->with('success', "Requisición duplicada en {$nueva->folio} (borrador).");
     }
 
+    /**
+     * Solo ve la requisición quien puede ver todas, el solicitante, o un
+     * aprobador asignado en su cadena de firmas.
+     */
+    private function puedeVer(Requisicion $requisicion): bool
+    {
+        $user = auth()->user();
+
+        return $user->can('costos.requisiciones.ver-todas')
+            || $requisicion->solicitante_id === $user->id
+            || $requisicion->aprobaciones()->where('aprobador_id', $user->id)->exists();
+    }
+
+    /**
+     * Requisiciones que el usuario puede copiar al formulario de alta.
+     *
+     * Se acota con el mismo criterio que `show`, no con el del listado: copiar
+     * trae las partidas completas, así que no debe alcanzar a requisiciones que
+     * el usuario no podría abrir.
+     */
+    public function copiables(Request $request): JsonResponse
+    {
+        Gate::authorize('costos.requisiciones.crear');
+
+        $user = $request->user();
+
+        $requisiciones = Requisicion::query()
+            ->with(['solicitante:id,name', 'departamento:id,descripcion'])
+            ->withCount('detalles')
+            ->unless($user->can('costos.requisiciones.ver-todas'), function ($q) use ($user) {
+                $q->where(function ($sub) use ($user) {
+                    $sub->where('solicitante_id', $user->id)
+                        ->orWhereHas('aprobaciones', fn ($a) => $a->where('aprobador_id', $user->id));
+                });
+            })
+            ->when($request->string('search')->toString(), function ($q, string $search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('folio', 'like', "%{$search}%")
+                        ->orWhereHas('solicitante', fn ($u) => $u->where('name', 'like', "%{$search}%"))
+                        ->orWhere('justificacion', 'like', "%{$search}%");
+                });
+            })
+            ->latest('id')
+            ->limit(25)
+            ->get();
+
+        return response()->json([
+            'requisiciones' => $requisiciones->map(fn (Requisicion $r) => [
+                'id' => $r->id,
+                'folio' => $r->folio,
+                'fecha' => $r->created_at?->toDateString(),
+                'solicitante' => $r->solicitante?->name,
+                'departamento' => $r->departamento?->descripcion,
+                'estatus' => $r->estatus?->value,
+                'partidas' => $r->detalles_count,
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * Contenido de una requisición listo para prellenar el formulario de alta.
+     *
+     * Devuelve la cabecera y las partidas por separado para que la pantalla
+     * decida si arrastra también el destino presupuestal: copiar los mismos
+     * materiales hacia otra obra es un caso normal.
+     */
+    public function paraCopiar(Requisicion $requisicion): JsonResponse
+    {
+        Gate::authorize('costos.requisiciones.crear');
+        abort_unless($this->puedeVer($requisicion), 403);
+
+        $requisicion->load(['detalles.producto:id,codigo,descripcion,unidad', 'detalles.obraRubro:id,presupuesto_id']);
+
+        return response()->json([
+            'folio' => $requisicion->folio,
+            'cabecera' => [
+                'departamento_id' => $requisicion->departamento_id,
+                'presupuesto_id' => $requisicion->presupuesto_id,
+                'sin_centro_costos' => (bool) $requisicion->sin_centro_costos,
+                'justificacion' => $requisicion->justificacion,
+            ],
+            'detalles' => $requisicion->detalles->map(fn ($d) => [
+                'producto_id' => $d->producto_id,
+                'descripcion' => $d->descripcion,
+                'unidad' => $d->unidad,
+                'cantidad' => (float) $d->cantidad,
+                // El presupuesto de la partida sale de su centro de costos: el
+                // formulario multipresupuesto lo necesita por renglón.
+                'presupuesto_id' => $d->obraRubro?->presupuesto_id,
+                'obra_rubro_id' => $d->obra_rubro_id,
+                'uso_cfdi_id' => $d->uso_cfdi_id,
+                'notas' => $d->notas,
+            ])->values(),
+        ]);
+    }
+
     public function show(Requisicion $requisicion): Response
     {
         Gate::authorize('costos.requisiciones.ver');
 
-        // Solo ve la requisición quien puede ver todas, el solicitante, o un
-        // aprobador asignado en su cadena de firmas.
-        $user = auth()->user();
-        abort_unless(
-            $user->can('costos.requisiciones.ver-todas')
-                || $requisicion->solicitante_id === $user->id
-                || $requisicion->aprobaciones()->where('aprobador_id', $user->id)->exists(),
-            403,
-        );
+        abort_unless($this->puedeVer($requisicion), 403);
 
         $requisicion->load([
             'solicitante:id,name',

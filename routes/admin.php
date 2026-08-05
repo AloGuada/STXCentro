@@ -253,6 +253,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('facturas/{factura}/anticipos-disponibles', [CostosAnticipoController::class, 'disponiblesParaFactura'])->name('facturas.anticipos-disponibles');
 
         // Requisiciones (Fase 10.2)
+        // Antes del resource: si no, {requisicion} se traga /copiables.
+        Route::get('requisiciones/copiables', [CostosRequisicionController::class, 'copiables'])->name('requisiciones.copiables');
+        Route::get('requisiciones/{requisicion}/para-copiar', [CostosRequisicionController::class, 'paraCopiar'])->name('requisiciones.para-copiar');
         Route::resource('requisiciones', CostosRequisicionController::class)->parameters(['requisiciones' => 'requisicion']);
         Route::get('requisiciones/{requisicion}/pdf', [CostosRequisicionController::class, 'pdf'])->name('requisiciones.pdf');
         Route::post('requisiciones/{requisicion}/duplicar', [CostosRequisicionController::class, 'duplicar'])->name('requisiciones.duplicar');
@@ -322,6 +325,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->middleware('can:costos.ordenes-compra.ver')
             ->name('recepciones.index');
         Route::post('ordenes-compra/{ordenCompra}/entregas', [CostosEntregaController::class, 'store'])->name('ordenes-compra.entregas.store');
+        Route::post('entregas/{entrega}', [CostosEntregaController::class, 'update'])->name('entregas.update');
         Route::post('entregas/{entrega}/cancelar', [CostosEntregaController::class, 'cancelar'])->name('entregas.cancelar');
         Route::get('entregas/{entrega}/pdf', [CostosEntregaController::class, 'pdf'])->name('entregas.pdf');
         Route::post('facturas/{factura}/aprobar-costos', [CostosFacturaAdminController::class, 'aprobarCostos'])->name('facturas.aprobar-costos');

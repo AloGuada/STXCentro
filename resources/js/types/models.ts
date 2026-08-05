@@ -2513,10 +2513,13 @@ export type CostosComplementoPago = {
     pago_id: number;
     proveedor_id: number;
     monto_pago: number;
+    /** Suma de los REP recibidos: un pago se complementa por parcialidades. */
+    monto_cubierto: number;
     fecha_pago: string;
     fecha_generacion: string;
     fecha_limite: string;
     estatus: CostosComplementoPagoEstatus;
+    /** Último REP aplicado. Uno solo puede cubrir varias obligaciones. */
     complemento_uuid: string | null;
     recibido_at: string | null;
     factura?: Pick<CostosFactura, 'id' | 'folio' | 'uuid_fiscal' | 'total'>;
@@ -2606,7 +2609,11 @@ export type CostosRecepcionRow = {
     fecha_entrega: string | null;
     tipo: CostosEntregaTipo;
     recibido_por: string | null;
+    recibido_por_id: string | null;
+    observaciones: string | null;
     cancelada: boolean;
+    /** Si admite corregir sus datos de captura: ni cancelada ni con factura pagada. */
+    puede_editar: boolean;
     /** Importe recibido (sin IVA): cantidad × precio efectivo de cada renglón. */
     total: number;
     oc: { id: number; folio: string; tipo_pago: string | null; moneda: string | null; url: string } | null;
