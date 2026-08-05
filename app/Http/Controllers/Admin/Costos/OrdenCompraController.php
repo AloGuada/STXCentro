@@ -18,6 +18,7 @@ use App\Models\Obra;
 use App\Models\Proveedor;
 use App\Services\Costos\CfdiXmlParser;
 use App\Services\Costos\ComparativoTotalesBuilder;
+use App\Services\Costos\ContrareciboPdf;
 use App\Services\Costos\FirmasPdfBuilder;
 use App\Services\Costos\RegistradorFacturaCfdi;
 use App\Services\Costos\RetencionCalculator;
@@ -447,17 +448,6 @@ class OrdenCompraController extends Controller
 
         abort_if($factura->orden_compra_id !== $ordenCompra->id, 404);
 
-        $ordenCompra->load('proveedor');
-
-        $pago = $factura->pago;
-        $fechaPago = $pago?->fecha_pago_programada;
-
-        $pdf = Pdf::loadView('pdf.costos.formato-contrarecibo', [
-            'oc' => $ordenCompra,
-            'factura' => $factura,
-            'fechaPago' => $fechaPago,
-        ])->setPaper('letter', 'portrait');
-
-        return $pdf->stream("Contrarecibo-{$factura->folio}.pdf");
+        return app(ContrareciboPdf::class)->render($factura)->stream("Contrarecibo-{$factura->folio}.pdf");
     }
 }

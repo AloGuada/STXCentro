@@ -215,6 +215,16 @@ class Factura extends Model
         return $this->morphOne(Pago::class, 'pagable');
     }
 
+    /**
+     * El pago padre de la factura. Las parcialidades comparten `pagable_id`, así
+     * que `pago()` puede devolver una de ellas; quien necesite la fecha
+     * programada o el estatus real del pago debe usar esta relación.
+     */
+    public function pagoRaiz(): MorphOne
+    {
+        return $this->morphOne(Pago::class, 'pagable')->whereNull('pago_padre_id');
+    }
+
     public function anticiposAplicados(): HasMany
     {
         return $this->hasMany(AnticipoAplicacion::class, 'factura_id');
