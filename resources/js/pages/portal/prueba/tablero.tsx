@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { Download, FileCheck2, FileText, FileUp, Receipt, Upload } from 'lucide-react';
+import { Download, FileCheck2, FileText, FileUp, Receipt, ReceiptText, Upload } from 'lucide-react';
 import { type ComponentType, type FormEvent, useState } from 'react';
 import { formatMoney } from '@/components/costos/monto';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,8 @@ type FacturaDemo = {
     xml: string | null;
     pdf: string | null;
     recepcion: ArchivoDemo | null;
-    fechaPago: string | null;
+    /** PDF del contrarecibo; hasta que existe, el pago sigue "por programar". */
+    contrarecibo: string | null;
     comprobantePago: string | null;
 };
 
@@ -57,7 +58,7 @@ const OC_DEMO: OcDemo[] = [
                 xml: 'cfdi-A-1042.xml',
                 pdf: 'factura-A-1042.pdf',
                 recepcion: { nombre: 'remision-almacen-1042.pdf', fecha: '2026-07-22' },
-                fechaPago: '2026-08-07',
+                contrarecibo: 'contrarecibo-A-1042.pdf',
                 comprobantePago: 'transferencia-1042.pdf',
             },
             {
@@ -68,7 +69,8 @@ const OC_DEMO: OcDemo[] = [
                 xml: 'cfdi-A-1067.xml',
                 pdf: 'factura-A-1067.pdf',
                 recepcion: { nombre: 'remision-almacen-1067.pdf', fecha: '2026-08-01' },
-                fechaPago: '2026-08-14',
+                // Recibida en almacén pero sin contrarecibo todavía: por programar.
+                contrarecibo: null,
                 comprobantePago: null,
             },
         ],
@@ -88,7 +90,7 @@ const OC_DEMO: OcDemo[] = [
                 xml: 'cfdi-A-0998.xml',
                 pdf: null,
                 recepcion: null,
-                fechaPago: null,
+                contrarecibo: null,
                 comprobantePago: null,
             },
         ],
@@ -100,6 +102,27 @@ const OC_DEMO: OcDemo[] = [
         total: 57420,
         moneda: 'mxn',
         facturas: [],
+    },
+    // Facturada al 100% y pagada: vive en la pestaña de completadas.
+    {
+        id: 'oc-4',
+        folio: 'OC-2605-117',
+        fecha: '2026-05-19',
+        total: 143500,
+        moneda: 'mxn',
+        facturas: [
+            {
+                id: 'f-4',
+                folio: 'A-0871',
+                fecha: '2026-05-26',
+                total: 143500,
+                xml: 'cfdi-A-0871.xml',
+                pdf: 'factura-A-0871.pdf',
+                recepcion: { nombre: 'remision-almacen-0871.pdf', fecha: '2026-05-28' },
+                contrarecibo: 'contrarecibo-A-0871.pdf',
+                comprobantePago: 'transferencia-0871.pdf',
+            },
+        ],
     },
 ];
 
@@ -183,7 +206,7 @@ function SubirFacturaModal({ oc, onClose, onGuardar }: { oc: OcDemo; onClose: ()
             xml: xml?.name ?? null,
             pdf: pdf?.name ?? null,
             recepcion: null,
-            fechaPago: null,
+            contrarecibo: null,
             comprobantePago: null,
         });
         onClose();
@@ -324,11 +347,38 @@ function SubirComprobanteModal({
     );
 }
 
+/**
+ * Celda de la orden: el folio manda y el total va debajo, en su propio renglón.
+ * Antes competía con el folio pegado al borde derecho de la columna y se leía
+ * como si fuera de otra fila.
+ */
+function CeldaOrden({ oc, facturado }: { oc: OcDemo; facturado: number }) {
+    const pendiente = oc.total - facturado;
+
+    return (
+        <>
+            <div className="font-bold text-primary">{oc.folio}</div>
+            <div className="mt-0.5 text-base font-semibold tabular-nums">{formatMoney(oc.total, oc.moneda)}</div>
+            <div className="mt-0.5 text-xs text-base-content/60">
+                {facturado === 0 ? (
+                    'Sin facturar'
+                ) : (
+                    <>
+                        Facturado {formatMoney(facturado, oc.moneda)}
+                        {pendiente > 0 && ` · pendiente ${formatMoney(pendiente, oc.moneda)}`}
+                    </>
+                )}
+            </div>
+        </>
+    );
+}
+
 export default function PortalPruebaTablero() {
     const [ordenes, setOrdenes] = useState<OcDemo[]>(OC_DEMO);
     const [facturandoOc, setFacturandoOc] = useState<OcDemo | null>(null);
     const [comprobandoFactura, setComprobandoFactura] = useState<{ ocId: string; factura: FacturaDemo } | null>(null);
     const [docVisor, setDocVisor] = useState<DocVisor | null>(null);
+    const [tab, setTab] = useState<'activas' | 'completadas'>('activas');
 
     const agregarFactura = (ocId: string, factura: FacturaDemo) => {
         setOrdenes((prev) => prev.map((oc) => (oc.id === ocId ? { ...oc, facturas: [...oc.facturas, factura] } : oc)));
@@ -348,6 +398,14 @@ export default function PortalPruebaTablero() {
     };
 
     const facturado = (oc: OcDemo) => oc.facturas.reduce((acc, f) => acc + f.total, 0);
+
+    /** Completada: ya se facturó todo y no queda factura sin su comprobante de pago. */
+    const completada = (oc: OcDemo) =>
+        oc.facturas.length > 0 && facturado(oc) >= oc.total && oc.facturas.every((f) => f.comprobantePago);
+
+    const activas = ordenes.filter((oc) => !completada(oc));
+    const completadas = ordenes.filter(completada);
+    const visibles = tab === 'activas' ? activas : completadas;
 
     const facturas = ordenes.flatMap((oc) => oc.facturas);
     const pagadas = facturas.filter((f) => f.comprobantePago);
@@ -398,6 +456,27 @@ export default function PortalPruebaTablero() {
                     </div>
                 </div>
 
+                <div role="tablist" className="tabs tabs-boxed mb-3 w-fit bg-base-100">
+                    {(
+                        [
+                            ['activas', 'Activas', activas.length],
+                            ['completadas', 'Completadas', completadas.length],
+                        ] as const
+                    ).map(([valor, etiqueta, cuantas]) => (
+                        <button
+                            key={valor}
+                            type="button"
+                            role="tab"
+                            aria-selected={tab === valor}
+                            className={`tab gap-2 ${tab === valor ? 'tab-active' : ''}`}
+                            onClick={() => setTab(valor)}
+                        >
+                            {etiqueta}
+                            <span className="badge badge-sm">{cuantas}</span>
+                        </button>
+                    ))}
+                </div>
+
                 <div className="overflow-x-auto rounded-2xl border border-base-300 bg-base-100 shadow-sm">
                     <table className="w-full min-w-[1000px] text-sm">
                         <thead className="bg-base-200 text-base-content/70">
@@ -405,28 +484,31 @@ export default function PortalPruebaTablero() {
                                 <th className="px-4 py-2.5 font-semibold">Orden de compra</th>
                                 <th className="px-4 py-2.5 font-semibold">Factura</th>
                                 <th className="px-4 py-2.5 font-semibold">Recepción</th>
-                                <th className="px-4 py-2.5 font-semibold">Fecha de pago</th>
+                                <th className="px-4 py-2.5 font-semibold">Contrarecibo</th>
                                 <th className="px-4 py-2.5 font-semibold">Comprobante de pago</th>
                             </tr>
                         </thead>
 
-                        {ordenes.map((oc) => {
-                            const pendiente = oc.total - facturado(oc);
+                        {visibles.length === 0 && (
+                            <tbody>
+                                <tr>
+                                    <td colSpan={5} className="px-4 py-12 text-center text-base-content/50">
+                                        {tab === 'activas'
+                                            ? 'No tienes órdenes de compra activas.'
+                                            : 'Todavía no tienes órdenes completadas: aquí verás las que ya se facturaron y pagaron por completo.'}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        )}
 
+                        {visibles.map((oc) => {
                             return (
                                 <tbody key={oc.id} className="border-t-4 border-base-200">
                                     {oc.facturas.map((f, i) => (
                                         <tr key={f.id} className="border-t border-base-300">
                                             {i === 0 && (
                                                 <td className="w-[260px] px-4 py-2.5 align-top" rowSpan={oc.facturas.length + 1}>
-                                                    <div className="flex items-baseline gap-2">
-                                                        <span className="font-bold text-primary">{oc.folio}</span>
-                                                        <span className="ml-auto font-semibold">{formatMoney(oc.total, oc.moneda)}</span>
-                                                    </div>
-                                                    <div className="text-xs text-base-content/60">
-                                                        Facturado {formatMoney(facturado(oc), oc.moneda)}
-                                                        {pendiente > 0 && ` · pendiente ${formatMoney(pendiente, oc.moneda)}`}
-                                                    </div>
+                                                    <CeldaOrden oc={oc} facturado={facturado(oc)} />
                                                 </td>
                                             )}
 
@@ -464,9 +546,15 @@ export default function PortalPruebaTablero() {
                                                 )}
                                             </td>
 
+                                            {/* Sin contrarecibo generado no hay pago programado que mostrar. */}
                                             <td className="px-4 py-2.5 whitespace-nowrap">
-                                                {f.fechaPago ? (
-                                                    <span className="font-medium">{fmtFecha(f.fechaPago)}</span>
+                                                {f.contrarecibo ? (
+                                                    <DocIcono
+                                                        icon={ReceiptText}
+                                                        titulo="Contrarecibo"
+                                                        nombre={f.contrarecibo}
+                                                        onVer={setDocVisor}
+                                                    />
                                                 ) : (
                                                     <span className="text-base-content/40">Por programar</span>
                                                 )}
@@ -487,20 +575,30 @@ export default function PortalPruebaTablero() {
                                     <tr className="border-t border-base-300">
                                         {oc.facturas.length === 0 && (
                                             <td className="w-[260px] px-4 py-2.5 align-top">
-                                                <div className="flex items-baseline gap-2">
-                                                    <span className="font-bold text-primary">{oc.folio}</span>
-                                                    <span className="ml-auto font-semibold">{formatMoney(oc.total, oc.moneda)}</span>
-                                                </div>
-                                                <div className="text-xs text-base-content/60">Sin facturar</div>
+                                                <CeldaOrden oc={oc} facturado={0} />
                                             </td>
                                         )}
                                         <td className="px-4 py-2" colSpan={4}>
-                                            <Button size="xs" variant="ghost" className="text-primary" onClick={() => setFacturandoOc(oc)}>
-                                                <FileUp className="size-3" />
-                                                Subir factura
-                                            </Button>
-                                            {oc.facturas.length === 0 && (
-                                                <span className="ml-2 text-xs text-base-content/50">Aún no has facturado esta orden.</span>
+                                            {/* Una orden cerrada ya no admite más facturas. */}
+                                            {completada(oc) ? (
+                                                <span className="text-xs text-success">Orden facturada y pagada por completo.</span>
+                                            ) : (
+                                                <>
+                                                    <Button
+                                                        size="xs"
+                                                        variant="ghost"
+                                                        className="text-primary"
+                                                        onClick={() => setFacturandoOc(oc)}
+                                                    >
+                                                        <FileUp className="size-3" />
+                                                        Subir factura
+                                                    </Button>
+                                                    {oc.facturas.length === 0 && (
+                                                        <span className="ml-2 text-xs text-base-content/50">
+                                                            Aún no has facturado esta orden.
+                                                        </span>
+                                                    )}
+                                                </>
                                             )}
                                         </td>
                                     </tr>
