@@ -239,3 +239,66 @@ test('no puede ver factura de otro proveedor', function () {
         ->get("/portal/facturas/{$factura->id}")
         ->assertForbidden();
 });
+
+test('desde el tablero el paso 2 se confirma en el propio tablero', function () {
+    $oc = ocConRecepcion($this->proveedor->id, total: 20000);
+
+    // Paso 1: no manda a la pantalla de preview, regresa al tablero.
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->post('/portal/facturas/preview', [
+            'orden_compra_id' => $oc->id,
+            'xml' => uploadXml(['Uuid' => 'DAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA']),
+            'origen' => 'tablero',
+        ])
+        ->assertRedirect('/portal');
+
+    // El tablero trae los datos del CFDI para pintarlos en el modal.
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->get('/portal')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('facturaPreview.fiscal.uuid_fiscal', 'DAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA')
+            ->where('facturaPreview.orden_compra_folio', $oc->folio)
+        );
+
+    // La pantalla vieja de preview ya no aplica para este flujo.
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->get('/portal/facturas/preview')
+        ->assertRedirect('/portal');
+
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->post('/portal/facturas', ['notas' => 'desde el tablero'])
+        ->assertRedirect('/portal');
+
+    $this->assertDatabaseHas('costos_facturas', [
+        'orden_compra_id' => $oc->id,
+        'uuid_fiscal' => 'DAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA',
+        'notas' => 'desde el tablero',
+    ]);
+});
+
+test('cancelar el preview del tablero vuelve al tablero y borra los temporales', function () {
+    $oc = ocConRecepcion($this->proveedor->id, total: 20000);
+
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->post('/portal/facturas/preview', [
+            'orden_compra_id' => $oc->id,
+            'xml' => uploadXml(['Uuid' => 'EAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA']),
+            'origen' => 'tablero',
+        ]);
+
+    expect(Storage::disk('public')->allFiles("tmp_facturas/{$this->proveedor->id}"))->not->toBeEmpty();
+
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->post('/portal/facturas/cancel-preview')
+        ->assertRedirect('/portal');
+
+    expect(Factura::count())->toBe(0)
+        ->and(Storage::disk('public')->allFiles("tmp_facturas/{$this->proveedor->id}"))->toBeEmpty();
+});
+
+test('sin preview en curso el tablero no abre el modal de confirmación', function () {
+    $this->actingAs($this->proveedor, 'proveedor')
+        ->get('/portal')
+        ->assertInertia(fn ($page) => $page->where('facturaPreview', null));
+});

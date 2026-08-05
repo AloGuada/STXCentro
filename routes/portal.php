@@ -2,11 +2,14 @@
 
 use App\Http\Controllers\Portal\PortalAuthController;
 use App\Http\Controllers\Portal\PortalComplementoPagoController;
+use App\Http\Controllers\Portal\PortalContrareciboController;
 use App\Http\Controllers\Portal\PortalDashboardController;
 use App\Http\Controllers\Portal\PortalFacturaController;
+use App\Http\Controllers\Portal\PortalMediaController;
 use App\Http\Controllers\Portal\PortalNotaCreditoController;
 use App\Http\Controllers\Portal\PortalOrdenCompraController;
 use App\Http\Controllers\Portal\PortalPagoController;
+use App\Http\Controllers\Portal\PortalTableroController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -24,7 +27,16 @@ Route::prefix('portal')->name('portal.')->group(function () {
     // Authenticated portal routes
     Route::middleware('auth:proveedor')->group(function () {
         Route::post('logout', [PortalAuthController::class, 'logout'])->name('logout');
-        Route::get('/', [PortalDashboardController::class, 'index'])->name('dashboard');
+
+        /**
+         * El tablero (una sola tabla) es la entrada del portal. Las pantallas
+         * anteriores siguen disponibles en sus propias rutas mientras se decide
+         * si se retiran.
+         */
+        Route::get('/', [PortalTableroController::class, 'index'])->name('tablero');
+        Route::redirect('tablero', '/portal');
+
+        Route::get('dashboard', [PortalDashboardController::class, 'index'])->name('dashboard');
 
         Route::resource('ordenes-compra', PortalOrdenCompraController::class)
             ->only(['index', 'show'])
@@ -40,6 +52,11 @@ Route::prefix('portal')->name('portal.')->group(function () {
 
         Route::post('facturas/{factura}/comprobante', [PortalFacturaController::class, 'subirComprobante'])
             ->name('facturas.comprobante');
+
+        Route::get('facturas/{factura}/contrarecibo', [PortalContrareciboController::class, 'show'])
+            ->name('facturas.contrarecibo');
+
+        Route::get('media/{media}', [PortalMediaController::class, 'show'])->name('media.show');
 
         Route::post('notas-credito', [PortalNotaCreditoController::class, 'store'])
             ->name('notas-credito.store');

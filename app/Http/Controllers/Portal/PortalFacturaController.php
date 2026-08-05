@@ -11,6 +11,7 @@ use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Services\Costos\CfdiXmlParser;
 use App\Services\Costos\RegistradorFacturaCfdi;
+use App\Services\Portal\PreviewFacturaSesion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,12 +24,27 @@ use RuntimeException;
 
 class PortalFacturaController extends Controller
 {
-    private const SESSION_KEY = 'portal.factura.preview';
-
     public function __construct(
         private readonly CfdiXmlParser $cfdiParser,
         private readonly RegistradorFacturaCfdi $registrador,
+        private readonly PreviewFacturaSesion $preview,
     ) {}
+
+    /**
+     * A dónde vuelve el flujo de alta de factura. Mientras el tablero y el
+     * portal anterior conviven, el destino depende de dónde nació el alta: el
+     * tablero pinta el paso 2 como modal y no debe sacar al proveedor de ahí.
+     */
+    private function destino(?OrdenCompra $oc = null): string
+    {
+        if ($this->preview->vieneDelTablero()) {
+            return route('portal.tablero');
+        }
+
+        return $oc
+            ? route('portal.ordenes-compra.show', $oc)
+            : route('portal.ordenes-compra.index');
+    }
 
     public function index(Request $request): Response
     {
@@ -81,7 +97,7 @@ class PortalFacturaController extends Controller
         }
 
         // Limpia preview anterior si existía
-        $this->limpiarPreview();
+        $this->preview->limpiar();
 
         $token = (string) Str::uuid();
         $tmpDir = "tmp_facturas/{$proveedor->id}/{$token}";
@@ -97,7 +113,7 @@ class PortalFacturaController extends Controller
             $pdfOriginal = $pdfFile->getClientOriginalName();
         }
 
-        $request->session()->put(self::SESSION_KEY, [
+        $this->preview->guardar([
             'token' => $token,
             'orden_compra_id' => $oc->id,
             'fiscal' => $fiscal,
@@ -106,9 +122,15 @@ class PortalFacturaController extends Controller
             'pdf_path' => $pdfPath,
             'pdf_original' => $pdfOriginal,
             'notas' => $validated['notas'] ?? null,
+            'origen' => $validated['origen'] ?? PreviewFacturaSesion::ORIGEN_CLASICO,
         ]);
 
-        return redirect()->route('portal.facturas.preview');
+        // El tablero muestra el paso 2 en un modal alimentado por la sesión.
+        return redirect()->to(
+            $this->preview->vieneDelTablero()
+                ? route('portal.tablero')
+                : route('portal.facturas.preview')
+        );
     }
 
     /**
@@ -116,9 +138,14 @@ class PortalFacturaController extends Controller
      */
     public function preview(Request $request): Response|RedirectResponse
     {
-        $preview = $request->session()->get(self::SESSION_KEY);
+        $preview = $this->preview->obtener();
         if (! $preview) {
-            return redirect()->route('portal.ordenes-compra.index');
+            return redirect()->to($this->destino());
+        }
+
+        // Quien inició desde el tablero confirma en el modal, no en esta página.
+        if ($this->preview->vieneDelTablero()) {
+            return redirect()->route('portal.tablero');
         }
 
         $proveedor = Auth::guard('proveedor')->user();
@@ -142,9 +169,9 @@ class PortalFacturaController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $preview = $request->session()->get(self::SESSION_KEY);
+        $preview = $this->preview->obtener();
         if (! $preview) {
-            return redirect()->route('portal.ordenes-compra.index')
+            return redirect()->to($this->destino())
                 ->withErrors(['preview' => 'No hay una factura en preview. Vuelva a subir el CFDI.']);
         }
 
@@ -161,10 +188,10 @@ class PortalFacturaController extends Controller
 
         // Re-valida saldo y UUID (puede haber otra factura entre paso 1 y 2)
         if ($error = $this->registrador->validar($oc, $fiscal)) {
-            $this->limpiarPreview();
+            $destino = $this->destino($oc);
+            $this->preview->limpiar();
 
-            return redirect()->route('portal.ordenes-compra.show', $oc)
-                ->withErrors(['xml' => $error]);
+            return redirect()->to($destino)->withErrors(['xml' => $error]);
         }
 
         $factura = $this->registrador->registrar($oc, $fiscal, [
@@ -190,11 +217,13 @@ class PortalFacturaController extends Controller
             }
         });
 
-        $this->limpiarPreview();
+        $destino = $this->preview->vieneDelTablero()
+            ? route('portal.tablero')
+            : route('portal.facturas.index');
 
-        return redirect()
-            ->route('portal.facturas.index')
-            ->with('success', 'Factura subida correctamente.');
+        $this->preview->limpiar();
+
+        return redirect()->to($destino)->with('success', 'Factura subida correctamente.');
     }
 
     /**
@@ -202,46 +231,13 @@ class PortalFacturaController extends Controller
      */
     public function cancelPreview(Request $request): RedirectResponse
     {
-        $oc = null;
-        $preview = $request->session()->get(self::SESSION_KEY);
-        if ($preview) {
-            $oc = OrdenCompra::find($preview['orden_compra_id']);
-        }
+        $preview = $this->preview->obtener();
+        $oc = $preview ? OrdenCompra::find($preview['orden_compra_id']) : null;
 
-        $this->limpiarPreview();
+        $destino = $this->destino($oc);
+        $this->preview->limpiar();
 
-        if ($oc) {
-            return redirect()->route('portal.ordenes-compra.show', $oc);
-        }
-
-        return redirect()->route('portal.ordenes-compra.index');
-    }
-
-    private function limpiarPreview(): void
-    {
-        $preview = session(self::SESSION_KEY);
-        if (! $preview) {
-            return;
-        }
-
-        foreach (['xml_path', 'pdf_path'] as $key) {
-            if (! empty($preview[$key]) && Storage::disk('public')->exists($preview[$key])) {
-                Storage::disk('public')->delete($preview[$key]);
-            }
-        }
-
-        // Limpia el directorio temporal si quedó vacío
-        if (! empty($preview['token'])) {
-            $proveedor = Auth::guard('proveedor')->user();
-            if ($proveedor) {
-                $dir = "tmp_facturas/{$proveedor->id}/{$preview['token']}";
-                if (Storage::disk('public')->exists($dir) && empty(Storage::disk('public')->files($dir))) {
-                    Storage::disk('public')->deleteDirectory($dir);
-                }
-            }
-        }
-
-        session()->forget(self::SESSION_KEY);
+        return redirect()->to($destino);
     }
 
     /**

@@ -21,6 +21,8 @@ class PortalFacturaPreviewRequest extends FormRequest
             'xml' => ['required', 'file', 'mimes:xml', 'max:5120'],
             'pdf' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'notas' => ['nullable', 'string'],
+            // Pantalla que inició el alta: define a dónde vuelve el paso 2.
+            'origen' => ['nullable', 'in:tablero,clasico'],
         ];
     }
 

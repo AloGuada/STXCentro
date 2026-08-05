@@ -3294,6 +3294,138 @@ export type DgReporteArchivo = {
     updated_at: string;
 };
 
+// Portal Tablero Types
+// Payload plano del tablero del proveedor (App\Services\Portal\TableroProveedorBuilder).
+// No son modelos serializados: cada campo lo arma el builder a propósito.
+
+export type PortalTableroTab = 'activas' | 'completadas';
+
+export type PortalTableroArchivo = {
+    url: string | null;
+    nombre: string;
+    fecha: string | null;
+};
+
+export type PortalTableroPartida = {
+    id: number;
+    descripcion: string;
+    unidad: string | null;
+    cantidad: number;
+    precio_unitario: number;
+    subtotal: number;
+};
+
+/** Un comprobante por pago; varios cuando el pago se partió en parcialidades. */
+export type PortalTableroComprobantePago = {
+    id: number;
+    folio: string | null;
+    monto: number;
+    fecha: string | null;
+    numero_parcialidad: number | null;
+    url: string | null;
+};
+
+export type PortalTableroNotaCredito = {
+    id: number;
+    folio: string | null;
+    monto: number;
+    estatus: string | null;
+    fecha: string | null;
+};
+
+export type PortalTableroParcialidad = {
+    id: number;
+    folio: string | null;
+    numero: number | null;
+    monto: number;
+    estatus: string | null;
+    fecha_programada: string | null;
+    fecha_realizada: string | null;
+    comprobante_url: string | null;
+};
+
+export type PortalTableroPago = {
+    id: number;
+    folio: string | null;
+    estatus: string | null;
+    monto: number;
+    fecha_programada: string | null;
+    fecha_realizada: string | null;
+    parcialidades: PortalTableroParcialidad[];
+};
+
+export type PortalTableroFactura = {
+    id: number;
+    folio: string | null;
+    fecha: string | null;
+    total: number;
+    moneda: string | null;
+    estatus: string | null;
+    cancelada: boolean;
+    uuid_fiscal: string | null;
+    folio_fiscal: string | null;
+    subtotal: number;
+    monto_notas_credito: number;
+    monto_anticipos: number;
+    /** Total menos anticipos y notas de crédito vigentes. */
+    saldo_facturado: number;
+    pago: PortalTableroPago | null;
+    pagada: boolean;
+    pdf_url: string | null;
+    xml_url: string | null;
+    recepcion: PortalTableroArchivo | null;
+    puede_subir_recepcion: boolean;
+    /** null = aún no hay pago programado; la celda dice "Por programar". */
+    contrarecibo_url: string | null;
+    comprobantes_pago: PortalTableroComprobantePago[];
+    notas_credito: PortalTableroNotaCredito[];
+};
+
+export type PortalTableroOrden = {
+    id: number;
+    folio: string;
+    fecha: string | null;
+    fecha_entrega_esperada: string | null;
+    total: number;
+    moneda: string;
+    total_facturado: number;
+    saldo_facturable: number;
+    completada: boolean;
+    puede_facturar: boolean;
+    partidas: PortalTableroPartida[];
+    facturas: PortalTableroFactura[];
+};
+
+/** Datos leídos del CFDI en el paso 1, a la espera de confirmación. */
+export type PortalFacturaPreview = {
+    orden_compra_id: number;
+    orden_compra_folio: string;
+    moneda: string;
+    fiscal: {
+        uuid_fiscal: string | null;
+        folio_fiscal: string | null;
+        fecha_factura: string | null;
+        subtotal: number;
+        total: number;
+        iva_trasladado: number;
+        iva_retenido: number;
+        isr_retenido: number;
+        rfc_emisor: string | null;
+        rfc_receptor: string | null;
+    };
+    archivos: { xml_original: string; pdf_original: string | null };
+    notas: string | null;
+};
+
+export type PortalTableroResumen = {
+    facturado: number;
+    pagado: number;
+    pendiente: number;
+    moneda: string;
+    facturas: number;
+    facturas_pagadas: number;
+};
+
 // Badge Config Types
 
 export type BadgeConfig = {
