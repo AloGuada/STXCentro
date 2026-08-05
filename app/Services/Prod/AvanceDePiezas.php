@@ -2,32 +2,36 @@
 
 namespace App\Services\Prod;
 
-use App\Models\Concepto;
 use App\Models\Prod\LiquidacionDetalle;
+use App\Models\Prod\Pieza;
 use App\Models\Prod\Registro;
 use Illuminate\Support\Collection;
 
 /**
- * Cuánto se ha pagado de cada pieza contra lo que el catálogo vigente manda
- * fabricar.
+ * Cuánto se ha pagado de cada pieza en cada proceso.
  *
- * La unidad es la **pieza equivalente**: capturar 10 piezas al 60% consume 6 y
- * deja 4 para liquidarse en un destajo posterior. Así el mismo lote se puede
- * pagar en parcialidades sin rebasar nunca lo que pide el catálogo.
+ * La unidad es la **pieza equivalente**: una pieza vale 1 en cada proceso por el
+ * que pasa, y pagarla al 60% consume 0.6 dejando 0.4 para una semana posterior.
+ * Así el mismo QS se puede pagar en parcialidades sin rebasar nunca su tope, y
+ * soldarlo no consume nada de lo que le toca por pintarlo.
  *
- * El acumulado se cuenta **por linaje dentro de la obra, sumando todas las
- * versiones del catálogo**: al versionar, las piezas copiadas son filas nuevas
- * sin registros propios, así que contarlas por `concepto_id` a secas dejaría el
- * avance en cero y permitiría volver a pagar lo ya fabricado. Cada copia recuerda
- * de qué pieza viene (`concepto_origen_id`) y todas comparten la misma raíz.
+ * El acumulado se cuenta **por linaje de pieza dentro de la obra, sumando todas
+ * las versiones del catálogo**: al versionar, las piezas copiadas son filas
+ * nuevas sin registros propios, así que contarlas por `pieza_id` a secas dejaría
+ * el avance en cero y permitiría volver a pagar lo ya fabricado. Cada copia
+ * recuerda de qué pieza viene (`pieza_origen_id`) y todas comparten la misma
+ * raíz.
  */
 class AvanceDePiezas
 {
+    /** Lo máximo que se puede pagar de una pieza en un proceso. */
+    private const TOPE_POR_PIEZA = 1.0;
+
     /** Margen para no rechazar por ruido de redondeo del porcentaje. */
     private const EPSILON = 0.0001;
 
     /**
-     * Piezas equivalentes ya comprometidas en la obra, agrupadas por linaje.
+     * Avance ya comprometido en la obra, agrupado por (linaje de pieza, proceso).
      *
      * Se suman dos fuentes que no se solapan:
      *  - lo **pagado**, leído del snapshot inmutable de las liquidaciones, que
@@ -35,10 +39,8 @@ class AvanceDePiezas
      *  - lo **capturado en semanas todavía abiertas**, que sigue siendo
      *    editable y por eso se lee de los registros.
      *
-     * La clave es la pieza raíz del linaje (`concepto_origen_id` hacia arriba),
-     * no el texto de la marca: así renombrar una pieza al versionar el catálogo
-     * no reinicia el acumulado. Cuando la pieza ya no existe se cae a la marca
-     * del snapshot, para no perder lo pagado.
+     * Cuando la pieza ya no existe se cae al QS del snapshot, para no perder lo
+     * pagado ni mezclarlo con otra pieza.
      */
     public function mapaDeObra(int $obraId): AvanceDeObra
     {
@@ -46,13 +48,17 @@ class AvanceDePiezas
 
         $totales = [];
 
-        foreach (LiquidacionDetalle::where('obra_id', $obraId)->get(['concepto_id', 'marca', 'cantidad', 'porcentaje']) as $detalle) {
-            $clave = $this->clave($raices, $detalle->concepto_id, $detalle->marca);
-            $totales[$clave] = ($totales[$clave] ?? 0) + $detalle->cantidad * ((float) $detalle->porcentaje / 100);
+        $detalles = LiquidacionDetalle::query()
+            ->where('obra_id', $obraId)
+            ->get(['pieza_id', 'qs', 'proceso_id', 'porcentaje']);
+
+        foreach ($detalles as $detalle) {
+            $clave = $this->clave($raices, $detalle->pieza_id, $detalle->qs, $detalle->proceso_id);
+            $totales[$clave] = ($totales[$clave] ?? 0) + (float) $detalle->porcentaje / 100;
         }
 
         foreach ($this->registrosNoLiquidados($obraId) as $registro) {
-            $clave = $this->clave($raices, $registro->concepto_id, $registro->concepto?->marca);
+            $clave = $this->clave($raices, $registro->pieza_id, $registro->pieza?->qs, $registro->proceso_id);
             $totales[$clave] = ($totales[$clave] ?? 0) + $registro->piezasEquivalentes();
         }
 
@@ -60,15 +66,15 @@ class AvanceDePiezas
     }
 
     /**
-     * Mapa conceptoId => id de la pieza raíz de su linaje, para toda la obra.
+     * Mapa piezaId => id de la pieza raíz de su linaje, para toda la obra.
      *
      * @return array<int, int>
      */
     private function raicesDeLinaje(int $obraId): array
     {
-        $origenes = Concepto::query()
-            ->where('obra_id', $obraId)
-            ->pluck('concepto_origen_id', 'id')
+        $origenes = Pieza::query()
+            ->whereHas('catalogo', fn ($q) => $q->where('obra_id', $obraId))
+            ->pluck('pieza_origen_id', 'id')
             ->all();
 
         $raices = [];
@@ -92,11 +98,13 @@ class AvanceDePiezas
     /**
      * @param  array<int, int>  $raices
      */
-    private function clave(array $raices, ?int $conceptoId, ?string $marca): string
+    private function clave(array $raices, ?int $piezaId, ?string $qs, ?int $procesoId): string
     {
-        return isset($raices[$conceptoId])
-            ? 'raiz:'.$raices[$conceptoId]
-            : 'marca:'.($marca ?? '');
+        $pieza = isset($raices[$piezaId])
+            ? 'raiz:'.$raices[$piezaId]
+            : 'qs:'.($qs ?? '');
+
+        return $pieza.'|proceso:'.($procesoId ?? 0);
     }
 
     /**
@@ -109,58 +117,74 @@ class AvanceDePiezas
     private function registrosNoLiquidados(int $obraId): Collection
     {
         return Registro::query()
-            ->with('concepto:id,marca')
-            ->whereHas('concepto', fn ($q) => $q->where('obra_id', $obraId))
+            ->with('pieza:id,qs')
+            ->whereHas('pieza.catalogo', fn ($q) => $q->where('obra_id', $obraId))
             ->whereNotExists(fn ($q) => $q->selectRaw('1')
                 ->from('prod_destajos')
                 ->where('prod_destajos.cerrado', true)
                 ->whereColumn('prod_destajos.fecha_inicio', '<=', 'prod_registros.fecha')
                 ->whereColumn('prod_destajos.fecha_fin', '>=', 'prod_registros.fecha'))
-            ->get(['id', 'concepto_id', 'cantidad', 'porcentaje']);
+            ->get(['id', 'pieza_id', 'proceso_id', 'porcentaje']);
     }
 
     /**
-     * Piezas equivalentes que todavía se pueden pagar de este concepto. Nunca
-     * negativo: si el catálogo se recortó por debajo de lo ya pagado, queda 0.
+     * Fracción de pieza que todavía se puede pagar de este QS en este proceso.
+     * Nunca negativo.
      */
-    public function disponible(Concepto $concepto): float
+    public function disponible(Pieza $pieza, int $procesoId): float
     {
-        return round(max(0, (float) $concepto->cantidad - $this->capturado($concepto)), 4);
+        return round(max(0, self::TOPE_POR_PIEZA - $this->capturado($pieza, $procesoId)), 4);
     }
 
-    /** Piezas equivalentes ya pagadas o comprometidas de esta pieza. */
-    public function capturado(Concepto $concepto): float
+    /** Fracción ya pagada o comprometida de esta pieza en este proceso. */
+    public function capturado(Pieza $pieza, int $procesoId): float
     {
-        return $this->mapaDeObra($concepto->obra_id)->capturadoDe($concepto);
+        return $this->mapaDeObra($this->obraDe($pieza))->capturadoDe($pieza, $procesoId);
     }
 
-    /** ¿Cabe pagar esta cantidad a este porcentaje sin rebasar el catálogo? */
-    public function cabe(Concepto $concepto, int $cantidad, float $porcentaje): bool
+    /** ¿Cabe pagar esta pieza a este porcentaje sin rebasar su tope? */
+    public function cabe(Pieza $pieza, int $procesoId, float $porcentaje): bool
     {
-        $consumo = round($cantidad * ($porcentaje / 100), 4);
-
-        return $consumo <= $this->disponible($concepto) + self::EPSILON;
+        return round($porcentaje / 100, 4) <= $this->disponible($pieza, $procesoId) + self::EPSILON;
     }
 
     /**
-     * Decora una colección de conceptos con su avance, sin consultar la BD una
-     * vez por pieza.
+     * Decora una colección de piezas con su avance por proceso, sin consultar la
+     * base una vez por pieza. Cada pieza recibe `avance`: procesoId => capturado.
      *
-     * @param  Collection<int, Concepto>  $conceptos
-     * @return Collection<int, Concepto>
+     * @param  Collection<int, Pieza>  $piezas
+     * @param  list<int>  $procesoIds
+     * @return Collection<int, Pieza>
      */
-    public function decorar(Collection $conceptos): Collection
+    public function decorar(Collection $piezas, array $procesoIds): Collection
     {
-        $porObra = $conceptos
-            ->pluck('obra_id')
+        $porObra = $piezas
+            ->map(fn (Pieza $pieza) => $this->obraDe($pieza))
             ->unique()
             ->mapWithKeys(fn (int $obraId) => [$obraId => $this->mapaDeObra($obraId)]);
 
-        return $conceptos->each(function (Concepto $concepto) use ($porObra): void {
-            $capturado = $porObra->get($concepto->obra_id)?->capturadoDe($concepto) ?? 0.0;
+        return $piezas->each(function (Pieza $pieza) use ($porObra, $procesoIds): void {
+            $mapa = $porObra->get($this->obraDe($pieza));
 
-            $concepto->setAttribute('capturado', $capturado);
-            $concepto->setAttribute('disponible', round(max(0, (float) $concepto->cantidad - $capturado), 4));
+            $avance = [];
+            foreach ($procesoIds as $procesoId) {
+                $capturado = $mapa?->capturadoDe($pieza, $procesoId) ?? 0.0;
+
+                $avance[$procesoId] = [
+                    'capturado' => $capturado,
+                    'disponible' => round(max(0, self::TOPE_POR_PIEZA - $capturado), 4),
+                ];
+            }
+
+            $pieza->setAttribute('avance', $avance);
         });
+    }
+
+    /** La obra sale del catálogo de la pieza, que es quien la ancla. */
+    private function obraDe(Pieza $pieza): int
+    {
+        $pieza->loadMissing('catalogo:id,obra_id');
+
+        return (int) ($pieza->catalogo?->obra_id ?? 0);
     }
 }

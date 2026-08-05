@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin\Prod;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Prod\DestajoStoreRequest;
 use App\Models\Concepto;
+use App\Models\Obra;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\PagoExtra;
+use App\Models\Prod\Proceso;
 use App\Models\Prod\Registro;
 use App\Models\Prod\TipoPagoExtra;
 use App\Services\Prod\AsistenciaDelDestajo;
@@ -63,7 +65,7 @@ class DestajoController extends Controller
     ): Response {
         $destajo->load([
             'liquidaciones.grupoTrabajo',
-            'liquidaciones.detalles.concepto',
+            'liquidaciones.detalles',
             'liquidaciones.empleados',
             'liquidaciones.generador',
         ]);
@@ -75,7 +77,7 @@ class DestajoController extends Controller
         }
 
         $data['registrosPreview'] = Registro::query()
-            ->with(['concepto.obra', 'grupoTrabajo'])
+            ->with(['pieza.marca.obra', 'proceso', 'grupoTrabajo'])
             ->whereBetween('fecha', [$destajo->fecha_inicio, $destajo->fecha_fin])
             ->orderByDesc('fecha')
             ->get()
@@ -89,9 +91,28 @@ class DestajoController extends Controller
 
         $data['piezasSinPrecio'] = $generador->piezasSinPrecio($destajo);
         $data['gruposTrabajo'] = GrupoTrabajo::where('activo', true)->orderBy('descripcion')->get();
-        $data['conceptos'] = $avance->decorar(
-            Concepto::with('obra')->deCatalogoVigente()->where('activo', true)->orderBy('marca')->get()
-        );
+        // El catalogo de captura: las marcas del catalogo vigente con sus piezas,
+        // para que el formulario ofrezca marca -> etapa -> QS.
+        $data['marcas'] = Concepto::query()
+            ->with(['obra:id,no,descripcion', 'piezas' => fn ($q) => $q->where('activo', true)->orderBy('qs')])
+            ->deCatalogoVigente()
+            ->where('activo', true)
+            ->orderBy('marca')
+            ->orderBy('etapa')
+            ->get();
+
+        $procesos = Proceso::activos()->orderBy('orden')->get();
+        $data['procesos'] = $procesos;
+        $data['procesosPorObra'] = Obra::query()
+            ->whereIn('id', $data['marcas']->pluck('obra_id')->unique())
+            ->with('procesos:id')
+            ->get()
+            ->mapWithKeys(fn (Obra $obra) => [$obra->id => $obra->procesos->pluck('id')]);
+
+        $data['avance'] = $avance->decorar(
+            $data['marcas']->flatMap->piezas,
+            $procesos->pluck('id')->all(),
+        )->mapWithKeys(fn ($pieza) => [$pieza->id => $pieza->avance]);
         $data['tipos'] = TipoPagoExtra::orderBy('orden')->get();
         $data['pendientes'] = $pendientes->paraDestajo($destajo);
         $data['asistenciaFaltante'] = $asistencia->faltantes($destajo);

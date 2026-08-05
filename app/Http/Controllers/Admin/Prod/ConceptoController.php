@@ -10,6 +10,7 @@ use App\Http\Requests\Admin\Prod\ConceptoUpdateRequest;
 use App\Models\Concepto;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
+use App\Services\Prod\ImportadorDeLayout;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -17,6 +18,9 @@ use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
+/**
+ * La marca del catálogo: el modelo del que cuelgan las piezas (QS).
+ */
 class ConceptoController extends Controller
 {
     public function create(Request $request): Response
@@ -37,6 +41,7 @@ class ConceptoController extends Controller
             'catalogo_id' => $catalogo->id,
             'obra_id' => $catalogo->obra_id,
             'marca' => $request->marca,
+            'etapa' => Concepto::normalizarEtapa($request->etapa),
             'descripcion' => $request->descripcion,
             'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,
@@ -51,7 +56,11 @@ class ConceptoController extends Controller
 
     public function edit(Concepto $concepto): Response
     {
-        $concepto->load(['catalogo.obra:id,no,descripcion', 'grupoPrecioConceptos.grupoPrecio']);
+        $concepto->load([
+            'catalogo.obra:id,no,descripcion',
+            'grupoPrecioConceptos.grupoPrecio',
+            'piezas' => fn ($q) => $q->orderBy('qs'),
+        ]);
 
         return Inertia::render('admin/prod/conceptos/edit', [
             'concepto' => $concepto,
@@ -63,6 +72,7 @@ class ConceptoController extends Controller
     {
         $concepto->update([
             'marca' => $request->marca,
+            'etapa' => Concepto::normalizarEtapa($request->etapa),
             'descripcion' => $request->descripcion,
             'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,
@@ -78,11 +88,12 @@ class ConceptoController extends Controller
     public function destroy(Concepto $concepto): RedirectResponse
     {
         if ($concepto->registros()->exists()) {
-            return back()->withErrors(['error' => 'No se puede eliminar un concepto que tiene registros asociados.']);
+            return back()->withErrors(['error' => 'No se puede eliminar una marca que tiene producción capturada.']);
         }
 
         $catalogoId = $concepto->catalogo_id;
         $concepto->grupoPrecioConceptos()->delete();
+        $concepto->piezas()->delete();
         $concepto->delete();
 
         return to_route('admin.prod.catalogos.show', $catalogoId);
@@ -94,68 +105,25 @@ class ConceptoController extends Controller
     }
 
     /**
-     * Importa el layout sobre un catálogo. Las marcas que ya existen en esa
-     * versión se sobrescriben; las nuevas se agregan.
+     * Carga el layout de planta sobre el catálogo. Un renglón por pieza: la
+     * marca se escribe una vez y cada QS entra como pieza suya.
      */
-    public function importCsv(ConceptoImportCsvRequest $request, Catalogo $catalogo): RedirectResponse
+    public function importCsv(ConceptoImportCsvRequest $request, Catalogo $catalogo, ImportadorDeLayout $importador): RedirectResponse
     {
-        $file = $request->file('csv_file');
-        $handle = fopen($file->getRealPath(), 'r');
+        $resultado = $importador->importar($catalogo, $request->file('csv_file')->getRealPath());
 
-        $header = fgetcsv($handle);
-        $header = array_map(fn ($col) => mb_strtoupper(trim($col)), $header);
-
-        $categoriasCache = [];
-        $rows = [];
-        while (($row = fgetcsv($handle)) !== false) {
-            if (count($row) < count($header)) {
-                continue;
-            }
-
-            $data = array_combine($header, $row);
-
-            $marca = trim($data['MARCA'] ?? '');
-            if (! $marca) {
-                continue;
-            }
-
-            $cantidad = (int) str_replace(',', '', $data['CANTIDAD'] ?? '');
-            $peso = (float) str_replace(',', '', $data['PESOKG'] ?? '');
-
-            // Ignorar filas de resumen/totales al pie del layout (sin cantidad ni peso reales).
-            if ($cantidad < 1 && $peso <= 0) {
-                continue;
-            }
-
-            $categoriaNombre = trim($data['CATEGORIA'] ?? '');
-            $categoriaId = null;
-            if ($categoriaNombre !== '') {
-                $categoriaId = $categoriasCache[$categoriaNombre] ??= Categoria::firstOrCreate(['nombre' => $categoriaNombre])->id;
-            }
-
-            $rows[$marca] = [
-                'marca' => $marca,
-                'descripcion' => trim($data['DESCRIPCION'] ?? $data['DESCRIPCIÓN'] ?? ''),
-                'categoria_id' => $categoriaId,
-                'cantidad' => max($cantidad, 1),
-                'peso_unitario' => $peso,
-                'longitud' => (int) round((float) str_replace(',', '', $data['LONGITUDMM'] ?? '0')),
-                'obra_id' => $catalogo->obra_id,
-            ];
+        if ($resultado['piezas'] === 0 && $resultado['marcas'] === 0) {
+            return back()->withErrors([
+                'csv_file' => $resultado['avisos'] === []
+                    ? 'El archivo no trae renglones para importar.'
+                    : implode(' ', $resultado['avisos']),
+            ]);
         }
 
-        fclose($handle);
+        $mensaje = "Se importaron {$resultado['marcas']} marca(s) con {$resultado['piezas']} pieza(s).";
 
-        $count = 0;
-
-        foreach ($rows as $rowData) {
-            Concepto::updateOrCreate(
-                ['catalogo_id' => $catalogo->id, 'marca' => $rowData['marca']],
-                $rowData,
-            );
-            $count++;
-        }
-
-        return back()->with('success', "Se importaron {$count} conceptos correctamente.");
+        return $resultado['avisos'] === []
+            ? back()->with('success', $mensaje)
+            : back()->with('success', $mensaje)->withErrors(['csv_file' => implode(' ', $resultado['avisos'])]);
     }
 }

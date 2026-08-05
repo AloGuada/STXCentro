@@ -1,11 +1,12 @@
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
+import { TarifasPorProceso } from '@/components/prod/tarifas-por-proceso';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Obra, ProdGrupoPrecio } from '@/types/models';
+import type { Obra, ProdGrupoPrecio, ProdProceso } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import { type FormEvent, useMemo } from 'react';
@@ -13,9 +14,11 @@ import { type FormEvent, useMemo } from 'react';
 type Props = {
     grupoPrecio: ProdGrupoPrecio;
     obras: Obra[];
+    /** Procesos que paga la obra: una tarifa por cada uno. */
+    procesos: ProdProceso[];
 };
 
-export default function GrupoPreciosEdit({ grupoPrecio, obras }: Props) {
+export default function GrupoPreciosEdit({ grupoPrecio, obras, procesos }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
@@ -27,7 +30,9 @@ export default function GrupoPreciosEdit({ grupoPrecio, obras }: Props) {
     const { data, setData, put, processing, errors } = useForm({
         obra_id: String(grupoPrecio.obra_id),
         descripcion: grupoPrecio.descripcion,
-        precio_kilo: String(grupoPrecio.precio_kilo),
+        precios: Object.fromEntries(
+            (grupoPrecio.precios ?? []).map((p) => [p.proceso_id, String(p.precio_kilo)]),
+        ) as Record<number, string>,
     });
 
     const obraOptions = useMemo(
@@ -67,17 +72,14 @@ export default function GrupoPreciosEdit({ grupoPrecio, obras }: Props) {
                             />
                         </FormField>
 
-                        <FormField label="Precio por Kilo" htmlFor="precio_kilo" error={errors.precio_kilo} required>
-                            <Input
-                                id="precio_kilo"
-                                type="number"
-                                step="0.0001"
-                                min="0"
-                                value={data.precio_kilo}
-                                onChange={(e) => setData('precio_kilo', e.target.value)}
-                                error={!!errors.precio_kilo}
-                            />
-                        </FormField>
+                        <TarifasPorProceso
+                            procesos={procesos}
+                            valores={data.precios}
+                            onChange={(procesoId, valor) =>
+                                setData('precios', { ...data.precios, [procesoId]: valor })
+                            }
+                            errors={errors as Record<string, string>}
+                        />
 
                         <div className="flex items-center justify-between">
                             <DeleteDialog

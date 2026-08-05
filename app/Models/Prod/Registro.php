@@ -2,11 +2,16 @@
 
 namespace App\Models\Prod;
 
-use App\Models\Concepto;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Producción capturada: esta pieza (QS), en este proceso, en esta fecha.
+ *
+ * No lleva cantidad porque un renglón es una pieza. Lo que sí varía es el
+ * `porcentaje`: pagar una pieza al 60% deja 40% para liquidarse en otra semana.
+ */
 class Registro extends Model
 {
     /** @use HasFactory<\Database\Factories\Prod\RegistroFactory> */
@@ -19,9 +24,9 @@ class Registro extends Model
      */
     protected $fillable = [
         'fecha',
-        'concepto_id',
+        'pieza_id',
+        'proceso_id',
         'grupo_trabajo_id',
-        'cantidad',
         'porcentaje',
     ];
 
@@ -32,23 +37,27 @@ class Registro extends Model
     {
         return [
             'fecha' => 'date',
-            'cantidad' => 'integer',
             'porcentaje' => 'decimal:2',
         ];
     }
 
     /**
-     * Piezas equivalentes que este registro consume del catálogo: pagar 10
-     * piezas al 60% gasta 6, y las 4 restantes quedan para liquidarse después.
+     * Fracción de pieza que consume este registro del tope: pagar una pieza al
+     * 60% gasta 0.6 y deja 0.4 para liquidarse después.
      */
     public function piezasEquivalentes(): float
     {
-        return round($this->cantidad * ((float) $this->porcentaje / 100), 4);
+        return round((float) $this->porcentaje / 100, 4);
     }
 
-    public function concepto(): BelongsTo
+    public function pieza(): BelongsTo
     {
-        return $this->belongsTo(Concepto::class, 'concepto_id');
+        return $this->belongsTo(Pieza::class, 'pieza_id');
+    }
+
+    public function proceso(): BelongsTo
+    {
+        return $this->belongsTo(Proceso::class, 'proceso_id');
     }
 
     public function grupoTrabajo(): BelongsTo

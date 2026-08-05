@@ -26,6 +26,7 @@ export default function ConceptosCreate({ catalogo, categorias }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         catalogo_id: String(catalogo.id),
         marca: '',
+        etapa: '',
         descripcion: '',
         cantidad: '0',
         peso_unitario: '',
@@ -42,26 +43,43 @@ export default function ConceptosCreate({ catalogo, categorias }: Props) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Nueva pieza" />
+            <Head title="Nueva marca" />
 
             <div className="p-6">
                 <div className="w-full max-w-2xl">
-                    <h1 className="text-2xl font-semibold">Nueva pieza</h1>
+                    <h1 className="text-2xl font-semibold">Nueva marca</h1>
                     <p className="mb-6 mt-1 text-sm text-base-content/60">
                         {catalogo.nombre} v{catalogo.version}
                         {catalogo.obra ? ` · Obra ${catalogo.obra.no} - ${catalogo.obra.descripcion}` : ''}
                     </p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
-                            <Input
-                                id="marca"
-                                value={data.marca}
-                                onChange={(e) => setData('marca', e.target.value)}
-                                error={!!errors.marca}
-                                placeholder="Identificador de la pieza"
-                            />
-                        </FormField>
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Marca" htmlFor="marca" error={errors.marca} required>
+                                <Input
+                                    id="marca"
+                                    value={data.marca}
+                                    onChange={(e) => setData('marca', e.target.value)}
+                                    error={!!errors.marca}
+                                    placeholder="Identificador del modelo"
+                                />
+                            </FormField>
+
+                            <FormField
+                                label="Etapa"
+                                htmlFor="etapa"
+                                error={errors.etapa}
+                                description="Junto con la marca identifica el modelo. Dejala vacia si la obra no maneja etapas."
+                            >
+                                <Input
+                                    id="etapa"
+                                    value={data.etapa}
+                                    onChange={(e) => setData('etapa', e.target.value)}
+                                    error={!!errors.etapa}
+                                    placeholder="Sin etapa"
+                                />
+                            </FormField>
+                        </div>
 
                         <FormField label="Descripcion" htmlFor="descripcion" error={errors.descripcion} required>
                             <Input
@@ -89,7 +107,12 @@ export default function ConceptosCreate({ catalogo, categorias }: Props) {
                         </FormField>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Cantidad (piezas)" htmlFor="cantidad" error={errors.cantidad}>
+                            <FormField
+                                label="Cantidad (piezas)"
+                                htmlFor="cantidad"
+                                error={errors.cantidad}
+                                description="Cuántas piezas pide el modelo. Los QS se cargan con el layout."
+                            >
                                 <Input
                                     id="cantidad"
                                     type="number"

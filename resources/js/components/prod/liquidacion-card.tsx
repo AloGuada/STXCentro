@@ -1,4 +1,5 @@
 import { FormattedDate } from '@/components/ui/formatted-date';
+import { etiquetaDePieza } from '@/lib/prod/piezas';
 import type { ProdLiquidacion, ProdLiquidacionDetalle, ProdLiquidacionEmpleado, ProdGrupoTrabajo, Usuario } from '@/types/models';
 
 export type LiquidacionFull = ProdLiquidacion & {
@@ -30,7 +31,7 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                             <thead>
                                 <tr>
                                     <th>Pieza</th>
-                                    <th className="text-right">Cantidad</th>
+                                    <th>Proceso</th>
                                     <th className="text-right">%</th>
                                     <th className="text-right">Kilos</th>
                                     <th className="text-right">$/kg</th>
@@ -51,14 +52,21 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                                                 {/* Snapshot del renglon: no se relee la pieza viva. */}
                                                 {d.marca ? (
                                                     <>
-                                                        <span className="font-medium">{d.marca}</span>{' '}
+                                                        <span className="font-medium">
+                                                            {etiquetaDePieza(d.marca, d.etapa)}
+                                                        </span>{' '}
+                                                        <span className="font-mono text-xs">QS {d.qs}</span>{' '}
                                                         <span className="text-base-content/60">{d.descripcion}</span>
                                                     </>
                                                 ) : (
-                                                    <span className="text-base-content/60">Concepto #{d.concepto_id}</span>
+                                                    <span className="text-base-content/60">Pieza #{d.pieza_id}</span>
                                                 )}
                                             </td>
-                                            <td className="text-right font-mono">{d.cantidad}</td>
+                                            <td>
+                                                <span className="badge badge-sm badge-ghost">
+                                                    {d.proceso_nombre ?? '—'}
+                                                </span>
+                                            </td>
                                             <td className="text-right font-mono">
                                                 {Number(d.porcentaje ?? 100) < 100 ? (
                                                     <span className="badge badge-sm badge-warning">

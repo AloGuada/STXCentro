@@ -18,6 +18,7 @@ class ConceptoUpdateRequest extends FormRequest
     {
         return [
             'marca' => ['required', 'string', 'max:255'],
+            'etapa' => ['nullable', 'string', 'max:50'],
             'descripcion' => ['required', 'string', 'max:255'],
             'cantidad' => ['required', 'integer', 'min:0'],
             'peso_unitario' => ['required', 'numeric', 'min:0'],

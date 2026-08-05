@@ -1,9 +1,7 @@
 <?php
 
 use App\Enums\Prod\EstadoAsistencia;
-use App\Models\Concepto;
 use App\Models\Prod\Asistencia;
-use App\Models\Prod\Catalogo;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoEmpleado;
 use App\Models\Prod\GrupoTrabajo;
@@ -25,19 +23,15 @@ beforeEach(function () {
         'nombre' => 'Juan Pérez',
     ]);
 
-    $catalogo = Catalogo::factory()->create();
-    $this->pieza = Concepto::factory()->create([
-        'obra_id' => $catalogo->obra_id,
-        'catalogo_id' => $catalogo->id,
-        'cantidad' => 100,
-    ]);
+    $this->marca = marcaConPiezas(5);
+    $this->proceso = proceso();
 
     // El grupo participa en el destajo, asi que debe capturar asistencia.
     Registro::factory()->create([
-        'concepto_id' => $this->pieza->id,
+        'pieza_id' => $this->marca->piezas[0]->id,
+        'proceso_id' => $this->proceso->id,
         'grupo_trabajo_id' => $this->grupo->id,
         'fecha' => '2026-02-03',
-        'cantidad' => 5,
     ]);
 });
 
@@ -106,10 +100,10 @@ describe('pantalla de asistencia', function () {
         $inactivo = GrupoTrabajo::factory()->create(['descripcion' => 'Inactivo', 'activo' => false]);
         GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $inactivo->id]);
         Registro::factory()->create([
-            'concepto_id' => $this->pieza->id,
+            'pieza_id' => $this->marca->piezas[1]->id,
+            'proceso_id' => $this->proceso->id,
             'grupo_trabajo_id' => $inactivo->id,
             'fecha' => '2026-02-04',
-            'cantidad' => 2,
         ]);
 
         $this->actingAs($this->user)

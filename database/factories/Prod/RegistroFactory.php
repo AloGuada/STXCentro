@@ -2,8 +2,9 @@
 
 namespace Database\Factories\Prod;
 
-use App\Models\Concepto;
 use App\Models\Prod\GrupoTrabajo;
+use App\Models\Prod\Pieza;
+use App\Models\Prod\Proceso;
 use App\Models\Prod\Registro;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -21,9 +22,10 @@ class RegistroFactory extends Factory
     {
         return [
             'fecha' => fake()->date(),
-            'concepto_id' => Concepto::factory(),
+            'pieza_id' => Pieza::factory(),
+            'proceso_id' => Proceso::factory(),
             'grupo_trabajo_id' => GrupoTrabajo::factory(),
-            'cantidad' => fake()->numberBetween(1, 20),
+            'porcentaje' => 100,
         ];
     }
 }

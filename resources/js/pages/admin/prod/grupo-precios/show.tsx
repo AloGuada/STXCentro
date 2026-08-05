@@ -2,8 +2,15 @@ import { Button, ButtonLink } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
 import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
+import { etiquetaDePieza } from '@/lib/prod/piezas';
 import type { BreadcrumbItem } from '@/types';
-import type { Concepto, Obra, ProdGrupoPrecio, ProdGrupoPrecioConcepto } from '@/types/models';
+import type {
+    Concepto,
+    Obra,
+    ProdGrupoPrecio,
+    ProdGrupoPrecioConcepto,
+    ProdProceso,
+} from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
 import { ChevronRightIcon, PlusIcon, TrashIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -17,11 +24,12 @@ type Props = {
     obra: Obra;
     grupoPrecios: GrupoPrecioWithConceptos[];
     unassignedConceptos: Concepto[];
+    procesos: ProdProceso[];
 };
 
 const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
-export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConceptos }: Props) {
+export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConceptos, procesos }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
@@ -33,7 +41,7 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
     const [selectedConcepto, setSelectedConcepto] = useState('');
 
     const conceptoOptions = useMemo(
-        () => unassignedConceptos.map((c) => ({ value: String(c.id), label: `${c.marca} - ${c.descripcion}` })),
+        () => unassignedConceptos.map((c) => ({ value: String(c.id), label: `${etiquetaDePieza(c.marca, c.etapa)} - ${c.descripcion}` })),
         [unassignedConceptos],
     );
 
@@ -79,7 +87,18 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
                                 <div className="collapse-title flex items-center gap-4">
                                     <div className="flex-1">
                                         <span className="font-medium">{gp.descripcion}</span>
-                                        <span className="ml-4 font-mono text-sm text-base-content/60">${fmt(gp.precio_kilo)}/kg</span>
+                                        <span className="ml-4 text-sm text-base-content/60">
+                                            {procesos.length === 0
+                                                ? 'La obra no tiene procesos configurados'
+                                                : procesos
+                                                      .map((proceso) => {
+                                                          const tarifa = (gp.precios ?? []).find(
+                                                              (t) => t.proceso_id === proceso.id,
+                                                          );
+                                                          return `${proceso.nombre} $${fmt(tarifa?.precio_kilo ?? 0)}/kg`;
+                                                      })
+                                                      .join(' · ')}
+                                        </span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className="badge badge-sm badge-ghost">{gp.grupo_precio_conceptos_count} piezas</span>
@@ -114,7 +133,7 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
                                                 ) : (
                                                     gp.grupo_precio_conceptos.map((gpc) => (
                                                         <tr key={gpc.id} className="hover">
-                                                            <td className="font-medium">{gpc.concepto?.marca}</td>
+                                                            <td className="font-medium">{etiquetaDePieza(gpc.concepto?.marca, gpc.concepto?.etapa)}</td>
                                                             <td>{gpc.concepto?.descripcion}</td>
                                                             <td className="text-right font-mono">{gpc.concepto?.peso_unitario}</td>
                                                             <td>
@@ -157,7 +176,7 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
                                     >
                                         {grupoPrecios.map((gp) => (
                                             <SelectItem key={gp.id} value={gp.id}>
-                                                {gp.descripcion} (${fmt(gp.precio_kilo)}/kg)
+                                                {gp.descripcion}
                                             </SelectItem>
                                         ))}
                                     </Select>
@@ -189,7 +208,7 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
                                 <tbody>
                                     {unassignedConceptos.map((c) => (
                                         <tr key={c.id} className="hover">
-                                            <td className="font-medium">{c.marca}</td>
+                                            <td className="font-medium">{etiquetaDePieza(c.marca, c.etapa)}</td>
                                             <td>{c.descripcion}</td>
                                             <td className="text-right font-mono">{c.peso_unitario}</td>
                                         </tr>

@@ -2,7 +2,6 @@
 
 namespace App\Services\Prod;
 
-use App\Models\Concepto;
 use App\Models\Obra;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoPrecioConcepto;
@@ -22,11 +21,10 @@ class GeneradorLiquidaciones
     /**
      * Cierra el destajo generando una liquidacion inmutable por grupo de trabajo.
      *
-     * Por grupo: agrupa la produccion por concepto (kilos = cantidad x peso_unitario,
-     * total = kilos x precio_kilo del grupo de precio), suma los pagos extra
-     * (precio x dias x personas) y reparte el total entre los empleados con
-     * RepartoDelGrupo: sueldo base por dia asistido mas el excedente prorrateado
-     * por el peso de su categoria.
+     * Por grupo: agrupa la produccion por pieza y proceso (kilos = peso de la
+     * marca x porcentaje pagado, total = kilos x precio del proceso en el grupo
+     * de precios), suma los pagos extra y reparte el total entre los empleados
+     * con RepartoDelGrupo.
      */
     public function generar(Destajo $destajo): void
     {
@@ -56,34 +54,42 @@ class GeneradorLiquidaciones
         });
     }
 
-    /** Clave de agrupacion: misma pieza pagada al mismo porcentaje. */
-    private function clavePiezaPorcentaje(Registro $registro): string
+    /**
+     * Clave de agrupacion del renglon liquidado: una pieza en un proceso. Si la
+     * misma pieza se captura dos veces en la semana (dos parcialidades), los
+     * porcentajes se suman en un solo renglon.
+     */
+    private function clavePiezaProceso(Registro $registro): string
     {
-        return $registro->concepto_id.'|'.number_format((float) $registro->porcentaje, 2, '.', '');
+        return $registro->pieza_id.'|'.$registro->proceso_id;
     }
 
     /**
-     * Piezas con produccion en el destajo que no tienen precio asignado.
-     * Se pagarian en cero silenciosamente; se usa para advertir antes de cerrar.
+     * Marcas con produccion en el destajo que no tienen tarifa para el proceso
+     * en que se trabajaron. Se pagarian en cero silenciosamente; se usa para
+     * advertir antes de cerrar.
      *
-     * @return Collection<int, array{concepto_id: int, marca: string, descripcion: string, cantidad: int}>
+     * @return Collection<int, array{concepto_id: int, marca: string, etapa: ?string, proceso: string, piezas: int}>
      */
     public function piezasSinPrecio(Destajo $destajo): Collection
     {
         return $this->registrosDelDestajo($destajo)
-            ->groupBy('concepto_id')
-            ->map(function (Collection $registros, int $conceptoId) {
-                $concepto = $registros->first()->concepto;
+            ->filter(fn (Registro $r) => $r->pieza?->marca !== null)
+            ->groupBy(fn (Registro $r) => $r->pieza->concepto_id.'|'.$r->proceso_id)
+            ->map(function (Collection $registros) {
+                $primero = $registros->first();
+                $marca = $primero->pieza->marca;
 
-                if ($concepto === null || $this->precioKilo($conceptoId, $concepto->obra_id) !== null) {
+                if ($this->precioKilo($marca->id, $marca->obra_id, (int) $primero->proceso_id) > 0) {
                     return null;
                 }
 
                 return [
-                    'concepto_id' => $conceptoId,
-                    'marca' => $concepto->marca,
-                    'descripcion' => $concepto->descripcion,
-                    'cantidad' => (int) $registros->sum('cantidad'),
+                    'concepto_id' => (int) $marca->id,
+                    'marca' => $marca->marca,
+                    'etapa' => $marca->etapa,
+                    'proceso' => $primero->proceso?->nombre ?? '',
+                    'piezas' => $registros->unique('pieza_id')->count(),
                 ];
             })
             ->filter()
@@ -100,35 +106,41 @@ class GeneradorLiquidaciones
         $totalProduccion = 0.0;
         $detallesData = [];
 
-        // Se agrupa por pieza Y porcentaje: un mismo lote pagado al 60% y otro
-        // al 100% en la misma semana son renglones distintos de la orden.
-        foreach ($registrosGrupo->groupBy($this->clavePiezaPorcentaje(...)) as $registrosConcepto) {
-            $primero = $registrosConcepto->first();
-            $concepto = $primero->concepto;
-            $conceptoId = (int) $primero->concepto_id;
-            $porcentaje = (float) $primero->porcentaje;
+        foreach ($registrosGrupo->groupBy($this->clavePiezaProceso(...)) as $registrosPieza) {
+            $primero = $registrosPieza->first();
+            $pieza = $primero->pieza;
+            $marca = $pieza?->marca;
 
-            $cantidadTotal = (int) $registrosConcepto->sum('cantidad');
-            $kilos = round($cantidadTotal * (float) $concepto->peso_unitario * ($porcentaje / 100), 3);
+            if ($pieza === null || $marca === null) {
+                continue;
+            }
 
-            $grupoPrecioConcepto = $this->grupoPrecioConcepto($conceptoId, $concepto->obra_id);
-            $precioKilo = (float) ($grupoPrecioConcepto?->grupoPrecio?->precio_kilo ?? 0);
+            $procesoId = (int) $primero->proceso_id;
+            $porcentaje = round((float) $registrosPieza->sum(fn (Registro $r) => (float) $r->porcentaje), 2);
+            $kilos = round((float) $marca->peso_unitario * ($porcentaje / 100), 3);
+
+            $grupoPrecioConcepto = $this->grupoPrecioConcepto((int) $marca->id, (int) $marca->obra_id);
+            $precioKilo = (float) ($grupoPrecioConcepto?->grupoPrecio?->precioKilo($procesoId) ?? 0);
             $total = round($kilos * $precioKilo, 2);
 
             $totalKilos += $kilos;
             $totalProduccion += $total;
 
             $detallesData[] = [
-                'concepto_id' => $conceptoId,
                 // Snapshot del renglon: la orden de pago de una semana cerrada
-                // no debe cambiar aunque despues se edite o borre la pieza.
-                'obra_id' => $concepto->obra_id,
-                'marca' => $concepto->marca,
-                'descripcion' => $concepto->descripcion,
-                'peso_unitario' => $concepto->peso_unitario,
-                'longitud' => $concepto->longitud,
+                // no debe cambiar aunque despues se edite o borre el catalogo.
+                'concepto_id' => $marca->id,
+                'pieza_id' => $pieza->id,
+                'qs' => $pieza->qs,
+                'obra_id' => $marca->obra_id,
+                'marca' => $marca->marca,
+                'etapa' => $marca->etapa,
+                'proceso_id' => $procesoId,
+                'proceso_nombre' => $primero->proceso?->nombre,
+                'descripcion' => $marca->descripcion,
+                'peso_unitario' => $marca->peso_unitario,
+                'longitud' => $marca->longitud,
                 'grupo_precio_id' => $grupoPrecioConcepto?->grupo_precio_id ?? 0,
-                'cantidad' => $cantidadTotal,
                 'porcentaje' => $porcentaje,
                 'kilos' => $kilos,
                 'precio_kilo_aplicado' => $precioKilo,
@@ -171,7 +183,6 @@ class GeneradorLiquidaciones
      * Datos normalizados de la orden de pago, una entrada por grupo de trabajo.
      * Si el destajo esta cerrado se lee de las liquidaciones inmutables; si esta
      * abierto se calcula del preview (los numeros aun pueden cambiar al cerrar).
-     * Las secciones de pagos extra salen del catalogo TipoPagoExtra en ambos casos.
      *
      * @return Collection<int, array<string, mixed>>
      */
@@ -198,7 +209,7 @@ class GeneradorLiquidaciones
     {
         $destajo->loadMissing([
             'liquidaciones.grupoTrabajo.ubicaciones',
-            'liquidaciones.detalles.concepto.obra',
+            'liquidaciones.detalles',
             'liquidaciones.empleados',
         ]);
 
@@ -208,19 +219,23 @@ class GeneradorLiquidaciones
             ->keyBy('id');
 
         return $destajo->liquidaciones->map(function (Liquidacion $liq) use ($tipos, $pagosPorGrupo, $obras) {
-            // Todo sale del snapshot del renglon, nunca del concepto vivo.
-            $piezas = $liq->detalles->map(fn (LiquidacionDetalle $d) => [
-                'marca' => $d->marca ?? "#{$d->concepto_id}",
-                'descripcion' => $d->descripcion ?? '',
-                'obra' => $this->nombreObraSnapshot($d, $obras),
-                'pzs' => (int) $d->cantidad,
-                'porcentaje' => (float) $d->porcentaje,
-                'largo' => $d->longitud,
-                'peso_unitario' => $d->peso_unitario !== null ? (float) $d->peso_unitario : null,
-                'kilos' => (float) $d->kilos,
-                'precio_kilo' => (float) $d->precio_kilo_aplicado,
-                'importe' => (float) $d->total,
-            ])->all();
+            // Todo sale del snapshot del renglon, nunca del catalogo vivo.
+            $piezas = $this->agruparParaImprimir(
+                $liq->detalles->map(fn (LiquidacionDetalle $d) => [
+                    'marca' => $d->marca ?? '-',
+                    'etapa' => $d->etapa,
+                    'proceso' => $d->proceso_nombre ?? '-',
+                    'obra' => $this->etiquetaObra($d->obra_id !== null ? $obras->get($d->obra_id) : null),
+                    'qs' => $d->qs,
+                    'porcentaje' => (float) $d->porcentaje,
+                    'largo' => $d->longitud,
+                    'peso_unitario' => $d->peso_unitario !== null ? (float) $d->peso_unitario : null,
+                    'kilos' => (float) $d->kilos,
+                    'precio_kilo' => (float) $d->precio_kilo_aplicado,
+                    'importe' => (float) $d->total,
+                    'descripcion' => $d->descripcion ?? '',
+                ])
+            );
 
             // Snapshot del reparto: no se recalcula ni se relee la categoria.
             $empleados = $liq->empleados->map(fn ($e) => [
@@ -264,37 +279,41 @@ class GeneradorLiquidaciones
             $grupoId = (int) $grupoId;
             $registrosGrupo = $registrosPorGrupo->get($grupoId, collect());
 
-            $piezas = [];
+            $renglones = [];
             $totalKilos = 0.0;
             $totalProduccion = 0.0;
 
-            foreach ($registrosGrupo->groupBy($this->clavePiezaPorcentaje(...)) as $registrosConcepto) {
-                $primero = $registrosConcepto->first();
-                $concepto = $primero->concepto;
-                if ($concepto === null) {
+            foreach ($registrosGrupo->groupBy($this->clavePiezaProceso(...)) as $registrosPieza) {
+                $primero = $registrosPieza->first();
+                $pieza = $primero->pieza;
+                $marca = $pieza?->marca;
+
+                if ($pieza === null || $marca === null) {
                     continue;
                 }
 
-                $porcentaje = (float) $primero->porcentaje;
-                $cantidad = (int) $registrosConcepto->sum('cantidad');
-                $kilos = round($cantidad * (float) $concepto->peso_unitario * ($porcentaje / 100), 3);
-                $precioKilo = (float) ($this->grupoPrecioConcepto((int) $primero->concepto_id, $concepto->obra_id)?->grupoPrecio?->precio_kilo ?? 0);
+                $procesoId = (int) $primero->proceso_id;
+                $porcentaje = round((float) $registrosPieza->sum(fn (Registro $r) => (float) $r->porcentaje), 2);
+                $kilos = round((float) $marca->peso_unitario * ($porcentaje / 100), 3);
+                $precioKilo = $this->precioKilo((int) $marca->id, (int) $marca->obra_id, $procesoId);
                 $importe = round($kilos * $precioKilo, 2);
 
                 $totalKilos += $kilos;
                 $totalProduccion += $importe;
 
-                $piezas[] = [
-                    'marca' => $concepto->marca,
-                    'descripcion' => $concepto->descripcion,
-                    'obra' => $this->nombreObra($concepto),
-                    'pzs' => $cantidad,
+                $renglones[] = [
+                    'marca' => $marca->marca,
+                    'etapa' => $marca->etapa,
+                    'proceso' => $primero->proceso?->nombre ?? '-',
+                    'obra' => $this->etiquetaObra($marca->obra),
+                    'qs' => $pieza->qs,
                     'porcentaje' => $porcentaje,
-                    'largo' => $concepto->longitud,
-                    'peso_unitario' => (float) $concepto->peso_unitario,
+                    'largo' => $marca->longitud,
+                    'peso_unitario' => (float) $marca->peso_unitario,
                     'kilos' => $kilos,
                     'precio_kilo' => $precioKilo,
                     'importe' => $importe,
+                    'descripcion' => $marca->descripcion,
                 ];
             }
 
@@ -320,8 +339,54 @@ class GeneradorLiquidaciones
                 ])
                 ->all();
 
-            return $this->armarGrupo($grupoTrabajo, $piezas, $totalKilos, $totalProduccion, $totalExtras, $totalFinal, $empleados, $tipos, $pagosGrupo);
+            return $this->armarGrupo(
+                $grupoTrabajo,
+                $this->agruparParaImprimir(collect($renglones)),
+                $totalKilos,
+                $totalProduccion,
+                $totalExtras,
+                $totalFinal,
+                $empleados,
+                $tipos,
+                $pagosGrupo,
+            );
         })->values();
+    }
+
+    /**
+     * La orden de pago se imprime por marca, no pieza por pieza: un renglon por
+     * (marca, etapa, proceso, porcentaje) con el conteo de QS y sus totales
+     * sumados. El detalle por QS sigue guardado en la liquidacion para poder
+     * auditar exactamente que se pago.
+     *
+     * @param  Collection<int, array<string, mixed>>  $renglones
+     * @return array<int, array<string, mixed>>
+     */
+    private function agruparParaImprimir(Collection $renglones): array
+    {
+        return $renglones
+            ->groupBy(fn (array $r) => implode('|', [$r['marca'], $r['etapa'] ?? '', $r['proceso'], $r['porcentaje'], $r['obra']]))
+            ->map(function (Collection $grupo) {
+                $primero = $grupo->first();
+
+                return [
+                    'marca' => $primero['marca'],
+                    'etapa' => $primero['etapa'],
+                    'proceso' => $primero['proceso'],
+                    'descripcion' => $primero['descripcion'],
+                    'obra' => $primero['obra'],
+                    'pzs' => $grupo->count(),
+                    'qs' => $grupo->pluck('qs')->filter()->values()->all(),
+                    'porcentaje' => (float) $primero['porcentaje'],
+                    'largo' => $primero['largo'],
+                    'peso_unitario' => $primero['peso_unitario'],
+                    'kilos' => round((float) $grupo->sum('kilos'), 3),
+                    'precio_kilo' => (float) $primero['precio_kilo'],
+                    'importe' => round((float) $grupo->sum('importe'), 2),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**
@@ -378,24 +443,6 @@ class GeneradorLiquidaciones
         })->all();
     }
 
-    private function nombreObra(?Concepto $concepto): string
-    {
-        return $this->etiquetaObra($concepto?->obra);
-    }
-
-    /**
-     * La obra del renglon liquidado se resuelve por el obra_id del snapshot,
-     * no por el concepto (que pudo cambiar de catalogo o desaparecer).
-     *
-     * @param  \Illuminate\Support\Collection<int, Obra>  $obras
-     */
-    private function nombreObraSnapshot(LiquidacionDetalle $detalle, Collection $obras): string
-    {
-        return $this->etiquetaObra(
-            $detalle->obra_id !== null ? $obras->get($detalle->obra_id) : $detalle->concepto?->obra
-        );
-    }
-
     private function etiquetaObra(?Obra $obra): string
     {
         if ($obra === null) {
@@ -411,24 +458,30 @@ class GeneradorLiquidaciones
     private function registrosDelDestajo(Destajo $destajo)
     {
         return Registro::query()
-            ->with(['concepto.obra', 'grupoTrabajo.empleados'])
+            ->with(['pieza.marca.obra', 'proceso', 'grupoTrabajo.empleados'])
             ->whereBetween('fecha', [$destajo->fecha_inicio, $destajo->fecha_fin])
             ->get();
     }
 
+    /**
+     * El precio se resuelve por marca, pero se pregunta una vez por pieza: una
+     * semana de 500 QS serían 500 consultas iguales. Se cachea por corrida.
+     *
+     * @var array<string, GrupoPrecioConcepto|null>
+     */
+    private array $preciosPorMarca = [];
+
     private function grupoPrecioConcepto(int $conceptoId, int $obraId): ?GrupoPrecioConcepto
     {
-        return GrupoPrecioConcepto::query()
+        return $this->preciosPorMarca[$conceptoId.'|'.$obraId] ??= GrupoPrecioConcepto::query()
             ->whereHas('grupoPrecio', fn ($q) => $q->where('obra_id', $obraId))
             ->where('concepto_id', $conceptoId)
-            ->with('grupoPrecio')
+            ->with('grupoPrecio.precios')
             ->first();
     }
 
-    private function precioKilo(int $conceptoId, int $obraId): ?float
+    private function precioKilo(int $conceptoId, int $obraId, int $procesoId): float
     {
-        $precio = $this->grupoPrecioConcepto($conceptoId, $obraId)?->grupoPrecio?->precio_kilo;
-
-        return $precio === null ? null : (float) $precio;
+        return (float) ($this->grupoPrecioConcepto($conceptoId, $obraId)?->grupoPrecio?->precioKilo($procesoId) ?? 0);
     }
 }

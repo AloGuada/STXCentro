@@ -2,10 +2,11 @@
 
 namespace Database\Factories\Prod;
 
-use App\Models\Concepto;
 use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\Liquidacion;
 use App\Models\Prod\LiquidacionDetalle;
+use App\Models\Prod\Pieza;
+use App\Models\Prod\Proceso;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -20,19 +21,18 @@ class LiquidacionDetalleFactory extends Factory
      */
     public function definition(): array
     {
-        $cantidad = fake()->numberBetween(1, 20);
         $precioKilo = fake()->randomFloat(4, 1, 50);
-        $kilos = $cantidad * fake()->randomFloat(3, 5, 100);
-        $total = round($kilos * $precioKilo, 2);
+        $kilos = fake()->randomFloat(3, 5, 100);
 
         return [
             'liquidacion_id' => Liquidacion::factory(),
-            'concepto_id' => Concepto::factory(),
+            'pieza_id' => Pieza::factory(),
             'grupo_precio_id' => GrupoPrecio::factory(),
-            'cantidad' => $cantidad,
+            'proceso_id' => Proceso::factory(),
+            'porcentaje' => 100,
             'kilos' => $kilos,
             'precio_kilo_aplicado' => $precioKilo,
-            'total' => $total,
+            'total' => round($kilos * $precioKilo, 2),
         ];
     }
 }

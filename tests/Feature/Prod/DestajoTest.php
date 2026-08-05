@@ -1,13 +1,9 @@
 <?php
 
-use App\Models\Concepto;
-use App\Models\Obra;
 use App\Models\Prod\Asistencia;
 use App\Models\Prod\CategoriaEmpleado;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoEmpleado;
-use App\Models\Prod\GrupoPrecio;
-use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Liquidacion;
 use App\Models\Prod\PagoExtra;
@@ -60,15 +56,13 @@ describe('admin destajos', function () {
     });
 
     test('orden de pago pdf se genera en destajo abierto', function () {
-        $obra = Obra::factory()->create();
-        $concepto = Concepto::factory()->create(['obra_id' => $obra->id, 'peso_unitario' => 10.000]);
-        $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id, 'precio_kilo' => 5.0000]);
-        GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
+        $marca = marcaConPiezas(30, ['peso_unitario' => 10.000]);
+        tarifaDeMarca($marca, 5.0000);
         $grupo = GrupoTrabajo::factory()->create();
         GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id]);
 
         $destajo = Destajo::factory()->create(['cerrado' => false, 'fecha_inicio' => '2026-03-02', 'fecha_fin' => '2026-03-08']);
-        Registro::factory()->create(['fecha' => '2026-03-04', 'concepto_id' => $concepto->id, 'grupo_trabajo_id' => $grupo->id, 'cantidad' => 30]);
+        capturarPiezas($marca->piezas, $grupo, '2026-03-04');
 
         $response = $this->actingAs($this->user)
             ->get(route('admin.prod.destajos.orden-pago', $destajo));
@@ -88,10 +82,10 @@ describe('admin destajos', function () {
     test('pantalla de asistencia lista grupos, empleados y dias del periodo', function () {
         $grupo = GrupoTrabajo::factory()->create();
         GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id]);
-        $concepto = Concepto::factory()->create();
+        $marca = marcaConPiezas(5);
 
         $destajo = Destajo::factory()->create(['cerrado' => false, 'fecha_inicio' => '2026-03-02', 'fecha_fin' => '2026-03-08']);
-        Registro::factory()->create(['fecha' => '2026-03-04', 'concepto_id' => $concepto->id, 'grupo_trabajo_id' => $grupo->id, 'cantidad' => 5]);
+        capturarPiezas($marca->piezas, $grupo, '2026-03-04');
 
         $this->actingAs($this->user)
             ->get(route('admin.prod.destajos.asistencia', $destajo))
@@ -158,7 +152,8 @@ describe('admin destajos', function () {
                 ->has('pagosExtraPreview')
                 ->has('piezasSinPrecio')
                 ->has('gruposTrabajo')
-                ->has('conceptos')
+                ->has('marcas')
+                ->has('procesos')
                 ->has('tipos')
             );
     });
@@ -184,10 +179,9 @@ describe('admin destajos', function () {
     });
 
     test('cerrar generates liquidaciones correctly', function () {
-        $obra = Obra::factory()->create();
-        $concepto = Concepto::factory()->create(['obra_id' => $obra->id, 'peso_unitario' => 10.000]);
-        $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id, 'precio_kilo' => 5.0000]);
-        GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
+        $marca = marcaConPiezas(20, ['peso_unitario' => 10.000]);
+        tarifaDeMarca($marca, 5.0000);
+        obraPagaProcesos($marca->obra_id);
 
         $grupo = GrupoTrabajo::factory()->create();
         GrupoEmpleado::factory()->create([
@@ -206,12 +200,7 @@ describe('admin destajos', function () {
             'fecha_fin' => '2026-02-09',
         ]);
 
-        Registro::factory()->create([
-            'fecha' => '2026-02-05',
-            'concepto_id' => $concepto->id,
-            'grupo_trabajo_id' => $grupo->id,
-            'cantidad' => 20,
-        ]);
+        capturarPiezas($marca->piezas, $grupo, '2026-02-05');
 
         // Sin asistencia completa el cierre queda bloqueado.
         foreach ($grupo->empleados as $empleado) {
@@ -239,8 +228,8 @@ describe('admin destajos', function () {
         expect((float) $liquidacion->total_produccion)->toBe(1000.0);
         expect((float) $liquidacion->total_final)->toBe(1000.0);
 
-        expect($liquidacion->detalles)->toHaveCount(1);
-        expect($liquidacion->detalles->first()->cantidad)->toBe(20);
+        // Un renglon por pieza: el detalle es el libro de que QS se pago.
+        expect($liquidacion->detalles)->toHaveCount(20);
 
         // Sin salario minimo configurado el sueldo base es 0, asi que los 1000
         // son excedente y se reparten por el peso de la categoria: 600 y 400.
@@ -261,10 +250,9 @@ describe('admin destajos', function () {
     });
 
     test('cerrar includes pagos extra in totals', function () {
-        $obra = Obra::factory()->create();
-        $concepto = Concepto::factory()->create(['obra_id' => $obra->id, 'peso_unitario' => 10.000]);
-        $gp = GrupoPrecio::factory()->create(['obra_id' => $obra->id, 'precio_kilo' => 5.0000]);
-        GrupoPrecioConcepto::create(['concepto_id' => $concepto->id, 'grupo_precio_id' => $gp->id]);
+        $marca = marcaConPiezas(20, ['peso_unitario' => 10.000]);
+        tarifaDeMarca($marca, 5.0000);
+        obraPagaProcesos($marca->obra_id);
 
         $grupo = GrupoTrabajo::factory()->create();
         $destajo = Destajo::factory()->create([
@@ -272,12 +260,7 @@ describe('admin destajos', function () {
             'fecha_fin' => '2026-02-09',
         ]);
 
-        Registro::factory()->create([
-            'fecha' => '2026-02-05',
-            'concepto_id' => $concepto->id,
-            'grupo_trabajo_id' => $grupo->id,
-            'cantidad' => 20,
-        ]);
+        capturarPiezas($marca->piezas, $grupo, '2026-02-05');
 
         $tipo = TipoPagoExtra::create(['descripcion' => 'Bono', 'orden' => 1, 'desgloce' => false]);
         PagoExtra::create([
@@ -301,9 +284,8 @@ describe('admin destajos', function () {
     });
 
     test('preview flags piezas sin precio', function () {
-        $obra = Obra::factory()->create();
-        $concepto = Concepto::factory()->create(['obra_id' => $obra->id, 'peso_unitario' => 10.000]);
-        // Sin GrupoPrecioConcepto: la pieza no tiene precio.
+        $marca = marcaConPiezas(3, ['peso_unitario' => 10.000]);
+        // Sin tarifa para el proceso: la marca se pagaria en cero.
 
         $grupo = GrupoTrabajo::factory()->create();
         $destajo = Destajo::factory()->create([
@@ -311,12 +293,7 @@ describe('admin destajos', function () {
             'fecha_fin' => '2026-02-09',
         ]);
 
-        Registro::factory()->create([
-            'fecha' => '2026-02-05',
-            'concepto_id' => $concepto->id,
-            'grupo_trabajo_id' => $grupo->id,
-            'cantidad' => 5,
-        ]);
+        capturarPiezas($marca->piezas, $grupo, '2026-02-05');
 
         $this->actingAs($this->user)
             ->get(route('admin.prod.destajos.show', $destajo))
@@ -326,8 +303,8 @@ describe('admin destajos', function () {
 
 describe('destajo produccion (registros)', function () {
     test('registro can be captured within destajo', function () {
-        $obra = Obra::factory()->create();
-        $concepto = Concepto::factory()->create(['obra_id' => $obra->id]);
+        $marca = marcaConPiezas(7);
+        obraPagaProcesos($marca->obra_id);
         $grupo = GrupoTrabajo::factory()->create();
         $destajo = Destajo::factory()->create([
             'fecha_inicio' => '2026-02-03',
@@ -337,22 +314,24 @@ describe('destajo produccion (registros)', function () {
         $this->actingAs($this->user)
             ->post(route('admin.prod.destajos.registros.store', $destajo), [
                 'fecha' => '2026-02-05',
-                'concepto_id' => $concepto->id,
+                'piezas' => $marca->piezas->pluck('id')->all(),
+                'proceso_id' => proceso()->id,
                 'grupo_trabajo_id' => $grupo->id,
-                'cantidad' => 7,
             ])
             ->assertRedirect(route('admin.prod.destajos.show', $destajo));
 
+        // Un renglon por QS seleccionado.
+        expect(Registro::where('grupo_trabajo_id', $grupo->id)->count())->toBe(7);
         $this->assertDatabaseHas('prod_registros', [
-            'concepto_id' => $concepto->id,
+            'pieza_id' => $marca->piezas->first()->id,
+            'proceso_id' => proceso()->id,
             'grupo_trabajo_id' => $grupo->id,
-            'cantidad' => 7,
         ]);
     });
 
     test('registro fecha must be within destajo period', function () {
-        $obra = Obra::factory()->create();
-        $concepto = Concepto::factory()->create(['obra_id' => $obra->id]);
+        $marca = marcaConPiezas(1);
+        obraPagaProcesos($marca->obra_id);
         $grupo = GrupoTrabajo::factory()->create();
         $destajo = Destajo::factory()->create([
             'fecha_inicio' => '2026-02-03',
@@ -362,9 +341,9 @@ describe('destajo produccion (registros)', function () {
         $this->actingAs($this->user)
             ->post(route('admin.prod.destajos.registros.store', $destajo), [
                 'fecha' => '2026-02-20',
-                'concepto_id' => $concepto->id,
+                'piezas' => [$marca->piezas->first()->id],
+                'proceso_id' => proceso()->id,
                 'grupo_trabajo_id' => $grupo->id,
-                'cantidad' => 7,
             ])
             ->assertSessionHasErrors(['fecha']);
     });
@@ -374,18 +353,13 @@ describe('destajo produccion (registros)', function () {
 
         $this->actingAs($this->user)
             ->post(route('admin.prod.destajos.registros.store', $destajo), [])
-            ->assertSessionHasErrors(['fecha', 'concepto_id', 'grupo_trabajo_id', 'cantidad']);
+            ->assertSessionHasErrors(['fecha', 'piezas', 'proceso_id', 'grupo_trabajo_id']);
     });
 
     test('registro can be deleted from destajo', function () {
-        $obra = Obra::factory()->create();
-        $concepto = Concepto::factory()->create(['obra_id' => $obra->id]);
         $grupo = GrupoTrabajo::factory()->create();
         $destajo = Destajo::factory()->create();
-        $registro = Registro::factory()->create([
-            'concepto_id' => $concepto->id,
-            'grupo_trabajo_id' => $grupo->id,
-        ]);
+        $registro = Registro::factory()->create(['grupo_trabajo_id' => $grupo->id]);
 
         $this->actingAs($this->user)
             ->delete(route('admin.prod.destajos.registros.destroy', [$destajo, $registro]))
@@ -395,9 +369,9 @@ describe('destajo produccion (registros)', function () {
     });
 
     test('csv import loads produccion to groups', function () {
-        $obra = Obra::factory()->create();
-        Concepto::factory()->create(['obra_id' => $obra->id, 'marca' => 'V-01', 'activo' => true]);
-        Concepto::factory()->create(['obra_id' => $obra->id, 'marca' => 'C-03', 'activo' => true]);
+        $marca = marcaConPiezas(2, ['marca' => 'V-01']);
+        obraPagaProcesos($marca->obra_id);
+        [$primera, $segunda] = [$marca->piezas[0], $marca->piezas[1]];
         GrupoTrabajo::factory()->create(['descripcion' => 'Grupo A']);
 
         $destajo = Destajo::factory()->create([
@@ -405,9 +379,9 @@ describe('destajo produccion (registros)', function () {
             'fecha_fin' => '2026-02-09',
         ]);
 
-        $csv = "GRUPO,MARCA,CANTIDAD\n";
-        $csv .= "Grupo A,V-01,12\n";
-        $csv .= "Grupo A,C-03,8\n";
+        $csv = "GRUPO,QS,PROCESO\n";
+        $csv .= "Grupo A,{$primera->qs},Soldadura\n";
+        $csv .= "Grupo A,{$segunda->qs},Soldadura\n";
         $file = UploadedFile::fake()->createWithContent('produccion.csv', $csv);
 
         $this->actingAs($this->user)
@@ -418,19 +392,20 @@ describe('destajo produccion (registros)', function () {
             ->assertRedirect();
 
         expect(Registro::count())->toBe(2);
-        $this->assertDatabaseHas('prod_registros', ['cantidad' => 12]);
-        $this->assertDatabaseHas('prod_registros', ['cantidad' => 8]);
+        $this->assertDatabaseHas('prod_registros', ['pieza_id' => $primera->id]);
+        $this->assertDatabaseHas('prod_registros', ['pieza_id' => $segunda->id]);
     });
 
     test('csv import reports unknown group', function () {
-        $obra = Obra::factory()->create();
-        Concepto::factory()->create(['obra_id' => $obra->id, 'marca' => 'V-01', 'activo' => true]);
+        $marca = marcaConPiezas(1, ['marca' => 'V-01']);
+        obraPagaProcesos($marca->obra_id);
+        $qs = $marca->piezas->first()->qs;
         $destajo = Destajo::factory()->create([
             'fecha_inicio' => '2026-02-03',
             'fecha_fin' => '2026-02-09',
         ]);
 
-        $csv = "GRUPO,MARCA,CANTIDAD\nGrupo Fantasma,V-01,5\n";
+        $csv = "GRUPO,QS,PROCESO\nGrupo Fantasma,{$qs},Soldadura\n";
         $file = UploadedFile::fake()->createWithContent('produccion.csv', $csv);
 
         $this->actingAs($this->user)

@@ -15,6 +15,7 @@ import {
     ClipboardList,
     DollarSign,
     Factory,
+    Hammer,
     File,
     FileText,
     FileCheck,
@@ -162,6 +163,12 @@ const navGroups: NavGroup[] = [
                 href: '/admin/prod/catalogos',
                 icon: Puzzle,
                 permission: 'prod.catalogos.ver',
+            },
+            {
+                title: 'Procesos',
+                href: '/admin/prod/procesos',
+                icon: Hammer,
+                permission: 'prod.procesos.ver',
             },
             {
                 title: 'Categorias',

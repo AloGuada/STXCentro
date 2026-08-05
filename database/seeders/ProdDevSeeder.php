@@ -13,8 +13,11 @@ use App\Models\Prod\ConfiguracionProd;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
+use App\Models\Prod\GrupoPrecioProceso;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\PagoExtra;
+use App\Models\Prod\Pieza;
+use App\Models\Prod\Proceso;
 use App\Models\Prod\Registro;
 use App\Models\Prod\TipoPagoExtra;
 use App\Models\Prod\Ubicacion;
@@ -87,8 +90,11 @@ class ProdDevSeeder extends Seeder
             'prod_liquidaciones',
             'prod_pagos_extra',
             'prod_registros',
+            'prod_piezas',
             'prod_grupo_precio_conceptos',
+            'prod_grupo_precio_procesos',
             'prod_grupos_precio',
+            'prod_obra_procesos',
             'prod_grupo_empleados',
             'prod_grupo_trabajo_ubicaciones',
             'prod_grupos_trabajo',
@@ -212,11 +218,24 @@ class ProdDevSeeder extends Seeder
                 'vigente' => true,
             ]);
 
+            // La obra paga los dos procesos, cada uno con su tarifa: pintar
+            // vale bastante menos que soldar.
+            $obra->procesos()->sync($this->procesos()->pluck('id'));
+
             $grupoPrecio = GrupoPrecio::create([
                 'obra_id' => $obra->id,
                 'descripcion' => 'Precio base',
-                'precio_kilo' => $od['precioKilo'],
             ]);
+
+            foreach ($this->procesos() as $proceso) {
+                GrupoPrecioProceso::create([
+                    'grupo_precio_id' => $grupoPrecio->id,
+                    'proceso_id' => $proceso->id,
+                    'precio_kilo' => $proceso->nombre === 'Pintura'
+                        ? round($od['precioKilo'] * 0.35, 4)
+                        : $od['precioKilo'],
+                ]);
+            }
 
             $piezas = new Collection;
 
@@ -228,13 +247,15 @@ class ProdDevSeeder extends Seeder
                     'descripcion' => $desc,
                     // Holgado a proposito: el tope del catalogo no debe estorbar
                     // al capturar produccion de ejemplo.
-                    'cantidad' => fake()->numberBetween(120, 300),
+                    'cantidad' => 6,
                     'peso_unitario' => $peso,
                     'longitud' => fake()->numberBetween(500, 12000),
                     'categoria_id' => $categoriasPieza->random()->id,
                     'version' => 1,
                     'activo' => true,
                 ]);
+
+                $this->sembrarPiezas($pieza);
 
                 // Las ultimas N piezas quedan sin grupo de precio, para que la
                 // pantalla del destajo advierta que se pagarian en $0.
@@ -286,6 +307,8 @@ class ProdDevSeeder extends Seeder
             'activo' => true,
         ]);
 
+        $this->sembrarPiezas($nueva);
+
         $grupoPrecio = GrupoPrecio::where('obra_id', $v2->obra_id)->firstOrFail();
         GrupoPrecioConcepto::create(['grupo_precio_id' => $grupoPrecio->id, 'concepto_id' => $nueva->id]);
 
@@ -312,7 +335,7 @@ class ProdDevSeeder extends Seeder
         // Semana -1: cerrada, con un lote pagado al 60% que deja saldo.
         $semana1 = $this->crearDestajo(1);
         $this->poblarProduccion($semana1, $grupos, $piezasPorObra, $tipos);
-        $this->parcialidad($semana1, $grupos->first(), $piezasPorObra->first()->first(), 60);
+        $this->parcialidad($semana1, $grupos->first(), $piezasPorObra, 60);
         $generador->generar($semana1);
 
         // Semana actual: abierta. Trae el 40% restante como pendiente y un
@@ -335,30 +358,41 @@ class ProdDevSeeder extends Seeder
     }
 
     /** Un lote pagado a medias: su saldo aparecerá en la semana siguiente. */
-    private function parcialidad(Destajo $destajo, GrupoTrabajo $grupo, Concepto $pieza, float $porcentaje): void
+    private function parcialidad(Destajo $destajo, GrupoTrabajo $grupo, Collection $piezasPorObra, float $porcentaje): void
     {
-        Registro::create([
-            'fecha' => Carbon::parse($destajo->fecha_inicio)->addDay()->toDateString(),
-            'concepto_id' => $pieza->id,
-            'grupo_trabajo_id' => $grupo->id,
-            'cantidad' => 10,
-            'porcentaje' => $porcentaje,
-        ]);
+        // La primera marca que aun tenga piezas sin pagar: buscar a ciegas
+        // dejaria el caso sin sembrar en cuanto la produccion se las coma.
+        $piezas = $piezasPorObra
+            ->flatten()
+            ->map(fn (Concepto $marca) => $this->piezasLibres($marca, 3))
+            ->first(fn (Collection $libres) => $libres->isNotEmpty()) ?? collect();
+
+        foreach ($piezas as $pieza) {
+            Registro::create([
+                'fecha' => Carbon::parse($destajo->fecha_inicio)->addDay()->toDateString(),
+                'pieza_id' => $pieza->id,
+                'proceso_id' => $this->procesos()->first()->id,
+                'grupo_trabajo_id' => $grupo->id,
+                'porcentaje' => $porcentaje,
+            ]);
+        }
     }
 
     /**
      * Grupo cuya producción no alcanza a cubrir el sueldo base de la semana:
      * cada quien conserva su base y no hay excedente que repartir.
      */
-    private function grupoConDeltaNegativo(Destajo $destajo, GrupoTrabajo $grupo, Concepto $pieza): void
+    private function grupoConDeltaNegativo(Destajo $destajo, GrupoTrabajo $grupo, Concepto $marca): void
     {
-        Registro::create([
-            'fecha' => Carbon::parse($destajo->fecha_inicio)->addDay()->toDateString(),
-            'concepto_id' => $pieza->id,
-            'grupo_trabajo_id' => $grupo->id,
-            'cantidad' => 1,
-            'porcentaje' => 100,
-        ]);
+        foreach ($this->piezasLibres($marca, 1) as $pieza) {
+            Registro::create([
+                'fecha' => Carbon::parse($destajo->fecha_inicio)->addDay()->toDateString(),
+                'pieza_id' => $pieza->id,
+                'proceso_id' => $this->procesos()->first()->id,
+                'grupo_trabajo_id' => $grupo->id,
+                'porcentaje' => 100,
+            ]);
+        }
     }
 
     /**
@@ -402,14 +436,20 @@ class ProdDevSeeder extends Seeder
             // Cada cuadrilla trabaja piezas de una obra distinta, rotando.
             $piezas = $piezasPorObra[$indice % $piezasPorObra->count()];
 
-            foreach ($piezas->random(min(3, $piezas->count())) as $pieza) {
-                Registro::create([
-                    'fecha' => Carbon::parse($destajo->fecha_inicio)->addDays(fake()->numberBetween(0, 4))->toDateString(),
-                    'concepto_id' => $pieza->id,
-                    'grupo_trabajo_id' => $grupo->id,
-                    'cantidad' => fake()->numberBetween(4, 20),
-                    'porcentaje' => 100,
-                ]);
+            $proceso = $this->procesos()->first();
+
+            foreach ($piezas->random(min(3, $piezas->count())) as $marca) {
+                // Un renglon por QS: se toman las que aun no se han pagado en
+                // ese proceso, para no chocar con el tope.
+                foreach ($this->piezasLibres($marca, fake()->numberBetween(2, 4), $proceso) as $pieza) {
+                    Registro::create([
+                        'fecha' => Carbon::parse($destajo->fecha_inicio)->addDays(fake()->numberBetween(0, 4))->toDateString(),
+                        'pieza_id' => $pieza->id,
+                        'proceso_id' => $proceso->id,
+                        'grupo_trabajo_id' => $grupo->id,
+                        'porcentaje' => 100,
+                    ]);
+                }
             }
 
             if ($tipos->isNotEmpty() && fake()->boolean(60)) {
@@ -424,5 +464,50 @@ class ProdDevSeeder extends Seeder
                 ]);
             }
         }
+    }
+
+    /**
+     * Los procesos del catálogo, cacheados: se consultan en cada renglón.
+     *
+     * @return Collection<int, Proceso>
+     */
+    private function procesos(): Collection
+    {
+        return $this->procesos ??= Proceso::activos()->orderBy('orden')->get();
+    }
+
+    /** @var Collection<int, Proceso>|null */
+    private ?Collection $procesos = null;
+
+    /**
+     * Las unidades físicas de la marca, como las trae el layout: un QS por cada
+     * pieza que pide el modelo.
+     */
+    private function sembrarPiezas(Concepto $marca): void
+    {
+        for ($i = 1; $i <= $marca->cantidad; $i++) {
+            Pieza::create([
+                'catalogo_id' => $marca->catalogo_id,
+                'concepto_id' => $marca->id,
+                'qs' => $marca->marca.'-'.str_pad((string) $i, 3, '0', STR_PAD_LEFT),
+                'activo' => true,
+            ]);
+        }
+    }
+
+    /**
+     * Piezas de la marca que todavía no se han pagado en ese proceso. Sembrar
+     * sin mirar el tope dejaría datos que la propia app rechazaría.
+     *
+     * @return Collection<int, Pieza>
+     */
+    private function piezasLibres(Concepto $marca, int $cuantas, ?Proceso $proceso = null): Collection
+    {
+        $proceso ??= $this->procesos()->first();
+
+        return $marca->piezas()
+            ->whereDoesntHave('registros', fn ($q) => $q->where('proceso_id', $proceso->id))
+            ->limit($cuantas)
+            ->get();
     }
 }

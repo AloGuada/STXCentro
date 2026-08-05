@@ -20,13 +20,17 @@ class LiquidacionDetalle extends Model
     protected $fillable = [
         'liquidacion_id',
         'concepto_id',
+        'pieza_id',
+        'qs',
         'obra_id',
         'marca',
+        'etapa',
+        'proceso_id',
+        'proceso_nombre',
         'descripcion',
         'peso_unitario',
         'longitud',
         'grupo_precio_id',
-        'cantidad',
         'porcentaje',
         'kilos',
         'precio_kilo_aplicado',
@@ -39,7 +43,6 @@ class LiquidacionDetalle extends Model
     protected function casts(): array
     {
         return [
-            'cantidad' => 'integer',
             'peso_unitario' => 'decimal:3',
             'longitud' => 'integer',
             'porcentaje' => 'decimal:2',
@@ -55,13 +58,19 @@ class LiquidacionDetalle extends Model
     }
 
     /**
-     * Snapshot: concepto_id no tiene FK (el detalle sobrevive al borrado del
-     * concepto). El renglon guarda su propia copia de marca, descripcion, peso
-     * y longitud, asi que esta relacion es solo un puente para navegar a la
-     * pieza actual; nunca debe usarse para mostrar o calcular lo ya pagado.
+     * Snapshot: un renglon es una pieza pagada en un proceso. Ni concepto_id ni
+     * pieza_id tienen FK (el detalle sobrevive al borrado del catalogo), y el
+     * renglon guarda su propia copia de qs, marca, etapa, proceso, descripcion,
+     * peso y longitud. Estas relaciones son solo un puente para navegar al
+     * catalogo actual; nunca deben usarse para mostrar o calcular lo ya pagado.
      */
     public function concepto(): BelongsTo
     {
         return $this->belongsTo(Concepto::class, 'concepto_id');
+    }
+
+    public function pieza(): BelongsTo
+    {
+        return $this->belongsTo(Pieza::class, 'pieza_id');
     }
 }

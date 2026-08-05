@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Obra;
+use App\Models\Prod\Catalogo;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 
@@ -73,6 +74,11 @@ describe('visibilidad del proyecto de planta fuera de costos', function () {
     });
 
     test('no aparece en grupos de precio de produccion', function () {
+        // Ambas con catalogo vigente: la pantalla solo lista obras que lo tengan,
+        // asi que la unica razon por la que planta queda fuera es ser planta.
+        Catalogo::factory()->create(['obra_id' => $this->planta->id, 'vigente' => true]);
+        Catalogo::factory()->create(['obra_id' => $this->obra->id, 'vigente' => true]);
+
         $response = $this->actingAs($this->user)
             ->get(route('admin.prod.grupo-precios.index'));
 

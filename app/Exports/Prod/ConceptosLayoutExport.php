@@ -23,7 +23,9 @@ class ConceptosLayoutExport implements ShouldAutoSize, WithHeadings, WithStyles,
     public function headings(): array
     {
         return [
+            'QS',
             'MARCA',
+            'ETAPA',
             'DESCRIPCION',
             'CATEGORIA',
             'CANTIDAD',
@@ -38,9 +40,9 @@ class ConceptosLayoutExport implements ShouldAutoSize, WithHeadings, WithStyles,
      */
     public function styles(Worksheet $sheet): array
     {
-        $sheet->getStyle('A1:G1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
-        $sheet->getStyle('A1:G1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
-        $sheet->getStyle('A1:G1')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('A1:I1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
+        $sheet->getStyle('A1:I1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A1:I1')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
         return [];
     }

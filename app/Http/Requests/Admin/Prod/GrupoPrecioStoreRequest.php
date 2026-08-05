@@ -19,7 +19,10 @@ class GrupoPrecioStoreRequest extends FormRequest
         return [
             'obra_id' => ['required', 'exists:obras,id'],
             'descripcion' => ['required', 'string', 'max:255'],
-            'precio_kilo' => ['required', 'numeric', 'min:0'],
+            // Una tarifa por proceso: procesoId => precio por kilo. Los procesos
+            // que la obra no paga se descartan al guardar.
+            'precios' => ['nullable', 'array'],
+            'precios.*' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 
@@ -32,8 +35,7 @@ class GrupoPrecioStoreRequest extends FormRequest
             'obra_id.required' => 'La obra es obligatoria.',
             'obra_id.exists' => 'La obra seleccionada no existe.',
             'descripcion.required' => 'La descripcion es obligatoria.',
-            'precio_kilo.required' => 'El precio por kilo es obligatorio.',
-            'precio_kilo.min' => 'El precio por kilo no puede ser negativo.',
+            'precios.*.min' => 'El precio por kilo no puede ser negativo.',
         ];
     }
 }

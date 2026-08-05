@@ -1,15 +1,11 @@
 <?php
 
 use App\Enums\Prod\EstadoAsistencia;
-use App\Models\Concepto;
 use App\Models\Prod\Asistencia;
-use App\Models\Prod\Catalogo;
 use App\Models\Prod\CategoriaEmpleado;
 use App\Models\Prod\ConfiguracionProd;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoEmpleado;
-use App\Models\Prod\GrupoPrecio;
-use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Registro;
 use App\Models\User;
@@ -243,25 +239,21 @@ describe('sin datos', function () {
 });
 
 test('la liquidacion congela el reparto del empleado', function () {
-    $catalogo = Catalogo::factory()->create();
-    $pieza = Concepto::factory()->create([
-        'obra_id' => $catalogo->obra_id,
-        'catalogo_id' => $catalogo->id,
-        'cantidad' => 100,
-        'peso_unitario' => 100,
-    ]);
-    $grupoPrecio = GrupoPrecio::factory()->create(['obra_id' => $catalogo->obra_id, 'precio_kilo' => 10]);
-    GrupoPrecioConcepto::create(['grupo_precio_id' => $grupoPrecio->id, 'concepto_id' => $pieza->id]);
+    $marca = marcaConPiezas(6, ['peso_unitario' => 100]);
+    tarifaDeMarca($marca, 10);
 
     empleadoCon($this->oficial, 7, 'Oficial');
 
-    Registro::create([
-        'fecha' => '2026-02-04',
-        'concepto_id' => $pieza->id,
-        'grupo_trabajo_id' => $this->grupo->id,
-        'cantidad' => 6,
-        'porcentaje' => 100,
-    ]);
+    // Seis piezas al 100%: un renglon por QS.
+    foreach ($marca->piezas as $pieza) {
+        Registro::create([
+            'fecha' => '2026-02-04',
+            'pieza_id' => $pieza->id,
+            'proceso_id' => proceso()->id,
+            'grupo_trabajo_id' => $this->grupo->id,
+            'porcentaje' => 100,
+        ]);
+    }
 
     app(GeneradorLiquidaciones::class)->generar($this->destajo);
 

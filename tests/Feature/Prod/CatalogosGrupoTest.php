@@ -1,7 +1,5 @@
 <?php
 
-use App\Models\Concepto;
-use App\Models\Prod\Catalogo;
 use App\Models\Prod\CategoriaEmpleado;
 use App\Models\Prod\ConfiguracionProd;
 use App\Models\Prod\Destajo;
@@ -117,12 +115,9 @@ describe('configuracion del modulo', function () {
 });
 
 test('capturar produccion NO exige asistencia; el candado es solo al cerrar', function () {
-    $catalogo = Catalogo::factory()->create();
-    $pieza = Concepto::factory()->create([
-        'obra_id' => $catalogo->obra_id,
-        'catalogo_id' => $catalogo->id,
-        'cantidad' => 100,
-    ]);
+    $marca = marcaConPiezas(5);
+    $pieza = $marca->piezas[0];
+    obraPagaProcesos($marca->obra_id);
     $grupo = GrupoTrabajo::factory()->create();
     GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id]);
 
@@ -135,13 +130,13 @@ test('capturar produccion NO exige asistencia; el candado es solo al cerrar', fu
     $this->actingAs($this->user)
         ->post(route('admin.prod.destajos.registros.store', $destajo), [
             'fecha' => '2026-02-04',
-            'concepto_id' => $pieza->id,
+            'piezas' => [$pieza->id],
+            'proceso_id' => proceso()->id,
             'grupo_trabajo_id' => $grupo->id,
-            'cantidad' => 5,
         ])
         ->assertSessionHasNoErrors();
 
-    $this->assertDatabaseHas('prod_registros', ['concepto_id' => $pieza->id, 'cantidad' => 5]);
+    $this->assertDatabaseHas('prod_registros', ['pieza_id' => $pieza->id, 'proceso_id' => proceso()->id]);
 
     // Y el cierre es lo unico que se bloquea.
     $this->actingAs($this->user)

@@ -3,32 +3,29 @@
 namespace App\Services\Prod;
 
 /**
- * Normaliza el CSV de captura de producción a renglones (grupo, marca, cantidad).
+ * Normaliza el CSV de captura de producción a renglones de una pieza.
  *
  * Acepta dos formatos:
  *
- *  1. **Export de avance** (el que sale del sistema de planta): trae una columna
- *     `Proceso` con el evento. Se toma sólo el evento 55 (soldadura), que es lo
- *     que se paga como destajo, y de ahí la Ubicación, la Marca y la Cantidad.
- *     Un mismo par ubicación+marca puede venir en varios movimientos del día, así
- *     que se suman.
- *  2. **Captura a mano**: columnas GRUPO, MARCA, CANTIDAD y opcionalmente
+ *  1. **Export de avance** (el que sale del sistema de planta): trae `Proceso`
+ *     con el número de evento, `Ubicacion` y el `QS` de la pieza. El evento dice
+ *     qué proceso se paga (75 soldadura, 85 pintura) y el QS dice exactamente
+ *     qué pieza: no hay que adivinar nada por marca.
+ *  2. **Captura a mano**: columnas GRUPO, QS y opcionalmente PROCESO y
  *     PORCENTAJE.
  *
- * El resultado sólo dice a qué ubicación o grupo apunta cada renglón; resolverlo
+ * El lector no toca la base: sólo dice a qué ubicación o grupo apunta cada
+ * renglón y con qué evento o proceso viene. Resolver la pieza y el proceso
  * contra el catálogo es responsabilidad de quien importa.
  */
 class LectorCsvDeProduccion
 {
-    /** Evento del export que corresponde a la soldadura (lo que se paga). */
-    public const EVENTO_DESTAJO = '55';
-
     public const FORMATO_EXPORT = 'export';
 
     public const FORMATO_SIMPLE = 'simple';
 
     /**
-     * @return array{formato: string, filas: list<array{referencia: string, ubicacion: ?string, grupo: ?string, marca: string, cantidad: int, porcentaje: float}>}
+     * @return array{formato: string, filas: list<array{referencia: string, ubicacion: ?string, grupo: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>}
      */
     public function leer(string $ruta): array
     {
@@ -60,58 +57,55 @@ class LectorCsvDeProduccion
     /**
      * @param  resource  $handle
      * @param  list<string>  $encabezado
-     * @return list<array{referencia: string, ubicacion: ?string, grupo: ?string, marca: string, cantidad: int, porcentaje: float}>
+     * @return list<array{referencia: string, ubicacion: ?string, grupo: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>
      */
     private function leerExport($handle, array $encabezado): array
     {
         $indices = array_flip($encabezado);
-        /** @var array<string, array{ubicacion: string, marca: string, cantidad: int}> $acumulado */
-        $acumulado = [];
+        $filas = [];
+        $vistos = [];
 
         while (($row = $this->siguiente($handle)) !== false) {
             if (count($row) < count($encabezado)) {
                 continue;
             }
 
-            $proceso = trim((string) ($row[$indices['PROCESO']] ?? ''));
-
-            if (! $this->esEventoDeDestajo($proceso)) {
-                continue;
-            }
-
+            $evento = $this->numeroDeEvento(trim((string) ($row[$indices['PROCESO']] ?? '')));
             $ubicacion = trim((string) ($row[$indices['UBICACION']] ?? ''));
-            $marca = trim((string) ($row[$indices['MARCA']] ?? ''));
-            $cantidad = (int) trim((string) ($row[$indices['CANTIDAD']] ?? '0'));
+            $qs = trim((string) ($row[$indices['QS']] ?? ''));
 
-            if ($ubicacion === '' || $marca === '') {
+            if ($evento === null || $ubicacion === '' || $qs === '') {
                 continue;
             }
 
-            $clave = $this->normalizar($ubicacion).'|'.$this->normalizar($marca);
+            // Una pieza es una pieza: si el mismo QS viene dos veces en el mismo
+            // evento, es el mismo trabajo reportado dos veces, no el doble.
+            $clave = $qs.'|'.$evento;
 
-            if (isset($acumulado[$clave])) {
-                $acumulado[$clave]['cantidad'] += $cantidad;
-
+            if (isset($vistos[$clave])) {
                 continue;
             }
 
-            $acumulado[$clave] = ['ubicacion' => $ubicacion, 'marca' => $marca, 'cantidad' => $cantidad];
+            $vistos[$clave] = true;
+
+            $filas[] = [
+                'referencia' => "\"{$ubicacion}\" / QS {$qs}",
+                'ubicacion' => $ubicacion,
+                'grupo' => null,
+                'qs' => $qs,
+                'evento' => $evento,
+                'proceso' => null,
+                'porcentaje' => 100.0,
+            ];
         }
 
-        return array_values(array_map(fn (array $fila) => [
-            'referencia' => "\"{$fila['ubicacion']}\" / {$fila['marca']}",
-            'ubicacion' => $fila['ubicacion'],
-            'grupo' => null,
-            'marca' => $fila['marca'],
-            'cantidad' => $fila['cantidad'],
-            'porcentaje' => 100.0,
-        ], $acumulado));
+        return $filas;
     }
 
     /**
      * @param  resource  $handle
      * @param  list<string>  $encabezado
-     * @return list<array{referencia: string, ubicacion: ?string, grupo: ?string, marca: string, cantidad: int, porcentaje: float}>
+     * @return list<array{referencia: string, ubicacion: ?string, grupo: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>
      */
     private function leerSimple($handle, array $encabezado): array
     {
@@ -127,20 +121,22 @@ class LectorCsvDeProduccion
 
             $data = array_combine($encabezado, $row);
             $grupo = trim((string) ($data['GRUPO'] ?? ''));
-            $marca = trim((string) ($data['MARCA'] ?? ''));
+            $qs = trim((string) ($data['QS'] ?? ''));
 
-            if ($grupo === '' && $marca === '') {
+            if ($grupo === '' && $qs === '') {
                 continue;
             }
 
             $porcentaje = (float) str_replace('%', '', trim((string) ($data['PORCENTAJE'] ?? '100'))) ?: 100.0;
+            $proceso = trim((string) ($data['PROCESO'] ?? ''));
 
             $filas[] = [
                 'referencia' => "Linea {$linea}",
                 'ubicacion' => null,
                 'grupo' => $grupo,
-                'marca' => $marca,
-                'cantidad' => (int) trim((string) ($data['CANTIDAD'] ?? '0')),
+                'qs' => $qs,
+                'evento' => null,
+                'proceso' => $proceso === '' ? null : $proceso,
                 'porcentaje' => $porcentaje,
             ];
         }
@@ -161,10 +157,10 @@ class LectorCsvDeProduccion
         return fgetcsv($handle, 0, ',', '"', '');
     }
 
-    /** El proceso viene como "55 Soldadura": basta el número de evento. */
-    private function esEventoDeDestajo(string $proceso): bool
+    /** El proceso viene como "75 Soldadura": basta el número de evento. */
+    private function numeroDeEvento(string $proceso): ?string
     {
-        return preg_match('/^\s*(\d+)/', $proceso, $m) === 1 && $m[1] === self::EVENTO_DESTAJO;
+        return preg_match('/^\s*(\d+)/', $proceso, $m) === 1 ? $m[1] : null;
     }
 
     /** Compara sin acentos, mayúsculas ni espacios de más. */

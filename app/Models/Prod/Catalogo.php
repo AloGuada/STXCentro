@@ -54,6 +54,13 @@ class Catalogo extends Model
         return $this->belongsTo(self::class, 'catalogo_origen_id');
     }
 
+    /** Todas las piezas (QS) del catálogo, sin importar de qué marca cuelgan. */
+    public function piezas(): HasMany
+    {
+        return $this->hasMany(Pieza::class, 'catalogo_id');
+    }
+
+    /** Las marcas del catálogo. */
     public function conceptos(): HasMany
     {
         return $this->hasMany(Concepto::class, 'catalogo_id');

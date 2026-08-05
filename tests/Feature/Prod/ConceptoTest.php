@@ -1,9 +1,9 @@
 <?php
 
 use App\Models\Concepto;
-use App\Models\Obra;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
+use App\Models\Prod\Pieza;
 use App\Models\Prod\Registro;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -119,9 +119,10 @@ describe('admin conceptos', function () {
         $this->assertDatabaseMissing('conceptos', ['id' => $concepto->id]);
     });
 
-    test('concepto cannot be deleted with registros', function () {
-        $concepto = Concepto::factory()->create();
-        Registro::factory()->create(['concepto_id' => $concepto->id]);
+    test('la marca no se borra si alguna de sus piezas tiene produccion', function () {
+        $marca = marcaConPiezas(1);
+        Registro::factory()->create(['pieza_id' => $marca->piezas->first()->id]);
+        $concepto = $marca;
 
         $response = $this->actingAs($this->user)
             ->delete(route('admin.prod.conceptos.destroy', $concepto));
@@ -171,235 +172,162 @@ describe('admin conceptos', function () {
     });
 });
 
-describe('conceptos csv import al catalogo', function () {
-    test('csv imports with the detailed layout correctly', function () {
+describe('import del layout por QS', function () {
+    /**
+     * El layout es una lista de piezas: un renglon por QS, repitiendo marca y
+     * etapa tantas veces como piezas tenga el modelo.
+     */
+    function subirLayout(Catalogo $catalogo, string $filas, string $encabezado = 'QS,MARCA,ETAPA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM')
+    {
+        return test()->actingAs(test()->user)
+            ->post(route('admin.prod.catalogos.import-csv', $catalogo), [
+                'csv_file' => UploadedFile::fake()->createWithContent('conceptos.csv', $encabezado."\n".$filas),
+            ]);
+    }
+
+    test('escribe la marca una vez y una pieza por cada QS', function () {
         $catalogo = Catalogo::factory()->create();
 
-        $csvContent = "MARCA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
-        $csvContent .= "TG-BAR-1,OC-BAR,Barandales,1,29.751,1.397,3542.177\n";
-        $csvContent .= "TG-CEM-2,CE-MURO,Canal de muro,6,1251.576,44.586,12200\n";
+        subirLayout($catalogo,
+            "1001,TG-BAR-1,,OC-BAR,Barandales,2,29.751,1.397,3542.177\n".
+            "1002,TG-BAR-1,,OC-BAR,Barandales,2,29.751,1.397,3542.177\n"
+        )->assertSessionHas('success');
 
-        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
+        $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
 
-        $response = $this->actingAs($this->user)
-            ->post(route('admin.prod.catalogos.import-csv', $catalogo), [
-                'csv_file' => $file,
-            ]);
-
-        $response->assertRedirect();
-        $response->assertSessionHas('success');
-
-        $barandales = Categoria::where('nombre', 'Barandales')->first();
-        expect($barandales)->not->toBeNull();
-
-        $this->assertDatabaseHas('conceptos', [
-            'catalogo_id' => $catalogo->id,
-            'obra_id' => $catalogo->obra_id,
-            'marca' => 'TG-BAR-1',
-            'descripcion' => 'OC-BAR',
-            'categoria_id' => $barandales->id,
-            'cantidad' => 1,
-            'peso_unitario' => 29.751, // ya viene en kg
-            'longitud' => 3542, // mm redondeado
-            'activo' => true,
-        ]);
-
-        $this->assertDatabaseHas('conceptos', [
-            'catalogo_id' => $catalogo->id,
-            'marca' => 'TG-CEM-2',
-            'cantidad' => 6,
-            'peso_unitario' => 1251.576,
-            'longitud' => 12200,
-        ]);
-
-        expect(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(2);
+        expect($marca->marca)->toBe('TG-BAR-1')
+            ->and($marca->descripcion)->toBe('OC-BAR')
+            ->and((float) $marca->peso_unitario)->toBe(29.751)
+            ->and($marca->longitud)->toBe(3542)
+            ->and($marca->cantidad)->toBe(2)
+            ->and($marca->piezas()->pluck('qs')->sort()->values()->all())->toBe(['1001', '1002']);
     });
 
-    test('csv import creates categorias on the fly and reuses them', function () {
+    test('la categoria se crea al vuelo y se reutiliza', function () {
         $catalogo = Catalogo::factory()->create();
 
-        $csvContent = "MARCA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
-        $csvContent .= "TG-CFC-1,LI-CFC,Contraflambeos,24,44.664,3.768,797.114\n";
-        $csvContent .= "TG-CFC-2,LI-CFC,Contraflambeos,90,189.09,16.02,995.424\n";
-
-        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
-
-        $this->actingAs($this->user)
-            ->post(route('admin.prod.catalogos.import-csv', $catalogo), [
-                'csv_file' => $file,
-            ]);
+        subirLayout($catalogo,
+            "1001,TG-CFC-1,,LI-CFC,Contraflambeos,1,44.664,3.768,797.114\n".
+            "1002,TG-CFC-2,,LI-CFC,Contraflambeos,1,189.09,16.02,995.424\n"
+        );
 
         expect(Categoria::where('nombre', 'Contraflambeos')->count())->toBe(1);
     });
 
-    test('csv import overwrites existing marca in the same catalogo', function () {
+    test('reimportar sobrescribe la marca y no duplica sus piezas', function () {
         $catalogo = Catalogo::factory()->create();
-        $categoria = Categoria::factory()->create();
-        Concepto::factory()->create([
-            'obra_id' => $catalogo->obra_id,
-            'catalogo_id' => $catalogo->id,
-            'marca' => 'TG-BAR-1',
-            'descripcion' => 'Original',
-            'cantidad' => 1,
-            'peso_unitario' => 10.000,
-            'longitud' => 1000,
-            'categoria_id' => $categoria->id,
-            'version' => 3,
-        ]);
 
-        $csvContent = "MARCA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
-        $csvContent .= "TG-BAR-1,Actualizado,Barandales,4,29.751,1.397,3542.177\n";
+        subirLayout($catalogo, "1001,TG-BAR-1,,Original,Barandales,1,10.000,1,1000\n");
+        subirLayout($catalogo, "1001,TG-BAR-1,,Actualizado,Barandales,1,29.751,1.397,3542.177\n");
 
-        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
+        $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
 
-        $this->actingAs($this->user)
-            ->post(route('admin.prod.catalogos.import-csv', $catalogo), [
-                'csv_file' => $file,
-            ]);
-
-        $this->assertDatabaseHas('conceptos', [
-            'catalogo_id' => $catalogo->id,
-            'marca' => 'TG-BAR-1',
-            'descripcion' => 'Actualizado',
-            'cantidad' => 4,
-            'peso_unitario' => 29.751,
-            'longitud' => 3542,
-            'version' => 3, // la version se conserva
-        ]);
-
-        expect(Concepto::where('catalogo_id', $catalogo->id)->where('marca', 'TG-BAR-1')->count())->toBe(1);
+        expect($marca->descripcion)->toBe('Actualizado')
+            ->and((float) $marca->peso_unitario)->toBe(29.751)
+            ->and($marca->longitud)->toBe(3542)
+            ->and($marca->piezas()->count())->toBe(1);
     });
 
-    test('csv import skips summary/footer rows', function () {
+    test('la misma marca en dos etapas son dos modelos con sus propias piezas', function () {
         $catalogo = Catalogo::factory()->create();
 
-        $csvContent = "MARCA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM\n";
-        $csvContent .= "TG-BAR-1,OC-BAR,Barandales,1,29.751,1.397,3542.177\n";
-        $csvContent .= "Resúmenes generales,,,,,,\n";
-        $csvContent .= "Cuenta = 257,,,\"Suma = 4,218.000\",\"Suma = 177,920.590\",,\n";
+        subirLayout($catalogo,
+            "1001,TG-BAR-1,1,Etapa uno,Barandales,1,29.751,1.397,3542\n".
+            "1002,TG-BAR-1,2,Etapa dos,Barandales,1,31.500,1.500,3600\n"
+        );
 
-        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
+        $etapa1 = Concepto::where('marca', 'TG-BAR-1')->where('etapa', '1')->sole();
+        $etapa2 = Concepto::where('marca', 'TG-BAR-1')->where('etapa', '2')->sole();
 
-        $this->actingAs($this->user)
-            ->post(route('admin.prod.catalogos.import-csv', $catalogo), [
-                'csv_file' => $file,
-            ]);
+        expect($etapa1->descripcion)->toBe('Etapa uno')
+            ->and($etapa2->descripcion)->toBe('Etapa dos')
+            ->and($etapa1->piezas()->pluck('qs')->all())->toBe(['1001'])
+            ->and($etapa2->piezas()->pluck('qs')->all())->toBe(['1002']);
+    });
+
+    test('normaliza la etapa y deja nula la vacia', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo,
+            "1001,TG-BAR-1,  fase  b ,Con etapa,Barandales,1,29.751,1.397,3542\n".
+            "1002,TG-BAR-2,   ,Sin etapa,Barandales,1,29.751,1.397,3542\n"
+        );
+
+        expect(Concepto::where('marca', 'TG-BAR-1')->value('etapa'))->toBe('FASE B')
+            ->and(Concepto::where('marca', 'TG-BAR-2')->value('etapa'))->toBeNull();
+    });
+
+    test('avisa cuando los QS no cuadran con la cantidad que declara el layout', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        // Dice 5 piezas pero solo vienen 2: el archivo esta incompleto.
+        subirLayout($catalogo,
+            "1001,TG-BAR-1,,OC-BAR,Barandales,5,29.751,1.397,3542\n".
+            "1002,TG-BAR-1,,OC-BAR,Barandales,5,29.751,1.397,3542\n"
+        )->assertSessionHasErrors('csv_file');
+
+        // Aun asi se carga lo que llego: el aviso no bloquea.
+        expect(Concepto::where('catalogo_id', $catalogo->id)->sole()->piezas()->count())->toBe(2);
+    });
+
+    test('avisa del QS repetido y se queda con su primera aparicion', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo,
+            "1001,TG-BAR-1,,Primera,Barandales,1,29.751,1.397,3542\n".
+            "1001,TG-BAR-2,,Segunda,Barandales,1,29.751,1.397,3542\n"
+        )->assertSessionHasErrors('csv_file');
+
+        expect(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(1)
+            ->and(Pieza::where('catalogo_id', $catalogo->id)->sole()->marca->descripcion)->toBe('Primera');
+    });
+
+    test('el renglon sin QS se ignora y se reporta', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo,
+            "1001,TG-BAR-1,,Con QS,Barandales,1,29.751,1.397,3542\n".
+            ",TG-BAR-2,,Sin QS,Barandales,1,29.751,1.397,3542\n"
+        )->assertSessionHasErrors('csv_file');
+
+        expect(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(1);
+    });
+
+    test('el mismo QS puede existir en catalogos de obras distintas', function () {
+        $uno = Catalogo::factory()->create();
+        $otro = Catalogo::factory()->create();
+
+        subirLayout($uno, "1001,TG-BAR-1,,Obra uno,Barandales,1,10,1,1000\n");
+        subirLayout($otro, "1001,TG-BAR-1,,Obra dos,Barandales,1,10,1,1000\n");
+
+        expect(Pieza::where('qs', '1001')->count())->toBe(2);
+    });
+
+    test('ignora los renglones de resumen al pie del layout', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo,
+            "1001,TG-BAR-1,,OC-BAR,Barandales,1,29.751,1.397,3542.177\n".
+            "Resúmenes generales,,,,,,,,\n".
+            "Cuenta = 257,,,,\"Suma = 4,218.000\",\"Suma = 177,920.590\",,,\n"
+        );
 
         expect(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(1);
     });
 
-    test('csv import requires file', function () {
+    test('el import exige archivo', function () {
         $catalogo = Catalogo::factory()->create();
 
-        $response = $this->actingAs($this->user)
-            ->post(route('admin.prod.catalogos.import-csv', $catalogo), []);
-
-        $response->assertSessionHasErrors(['csv_file']);
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.catalogos.import-csv', $catalogo), [])
+            ->assertSessionHasErrors(['csv_file']);
     });
 
-    test('layout can be downloaded as xlsx', function () {
+    test('el layout se descarga como xlsx', function () {
         $response = $this->actingAs($this->user)
             ->get(route('admin.prod.conceptos.layout'));
 
         $response->assertOk();
         expect($response->headers->get('content-disposition'))->toContain('layout-conceptos.xlsx');
-    });
-});
-
-describe('obra csv import conceptos', function () {
-    test('csv imports conceptos correctly', function () {
-        $obra = Obra::factory()->create();
-
-        $csvContent = "PLANO,PIEZA,CONCEPTO,LARGO,KG.UNIT.,CANT.,TOTAL KG.,OBSERVACIONES\n";
-        $csvContent .= "MK-100,PIEZA,Viga principal,3.50,25.500,10,255.00,1\n";
-        $csvContent .= "MK-101,PIEZA,Columna,2.00,15.000,5,75.00,1\n";
-
-        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
-
-        $response = $this->actingAs($this->user)
-            ->post(route('admin.obras.import-conceptos', $obra), [
-                'csv_file' => $file,
-            ]);
-
-        $response->assertRedirect();
-        $response->assertSessionHas('success');
-
-        $this->assertDatabaseHas('conceptos', [
-            'obra_id' => $obra->id,
-            'marca' => 'MK-100',
-            'descripcion' => 'Viga principal',
-            'version' => 1,
-        ]);
-
-        $this->assertDatabaseHas('conceptos', [
-            'obra_id' => $obra->id,
-            'marca' => 'MK-101',
-        ]);
-
-        expect(Concepto::where('obra_id', $obra->id)->count())->toBe(2);
-    });
-
-    test('csv import estrena catalogo vigente cuando la obra no tiene', function () {
-        $obra = Obra::factory()->create();
-
-        $csvContent = "PLANO,PIEZA,CONCEPTO,LARGO,KG.UNIT.,CANT.,TOTAL KG.,OBSERVACIONES\n";
-        $csvContent .= "MK-100,PIEZA,Viga principal,3.50,25.500,10,255.00,1\n";
-
-        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
-
-        $this->actingAs($this->user)
-            ->post(route('admin.obras.import-conceptos', $obra), ['csv_file' => $file]);
-
-        $catalogo = $obra->fresh()->catalogoVigente()->first();
-
-        expect($catalogo)->not->toBeNull()
-            ->and($catalogo->version)->toBe(1)
-            ->and(Concepto::where('obra_id', $obra->id)->pluck('catalogo_id')->unique()->all())
-            ->toBe([$catalogo->id]);
-    });
-
-    test('csv import dedup by version only updates higher version', function () {
-        $obra = Obra::factory()->create();
-        Concepto::factory()->create([
-            'obra_id' => $obra->id,
-            'marca' => 'MK-100',
-            'descripcion' => 'Original',
-            'peso_unitario' => 10.000,
-            'version' => 2,
-        ]);
-
-        $csvContent = "PLANO,PIEZA,CONCEPTO,LARGO,KG.UNIT.,CANT.,TOTAL KG.,OBSERVACIONES\n";
-        $csvContent .= "MK-100,PIEZA,Updated lower,3.50,25.500,10,255.00,1\n";
-
-        $file = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent);
-
-        $this->actingAs($this->user)
-            ->post(route('admin.obras.import-conceptos', $obra), [
-                'csv_file' => $file,
-            ]);
-
-        $this->assertDatabaseHas('conceptos', [
-            'obra_id' => $obra->id,
-            'marca' => 'MK-100',
-            'descripcion' => 'Original',
-            'version' => 2,
-        ]);
-
-        $csvContent2 = "PLANO,PIEZA,CONCEPTO,LARGO,KG.UNIT.,CANT.,TOTAL KG.,OBSERVACIONES\n";
-        $csvContent2 .= "MK-100,PIEZA,Updated higher,4.00,30.000,8,240.00,3\n";
-
-        $file2 = UploadedFile::fake()->createWithContent('conceptos.csv', $csvContent2);
-
-        $this->actingAs($this->user)
-            ->post(route('admin.obras.import-conceptos', $obra), [
-                'csv_file' => $file2,
-            ]);
-
-        $this->assertDatabaseHas('conceptos', [
-            'obra_id' => $obra->id,
-            'marca' => 'MK-100',
-            'descripcion' => 'Updated higher',
-            'version' => 3,
-        ]);
     });
 });
