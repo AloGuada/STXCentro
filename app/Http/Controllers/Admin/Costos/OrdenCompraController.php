@@ -16,6 +16,7 @@ use App\Models\Costos\Presupuesto;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
+use App\Models\Usuario;
 use App\Services\Costos\CfdiXmlParser;
 use App\Services\Costos\ComparativoTotalesBuilder;
 use App\Services\Costos\ContrareciboPdf;
@@ -333,6 +334,8 @@ class OrdenCompraController extends Controller
             'retenciones' => $ordenCompra->proveedor
                 ? $retenciones->calcular($ordenCompra->proveedor, $lineas)
                 : null,
+            // Candidatos para "recibio" al corregir una recepcion.
+            'usuarios' => Usuario::query()->activos()->orderBy('name')->get(['id', 'name']),
         ]);
     }
 

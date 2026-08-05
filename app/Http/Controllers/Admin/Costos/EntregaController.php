@@ -9,11 +9,13 @@ use App\Exports\Costos\RecepcionesExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\EntregaCancelarRequest;
 use App\Http\Requests\Admin\Costos\EntregaStoreRequest;
+use App\Http\Requests\Admin\Costos\EntregaUpdateRequest;
 use App\Http\Requests\Admin\Costos\RecepcionesReporteRequest;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
+use App\Models\Usuario;
 use App\Services\Costos\ApartadoPresupuestal;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -56,6 +58,7 @@ class EntregaController extends Controller
                 'ordenCompra.solicitudesPago.detalles.obraRubro.presupuesto.presupuestable',
                 'ordenCompra.requisicion.presupuesto.presupuestable',
                 'factura:id,folio',
+                'factura.pago:id,factura_id',
                 'recibidoPor:id,name',
             ])
             ->filtradas($filtros)
@@ -68,6 +71,7 @@ class EntregaController extends Controller
             'recepciones' => $recepciones,
             'filters' => $request->only('search', 'tipo'),
             'totales_recibidos' => $this->totalesRecibidos($filtros),
+            'usuarios' => $this->usuariosQuePuedenRecibir(),
         ]);
     }
 
@@ -143,6 +147,17 @@ class EntregaController extends Controller
     }
 
     /**
+     * Candidatos para "recibió" al corregir una recepción. Se manda plano
+     * (id + nombre) porque sólo alimenta un selector.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\Usuario>
+     */
+    private function usuariosQuePuedenRecibir(): \Illuminate\Support\Collection
+    {
+        return Usuario::query()->activos()->orderBy('name')->get(['id', 'name']);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function filaRecepcion(Entrega $entrega): array
@@ -156,7 +171,11 @@ class EntregaController extends Controller
             'fecha_entrega' => $entrega->fecha_entrega?->toDateString(),
             'tipo' => $entrega->tipo,
             'recibido_por' => $entrega->recibidoPor?->name,
+            'recibido_por_id' => $entrega->recibido_por,
+            'observaciones' => $entrega->observaciones,
             'cancelada' => $entrega->estaCancelada(),
+            // La regla de edicion vive aqui para que la pantalla no la reinvente.
+            'puede_editar' => ! $entrega->estaCancelada() && $entrega->factura?->pago === null,
             'total' => $entrega->importeRecibido(),
             'oc' => $oc ? [
                 'id' => $oc->id,
@@ -294,6 +313,55 @@ class EntregaController extends Controller
         });
 
         return back()->with('success', 'Entrega registrada correctamente.');
+    }
+
+    /**
+     * Corrige los datos de captura de una recepción: fecha, quién recibió,
+     * observaciones y evidencia.
+     *
+     * Deliberadamente NO toca cantidades, precios ni la factura ligada. Esos
+     * mueven saldo de partidas, presupuesto y el estatus de la factura; para
+     * corregirlos el camino sigue siendo cancelar y volver a capturar, que ya
+     * sabe revertir cada efecto.
+     *
+     * Se bloquea sólo cuando la factura ya está pagada: a partir de ahí el dato
+     * respalda dinero que ya salió.
+     */
+    public function update(EntregaUpdateRequest $request, Entrega $entrega): RedirectResponse
+    {
+        $entrega->loadMissing(['factura.pago', 'media']);
+
+        if ($entrega->estaCancelada()) {
+            return back()->withErrors(['error' => 'No se puede editar una recepción cancelada.']);
+        }
+
+        if ($entrega->factura?->pago !== null) {
+            return back()->withErrors(['error' => 'No se puede editar: la factura ligada ya está pagada.']);
+        }
+
+        DB::transaction(function () use ($request, $entrega) {
+            $entrega->update([
+                'fecha_entrega' => $request->input('fecha_entrega'),
+                'recibido_por' => $request->input('recibido_por'),
+                'observaciones' => $request->input('observaciones'),
+            ]);
+
+            // La evidencia se reemplaza, no se acumula: la recepción tiene una.
+            if ($request->hasFile('archivo')) {
+                $entrega->media()->delete();
+
+                $file = $request->file('archivo');
+                $entrega->media()->create([
+                    'descripcion' => DocumentoTipo::EvidenciaRecepcion->value,
+                    'nombre_original' => $file->getClientOriginalName(),
+                    'path' => $file->store('costos/entregas', 'public'),
+                    'mime' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                ]);
+            }
+        });
+
+        return back()->with('success', 'Recepción actualizada correctamente.');
     }
 
     /**

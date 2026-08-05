@@ -5,6 +5,7 @@ import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { FormattedDate } from '@/components/ui/formatted-date';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { DevolverItemModal } from '@/components/costos/devolver-item-modal';
+import { EditarRecepcionModal, type RecepcionEditable } from '@/components/costos/editar-recepcion-modal';
 import { EntregaModal } from '@/components/costos/entrega-modal';
 import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { CONTADO_STEPS, getContadoStep } from '@/components/costos/oc-contado';
@@ -19,6 +20,8 @@ import { DEVOLUCION_ESTATUS_COLORS, DEVOLUCION_ESTATUS_LABELS, FACTURA_ESTATUS_C
 type Props = {
     ordenCompra: CostosOrdenCompra;
     retenciones: CostosRetencionDesglose | null;
+    /** Candidatos para "recibió" al corregir una recepción. */
+    usuarios: { id: string; name: string }[];
 };
 
 const steps: { key: CostosOrdenCompraEstatus; label: string }[] = [
@@ -42,7 +45,7 @@ type DevolverTarget = {
     cantidadDisponible: number;
 };
 
-export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
+export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/ordenes-compra' },
@@ -63,7 +66,9 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
     const [showSubirFacturaModal, setShowSubirFacturaModal] = useState(false);
     const [devolverTarget, setDevolverTarget] = useState<DevolverTarget | null>(null);
     const [cancelarEntregaId, setCancelarEntregaId] = useState<number | null>(null);
+    const [editandoEntrega, setEditandoEntrega] = useState<RecepcionEditable | null>(null);
     const puedeCancelarEntrega = can('costos.entregas.cancelar');
+    const puedeEditarEntrega = can('costos.entregas.editar');
 
     // Compras sube la factura de contado tras la recepción (paso "Subir factura").
     const puedeSubirFacturaContado = esContado
@@ -424,6 +429,23 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                                             >
                                                 PDF
                                             </a>
+                                            {puedeEditarEntrega && !entrega.cancelada_at && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-xs btn-outline"
+                                                    onClick={() =>
+                                                        setEditandoEntrega({
+                                                            id: entrega.id,
+                                                            folio: entrega.folio ?? null,
+                                                            fecha_entrega: entrega.fecha_entrega,
+                                                            recibido_por_id: entrega.recibido_por ?? null,
+                                                            observaciones: entrega.observaciones ?? null,
+                                                        })
+                                                    }
+                                                >
+                                                    Editar
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 
@@ -608,6 +630,12 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones }: Props) {
                         onClose={() => setDevolverTarget(null)}
                     />
                 )}
+
+                <EditarRecepcionModal
+                    recepcion={editandoEntrega}
+                    usuarios={usuarios}
+                    onClose={() => setEditandoEntrega(null)}
+                />
 
                 {cancelarEntregaId !== null && (
                     <CancelarModal

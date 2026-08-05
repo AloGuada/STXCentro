@@ -1,11 +1,13 @@
 import { formatMoney } from '@/components/costos/monto';
+import { EditarRecepcionModal } from '@/components/costos/editar-recepcion-modal';
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosRecepcionRow, PaginatedData } from '@/types/models';
+import { useCan } from '@/hooks/use-can';
 import { Head, Link, router } from '@inertiajs/react';
-import { DownloadIcon, FileTextIcon, PackageCheckIcon, ReceiptIcon, SearchIcon } from 'lucide-react';
+import { DownloadIcon, FileTextIcon, PackageCheckIcon, PencilIcon, ReceiptIcon, SearchIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -19,6 +21,8 @@ type Props = {
     filters: { search?: string; tipo?: string };
     /** Recibido bajo los filtros activos (todas las páginas), por moneda. */
     totales_recibidos: Record<string, number>;
+    /** Candidatos para "recibió" al corregir una recepción. */
+    usuarios: { id: string; name: string }[];
 };
 
 
@@ -54,7 +58,10 @@ function Obras({ nombres }: { nombres: string[] }) {
 const aInput = (fecha: Date): string =>
     `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
 
-export default function RecepcionesIndex({ recepciones, filters, totales_recibidos }: Props) {
+export default function RecepcionesIndex({ recepciones, filters, totales_recibidos, usuarios }: Props) {
+    const { can } = useCan();
+    const puedeEditar = can('costos.entregas.editar');
+    const [editando, setEditando] = useState<CostosRecepcionRow | null>(null);
     const [search, setSearch] = useState(filters.search ?? '');
     const [tipo, setTipo] = useState(filters.tipo ?? '');
 
@@ -292,10 +299,20 @@ export default function RecepcionesIndex({ recepciones, filters, totales_recibid
                                                 {r.tipo === 'completa' ? 'Completa' : 'Parcial'}
                                             </span>
                                         </td>
-                                        <td>
+                                        <td className="whitespace-nowrap">
                                             <a href={r.pdf_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-xs">
                                                 PDF
                                             </a>
+                                            {puedeEditar && r.puede_editar && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-ghost btn-xs"
+                                                    onClick={() => setEditando(r)}
+                                                >
+                                                    <PencilIcon className="size-3.5" />
+                                                    Editar
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
@@ -340,6 +357,12 @@ export default function RecepcionesIndex({ recepciones, filters, totales_recibid
                         </div>
                     </div>
                 )}
+
+                <EditarRecepcionModal
+                    recepcion={editando}
+                    usuarios={usuarios}
+                    onClose={() => setEditando(null)}
+                />
             </div>
         </AppLayout>
     );

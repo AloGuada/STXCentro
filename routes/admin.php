@@ -322,6 +322,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->middleware('can:costos.ordenes-compra.ver')
             ->name('recepciones.index');
         Route::post('ordenes-compra/{ordenCompra}/entregas', [CostosEntregaController::class, 'store'])->name('ordenes-compra.entregas.store');
+        Route::post('entregas/{entrega}', [CostosEntregaController::class, 'update'])->name('entregas.update');
         Route::post('entregas/{entrega}/cancelar', [CostosEntregaController::class, 'cancelar'])->name('entregas.cancelar');
         Route::get('entregas/{entrega}/pdf', [CostosEntregaController::class, 'pdf'])->name('entregas.pdf');
         Route::post('facturas/{factura}/aprobar-costos', [CostosFacturaAdminController::class, 'aprobarCostos'])->name('facturas.aprobar-costos');
