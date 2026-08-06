@@ -56,7 +56,7 @@ export function CapturarProduccion({
 
     const marcaOptions = marcas.map((m) => ({
         value: String(m.id),
-        label: `${m.obra ? `[${m.obra.no}] ` : ''}${etiquetaDePieza(m.marca, m.etapa)} - ${m.descripcion}`,
+        label: `${m.obra ? `[${m.obra.no}] ` : ''}${etiquetaDePieza(m.marca, m.lote)} - ${m.descripcion}`,
     }));
 
     const marcaElegida = marcas.find((m) => String(m.id) === registroForm.data.marca_id);

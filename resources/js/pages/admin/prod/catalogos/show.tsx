@@ -59,12 +59,15 @@ export default function CatalogoShow({
         const s = search.toLowerCase();
         return marcas.filter(
             (m) =>
-                [m.marca, m.etapa, m.descripcion].some((campo) => (campo ?? '').toLowerCase().includes(s)) ||
-                (m.piezas ?? []).some((p) => p.qs.toLowerCase().includes(s)),
+                [m.marca, m.lote, m.descripcion].some((campo) => (campo ?? '').toLowerCase().includes(s)) ||
+                (m.piezas ?? []).some(
+                    (p) =>
+                        (p.qs ?? '').toLowerCase().includes(s) || p.qr.toLowerCase().includes(s),
+                ),
         );
     }, [marcas, search]);
 
-    /** Piezas pagadas de la marca en un proceso: la suma del avance de sus QS. */
+    /** Piezas pagadas de la marca en un proceso: la suma del avance de sus piezas. */
     const pagadasEn = (marca: MarcaConPiezas, procesoId: number) =>
         (marca.piezas ?? []).reduce((sum, p) => sum + (p.avance?.[procesoId]?.capturado ?? 0), 0);
 
@@ -188,7 +191,7 @@ export default function CatalogoShow({
 
                 <div className="mb-4 w-full max-w-xs">
                     <Input
-                        placeholder="Buscar por marca, etapa, QS o descripcion..."
+                        placeholder="Buscar por marca, lote, QS, QR o descripcion..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
@@ -201,7 +204,7 @@ export default function CatalogoShow({
                                 <tr>
                                     <th></th>
                                     <th>Marca</th>
-                                    <th>Etapa</th>
+                                    <th>Lote</th>
                                     <th>Descripcion</th>
                                     <th>Categoria</th>
                                     <th className="text-right">Piezas</th>
@@ -230,7 +233,7 @@ export default function CatalogoShow({
                                         const piezas = m.piezas ?? [];
                                         const abierta = abiertas.includes(m.id);
                                         // El layout declara cuántas piezas tiene el modelo; si no
-                                        // cuadra con los QS cargados, el archivo vino incompleto.
+                                        // cuadra con las piezas cargadas, el archivo vino incompleto.
                                         const descuadre = piezas.length !== Number(m.cantidad);
 
                                         const fila = (
@@ -257,8 +260,8 @@ export default function CatalogoShow({
                                                     </Link>
                                                 </td>
                                                 <td>
-                                                    {m.etapa ? (
-                                                        <span className="badge badge-sm badge-ghost">{m.etapa}</span>
+                                                    {m.lote ? (
+                                                        <span className="badge badge-sm badge-ghost">{m.lote}</span>
                                                     ) : (
                                                         <span className="text-base-content/40">—</span>
                                                     )}
@@ -331,11 +334,11 @@ export default function CatalogoShow({
                                                 <td></td>
                                                 <td colSpan={9 + procesos.length} className="py-3">
                                                     <div className="mb-1 text-xs font-medium">
-                                                        Piezas de {etiquetaDePieza(m.marca, m.etapa)}
+                                                        Piezas de {etiquetaDePieza(m.marca, m.lote)}
                                                     </div>
                                                     {piezas.length === 0 ? (
                                                         <p className="text-base-content/50 text-sm">
-                                                            Esta marca no tiene QS cargados: vuelve a subir el layout.
+                                                            Esta marca no tiene piezas cargadas: vuelve a subir el layout.
                                                         </p>
                                                     ) : (
                                                         <div className="flex flex-wrap gap-1">
@@ -343,14 +346,15 @@ export default function CatalogoShow({
                                                                 <span
                                                                     key={pieza.id}
                                                                     className="badge badge-sm badge-ghost font-mono"
-                                                                    title={procesos
-                                                                        .map(
+                                                                    title={[
+                                                                        `QR ${pieza.qr}`,
+                                                                        ...procesos.map(
                                                                             (p) =>
                                                                                 `${p.nombre}: ${Math.round((pieza.avance?.[p.id]?.capturado ?? 0) * 100)}%`,
-                                                                        )
-                                                                        .join(' · ')}
+                                                                        ),
+                                                                    ].join(' · ')}
                                                                 >
-                                                                    {pieza.qs}
+                                                                    {pieza.qs ?? pieza.qr}
                                                                 </span>
                                                             ))}
                                                         </div>
@@ -388,13 +392,14 @@ export default function CatalogoShow({
                             </a>
                         </div>
                         <p className="text-base-content/60 text-sm">
-                            Columnas: QS, Marca, Etapa, Descripcion, Categoria, Cantidad, PesoKg, Area, LongitudMm. El
-                            archivo es una <strong>lista de piezas</strong>: un renglón por QS, repitiendo marca y etapa
-                            tantas veces como piezas tenga el modelo. La marca se identifica por{' '}
-                            <strong>marca + etapa</strong> y la pieza por su <strong>QS</strong>; si ya existen, se
+                            Columnas: QR, Marca, Descripcion, Categoria, QS, Cantidad, Peso Kg, Area, Longitud Mm,
+                            Lote. El archivo es una <strong>lista de piezas</strong>: un renglón por pieza, repitiendo
+                            marca y lote tantas veces como piezas tenga el modelo. La marca se identifica por{' '}
+                            <strong>marca + lote</strong> y la pieza por su <strong>QR</strong>; si ya existen, se
                             sobrescriben sus datos. La cantidad de la marca sale de{' '}
-                            <strong>cuántos QS traiga el archivo</strong>: la columna Cantidad sólo se usa para avisar
-                            si no cuadran. La categoria se crea automaticamente si no existe.
+                            <strong>cuántas piezas traiga el archivo</strong>: la columna Cantidad sólo se usa para
+                            avisar si no cuadran. La categoria se crea automaticamente si no existe. Los layouts
+                            viejos siguen cargando: sin QR se usa el QS, y una columna Etapa se lee como Lote.
                         </p>
 
                         <form onSubmit={handleCsvImport} className="flex items-end gap-4">

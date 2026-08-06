@@ -17,10 +17,13 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
  * La marca: el modelo del catálogo, con su descripción, peso, longitud y
  * categoría.
  *
+ * La identifica el par (marca, lote): la misma marca puede repetirse en varios
+ * lotes de la obra.
+ *
  * No se paga contra esta fila. `cantidad` dice cuántas piezas pide el modelo y
- * de aquí cuelgan esas unidades como `Pieza`, una por QS; el destajo se paga
+ * de aquí cuelgan esas unidades como `Pieza`, una por QR; el destajo se paga
  * pieza por pieza. Cuando la marca entra por layout, `cantidad` es el número de
- * QS que trajo el archivo. La tabla conserva el nombre `conceptos` por su
+ * piezas que trajo el archivo. La tabla conserva el nombre `conceptos` por su
  * historia.
  */
 class Concepto extends Model
@@ -38,7 +41,7 @@ class Concepto extends Model
         'catalogo_id',
         'concepto_origen_id',
         'marca',
-        'etapa',
+        'lote',
         'descripcion',
         'cantidad',
         'peso_unitario',
@@ -101,45 +104,45 @@ class Concepto extends Model
     }
 
     /**
-     * Etapa comparable: mayúsculas, sin espacios de más y con la cadena vacía
-     * tratada como "sin etapa". Se normaliza al guardar para que "fase b" y
-     * "FASE B" no acaben siendo dos modelos distintos.
+     * Lote comparable: mayúsculas, sin espacios de más y con la cadena vacía
+     * tratada como "sin lote". Se normaliza al guardar para que "lote a" y
+     * "LOTE A" no acaben siendo dos modelos distintos.
      */
-    public static function normalizarEtapa(?string $etapa): ?string
+    public static function normalizarLote(?string $lote): ?string
     {
-        $limpia = preg_replace('/\s+/', ' ', mb_strtoupper(trim((string) $etapa))) ?? '';
+        $limpia = preg_replace('/\s+/', ' ', mb_strtoupper(trim((string) $lote))) ?? '';
 
         return $limpia === '' ? null : $limpia;
     }
 
     /**
      * Identidad del modelo dentro de un catálogo. La marca sola no basta: una
-     * misma marca puede repetirse en varias etapas de la obra. Estática porque
+     * misma marca puede repetirse en varios lotes de la obra. Estática porque
      * también se usa sobre el snapshot de las liquidaciones, donde ya no hay
      * concepto vivo que consultar.
      */
-    public static function claveDeModelo(?string $marca, ?string $etapa): string
+    public static function claveDeModelo(?string $marca, ?string $lote): string
     {
-        return trim((string) $marca).'|'.(self::normalizarEtapa($etapa) ?? '');
+        return trim((string) $marca).'|'.(self::normalizarLote($lote) ?? '');
     }
 
     /** Cómo se nombra la pieza en pantalla y en los mensajes de error. */
-    public static function etiquetaDeModelo(?string $marca, ?string $etapa): string
+    public static function etiquetaDeModelo(?string $marca, ?string $lote): string
     {
         $marca = trim((string) $marca);
-        $etapa = trim((string) $etapa);
+        $lote = trim((string) $lote);
 
-        return $etapa === '' ? $marca : "{$marca} · {$etapa}";
+        return $lote === '' ? $marca : "{$marca} · {$lote}";
     }
 
     public function claveModelo(): string
     {
-        return self::claveDeModelo($this->marca, $this->etapa);
+        return self::claveDeModelo($this->marca, $this->lote);
     }
 
     public function etiquetaModelo(): string
     {
-        return self::etiquetaDeModelo($this->marca, $this->etapa);
+        return self::etiquetaDeModelo($this->marca, $this->lote);
     }
 
     public function categoria(): BelongsTo

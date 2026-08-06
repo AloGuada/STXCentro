@@ -165,7 +165,7 @@ export type Obra = {
     porcentaje_obra?: number | null;
     cliente?: Cliente;
     partidas?: CobPartida[];
-    etapas_pmo?: CobObraEtapa[];
+    lotes_pmo?: CobObraEtapa[];
     estimaciones?: CobEstimacion[];
     anticipos?: CobAnticipo[];
     adendas?: CobAdenda[];
@@ -594,7 +594,7 @@ export type ProdPendienteLiquidar = {
     pieza_id: number;
     qs: string;
     marca: string;
-    etapa: string | null;
+    lote: string | null;
     descripcion: string;
     proceso_id: number;
     proceso: string;
@@ -632,8 +632,8 @@ export type Concepto = {
     catalogo_id: number | null;
     catalogo?: ProdCatalogo;
     marca: string;
-    /** Etapa de la obra. Junto con la marca identifica el modelo. */
-    etapa: string | null;
+    /** Lote de fabricacion. Junto con la marca identifica el modelo. */
+    lote: string | null;
     descripcion: string;
     cantidad: number;
     peso_unitario: number;
@@ -649,12 +649,16 @@ export type Concepto = {
     updated_at: string;
 };
 
-/** Una pieza física del catálogo, identificada por su QS. */
+/**
+ * Una pieza física del catálogo, identificada por su QR. El QS acompaña como
+ * dato de planta y puede repetirse entre lotes.
+ */
 export type ProdPieza = {
     id: number;
     catalogo_id: number;
     concepto_id: number;
-    qs: string;
+    qr: string;
+    qs: string | null;
     pieza_origen_id: number | null;
     activo: boolean;
     marca?: Concepto;
@@ -787,7 +791,7 @@ export type ProdDestajo = {
 export type ProdPiezaSinPrecio = {
     concepto_id: number;
     marca: string;
-    etapa: string | null;
+    lote: string | null;
     proceso: string;
     piezas: number;
 };
@@ -818,10 +822,11 @@ export type ProdLiquidacionDetalle = {
     concepto_id: number | null;
     /** Snapshot del renglón al cerrar: no se relee del catálogo. */
     pieza_id: number | null;
+    qr: string | null;
     qs: string | null;
     obra_id: number | null;
     marca: string | null;
-    etapa: string | null;
+    lote: string | null;
     proceso_id: number | null;
     proceso_nombre: string | null;
     descripcion: string | null;

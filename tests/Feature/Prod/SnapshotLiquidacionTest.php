@@ -212,27 +212,27 @@ describe('conteo de lo pagado', function () {
     });
 });
 
-describe('snapshot con etapa', function () {
-    test('el renglon congela la etapa junto con la marca', function () {
-        $this->marca->update(['etapa' => 'FASE B']);
+describe('snapshot con lote', function () {
+    test('el renglon congela la lote junto con la marca', function () {
+        $this->marca->update(['lote' => 'FASE B']);
 
         cerrarConProduccion();
 
         $detalle = $this->destajo->liquidaciones()->firstOrFail()->detalles()->firstOrFail();
 
         expect($detalle->marca)->toBe('V-01')
-            ->and($detalle->etapa)->toBe('FASE B');
+            ->and($detalle->lote)->toBe('FASE B');
     });
 
-    test('cambiar la etapa no mueve la orden de pago ya cerrada', function () {
-        $this->marca->update(['etapa' => '1']);
+    test('cambiar la lote no mueve la orden de pago ya cerrada', function () {
+        $this->marca->update(['lote' => '1']);
 
         cerrarConProduccion();
 
-        $this->marca->update(['etapa' => '2']);
+        $this->marca->update(['lote' => '2']);
 
         $piezas = app(GeneradorLiquidaciones::class)->ordenDePago($this->destajo->fresh())->first()['piezas'];
 
-        expect($piezas[0]['etapa'])->toBe('1');
+        expect($piezas[0]['lote'])->toBe('1');
     });
 });

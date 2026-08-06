@@ -21,10 +21,11 @@ class LiquidacionDetalle extends Model
         'liquidacion_id',
         'concepto_id',
         'pieza_id',
+        'qr',
         'qs',
         'obra_id',
         'marca',
-        'etapa',
+        'lote',
         'proceso_id',
         'proceso_nombre',
         'descripcion',
@@ -60,7 +61,7 @@ class LiquidacionDetalle extends Model
     /**
      * Snapshot: un renglon es una pieza pagada en un proceso. Ni concepto_id ni
      * pieza_id tienen FK (el detalle sobrevive al borrado del catalogo), y el
-     * renglon guarda su propia copia de qs, marca, etapa, proceso, descripcion,
+     * renglon guarda su propia copia de qs, marca, lote, proceso, descripcion,
      * peso y longitud. Estas relaciones son solo un puente para navegar al
      * catalogo actual; nunca deben usarse para mostrar o calcular lo ya pagado.
      */

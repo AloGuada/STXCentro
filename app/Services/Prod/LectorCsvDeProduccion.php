@@ -9,10 +9,14 @@ namespace App\Services\Prod;
  *
  *  1. **Export de avance** (el que sale del sistema de planta): trae `Proceso`
  *     con el número de evento, `Ubicacion` y el `QS` de la pieza. El evento dice
- *     qué proceso se paga (75 soldadura, 85 pintura) y el QS dice exactamente
- *     qué pieza: no hay que adivinar nada por marca.
+ *     qué proceso se paga (75 soldadura, 85 pintura) y el QS dice qué pieza: no
+ *     hay que adivinar nada por marca.
  *  2. **Captura a mano**: columnas GRUPO, QS y opcionalmente PROCESO y
  *     PORCENTAJE.
+ *
+ * Los dos aceptan además una columna `QR` opcional. Si viene, manda sobre el QS:
+ * desde que el layout maneja lotes, el mismo QS puede repetirse y sólo el QR
+ * identifica la pieza sin ambigüedad.
  *
  * El lector no toca la base: sólo dice a qué ubicación o grupo apunta cada
  * renglón y con qué evento o proceso viene. Resolver la pieza y el proceso
@@ -25,7 +29,7 @@ class LectorCsvDeProduccion
     public const FORMATO_SIMPLE = 'simple';
 
     /**
-     * @return array{formato: string, filas: list<array{referencia: string, ubicacion: ?string, grupo: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>}
+     * @return array{formato: string, filas: list<array{referencia: string, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>}
      */
     public function leer(string $ruta): array
     {
@@ -57,7 +61,7 @@ class LectorCsvDeProduccion
     /**
      * @param  resource  $handle
      * @param  list<string>  $encabezado
-     * @return list<array{referencia: string, ubicacion: ?string, grupo: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>
+     * @return list<array{referencia: string, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>
      */
     private function leerExport($handle, array $encabezado): array
     {
@@ -73,14 +77,17 @@ class LectorCsvDeProduccion
             $evento = $this->numeroDeEvento(trim((string) ($row[$indices['PROCESO']] ?? '')));
             $ubicacion = trim((string) ($row[$indices['UBICACION']] ?? ''));
             $qs = trim((string) ($row[$indices['QS']] ?? ''));
+            // El QR es opcional: si el export lo trae, manda, porque el QS puede
+            // repetirse entre lotes y dejaría la pieza ambigua.
+            $qr = isset($indices['QR']) ? trim((string) ($row[$indices['QR']] ?? '')) : '';
 
-            if ($evento === null || $ubicacion === '' || $qs === '') {
+            if ($evento === null || $ubicacion === '' || ($qs === '' && $qr === '')) {
                 continue;
             }
 
-            // Una pieza es una pieza: si el mismo QS viene dos veces en el mismo
+            // Una pieza es una pieza: si la misma viene dos veces en el mismo
             // evento, es el mismo trabajo reportado dos veces, no el doble.
-            $clave = $qs.'|'.$evento;
+            $clave = ($qr !== '' ? $qr : $qs).'|'.$evento;
 
             if (isset($vistos[$clave])) {
                 continue;
@@ -89,9 +96,10 @@ class LectorCsvDeProduccion
             $vistos[$clave] = true;
 
             $filas[] = [
-                'referencia' => "\"{$ubicacion}\" / QS {$qs}",
+                'referencia' => "\"{$ubicacion}\" / ".($qs !== '' ? "QS {$qs}" : "QR {$qr}"),
                 'ubicacion' => $ubicacion,
                 'grupo' => null,
+                'qr' => $qr === '' ? null : $qr,
                 'qs' => $qs,
                 'evento' => $evento,
                 'proceso' => null,
@@ -105,7 +113,7 @@ class LectorCsvDeProduccion
     /**
      * @param  resource  $handle
      * @param  list<string>  $encabezado
-     * @return list<array{referencia: string, ubicacion: ?string, grupo: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>
+     * @return list<array{referencia: string, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>
      */
     private function leerSimple($handle, array $encabezado): array
     {
@@ -122,8 +130,9 @@ class LectorCsvDeProduccion
             $data = array_combine($encabezado, $row);
             $grupo = trim((string) ($data['GRUPO'] ?? ''));
             $qs = trim((string) ($data['QS'] ?? ''));
+            $qr = trim((string) ($data['QR'] ?? ''));
 
-            if ($grupo === '' && $qs === '') {
+            if ($grupo === '' && $qs === '' && $qr === '') {
                 continue;
             }
 
@@ -134,6 +143,7 @@ class LectorCsvDeProduccion
                 'referencia' => "Linea {$linea}",
                 'ubicacion' => null,
                 'grupo' => $grupo,
+                'qr' => $qr === '' ? null : $qr,
                 'qs' => $qs,
                 'evento' => null,
                 'proceso' => $proceso === '' ? null : $proceso,

@@ -110,20 +110,20 @@ test('el mismo QS repetido en el mismo evento se paga una sola vez', function ()
 test('la marca repetida ya no es ambigua: manda el QS', function () {
     grupoConUbicacion('M3.6 Fabricacion');
 
-    // Otra etapa con la misma marca; el export sólo necesita el QS.
-    $etapa2 = marcaConPiezas(2, [
+    // Otra lote con la misma marca; el export sólo necesita el QS.
+    $lote2 = marcaConPiezas(2, [
         'obra_id' => $this->marca->obra_id,
         'catalogo_id' => $this->marca->catalogo_id,
         'marca' => 'TG-CM5-1',
-        'etapa' => '2',
+        'lote' => '2',
     ]);
 
     $csv = encabezadoExport()
-        .renglonExport('75 Soldadura', 'M3.6 Fabricacion', $etapa2->piezas[0]->qs);
+        .renglonExport('75 Soldadura', 'M3.6 Fabricacion', $lote2->piezas[0]->qs);
 
     subirExport($csv)->assertSessionHasNoErrors();
 
-    expect(Registro::sole()->pieza_id)->toBe($etapa2->piezas[0]->id);
+    expect(Registro::sole()->pieza_id)->toBe($lote2->piezas[0]->id);
 });
 
 test('cruza la ubicacion sin importar acentos ni mayusculas', function () {

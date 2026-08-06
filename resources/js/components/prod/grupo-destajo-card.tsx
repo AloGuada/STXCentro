@@ -89,7 +89,7 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                                         <tr key={r.id} className="hover">
                                             <td>
                                                 <span className="font-medium">
-                                                    {etiquetaDePieza(r.pieza?.marca?.marca, r.pieza?.marca?.etapa)}
+                                                    {etiquetaDePieza(r.pieza?.marca?.marca, r.pieza?.marca?.lote)}
                                                 </span>{' '}
                                                 <span className="font-mono text-xs">QS {r.pieza?.qs}</span>{' '}
                                                 <span className="text-base-content/60">

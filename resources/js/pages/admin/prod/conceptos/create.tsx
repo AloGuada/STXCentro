@@ -26,7 +26,7 @@ export default function ConceptosCreate({ catalogo, categorias }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         catalogo_id: String(catalogo.id),
         marca: '',
-        etapa: '',
+        lote: '',
         descripcion: '',
         cantidad: '0',
         peso_unitario: '',
@@ -66,17 +66,17 @@ export default function ConceptosCreate({ catalogo, categorias }: Props) {
                             </FormField>
 
                             <FormField
-                                label="Etapa"
-                                htmlFor="etapa"
-                                error={errors.etapa}
-                                description="Junto con la marca identifica el modelo. Dejala vacia si la obra no maneja etapas."
+                                label="Lote"
+                                htmlFor="lote"
+                                error={errors.lote}
+                                description="Junto con la marca identifica el modelo. Dejala vacia si la obra no maneja lotes."
                             >
                                 <Input
-                                    id="etapa"
-                                    value={data.etapa}
-                                    onChange={(e) => setData('etapa', e.target.value)}
-                                    error={!!errors.etapa}
-                                    placeholder="Sin etapa"
+                                    id="lote"
+                                    value={data.lote}
+                                    onChange={(e) => setData('lote', e.target.value)}
+                                    error={!!errors.lote}
+                                    placeholder="Sin lote"
                                 />
                             </FormField>
                         </div>

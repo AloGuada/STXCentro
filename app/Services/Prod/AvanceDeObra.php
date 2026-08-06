@@ -22,7 +22,7 @@ readonly class AvanceDeObra
     /**
      * Fraccion ya pagada o comprometida de esta pieza en este proceso.
      *
-     * Suma el bucket de su linaje y el de su QS: el segundo recoge lo pagado de
+     * Suma el bucket de su linaje y el de su QR: el segundo recoge lo pagado de
      * piezas que ya se borraron del catalogo y por eso no tienen linaje.
      */
     public function capturadoDe(Pieza $pieza, int $procesoId): float
@@ -30,8 +30,8 @@ readonly class AvanceDeObra
         $sufijo = '|proceso:'.$procesoId;
 
         $porLinaje = $this->totales['raiz:'.($this->raices[$pieza->id] ?? $pieza->id).$sufijo] ?? 0;
-        $porQs = $this->totales['qs:'.$pieza->qs.$sufijo] ?? 0;
+        $porQr = $this->totales['qr:'.$pieza->qr.$sufijo] ?? 0;
 
-        return round((float) $porLinaje + (float) $porQs, 4);
+        return round((float) $porLinaje + (float) $porQr, 4);
     }
 }

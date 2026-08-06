@@ -23,6 +23,8 @@ class PiezaFactory extends Factory
             // La pieza vive en el mismo catálogo que su marca; heredarlo evita
             // crear un catálogo suelto que rompería el unique (catalogo, qs).
             'catalogo_id' => fn (array $attributes) => Concepto::find($attributes['concepto_id'])?->catalogo_id,
+            // El QR identifica; el QS acompaña y puede repetirse entre lotes.
+            'qr' => (string) fake()->unique()->numerify('QR-######'),
             'qs' => (string) fake()->unique()->numberBetween(100000, 999999),
             'activo' => true,
         ];

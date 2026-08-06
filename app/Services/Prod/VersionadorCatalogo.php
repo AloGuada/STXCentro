@@ -49,14 +49,14 @@ class VersionadorCatalogo
     }
 
     /**
-     * Diferencias entre dos versiones, emparejadas por modelo (marca + etapa).
+     * Diferencias entre dos versiones, emparejadas por modelo (marca + lote).
      * Emparejar sólo por marca juntaría piezas distintas cuando el catálogo
-     * repite la marca en varias etapas de la obra.
+     * repite la marca en varios lotes de la obra.
      *
      * @return array{
-     *     agregadas: list<array{marca: string, etapa: ?string, descripcion: string}>,
-     *     eliminadas: list<array{marca: string, etapa: ?string, descripcion: string}>,
-     *     modificadas: list<array{marca: string, etapa: ?string, descripcion: string, cambios: list<array{campo: string, antes: mixed, despues: mixed}>}>,
+     *     agregadas: list<array{marca: string, lote: ?string, descripcion: string}>,
+     *     eliminadas: list<array{marca: string, lote: ?string, descripcion: string}>,
+     *     modificadas: list<array{marca: string, lote: ?string, descripcion: string, cambios: list<array{campo: string, antes: mixed, despues: mixed}>}>,
      *     sin_cambios: int
      * }
      */
@@ -121,7 +121,7 @@ class VersionadorCatalogo
                 // cambie de nombre en esta version.
                 'concepto_origen_id' => $marca->id,
                 'marca' => $marca->marca,
-                'etapa' => $marca->etapa,
+                'lote' => $marca->lote,
                 'descripcion' => $marca->descripcion,
                 'cantidad' => $marca->cantidad,
                 'peso_unitario' => $marca->peso_unitario,
@@ -131,13 +131,14 @@ class VersionadorCatalogo
                 'activo' => $marca->activo,
             ]);
 
-            // Las piezas se copian con su QS y su propio linaje: el acumulado se
+            // Las piezas se copian con su QR y su propio linaje: el acumulado se
             // cuenta por pieza, asi que sin esto la version nueva arrancaria en
             // cero y se podria volver a pagar lo ya fabricado.
             foreach ($marca->piezas as $pieza) {
                 Pieza::create([
                     'catalogo_id' => $destino->id,
                     'concepto_id' => $copia->id,
+                    'qr' => $pieza->qr,
                     'qs' => $pieza->qs,
                     'pieza_origen_id' => $pieza->id,
                     'activo' => $pieza->activo,
@@ -154,13 +155,13 @@ class VersionadorCatalogo
     }
 
     /**
-     * @return array{marca: string, etapa: ?string, descripcion: string}
+     * @return array{marca: string, lote: ?string, descripcion: string}
      */
     private function resumenDePieza(Concepto $pieza): array
     {
         return [
             'marca' => $pieza->marca,
-            'etapa' => $pieza->etapa,
+            'lote' => $pieza->lote,
             'descripcion' => $pieza->descripcion,
         ];
     }

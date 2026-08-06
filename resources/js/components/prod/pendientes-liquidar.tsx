@@ -88,7 +88,7 @@ export function PendientesLiquidar({ destajo, pendientes, gruposTrabajo }: Props
                                 <tr key={clave} className="hover">
                                     <td>
                                         <div className="font-medium">
-                                            {etiquetaDePieza(p.marca, p.etapa)}{' '}
+                                            {etiquetaDePieza(p.marca, p.lote)}{' '}
                                             <span className="font-mono text-xs">QS {p.qs}</span>
                                         </div>
                                         <div className="text-base-content/50 text-xs">

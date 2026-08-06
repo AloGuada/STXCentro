@@ -172,12 +172,16 @@ describe('admin conceptos', function () {
     });
 });
 
-describe('import del layout por QS', function () {
+describe('import del layout por QR', function () {
     /**
-     * El layout es una lista de piezas: un renglon por QS, repitiendo marca y
-     * etapa tantas veces como piezas tenga el modelo.
+     * Layout vigente: un renglon por pieza, repitiendo marca y lote tantas veces
+     * como piezas tenga el modelo. El encabezado va con espacios a proposito
+     * ("PESO KG"), que es como lo manda planta.
+     *
+     * Columnas: QR, MARCA, DESCRIPCION, CATEGORIA, QS, CANTIDAD, PESO KG, AREA,
+     * LONGITUD MM, LOTE.
      */
-    function subirLayout(Catalogo $catalogo, string $filas, string $encabezado = 'QS,MARCA,ETAPA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM')
+    function subirLayout(Catalogo $catalogo, string $filas, string $encabezado = 'QR,MARCA,DESCRIPCION,CATEGORIA,QS,CANTIDAD,PESO KG,AREA,LONGITUD MM,LOTE')
     {
         return test()->actingAs(test()->user)
             ->post(route('admin.prod.catalogos.import-csv', $catalogo), [
@@ -185,12 +189,12 @@ describe('import del layout por QS', function () {
             ]);
     }
 
-    test('escribe la marca una vez y una pieza por cada QS', function () {
+    test('escribe la marca una vez y una pieza por cada renglon', function () {
         $catalogo = Catalogo::factory()->create();
 
         subirLayout($catalogo,
-            "1001,TG-BAR-1,,OC-BAR,Barandales,2,29.751,1.397,3542.177\n".
-            "1002,TG-BAR-1,,OC-BAR,Barandales,2,29.751,1.397,3542.177\n"
+            "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,2,29.751,1.397,3542.177,\n".
+            "QR-02,TG-BAR-1,OC-BAR,Barandales,1002,2,29.751,1.397,3542.177,\n"
         )->assertSessionHas('success');
 
         $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
@@ -200,6 +204,7 @@ describe('import del layout por QS', function () {
             ->and((float) $marca->peso_unitario)->toBe(29.751)
             ->and($marca->longitud)->toBe(3542)
             ->and($marca->cantidad)->toBe(2)
+            ->and($marca->piezas()->pluck('qr')->sort()->values()->all())->toBe(['QR-01', 'QR-02'])
             ->and($marca->piezas()->pluck('qs')->sort()->values()->all())->toBe(['1001', '1002']);
     });
 
@@ -207,8 +212,8 @@ describe('import del layout por QS', function () {
         $catalogo = Catalogo::factory()->create();
 
         subirLayout($catalogo,
-            "1001,TG-CFC-1,,LI-CFC,Contraflambeos,1,44.664,3.768,797.114\n".
-            "1002,TG-CFC-2,,LI-CFC,Contraflambeos,1,189.09,16.02,995.424\n"
+            "QR-01,TG-CFC-1,LI-CFC,Contraflambeos,1001,1,44.664,3.768,797.114,\n".
+            "QR-02,TG-CFC-2,LI-CFC,Contraflambeos,1002,1,189.09,16.02,995.424,\n"
         );
 
         expect(Categoria::where('nombre', 'Contraflambeos')->count())->toBe(1);
@@ -217,8 +222,8 @@ describe('import del layout por QS', function () {
     test('reimportar sobrescribe la marca y no duplica sus piezas', function () {
         $catalogo = Catalogo::factory()->create();
 
-        subirLayout($catalogo, "1001,TG-BAR-1,,Original,Barandales,1,10.000,1,1000\n");
-        subirLayout($catalogo, "1001,TG-BAR-1,,Actualizado,Barandales,1,29.751,1.397,3542.177\n");
+        subirLayout($catalogo, "QR-01,TG-BAR-1,Original,Barandales,1001,1,10.000,1,1000,\n");
+        subirLayout($catalogo, "QR-01,TG-BAR-1,Actualizado,Barandales,1001,1,29.751,1.397,3542.177,\n");
 
         $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
 
@@ -228,42 +233,44 @@ describe('import del layout por QS', function () {
             ->and($marca->piezas()->count())->toBe(1);
     });
 
-    test('la misma marca en dos etapas son dos modelos con sus propias piezas', function () {
+    test('la misma marca en dos lotes son dos modelos, aunque repitan el QS', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        // Mismo QS en los dos lotes: es justo por esto que el identificador es el QR.
+        subirLayout($catalogo,
+            "QR-01,TG-BAR-1,Lote uno,Barandales,1001,1,29.751,1.397,3542,L1\n".
+            "QR-02,TG-BAR-1,Lote dos,Barandales,1001,1,31.500,1.500,3600,L2\n"
+        );
+
+        $lote1 = Concepto::where('marca', 'TG-BAR-1')->where('lote', 'L1')->sole();
+        $lote2 = Concepto::where('marca', 'TG-BAR-1')->where('lote', 'L2')->sole();
+
+        expect($lote1->descripcion)->toBe('Lote uno')
+            ->and($lote2->descripcion)->toBe('Lote dos')
+            ->and($lote1->piezas()->pluck('qr')->all())->toBe(['QR-01'])
+            ->and($lote2->piezas()->pluck('qr')->all())->toBe(['QR-02'])
+            ->and(Pieza::where('catalogo_id', $catalogo->id)->where('qs', '1001')->count())->toBe(2);
+    });
+
+    test('normaliza el lote y deja nulo el vacio', function () {
         $catalogo = Catalogo::factory()->create();
 
         subirLayout($catalogo,
-            "1001,TG-BAR-1,1,Etapa uno,Barandales,1,29.751,1.397,3542\n".
-            "1002,TG-BAR-1,2,Etapa dos,Barandales,1,31.500,1.500,3600\n"
+            "QR-01,TG-BAR-1,Con lote,Barandales,1001,1,29.751,1.397,3542,  lote  b \n".
+            "QR-02,TG-BAR-2,Sin lote,Barandales,1002,1,29.751,1.397,3542,   \n"
         );
 
-        $etapa1 = Concepto::where('marca', 'TG-BAR-1')->where('etapa', '1')->sole();
-        $etapa2 = Concepto::where('marca', 'TG-BAR-1')->where('etapa', '2')->sole();
-
-        expect($etapa1->descripcion)->toBe('Etapa uno')
-            ->and($etapa2->descripcion)->toBe('Etapa dos')
-            ->and($etapa1->piezas()->pluck('qs')->all())->toBe(['1001'])
-            ->and($etapa2->piezas()->pluck('qs')->all())->toBe(['1002']);
+        expect(Concepto::where('marca', 'TG-BAR-1')->value('lote'))->toBe('LOTE B')
+            ->and(Concepto::where('marca', 'TG-BAR-2')->value('lote'))->toBeNull();
     });
 
-    test('normaliza la etapa y deja nula la vacia', function () {
-        $catalogo = Catalogo::factory()->create();
-
-        subirLayout($catalogo,
-            "1001,TG-BAR-1,  fase  b ,Con etapa,Barandales,1,29.751,1.397,3542\n".
-            "1002,TG-BAR-2,   ,Sin etapa,Barandales,1,29.751,1.397,3542\n"
-        );
-
-        expect(Concepto::where('marca', 'TG-BAR-1')->value('etapa'))->toBe('FASE B')
-            ->and(Concepto::where('marca', 'TG-BAR-2')->value('etapa'))->toBeNull();
-    });
-
-    test('la cantidad se cuenta de los QS, no de la columna del layout', function () {
+    test('la cantidad se cuenta de las piezas, no de la columna del layout', function () {
         $catalogo = Catalogo::factory()->create();
 
         // Dice 5 piezas pero solo vienen 2: manda lo que llego.
         subirLayout($catalogo,
-            "1001,TG-BAR-1,,OC-BAR,Barandales,5,29.751,1.397,3542\n".
-            "1002,TG-BAR-1,,OC-BAR,Barandales,5,29.751,1.397,3542\n"
+            "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,5,29.751,1.397,3542,\n".
+            "QR-02,TG-BAR-1,OC-BAR,Barandales,1002,5,29.751,1.397,3542,\n"
         )->assertSessionHasErrors('csv_file');
 
         // Aun asi se carga lo que llego: el aviso no bloquea.
@@ -273,14 +280,14 @@ describe('import del layout por QS', function () {
             ->and($marca->piezas()->count())->toBe(2);
     });
 
-    test('un layout parcial suma sus QS a la cantidad que ya tenia la marca', function () {
+    test('un layout parcial suma sus piezas a la cantidad que ya tenia la marca', function () {
         $catalogo = Catalogo::factory()->create();
 
-        subirLayout($catalogo, "1001,TG-BAR-1,,OC-BAR,Barandales,1,29.751,1.397,3542\n");
+        subirLayout($catalogo, "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,1,29.751,1.397,3542,\n");
 
         expect(Concepto::where('catalogo_id', $catalogo->id)->sole()->cantidad)->toBe(1);
 
-        subirLayout($catalogo, "1002,TG-BAR-1,,OC-BAR,Barandales,1,29.751,1.397,3542\n");
+        subirLayout($catalogo, "QR-02,TG-BAR-1,OC-BAR,Barandales,1002,1,29.751,1.397,3542,\n");
 
         $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
 
@@ -288,46 +295,85 @@ describe('import del layout por QS', function () {
             ->and($marca->piezas()->count())->toBe(2);
     });
 
-    test('avisa del QS repetido y se queda con su primera aparicion', function () {
+    test('avisa del QR repetido y se queda con su primera aparicion', function () {
         $catalogo = Catalogo::factory()->create();
 
         subirLayout($catalogo,
-            "1001,TG-BAR-1,,Primera,Barandales,1,29.751,1.397,3542\n".
-            "1001,TG-BAR-2,,Segunda,Barandales,1,29.751,1.397,3542\n"
+            "QR-01,TG-BAR-1,Primera,Barandales,1001,1,29.751,1.397,3542,\n".
+            "QR-01,TG-BAR-2,Segunda,Barandales,1002,1,29.751,1.397,3542,\n"
         )->assertSessionHasErrors('csv_file');
 
         expect(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(1)
             ->and(Pieza::where('catalogo_id', $catalogo->id)->sole()->marca->descripcion)->toBe('Primera');
     });
 
-    test('el renglon sin QS se ignora y se reporta', function () {
+    test('el renglon sin QR ni QS se ignora y se reporta', function () {
         $catalogo = Catalogo::factory()->create();
 
         subirLayout($catalogo,
-            "1001,TG-BAR-1,,Con QS,Barandales,1,29.751,1.397,3542\n".
-            ",TG-BAR-2,,Sin QS,Barandales,1,29.751,1.397,3542\n"
+            "QR-01,TG-BAR-1,Con QR,Barandales,1001,1,29.751,1.397,3542,\n".
+            ",TG-BAR-2,Sin nada,Barandales,,1,29.751,1.397,3542,\n"
         )->assertSessionHasErrors('csv_file');
 
         expect(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(1);
     });
 
-    test('el mismo QS puede existir en catalogos de obras distintas', function () {
+    test('la pieza carga aunque el renglon no traiga QS', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        // Con QR basta: el QS es dato de planta y el layout puede mandarlo vacio.
+        subirLayout($catalogo, "127227,TG-BAR-1,OC-BAR,Barandales,,1,29.751,1.397,3542,\n")
+            ->assertSessionHas('success');
+
+        $pieza = Pieza::where('catalogo_id', $catalogo->id)->sole();
+
+        expect($pieza->qr)->toBe('127227')
+            ->and($pieza->qs)->toBeNull();
+    });
+
+    test('sin QR se cae al QS, que es como venia el layout viejo', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo, "QR-01,TG-BAR-1,Con QR,Barandales,1001,1,10,1,1000,\n");
+        subirLayout($catalogo, ",TG-BAR-2,Solo QS,Barandales,2002,1,10,1,1000,\n");
+
+        expect(Pieza::where('catalogo_id', $catalogo->id)->pluck('qr')->sort()->values()->all())
+            ->toBe(['2002', 'QR-01']);
+    });
+
+    test('el layout viejo sigue cargando y su ETAPA entra como lote', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo,
+            "1001,TG-BAR-1,FASE B,OC-BAR,Barandales,1,29.751,1.397,3542\n",
+            'QS,MARCA,ETAPA,DESCRIPCION,CATEGORIA,CANTIDAD,PESOKG,AREA,LONGITUDMM',
+        );
+
+        $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
+        $pieza = $marca->piezas()->sole();
+
+        expect($marca->lote)->toBe('FASE B')
+            ->and($pieza->qr)->toBe('1001')
+            ->and($pieza->qs)->toBe('1001');
+    });
+
+    test('el mismo QR puede existir en catalogos de obras distintas', function () {
         $uno = Catalogo::factory()->create();
         $otro = Catalogo::factory()->create();
 
-        subirLayout($uno, "1001,TG-BAR-1,,Obra uno,Barandales,1,10,1,1000\n");
-        subirLayout($otro, "1001,TG-BAR-1,,Obra dos,Barandales,1,10,1,1000\n");
+        subirLayout($uno, "QR-01,TG-BAR-1,Obra uno,Barandales,1001,1,10,1,1000,\n");
+        subirLayout($otro, "QR-01,TG-BAR-1,Obra dos,Barandales,1001,1,10,1,1000,\n");
 
-        expect(Pieza::where('qs', '1001')->count())->toBe(2);
+        expect(Pieza::where('qr', 'QR-01')->count())->toBe(2);
     });
 
     test('ignora los renglones de resumen al pie del layout', function () {
         $catalogo = Catalogo::factory()->create();
 
         subirLayout($catalogo,
-            "1001,TG-BAR-1,,OC-BAR,Barandales,1,29.751,1.397,3542.177\n".
-            "Resúmenes generales,,,,,,,,\n".
-            "Cuenta = 257,,,,\"Suma = 4,218.000\",\"Suma = 177,920.590\",,,\n"
+            "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,1,29.751,1.397,3542.177,\n".
+            "Resúmenes generales,,,,,,,,,\n".
+            "Cuenta = 257,,,,,\"Suma = 4,218.000\",\"Suma = 177,920.590\",,,\n"
         );
 
         expect(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(1);
