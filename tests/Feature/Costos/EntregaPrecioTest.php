@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Costos\Factura;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
@@ -13,9 +14,10 @@ beforeEach(function () {
 });
 
 /**
- * OC con una partida ligada a un centro de costos con presupuesto holgado.
+ * OC con una partida ligada a un centro de costos con presupuesto holgado, más
+ * la factura contra la que se recibe (obligatoria en toda recepción).
  *
- * @return array{0: OrdenCompra, 1: OrdenCompraDetalle, 2: ObraRubro}
+ * @return array{0: OrdenCompra, 1: OrdenCompraDetalle, 2: ObraRubro, 3: Factura}
  */
 function ocConRubro(float $cantidad = 10, float $precio = 100): array
 {
@@ -29,15 +31,21 @@ function ocConRubro(float $cantidad = 10, float $precio = 100): array
         'subtotal' => $cantidad * $precio,
     ]);
 
-    return [$oc, $partida, $rubro];
+    $factura = Factura::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'estatus' => 'pendiente_recepcion',
+    ]);
+
+    return [$oc, $partida, $rubro, $factura];
 }
 
 test('guarda el precio recibido en el detalle de la entrega', function () {
-    [$oc, $partida] = ocConRubro(10, 100);
+    [$oc, $partida, , $factura] = ocConRubro(10, 100);
 
     $this->actingAs($this->user)
         ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
             'fecha_entrega' => '2026-07-20',
+            'factura_id' => $factura->id,
             'tipo' => 'completa',
             'detalles' => [
                 ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 120],
@@ -53,11 +61,12 @@ test('guarda el precio recibido en el detalle de la entrega', function () {
 });
 
 test('un precio recibido distinto ajusta el acumulado por la diferencia', function () {
-    [$oc, $partida, $rubro] = ocConRubro(10, 100);
+    [$oc, $partida, $rubro, $factura] = ocConRubro(10, 100);
 
     $this->actingAs($this->user)
         ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
             'fecha_entrega' => '2026-07-20',
+            'factura_id' => $factura->id,
             'tipo' => 'completa',
             'detalles' => [
                 ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 120],
@@ -76,11 +85,12 @@ test('un precio recibido distinto ajusta el acumulado por la diferencia', functi
 });
 
 test('recibir al mismo precio de la OC no genera ajuste presupuestal', function () {
-    [$oc, $partida, $rubro] = ocConRubro(10, 100);
+    [$oc, $partida, $rubro, $factura] = ocConRubro(10, 100);
 
     $this->actingAs($this->user)
         ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
             'fecha_entrega' => '2026-07-20',
+            'factura_id' => $factura->id,
             'tipo' => 'completa',
             'detalles' => [
                 ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 100],
@@ -93,12 +103,13 @@ test('recibir al mismo precio de la OC no genera ajuste presupuestal', function 
 });
 
 test('un precio recibido menor reduce el acumulado', function () {
-    [$oc, $partida, $rubro] = ocConRubro(10, 100);
+    [$oc, $partida, $rubro, $factura] = ocConRubro(10, 100);
     $rubro->update(['acumulado' => 1000]);
 
     $this->actingAs($this->user)
         ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
             'fecha_entrega' => '2026-07-20',
+            'factura_id' => $factura->id,
             'tipo' => 'completa',
             'detalles' => [
                 ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 90],
@@ -111,11 +122,12 @@ test('un precio recibido menor reduce el acumulado', function () {
 });
 
 test('el monto recibido de la OC usa el precio recibido', function () {
-    [$oc, $partida] = ocConRubro(10, 100);
+    [$oc, $partida, , $factura] = ocConRubro(10, 100);
 
     $this->actingAs($this->user)
         ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
             'fecha_entrega' => '2026-07-20',
+            'factura_id' => $factura->id,
             'tipo' => 'completa',
             'detalles' => [
                 ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 120],

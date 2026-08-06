@@ -2,6 +2,7 @@
 
 use App\Enums\Costos\DocumentoTipo;
 use App\Models\Costos\Entrega;
+use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Costos\Pago;
@@ -86,8 +87,14 @@ describe('sweep de descripciones canonicas al subir archivos', function () {
             'subtotal' => 1000,
         ]);
 
+        $factura = Factura::factory()->create([
+            'orden_compra_id' => $oc->id,
+            'estatus' => 'pendiente_recepcion',
+        ]);
+
         $this->actingAs($user)->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
             'fecha_entrega' => '2026-04-24',
+            'factura_id' => $factura->id,
             'tipo' => 'parcial',
             'archivo' => UploadedFile::fake()->create('evidencia.pdf', 100, 'application/pdf'),
             'detalles' => [

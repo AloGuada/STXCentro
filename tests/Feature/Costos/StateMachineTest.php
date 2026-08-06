@@ -24,8 +24,10 @@ describe('allowedTransitions por enum', function () {
     });
 
     test('Factura: flujo lineal con escape a Cancelada salvo estados terminales', function () {
+        // El único retroceso permitido: si desaparece la recepción que la
+        // completó, la factura vuelve a pendiente de recepción.
         expect(FacturaEstatus::PendienteAprobacion->allowedTransitions())
-            ->toBe([FacturaEstatus::PendientePago, FacturaEstatus::Cancelada]);
+            ->toBe([FacturaEstatus::PendientePago, FacturaEstatus::PendienteRecepcion, FacturaEstatus::Cancelada]);
         expect(FacturaEstatus::PendientePago->allowedTransitions())
             ->toBe([FacturaEstatus::Pagada, FacturaEstatus::Cancelada]);
         expect(FacturaEstatus::Pagada->allowedTransitions())->toBe([]);

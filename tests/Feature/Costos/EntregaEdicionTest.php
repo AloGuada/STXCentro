@@ -27,20 +27,32 @@ beforeEach(function () {
         'subtotal' => 1000,
     ]);
 
+    $this->factura = Factura::factory()->create([
+        'orden_compra_id' => $this->oc->id,
+        'estatus' => 'pendiente_recepcion',
+    ]);
+
     $this->entrega = Entrega::factory()->create([
         'orden_compra_id' => $this->oc->id,
+        'factura_id' => $this->factura->id,
         'recibido_por' => $this->user->id,
         'fecha_entrega' => '2026-02-17',
         'observaciones' => 'Capturada de volada',
     ]);
 });
 
-/** @param array<string, mixed> $extra */
+/**
+ * Payload de edición. La factura ligada es obligatoria, así que por omisión se
+ * manda la que ya trae la recepción.
+ *
+ * @param  array<string, mixed>  $extra
+ */
 function editar(Entrega $entrega, array $extra = []): array
 {
     return array_merge([
         'fecha_entrega' => '2026-02-20',
         'recibido_por' => test()->otro->id,
+        'factura_id' => $entrega->factura_id,
         'observaciones' => 'Corregida',
     ], $extra);
 }
@@ -67,10 +79,10 @@ test('sin el permiso no puede editar', function () {
     expect($this->entrega->fresh()->observaciones)->toBe('Capturada de volada');
 });
 
-test('la fecha y quien recibio son obligatorios', function () {
+test('la fecha, quien recibio y la factura son obligatorios', function () {
     $this->actingAs($this->user)
         ->post("/admin/costos/entregas/{$this->entrega->id}", ['observaciones' => 'Solo esto'])
-        ->assertSessionHasErrors(['fecha_entrega', 'recibido_por']);
+        ->assertSessionHasErrors(['fecha_entrega', 'recibido_por', 'factura_id']);
 });
 
 test('no se puede editar una recepcion cancelada', function () {
@@ -128,6 +140,126 @@ test('la evidencia nueva reemplaza a la anterior en vez de acumularse', function
 
     expect($media)->toHaveCount(1)
         ->and($media->first()->nombre_original)->toBe('remision-buena.pdf');
+});
+
+test('corrige la factura ligada por otra de la misma OC', function () {
+    $otraFactura = Factura::factory()->create([
+        'orden_compra_id' => $this->oc->id,
+        'estatus' => 'pendiente_recepcion',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/entregas/{$this->entrega->id}", editar($this->entrega, [
+            'factura_id' => $otraFactura->id,
+        ]))
+        ->assertSessionHasNoErrors();
+
+    expect($this->entrega->fresh()->factura_id)->toBe($otraFactura->id);
+});
+
+test('no acepta una factura de otra orden de compra', function () {
+    $ajena = Factura::factory()->create(['estatus' => 'pendiente_recepcion']);
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/entregas/{$this->entrega->id}", editar($this->entrega, [
+            'factura_id' => $ajena->id,
+        ]))
+        ->assertSessionHasErrors('factura_id');
+
+    expect($this->entrega->fresh()->factura_id)->toBe($this->factura->id);
+});
+
+test('no se puede re-ligar a una factura que ya avanzo', function () {
+    $avanzada = Factura::factory()->create([
+        'orden_compra_id' => $this->oc->id,
+        'estatus' => 'pendiente_aprobacion',
+        'aprobada_costos' => true,
+    ]);
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/entregas/{$this->entrega->id}", editar($this->entrega, [
+            'factura_id' => $avanzada->id,
+        ]))
+        ->assertSessionHasErrors('factura_id');
+
+    expect($this->entrega->fresh()->factura_id)->toBe($this->factura->id);
+});
+
+test('no se puede mover la recepcion si la factura actual ya fue aprobada', function () {
+    $this->factura->update(['aprobada_costos' => true]);
+    $otra = Factura::factory()->create([
+        'orden_compra_id' => $this->oc->id,
+        'estatus' => 'pendiente_recepcion',
+    ]);
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/entregas/{$this->entrega->id}", editar($this->entrega, [
+            'factura_id' => $otra->id,
+        ]))
+        ->assertSessionHasErrors('factura_id');
+
+    expect($this->entrega->fresh()->factura_id)->toBe($this->factura->id);
+});
+
+test('re-ligar mueve el completamente entregada de una factura a la otra', function () {
+    $this->factura->update(['completamente_entregada' => true]);
+    $this->entrega->update(['completa_factura' => true]);
+
+    $otraFactura = Factura::factory()->create([
+        'orden_compra_id' => $this->oc->id,
+        'estatus' => 'pendiente_recepcion',
+        'completamente_entregada' => false,
+    ]);
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/entregas/{$this->entrega->id}", editar($this->entrega, [
+            'factura_id' => $otraFactura->id,
+            'completa_factura' => true,
+        ]))
+        ->assertSessionHasNoErrors();
+
+    expect($this->factura->fresh()->completamente_entregada)->toBeFalse()
+        ->and($otraFactura->fresh()->completamente_entregada)->toBeTrue();
+});
+
+test('desmarcar que completa la factura la regresa a pendiente de recepcion', function () {
+    $this->factura->update([
+        'completamente_entregada' => true,
+        'estatus' => 'pendiente_aprobacion',
+    ]);
+    $this->entrega->update(['completa_factura' => true]);
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/entregas/{$this->entrega->id}", editar($this->entrega, [
+            'completa_factura' => false,
+        ]))
+        ->assertSessionHasNoErrors();
+
+    $fresca = $this->factura->fresh();
+
+    expect($fresca->completamente_entregada)->toBeFalse()
+        ->and($fresca->estatus->value)->toBe('pendiente_recepcion')
+        ->and($this->entrega->fresh()->completa_factura)->toBeFalse();
+});
+
+test('otra recepcion vigente sostiene el completamente entregada de la factura', function () {
+    $this->factura->update(['completamente_entregada' => true]);
+    $this->entrega->update(['completa_factura' => true]);
+
+    Entrega::factory()->create([
+        'orden_compra_id' => $this->oc->id,
+        'factura_id' => $this->factura->id,
+        'recibido_por' => $this->user->id,
+        'completa_factura' => true,
+    ]);
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/entregas/{$this->entrega->id}", editar($this->entrega, [
+            'completa_factura' => false,
+        ]))
+        ->assertSessionHasNoErrors();
+
+    expect($this->factura->fresh()->completamente_entregada)->toBeTrue();
 });
 
 test('editar no toca cantidades ni el estatus de la orden', function () {

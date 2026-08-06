@@ -13,6 +13,7 @@ use App\Http\Requests\Admin\Costos\EntregaUpdateRequest;
 use App\Http\Requests\Admin\Costos\RecepcionesReporteRequest;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
+use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Usuario;
@@ -57,6 +58,9 @@ class EntregaController extends Controller
                 'ordenCompra.solicitudesPago',
                 'ordenCompra.solicitudesPago.detalles.obraRubro.presupuesto.presupuestable',
                 'ordenCompra.requisicion.presupuesto.presupuestable',
+                // Candidatas para re-ligar la recepción desde el modal de edición.
+                'ordenCompra.facturas:id,orden_compra_id,folio,total,estatus,aprobada_costos,aceptada_contabilidad',
+                'ordenCompra.facturas.pago:id,pagable_id,pagable_type',
                 'factura:id,folio',
                 // `pago` es polimórfica (`pagable`), no tiene `factura_id`: el
                 // select debe traer la llave morph o Eloquent no puede emparejar.
@@ -200,6 +204,20 @@ class EntregaController extends Controller
                 'id' => $entrega->factura->id,
                 'folio' => $entrega->factura->folio,
             ] : null,
+            'factura_id' => $entrega->factura_id,
+            'completa_factura' => (bool) $entrega->completa_factura,
+            // Facturas de la OC a las que se puede re-ligar la recepción: las que
+            // aún no avanzan, más la que ya tiene (para no perderla del selector).
+            'facturas_disponibles' => $oc
+                ? $oc->facturas
+                    ->filter(fn (Factura $f) => $f->id === $entrega->factura_id || ! $this->facturaYaAvanzo($f))
+                    ->map(fn (Factura $f) => [
+                        'id' => $f->id,
+                        'folio' => $f->folio,
+                        'total' => (float) $f->total,
+                        'estatus' => $f->estatus?->value,
+                    ])->values()
+                : [],
             'pdf_url' => route('admin.costos.entregas.pdf', $entrega),
         ];
     }
@@ -209,13 +227,11 @@ class EntregaController extends Controller
         $partidasOrden = $ordenCompra->detalles()->pluck('id')->all();
         $detallesInput = $request->input('detalles', []);
 
-        // Factura (opcional) a la que se liga la recepción: debe ser de esta OC.
-        $factura = null;
-        if ($facturaId = $request->integer('factura_id')) {
-            $factura = $ordenCompra->facturas()->find($facturaId);
-            if ($factura === null) {
-                return back()->withErrors(['factura_id' => 'La factura no pertenece a esta orden de compra.']);
-            }
+        // La factura es obligatoria y debe ser de esta OC: no se recibe material
+        // que no esté amparado por una factura del proveedor.
+        $factura = $ordenCompra->facturas()->find($request->integer('factura_id'));
+        if ($factura === null) {
+            return back()->withErrors(['factura_id' => 'La factura no pertenece a esta orden de compra.']);
         }
 
         // 1. Validar que todas las partidas enviadas pertenezcan a esta OC
@@ -267,10 +283,10 @@ class EntregaController extends Controller
             $entrega = $ordenCompra->entregas()->create([
                 'recibido_por' => $request->user()->id,
                 'fecha_entrega' => $request->input('fecha_entrega'),
-                'factura_id' => $factura?->id,
+                'factura_id' => $factura->id,
                 'tipo' => $request->input('tipo'),
                 'observaciones' => $request->input('observaciones'),
-                'completa_factura' => $factura !== null && $request->boolean('completa_factura'),
+                'completa_factura' => $request->boolean('completa_factura'),
             ]);
 
             if ($request->hasFile('archivo')) {
@@ -308,7 +324,7 @@ class EntregaController extends Controller
 
             // Si esta recepción completa la factura, marcarla como entregada e
             // intentar avanzarla a aprobación (requiere además el comprobante).
-            if ($factura !== null && $request->boolean('completa_factura')) {
+            if ($request->boolean('completa_factura')) {
                 $factura->update(['completamente_entregada' => true]);
                 $factura->intentarPasarAAprobacion();
             }
@@ -319,19 +335,21 @@ class EntregaController extends Controller
 
     /**
      * Corrige los datos de captura de una recepción: fecha, quién recibió,
-     * observaciones y evidencia.
+     * observaciones, evidencia y la factura a la que se ligó (el dedazo más
+     * común cuando la OC trae varias facturas del proveedor).
      *
-     * Deliberadamente NO toca cantidades, precios ni la factura ligada. Esos
-     * mueven saldo de partidas, presupuesto y el estatus de la factura; para
-     * corregirlos el camino sigue siendo cancelar y volver a capturar, que ya
-     * sabe revertir cada efecto.
+     * Deliberadamente NO toca cantidades ni precios: mueven saldo de partidas y
+     * presupuesto, y para eso el camino sigue siendo cancelar y volver a
+     * capturar, que ya sabe revertir cada efecto.
      *
-     * Se bloquea sólo cuando la factura ya está pagada: a partir de ahí el dato
-     * respalda dinero que ya salió.
+     * Se bloquea cuando la factura ya está pagada: a partir de ahí el dato
+     * respalda dinero que ya salió. Y el cambio de factura se bloquea además si
+     * cualquiera de las dos (la actual o la nueva) ya avanzó, porque relingar
+     * mueve el "completamente entregada" y con él el estatus de la factura.
      */
     public function update(EntregaUpdateRequest $request, Entrega $entrega): RedirectResponse
     {
-        $entrega->loadMissing(['factura.pago', 'media']);
+        $entrega->loadMissing(['factura.pago', 'ordenCompra', 'media']);
 
         if ($entrega->estaCancelada()) {
             return back()->withErrors(['error' => 'No se puede editar una recepción cancelada.']);
@@ -341,11 +359,39 @@ class EntregaController extends Controller
             return back()->withErrors(['error' => 'No se puede editar: la factura ligada ya está pagada.']);
         }
 
-        DB::transaction(function () use ($request, $entrega) {
+        $facturaActual = $entrega->factura;
+        $facturaNueva = $entrega->ordenCompra?->facturas()->find($request->integer('factura_id'));
+
+        if ($facturaNueva === null) {
+            return back()->withErrors(['factura_id' => 'La factura no pertenece a la orden de compra de esta recepción.']);
+        }
+
+        $cambiaFactura = $facturaNueva->id !== $facturaActual?->id;
+
+        if ($cambiaFactura) {
+            if ($facturaActual !== null && $this->facturaYaAvanzo($facturaActual)) {
+                return back()->withErrors([
+                    'factura_id' => 'No se puede cambiar la factura: la actual ya fue aprobada o aceptada por contabilidad.',
+                ]);
+            }
+
+            if ($this->facturaYaAvanzo($facturaNueva)) {
+                return back()->withErrors([
+                    'factura_id' => 'La factura seleccionada ya avanzó (aprobada, aceptada por contabilidad o pagada) y no admite recepciones nuevas.',
+                ]);
+            }
+        }
+
+        $completabaAntes = (bool) $entrega->completa_factura;
+        $completaFactura = $request->boolean('completa_factura');
+
+        DB::transaction(function () use ($request, $entrega, $facturaActual, $facturaNueva, $cambiaFactura, $completabaAntes, $completaFactura) {
             $entrega->update([
                 'fecha_entrega' => $request->input('fecha_entrega'),
                 'recibido_por' => $request->input('recibido_por'),
                 'observaciones' => $request->input('observaciones'),
+                'factura_id' => $facturaNueva->id,
+                'completa_factura' => $completaFactura,
             ]);
 
             // La evidencia se reemplaza, no se acumula: la recepción tiene una.
@@ -361,9 +407,60 @@ class EntregaController extends Controller
                     'size' => $file->getSize(),
                 ]);
             }
+
+            // Si esta recepción dejó de completar a la factura anterior (porque
+            // se desmarcó o porque se relingó a otra), hay que devolverle el
+            // avance que le había dado.
+            if ($facturaActual !== null && $completabaAntes && ($cambiaFactura || ! $completaFactura)) {
+                $this->revertirAvanceDeFactura($facturaActual, $entrega);
+            }
+
+            if ($completaFactura) {
+                $facturaNueva->update(['completamente_entregada' => true]);
+                $facturaNueva->intentarPasarAAprobacion();
+            }
         });
 
         return back()->with('success', 'Recepción actualizada correctamente.');
+    }
+
+    /**
+     * Una factura que ya fue aprobada, aceptada por contabilidad o pagada no
+     * admite que se le muevan las recepciones por debajo.
+     */
+    private function facturaYaAvanzo(Factura $factura): bool
+    {
+        return $factura->aprobada_costos
+            || $factura->aceptada_contabilidad
+            || $factura->pago !== null;
+    }
+
+    /**
+     * Deshace el "completamente entregada" que esta recepción le había dado a la
+     * factura y, si con eso ya no califica, la regresa a pendiente de recepción.
+     * Si otra recepción vigente también la marca como completa, no se toca.
+     */
+    private function revertirAvanceDeFactura(Factura $factura, Entrega $entrega): void
+    {
+        $otraLaCompleta = $factura->entregasLigadas()
+            ->activa()
+            ->where('completa_factura', true)
+            ->whereKeyNot($entrega->id)
+            ->exists();
+
+        if ($otraLaCompleta) {
+            return;
+        }
+
+        if (! in_array($factura->estatus, [FacturaEstatus::PendienteRecepcion, FacturaEstatus::PendienteAprobacion], true)) {
+            return;
+        }
+
+        $factura->update(['completamente_entregada' => false]);
+
+        if ($factura->estatus === FacturaEstatus::PendienteAprobacion) {
+            $factura->transitionTo(FacturaEstatus::PendienteRecepcion);
+        }
     }
 
     /**

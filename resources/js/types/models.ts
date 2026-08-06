@@ -2688,6 +2688,11 @@ export type CostosRecepcionRow = {
     obras: string[];
     solicitudes_pago: { id: number; folio: string; estatus: string | null; url: string }[];
     factura: { id: number; folio: string | null } | null;
+    factura_id: number | null;
+    /** Si esta recepción es la que marca la factura como completamente entregada. */
+    completa_factura: boolean;
+    /** Facturas de la OC a las que se puede re-ligar: las que aún no avanzan, más la actual. */
+    facturas_disponibles: { id: number; folio: string | null; total: number; estatus: string | null }[];
     pdf_url: string;
 };
 

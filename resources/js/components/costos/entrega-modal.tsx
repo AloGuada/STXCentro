@@ -109,8 +109,12 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
         onClose();
     };
 
-    // Paso 1 → 2: valida que haya al menos una partida con cantidad y pasa a confirmar.
+    // Paso 1 → 2: valida factura y que haya al menos una partida con cantidad.
     const irAConfirmar = () => {
+        if (!data.factura_id) {
+            setFormError('Selecciona la factura que ampara esta recepción.');
+            return;
+        }
         if (recibidas.length === 0) {
             setFormError('Captura la cantidad recibida de al menos una partida.');
             return;
@@ -130,7 +134,7 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
             {
                 fecha_entrega: data.fecha_entrega,
                 tipo: tipoCalculado,
-                factura_id: data.factura_id || null,
+                factura_id: data.factura_id,
                 completa_factura: data.completa_factura,
                 observaciones: data.observaciones,
                 archivo: data.archivo,
@@ -162,6 +166,15 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
 
                 {step === 'form' ? (
                     <form onSubmit={(e: FormEvent) => { e.preventDefault(); irAConfirmar(); }} className="space-y-4">
+                        {facturasPendientes.length === 0 && (
+                            <div className="alert alert-warning text-sm">
+                                <span>
+                                    Esta orden no tiene facturas pendientes de recepción. El proveedor debe subir su
+                                    factura antes de registrar la entrada de material.
+                                </span>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-4">
                             <FormField label="Fecha de entrega" htmlFor="fecha_entrega" error={errors.fecha_entrega} required>
                                 <Input
@@ -171,14 +184,14 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
                                     onChange={(e) => setData('fecha_entrega', e.target.value)}
                                 />
                             </FormField>
-                            <FormField label="Factura a ligar (opcional)" htmlFor="factura_id" error={errors.factura_id}>
+                            <FormField label="Factura a ligar" htmlFor="factura_id" error={errors.factura_id} required>
                                 <select
                                     id="factura_id"
                                     className="select select-bordered w-full"
                                     value={data.factura_id}
                                     onChange={(e) => setData({ ...data, factura_id: e.target.value, completa_factura: e.target.value ? data.completa_factura : false })}
                                 >
-                                    <option value="">— Sin factura —</option>
+                                    <option value="">— Selecciona la factura —</option>
                                     {facturasPendientes.map((f) => (
                                         <option key={f.id} value={String(f.id)}>
                                             {f.folio} · {fmt(Number(f.total))}

@@ -14,12 +14,17 @@ import { useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import { useEffect, type FormEvent } from 'react';
 
+export type FacturaOpcion = { id: number; folio: string | null; total: number; estatus: string | null };
+
 export type RecepcionEditable = {
     id: number;
     folio: string | null;
     fecha_entrega: string | null;
     recibido_por_id: string | null;
     observaciones: string | null;
+    factura_id: number | null;
+    completa_factura: boolean;
+    facturas_disponibles: FacturaOpcion[];
 };
 
 type UsuarioOpcion = { id: string; name: string };
@@ -30,20 +35,26 @@ type Props = {
     onClose: () => void;
 };
 
+const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 /**
- * Corrige los datos de captura de una recepción. Cantidades, precios y la
- * factura ligada quedan fuera a propósito: mueven presupuesto y estatus, y para
- * eso el camino es cancelar la recepción y volver a capturarla.
+ * Corrige los datos de captura de una recepción y la factura a la que se ligó.
+ * Cantidades y precios quedan fuera a propósito: mueven presupuesto, y para eso
+ * el camino es cancelar la recepción y volver a capturarla.
  */
 export function EditarRecepcionModal({ recepcion, usuarios, onClose }: Props) {
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm<{
         fecha_entrega: string;
         recibido_por: string;
+        factura_id: string;
+        completa_factura: boolean;
         observaciones: string;
         archivo: File | null;
     }>({
         fecha_entrega: '',
         recibido_por: '',
+        factura_id: '',
+        completa_factura: false,
         observaciones: '',
         archivo: null,
     });
@@ -57,6 +68,8 @@ export function EditarRecepcionModal({ recepcion, usuarios, onClose }: Props) {
         setData({
             fecha_entrega: recepcion.fecha_entrega?.slice(0, 10) ?? '',
             recibido_por: recepcion.recibido_por_id ?? '',
+            factura_id: recepcion.factura_id ? String(recepcion.factura_id) : '',
+            completa_factura: recepcion.completa_factura,
             observaciones: recepcion.observaciones ?? '',
             archivo: null,
         });
@@ -89,13 +102,22 @@ export function EditarRecepcionModal({ recepcion, usuarios, onClose }: Props) {
                 <DialogHeader>
                     <DialogTitle>Editar recepción {recepcion?.folio ?? ''}</DialogTitle>
                     <DialogDescription>
-                        Sólo los datos de captura. Para corregir cantidades o precios hay que cancelar la recepción y
-                        volver a registrarla, porque esos sí mueven el presupuesto y el estatus de la orden.
+                        Datos de captura y factura ligada. Para corregir cantidades o precios hay que cancelar la
+                        recepción y volver a registrarla, porque esos sí mueven el presupuesto y el estatus de la orden.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={submit} className="space-y-4">
                     {errorGeneral && <div className="alert alert-error text-sm">{errorGeneral}</div>}
+
+                    {recepcion && recepcion.facturas_disponibles.length === 0 && (
+                        <div className="alert alert-warning text-sm">
+                            <span>
+                                La orden de compra no tiene facturas a las que ligar esta recepción. El proveedor debe
+                                subir su factura antes de poder guardar el cambio.
+                            </span>
+                        </div>
+                    )}
 
                     <FormField
                         label="Fecha de entrega"
@@ -126,6 +148,40 @@ export function EditarRecepcionModal({ recepcion, usuarios, onClose }: Props) {
                             ))}
                         </Select>
                     </FormField>
+
+                    <FormField
+                        label="Factura ligada"
+                        htmlFor="factura_id"
+                        error={errors.factura_id}
+                        description="Sólo facturas de la misma orden de compra que todavía no avanzan."
+                        required
+                    >
+                        <Select
+                            value={data.factura_id}
+                            onValueChange={(v) =>
+                                setData({ ...data, factura_id: v, completa_factura: v ? data.completa_factura : false })
+                            }
+                            placeholder="Selecciona la factura"
+                            error={!!errors.factura_id}
+                        >
+                            {(recepcion?.facturas_disponibles ?? []).map((f) => (
+                                <SelectItem key={f.id} value={String(f.id)}>
+                                    {f.folio ?? `#${f.id}`} · {fmt(Number(f.total))}
+                                </SelectItem>
+                            ))}
+                        </Select>
+                    </FormField>
+
+                    <label className="label cursor-pointer justify-start gap-2">
+                        <input
+                            type="checkbox"
+                            className="checkbox"
+                            disabled={!data.factura_id}
+                            checked={data.completa_factura}
+                            onChange={(e) => setData('completa_factura', e.target.checked)}
+                        />
+                        <span className="label-text">Esta recepción completa la factura</span>
+                    </label>
 
                     <FormField label="Observaciones" htmlFor="observaciones" error={errors.observaciones}>
                         <textarea

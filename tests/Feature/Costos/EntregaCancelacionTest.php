@@ -30,9 +30,17 @@ function ocParaCancelacion(float $cantidad = 10): array
 
 function registrarEntregaSimple($test, OrdenCompra $oc, OrdenCompraDetalle $partida, float $cantidad, array $extra = []): Entrega
 {
+    // Toda recepción va contra una factura de la OC; si el test no trae la suya,
+    // se le arma una pendiente de recepción.
+    $factura = $oc->facturas()->first() ?? Factura::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'estatus' => 'pendiente_recepcion',
+    ]);
+
     $test->actingAs($test->user)
         ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", array_merge([
             'fecha_entrega' => '2026-02-17',
+            'factura_id' => $factura->id,
             'tipo' => 'completa',
             'detalles' => [['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => $cantidad]],
         ], $extra))
