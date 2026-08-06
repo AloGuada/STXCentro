@@ -91,11 +91,11 @@ class CatalogoController extends Controller
         $marcas = $catalogo->conceptos()
             ->with(['categoria', 'piezas' => fn ($q) => $q->orderBy('qs')])
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('marca', 'like', "%{$s}%")
-                ->orWhere('etapa', 'like', "%{$s}%")
+                ->orWhere('lote', 'like', "%{$s}%")
                 ->orWhere('descripcion', 'like', "%{$s}%")
                 ->orWhereHas('piezas', fn ($p) => $p->where('qs', 'like', "%{$s}%"))))
             ->orderBy('marca')
-            ->orderBy('etapa')
+            ->orderBy('lote')
             ->get();
 
         // El avance vive en la pieza: una marca "va al 70%" porque 7 de sus 10

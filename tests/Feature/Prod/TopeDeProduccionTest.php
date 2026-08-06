@@ -255,31 +255,32 @@ test('una obra sin catalogo no rompe el avance', function () {
     expect(app(AvanceDePiezas::class)->mapaDeObra(999999))->not->toBeNull();
 });
 
-describe('marcas repetidas en varias etapas', function () {
-    test('cada etapa de la misma marca tiene sus propias piezas y su propio tope', function () {
-        $etapa2 = marcaConPiezas(2, [
+describe('marcas repetidas en varias lotes', function () {
+    test('cada lote de la misma marca tiene sus propias piezas y su propio tope', function () {
+        $lote2 = marcaConPiezas(2, [
             'obra_id' => $this->marca->obra_id,
             'catalogo_id' => $this->catalogo->id,
             'marca' => 'V-01',
-            'etapa' => '2',
+            'lote' => '2',
         ]);
 
         capturarPiezas($this->marca->piezas, $this->grupo, '2026-02-04');
 
         $avance = app(AvanceDePiezas::class);
 
-        // La etapa 2 sigue intacta: son piezas distintas aunque compartan marca.
-        expect($avance->disponible($etapa2->piezas[0], $this->soldadura->id))->toBe(1.0)
+        // La lote 2 sigue intacta: son piezas distintas aunque compartan marca.
+        expect($avance->disponible($lote2->piezas[0], $this->soldadura->id))->toBe(1.0)
             ->and($avance->disponible($this->pieza->fresh(), $this->soldadura->id))->toBe(0.0);
     });
 
-    test('el snapshot huerfano se recupera por QS, no por marca', function () {
+    test('el snapshot huerfano se recupera por QR, no por marca', function () {
         $otra = $this->marca->piezas[1];
 
         // Snapshot de una pieza que ya no existe en el catalogo.
         LiquidacionDetalle::factory()->create([
             'pieza_id' => 999999,
             'obra_id' => $this->marca->obra_id,
+            'qr' => $this->pieza->qr,
             'qs' => $this->pieza->qs,
             'marca' => 'V-01',
             'proceso_id' => $this->soldadura->id,
@@ -288,7 +289,7 @@ describe('marcas repetidas en varias etapas', function () {
 
         $avance = app(AvanceDePiezas::class);
 
-        // Sólo el QS del snapshot queda tocado; su hermana no.
+        // Sólo el QR del snapshot queda tocado; su hermana no.
         expect($avance->disponible($this->pieza, $this->soldadura->id))->toBe(0.0)
             ->and($avance->disponible($otra, $this->soldadura->id))->toBe(1.0);
     });

@@ -41,7 +41,7 @@ class ConceptoController extends Controller
             'catalogo_id' => $catalogo->id,
             'obra_id' => $catalogo->obra_id,
             'marca' => $request->marca,
-            'etapa' => Concepto::normalizarEtapa($request->etapa),
+            'lote' => Concepto::normalizarLote($request->lote),
             'descripcion' => $request->descripcion,
             'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,
@@ -72,7 +72,7 @@ class ConceptoController extends Controller
     {
         $concepto->update([
             'marca' => $request->marca,
-            'etapa' => Concepto::normalizarEtapa($request->etapa),
+            'lote' => Concepto::normalizarLote($request->lote),
             'descripcion' => $request->descripcion,
             'cantidad' => $request->cantidad,
             'peso_unitario' => $request->peso_unitario,

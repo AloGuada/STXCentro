@@ -53,7 +53,7 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                                                 {d.marca ? (
                                                     <>
                                                         <span className="font-medium">
-                                                            {etiquetaDePieza(d.marca, d.etapa)}
+                                                            {etiquetaDePieza(d.marca, d.lote)}
                                                         </span>{' '}
                                                         <span className="font-mono text-xs">QS {d.qs}</span>{' '}
                                                         <span className="text-base-content/60">{d.descripcion}</span>

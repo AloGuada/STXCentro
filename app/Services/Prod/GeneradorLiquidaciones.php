@@ -69,7 +69,7 @@ class GeneradorLiquidaciones
      * en que se trabajaron. Se pagarian en cero silenciosamente; se usa para
      * advertir antes de cerrar.
      *
-     * @return Collection<int, array{concepto_id: int, marca: string, etapa: ?string, proceso: string, piezas: int}>
+     * @return Collection<int, array{concepto_id: int, marca: string, lote: ?string, proceso: string, piezas: int}>
      */
     public function piezasSinPrecio(Destajo $destajo): Collection
     {
@@ -87,7 +87,7 @@ class GeneradorLiquidaciones
                 return [
                     'concepto_id' => (int) $marca->id,
                     'marca' => $marca->marca,
-                    'etapa' => $marca->etapa,
+                    'lote' => $marca->lote,
                     'proceso' => $primero->proceso?->nombre ?? '',
                     'piezas' => $registros->unique('pieza_id')->count(),
                 ];
@@ -131,10 +131,11 @@ class GeneradorLiquidaciones
                 // no debe cambiar aunque despues se edite o borre el catalogo.
                 'concepto_id' => $marca->id,
                 'pieza_id' => $pieza->id,
+                'qr' => $pieza->qr,
                 'qs' => $pieza->qs,
                 'obra_id' => $marca->obra_id,
                 'marca' => $marca->marca,
-                'etapa' => $marca->etapa,
+                'lote' => $marca->lote,
                 'proceso_id' => $procesoId,
                 'proceso_nombre' => $primero->proceso?->nombre,
                 'descripcion' => $marca->descripcion,
@@ -223,7 +224,7 @@ class GeneradorLiquidaciones
             $piezas = $this->agruparParaImprimir(
                 $liq->detalles->map(fn (LiquidacionDetalle $d) => [
                     'marca' => $d->marca ?? '-',
-                    'etapa' => $d->etapa,
+                    'lote' => $d->lote,
                     'proceso' => $d->proceso_nombre ?? '-',
                     'obra' => $this->etiquetaObra($d->obra_id !== null ? $obras->get($d->obra_id) : null),
                     'qs' => $d->qs,
@@ -303,7 +304,7 @@ class GeneradorLiquidaciones
 
                 $renglones[] = [
                     'marca' => $marca->marca,
-                    'etapa' => $marca->etapa,
+                    'lote' => $marca->lote,
                     'proceso' => $primero->proceso?->nombre ?? '-',
                     'obra' => $this->etiquetaObra($marca->obra),
                     'qs' => $pieza->qs,
@@ -355,7 +356,7 @@ class GeneradorLiquidaciones
 
     /**
      * La orden de pago se imprime por marca, no pieza por pieza: un renglon por
-     * (marca, etapa, proceso, porcentaje) con el conteo de QS y sus totales
+     * (marca, lote, proceso, porcentaje) con el conteo de QS y sus totales
      * sumados. El detalle por QS sigue guardado en la liquidacion para poder
      * auditar exactamente que se pago.
      *
@@ -365,13 +366,13 @@ class GeneradorLiquidaciones
     private function agruparParaImprimir(Collection $renglones): array
     {
         return $renglones
-            ->groupBy(fn (array $r) => implode('|', [$r['marca'], $r['etapa'] ?? '', $r['proceso'], $r['porcentaje'], $r['obra']]))
+            ->groupBy(fn (array $r) => implode('|', [$r['marca'], $r['lote'] ?? '', $r['proceso'], $r['porcentaje'], $r['obra']]))
             ->map(function (Collection $grupo) {
                 $primero = $grupo->first();
 
                 return [
                     'marca' => $primero['marca'],
-                    'etapa' => $primero['etapa'],
+                    'lote' => $primero['lote'],
                     'proceso' => $primero['proceso'],
                     'descripcion' => $primero['descripcion'],
                     'obra' => $primero['obra'],

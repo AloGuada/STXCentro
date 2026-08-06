@@ -158,19 +158,27 @@ class RegistroController extends Controller
                 continue;
             }
 
+            // El QR identifica sin ambiguedad; el QS puede repetirse entre lotes,
+            // asi que solo se usa cuando el archivo no trae QR.
+            $porQr = ($fila['qr'] ?? null) !== null;
+            $identificador = $porQr ? "QR {$fila['qr']}" : "QS {$fila['qs']}";
+
             $piezas = Pieza::with(['marca', 'catalogo'])
                 ->deCatalogoVigente()
-                ->where('qs', $fila['qs'])
+                ->when($porQr, fn ($q) => $q->where('qr', $fila['qr']))
+                ->unless($porQr, fn ($q) => $q->where('qs', $fila['qs']))
                 ->where('activo', true)
                 ->get();
 
             if ($piezas->isEmpty()) {
-                $errores[] = "{$ref}: la pieza QS {$fila['qs']} no esta en ningun catalogo vigente.";
+                $errores[] = "{$ref}: la pieza {$identificador} no esta en ningun catalogo vigente.";
 
                 continue;
             }
             if ($piezas->count() > 1) {
-                $errores[] = "{$ref}: el QS {$fila['qs']} existe en varias obras (ambiguo).";
+                $errores[] = $porQr
+                    ? "{$ref}: el {$identificador} existe en varias obras (ambiguo)."
+                    : "{$ref}: el {$identificador} existe en varias piezas (ambiguo); el archivo tiene que traer el QR.";
 
                 continue;
             }

@@ -480,16 +480,19 @@ class ProdDevSeeder extends Seeder
     private ?Collection $procesos = null;
 
     /**
-     * Las unidades físicas de la marca, como las trae el layout: un QS por cada
-     * pieza que pide el modelo.
+     * Las unidades físicas de la marca, como las trae el layout: un renglón por
+     * cada pieza que pide el modelo, con su QR y su QS.
      */
     private function sembrarPiezas(Concepto $marca): void
     {
         for ($i = 1; $i <= $marca->cantidad; $i++) {
+            $consecutivo = str_pad((string) $i, 3, '0', STR_PAD_LEFT);
+
             Pieza::create([
                 'catalogo_id' => $marca->catalogo_id,
                 'concepto_id' => $marca->id,
-                'qs' => $marca->marca.'-'.str_pad((string) $i, 3, '0', STR_PAD_LEFT),
+                'qr' => "QR-{$marca->id}-{$consecutivo}",
+                'qs' => $marca->marca.'-'.$consecutivo,
                 'activo' => true,
             ]);
         }

@@ -41,7 +41,7 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
     const [selectedConcepto, setSelectedConcepto] = useState('');
 
     const conceptoOptions = useMemo(
-        () => unassignedConceptos.map((c) => ({ value: String(c.id), label: `${etiquetaDePieza(c.marca, c.etapa)} - ${c.descripcion}` })),
+        () => unassignedConceptos.map((c) => ({ value: String(c.id), label: `${etiquetaDePieza(c.marca, c.lote)} - ${c.descripcion}` })),
         [unassignedConceptos],
     );
 
@@ -133,7 +133,7 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
                                                 ) : (
                                                     gp.grupo_precio_conceptos.map((gpc) => (
                                                         <tr key={gpc.id} className="hover">
-                                                            <td className="font-medium">{etiquetaDePieza(gpc.concepto?.marca, gpc.concepto?.etapa)}</td>
+                                                            <td className="font-medium">{etiquetaDePieza(gpc.concepto?.marca, gpc.concepto?.lote)}</td>
                                                             <td>{gpc.concepto?.descripcion}</td>
                                                             <td className="text-right font-mono">{gpc.concepto?.peso_unitario}</td>
                                                             <td>
@@ -208,7 +208,7 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
                                 <tbody>
                                     {unassignedConceptos.map((c) => (
                                         <tr key={c.id} className="hover">
-                                            <td className="font-medium">{etiquetaDePieza(c.marca, c.etapa)}</td>
+                                            <td className="font-medium">{etiquetaDePieza(c.marca, c.lote)}</td>
                                             <td>{c.descripcion}</td>
                                             <td className="text-right font-mono">{c.peso_unitario}</td>
                                         </tr>

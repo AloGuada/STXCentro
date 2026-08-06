@@ -61,8 +61,9 @@ class AvanceDePiezas
      *  - lo **capturado en semanas todavía abiertas**, que sigue siendo
      *    editable y por eso se lee de los registros.
      *
-     * Cuando la pieza ya no existe se cae al QS del snapshot, para no perder lo
-     * pagado ni mezclarlo con otra pieza.
+     * Cuando la pieza ya no existe se cae al QR del snapshot, para no perder lo
+     * pagado ni mezclarlo con otra pieza. Se usa el QR y no el QS porque el QS
+     * se repite entre lotes y juntaría el avance de dos piezas distintas.
      */
     public function mapaDeObra(int $obraId): AvanceDeObra
     {
@@ -77,15 +78,15 @@ class AvanceDePiezas
 
         $detalles = LiquidacionDetalle::query()
             ->where('obra_id', $obraId)
-            ->get(['pieza_id', 'qs', 'proceso_id', 'porcentaje']);
+            ->get(['pieza_id', 'qr', 'proceso_id', 'porcentaje']);
 
         foreach ($detalles as $detalle) {
-            $clave = $this->clave($raices, $detalle->pieza_id, $detalle->qs, $detalle->proceso_id);
+            $clave = $this->clave($raices, $detalle->pieza_id, $detalle->qr, $detalle->proceso_id);
             $totales[$clave] = ($totales[$clave] ?? 0) + (float) $detalle->porcentaje / 100;
         }
 
         foreach ($this->registrosNoLiquidados($obraId) as $registro) {
-            $clave = $this->clave($raices, $registro->pieza_id, $registro->pieza?->qs, $registro->proceso_id);
+            $clave = $this->clave($raices, $registro->pieza_id, $registro->pieza?->qr, $registro->proceso_id);
             $totales[$clave] = ($totales[$clave] ?? 0) + $registro->piezasEquivalentes();
         }
 
@@ -125,11 +126,11 @@ class AvanceDePiezas
     /**
      * @param  array<int, int>  $raices
      */
-    private function clave(array $raices, ?int $piezaId, ?string $qs, ?int $procesoId): string
+    private function clave(array $raices, ?int $piezaId, ?string $qr, ?int $procesoId): string
     {
         $pieza = isset($raices[$piezaId])
             ? 'raiz:'.$raices[$piezaId]
-            : 'qs:'.($qs ?? '');
+            : 'qr:'.($qr ?? '');
 
         return $pieza.'|proceso:'.($procesoId ?? 0);
     }
@@ -144,7 +145,7 @@ class AvanceDePiezas
     private function registrosNoLiquidados(int $obraId): Collection
     {
         return Registro::query()
-            ->with('pieza:id,qs')
+            ->with('pieza:id,qr')
             ->whereHas('pieza.catalogo', fn ($q) => $q->where('obra_id', $obraId))
             ->whereNotExists(fn ($q) => $q->selectRaw('1')
                 ->from('prod_destajos')

@@ -6,7 +6,7 @@ import type { ProdCatalogo } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
 import { ArrowRightIcon, MinusCircleIcon, PencilIcon, PlusCircleIcon } from 'lucide-react';
 
-type PiezaSimple = { marca: string; etapa: string | null; descripcion: string };
+type PiezaSimple = { marca: string; lote: string | null; descripcion: string };
 type Cambio = { campo: string; antes: string | number | boolean | null; despues: string | number | boolean | null };
 type PiezaModificada = PiezaSimple & { cambios: Cambio[] };
 
@@ -129,11 +129,11 @@ export default function CatalogoComparar({ catalogo, contra, diff, versiones }: 
                                         {diff.modificadas.flatMap((p) =>
                                             p.cambios.map((c, i) => (
                                                 <tr
-                                                    key={`${clavePieza(p.marca, p.etapa)}-${c.campo}`}
+                                                    key={`${clavePieza(p.marca, p.lote)}-${c.campo}`}
                                                     className="hover"
                                                 >
                                                     <td className="font-medium">
-                                                        {i === 0 ? etiquetaDePieza(p.marca, p.etapa) : ''}
+                                                        {i === 0 ? etiquetaDePieza(p.marca, p.lote) : ''}
                                                     </td>
                                                     <td>{c.campo}</td>
                                                     <td className="text-base-content/60 text-right font-mono line-through">
@@ -167,8 +167,8 @@ export default function CatalogoComparar({ catalogo, contra, diff, versiones }: 
                                     </thead>
                                     <tbody>
                                         {diff.agregadas.map((p) => (
-                                            <tr key={clavePieza(p.marca, p.etapa)} className="hover">
-                                                <td className="font-medium">{etiquetaDePieza(p.marca, p.etapa)}</td>
+                                            <tr key={clavePieza(p.marca, p.lote)} className="hover">
+                                                <td className="font-medium">{etiquetaDePieza(p.marca, p.lote)}</td>
                                                 <td>{p.descripcion}</td>
                                             </tr>
                                         ))}
@@ -194,8 +194,8 @@ export default function CatalogoComparar({ catalogo, contra, diff, versiones }: 
                                     </thead>
                                     <tbody>
                                         {diff.eliminadas.map((p) => (
-                                            <tr key={clavePieza(p.marca, p.etapa)} className="hover">
-                                                <td className="font-medium">{etiquetaDePieza(p.marca, p.etapa)}</td>
+                                            <tr key={clavePieza(p.marca, p.lote)} className="hover">
+                                                <td className="font-medium">{etiquetaDePieza(p.marca, p.lote)}</td>
                                                 <td>{p.descripcion}</td>
                                             </tr>
                                         ))}

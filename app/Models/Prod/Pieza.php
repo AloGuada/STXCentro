@@ -9,12 +9,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Pieza física del catálogo, identificada por su QS.
+ * Pieza física del catálogo, identificada por su QR.
  *
  * Es el último nivel de la jerarquía Obra → Catálogo → Marca → Pieza: la marca
  * (`concepto`) describe el modelo una vez y aquí cuelgan sus unidades, una por
- * cada QS que trae el layout. El destajo se paga contra esta fila, no contra la
+ * cada QR que trae el layout. El destajo se paga contra esta fila, no contra la
  * marca, así se sabe con exactitud qué se pagó.
+ *
+ * El QS se conserva como dato de planta, pero ya no identifica: puede repetirse
+ * entre lotes. Lo único único dentro del catálogo es el QR.
  */
 class Pieza extends Model
 {
@@ -29,6 +32,7 @@ class Pieza extends Model
     protected $fillable = [
         'catalogo_id',
         'concepto_id',
+        'qr',
         'qs',
         'pieza_origen_id',
         'activo',
@@ -72,7 +76,7 @@ class Pieza extends Model
 
     /**
      * Sólo las piezas del catálogo vigente de su obra. Tras versionar, el mismo
-     * QS existe en varias versiones y sin este filtro queda ambiguo.
+     * QR existe en varias versiones y sin este filtro queda ambiguo.
      *
      * @param  \Illuminate\Database\Eloquent\Builder<self>  $query
      * @return \Illuminate\Database\Eloquent\Builder<self>
@@ -82,13 +86,18 @@ class Pieza extends Model
         return $query->whereHas('catalogo', fn ($q) => $q->where('vigente', true));
     }
 
-    /** Cómo se nombra la pieza en pantalla: el modelo más su QS. */
+    /**
+     * Cómo se nombra la pieza en pantalla: el modelo más el QS, que es el número
+     * con el que la gente de planta la busca. El QR identifica pero no se lee.
+     */
     public function etiqueta(): string
     {
         $modelo = $this->marca !== null
-            ? Concepto::etiquetaDeModelo($this->marca->marca, $this->marca->etapa)
+            ? Concepto::etiquetaDeModelo($this->marca->marca, $this->marca->lote)
             : '';
 
-        return trim($modelo === '' ? "QS {$this->qs}" : "{$modelo} · QS {$this->qs}");
+        $pieza = $this->qs !== null && $this->qs !== '' ? "QS {$this->qs}" : "QR {$this->qr}";
+
+        return trim($modelo === '' ? $pieza : "{$modelo} · {$pieza}");
     }
 }
