@@ -36,7 +36,11 @@ class RegistroController extends Controller
 
         $proceso = Proceso::findOrFail($request->integer('proceso_id'));
         $porcentaje = (float) ($request->porcentaje ?? 100);
-        $piezas = Pieza::with(['marca', 'catalogo'])->findMany($request->input('piezas', []));
+        // Sin deduplicar, el mismo QS repetido en el payload se cobraria dos
+        // veces: el tope se resuelve contra una foto del avance que no ve lo que
+        // se acaba de guardar en este mismo bucle.
+        $piezas = Pieza::with(['marca', 'catalogo'])
+            ->findMany(array_unique($request->input('piezas', [])));
 
         if ($error = $this->errorDeProcesoEnObra($piezas, $proceso)) {
             return back()->withErrors(['proceso_id' => $error]);

@@ -2,6 +2,7 @@
 
 namespace App\Services\Prod;
 
+use App\Models\Prod\Catalogo;
 use App\Models\Prod\LiquidacionDetalle;
 use App\Models\Prod\Pieza;
 use App\Models\Prod\Registro;
@@ -21,6 +22,12 @@ use Illuminate\Support\Collection;
  * el avance en cero y permitiría volver a pagar lo ya fabricado. Cada copia
  * recuerda de qué pieza viene (`pieza_origen_id`) y todas comparten la misma
  * raíz.
+ *
+ * **El servicio cachea lo que lee y vive lo que dure el request.** Calcular el
+ * avance de una obra cuesta un recorrido de sus piezas, sus liquidaciones y sus
+ * registros; hacerlo una vez por QS —como pasaba al capturar 50 piezas de golpe—
+ * es lo que volvía lentas las pantallas. Quien escriba registros y necesite
+ * releer el avance actualizado debe pedir una instancia nueva del servicio.
  */
 class AvanceDePiezas
 {
@@ -29,6 +36,21 @@ class AvanceDePiezas
 
     /** Margen para no rechazar por ruido de redondeo del porcentaje. */
     private const EPSILON = 0.0001;
+
+    /**
+     * Avance ya calculado, por obra. Ver el docblock de la clase.
+     *
+     * @var array<int, AvanceDeObra>
+     */
+    private array $mapas = [];
+
+    /**
+     * De qué obra es cada catálogo. Resolverlo pieza por pieza era un N+1 de
+     * cientos de consultas en un catálogo grande.
+     *
+     * @var array<int, int>
+     */
+    private array $obraPorCatalogo = [];
 
     /**
      * Avance ya comprometido en la obra, agrupado por (linaje de pieza, proceso).
@@ -43,6 +65,11 @@ class AvanceDePiezas
      * pagado ni mezclarlo con otra pieza.
      */
     public function mapaDeObra(int $obraId): AvanceDeObra
+    {
+        return $this->mapas[$obraId] ??= $this->calcularMapaDeObra($obraId);
+    }
+
+    private function calcularMapaDeObra(int $obraId): AvanceDeObra
     {
         $raices = $this->raicesDeLinaje($obraId);
 
@@ -158,6 +185,8 @@ class AvanceDePiezas
      */
     public function decorar(Collection $piezas, array $procesoIds): Collection
     {
+        $this->precargarObras($piezas->pluck('catalogo_id'));
+
         $porObra = $piezas
             ->map(fn (Pieza $pieza) => $this->obraDe($pieza))
             ->unique()
@@ -180,11 +209,48 @@ class AvanceDePiezas
         });
     }
 
-    /** La obra sale del catálogo de la pieza, que es quien la ancla. */
+    /**
+     * La obra sale del catálogo de la pieza, que es quien la ancla. Se resuelve
+     * contra la caché; si el catálogo no está, se carga en bloque junto con los
+     * demás que falten.
+     */
     private function obraDe(Pieza $pieza): int
     {
-        $pieza->loadMissing('catalogo:id,obra_id');
+        $catalogoId = (int) $pieza->catalogo_id;
 
-        return (int) ($pieza->catalogo?->obra_id ?? 0);
+        if (! array_key_exists($catalogoId, $this->obraPorCatalogo)) {
+            $this->precargarObras([$catalogoId]);
+        }
+
+        return $this->obraPorCatalogo[$catalogoId] ?? 0;
+    }
+
+    /**
+     * Carga de una sola consulta la obra de los catálogos que aún no estén en
+     * caché. Es lo que convierte el recorrido de N piezas en O(1) consultas.
+     *
+     * @param  iterable<int>  $catalogoIds
+     */
+    private function precargarObras(iterable $catalogoIds): void
+    {
+        $faltantes = collect($catalogoIds)
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->reject(fn (int $id) => array_key_exists($id, $this->obraPorCatalogo));
+
+        if ($faltantes->isEmpty()) {
+            return;
+        }
+
+        $encontrados = Catalogo::query()
+            ->whereIn('id', $faltantes)
+            ->pluck('obra_id', 'id')
+            ->map(fn ($obraId) => (int) $obraId)
+            ->all();
+
+        // Los que no existan se cachean en 0 para no volver a preguntar por ellos.
+        foreach ($faltantes as $id) {
+            $this->obraPorCatalogo[$id] = $encontrados[$id] ?? 0;
+        }
     }
 }
