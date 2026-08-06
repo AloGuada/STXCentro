@@ -257,17 +257,35 @@ describe('import del layout por QS', function () {
             ->and(Concepto::where('marca', 'TG-BAR-2')->value('etapa'))->toBeNull();
     });
 
-    test('avisa cuando los QS no cuadran con la cantidad que declara el layout', function () {
+    test('la cantidad se cuenta de los QS, no de la columna del layout', function () {
         $catalogo = Catalogo::factory()->create();
 
-        // Dice 5 piezas pero solo vienen 2: el archivo esta incompleto.
+        // Dice 5 piezas pero solo vienen 2: manda lo que llego.
         subirLayout($catalogo,
             "1001,TG-BAR-1,,OC-BAR,Barandales,5,29.751,1.397,3542\n".
             "1002,TG-BAR-1,,OC-BAR,Barandales,5,29.751,1.397,3542\n"
         )->assertSessionHasErrors('csv_file');
 
         // Aun asi se carga lo que llego: el aviso no bloquea.
-        expect(Concepto::where('catalogo_id', $catalogo->id)->sole()->piezas()->count())->toBe(2);
+        $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
+
+        expect($marca->cantidad)->toBe(2)
+            ->and($marca->piezas()->count())->toBe(2);
+    });
+
+    test('un layout parcial suma sus QS a la cantidad que ya tenia la marca', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo, "1001,TG-BAR-1,,OC-BAR,Barandales,1,29.751,1.397,3542\n");
+
+        expect(Concepto::where('catalogo_id', $catalogo->id)->sole()->cantidad)->toBe(1);
+
+        subirLayout($catalogo, "1002,TG-BAR-1,,OC-BAR,Barandales,1,29.751,1.397,3542\n");
+
+        $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
+
+        expect($marca->cantidad)->toBe(2)
+            ->and($marca->piezas()->count())->toBe(2);
     });
 
     test('avisa del QS repetido y se queda con su primera aparicion', function () {

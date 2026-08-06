@@ -210,6 +210,7 @@ export default function CatalogoShow({
                                             {p.nombre}
                                         </th>
                                     ))}
+                                    <th className="text-right">Longitud (mm)</th>
                                     <th className="text-right">Peso Unit. (kg)</th>
                                     <th className="text-center">Estado</th>
                                 </tr>
@@ -218,7 +219,7 @@ export default function CatalogoShow({
                                 {filtered.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan={9 + procesos.length}
+                                            colSpan={10 + procesos.length}
                                             className="text-base-content/50 py-6 text-center"
                                         >
                                             Este catálogo no tiene marcas todavía
@@ -302,6 +303,13 @@ export default function CatalogoShow({
                                                         </td>
                                                     );
                                                 })}
+                                                <td className="text-right font-mono">
+                                                    {m.longitud != null ? (
+                                                        Number(m.longitud).toLocaleString('es-MX')
+                                                    ) : (
+                                                        <span className="text-base-content/40">—</span>
+                                                    )}
+                                                </td>
                                                 <td className="text-right font-mono">{fmt(m.peso_unitario)}</td>
                                                 <td className="text-center">
                                                     <span
@@ -321,7 +329,7 @@ export default function CatalogoShow({
                                             fila,
                                             <tr key={`${m.id}-piezas`} className="bg-base-100">
                                                 <td></td>
-                                                <td colSpan={8 + procesos.length} className="py-3">
+                                                <td colSpan={9 + procesos.length} className="py-3">
                                                     <div className="mb-1 text-xs font-medium">
                                                         Piezas de {etiquetaDePieza(m.marca, m.etapa)}
                                                     </div>
@@ -384,7 +392,9 @@ export default function CatalogoShow({
                             archivo es una <strong>lista de piezas</strong>: un renglón por QS, repitiendo marca y etapa
                             tantas veces como piezas tenga el modelo. La marca se identifica por{' '}
                             <strong>marca + etapa</strong> y la pieza por su <strong>QS</strong>; si ya existen, se
-                            sobrescriben sus datos. La categoria se crea automaticamente si no existe.
+                            sobrescriben sus datos. La cantidad de la marca sale de{' '}
+                            <strong>cuántos QS traiga el archivo</strong>: la columna Cantidad sólo se usa para avisar
+                            si no cuadran. La categoria se crea automaticamente si no existe.
                         </p>
 
                         <form onSubmit={handleCsvImport} className="flex items-end gap-4">

@@ -16,6 +16,10 @@ use Illuminate\Support\Facades\DB;
  * niveles de la jerarquía: la marca se escribe una vez con los datos del modelo
  * (descripción, peso, longitud, categoría) y cada QS entra como una pieza suya.
  *
+ * La cantidad de la marca **se cuenta**: son los QS que le quedan colgando en el
+ * catálogo, no la columna CANTIDAD. Esa columna sólo sirve para avisar cuando el
+ * layout declara más piezas de las que mandó.
+ *
  * La marca se empareja por `(catálogo, marca, etapa)` y la pieza por
  * `(catálogo, QS)`. El QS no se usa para emparejar la marca a propósito: si
  * planta renumera, la pieza se mueve pero el modelo no se duplica.
@@ -54,7 +58,6 @@ class ImportadorDeLayout
                         'obra_id' => $catalogo->obra_id,
                         'descripcion' => $modelo['descripcion'],
                         'categoria_id' => $categoriaId,
-                        'cantidad' => $modelo['cantidad'],
                         'peso_unitario' => $modelo['peso_unitario'],
                         'longitud' => $modelo['longitud'],
                     ],
@@ -68,6 +71,11 @@ class ImportadorDeLayout
                     );
                     $piezasEscritas++;
                 }
+
+                // Se cuenta despues de escribir las piezas y sobre las que tiene
+                // la marca en el catalogo, no sobre las del archivo: asi un
+                // layout parcial suma sus QS en vez de borrar la cuenta previa.
+                $marca->update(['cantidad' => $marca->piezas()->count()]);
             }
         });
 
@@ -82,7 +90,7 @@ class ImportadorDeLayout
      * Agrupa los renglones del archivo por modelo. Los datos del modelo se toman
      * del primer renglón que lo trae; los siguientes sólo aportan su QS.
      *
-     * @return array{filas: array<string, array{marca: string, etapa: ?string, descripcion: string, categoria: string, cantidad: int, peso_unitario: float, longitud: int, qs: list<string>}>, avisos: list<string>}
+     * @return array{filas: array<string, array{marca: string, etapa: ?string, descripcion: string, categoria: string, cantidad_declarada: int, peso_unitario: float, longitud: int, qs: list<string>}>, avisos: list<string>}
      */
     private function leer(string $ruta): array
     {
@@ -133,7 +141,7 @@ class ImportadorDeLayout
                 'etapa' => $etapa,
                 'descripcion' => trim((string) ($data['DESCRIPCION'] ?? $data['DESCRIPCIÓN'] ?? '')),
                 'categoria' => trim((string) ($data['CATEGORIA'] ?? '')),
-                'cantidad' => max($cantidad, 1),
+                'cantidad_declarada' => max($cantidad, 1),
                 'peso_unitario' => $peso,
                 'longitud' => (int) round((float) str_replace(',', '', (string) ($data['LONGITUDMM'] ?? '0'))),
                 'qs' => [],
@@ -170,12 +178,12 @@ class ImportadorDeLayout
     }
 
     /**
-     * El layout dice cuántas piezas tiene el modelo en cada renglón. Si no
-     * cuadra con los QS que llegaron, es que el archivo viene incompleto: se
-     * carga igual pero se avisa, porque el tope se calcula sobre las piezas que
-     * existen y quedaría corto sin que nadie lo note.
+     * El layout dice cuántas piezas tiene el modelo en cada renglón. Manda el
+     * conteo de QS —es lo que existe y contra lo que se paga—, pero si la
+     * columna CANTIDAD dice otra cosa se avisa: normalmente significa que el
+     * archivo vino incompleto y el tope quedaría corto sin que nadie lo note.
      *
-     * @param  array<string, array{marca: string, etapa: ?string, cantidad: int, qs: list<string>}>  $modelos
+     * @param  array<string, array{marca: string, etapa: ?string, cantidad_declarada: int, qs: list<string>}>  $modelos
      * @return list<string>
      */
     private function avisosDeCantidad(array $modelos): array
@@ -185,12 +193,12 @@ class ImportadorDeLayout
         foreach ($modelos as $modelo) {
             $llegaron = count($modelo['qs']);
 
-            if ($llegaron === $modelo['cantidad']) {
+            if ($llegaron === $modelo['cantidad_declarada']) {
                 continue;
             }
 
             $etiqueta = Concepto::etiquetaDeModelo($modelo['marca'], $modelo['etapa']);
-            $avisos[] = "{$etiqueta}: el layout dice {$modelo['cantidad']} pieza(s) y llegaron {$llegaron} QS.";
+            $avisos[] = "{$etiqueta}: el layout dice {$modelo['cantidad_declarada']} pieza(s) y llegaron {$llegaron} QS; la cantidad se cuenta de los QS.";
         }
 
         return $avisos;

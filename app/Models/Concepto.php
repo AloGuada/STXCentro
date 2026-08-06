@@ -19,7 +19,9 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
  *
  * No se paga contra esta fila. `cantidad` dice cuántas piezas pide el modelo y
  * de aquí cuelgan esas unidades como `Pieza`, una por QS; el destajo se paga
- * pieza por pieza. La tabla conserva el nombre `conceptos` por su historia.
+ * pieza por pieza. Cuando la marca entra por layout, `cantidad` es el número de
+ * QS que trajo el archivo. La tabla conserva el nombre `conceptos` por su
+ * historia.
  */
 class Concepto extends Model
 {
