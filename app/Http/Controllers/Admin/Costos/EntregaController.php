@@ -58,7 +58,9 @@ class EntregaController extends Controller
                 'ordenCompra.solicitudesPago.detalles.obraRubro.presupuesto.presupuestable',
                 'ordenCompra.requisicion.presupuesto.presupuestable',
                 'factura:id,folio',
-                'factura.pago:id,factura_id',
+                // `pago` es polimórfica (`pagable`), no tiene `factura_id`: el
+                // select debe traer la llave morph o Eloquent no puede emparejar.
+                'factura.pago:id,pagable_id,pagable_type',
                 'recibidoPor:id,name',
             ])
             ->filtradas($filtros)
