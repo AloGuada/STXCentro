@@ -125,7 +125,7 @@
         </tr>
         <tr>
             <td class="label">Recibió</td>
-            <td>{{ $entrega->recibidoPor?->name ?? '-' }}</td>
+            <td>{{ $entrega->recibidor?->name ?? '-' }}</td>
             <td class="label">Fecha de recepción</td>
             <td>{{ $entrega->fecha_entrega?->format('d/m/Y') ?? '-' }}</td>
         </tr>

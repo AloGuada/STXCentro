@@ -20,7 +20,7 @@ class ReporteRequest extends ApiFormRequest
             'plano_id' => ['required', 'exists:cal_piezas_planos,id'],
             'strumis_id' => ['nullable', 'string', 'max:255'],
             'consecutivo' => ['nullable', 'string', 'max:255'],
-            'inspector_id' => ['nullable', 'exists:usuarios,id'],
+            'inspector_id' => ['nullable', 'uuid', 'exists:usuarios,id'],
             'plantilla' => ['nullable', 'string', 'max:255'],
             'aprobado' => ['nullable', 'date'],
             'rechazado' => ['nullable', 'date'],

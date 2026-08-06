@@ -300,8 +300,8 @@ class PortalFacturaController extends Controller
 
         $factura->load([
             'ordenCompra:id,folio',
-            'entregas.recibidoPor:id,name',
-            'entregasLigadas.recibidoPor:id,name',
+            'entregas.recibidor:id,name',
+            'entregasLigadas.recibidor:id,name',
             'mediaComprobanteRecepcion',
             'notasCredito' => fn ($q) => $q->latest(),
             'pago',

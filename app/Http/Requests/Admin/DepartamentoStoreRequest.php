@@ -19,7 +19,7 @@ class DepartamentoStoreRequest extends FormRequest
         return [
             'descripcion' => ['required', 'string', 'max:255'],
             'manager' => ['required', 'string', 'max:255'],
-            'manager_usuario_id' => ['nullable', 'exists:usuarios,id'],
+            'manager_usuario_id' => ['nullable', 'uuid', 'exists:usuarios,id'],
         ];
     }
 

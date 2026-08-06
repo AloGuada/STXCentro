@@ -88,7 +88,7 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
                 'ordenCompra.solicitudesPago.detalles.obraRubro.presupuesto.presupuestable',
                 'ordenCompra.requisicion.presupuesto.presupuestable',
                 'factura:id,folio',
-                'recibidoPor:id,name',
+                'recibidor:id,name',
             ])
             ->filtradas($this->filtros)
             ->latest('fecha_entrega')
@@ -109,7 +109,7 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
                     // genérica: el reporte se concilia contra presupuesto.
                     'obra' => implode(' · ', $oc?->nombresDePresupuesto() ?? []) ?: '—',
                     'factura' => $entrega->factura?->folio ?? '—',
-                    'recibido_por' => $entrega->recibidoPor?->name ?? '—',
+                    'recibido_por' => $entrega->recibidor?->name ?? '—',
                     'tipo' => $entrega->tipo === 'completa' ? 'Completa' : 'Parcial',
                     // Importe sin IVA de lo recibido, igual que el formato de recepción.
                     'total' => $entrega->importeRecibido(),

@@ -12,9 +12,9 @@ class EntregaStoreRequest extends FormRequest
     }
 
     /**
-     * La factura es obligatoria: una recepción siempre ampara material de una
-     * factura concreta de la OC. Sin ella no hay contra qué conciliar lo
-     * recibido ni cómo avanzar la factura a aprobación.
+     * La factura es opcional: almacén recibe material aunque el proveedor no
+     * haya subido su factura todavía. Se liga después desde la edición de la
+     * recepción.
      *
      * @return array<string, array<int, string>>
      */
@@ -23,7 +23,7 @@ class EntregaStoreRequest extends FormRequest
         return [
             'fecha_entrega' => ['required', 'date'],
             'tipo' => ['required', 'in:parcial,completa'],
-            'factura_id' => ['required', 'integer', 'exists:costos_facturas,id'],
+            'factura_id' => ['nullable', 'integer', 'exists:costos_facturas,id'],
             'completa_factura' => ['nullable', 'boolean'],
             'observaciones' => ['nullable', 'string'],
             'archivo' => ['nullable', 'file', 'max:10240'],
@@ -41,7 +41,6 @@ class EntregaStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'factura_id.required' => 'Selecciona la factura que ampara esta recepción.',
             'factura_id.exists' => 'La factura seleccionada no existe.',
             'detalles.required' => 'Debe registrar al menos una partida recibida.',
             'detalles.min' => 'Debe registrar al menos una partida recibida.',

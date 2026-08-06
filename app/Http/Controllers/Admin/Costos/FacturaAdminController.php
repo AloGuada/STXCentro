@@ -197,7 +197,7 @@ class FacturaAdminController extends Controller
             'proveedor',
             'ordenCompra.detalles.obraRubro.rubro',
             'detalles.ordenCompraDetalle',
-            'entregas.recibidoPor',
+            'entregas.recibidor',
             'pago.pagosParciales',
             'aprobadaCostosPor',
             'aceptadaContabilidadPor',

@@ -148,14 +148,34 @@ test('entrega no crea pago ni cambia estatus de factura', function () {
     expect(Pago::where('pagable_type', Factura::class)->where('pagable_id', $factura->id)->count())->toBe(0);
 });
 
-test('tipo, factura y detalles son requeridos', function () {
+test('tipo y detalles son requeridos', function () {
     [$oc] = ocConPartida();
 
     $this->actingAs($this->user)
         ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
             'fecha_entrega' => '2026-02-17',
         ])
-        ->assertSessionHasErrors(['tipo', 'factura_id', 'detalles']);
+        ->assertSessionHasErrors(['tipo', 'detalles'])
+        ->assertSessionDoesntHaveErrors('factura_id');
+});
+
+test('registra la entrega sin factura ligada', function () {
+    [$oc, $partida] = ocConPartida();
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+            'fecha_entrega' => '2026-02-17',
+            'tipo' => 'parcial',
+            'detalles' => [
+                ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 4],
+            ],
+        ])
+        ->assertSessionHasNoErrors();
+
+    $entrega = $oc->entregas()->sole();
+
+    expect($entrega->factura_id)->toBeNull()
+        ->and($entrega->completa_factura)->toBeFalse();
 });
 
 test('rechaza recepcion contra una factura de otra orden de compra', function () {

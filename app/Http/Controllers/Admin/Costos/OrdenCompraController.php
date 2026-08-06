@@ -308,7 +308,7 @@ class OrdenCompraController extends Controller
             'detalles.usoCfdi:id,clave,descripcion',
             'entregas.detalles.ordenCompraDetalle:id,descripcion,unidad,cantidad,precio_unitario',
             'entregas.detalles.devoluciones',
-            'entregas.recibidoPor:id,name',
+            'entregas.recibidor:id,name',
             'entregas.cancelador:id,name',
             'entregas.media',
             'facturas.media',

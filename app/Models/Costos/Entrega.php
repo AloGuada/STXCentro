@@ -145,7 +145,14 @@ class Entrega extends Model
         return $this->hasMany(EntregaDetalle::class, 'entrega_id');
     }
 
-    public function recibidoPor(): BelongsTo
+    /**
+     * Quien recibió el material. La relación se llama `recibidor` y NO
+     * `recibidoPor`: al serializar, Eloquent usa snake_case del nombre del
+     * método, así que `recibidoPor` pisaría el atributo `recibido_por` (el UUID)
+     * con el objeto del usuario, y el front terminaba mandando el nombre de
+     * vuelta al backend.
+     */
+    public function recibidor(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'recibido_por');
     }

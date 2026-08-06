@@ -110,15 +110,6 @@ export function EditarRecepcionModal({ recepcion, usuarios, onClose }: Props) {
                 <form onSubmit={submit} className="space-y-4">
                     {errorGeneral && <div className="alert alert-error text-sm">{errorGeneral}</div>}
 
-                    {recepcion && recepcion.facturas_disponibles.length === 0 && (
-                        <div className="alert alert-warning text-sm">
-                            <span>
-                                La orden de compra no tiene facturas a las que ligar esta recepción. El proveedor debe
-                                subir su factura antes de poder guardar el cambio.
-                            </span>
-                        </div>
-                    )}
-
                     <FormField
                         label="Fecha de entrega"
                         htmlFor="fecha_entrega"
@@ -153,17 +144,16 @@ export function EditarRecepcionModal({ recepcion, usuarios, onClose }: Props) {
                         label="Factura ligada"
                         htmlFor="factura_id"
                         error={errors.factura_id}
-                        description="Sólo facturas de la misma orden de compra que todavía no avanzan."
-                        required
+                        description="Opcional. Sólo facturas de la misma orden de compra que todavía no avanzan."
                     >
                         <Select
                             value={data.factura_id}
                             onValueChange={(v) =>
                                 setData({ ...data, factura_id: v, completa_factura: v ? data.completa_factura : false })
                             }
-                            placeholder="Selecciona la factura"
                             error={!!errors.factura_id}
                         >
+                            <SelectItem value="">— Sin factura —</SelectItem>
                             {(recepcion?.facturas_disponibles ?? []).map((f) => (
                                 <SelectItem key={f.id} value={String(f.id)}>
                                     {f.folio ?? `#${f.id}`} · {fmt(Number(f.total))}

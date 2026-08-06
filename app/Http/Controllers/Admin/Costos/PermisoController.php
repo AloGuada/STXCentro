@@ -139,7 +139,7 @@ class PermisoController extends Controller
             'asignaciones' => ['required', 'array'],
             'asignaciones.*.departamento_id' => ['required', 'exists:departamentos,id'],
             'asignaciones.*.aprobador_ids' => ['nullable', 'array'],
-            'asignaciones.*.aprobador_ids.*' => ['exists:usuarios,id'],
+            'asignaciones.*.aprobador_ids.*' => ['uuid', 'exists:usuarios,id'],
             'asignaciones.*.omitir_si_presupuesto_reservado' => ['boolean'],
             'asignaciones.*.rubro_ids' => ['nullable', 'array'],
             'asignaciones.*.rubro_ids.*' => ['exists:costos_rubros,id'],
