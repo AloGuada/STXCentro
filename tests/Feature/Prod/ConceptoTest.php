@@ -318,6 +318,19 @@ describe('import del layout por QR', function () {
         expect(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(1);
     });
 
+    test('la pieza carga aunque el renglon no traiga QS', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        // Con QR basta: el QS es dato de planta y el layout puede mandarlo vacio.
+        subirLayout($catalogo, "127227,TG-BAR-1,OC-BAR,Barandales,,1,29.751,1.397,3542,\n")
+            ->assertSessionHas('success');
+
+        $pieza = Pieza::where('catalogo_id', $catalogo->id)->sole();
+
+        expect($pieza->qr)->toBe('127227')
+            ->and($pieza->qs)->toBeNull();
+    });
+
     test('sin QR se cae al QS, que es como venia el layout viejo', function () {
         $catalogo = Catalogo::factory()->create();
 
