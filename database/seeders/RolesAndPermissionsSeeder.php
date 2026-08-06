@@ -241,6 +241,14 @@ class RolesAndPermissionsSeeder extends Seeder
             'prod.configuracion.editar',
         ];
 
+        // Permisos del módulo Almacén
+        $almPermissions = [
+            'alm.almacenes.ver',
+            'alm.almacenes.crear',
+            'alm.almacenes.editar',
+            'alm.almacenes.eliminar',
+        ];
+
         // Permisos del módulo Infraestructura
         $infraPermissions = [
             'infra.recorridos.ver',
@@ -448,6 +456,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'intra' => $intraPermissions,
             'costos' => $costosPermissions,
             'prod' => $prodPermissions,
+            'alm' => $almPermissions,
             'infra' => $infraPermissions,
             'cob' => $cobPermissions,
             'rh' => $rhPermissions,

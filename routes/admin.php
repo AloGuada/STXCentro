@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
 use App\Http\Controllers\Admin\BadgeConfigController;
 use App\Http\Controllers\Admin\BancoController;
 use App\Http\Controllers\Admin\Cob\AdendaController as CobAdendaController;
@@ -213,6 +214,18 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('destajos/{destajo}/registros/{registro}', [ProdRegistroController::class, 'destroy'])->name('destajos.registros.destroy');
         Route::post('destajos/{destajo}/pagos-extra', [ProdPagoExtraController::class, 'store'])->name('destajos.pagos-extra.store');
         Route::delete('destajos/{destajo}/pagos-extra/{pagoExtra}', [ProdPagoExtraController::class, 'destroy'])->name('destajos.pagos-extra.destroy');
+    });
+
+    // Almacen admin routes
+    Route::prefix('almacen')->name('alm.')->group(function () {
+        // Catalogo de almacenes: la base del modulo, sin el no hay movimientos
+        Route::resource('almacenes', AlmAlmacenController::class)
+            ->parameters(['almacenes' => 'almacen'])
+            ->except(['show'])
+            ->middlewareFor(['index'], 'permission:alm.almacenes.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.almacenes.crear')
+            ->middlewareFor(['edit', 'update'], 'permission:alm.almacenes.editar')
+            ->middlewareFor(['destroy'], 'permission:alm.almacenes.eliminar');
     });
 
     // Infraestructura admin routes

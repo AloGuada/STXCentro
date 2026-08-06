@@ -48,6 +48,7 @@ import {
     HardDrive,
     HardHat,
     UserCheck,
+    Warehouse,
     Wrench,
 } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -211,6 +212,18 @@ const navGroups: NavGroup[] = [
                 href: '/admin/prod/configuracion',
                 icon: Settings,
                 permission: 'prod.configuracion.ver',
+            },
+        ],
+    },
+    {
+        title: 'Almacén',
+        icon: Warehouse,
+        items: [
+            {
+                title: 'Almacenes',
+                href: '/admin/almacen/almacenes',
+                icon: Building2,
+                permission: 'alm.almacenes.ver',
             },
         ],
     },

@@ -3254,6 +3254,31 @@ export type RhPermisoAusencia = {
 };
 
 // =========================================
+// Almacén
+// =========================================
+
+export type AlmAlmacenTipo = 'insumos' | 'montaje' | 'herramienta';
+
+/**
+ * Almacén virtual. Con obra es un almacén de esa obra (montaje); sin obra es
+ * central y surte a todas. La clave sólo es única dentro de su obra.
+ */
+export type AlmAlmacen = {
+    id: number;
+    clave: string;
+    nombre: string;
+    obra_id: number | null;
+    obra?: Obra | null;
+    tipo: AlmAlmacenTipo;
+    responsable_id: string | null;
+    responsable?: Usuario | null;
+    observaciones: string | null;
+    activo: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+// =========================================
 // Drive
 // =========================================
 
