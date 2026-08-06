@@ -220,6 +220,36 @@ const navGroups: NavGroup[] = [
         icon: Warehouse,
         items: [
             {
+                title: 'Existencias',
+                href: '/admin/almacen/existencias',
+                icon: Package,
+                permission: 'alm.almacenes.ver',
+            },
+            {
+                title: 'Entradas',
+                href: '/admin/almacen/entradas',
+                icon: PackageCheck,
+                permission: 'alm.almacenes.ver',
+            },
+            {
+                title: 'Salidas',
+                href: '/admin/almacen/salidas',
+                icon: ClipboardList,
+                permission: 'alm.almacenes.ver',
+            },
+            {
+                title: 'Transferencias',
+                href: '/admin/almacen/transferencias',
+                icon: Network,
+                permission: 'alm.almacenes.ver',
+            },
+            {
+                title: 'Kardex',
+                href: '/admin/almacen/kardex',
+                icon: BookOpen,
+                permission: 'alm.almacenes.ver',
+            },
+            {
                 title: 'Almacenes',
                 href: '/admin/almacen/almacenes',
                 icon: Building2,

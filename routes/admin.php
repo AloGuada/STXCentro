@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
+use App\Http\Controllers\Admin\Alm\VistasController as AlmVistasController;
 use App\Http\Controllers\Admin\BadgeConfigController;
 use App\Http\Controllers\Admin\BancoController;
 use App\Http\Controllers\Admin\Cob\AdendaController as CobAdendaController;
@@ -226,6 +227,20 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->middlewareFor(['create', 'store'], 'permission:alm.almacenes.crear')
             ->middlewareFor(['edit', 'update'], 'permission:alm.almacenes.editar')
             ->middlewareFor(['destroy'], 'permission:alm.almacenes.eliminar');
+
+        // Maquetas: pantallas sin backend todavia, dibujadas con datos de
+        // ejemplo para revisar diseno y flujo. Se van reemplazando por su
+        // controlador real conforme cada una se construya.
+        Route::middleware('permission:alm.almacenes.ver')->group(function () {
+            Route::get('existencias', [AlmVistasController::class, 'existencias'])->name('existencias.index');
+            Route::get('kardex', [AlmVistasController::class, 'kardex'])->name('kardex.index');
+            Route::get('entradas', [AlmVistasController::class, 'entradas'])->name('entradas.index');
+            Route::get('entradas/create', [AlmVistasController::class, 'entradaCreate'])->name('entradas.create');
+            Route::get('salidas', [AlmVistasController::class, 'salidas'])->name('salidas.index');
+            Route::get('salidas/create', [AlmVistasController::class, 'salidaCreate'])->name('salidas.create');
+            Route::get('transferencias', [AlmVistasController::class, 'transferencias'])->name('transferencias.index');
+            Route::get('transferencias/create', [AlmVistasController::class, 'transferenciaCreate'])->name('transferencias.create');
+        });
     });
 
     // Infraestructura admin routes

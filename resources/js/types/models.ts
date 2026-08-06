@@ -3278,6 +3278,91 @@ export type AlmAlmacen = {
     updated_at: string;
 };
 
+/**
+ * Formas de las pantallas de Almacén que todavía no tienen backend. Viven aquí
+ * para que la maqueta (`lib/alm/demo.ts`) tenga tipos; cuando existan las tablas
+ * se reemplazan por los modelos reales.
+ */
+export type AlmMovimientoTipo =
+    | 'entrada'
+    | 'salida'
+    | 'transferencia_salida'
+    | 'transferencia_entrada'
+    | 'ajuste'
+    | 'devolucion';
+
+export type AlmProductoDemo = {
+    id: number;
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+};
+
+export type AlmExistenciaDemo = {
+    almacen: string;
+    producto: string;
+    descripcion: string;
+    unidad: string;
+    cantidad: number;
+    costo_promedio: number;
+    ubicacion: string | null;
+};
+
+export type AlmMovimientoDemo = {
+    id: number;
+    fecha: string;
+    almacen: string;
+    producto: string;
+    tipo: AlmMovimientoTipo;
+    /** Con signo: negativa cuando el material sale. */
+    cantidad: number;
+    saldo_nuevo: number;
+    referencia: string;
+    usuario: string;
+    observaciones: string | null;
+};
+
+export type AlmEntradaDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    almacen: string;
+    proveedor: string | null;
+    renglones: number;
+    importe: number;
+    recibio: string;
+};
+
+export type AlmSalidaDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    almacen: string;
+    obra_destino: string | null;
+    solicitante: string;
+    recibe: string;
+    renglones: number;
+    motivo: string;
+};
+
+export type AlmTransferenciaDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    origen: string;
+    destino: string;
+    renglones: number;
+    autorizo: string;
+};
+
+/** Un renglón del capturador de partidas, compartido por los tres documentos. */
+export type AlmPartidaBorrador = {
+    producto_id: string;
+    cantidad: string;
+    costo_unitario: string;
+    observaciones: string;
+};
+
 // =========================================
 // Drive
 // =========================================
