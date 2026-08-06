@@ -304,7 +304,14 @@ class RequisicionController extends Controller
 
         return $user->can('costos.requisiciones.ver-todas')
             || $requisicion->solicitante_id === $user->id
-            || $requisicion->aprobaciones()->where('aprobador_id', $user->id)->exists();
+            || $requisicion->aprobaciones()->where('aprobador_id', $user->id)->exists()
+            // Misma regla que el listado: con `ver-departamento-propio` se abre
+            // lo que creó un colega del mismo departamento. Cuenta el
+            // departamento del solicitante, no el de la requisición, que puede
+            // estar cargada a otra área.
+            || ($user->departamento_id !== null
+                && $user->can('costos.requisiciones.ver-departamento-propio')
+                && $requisicion->solicitante?->departamento_id === $user->departamento_id);
     }
 
     /**

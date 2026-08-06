@@ -97,6 +97,70 @@ test('con el permiso, el usuario ve las solicitudes de pago de colegas de su dep
         );
 });
 
+test('con el permiso, el usuario abre el show de la solicitud de su departamento', function () {
+    $usuario = User::factory()->create(['departamento_id' => $this->deptoA->id]);
+    $usuario->givePermissionTo(['costos.solicitudes-pago.ver', 'costos.solicitudes-pago.ver-departamento-propio']);
+
+    $propia = SolicitudPago::factory()->create([
+        'solicitante_id' => $this->colegaA->id,
+        'departamento_id' => $this->deptoB->id,
+    ]);
+
+    $this->actingAs($usuario)
+        ->get(route('admin.costos.solicitudes-pago.show', $propia))
+        ->assertOk();
+});
+
+test('sin el permiso, el show de la solicitud del colega queda cerrado', function () {
+    $usuario = User::factory()->create(['departamento_id' => $this->deptoA->id]);
+    $usuario->givePermissionTo(['costos.solicitudes-pago.ver']);
+
+    $ajena = SolicitudPago::factory()->create(['solicitante_id' => $this->colegaA->id]);
+
+    $this->actingAs($usuario)
+        ->get(route('admin.costos.solicitudes-pago.show', $ajena))
+        ->assertForbidden();
+});
+
+test('el permiso no abre la solicitud de otro departamento', function () {
+    $usuario = User::factory()->create(['departamento_id' => $this->deptoA->id]);
+    $usuario->givePermissionTo(['costos.solicitudes-pago.ver', 'costos.solicitudes-pago.ver-departamento-propio']);
+
+    $ajena = SolicitudPago::factory()->create([
+        'solicitante_id' => $this->ajenoB->id,
+        'departamento_id' => $this->deptoA->id,
+    ]);
+
+    $this->actingAs($usuario)
+        ->get(route('admin.costos.solicitudes-pago.show', $ajena))
+        ->assertForbidden();
+});
+
+test('con el permiso, el usuario abre el show de la requisicion de su departamento', function () {
+    $usuario = User::factory()->create(['departamento_id' => $this->deptoA->id]);
+    $usuario->givePermissionTo(['costos.requisiciones.ver', 'costos.requisiciones.ver-departamento-propio']);
+
+    $propia = Requisicion::factory()->create([
+        'solicitante_id' => $this->colegaA->id,
+        'departamento_id' => $this->deptoB->id,
+    ]);
+
+    $this->actingAs($usuario)
+        ->get(route('admin.costos.requisiciones.show', $propia))
+        ->assertOk();
+});
+
+test('sin el permiso, el show de la requisicion del colega queda cerrado', function () {
+    $usuario = User::factory()->create(['departamento_id' => $this->deptoA->id]);
+    $usuario->givePermissionTo(['costos.requisiciones.ver']);
+
+    $ajena = Requisicion::factory()->create(['solicitante_id' => $this->colegaA->id]);
+
+    $this->actingAs($usuario)
+        ->get(route('admin.costos.requisiciones.show', $ajena))
+        ->assertForbidden();
+});
+
 test('sin el permiso, el usuario NO ve las solicitudes de pago de colegas de su departamento', function () {
     $usuario = User::factory()->create(['departamento_id' => $this->deptoA->id]);
     $usuario->givePermissionTo(['costos.solicitudes-pago.ver']);

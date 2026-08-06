@@ -24,6 +24,7 @@ use App\Models\Costos\TipoSolicitud;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
+use App\Models\User;
 use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
 use App\Services\Costos\FirmasPdfBuilder;
@@ -409,14 +410,16 @@ class SolicitudPagoController extends Controller
         );
 
         // Solo ve la solicitud quien puede ver todas, el solicitante, el
-        // solicitante de la requisición de la OC que la originó (contado), o un
-        // aprobador asignado en su cadena de firmas.
+        // solicitante de la requisición de la OC que la originó (contado), un
+        // aprobador asignado en su cadena de firmas, o un colega del mismo
+        // departamento con `ver-departamento-propio`.
         $user = auth()->user();
         abort_unless(
             $user->can('costos.solicitudes-pago.ver-todas')
                 || $solicitudPago->solicitante_id === $user->id
                 || $solicitudPago->ordenCompra?->requisicion?->solicitante_id === $user->id
-                || $solicitudPago->aprobaciones->contains('aprobador_id', $user->id),
+                || $solicitudPago->aprobaciones->contains('aprobador_id', $user->id)
+                || $this->esDeSuDepartamento($solicitudPago, $user),
             403,
         );
 
@@ -436,6 +439,22 @@ class SolicitudPagoController extends Controller
                 : [],
             'obraRubros' => $puedeReasignar ? $this->obraRubrosParaSelector() : [],
         ]);
+    }
+
+    /**
+     * La solicitud la creó un colega del mismo departamento y el usuario tiene
+     * `ver-departamento-propio`.
+     *
+     * Es la misma regla del listado, para que lo que se alcanza a ver ahí
+     * también se pueda abrir. Se compara contra el departamento del solicitante,
+     * no contra el de la solicitud: el documento puede cargarse a otro
+     * departamento y aun así ser trabajo del área.
+     */
+    private function esDeSuDepartamento(SolicitudPago $solicitudPago, User $user): bool
+    {
+        return $user->departamento_id !== null
+            && $user->can('costos.solicitudes-pago.ver-departamento-propio')
+            && $solicitudPago->solicitante?->departamento_id === $user->departamento_id;
     }
 
     /**
