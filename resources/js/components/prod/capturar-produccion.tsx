@@ -54,9 +54,13 @@ export function CapturarProduccion({
         fecha: soloFecha(destajo.fecha_inicio),
     });
 
+    // La obra se nombra por su descripción: el número de OP no le dice nada a
+    // quien captura. Si viene vacía se cae al número, que siempre existe.
+    const nombreDeObra = (obra: Obra): string => obra.descripcion?.trim() || obra.no;
+
     const marcaOptions = marcas.map((m) => ({
         value: String(m.id),
-        label: `${m.obra ? `[${m.obra.no}] ` : ''}${etiquetaDePieza(m.marca, m.lote)} - ${m.descripcion}`,
+        label: `${m.obra ? `[${nombreDeObra(m.obra)}] ` : ''}${etiquetaDePieza(m.marca, m.lote)} - ${m.descripcion}`,
     }));
 
     const marcaElegida = marcas.find((m) => String(m.id) === registroForm.data.marca_id);
