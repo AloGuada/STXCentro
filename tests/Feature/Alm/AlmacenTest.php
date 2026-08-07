@@ -82,6 +82,56 @@ describe('catalogo de almacenes', function () {
         expect(Almacen::count())->toBe(2);
     });
 
+    test('los almacenes de la planta conviven sin obra pero no repiten clave', function () {
+        // Los cuatro de la planta van sin obra. Antes esto pasaba: comparar
+        // `obra_id = NULL` nunca empata y dejaba entrar la clave repetida.
+        foreach (['AG', 'EPP', 'HER', 'REF'] as $clave) {
+            $this->actingAs(usuarioDeAlmacen())
+                ->post(route('admin.alm.almacenes.store'), [
+                    'clave' => $clave,
+                    'nombre' => "Central {$clave}",
+                    'obra_id' => null,
+                    'tipo' => 'insumos',
+                ])
+                ->assertSessionHasNoErrors();
+        }
+
+        $this->actingAs(usuarioDeAlmacen())
+            ->post(route('admin.alm.almacenes.store'), [
+                'clave' => 'AG',
+                'nombre' => 'Otro general',
+                'obra_id' => null,
+                'tipo' => 'insumos',
+            ])
+            ->assertSessionHasErrors('clave');
+
+        expect(Almacen::whereNull('obra_id')->count())->toBe(4);
+    });
+
+    test('editar un almacen central no choca consigo mismo', function () {
+        $almacen = Almacen::factory()->create(['clave' => 'AG', 'obra_id' => null]);
+        Almacen::factory()->create(['clave' => 'EPP', 'obra_id' => null]);
+
+        $this->actingAs(usuarioDeAlmacen())
+            ->put(route('admin.alm.almacenes.update', $almacen), [
+                'clave' => 'AG',
+                'nombre' => 'Almacén general de planta',
+                'obra_id' => null,
+                'tipo' => 'insumos',
+            ])
+            ->assertSessionHasNoErrors();
+
+        // Pero tomar la clave de otro central sí se rechaza.
+        $this->actingAs(usuarioDeAlmacen())
+            ->put(route('admin.alm.almacenes.update', $almacen), [
+                'clave' => 'EPP',
+                'nombre' => 'Almacén general de planta',
+                'obra_id' => null,
+                'tipo' => 'insumos',
+            ])
+            ->assertSessionHasErrors('clave');
+    });
+
     test('el responsable es opcional y se guarda', function () {
         $responsable = Usuario::factory()->create();
 
