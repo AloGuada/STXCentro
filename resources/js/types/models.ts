@@ -590,6 +590,50 @@ export type ProdCategoriaEmpleado = {
 };
 
 /** Pieza pagada a medias que todavía tiene saldo por liquidar. */
+/**
+ * La revisión previa del CSV de producción: lo que pasaría si se aplicara, ya
+ * resuelto contra el catálogo pero sin haber escrito nada.
+ */
+export type ProdPlanEstado = 'aplicable' | 'omitida' | 'error';
+
+export type ProdPlanRenglon = {
+    referencia: string;
+    linea: number | null;
+    estado: ProdPlanEstado;
+    codigo: string;
+    motivo: string | null;
+    pieza_id: number | null;
+    /** El QR al que se asignó. Si `por_qs`, lo eligió el sistema. */
+    qr: string | null;
+    qs: string | null;
+    marca: string | null;
+    proceso: string | null;
+    proceso_id: number | null;
+    grupo: string | null;
+    grupo_trabajo_id: number | null;
+    porcentaje: number | null;
+    /** El archivo no traía QR: la pieza se eligió por QS, del QR más chico al más alto. */
+    por_qs: boolean;
+    candidatas: number | null;
+};
+
+export type ProdPlanImportacion = {
+    resumen: {
+        formato: 'export' | 'simple';
+        filas_leidas: number;
+        aplicables: number;
+        omitidas: number;
+        errores: number;
+        asignadas_por_qs: number;
+        ignorados_por_evento: number;
+    };
+    /** Eventos que no pagan destajo, agregados: son la mayoría del export. */
+    ignorados: { evento: string; muestra: string; renglones: number }[];
+    renglones: ProdPlanRenglon[];
+    mostrados: number;
+    truncado: boolean;
+};
+
 export type ProdPendienteLiquidar = {
     pieza_id: number;
     qr: string;

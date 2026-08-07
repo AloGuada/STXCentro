@@ -4,11 +4,20 @@ import { formatDate } from '@/components/ui/formatted-date';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
 import { Select, SelectItem } from '@/components/ui/select';
+import { RevisarImportacionModal } from '@/components/prod/revisar-importacion-modal';
 import { etiquetaDePieza, etiquetaDeUnidad } from '@/lib/prod/piezas';
-import type { Concepto, Obra, ProdDestajo, ProdGrupoTrabajo, ProdPieza, ProdProceso } from '@/types/models';
-import { useForm } from '@inertiajs/react';
-import { Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
-import { useMemo, type FormEvent } from 'react';
+import type {
+    Concepto,
+    Obra,
+    ProdDestajo,
+    ProdGrupoTrabajo,
+    ProdPieza,
+    ProdPlanImportacion,
+    ProdProceso,
+} from '@/types/models';
+import { useForm, usePage } from '@inertiajs/react';
+import { ListChecksIcon, Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
+import { useMemo, useState, type FormEvent } from 'react';
 
 type MarcaConPiezas = Concepto & { obra?: Obra; piezas?: ProdPieza[] };
 
@@ -53,6 +62,81 @@ export function CapturarProduccion({
         csv_file: null,
         fecha: soloFecha(destajo.fecha_inicio),
     });
+
+    // El import va en dos pasos: primero se analiza el archivo y se enseña el
+    // plan, y sólo al confirmar se escribe. El plan se tira en cuanto cambia el
+    // archivo o la fecha, para no confirmar nunca uno que ya no corresponde.
+    const [plan, setPlan] = useState<ProdPlanImportacion | null>(null);
+    const [analizando, setAnalizando] = useState(false);
+    const [errorPlan, setErrorPlan] = useState<string | null>(null);
+    const [modalAbierto, setModalAbierto] = useState(false);
+
+    const flash = usePage<{ flash?: { success?: string } }>().props.flash;
+
+    const olvidarPlan = () => {
+        setPlan(null);
+        setErrorPlan(null);
+    };
+
+    const analizar = async (e: FormEvent) => {
+        e.preventDefault();
+
+        if (!csvForm.data.csv_file) {
+            return;
+        }
+
+        setModalAbierto(true);
+        setAnalizando(true);
+        setErrorPlan(null);
+
+        const cuerpo = new FormData();
+        cuerpo.append('csv_file', csvForm.data.csv_file);
+        cuerpo.append('fecha', csvForm.data.fecha);
+
+        // La app Inertia no expone un meta csrf-token: el token va en
+        // X-XSRF-TOKEN leído de la cookie, o Laravel responde 419.
+        const cookie = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+
+        try {
+            const respuesta = await fetch(`/admin/prod/destajos/${destajo.id}/registros/analizar-csv`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'X-XSRF-TOKEN': cookie ? decodeURIComponent(cookie[1]) : '',
+                },
+                body: cuerpo,
+            });
+
+            const datos = await respuesta.json();
+
+            if (!respuesta.ok) {
+                const errores: string[] = Object.values(datos.errors ?? {}).flat() as string[];
+
+                setErrorPlan(errores.join(' ') || 'No se pudo analizar el archivo.');
+
+                return;
+            }
+
+            setPlan(datos as ProdPlanImportacion);
+        } catch {
+            setErrorPlan('No se pudo analizar el archivo.');
+        } finally {
+            setAnalizando(false);
+        }
+    };
+
+    const confirmarImportacion = () => {
+        csvForm.post(`/admin/prod/destajos/${destajo.id}/registros/import-csv`, {
+            preserveScroll: true,
+            forceFormData: true,
+            onSuccess: () => {
+                setModalAbierto(false);
+                olvidarPlan();
+                csvForm.reset('csv_file');
+            },
+        });
+    };
 
     // La obra se nombra por su descripción: el número de OP no le dice nada a
     // quien captura. Si viene vacía se cae al número, que siempre existe.
@@ -104,15 +188,6 @@ export function CapturarProduccion({
         registroForm.post(`/admin/prod/destajos/${destajo.id}/registros`, {
             preserveScroll: true,
             onSuccess: () => registroForm.setData('piezas', []),
-        });
-    };
-
-    const submitCsv = (e: FormEvent) => {
-        e.preventDefault();
-        csvForm.post(`/admin/prod/destajos/${destajo.id}/registros/import-csv`, {
-            preserveScroll: true,
-            forceFormData: true,
-            onSuccess: () => csvForm.reset('csv_file'),
         });
     };
 
@@ -310,14 +385,23 @@ export function CapturarProduccion({
                 <h3 className="mb-3 flex items-center gap-2 font-semibold">
                     <UploadIcon className="size-4" /> Importar producción (CSV)
                 </h3>
-                <form onSubmit={submitCsv} className="space-y-3">
+                {flash?.success && (
+                    <div className="alert alert-success mb-3">
+                        <span>{flash.success}</span>
+                    </div>
+                )}
+
+                <form onSubmit={analizar} className="space-y-3">
                     <FormField label="Archivo CSV" htmlFor="csv_file" error={csvForm.errors.csv_file} required>
                         <input
                             id="csv_file"
                             type="file"
                             accept=".csv,.txt"
                             className="file-input file-input-bordered w-full"
-                            onChange={(e) => csvForm.setData('csv_file', e.target.files?.[0] ?? null)}
+                            onChange={(e) => {
+                                csvForm.setData('csv_file', e.target.files?.[0] ?? null);
+                                olvidarPlan();
+                            }}
                         />
                     </FormField>
 
@@ -328,7 +412,10 @@ export function CapturarProduccion({
                             min={soloFecha(destajo.fecha_inicio)}
                             max={soloFecha(destajo.fecha_fin)}
                             value={csvForm.data.fecha}
-                            onChange={(e) => csvForm.setData('fecha', e.target.value)}
+                            onChange={(e) => {
+                                csvForm.setData('fecha', e.target.value);
+                                olvidarPlan();
+                            }}
                             error={!!csvForm.errors.fecha}
                         />
                     </FormField>
@@ -341,24 +428,29 @@ export function CapturarProduccion({
                         opcionalmente <span className="font-mono">Porcentaje</span> (si no viene, se paga al 100%).
                         Todos los renglones toman la fecha seleccionada.
                         <br />
-                        La pieza se resuelve por <span className="font-mono">QR</span> si el archivo trae esa columna; si
-                        no, por <span className="font-mono">QS</span>, que desde los lotes puede repetirse y entonces el
-                        renglón se reporta como ambiguo.
+                        Si el archivo no trae <span className="font-mono">QR</span>, cada movimiento se asigna a la
+                        pieza con el <strong>QR disponible más chico</strong> de las que comparten ese QS. Nada se
+                        guarda hasta que lo confirmes en la revisión.
                     </p>
 
                     <div className="flex justify-end">
-                        <Button
-                            type="submit"
-                            size="sm"
-                            variant="outline"
-                            disabled={csvForm.processing || !csvForm.data.csv_file}
-                        >
-                            {csvForm.processing && <Loader2Icon className="size-4 animate-spin" />}
-                            Importar
+                        <Button type="submit" size="sm" variant="outline" disabled={!csvForm.data.csv_file}>
+                            <ListChecksIcon className="size-4" />
+                            Revisar
                         </Button>
                     </div>
                 </form>
             </div>
+
+            <RevisarImportacionModal
+                open={modalAbierto}
+                onClose={() => setModalAbierto(false)}
+                plan={plan}
+                cargando={analizando}
+                error={errorPlan}
+                confirmando={csvForm.processing}
+                onConfirmar={confirmarImportacion}
+            />
         </div>
     );
 }
