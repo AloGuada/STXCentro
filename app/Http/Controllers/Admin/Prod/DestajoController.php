@@ -92,9 +92,10 @@ class DestajoController extends Controller
         $data['piezasSinPrecio'] = $generador->piezasSinPrecio($destajo);
         $data['gruposTrabajo'] = GrupoTrabajo::where('activo', true)->orderBy('descripcion')->get();
         // El catalogo de captura: las marcas del catalogo vigente con sus piezas,
-        // para que el formulario ofrezca marca -> lote -> QS.
+        // para que el formulario ofrezca marca -> lote -> QR. Se ordena por QR
+        // porque el QS es opcional y dejaria las piezas nuevas en desorden.
         $data['marcas'] = Concepto::query()
-            ->with(['obra:id,no,descripcion', 'piezas' => fn ($q) => $q->where('activo', true)->orderBy('qs')])
+            ->with(['obra:id,no,descripcion', 'piezas' => fn ($q) => $q->where('activo', true)->orderBy('qr')])
             ->deCatalogoVigente()
             ->where('activo', true)
             ->orderBy('marca')

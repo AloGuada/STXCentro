@@ -236,6 +236,16 @@ describe('pendientes por liquidar', function () {
             ->and($pendientes[0]['porcentaje_sugerido'])->toBe(40.0);
     });
 
+    test('trae el QR para poder nombrar la pieza sin QS', function () {
+        $this->pieza->update(['qs' => null]);
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04', porcentaje: 60);
+
+        $pendientes = app(PendientesDeLiquidar::class)->paraDestajo($this->semana2);
+
+        expect($pendientes[0]['qr'])->toBe($this->pieza->qr)
+            ->and($pendientes[0]['qs'])->toBeNull();
+    });
+
     test('la misma pieza a medias en dos procesos son dos pendientes', function () {
         $pintura = proceso('Pintura');
         obraPagaProcesos($this->marca->obra_id, $pintura);

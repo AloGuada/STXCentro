@@ -158,6 +158,23 @@ describe('admin destajos', function () {
             );
     });
 
+    test('el catalogo de captura manda el QR de cada pieza', function () {
+        $marca = marcaConPiezas(1);
+        $marca->piezas[0]->update(['qs' => null]);
+
+        $destajo = Destajo::factory()->create([
+            'fecha_inicio' => '2026-02-03',
+            'fecha_fin' => '2026-02-09',
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.destajos.show', $destajo))
+            ->assertInertia(fn ($page) => $page
+                ->where('marcas.0.piezas.0.qr', $marca->piezas[0]->qr)
+                ->where('marcas.0.piezas.0.qs', null)
+            );
+    });
+
     test('destajo can be deleted if not cerrado', function () {
         $destajo = Destajo::factory()->create();
 

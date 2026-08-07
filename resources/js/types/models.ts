@@ -592,7 +592,8 @@ export type ProdCategoriaEmpleado = {
 /** Pieza pagada a medias que todavía tiene saldo por liquidar. */
 export type ProdPendienteLiquidar = {
     pieza_id: number;
-    qs: string;
+    qr: string;
+    qs: string | null;
     marca: string;
     lote: string | null;
     descripcion: string;

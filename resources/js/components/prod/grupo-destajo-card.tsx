@@ -1,5 +1,5 @@
 import { FormattedDate } from '@/components/ui/formatted-date';
-import { etiquetaDePieza } from '@/lib/prod/piezas';
+import { etiquetaDePieza, etiquetaDeUnidad } from '@/lib/prod/piezas';
 import type {
     Concepto,
     Obra,
@@ -91,7 +91,9 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                                                 <span className="font-medium">
                                                     {etiquetaDePieza(r.pieza?.marca?.marca, r.pieza?.marca?.lote)}
                                                 </span>{' '}
-                                                <span className="font-mono text-xs">QS {r.pieza?.qs}</span>{' '}
+                                                <span className="font-mono text-xs">
+                                                    {etiquetaDeUnidad(r.pieza ?? {})}
+                                                </span>{' '}
                                                 <span className="text-base-content/60">
                                                     {r.pieza?.marca?.descripcion}
                                                 </span>

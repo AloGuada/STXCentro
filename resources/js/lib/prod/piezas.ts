@@ -14,6 +14,26 @@ export function etiquetaDePieza(
     return e === '' ? m : `${m} · ${e}`;
 }
 
+/**
+ * Cómo se nombra una unidad suelta. El QR es lo único que la identifica dentro
+ * del catálogo; el QS acompaña como dato de planta y desde el layout con lotes
+ * puede venir vacío, así que nunca se muestra solo.
+ */
+export function etiquetaDeUnidad(pieza: { qr?: string | null; qs?: string | null }): string {
+    const qr = (pieza.qr ?? '').trim();
+    const qs = (pieza.qs ?? '').trim();
+
+    if (qr !== '' && qs !== '') {
+        return `QR ${qr} · QS ${qs}`;
+    }
+
+    if (qr !== '') {
+        return `QR ${qr}`;
+    }
+
+    return qs === '' ? '—' : `QS ${qs}`;
+}
+
 /** Clave estable para agrupar o deduplicar piezas del mismo modelo. */
 export function clavePieza(
     marca: string | null | undefined,

@@ -4,7 +4,7 @@ import { formatDate } from '@/components/ui/formatted-date';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
 import { Select, SelectItem } from '@/components/ui/select';
-import { etiquetaDePieza } from '@/lib/prod/piezas';
+import { etiquetaDePieza, etiquetaDeUnidad } from '@/lib/prod/piezas';
 import type { Concepto, Obra, ProdDestajo, ProdGrupoTrabajo, ProdPieza, ProdProceso } from '@/types/models';
 import { useForm } from '@inertiajs/react';
 import { Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
@@ -18,7 +18,7 @@ type Props = {
     procesos: ProdProceso[];
     /** Qué procesos paga cada obra: obraId => ids de proceso. */
     procesosPorObra: Record<number, number[]>;
-    /** Avance por pieza y proceso, para saber cuánto le falta a cada QS. */
+    /** Avance por pieza y proceso, para saber cuánto le falta a cada QR. */
     avance: Record<number, Record<number, { capturado: number; disponible: number }>>;
     gruposTrabajo: ProdGrupoTrabajo[];
 };
@@ -198,7 +198,7 @@ export function CapturarProduccion({
                     </FormField>
 
                     <FormField
-                        label="Piezas (QS)"
+                        label="Piezas (QR)"
                         htmlFor="piezas"
                         error={registroForm.errors.piezas}
                         description={
@@ -225,22 +225,31 @@ export function CapturarProduccion({
                                                 className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm ${
                                                     bloqueada ? 'text-base-content/40' : 'hover:bg-base-200'
                                                 }`}
-                                                title={
+                                                title={[
+                                                    etiquetaDeUnidad(pieza),
                                                     bloqueada
                                                         ? falta <= 0
                                                             ? 'Ya está pagada al 100% en este proceso'
                                                             : `Sólo le falta ${(falta * 100).toFixed(0)}%`
-                                                        : undefined
-                                                }
+                                                        : null,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' · ')}
                                             >
                                                 <input
                                                     type="checkbox"
-                                                    className="checkbox checkbox-xs"
+                                                    className="checkbox checkbox-xs shrink-0"
                                                     checked={seleccionadas.includes(pieza.id)}
                                                     disabled={bloqueada}
                                                     onChange={() => alternarPieza(pieza.id)}
                                                 />
-                                                <span className="font-mono">{pieza.qs}</span>
+                                                {/* El QR identifica; el QS sólo acompaña y puede venir vacío. */}
+                                                <span className="truncate font-mono">{pieza.qr}</span>
+                                                {pieza.qs && (
+                                                    <span className="text-base-content/50 shrink-0 font-mono text-xs">
+                                                        QS {pieza.qs}
+                                                    </span>
+                                                )}
                                                 {procesoId > 0 && falta > 0 && falta < 1 && (
                                                     <span className="badge badge-xs badge-warning">
                                                         {(falta * 100).toFixed(0)}%
@@ -321,13 +330,16 @@ export function CapturarProduccion({
                     </FormField>
 
                     <p className="text-base-content/60 text-xs">
-                        Acepta el <strong>export de avance de planta</strong>: la pieza se resuelve por{' '}
-                        <span className="font-mono">QS</span> y el número de <span className="font-mono">Proceso</span>{' '}
-                        decide qué se paga (los eventos que no son de destajo se ignoran). Cada ubicación debe estar en
-                        el catálogo de módulos y pertenecer a un solo grupo. También acepta un CSV a mano con{' '}
-                        <span className="font-mono">Grupo, QS, Proceso</span> y opcionalmente{' '}
-                        <span className="font-mono">Porcentaje</span> (si no viene, se paga al 100%). Todos los
-                        renglones toman la fecha seleccionada.
+                        Acepta el <strong>export de avance de planta</strong>: el número de{' '}
+                        <span className="font-mono">Proceso</span> decide qué se paga (los eventos que no son de destajo
+                        se ignoran) y cada ubicación debe estar en el catálogo de módulos y pertenecer a un solo grupo.
+                        También acepta un CSV a mano con <span className="font-mono">Grupo, QS, Proceso</span> y
+                        opcionalmente <span className="font-mono">Porcentaje</span> (si no viene, se paga al 100%).
+                        Todos los renglones toman la fecha seleccionada.
+                        <br />
+                        La pieza se resuelve por <span className="font-mono">QR</span> si el archivo trae esa columna; si
+                        no, por <span className="font-mono">QS</span>, que desde los lotes puede repetirse y entonces el
+                        renglón se reporta como ambiguo.
                     </p>
 
                     <div className="flex justify-end">

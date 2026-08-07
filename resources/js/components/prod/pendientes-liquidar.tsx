@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
-import { etiquetaDePieza } from '@/lib/prod/piezas';
+import { etiquetaDePieza, etiquetaDeUnidad } from '@/lib/prod/piezas';
 import type { ProdDestajo, ProdGrupoTrabajo, ProdPendienteLiquidar } from '@/types/models';
 import { router } from '@inertiajs/react';
 import { ClockIcon } from 'lucide-react';
@@ -89,7 +89,7 @@ export function PendientesLiquidar({ destajo, pendientes, gruposTrabajo }: Props
                                     <td>
                                         <div className="font-medium">
                                             {etiquetaDePieza(p.marca, p.lote)}{' '}
-                                            <span className="font-mono text-xs">QS {p.qs}</span>
+                                            <span className="font-mono text-xs">{etiquetaDeUnidad(p)}</span>
                                         </div>
                                         <div className="text-base-content/50 text-xs">
                                             {p.obra ? `[${p.obra}] ` : ''}
