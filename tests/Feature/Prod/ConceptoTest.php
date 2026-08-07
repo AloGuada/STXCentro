@@ -379,6 +379,77 @@ describe('import del layout por QR', function () {
         expect(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(1);
     });
 
+    test('un layout con lote no duplica la marca que ya estaba sin lote', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        // Carga vieja: el layout no traía lote, así que la marca quedó sin él.
+        subirLayout($catalogo,
+            "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,1,29.751,1.397,3542\n",
+            'QR,MARCA,DESCRIPCION,CATEGORIA,QS,CANTIDAD,PESOKG,AREA,LONGITUDMM',
+        );
+
+        // Carga nueva del mismo material, ahora con LOTE.
+        subirLayout($catalogo,
+            "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,1,29.751,1.397,3542,1\n".
+            "QR-02,TG-BAR-1,OC-BAR,Barandales,1002,1,29.751,1.397,3542,1\n"
+        );
+
+        $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
+
+        expect($marca->lote)->toBe('1')
+            ->and($marca->cantidad)->toBe(2)
+            ->and($marca->piezas()->count())->toBe(2);
+    });
+
+    test('un layout sin lote actualiza la marca que ya vive en un lote', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo, "QR-01,TG-BAR-1,Original,Barandales,1001,1,10,1,1000,LOTE A\n");
+
+        subirLayout($catalogo,
+            "QR-01,TG-BAR-1,Actualizado,Barandales,1001,1,10,1,1000\n",
+            'QR,MARCA,DESCRIPCION,CATEGORIA,QS,CANTIDAD,PESOKG,AREA,LONGITUDMM',
+        );
+
+        $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
+
+        expect($marca->lote)->toBe('LOTE A')
+            ->and($marca->descripcion)->toBe('Actualizado')
+            ->and($marca->piezas()->count())->toBe(1);
+    });
+
+    test('con la marca en dos lotes ya no se adivina: entra como modelo nuevo', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo,
+            "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,1,10,1,1000,LOTE A\n".
+            "QR-02,TG-BAR-1,OC-BAR,Barandales,1002,1,10,1,1000,LOTE B\n"
+        );
+
+        subirLayout($catalogo,
+            "QR-03,TG-BAR-1,OC-BAR,Barandales,1003,1,10,1,1000\n",
+            'QR,MARCA,DESCRIPCION,CATEGORIA,QS,CANTIDAD,PESOKG,AREA,LONGITUDMM',
+        );
+
+        expect(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(3);
+    });
+
+    test('avisa cuando el encabezado trae dos columnas pegadas en una', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        // Exportación mal armada: CATEGORIA y QS quedaron en la misma celda, así
+        // que el archivo trae una columna menos y esos datos se pierden.
+        subirLayout($catalogo,
+            "QR-01,TG-BAR-1,OC-BAR,Barandales,1,29.751,1.397,3542,1\n",
+            'QR,MARCA,DESCRIPCION,CATEGORIA QS,CANTIDAD,PESO KG,AREA,LONGITUD MM,LOTE',
+        )->assertSessionHasErrors('csv_file');
+
+        $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
+
+        expect(session('errors')->first('csv_file'))->toContain('CATEGORIAQS')
+            ->and($marca->piezas()->sole()->qs)->toBeNull();
+    });
+
     test('el import exige archivo', function () {
         $catalogo = Catalogo::factory()->create();
 

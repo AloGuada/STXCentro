@@ -48,28 +48,29 @@ class ImportadorDeLayout
         $categorias = [];
         $marcasEscritas = 0;
         $piezasEscritas = 0;
+        $avisosDeEmpate = [];
 
-        DB::transaction(function () use ($catalogo, $filas, &$categorias, &$marcasEscritas, &$piezasEscritas): void {
+        DB::transaction(function () use ($catalogo, $filas, &$categorias, &$marcasEscritas, &$piezasEscritas, &$avisosDeEmpate): void {
             foreach ($filas as $modelo) {
                 $categoriaId = null;
                 if ($modelo['categoria'] !== '') {
                     $categoriaId = $categorias[$modelo['categoria']] ??= Categoria::firstOrCreate(['nombre' => $modelo['categoria']])->id;
                 }
 
-                $marca = Concepto::updateOrCreate(
-                    [
-                        'catalogo_id' => $catalogo->id,
-                        'marca' => $modelo['marca'],
-                        'lote' => $modelo['lote'],
-                    ],
-                    [
-                        'obra_id' => $catalogo->obra_id,
-                        'descripcion' => $modelo['descripcion'],
-                        'categoria_id' => $categoriaId,
-                        'peso_unitario' => $modelo['peso_unitario'],
-                        'longitud' => $modelo['longitud'],
-                    ],
-                );
+                $marca = $this->marcaDelCatalogo($catalogo, $modelo['marca'], $modelo['lote'], $avisosDeEmpate);
+
+                $marca->fill([
+                    'catalogo_id' => $catalogo->id,
+                    'marca' => $modelo['marca'],
+                    // Al reusar una marca vieja sin lote se le pone el del layout;
+                    // si el layout no trae lote, se respeta el que ya tenía.
+                    'lote' => $modelo['lote'] ?? $marca->lote,
+                    'obra_id' => $catalogo->obra_id,
+                    'descripcion' => $modelo['descripcion'],
+                    'categoria_id' => $categoriaId,
+                    'peso_unitario' => $modelo['peso_unitario'],
+                    'longitud' => $modelo['longitud'],
+                ])->save();
                 $marcasEscritas++;
 
                 foreach ($modelo['piezas'] as $pieza) {
@@ -90,8 +91,59 @@ class ImportadorDeLayout
         return [
             'marcas' => $marcasEscritas,
             'piezas' => $piezasEscritas,
-            'avisos' => [...$avisos, ...$this->avisosDeCantidad($filas)],
+            'avisos' => [...$avisos, ...$avisosDeEmpate, ...$this->avisosDeCantidad($filas)],
         ];
+    }
+
+    /**
+     * La marca del catálogo sobre la que se escribe el modelo del layout.
+     *
+     * La identidad es `(catálogo, marca, lote)`, pero emparejar sólo por ahí
+     * duplica las marcas cuando el catálogo se cargó antes con un layout que no
+     * traía lote: la misma marca entraría otra vez, la vieja se quedaría sin
+     * piezas y con su `cantidad` inflada, y en pantalla se ve dos veces. Así que
+     * cuando no hay coincidencia exacta y sólo hay una candidata evidente, se
+     * reusa esa fila en vez de crear una gemela.
+     *
+     * @param  list<string>  $avisos
+     */
+    private function marcaDelCatalogo(Catalogo $catalogo, string $marca, ?string $lote, array &$avisos): Concepto
+    {
+        $delCatalogo = fn () => Concepto::query()
+            ->where('catalogo_id', $catalogo->id)
+            ->where('marca', $marca);
+
+        $exacta = $delCatalogo()->where('lote', $lote)->first();
+
+        if ($exacta !== null) {
+            return $exacta;
+        }
+
+        // El layout trae lote y la marca ya existía sin él: es la misma, de una
+        // carga anterior. Se le asigna el lote en vez de duplicarla.
+        if ($lote !== null) {
+            $sinLote = $delCatalogo()->whereNull('lote')->get();
+
+            if ($sinLote->count() === 1) {
+                $avisos[] = "{$marca}: ya estaba en el catálogo sin lote; se le asignó el lote {$lote} en vez de duplicar la marca.";
+
+                return $sinLote->first();
+            }
+
+            return new Concepto;
+        }
+
+        // Al revés: el layout no distingue lotes y la marca vive en uno solo. Se
+        // reusa ese, que si no quedarían la marca con lote y su gemela sin él.
+        $unica = $delCatalogo()->get();
+
+        if ($unica->count() === 1) {
+            $avisos[] = "{$marca}: el layout no trae lote y la marca ya estaba en el lote {$unica->first()->lote}; se actualizó esa en vez de duplicarla.";
+
+            return $unica->first();
+        }
+
+        return new Concepto;
     }
 
     /**
@@ -114,7 +166,7 @@ class ImportadorDeLayout
         );
 
         $modelos = [];
-        $avisos = [];
+        $avisos = $this->avisosDeEncabezado($header);
         $qrVistos = [];
         $sinIdentificador = 0;
         $linea = 1;
@@ -214,6 +266,81 @@ class ImportadorDeLayout
         }
 
         return $avisos;
+    }
+
+    /**
+     * Columnas que el layout sabe leer, ya normalizadas.
+     *
+     * @var list<string>
+     */
+    private const COLUMNAS = [
+        'QR', 'MARCA', 'DESCRIPCION', 'DESCRIPCIÓN', 'CATEGORIA', 'QS',
+        'CANTIDAD', 'PESOKG', 'AREA', 'LONGITUDMM', 'LOTE', 'ETAPA',
+    ];
+
+    /**
+     * Avisa cuando el encabezado trae dos columnas pegadas en una sola celda
+     * (`CATEGORIA QS`). Pasa cuando el archivo se exporta mal: el renglón de
+     * datos también viene con una columna de menos, así que todo lo que sigue se
+     * lee corrido y esos datos entran vacíos sin que nadie lo note.
+     *
+     * @param  list<string>  $header
+     * @return list<string>
+     */
+    private function avisosDeEncabezado(array $header): array
+    {
+        $avisos = [];
+
+        foreach ($header as $columna) {
+            if ($columna === '' || in_array($columna, self::COLUMNAS, true)) {
+                continue;
+            }
+
+            $partes = $this->partirEnColumnas($columna);
+
+            if (count($partes) > 1) {
+                $avisos[] = sprintf(
+                    'El encabezado trae «%s» en una sola columna: son %s y el archivo viene con una columna de menos, así que no se cargaron. Vuelve a exportar el layout.',
+                    $columna,
+                    implode(' y ', $partes),
+                );
+            }
+        }
+
+        return $avisos;
+    }
+
+    /**
+     * Parte un encabezado en las columnas conocidas que lo forman, o devuelve
+     * una sola pieza si no se puede: `CATEGORIAQS` → `[CATEGORIA, QS]`.
+     *
+     * @return list<string>
+     */
+    private function partirEnColumnas(string $columna): array
+    {
+        foreach (self::COLUMNAS as $conocida) {
+            if (! str_starts_with($columna, $conocida)) {
+                continue;
+            }
+
+            $resto = substr($columna, strlen($conocida));
+
+            if ($resto === '') {
+                return [$conocida];
+            }
+
+            $partesDelResto = $this->partirEnColumnas($resto);
+
+            if ($partesDelResto !== [$resto]) {
+                return [$conocida, ...$partesDelResto];
+            }
+
+            if (in_array($resto, self::COLUMNAS, true)) {
+                return [$conocida, $resto];
+            }
+        }
+
+        return [$columna];
     }
 
     /**
