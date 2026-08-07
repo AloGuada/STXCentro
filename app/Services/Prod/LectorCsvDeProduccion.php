@@ -29,7 +29,7 @@ class LectorCsvDeProduccion
     public const FORMATO_SIMPLE = 'simple';
 
     /**
-     * @return array{formato: string, filas: list<array{referencia: string, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>}
+     * @return array{formato: string, filas: list<array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>}
      */
     public function leer(string $ruta): array
     {
@@ -61,15 +61,18 @@ class LectorCsvDeProduccion
     /**
      * @param  resource  $handle
      * @param  list<string>  $encabezado
-     * @return list<array{referencia: string, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>
+     * @return list<array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>
      */
     private function leerExport($handle, array $encabezado): array
     {
         $indices = array_flip($encabezado);
         $filas = [];
         $vistos = [];
+        $linea = 1;
 
         while (($row = $this->siguiente($handle)) !== false) {
+            $linea++;
+
             if (count($row) < count($encabezado)) {
                 continue;
             }
@@ -85,18 +88,27 @@ class LectorCsvDeProduccion
                 continue;
             }
 
-            // Una pieza es una pieza: si la misma viene dos veces en el mismo
-            // evento, es el mismo trabajo reportado dos veces, no el doble.
-            $clave = ($qr !== '' ? $qr : $qs).'|'.$evento;
+            // Con QR la pieza es única, así que verla dos veces en el mismo
+            // evento es el mismo trabajo reportado dos veces, no el doble.
+            //
+            // Sin QR no se puede afirmar eso: el QS se repite entre lotes, así
+            // que tres renglones iguales pueden ser tres piezas distintas del
+            // mismo modelo. Se dejan pasar y el tope decide cuántas caben.
+            if ($qr !== '') {
+                $clave = $qr.'|'.$evento;
 
-            if (isset($vistos[$clave])) {
-                continue;
+                if (isset($vistos[$clave])) {
+                    continue;
+                }
+
+                $vistos[$clave] = true;
             }
 
-            $vistos[$clave] = true;
-
             $filas[] = [
-                'referencia' => "\"{$ubicacion}\" / ".($qs !== '' ? "QS {$qs}" : "QR {$qr}"),
+                'referencia' => $qr !== ''
+                    ? "\"{$ubicacion}\" / QR {$qr}"
+                    : "\"{$ubicacion}\" / QS {$qs} (linea {$linea})",
+                'linea' => $linea,
                 'ubicacion' => $ubicacion,
                 'grupo' => null,
                 'qr' => $qr === '' ? null : $qr,
@@ -113,7 +125,7 @@ class LectorCsvDeProduccion
     /**
      * @param  resource  $handle
      * @param  list<string>  $encabezado
-     * @return list<array{referencia: string, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>
+     * @return list<array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>
      */
     private function leerSimple($handle, array $encabezado): array
     {
@@ -141,6 +153,7 @@ class LectorCsvDeProduccion
 
             $filas[] = [
                 'referencia' => "Linea {$linea}",
+                'linea' => $linea,
                 'ubicacion' => null,
                 'grupo' => $grupo,
                 'qr' => $qr === '' ? null : $qr,

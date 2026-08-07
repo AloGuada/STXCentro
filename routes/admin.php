@@ -209,6 +209,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Produccion y pagos extra dentro del destajo
         Route::post('destajos/{destajo}/registros', [ProdRegistroController::class, 'store'])->name('destajos.registros.store');
+        // El import va en dos pasos: analizar devuelve lo que pasaria y no toca
+        // la base; import-csv es el que escribe, ya con el usuario enterado.
+        Route::post('destajos/{destajo}/registros/analizar-csv', [ProdRegistroController::class, 'analizarCsv'])->name('destajos.registros.analizar-csv');
         Route::post('destajos/{destajo}/registros/import-csv', [ProdRegistroController::class, 'importCsv'])->name('destajos.registros.import-csv');
         Route::delete('destajos/{destajo}/registros/{registro}', [ProdRegistroController::class, 'destroy'])->name('destajos.registros.destroy');
         Route::post('destajos/{destajo}/pagos-extra', [ProdPagoExtraController::class, 'store'])->name('destajos.pagos-extra.store');

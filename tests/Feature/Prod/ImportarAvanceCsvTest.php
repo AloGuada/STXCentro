@@ -95,7 +95,10 @@ test('los eventos que no pagan destajo se ignoran sin ruido', function () {
     expect(Registro::count())->toBe(1);
 });
 
-test('el mismo QS repetido en el mismo evento se paga una sola vez', function () {
+// Ya no lo evita la deduplicacion del lector (sin QR dos renglones iguales
+// pueden ser dos piezas distintas): lo evita el tope, porque el catalogo solo
+// tiene una pieza con ese QS.
+test('el mismo QS repetido no paga de mas cuando el catalogo solo tiene una pieza', function () {
     grupoConUbicacion('M3.3 Fabricacion');
 
     $csv = encabezadoExport()
