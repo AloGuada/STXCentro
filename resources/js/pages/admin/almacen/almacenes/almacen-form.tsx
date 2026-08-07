@@ -5,7 +5,7 @@ import { Select, SelectItem } from '@/components/ui/select';
 import type { AlmAlmacen, AlmAlmacenTipo, Obra, Usuario } from '@/types/models';
 import { Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 
 export type OpcionTipo = { value: AlmAlmacenTipo; label: string };
 
@@ -18,10 +18,18 @@ type Props = {
 
 /**
  * Alta y edición comparten forma. Lo único que cambia el comportamiento del
- * almacén es la obra: sin ella el almacén es central.
+ * almacén es la obra: sin ella el almacén es central, o sea, está en la planta.
+ *
+ * Esa ausencia se declara con un checkbox y no dejando el select vacío: "no
+ * elegí obra" y "este almacén vive en la planta" son cosas distintas, y con la
+ * segunda escrita a mano nadie puede distinguir un central de un descuido.
  */
 export function AlmacenForm({ almacen, obras, usuarios, tipos }: Props) {
     const esEdicion = !!almacen;
+
+    // Al dar de alta se asume planta, que es donde están casi todos; al editar
+    // manda lo que el almacén ya era.
+    const [enPlanta, setEnPlanta] = useState(esEdicion ? almacen.obra_id == null : true);
 
     const { data, setData, post, put, processing, errors } = useForm({
         clave: almacen?.clave ?? '',
@@ -33,8 +41,21 @@ export function AlmacenForm({ almacen, obras, usuarios, tipos }: Props) {
         activo: almacen?.activo ?? true,
     });
 
+    const alternarPlanta = (marcado: boolean) => {
+        setEnPlanta(marcado);
+        setData('obra_id', '');
+    };
+
+    // Si no está en la planta tiene que decir en qué obra: guardarlo sin obra lo
+    // convertiría en central por la puerta de atrás.
+    const faltaObra = !enPlanta && data.obra_id === '';
+
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
+
+        if (faltaObra) {
+            return;
+        }
 
         if (esEdicion) {
             put(`/admin/almacen/almacenes/${almacen.id}`);
@@ -80,28 +101,51 @@ export function AlmacenForm({ almacen, obras, usuarios, tipos }: Props) {
                 </FormField>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <FormField
-                    label="Obra"
-                    htmlFor="obra_id"
-                    error={errors.obra_id}
-                    description="Déjala vacía si el almacén es central y surte a todas las obras."
-                >
-                    <Select
-                        id="obra_id"
-                        value={data.obra_id}
-                        onValueChange={(v) => setData('obra_id', v)}
-                        error={!!errors.obra_id}
-                    >
-                        <SelectItem value="">Central (sin obra)</SelectItem>
-                        {obras.map((o) => (
-                            <SelectItem key={o.id} value={String(o.id)}>
-                                {o.no} — {o.descripcion}
-                            </SelectItem>
-                        ))}
-                    </Select>
-                </FormField>
+            <div className="rounded-box border-base-300 border p-3">
+                <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                        type="checkbox"
+                        className="checkbox checkbox-sm mt-0.5"
+                        checked={enPlanta}
+                        onChange={(e) => alternarPlanta(e.target.checked)}
+                    />
+                    <span>
+                        <span className="font-medium">Está en la planta</span>
+                        <span className="text-base-content/60 block text-sm">
+                            Almacén central: no pertenece a ninguna obra y puede surtir a todas. La planta tiene
+                            varios, cada uno con su propia clave.
+                        </span>
+                    </span>
+                </label>
 
+                {!enPlanta && (
+                    <div className="mt-3">
+                        <FormField
+                            label="Obra"
+                            htmlFor="obra_id"
+                            error={errors.obra_id ?? (faltaObra ? 'Elige la obra donde está el almacén.' : undefined)}
+                            description="En qué obra vive este almacén."
+                            required
+                        >
+                            <Select
+                                id="obra_id"
+                                value={data.obra_id}
+                                onValueChange={(v) => setData('obra_id', v)}
+                                placeholder="Selecciona la obra"
+                                error={!!errors.obra_id || faltaObra}
+                            >
+                                {obras.map((o) => (
+                                    <SelectItem key={o.id} value={String(o.id)}>
+                                        {o.no} — {o.descripcion}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+                        </FormField>
+                    </div>
+                )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
                 <FormField label="Tipo" htmlFor="tipo" error={errors.tipo} required>
                     <Select
                         id="tipo"
@@ -116,28 +160,28 @@ export function AlmacenForm({ almacen, obras, usuarios, tipos }: Props) {
                         ))}
                     </Select>
                 </FormField>
-            </div>
 
-            <FormField
-                label="Responsable"
+                <FormField
+                    label="Responsable"
                 htmlFor="responsable_id"
                 error={errors.responsable_id}
-                description="Informativo: no limita quién puede ver o mover este almacén."
-            >
-                <Select
-                    id="responsable_id"
-                    value={data.responsable_id}
-                    onValueChange={(v) => setData('responsable_id', v)}
-                    error={!!errors.responsable_id}
+                    description="Informativo: no limita quién puede ver o mover este almacén."
                 >
-                    <SelectItem value="">Sin asignar</SelectItem>
-                    {usuarios.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>
-                            {u.name}
-                        </SelectItem>
-                    ))}
-                </Select>
-            </FormField>
+                    <Select
+                        id="responsable_id"
+                        value={data.responsable_id}
+                        onValueChange={(v) => setData('responsable_id', v)}
+                        error={!!errors.responsable_id}
+                    >
+                        <SelectItem value="">Sin asignar</SelectItem>
+                        {usuarios.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                                {u.name}
+                            </SelectItem>
+                        ))}
+                    </Select>
+                </FormField>
+            </div>
 
             <FormField label="Observaciones" htmlFor="observaciones" error={errors.observaciones}>
                 <textarea
@@ -164,7 +208,7 @@ export function AlmacenForm({ almacen, obras, usuarios, tipos }: Props) {
                 <Button variant="outline" asChild>
                     <Link href="/admin/almacen/almacenes">Cancelar</Link>
                 </Button>
-                <Button type="submit" disabled={processing}>
+                <Button type="submit" disabled={processing || faltaObra}>
                     {processing && <Loader2Icon className="size-4 animate-spin" />}
                     Guardar
                 </Button>
