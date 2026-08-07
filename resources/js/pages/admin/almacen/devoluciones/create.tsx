@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ALMACENES_DEMO, disponibleDemo } from '@/lib/alm/demo';
+import { ALMACENES_DEMO } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmPartidaBorrador } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
@@ -13,8 +13,8 @@ import { useState } from 'react';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Almacén', href: '/admin/almacen/existencias' },
-    { title: 'Salidas', href: '/admin/almacen/salidas' },
-    { title: 'Nueva', href: '/admin/almacen/salidas/create' },
+    { title: 'Devoluciones', href: '/admin/almacen/devoluciones' },
+    { title: 'Nueva', href: '/admin/almacen/devoluciones/create' },
 ];
 
 const OBRAS_DEMO = [
@@ -22,25 +22,24 @@ const OBRAS_DEMO = [
     { id: 2, etiqueta: 'MBP — Museo Bellas Artes' },
 ];
 
-export default function SalidaCreate() {
+export default function DevolucionCreate() {
     const [almacenId, setAlmacenId] = useState('');
     const [obra, setObra] = useState('');
-    const [recibe, setRecibe] = useState('');
+    const [devolvio, setDevolvio] = useState('');
     const [fecha, setFecha] = useState('');
     const [motivo, setMotivo] = useState('');
     const [partidas, setPartidas] = useState<AlmPartidaBorrador[]>([{ ...PARTIDA_VACIA }]);
 
-    const claveAlmacen = ALMACENES_DEMO.find((a) => String(a.id) === almacenId)?.clave;
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Nueva salida" />
+            <Head title="Nueva devolución" />
 
             <div className="p-6">
                 <div className="mb-6">
-                    <h1 className="text-2xl font-semibold">Nueva salida</h1>
+                    <h1 className="text-2xl font-semibold">Nueva devolución</h1>
                     <p className="text-base-content/60 mt-1 text-sm">
-                        Elige primero el almacén: de ahí sale la existencia con la que se validan las cantidades.
+                        Material que vuelve de la obra. Suma a la existencia del almacén que lo recibe, igual que una
+                        entrada, pero el kardex lo distingue para poder medir cuánto se pidió de más.
                     </p>
                 </div>
 
@@ -51,12 +50,12 @@ export default function SalidaCreate() {
                 <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
                     <div className="rounded-box border-base-300 border p-4">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField label="Almacén" htmlFor="almacen" required>
+                            <FormField label="Almacén que recibe" htmlFor="almacen" required>
                                 <Select
                                     id="almacen"
                                     value={almacenId}
                                     onValueChange={setAlmacenId}
-                                    placeholder="¿De dónde sale?"
+                                    placeholder="¿A dónde regresa?"
                                 >
                                     {ALMACENES_DEMO.map((a) => (
                                         <SelectItem key={a.id} value={String(a.id)}>
@@ -67,12 +66,8 @@ export default function SalidaCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField
-                                label="Obra destino"
-                                htmlFor="obra"
-                                description="Déjala vacía si es consumo del propio almacén."
-                            >
-                                <Select id="obra" value={obra} onValueChange={setObra} placeholder="Consumo interno">
+                            <FormField label="Obra de origen" htmlFor="obra" required>
+                                <Select id="obra" value={obra} onValueChange={setObra} placeholder="¿De dónde viene?">
                                     {OBRAS_DEMO.map((o) => (
                                         <SelectItem key={o.id} value={String(o.id)}>
                                             {o.etiqueta}
@@ -91,15 +86,15 @@ export default function SalidaCreate() {
                             </FormField>
 
                             <FormField
-                                label="Recibe"
-                                htmlFor="recibe"
-                                description="Nombre de quien se lleva el material; es el que firma el vale impreso."
+                                label="Devolvió"
+                                htmlFor="devolvio"
+                                description="Quién trae el material de vuelta."
                                 required
                             >
                                 <Input
-                                    id="recibe"
-                                    value={recibe}
-                                    onChange={(e) => setRecibe(e.target.value)}
+                                    id="devolvio"
+                                    value={devolvio}
+                                    onChange={(e) => setDevolvio(e.target.value)}
                                     placeholder="Cuadrilla 3, A. Pérez..."
                                 />
                             </FormField>
@@ -109,7 +104,7 @@ export default function SalidaCreate() {
                                     id="motivo"
                                     value={motivo}
                                     onChange={(e) => setMotivo(e.target.value)}
-                                    placeholder="Montaje eje 4, sellado de fachada..."
+                                    placeholder="Sobrante de montaje, material equivocado..."
                                 />
                             </FormField>
                         </div>
@@ -117,26 +112,15 @@ export default function SalidaCreate() {
 
                     <div>
                         <h2 className="mb-3 text-lg font-semibold">Partidas</h2>
-                        {!claveAlmacen && (
-                            <p className="text-base-content/60 mb-2 text-sm">
-                                Elige el almacén para ver la existencia disponible de cada producto.
-                            </p>
-                        )}
-                        <CapturadorPartidas
-                            partidas={partidas}
-                            onChange={setPartidas}
-                            disponibleDe={
-                                claveAlmacen ? (codigo) => disponibleDemo(claveAlmacen, codigo) : undefined
-                            }
-                        />
+                        <CapturadorPartidas partidas={partidas} onChange={setPartidas} />
                     </div>
 
                     <div className="flex justify-end gap-2">
                         <Button variant="outline" asChild>
-                            <Link href="/admin/almacen/salidas">Cancelar</Link>
+                            <Link href="/admin/almacen/devoluciones">Cancelar</Link>
                         </Button>
                         <Button type="submit" disabled>
-                            Guardar salida
+                            Guardar devolución
                         </Button>
                     </div>
                 </form>

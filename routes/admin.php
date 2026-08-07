@@ -240,6 +240,15 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             Route::get('salidas/create', [AlmVistasController::class, 'salidaCreate'])->name('salidas.create');
             Route::get('transferencias', [AlmVistasController::class, 'transferencias'])->name('transferencias.index');
             Route::get('transferencias/create', [AlmVistasController::class, 'transferenciaCreate'])->name('transferencias.create');
+            Route::get('devoluciones', [AlmVistasController::class, 'devoluciones'])->name('devoluciones.index');
+            Route::get('devoluciones/create', [AlmVistasController::class, 'devolucionCreate'])->name('devoluciones.create');
+            Route::get('ajustes', [AlmVistasController::class, 'ajustes'])->name('ajustes.index');
+            Route::get('ajustes/create', [AlmVistasController::class, 'ajusteCreate'])->name('ajustes.create');
+            Route::get('requisiciones', [AlmVistasController::class, 'requisiciones'])->name('requisiciones.index');
+            Route::get('requisiciones/create', [AlmVistasController::class, 'requisicionCreate'])->name('requisiciones.create');
+            Route::get('insumos', [AlmVistasController::class, 'insumos'])->name('insumos.index');
+            Route::get('insumos/create', [AlmVistasController::class, 'insumoCreate'])->name('insumos.create');
+            Route::get('aprobaciones', [AlmVistasController::class, 'aprobaciones'])->name('aprobaciones.index');
         });
     });
 

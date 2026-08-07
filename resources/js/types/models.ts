@@ -3360,6 +3360,92 @@ export type AlmTransferenciaDemo = {
     autorizo: string;
 };
 
+/** Por qué se corrigió la existencia. Es lo que justifica el movimiento. */
+export type AlmAjusteMotivo = 'conteo_fisico' | 'merma' | 'error_captura' | 'otro';
+
+export type AlmAjusteDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    almacen: string;
+    motivo: AlmAjusteMotivo;
+    renglones: number;
+    /** Suma de las diferencias con signo: cuánto se movió el inventario. */
+    diferencia_neta: number;
+    autorizo: string;
+};
+
+/**
+ * Material que regresa de una obra al almacén. No confundir con
+ * `costos_devoluciones`, que es devolución a proveedor.
+ */
+export type AlmDevolucionDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    almacen: string;
+    obra_origen: string;
+    devolvio: string;
+    renglones: number;
+    motivo: string;
+};
+
+/**
+ * Qué es el producto para almacén. `consumible` se gasta y sólo se cuenta;
+ * `herramienta` y `activo` son bienes que se prestan y se devuelven, y en la
+ * fase 3 ganan identidad individual (serie, foto, resguardo).
+ */
+export type AlmProductoTipo = 'consumible' | 'herramienta' | 'activo';
+
+export type AlmInsumoDemo = {
+    id: number;
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+    tipo: AlmProductoTipo;
+    /** Un servicio o un gasto se compra pero no se almacena: no lleva kardex. */
+    controla_inventario: boolean;
+    stock_minimo: number | null;
+    existencia_total: number;
+};
+
+/** Los documentos de almacén que pueden pedir firma. */
+export type AlmDocumentoTipo =
+    | 'requisicion'
+    | 'entrada'
+    | 'salida'
+    | 'transferencia'
+    | 'devolucion'
+    | 'ajuste';
+
+export type AlmUsuarioDemo = {
+    id: number;
+    nombre: string;
+    puesto: string;
+};
+
+/** Quién puede firmar un tipo de documento en un almacén. */
+export type AlmReglaAprobacion = {
+    documento: AlmDocumentoTipo;
+    requiere: boolean;
+    /** Basta con que firme uno de ellos. */
+    usuarios: number[];
+};
+
+export type AlmRequisicionEstatus = 'borrador' | 'pendiente' | 'aprobada' | 'surtida' | 'rechazada';
+
+export type AlmRequisicionDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    solicitante: string;
+    obra: string;
+    almacen: string;
+    fecha_requerida: string;
+    renglones: number;
+    estatus: AlmRequisicionEstatus;
+};
+
 /** Un renglón del capturador de partidas, compartido por los tres documentos. */
 export type AlmPartidaBorrador = {
     producto_id: string;

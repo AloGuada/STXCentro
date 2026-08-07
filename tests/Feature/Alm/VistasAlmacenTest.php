@@ -23,6 +23,15 @@ $pantallas = [
     'alta de salida' => ['admin.alm.salidas.create', 'admin/almacen/salidas/create'],
     'transferencias' => ['admin.alm.transferencias.index', 'admin/almacen/transferencias/index'],
     'alta de transferencia' => ['admin.alm.transferencias.create', 'admin/almacen/transferencias/create'],
+    'devoluciones' => ['admin.alm.devoluciones.index', 'admin/almacen/devoluciones/index'],
+    'alta de devolucion' => ['admin.alm.devoluciones.create', 'admin/almacen/devoluciones/create'],
+    'ajustes' => ['admin.alm.ajustes.index', 'admin/almacen/ajustes/index'],
+    'alta de ajuste' => ['admin.alm.ajustes.create', 'admin/almacen/ajustes/create'],
+    'requisiciones' => ['admin.alm.requisiciones.index', 'admin/almacen/requisiciones/index'],
+    'alta de requisicion' => ['admin.alm.requisiciones.create', 'admin/almacen/requisiciones/create'],
+    'insumos' => ['admin.alm.insumos.index', 'admin/almacen/insumos/index'],
+    'alta de insumo' => ['admin.alm.insumos.create', 'admin/almacen/insumos/create'],
+    'aprobaciones' => ['admin.alm.aprobaciones.index', 'admin/almacen/aprobaciones/index'],
 ];
 
 test('la pantalla abre con el permiso', function (string $ruta, string $componente) {

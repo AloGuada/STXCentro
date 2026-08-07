@@ -13,8 +13,8 @@ import { useState } from 'react';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Almacén', href: '/admin/almacen/existencias' },
-    { title: 'Salidas', href: '/admin/almacen/salidas' },
-    { title: 'Nueva', href: '/admin/almacen/salidas/create' },
+    { title: 'Requisiciones', href: '/admin/almacen/requisiciones' },
+    { title: 'Nueva', href: '/admin/almacen/requisiciones/create' },
 ];
 
 const OBRAS_DEMO = [
@@ -22,11 +22,10 @@ const OBRAS_DEMO = [
     { id: 2, etiqueta: 'MBP — Museo Bellas Artes' },
 ];
 
-export default function SalidaCreate() {
+export default function RequisicionCreate() {
     const [almacenId, setAlmacenId] = useState('');
     const [obra, setObra] = useState('');
-    const [recibe, setRecibe] = useState('');
-    const [fecha, setFecha] = useState('');
+    const [fechaRequerida, setFechaRequerida] = useState('');
     const [motivo, setMotivo] = useState('');
     const [partidas, setPartidas] = useState<AlmPartidaBorrador[]>([{ ...PARTIDA_VACIA }]);
 
@@ -34,13 +33,14 @@ export default function SalidaCreate() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Nueva salida" />
+            <Head title="Nueva requisición" />
 
             <div className="p-6">
                 <div className="mb-6">
-                    <h1 className="text-2xl font-semibold">Nueva salida</h1>
+                    <h1 className="text-2xl font-semibold">Nueva requisición</h1>
                     <p className="text-base-content/60 mt-1 text-sm">
-                        Elige primero el almacén: de ahí sale la existencia con la que se validan las cantidades.
+                        Pide material a un almacén. Se puede pedir más de lo que hay: el almacén decide si surte
+                        parcial o si hay que comprar.
                     </p>
                 </div>
 
@@ -51,12 +51,12 @@ export default function SalidaCreate() {
                 <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
                     <div className="rounded-box border-base-300 border p-4">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField label="Almacén" htmlFor="almacen" required>
+                            <FormField label="Le pide a" htmlFor="almacen" required>
                                 <Select
                                     id="almacen"
                                     value={almacenId}
                                     onValueChange={setAlmacenId}
-                                    placeholder="¿De dónde sale?"
+                                    placeholder="¿Qué almacén surte?"
                                 >
                                     {ALMACENES_DEMO.map((a) => (
                                         <SelectItem key={a.id} value={String(a.id)}>
@@ -67,12 +67,8 @@ export default function SalidaCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField
-                                label="Obra destino"
-                                htmlFor="obra"
-                                description="Déjala vacía si es consumo del propio almacén."
-                            >
-                                <Select id="obra" value={obra} onValueChange={setObra} placeholder="Consumo interno">
+                            <FormField label="Obra que lo pide" htmlFor="obra" required>
+                                <Select id="obra" value={obra} onValueChange={setObra} placeholder="¿Para dónde es?">
                                     {OBRAS_DEMO.map((o) => (
                                         <SelectItem key={o.id} value={String(o.id)}>
                                             {o.etiqueta}
@@ -81,35 +77,26 @@ export default function SalidaCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Fecha" htmlFor="fecha" required>
-                                <Input
-                                    id="fecha"
-                                    type="date"
-                                    value={fecha}
-                                    onChange={(e) => setFecha(e.target.value)}
-                                />
-                            </FormField>
-
                             <FormField
-                                label="Recibe"
-                                htmlFor="recibe"
-                                description="Nombre de quien se lleva el material; es el que firma el vale impreso."
+                                label="Requerido para"
+                                htmlFor="fecha_requerida"
+                                description="Cuándo se necesita en obra."
                                 required
                             >
                                 <Input
-                                    id="recibe"
-                                    value={recibe}
-                                    onChange={(e) => setRecibe(e.target.value)}
-                                    placeholder="Cuadrilla 3, A. Pérez..."
+                                    id="fecha_requerida"
+                                    type="date"
+                                    value={fechaRequerida}
+                                    onChange={(e) => setFechaRequerida(e.target.value)}
                                 />
                             </FormField>
 
-                            <FormField label="Motivo" htmlFor="motivo" className="md:col-span-2" required>
+                            <FormField label="Motivo" htmlFor="motivo" className="md:col-span-3" required>
                                 <Input
                                     id="motivo"
                                     value={motivo}
                                     onChange={(e) => setMotivo(e.target.value)}
-                                    placeholder="Montaje eje 4, sellado de fachada..."
+                                    placeholder="Montaje eje 4, sellado de fachada norte..."
                                 />
                             </FormField>
                         </div>
@@ -119,24 +106,26 @@ export default function SalidaCreate() {
                         <h2 className="mb-3 text-lg font-semibold">Partidas</h2>
                         {!claveAlmacen && (
                             <p className="text-base-content/60 mb-2 text-sm">
-                                Elige el almacén para ver la existencia disponible de cada producto.
+                                Elige el almacén para ver qué tiene disponible de cada producto.
                             </p>
                         )}
                         <CapturadorPartidas
                             partidas={partidas}
                             onChange={setPartidas}
-                            disponibleDe={
-                                claveAlmacen ? (codigo) => disponibleDemo(claveAlmacen, codigo) : undefined
-                            }
+                            disponibleDe={claveAlmacen ? (codigo) => disponibleDemo(claveAlmacen, codigo) : undefined}
+                            avisarFaltante={false}
                         />
                     </div>
 
                     <div className="flex justify-end gap-2">
                         <Button variant="outline" asChild>
-                            <Link href="/admin/almacen/salidas">Cancelar</Link>
+                            <Link href="/admin/almacen/requisiciones">Cancelar</Link>
+                        </Button>
+                        <Button variant="outline" type="submit" disabled>
+                            Guardar borrador
                         </Button>
                         <Button type="submit" disabled>
-                            Guardar salida
+                            Enviar a aprobación
                         </Button>
                     </div>
                 </form>

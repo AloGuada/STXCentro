@@ -11,6 +11,18 @@ type Props = {
     conCosto?: boolean;
     /** Existencia del producto en el almacén elegido, para avisar de faltantes. */
     disponibleDe?: (codigoProducto: string) => number | null;
+    /**
+     * `cantidad` captura cuánto entra o sale. `conteo` es para el ajuste: se
+     * captura lo que se contó y el sistema calcula la diferencia contra el
+     * saldo, que es justo lo que va al kardex.
+     */
+    modo?: 'cantidad' | 'conteo';
+    /**
+     * Pedir de más sólo es un error cuando el material va a salir de verdad. La
+     * requisición sí puede pedir más de lo que hay: el almacén decide si surte
+     * parcial o si hay que comprar.
+     */
+    avisarFaltante?: boolean;
 };
 
 export const PARTIDA_VACIA: AlmPartidaBorrador = {
@@ -27,7 +39,15 @@ const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', cur
  * Los tres documentos capturan lo mismo —qué producto y cuánto— y sólo cambian
  * en si llevan costo y en si hay que cuidar la existencia.
  */
-export function CapturadorPartidas({ partidas, onChange, conCosto = false, disponibleDe }: Props) {
+export function CapturadorPartidas({
+    partidas,
+    onChange,
+    conCosto = false,
+    disponibleDe,
+    modo = 'cantidad',
+    avisarFaltante = true,
+}: Props) {
+    const esConteo = modo === 'conteo';
     const editar = (indice: number, cambio: Partial<AlmPartidaBorrador>) =>
         onChange(partidas.map((p, i) => (i === indice ? { ...p, ...cambio } : p)));
 
@@ -41,6 +61,10 @@ export function CapturadorPartidas({ partidas, onChange, conCosto = false, dispo
 
     const total = partidas.reduce((suma, p) => suma + importeDe(p), 0);
 
+    const columnas = 5 + (conCosto ? 2 : 0) + (esConteo ? 2 : 0);
+
+    const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
+
     return (
         <div className="space-y-3">
             <div className="rounded-box border-base-300 overflow-x-auto border">
@@ -49,7 +73,9 @@ export function CapturadorPartidas({ partidas, onChange, conCosto = false, dispo
                         <tr>
                             <th className="w-[45%]">Producto</th>
                             <th>Unidad</th>
-                            <th className="text-right">Cantidad</th>
+                            {esConteo && <th className="text-right">Sistema</th>}
+                            <th className="text-right">{esConteo ? 'Contado' : 'Cantidad'}</th>
+                            {esConteo && <th className="text-right">Diferencia</th>}
                             {conCosto && <th className="text-right">Costo unitario</th>}
                             {conCosto && <th className="text-right">Importe</th>}
                             <th>Observaciones</th>
@@ -59,7 +85,7 @@ export function CapturadorPartidas({ partidas, onChange, conCosto = false, dispo
                     <tbody>
                         {partidas.length === 0 ? (
                             <tr>
-                                <td colSpan={conCosto ? 7 : 5} className="text-base-content/50 py-6 text-center">
+                                <td colSpan={columnas} className="text-base-content/50 py-6 text-center">
                                     Sin renglones. Agrega el primero para capturar el documento.
                                 </td>
                             </tr>
@@ -67,10 +93,18 @@ export function CapturadorPartidas({ partidas, onChange, conCosto = false, dispo
                             partidas.map((partida, i) => {
                                 const producto = productoDe(partida.producto_id);
                                 const disponible = producto && disponibleDe ? disponibleDe(producto.codigo) : null;
+                                // Contar menos de lo que dice el sistema no es un
+                                // error: es justo el faltante que el ajuste corrige.
                                 const falta =
+                                    !esConteo &&
+                                    avisarFaltante &&
                                     disponible !== null &&
                                     disponible !== undefined &&
                                     Number(partida.cantidad || 0) > disponible;
+                                const diferencia =
+                                    disponible === null || disponible === undefined || partida.cantidad === ''
+                                        ? null
+                                        : Number(partida.cantidad) - disponible;
 
                                 return (
                                     <tr key={i} className="hover">
@@ -87,7 +121,7 @@ export function CapturadorPartidas({ partidas, onChange, conCosto = false, dispo
                                                     </SelectItem>
                                                 ))}
                                             </Select>
-                                            {disponible !== null && disponible !== undefined && (
+                                            {!esConteo && disponible !== null && disponible !== undefined && (
                                                 <p
                                                     className={`mt-1 text-xs ${falta ? 'text-error' : 'text-base-content/60'}`}
                                                 >
@@ -99,6 +133,13 @@ export function CapturadorPartidas({ partidas, onChange, conCosto = false, dispo
                                         <td className="text-base-content/60 font-mono text-xs">
                                             {producto?.unidad ?? '—'}
                                         </td>
+                                        {esConteo && (
+                                            <td className="text-base-content/60 text-right font-mono">
+                                                {disponible === null || disponible === undefined
+                                                    ? '—'
+                                                    : numero(disponible)}
+                                            </td>
+                                        )}
                                         <td>
                                             <Input
                                                 type="number"
@@ -111,6 +152,26 @@ export function CapturadorPartidas({ partidas, onChange, conCosto = false, dispo
                                                 placeholder="0"
                                             />
                                         </td>
+                                        {esConteo && (
+                                            <td className="text-right font-mono">
+                                                {diferencia === null ? (
+                                                    <span className="text-base-content/40">—</span>
+                                                ) : (
+                                                    <span
+                                                        className={
+                                                            diferencia < 0
+                                                                ? 'text-error font-semibold'
+                                                                : diferencia > 0
+                                                                  ? 'text-success font-semibold'
+                                                                  : 'text-base-content/40'
+                                                        }
+                                                    >
+                                                        {diferencia > 0 ? '+' : ''}
+                                                        {numero(diferencia)}
+                                                    </span>
+                                                )}
+                                            </td>
+                                        )}
                                         {conCosto && (
                                             <td>
                                                 <Input

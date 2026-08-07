@@ -54,4 +54,49 @@ class VistasController extends Controller
     {
         return Inertia::render('admin/almacen/transferencias/create');
     }
+
+    public function devoluciones(): Response
+    {
+        return Inertia::render('admin/almacen/devoluciones/index');
+    }
+
+    public function devolucionCreate(): Response
+    {
+        return Inertia::render('admin/almacen/devoluciones/create');
+    }
+
+    public function ajustes(): Response
+    {
+        return Inertia::render('admin/almacen/ajustes/index');
+    }
+
+    public function ajusteCreate(): Response
+    {
+        return Inertia::render('admin/almacen/ajustes/create');
+    }
+
+    public function requisiciones(): Response
+    {
+        return Inertia::render('admin/almacen/requisiciones/index');
+    }
+
+    public function requisicionCreate(): Response
+    {
+        return Inertia::render('admin/almacen/requisiciones/create');
+    }
+
+    public function insumos(): Response
+    {
+        return Inertia::render('admin/almacen/insumos/index');
+    }
+
+    public function insumoCreate(): Response
+    {
+        return Inertia::render('admin/almacen/insumos/create');
+    }
+
+    public function aprobaciones(): Response
+    {
+        return Inertia::render('admin/almacen/aprobaciones/index');
+    }
 }

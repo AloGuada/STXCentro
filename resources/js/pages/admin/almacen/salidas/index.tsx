@@ -21,13 +21,13 @@ export default function SalidasIndex() {
                     <div>
                         <h1 className="text-2xl font-semibold">Salidas</h1>
                         <p className="text-base-content/60 mt-1 text-sm">
-                            El vale con el que el material deja el almacén: quién lo pidió, a qué obra va y quién lo
-                            recibió.
+                            El material deja el almacén: quién lo pidió, a qué obra va y quién lo recibió. De cada una
+                            se imprime el vale que firma quien se lo lleva.
                         </p>
                     </div>
                     <ButtonLink href="/admin/almacen/salidas/create" variant="primary">
                         <PlusIcon className="size-4" />
-                        Nuevo vale
+                        Nueva salida
                     </ButtonLink>
                 </div>
 
