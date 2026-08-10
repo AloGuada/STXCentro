@@ -168,6 +168,10 @@
                 $codFac = $monFac === 'mxn' ? '' : ' '.strtoupper($monFac);
                 $totalPagar = $factura ? (float) $factura->total : $total;
                 $monPagar = $factura ? $monFac : ($moneda ?? 'mxn');
+                // `iva` guarda sólo el trasladado y `total` ya viene neto de
+                // retenciones: sin desglosarlas, el bloque no cuadra.
+                $ivaRetenido = (float) ($factura->iva_retenido ?? 0);
+                $isrRetenido = (float) ($factura->isr_retenido ?? 0);
             @endphp
             <tr class="total-row">
                 <td colspan="4" class="text-right">SUBTOTAL (RECIBIDO)</td>
@@ -175,8 +179,20 @@
             </tr>
             @if($factura)
             <tr class="total-row">
-                <td colspan="4" class="text-right">IVA / IMPUESTOS</td>
+                <td colspan="4" class="text-right">IVA TRASLADADO</td>
                 <td class="text-right">${{ number_format((float) $factura->iva, 2) }}{{ $codFac }}</td>
+            </tr>
+            @endif
+            @if($ivaRetenido > 0)
+            <tr class="total-row">
+                <td colspan="4" class="text-right">IVA RETENIDO</td>
+                <td class="text-right">-${{ number_format($ivaRetenido, 2) }}{{ $codFac }}</td>
+            </tr>
+            @endif
+            @if($isrRetenido > 0)
+            <tr class="total-row">
+                <td colspan="4" class="text-right">ISR RETENIDO</td>
+                <td class="text-right">-${{ number_format($isrRetenido, 2) }}{{ $codFac }}</td>
             </tr>
             @endif
             <tr class="total-row pago-row">

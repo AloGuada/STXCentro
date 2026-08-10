@@ -567,7 +567,9 @@ class EntregaController extends Controller
         $entrega->load([
             'ordenCompra.proveedor',
             'ordenCompra.obra',
-            'factura:id,folio,folio_fiscal,uuid_fiscal,subtotal,iva,total,moneda',
+            // Las retenciones se desglosan en el bloque de totales: sin ellas
+            // subtotal + IVA no cuadra contra el total del CFDI.
+            'factura:id,folio,folio_fiscal,uuid_fiscal,subtotal,iva,iva_retenido,isr_retenido,total,moneda',
             'recibidor:id,name',
             'detalles.ordenCompraDetalle',
         ]);
