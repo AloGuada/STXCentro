@@ -20,6 +20,26 @@ class Proyecto extends Model
 
     protected $table = 'proyectos';
 
+    /**
+     * Cerrar el proyecto cierra su ICSOE: el badge del sidebar solo filtra por
+     * su propia tabla, así que un proyecto cerrado seguiría pidiendo
+     * verificación para siempre.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (self $proyecto) {
+            if (! $proyecto->wasChanged('estatus')) {
+                return;
+            }
+
+            $icsoe = app(\App\Services\Cob\IcsoeService::class);
+
+            $proyecto->estatus === 'cerrada'
+                ? $icsoe->cerrarPorProyecto($proyecto->id)
+                : $icsoe->reabrirPorProyecto($proyecto->id);
+        });
+    }
+
     /** @var list<string> */
     protected $fillable = [
         'no',
@@ -108,5 +128,11 @@ class Proyecto extends Model
     public function comparativos(): HasMany
     {
         return $this->hasMany(\App\Models\Cob\Comparativo::class, 'proyecto_id');
+    }
+
+    /** Seguimiento ICSOE ante el IMSS (uno por proyecto). */
+    public function icsoe(): HasOne
+    {
+        return $this->hasOne(\App\Models\Cob\IcsoeSeguimiento::class, 'proyecto_id');
     }
 }

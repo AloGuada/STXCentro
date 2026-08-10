@@ -40,6 +40,7 @@ import {
     Receipt,
     Settings,
     Shield,
+    ShieldAlert,
     ShoppingCart,
     Tag,
     Ticket,
@@ -488,6 +489,18 @@ const navGroups: NavGroup[] = [
                 href: '/admin/cob/tipos-retenciones',
                 icon: Layers,
                 permission: 'cob.tipos-retenciones.ver',
+            },
+            {
+                title: 'ICSOE / SIROC',
+                href: '/admin/cob/icsoe',
+                icon: ShieldAlert,
+                permission: 'cob.icsoe.ver',
+            },
+            {
+                title: 'SBC por año',
+                href: '/admin/cob/icsoe-sbc',
+                icon: Calculator,
+                permission: 'cob.icsoe-sbc.ver',
             },
             {
                 title: 'Secciones Doc.',

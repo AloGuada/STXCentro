@@ -14,6 +14,9 @@ use App\Http\Controllers\Admin\Cob\DocumentoSeccionController as CobDocumentoSec
 use App\Http\Controllers\Admin\Cob\EstimacionController as CobEstimacionController;
 use App\Http\Controllers\Admin\Cob\EstimacionPagoController as CobEstimacionPagoController;
 use App\Http\Controllers\Admin\Cob\EventoController as CobEventoController;
+use App\Http\Controllers\Admin\Cob\IcsoeController as CobIcsoeController;
+use App\Http\Controllers\Admin\Cob\IcsoeMesController as CobIcsoeMesController;
+use App\Http\Controllers\Admin\Cob\IcsoeSbcAnioController as CobIcsoeSbcAnioController;
 use App\Http\Controllers\Admin\Cob\ObraCobranzaController as CobObraCobranzaController;
 use App\Http\Controllers\Admin\Cob\PartidaController as CobPartidaController;
 use App\Http\Controllers\Admin\Cob\PenalizacionController as CobPenalizacionController;
@@ -613,6 +616,22 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('obras/{obra}/penalizaciones/{penalizacion}/edit', [CobPenalizacionController::class, 'edit'])->name('obras.penalizaciones.edit');
         Route::put('obras/{obra}/penalizaciones/{penalizacion}', [CobPenalizacionController::class, 'update'])->name('obras.penalizaciones.update');
         Route::delete('obras/{obra}/penalizaciones/{penalizacion}', [CobPenalizacionController::class, 'destroy'])->name('obras.penalizaciones.destroy');
+
+        // ICSOE / SIROC (IMSS): un seguimiento por proyecto
+        Route::get('icsoe', [CobIcsoeController::class, 'index'])->name('icsoe.index');
+        Route::post('proyectos/{proyecto}/icsoe', [CobIcsoeController::class, 'store'])->name('proyectos.icsoe.store');
+        Route::get('icsoe/{seguimiento}', [CobIcsoeController::class, 'show'])->whereNumber('seguimiento')->name('icsoe.show');
+        Route::put('icsoe/{seguimiento}', [CobIcsoeController::class, 'update'])->whereNumber('seguimiento')->name('icsoe.update');
+        Route::delete('icsoe/{seguimiento}', [CobIcsoeController::class, 'destroy'])->whereNumber('seguimiento')->name('icsoe.destroy');
+        Route::put('icsoe/{seguimiento}/meses', [CobIcsoeMesController::class, 'update'])->whereNumber('seguimiento')->name('icsoe.meses.update');
+        Route::post('icsoe/{seguimiento}/recalcular', [CobIcsoeController::class, 'recalcular'])->whereNumber('seguimiento')->name('icsoe.recalcular');
+        Route::post('icsoe/{seguimiento}/verificar', [CobIcsoeController::class, 'verificar'])->whereNumber('seguimiento')->name('icsoe.verificar');
+
+        // Catálogo de SBC / costo DOF / prima de riesgo por año
+        Route::get('icsoe-sbc', [CobIcsoeSbcAnioController::class, 'index'])->name('icsoe-sbc.index');
+        Route::post('icsoe-sbc', [CobIcsoeSbcAnioController::class, 'store'])->name('icsoe-sbc.store');
+        Route::put('icsoe-sbc/{sbcAnio}', [CobIcsoeSbcAnioController::class, 'update'])->name('icsoe-sbc.update');
+        Route::delete('icsoe-sbc/{sbcAnio}', [CobIcsoeSbcAnioController::class, 'destroy'])->name('icsoe-sbc.destroy');
 
         // Catálogo de secciones de documentación
         Route::get('documento-secciones', [CobDocumentoSeccionController::class, 'index'])->name('documento-secciones.index');

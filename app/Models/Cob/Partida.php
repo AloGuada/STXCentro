@@ -4,6 +4,7 @@ namespace App\Models\Cob;
 
 use App\Models\Costos\Presupuesto;
 use App\Models\Obra;
+use App\Services\Cob\IcsoeService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,24 @@ class Partida extends Model
     use HasFactory;
 
     protected $table = 'cob_partidas';
+
+    /**
+     * Las partidas componen el valor a ejecutar de las obras que no son a
+     * precio unitario, así que moverlas obliga a recalcular el ICSOE.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (self $partida) {
+            if ($partida->wasRecentlyCreated || $partida->wasChanged(['monto', 'obra_id'])) {
+                app(IcsoeService::class)->programarPorObra($partida->obra_id, 'Cambiaron las partidas de la obra');
+            }
+        });
+
+        static::deleted(fn (self $partida) => app(IcsoeService::class)->programarPorObra(
+            $partida->obra_id,
+            'Se eliminó una partida de la obra',
+        ));
+    }
 
     /** @var list<string> */
     protected $fillable = [

@@ -2991,6 +2991,80 @@ export type CobDeduccion = {
     updated_at: string;
 };
 
+// ICSOE / SIROC (IMSS). Los campos decimales llegan como string desde Laravel.
+
+export type CobIcsoeMetodo = 'superficie' | 'porcentaje';
+
+export const COB_ICSOE_METODO_LABELS: Record<CobIcsoeMetodo, string> = {
+    superficie: 'Superficie (Art. 18)',
+    porcentaje: 'Porcentaje del contrato',
+};
+
+export type CobIcsoeEstatus = 'vigente' | 'pendiente_verificacion' | 'cerrado';
+
+export const COB_ICSOE_ESTATUS_LABELS: Record<CobIcsoeEstatus, string> = {
+    vigente: 'Vigente',
+    pendiente_verificacion: 'Pendiente de verificación',
+    cerrado: 'Cerrado',
+};
+
+export type CobIcsoeSbcAnio = {
+    id: number;
+    anio: number;
+    sbc: string;
+    costo_m2: string;
+    prima_riesgo: string;
+    notas: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobIcsoeMes = {
+    id: number;
+    seguimiento_id: number;
+    anio: number;
+    mes: number;
+    dias_proyecto: number;
+    sbc: string;
+    sbc_aplicado: string;
+    mo_estimada: string;
+    dias_cotizados: string;
+    mo_real: string;
+    fuera_de_rango: boolean;
+};
+
+export type CobIcsoeSeguimiento = {
+    id: number;
+    proyecto_id: number;
+    metodo: CobIcsoeMetodo;
+    estatus: CobIcsoeEstatus;
+    fecha_inicio: string;
+    fecha_fin: string;
+    superficie_m2: string | null;
+    costo_m2: string | null;
+    porcentaje_mo: string;
+    prima_riesgo: string;
+    monto_base: string;
+    monto_base_anterior: string | null;
+    mo_estimada_total: string;
+    mo_estimada_total_anterior: string | null;
+    mo_estimada_diaria: string;
+    total_dias: number;
+    mo_real_total: string;
+    diferencia_mo: string;
+    monto_riesgo: string;
+    motivo_cambio: string | null;
+    recalculado_at: string | null;
+    verificado_at: string | null;
+    verificado_por: string | null;
+    notas: string | null;
+    proyecto?: Proyecto;
+    meses?: CobIcsoeMes[];
+    verificado_por_usuario?: { id: string; name: string } | null;
+    created_at: string;
+    updated_at: string;
+};
+
 export type CobTipoRetencion = {
     id: number;
     nombre: string;
