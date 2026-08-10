@@ -271,8 +271,8 @@ const navGroups: NavGroup[] = [
                 permission: 'alm.almacenes.ver',
             },
             {
-                title: 'Insumos',
-                href: '/admin/almacen/insumos',
+                title: 'Artículos',
+                href: '/admin/almacen/articulos',
                 icon: Boxes,
                 permission: 'alm.almacenes.ver',
             },

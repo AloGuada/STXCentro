@@ -3,25 +3,27 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { TIPOS_INSUMO } from '@/lib/alm/demo';
+import { TIPOS_ARTICULO } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmProductoTipo } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
+import { ImageIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Almacén', href: '/admin/almacen/existencias' },
-    { title: 'Insumos', href: '/admin/almacen/insumos' },
-    { title: 'Nuevo', href: '/admin/almacen/insumos/create' },
+    { title: 'Artículos', href: '/admin/almacen/articulos' },
+    { title: 'Nuevo', href: '/admin/almacen/articulos/create' },
 ];
 
 const UNIDADES_DEMO = ['PZA', 'KG', 'LTS', 'MTS', 'PAR', 'CTO', 'SRV'];
 
-export default function InsumoCreate() {
+export default function ArticuloCreate() {
     const [codigo, setCodigo] = useState('');
     const [descripcion, setDescripcion] = useState('');
     const [unidad, setUnidad] = useState('');
+    const [imagen, setImagen] = useState<string | null>(null);
     const [tipo, setTipo] = useState<AlmProductoTipo>('insumo');
     const [requiereVerificacion, setRequiereVerificacion] = useState(false);
     const [controlaInventario, setControlaInventario] = useState(true);
@@ -29,11 +31,11 @@ export default function InsumoCreate() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Nuevo insumo" />
+            <Head title="Nuevo artículo" />
 
             <div className="p-6">
                 <div className="mb-6">
-                    <h1 className="text-2xl font-semibold">Nuevo insumo</h1>
+                    <h1 className="text-2xl font-semibold">Nuevo artículo</h1>
                     <p className="text-base-content/60 mt-1 text-sm">
                         Se da de alta en el catálogo que comparten Compras y Almacén: el mismo código sirve para
                         cotizar y para el kardex.
@@ -77,13 +79,55 @@ export default function InsumoCreate() {
                             </FormField>
 
                             <FormField
+                                label="Imagen"
+                                htmlFor="imagen"
+                                description="Opcional. Sirve para reconocer el artículo sin leer la descripción."
+                                className="md:col-span-2"
+                            >
+                                <div className="flex items-center gap-4">
+                                    {imagen ? (
+                                        <img
+                                            src={imagen}
+                                            alt="Vista previa"
+                                            className="border-base-300 size-20 rounded border object-cover"
+                                        />
+                                    ) : (
+                                        <div className="border-base-300 text-base-content/30 flex size-20 items-center justify-center rounded border border-dashed">
+                                            <ImageIcon className="size-6" />
+                                        </div>
+                                    )}
+                                    <div className="flex-1">
+                                        <input
+                                            id="imagen"
+                                            type="file"
+                                            accept="image/*"
+                                            className="file-input file-input-bordered file-input-sm w-full max-w-xs"
+                                            onChange={(e) => {
+                                                const archivo = e.target.files?.[0];
+                                                setImagen(archivo ? URL.createObjectURL(archivo) : null);
+                                            }}
+                                        />
+                                        {imagen && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-ghost btn-xs mt-2"
+                                                onClick={() => setImagen(null)}
+                                            >
+                                                Quitar imagen
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </FormField>
+
+                            <FormField
                                 label="Tipo"
                                 htmlFor="tipo"
                                 description="Define si se gasta o si sale y regresa."
                                 required
                             >
                                 <Select id="tipo" value={tipo} onValueChange={(v) => setTipo(v as AlmProductoTipo)}>
-                                    {Object.entries(TIPOS_INSUMO).map(([valor, etiqueta]) => (
+                                    {Object.entries(TIPOS_ARTICULO).map(([valor, etiqueta]) => (
                                         <SelectItem key={valor} value={valor}>
                                             {etiqueta}
                                         </SelectItem>
@@ -149,10 +193,10 @@ export default function InsumoCreate() {
 
                     <div className="flex justify-end gap-2">
                         <Button variant="outline" asChild>
-                            <Link href="/admin/almacen/insumos">Cancelar</Link>
+                            <Link href="/admin/almacen/articulos">Cancelar</Link>
                         </Button>
                         <Button type="submit" disabled>
-                            Guardar insumo
+                            Guardar artículo
                         </Button>
                     </div>
                 </form>

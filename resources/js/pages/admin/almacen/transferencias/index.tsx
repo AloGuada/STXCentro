@@ -1,3 +1,4 @@
+import { BotonPdf } from '@/components/alm/boton-pdf';
 import { ButtonLink } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { TRANSFERENCIAS_DEMO } from '@/lib/alm/demo';
@@ -44,6 +45,7 @@ export default function TransferenciasIndex() {
                                 <th>Movimiento</th>
                                 <th className="text-right">Renglones</th>
                                 <th>Autorizó</th>
+                                <th className="w-20"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -60,6 +62,9 @@ export default function TransferenciasIndex() {
                                     </td>
                                     <td className="text-right font-mono">{t.renglones}</td>
                                     <td className="text-sm">{t.autorizo}</td>
+                                    <td>
+                                        <BotonPdf folio={t.folio} etiqueta="PDF" />
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

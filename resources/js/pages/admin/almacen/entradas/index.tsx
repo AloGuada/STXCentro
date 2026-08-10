@@ -1,3 +1,4 @@
+import { BotonPdf } from '@/components/alm/boton-pdf';
 import { ButtonLink } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { ENTRADAS_DEMO } from '@/lib/alm/demo';
@@ -48,6 +49,7 @@ export default function EntradasIndex() {
                                 <th className="text-right">Renglones</th>
                                 <th className="text-right">Importe</th>
                                 <th>Recibió</th>
+                                <th className="w-20"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -62,6 +64,9 @@ export default function EntradasIndex() {
                                     <td className="text-right font-mono">{e.renglones}</td>
                                     <td className="text-right font-mono">{moneda(e.importe)}</td>
                                     <td className="text-sm">{e.recibio}</td>
+                                    <td>
+                                        <BotonPdf folio={e.folio} etiqueta="PDF" />
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

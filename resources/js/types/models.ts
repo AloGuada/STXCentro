@@ -3401,11 +3401,13 @@ export type AlmDevolucionDemo = {
  */
 export type AlmProductoTipo = 'insumo' | 'activo';
 
-export type AlmInsumoDemo = {
+export type AlmArticuloDemo = {
     id: number;
     codigo: string;
     descripcion: string;
     unidad: string;
+    /** Foto del artículo, para reconocerlo sin leer la descripción. */
+    imagen_url: string | null;
     tipo: AlmProductoTipo;
     /**
      * Recepcionarlo exige verificar su mantenimiento. Va aparte del tipo

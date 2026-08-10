@@ -1,3 +1,4 @@
+import { BotonPdf } from '@/components/alm/boton-pdf';
 import { ButtonLink } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { SALIDAS_DEMO } from '@/lib/alm/demo';
@@ -48,6 +49,7 @@ export default function SalidasIndex() {
                                 <th>Recibió</th>
                                 <th className="text-right">Renglones</th>
                                 <th>Motivo</th>
+                                <th className="w-20"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -68,6 +70,9 @@ export default function SalidasIndex() {
                                     <td className="text-sm">{s.recibe}</td>
                                     <td className="text-right font-mono">{s.renglones}</td>
                                     <td className="text-base-content/70 text-sm">{s.motivo}</td>
+                                    <td>
+                                        <BotonPdf folio={s.folio} etiqueta="Vale" />
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

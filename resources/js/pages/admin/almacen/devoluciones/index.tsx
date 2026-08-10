@@ -1,3 +1,4 @@
+import { BotonPdf } from '@/components/alm/boton-pdf';
 import { ButtonLink } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { DEVOLUCIONES_DEMO } from '@/lib/alm/demo';
@@ -53,6 +54,7 @@ export default function DevolucionesIndex() {
                                 <th>Devolvió</th>
                                 <th className="text-right">Renglones</th>
                                 <th>Motivo</th>
+                                <th className="w-20"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -67,6 +69,9 @@ export default function DevolucionesIndex() {
                                     <td className="text-sm">{d.devolvio}</td>
                                     <td className="text-right font-mono">{d.renglones}</td>
                                     <td className="text-base-content/70 text-sm">{d.motivo}</td>
+                                    <td>
+                                        <BotonPdf folio={d.folio} etiqueta="PDF" />
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

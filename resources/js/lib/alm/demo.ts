@@ -8,11 +8,11 @@
 import type {
     AlmAjusteDemo,
     AlmAjusteMotivo,
+    AlmArticuloDemo,
     AlmDevolucionDemo,
     AlmDocumentoTipo,
     AlmEntradaDemo,
     AlmExistenciaDemo,
-    AlmInsumoDemo,
     AlmMovimientoDemo,
     AlmProductoDemo,
     AlmProductoTipo,
@@ -101,17 +101,27 @@ export const MOTIVOS_AJUSTE: Record<AlmAjusteMotivo, string> = {
     otro: 'Otro',
 };
 
-export const INSUMOS_DEMO: AlmInsumoDemo[] = [
-    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 5000, existencia_total: 12780 },
-    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 200, existencia_total: 414.75 },
-    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 50, existencia_total: 96 },
-    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 40, existencia_total: 8 },
-    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 30, existencia_total: 0 },
-    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 20, existencia_total: 42 },
-    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', tipo: 'activo', requiere_verificacion: true, controla_inventario: true, stock_minimo: null, existencia_total: 14 },
-    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', tipo: 'activo', requiere_verificacion: false, controla_inventario: true, stock_minimo: null, existencia_total: 320 },
-    { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', tipo: 'activo', requiere_verificacion: true, controla_inventario: true, stock_minimo: null, existencia_total: 1 },
-    { id: 302, codigo: 'SRV-FLET', descripcion: 'Flete foráneo', unidad: 'SRV', tipo: 'insumo', requiere_verificacion: false, controla_inventario: false, stock_minimo: null, existencia_total: 0 },
+/**
+ * Miniatura de ejemplo. La maqueta no sube archivos todavía, así que se dibuja
+ * un SVG en línea en vez de referenciar una imagen que no existe.
+ */
+function imagenDemo(texto: string, color: string): string {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="8" fill="${color}"/><text x="32" y="40" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="#ffffff">${texto}</text></svg>`;
+
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+export const ARTICULOS_DEMO: AlmArticuloDemo[] = [
+    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', imagen_url: imagenDemo('TOR', '#64748b'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 5000, existencia_total: 12780 },
+    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', imagen_url: imagenDemo('ELE', '#0f766e'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 200, existencia_total: 414.75 },
+    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', imagen_url: imagenDemo('PIN', '#b45309'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 50, existencia_total: 96 },
+    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', imagen_url: imagenDemo('DIS', '#7c3aed'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 40, existencia_total: 8 },
+    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 30, existencia_total: 0 },
+    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 20, existencia_total: 42 },
+    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', imagen_url: imagenDemo('PUL', '#be123c'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, stock_minimo: null, existencia_total: 14 },
+    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', imagen_url: null, tipo: 'activo', requiere_verificacion: false, controla_inventario: true, stock_minimo: null, existencia_total: 320 },
+    { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', imagen_url: imagenDemo('VEH', '#1d4ed8'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, stock_minimo: null, existencia_total: 1 },
+    { id: 302, codigo: 'SRV-FLET', descripcion: 'Flete foráneo', unidad: 'SRV', imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: false, stock_minimo: null, existencia_total: 0 },
 ];
 
 export const USUARIOS_DEMO: AlmUsuarioDemo[] = [
@@ -177,7 +187,7 @@ export function requisicionesSurtibles(claveAlmacen: string | undefined): AlmReq
 }
 
 /** Cómo se lee cada tipo de producto en pantalla. */
-export const TIPOS_INSUMO: Record<AlmProductoTipo, string> = {
+export const TIPOS_ARTICULO: Record<AlmProductoTipo, string> = {
     insumo: 'Insumo',
     activo: 'Activo',
 };

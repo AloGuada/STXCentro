@@ -85,14 +85,14 @@ class VistasController extends Controller
         return Inertia::render('admin/almacen/requisiciones/create');
     }
 
-    public function insumos(): Response
+    public function articulos(): Response
     {
-        return Inertia::render('admin/almacen/insumos/index');
+        return Inertia::render('admin/almacen/articulos/index');
     }
 
-    public function insumoCreate(): Response
+    public function articuloCreate(): Response
     {
-        return Inertia::render('admin/almacen/insumos/create');
+        return Inertia::render('admin/almacen/articulos/create');
     }
 
     public function aprobaciones(): Response
