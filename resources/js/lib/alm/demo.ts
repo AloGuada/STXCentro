@@ -33,12 +33,15 @@ export const ALMACENES_DEMO = [
 ];
 
 export const PRODUCTOS_DEMO: AlmProductoDemo[] = [
-    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA' },
-    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG' },
-    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS' },
-    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA' },
-    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR' },
-    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO' },
+    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', requiere_verificacion: false },
+    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', requiere_verificacion: false },
+    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', requiere_verificacion: false },
+    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', requiere_verificacion: false },
+    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', requiere_verificacion: false },
+    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', requiere_verificacion: false },
+    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', requiere_verificacion: true },
+    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', requiere_verificacion: false },
+    { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', requiere_verificacion: true },
 ];
 
 export const EXISTENCIAS_DEMO: AlmExistenciaDemo[] = [
@@ -69,9 +72,9 @@ export const ENTRADAS_DEMO: AlmEntradaDemo[] = [
 ];
 
 export const SALIDAS_DEMO: AlmSalidaDemo[] = [
-    { id: 31, folio: 'SAL-2608-0031', fecha: '2026-08-05', almacen: 'AG', obra_destino: 'T4 — Torre 4', solicitante: 'M. Rangel', recibe: 'Cuadrilla 3', renglones: 2, motivo: 'Montaje eje 4' },
-    { id: 30, folio: 'SAL-2608-0030', fecha: '2026-08-04', almacen: 'FAK', obra_destino: 'T4 — Torre 4', solicitante: 'L. Ortega', recibe: 'A. Pérez', renglones: 1, motivo: 'Sellado de fachada' },
-    { id: 28, folio: 'SAL-2608-0028', fecha: '2026-08-02', almacen: 'FAD', obra_destino: 'T4 — Torre 4', solicitante: 'L. Ortega', recibe: 'Cuadrilla 2', renglones: 1, motivo: 'Equipo de protección' },
+    { id: 31, folio: 'SAL-2608-0031', fecha: '2026-08-05', almacen: 'AG', obra_destino: 'T4 — Torre 4', solicitante: 'M. Rangel', recibe: 'Cuadrilla 3', renglones: 2, motivo: 'Montaje eje 4', requisicion_folio: 'REQ-2608-0023' },
+    { id: 30, folio: 'SAL-2608-0030', fecha: '2026-08-04', almacen: 'FAK', obra_destino: 'T4 — Torre 4', solicitante: 'L. Ortega', recibe: 'A. Pérez', renglones: 1, motivo: 'Sellado de fachada', requisicion_folio: null },
+    { id: 28, folio: 'SAL-2608-0028', fecha: '2026-08-02', almacen: 'FAD', obra_destino: 'T4 — Torre 4', solicitante: 'L. Ortega', recibe: 'Cuadrilla 2', renglones: 1, motivo: 'Equipo de protección', requisicion_folio: null },
 ];
 
 export const TRANSFERENCIAS_DEMO: AlmTransferenciaDemo[] = [
@@ -99,16 +102,16 @@ export const MOTIVOS_AJUSTE: Record<AlmAjusteMotivo, string> = {
 };
 
 export const INSUMOS_DEMO: AlmInsumoDemo[] = [
-    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', tipo: 'consumible', controla_inventario: true, stock_minimo: 5000, existencia_total: 12780 },
-    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', tipo: 'consumible', controla_inventario: true, stock_minimo: 200, existencia_total: 414.75 },
-    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', tipo: 'consumible', controla_inventario: true, stock_minimo: 50, existencia_total: 96 },
-    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', tipo: 'consumible', controla_inventario: true, stock_minimo: 40, existencia_total: 8 },
-    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', tipo: 'consumible', controla_inventario: true, stock_minimo: 30, existencia_total: 0 },
-    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', tipo: 'consumible', controla_inventario: true, stock_minimo: 20, existencia_total: 42 },
-    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', tipo: 'herramienta', controla_inventario: true, stock_minimo: null, existencia_total: 14 },
-    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', tipo: 'herramienta', controla_inventario: true, stock_minimo: null, existencia_total: 320 },
-    { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', tipo: 'activo', controla_inventario: true, stock_minimo: null, existencia_total: 1 },
-    { id: 302, codigo: 'SRV-FLET', descripcion: 'Flete foráneo', unidad: 'SRV', tipo: 'consumible', controla_inventario: false, stock_minimo: null, existencia_total: 0 },
+    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 5000, existencia_total: 12780 },
+    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 200, existencia_total: 414.75 },
+    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 50, existencia_total: 96 },
+    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 40, existencia_total: 8 },
+    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 30, existencia_total: 0 },
+    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, stock_minimo: 20, existencia_total: 42 },
+    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', tipo: 'activo', requiere_verificacion: true, controla_inventario: true, stock_minimo: null, existencia_total: 14 },
+    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', tipo: 'activo', requiere_verificacion: false, controla_inventario: true, stock_minimo: null, existencia_total: 320 },
+    { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', tipo: 'activo', requiere_verificacion: true, controla_inventario: true, stock_minimo: null, existencia_total: 1 },
+    { id: 302, codigo: 'SRV-FLET', descripcion: 'Flete foráneo', unidad: 'SRV', tipo: 'insumo', requiere_verificacion: false, controla_inventario: false, stock_minimo: null, existencia_total: 0 },
 ];
 
 export const USUARIOS_DEMO: AlmUsuarioDemo[] = [
@@ -130,17 +133,53 @@ export const APROBACIONES_DEMO: AlmReglaAprobacion[] = [
 ];
 
 export const REQUISICIONES_DEMO: AlmRequisicionDemo[] = [
-    { id: 22, folio: 'REQ-2608-0022', fecha: '2026-08-06', solicitante: 'L. Ortega', obra: 'T4 — Torre 4', almacen: 'AG', fecha_requerida: '2026-08-08', renglones: 4, estatus: 'pendiente' },
-    { id: 21, folio: 'REQ-2608-0021', fecha: '2026-08-05', solicitante: 'M. Rangel', obra: 'MBP — Museo Bellas Artes', almacen: 'AG', fecha_requerida: '2026-08-07', renglones: 2, estatus: 'aprobada' },
-    { id: 20, folio: 'REQ-2608-0020', fecha: '2026-08-04', solicitante: 'L. Ortega', obra: 'T4 — Torre 4', almacen: 'AG', fecha_requerida: '2026-08-05', renglones: 3, estatus: 'surtida' },
-    { id: 19, folio: 'REQ-2607-0019', fecha: '2026-07-31', solicitante: 'R. Salas', obra: 'T4 — Torre 4', almacen: 'FAK', fecha_requerida: '2026-08-01', renglones: 1, estatus: 'rechazada' },
+    { id: 23, folio: 'REQ-2608-0023', fecha: '2026-08-06', solicitante: 'M. Rangel', obra: 'T4 — Torre 4', almacen: 'AG', fecha_requerida: '2026-08-08', estatus: 'aprobada', detalle: [
+        // Surtida a medias: la salida nueva debe traer sólo lo que falta.
+        { producto_id: 101, cantidad_solicitada: 2000, cantidad_surtida: 800 },
+        { producto_id: 102, cantidad_solicitada: 50, cantidad_surtida: 50 },
+        { producto_id: 104, cantidad_solicitada: 30, cantidad_surtida: 0 },
+    ] },
+    { id: 22, folio: 'REQ-2608-0022', fecha: '2026-08-06', solicitante: 'L. Ortega', obra: 'T4 — Torre 4', almacen: 'AG', fecha_requerida: '2026-08-08', estatus: 'pendiente', detalle: [
+        { producto_id: 101, cantidad_solicitada: 500, cantidad_surtida: 0 },
+        { producto_id: 103, cantidad_solicitada: 12, cantidad_surtida: 0 },
+        { producto_id: 105, cantidad_solicitada: 24, cantidad_surtida: 0 },
+        { producto_id: 201, cantidad_solicitada: 2, cantidad_surtida: 0 },
+    ] },
+    { id: 21, folio: 'REQ-2608-0021', fecha: '2026-08-05', solicitante: 'M. Rangel', obra: 'MBP — Museo Bellas Artes', almacen: 'AG', fecha_requerida: '2026-08-07', estatus: 'aprobada', detalle: [
+        { producto_id: 106, cantidad_solicitada: 8, cantidad_surtida: 0 },
+        { producto_id: 103, cantidad_solicitada: 20, cantidad_surtida: 0 },
+    ] },
+    { id: 20, folio: 'REQ-2608-0020', fecha: '2026-08-04', solicitante: 'L. Ortega', obra: 'T4 — Torre 4', almacen: 'AG', fecha_requerida: '2026-08-05', estatus: 'surtida', detalle: [
+        { producto_id: 101, cantidad_solicitada: 1200, cantidad_surtida: 1200 },
+        { producto_id: 102, cantidad_solicitada: 40, cantidad_surtida: 40 },
+        { producto_id: 104, cantidad_solicitada: 15, cantidad_surtida: 15 },
+    ] },
+    { id: 19, folio: 'REQ-2607-0019', fecha: '2026-07-31', solicitante: 'R. Salas', obra: 'T4 — Torre 4', almacen: 'FAK', fecha_requerida: '2026-08-01', estatus: 'rechazada', detalle: [
+        { producto_id: 106, cantidad_solicitada: 6, cantidad_surtida: 0 },
+    ] },
 ];
+
+/**
+ * Requisiciones que una salida puede surtir: aprobadas, del almacén elegido y
+ * con algo pendiente. Una requisición se surte en varias vueltas.
+ */
+export function requisicionesSurtibles(claveAlmacen: string | undefined): AlmRequisicionDemo[] {
+    if (!claveAlmacen) {
+        return [];
+    }
+
+    return REQUISICIONES_DEMO.filter(
+        (r) =>
+            r.almacen === claveAlmacen &&
+            r.estatus === 'aprobada' &&
+            r.detalle.some((d) => d.cantidad_surtida < d.cantidad_solicitada),
+    );
+}
 
 /** Cómo se lee cada tipo de producto en pantalla. */
 export const TIPOS_INSUMO: Record<AlmProductoTipo, string> = {
-    consumible: 'Insumo',
-    herramienta: 'Herramienta',
-    activo: 'Bien / activo',
+    insumo: 'Insumo',
+    activo: 'Activo',
 };
 
 /** Cómo se nombra cada documento en la pantalla de aprobaciones. */

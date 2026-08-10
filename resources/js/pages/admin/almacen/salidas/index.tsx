@@ -40,6 +40,7 @@ export default function SalidasIndex() {
                         <thead className="bg-base-200">
                             <tr>
                                 <th>Folio</th>
+                                <th>Requisición</th>
                                 <th>Fecha</th>
                                 <th>Almacén</th>
                                 <th>Obra destino</th>
@@ -53,6 +54,9 @@ export default function SalidasIndex() {
                             {SALIDAS_DEMO.map((s) => (
                                 <tr key={s.id} className="hover">
                                     <td className="font-mono font-medium">{s.folio}</td>
+                                    <td className="font-mono text-sm">
+                                        {s.requisicion_folio ?? <span className="text-base-content/40">Directa</span>}
+                                    </td>
                                     <td className="font-mono text-sm">{s.fecha}</td>
                                     <td>
                                         <span className="badge badge-sm badge-ghost font-mono">{s.almacen}</span>

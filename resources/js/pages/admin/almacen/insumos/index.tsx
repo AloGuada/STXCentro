@@ -1,5 +1,4 @@
 import { Button, ButtonLink } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { INSUMOS_DEMO, TIPOS_INSUMO } from '@/lib/alm/demo';
@@ -16,8 +15,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const CLASE_TIPO: Record<AlmProductoTipo, string> = {
-    consumible: 'badge-ghost',
-    herramienta: 'badge-info',
+    insumo: 'badge-ghost',
     activo: 'badge-warning',
 };
 
@@ -100,7 +98,8 @@ export default function InsumosIndex() {
                                 <th>Código</th>
                                 <th>Descripción</th>
                                 <th>Unidad</th>
-                                <th className="w-48">Tipo</th>
+                                <th className="w-40">Tipo</th>
+                                <th className="text-center">Verifica recepción</th>
                                 <th className="text-center">Lleva kardex</th>
                                 <th className="text-right">Stock mínimo</th>
                                 <th className="text-right">Existencia</th>
@@ -109,7 +108,7 @@ export default function InsumosIndex() {
                         <tbody>
                             {visibles.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="text-base-content/50 py-6 text-center">
+                                    <td colSpan={8} className="text-base-content/50 py-6 text-center">
                                         Ningún insumo coincide con el filtro.
                                     </td>
                                 </tr>
@@ -133,9 +132,7 @@ export default function InsumosIndex() {
                                             <td>
                                                 <Select
                                                     value={i.tipo}
-                                                    onValueChange={(v) =>
-                                                        editar(i.id, { tipo: v as AlmProductoTipo })
-                                                    }
+                                                    onValueChange={(v) => editar(i.id, { tipo: v as AlmProductoTipo })}
                                                     className="select-sm"
                                                 >
                                                     {Object.entries(TIPOS_INSUMO).map(([valor, etiqueta]) => (
@@ -144,6 +141,17 @@ export default function InsumosIndex() {
                                                         </SelectItem>
                                                     ))}
                                                 </Select>
+                                            </td>
+                                            <td className="text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    className="checkbox checkbox-sm"
+                                                    checked={i.requiere_verificacion}
+                                                    onChange={(e) =>
+                                                        editar(i.id, { requiere_verificacion: e.target.checked })
+                                                    }
+                                                    aria-label={`Verifica recepción ${i.codigo}`}
+                                                />
                                             </td>
                                             <td className="text-center">
                                                 <input
@@ -184,10 +192,11 @@ export default function InsumosIndex() {
                 </div>
 
                 <p className="text-base-content/60 mt-4 text-sm">
-                    <strong>Insumo</strong> se gasta y sólo se cuenta. <strong>Herramienta</strong> y{' '}
-                    <strong>bien</strong> salen y regresan: hoy se manejan por cantidad, y más adelante cada pieza
-                    tendrá su número de serie y su resguardo. Quitar <strong>lleva kardex</strong> es para lo que se
-                    compra pero no se almacena, como un flete.
+                    El <strong>insumo</strong> se gasta y sólo se cuenta. El <strong>activo</strong> sale y regresa:
+                    hoy se maneja por cantidad, y más adelante cada pieza tendrá su número de serie y su resguardo.{' '}
+                    <strong>Verifica recepción</strong> detiene la entrada hasta que alguien revise el mantenimiento
+                    del equipo, y va aparte porque no todo activo lo necesita. Quitar <strong>lleva kardex</strong> es
+                    para lo que se compra pero no se almacena, como un flete.
                 </p>
             </div>
         </AppLayout>

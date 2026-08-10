@@ -53,6 +53,7 @@ export default function RequisicionesIndex() {
                                 <th>Le pide a</th>
                                 <th>Requerido para</th>
                                 <th className="text-right">Renglones</th>
+                                <th className="text-right">Por surtir</th>
                                 <th>Estatus</th>
                             </tr>
                         </thead>
@@ -70,7 +71,10 @@ export default function RequisicionesIndex() {
                                             <span className="badge badge-sm badge-ghost font-mono">{r.almacen}</span>
                                         </td>
                                         <td className="font-mono text-sm">{r.fecha_requerida}</td>
-                                        <td className="text-right font-mono">{r.renglones}</td>
+                                        <td className="text-right font-mono">{r.detalle.length}</td>
+                                        <td className="text-right font-mono">
+                                            {r.detalle.filter((d) => d.cantidad_surtida < d.cantidad_solicitada).length}
+                                        </td>
                                         <td>
                                             <span className={`badge badge-sm ${estatus.clase}`}>{estatus.etiqueta}</span>
                                         </td>

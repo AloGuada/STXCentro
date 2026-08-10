@@ -3301,6 +3301,8 @@ export type AlmProductoDemo = {
     codigo: string;
     descripcion: string;
     unidad: string;
+    /** Sin este palomeo en la entrada, el producto no se puede recepcionar. */
+    requiere_verificacion: boolean;
 };
 
 export type AlmExistenciaDemo = {
@@ -3348,6 +3350,8 @@ export type AlmSalidaDemo = {
     recibe: string;
     renglones: number;
     motivo: string;
+    /** Requisición que surte, si la hay: la salida urgente no lleva. */
+    requisicion_folio: string | null;
 };
 
 export type AlmTransferenciaDemo = {
@@ -3391,11 +3395,11 @@ export type AlmDevolucionDemo = {
 };
 
 /**
- * Qué es el producto para almacén. `consumible` se gasta y sólo se cuenta;
- * `herramienta` y `activo` son bienes que se prestan y se devuelven, y en la
- * fase 3 ganan identidad individual (serie, foto, resguardo).
+ * Qué es el producto para almacén. El `insumo` se gasta y sólo se cuenta; el
+ * `activo` sale y regresa, y en la fase 3 gana identidad individual (serie,
+ * foto, resguardo).
  */
-export type AlmProductoTipo = 'consumible' | 'herramienta' | 'activo';
+export type AlmProductoTipo = 'insumo' | 'activo';
 
 export type AlmInsumoDemo = {
     id: number;
@@ -3403,6 +3407,11 @@ export type AlmInsumoDemo = {
     descripcion: string;
     unidad: string;
     tipo: AlmProductoTipo;
+    /**
+     * Recepcionarlo exige verificar su mantenimiento. Va aparte del tipo
+     * porque no todo activo lo necesita: una pulidora sí, un andamio no.
+     */
+    requiere_verificacion: boolean;
     /** Un servicio o un gasto se compra pero no se almacena: no lleva kardex. */
     controla_inventario: boolean;
     stock_minimo: number | null;
@@ -3434,6 +3443,17 @@ export type AlmReglaAprobacion = {
 
 export type AlmRequisicionEstatus = 'borrador' | 'pendiente' | 'aprobada' | 'surtida' | 'rechazada';
 
+export type AlmRequisicionDetalleDemo = {
+    producto_id: number;
+    cantidad_solicitada: number;
+    /**
+     * Lo que ya se entregó, sumando todas las salidas de esta requisición. Una
+     * requisición se surte en varias vueltas: sólo llega a `surtida` cuando
+     * todos sus renglones alcanzan lo solicitado.
+     */
+    cantidad_surtida: number;
+};
+
 export type AlmRequisicionDemo = {
     id: number;
     folio: string;
@@ -3442,7 +3462,7 @@ export type AlmRequisicionDemo = {
     obra: string;
     almacen: string;
     fecha_requerida: string;
-    renglones: number;
+    detalle: AlmRequisicionDetalleDemo[];
     estatus: AlmRequisicionEstatus;
 };
 
@@ -3452,6 +3472,11 @@ export type AlmPartidaBorrador = {
     cantidad: string;
     costo_unitario: string;
     observaciones: string;
+    /**
+     * Sólo aplica a los activos y sólo en la entrada: sin este palomeo el
+     * equipo no se puede recepcionar.
+     */
+    mantenimiento_verificado: boolean;
 };
 
 // =========================================

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ALMACENES_DEMO, disponibleDemo } from '@/lib/alm/demo';
+import { ALMACENES_DEMO, disponibleDemo, requisicionesSurtibles } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmPartidaBorrador } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
@@ -24,6 +24,7 @@ const OBRAS_DEMO = [
 
 export default function SalidaCreate() {
     const [almacenId, setAlmacenId] = useState('');
+    const [requisicionId, setRequisicionId] = useState('');
     const [obra, setObra] = useState('');
     const [recibe, setRecibe] = useState('');
     const [fecha, setFecha] = useState('');
@@ -31,6 +32,42 @@ export default function SalidaCreate() {
     const [partidas, setPartidas] = useState<AlmPartidaBorrador[]>([{ ...PARTIDA_VACIA }]);
 
     const claveAlmacen = ALMACENES_DEMO.find((a) => String(a.id) === almacenId)?.clave;
+    const surtibles = requisicionesSurtibles(claveAlmacen);
+    const requisicion = surtibles.find((r) => String(r.id) === requisicionId);
+
+    /** Cambiar de almacén invalida la requisición: ya no es del mismo pañol. */
+    const elegirAlmacen = (valor: string) => {
+        setAlmacenId(valor);
+        setRequisicionId('');
+    };
+
+    /**
+     * Al surtir una requisición los renglones se traen solos, con la cantidad
+     * que falta por entregar. El almacenista puede bajarla si surte de menos:
+     * el resto queda pendiente para la siguiente salida.
+     */
+    const elegirRequisicion = (valor: string) => {
+        setRequisicionId(valor);
+
+        const elegida = surtibles.find((r) => String(r.id) === valor);
+
+        if (!elegida) {
+            setPartidas([{ ...PARTIDA_VACIA }]);
+
+            return;
+        }
+
+        setObra(String(OBRAS_DEMO.find((o) => o.etiqueta === elegida.obra)?.id ?? ''));
+        setPartidas(
+            elegida.detalle
+                .filter((d) => d.cantidad_surtida < d.cantidad_solicitada)
+                .map((d) => ({
+                    ...PARTIDA_VACIA,
+                    producto_id: String(d.producto_id),
+                    cantidad: String(d.cantidad_solicitada - d.cantidad_surtida),
+                })),
+        );
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -55,13 +92,37 @@ export default function SalidaCreate() {
                                 <Select
                                     id="almacen"
                                     value={almacenId}
-                                    onValueChange={setAlmacenId}
+                                    onValueChange={elegirAlmacen}
                                     placeholder="¿De dónde sale?"
                                 >
                                     {ALMACENES_DEMO.map((a) => (
                                         <SelectItem key={a.id} value={String(a.id)}>
                                             {a.clave} — {a.nombre}
                                             {a.obra ? ` (${a.obra})` : ''}
+                                        </SelectItem>
+                                    ))}
+                                </Select>
+                            </FormField>
+
+                            <FormField
+                                label="Requisición"
+                                htmlFor="requisicion"
+                                description={
+                                    claveAlmacen
+                                        ? 'Déjala vacía si es una salida urgente, sin nadie que la haya pedido.'
+                                        : 'Elige primero el almacén.'
+                                }
+                            >
+                                <Select
+                                    id="requisicion"
+                                    value={requisicionId}
+                                    onValueChange={elegirRequisicion}
+                                    placeholder="Sin requisición — salida directa"
+                                    disabled={!claveAlmacen}
+                                >
+                                    {surtibles.map((r) => (
+                                        <SelectItem key={r.id} value={String(r.id)}>
+                                            {r.folio} — {r.obra}
                                         </SelectItem>
                                     ))}
                                 </Select>
@@ -121,6 +182,15 @@ export default function SalidaCreate() {
                             <p className="text-base-content/60 mb-2 text-sm">
                                 Elige el almacén para ver la existencia disponible de cada producto.
                             </p>
+                        )}
+                        {requisicion && (
+                            <div className="alert alert-info mb-3">
+                                <span>
+                                    Surtiendo <strong>{requisicion.folio}</strong>: se trajeron los renglones que
+                                    faltan por entregar. Baja la cantidad si surtes de menos — lo que quede pendiente
+                                    se puede sacar en otra salida contra la misma requisición.
+                                </span>
+                            </div>
                         )}
                         <CapturadorPartidas
                             partidas={partidas}

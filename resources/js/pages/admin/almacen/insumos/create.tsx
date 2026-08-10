@@ -22,7 +22,8 @@ export default function InsumoCreate() {
     const [codigo, setCodigo] = useState('');
     const [descripcion, setDescripcion] = useState('');
     const [unidad, setUnidad] = useState('');
-    const [tipo, setTipo] = useState<AlmProductoTipo>('consumible');
+    const [tipo, setTipo] = useState<AlmProductoTipo>('insumo');
+    const [requiereVerificacion, setRequiereVerificacion] = useState(false);
     const [controlaInventario, setControlaInventario] = useState(true);
     const [stockMinimo, setStockMinimo] = useState('');
 
@@ -81,11 +82,7 @@ export default function InsumoCreate() {
                                 description="Define si se gasta o si sale y regresa."
                                 required
                             >
-                                <Select
-                                    id="tipo"
-                                    value={tipo}
-                                    onValueChange={(v) => setTipo(v as AlmProductoTipo)}
-                                >
+                                <Select id="tipo" value={tipo} onValueChange={(v) => setTipo(v as AlmProductoTipo)}>
                                     {Object.entries(TIPOS_INSUMO).map(([valor, etiqueta]) => (
                                         <SelectItem key={valor} value={valor}>
                                             {etiqueta}
@@ -110,6 +107,25 @@ export default function InsumoCreate() {
                                     disabled={!controlaInventario}
                                 />
                             </FormField>
+
+                            <div className="md:col-span-2">
+                                <label className="flex cursor-pointer items-start gap-3">
+                                    <input
+                                        type="checkbox"
+                                        className="checkbox checkbox-sm mt-0.5"
+                                        checked={requiereVerificacion}
+                                        onChange={(e) => setRequiereVerificacion(e.target.checked)}
+                                    />
+                                    <span>
+                                        <span className="font-medium">Verifica recepción</span>
+                                        <span className="text-base-content/60 block text-sm">
+                                            Márcalo para el equipo cuyo mantenimiento hay que revisar al recibirlo (una
+                                            pulidora sí, un andamio no). La entrada queda detenida hasta que alguien
+                                            palomee esa revisión.
+                                        </span>
+                                    </span>
+                                </label>
+                            </div>
 
                             <div className="md:col-span-2">
                                 <label className="flex cursor-pointer items-start gap-3">

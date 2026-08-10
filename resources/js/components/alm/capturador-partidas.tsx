@@ -23,6 +23,12 @@ type Props = {
      * parcial o si hay que comprar.
      */
     avisarFaltante?: boolean;
+    /**
+     * Sólo la entrada la pide: los productos marcados con "verifica recepción"
+     * no se reciben sin revisar su mantenimiento. Los demás documentos no
+     * preguntan nada.
+     */
+    pedirVerificacionMantenimiento?: boolean;
 };
 
 export const PARTIDA_VACIA: AlmPartidaBorrador = {
@@ -30,7 +36,17 @@ export const PARTIDA_VACIA: AlmPartidaBorrador = {
     cantidad: '',
     costo_unitario: '',
     observaciones: '',
+    mantenimiento_verificado: false,
 };
+
+/** Renglones que piden verificación de mantenimiento y todavía no la tienen. */
+export function partidasSinVerificar(partidas: AlmPartidaBorrador[]): AlmPartidaBorrador[] {
+    return partidas.filter((partida) => {
+        const producto = PRODUCTOS_DEMO.find((p) => String(p.id) === partida.producto_id);
+
+        return producto?.requiere_verificacion === true && !partida.mantenimiento_verificado;
+    });
+}
 
 const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
@@ -46,6 +62,7 @@ export function CapturadorPartidas({
     disponibleDe,
     modo = 'cantidad',
     avisarFaltante = true,
+    pedirVerificacionMantenimiento = false,
 }: Props) {
     const esConteo = modo === 'conteo';
     const editar = (indice: number, cambio: Partial<AlmPartidaBorrador>) =>
@@ -61,7 +78,7 @@ export function CapturadorPartidas({
 
     const total = partidas.reduce((suma, p) => suma + importeDe(p), 0);
 
-    const columnas = 5 + (conCosto ? 2 : 0) + (esConteo ? 2 : 0);
+    const columnas = 5 + (conCosto ? 2 : 0) + (esConteo ? 2 : 0) + (pedirVerificacionMantenimiento ? 1 : 0);
 
     const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
@@ -78,6 +95,7 @@ export function CapturadorPartidas({
                             {esConteo && <th className="text-right">Diferencia</th>}
                             {conCosto && <th className="text-right">Costo unitario</th>}
                             {conCosto && <th className="text-right">Importe</th>}
+                            {pedirVerificacionMantenimiento && <th className="text-center">Mtto. verificado</th>}
                             <th>Observaciones</th>
                             <th className="w-10"></th>
                         </tr>
@@ -105,9 +123,15 @@ export function CapturadorPartidas({
                                     disponible === null || disponible === undefined || partida.cantidad === ''
                                         ? null
                                         : Number(partida.cantidad) - disponible;
+                                // Lo que pide verificación no se recibe a ojo: sin
+                                // el palomeo el renglón queda detenido.
+                                const faltaVerificar =
+                                    pedirVerificacionMantenimiento &&
+                                    producto?.requiere_verificacion === true &&
+                                    !partida.mantenimiento_verificado;
 
                                 return (
-                                    <tr key={i} className="hover">
+                                    <tr key={i} className={faltaVerificar ? 'bg-warning/10' : 'hover'}>
                                         <td>
                                             <Select
                                                 value={partida.producto_id}
@@ -188,6 +212,23 @@ export function CapturadorPartidas({
                                         {conCosto && (
                                             <td className="text-right font-mono">{moneda(importeDe(partida))}</td>
                                         )}
+                                        {pedirVerificacionMantenimiento && (
+                                            <td className="text-center">
+                                                {producto?.requiere_verificacion ? (
+                                                    <input
+                                                        type="checkbox"
+                                                        className={`checkbox checkbox-sm ${faltaVerificar ? 'checkbox-warning' : ''}`}
+                                                        checked={partida.mantenimiento_verificado}
+                                                        onChange={(e) =>
+                                                            editar(i, { mantenimiento_verificado: e.target.checked })
+                                                        }
+                                                        aria-label={`Mantenimiento verificado de ${producto.codigo}`}
+                                                    />
+                                                ) : (
+                                                    <span className="text-base-content/30">—</span>
+                                                )}
+                                            </td>
+                                        )}
                                         <td>
                                             <Input
                                                 className="input-sm"
@@ -218,7 +259,7 @@ export function CapturadorPartidas({
                                     Total
                                 </td>
                                 <td className="text-right font-mono font-semibold">{moneda(total)}</td>
-                                <td colSpan={2}></td>
+                                <td colSpan={pedirVerificacionMantenimiento ? 3 : 2}></td>
                             </tr>
                         </tfoot>
                     )}

@@ -1,4 +1,4 @@
-import { CapturadorPartidas, PARTIDA_VACIA } from '@/components/alm/capturador-partidas';
+import { CapturadorPartidas, PARTIDA_VACIA, partidasSinVerificar } from '@/components/alm/capturador-partidas';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { ALMACENES_DEMO } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmPartidaBorrador } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
+import { TriangleAlertIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -30,6 +31,8 @@ export default function EntradaCreate() {
     const [observaciones, setObservaciones] = useState('');
     const [partidas, setPartidas] = useState<AlmPartidaBorrador[]>([{ ...PARTIDA_VACIA }]);
 
+    const sinVerificar = partidasSinVerificar(partidas);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Nueva entrada" />
@@ -39,7 +42,8 @@ export default function EntradaCreate() {
                     <h1 className="text-2xl font-semibold">Nueva entrada</h1>
                     <p className="text-base-content/60 mt-1 text-sm">
                         Lo que capture aquí sube la existencia del almacén. El costo es opcional, pero sin él el
-                        inventario no se puede valuar.
+                        inventario no se puede valuar. Lo que pide verificación no se recepciona sin revisar su
+                        mantenimiento.
                     </p>
                 </div>
 
@@ -109,14 +113,29 @@ export default function EntradaCreate() {
 
                     <div>
                         <h2 className="mb-3 text-lg font-semibold">Partidas</h2>
-                        <CapturadorPartidas partidas={partidas} onChange={setPartidas} conCosto />
+                        <CapturadorPartidas
+                            partidas={partidas}
+                            onChange={setPartidas}
+                            conCosto
+                            pedirVerificacionMantenimiento
+                        />
                     </div>
+
+                    {sinVerificar.length > 0 && (
+                        <div className="alert alert-error">
+                            <TriangleAlertIcon className="size-5" />
+                            <span>
+                                No se puede recepcionar: {sinVerificar.length}{' '}
+                                {sinVerificar.length === 1 ? 'equipo' : 'equipos'} sin verificación de mantenimiento.
+                            </span>
+                        </div>
+                    )}
 
                     <div className="flex justify-end gap-2">
                         <Button variant="outline" asChild>
                             <Link href="/admin/almacen/entradas">Cancelar</Link>
                         </Button>
-                        <Button type="submit" disabled>
+                        <Button type="submit" disabled title="La maqueta todavía no guarda">
                             Guardar entrada
                         </Button>
                     </div>
