@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\BadgeConfigController;
 use App\Http\Controllers\Admin\BancoController;
+use App\Http\Controllers\Admin\Cal\VistasController as CalVistasController;
 use App\Http\Controllers\Admin\Cob\AdendaController as CobAdendaController;
 use App\Http\Controllers\Admin\Cob\AnticipoController as CobAnticipoController;
 use App\Http\Controllers\Admin\Cob\ClienteController as CobClienteController;
@@ -771,6 +772,26 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('archivos/{archivo}/marcar-visto', [DgReporteController::class, 'marcarVisto'])->name('archivos.marcar-visto');
         Route::patch('archivos/{archivo}/notas', [DgReporteController::class, 'updateNotas'])->name('archivos.notas.update');
         Route::delete('archivos/{archivo}', [DgReporteController::class, 'destroyArchivo'])->name('archivos.destroy');
+    });
+
+    // Calidad admin routes
+    //
+    // El modulo ya vive en routes/api.php con guard Sanctum; esto es su entrada
+    // web, que no existia. Reusa los permisos cal.* que ya estaban en
+    // groupedPermissions(), no crea ninguno nuevo.
+    Route::prefix('calidad')->name('cal.')->group(function () {
+        Route::get('obras', [CalVistasController::class, 'obras'])
+            ->middleware('permission:cal.obras.ver')
+            ->name('obras.index');
+        Route::get('piezas', [CalVistasController::class, 'piezas'])
+            ->middleware('permission:cal.piezas.ver')
+            ->name('piezas.index');
+        Route::get('reportes', [CalVistasController::class, 'reportes'])
+            ->middleware('permission:cal.reportes.ver')
+            ->name('reportes.index');
+        Route::get('soldadores', [CalVistasController::class, 'soldadores'])
+            ->middleware('permission:cal.soldadores.ver')
+            ->name('soldadores.index');
     });
 
     // Documentacion

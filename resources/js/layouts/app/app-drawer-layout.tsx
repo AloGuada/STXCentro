@@ -40,6 +40,7 @@ import {
     Receipt,
     Settings,
     Shield,
+    ShieldCheck,
     ShoppingCart,
     Tag,
     Ticket,
@@ -211,6 +212,37 @@ const navGroups: NavGroup[] = [
                 href: '/admin/prod/configuracion',
                 icon: Settings,
                 permission: 'prod.configuracion.ver',
+            },
+        ],
+    },
+    {
+        // Va pegado a Produccion: inspecciona justo lo que sale de la nave.
+        title: 'Calidad',
+        icon: ShieldCheck,
+        items: [
+            {
+                title: 'Obras',
+                href: '/admin/calidad/obras',
+                icon: Briefcase,
+                permission: 'cal.obras.ver',
+            },
+            {
+                title: 'Piezas y Planos',
+                href: '/admin/calidad/piezas',
+                icon: Puzzle,
+                permission: 'cal.piezas.ver',
+            },
+            {
+                title: 'Reportes',
+                href: '/admin/calidad/reportes',
+                icon: FileCheck,
+                permission: 'cal.reportes.ver',
+            },
+            {
+                title: 'Soldadores',
+                href: '/admin/calidad/soldadores',
+                icon: UserCheck,
+                permission: 'cal.soldadores.ver',
             },
         ],
     },
