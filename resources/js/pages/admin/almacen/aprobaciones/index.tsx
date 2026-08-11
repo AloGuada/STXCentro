@@ -3,7 +3,7 @@ import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ALMACENES_DEMO, APROBACIONES_DEMO, DOCUMENTOS_ALM, USUARIOS_DEMO } from '@/lib/alm/demo';
+import { ALMACENES_DEMO, APROBACIONES_DEMO, AYUDA_DOCUMENTO, DOCUMENTOS_ALM, USUARIOS_DEMO } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmDocumentoTipo, AlmReglaAprobacion } from '@/types/models';
 import { Head } from '@inertiajs/react';
@@ -100,6 +100,11 @@ export default function AprobacionesIndex() {
                                 <tr key={regla.documento}>
                                     <td className="align-top font-medium">
                                         <div className="pt-2">{DOCUMENTOS_ALM[regla.documento]}</div>
+                                        {AYUDA_DOCUMENTO[regla.documento] && (
+                                            <p className="text-base-content/50 mt-1 text-xs font-normal">
+                                                {AYUDA_DOCUMENTO[regla.documento]}
+                                            </p>
+                                        )}
                                     </td>
                                     <td className="text-center align-top">
                                         <input

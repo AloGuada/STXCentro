@@ -16,6 +16,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const CLASE_TIPO: Record<AlmProductoTipo, string> = {
     insumo: 'badge-ghost',
+    herramienta: 'badge-info',
     activo: 'badge-warning',
 };
 
@@ -122,6 +123,7 @@ export default function ArticulosIndex() {
                                 <th>Descripción</th>
                                 <th>Unidad</th>
                                 <th className="w-40">Tipo</th>
+                                <th className="text-center">Por pieza</th>
                                 <th className="text-center">Verifica recepción</th>
                                 <th className="text-center">Lleva kardex</th>
                                 <th className="text-right">Stock mínimo</th>
@@ -131,7 +133,7 @@ export default function ArticulosIndex() {
                         <tbody>
                             {visibles.length === 0 ? (
                                 <tr>
-                                    <td colSpan={9} className="text-base-content/50 py-6 text-center">
+                                    <td colSpan={10} className="text-base-content/50 py-6 text-center">
                                         Ningún artículo coincide con el filtro.
                                     </td>
                                 </tr>
@@ -167,6 +169,25 @@ export default function ArticulosIndex() {
                                                         </SelectItem>
                                                     ))}
                                                 </Select>
+                                            </td>
+                                            <td className="text-center">
+                                                {/*
+                                                 * Sólo lo que sale y regresa se puede seguir pieza por pieza.
+                                                 * Serializar un insumo no tiene sentido: se gasta.
+                                                 */}
+                                                {i.tipo === 'insumo' ? (
+                                                    <span className="text-base-content/30">—</span>
+                                                ) : (
+                                                    <input
+                                                        type="checkbox"
+                                                        className="checkbox checkbox-sm"
+                                                        checked={i.se_controla_por_pieza}
+                                                        onChange={(e) =>
+                                                            editar(i.id, { se_controla_por_pieza: e.target.checked })
+                                                        }
+                                                        aria-label={`Se controla por pieza ${i.codigo}`}
+                                                    />
+                                                )}
                                             </td>
                                             <td className="text-center">
                                                 <input
@@ -218,8 +239,10 @@ export default function ArticulosIndex() {
                 </div>
 
                 <p className="text-base-content/60 mt-4 text-sm">
-                    El <strong>insumo</strong> se gasta y sólo se cuenta. El <strong>activo</strong> sale y regresa:
-                    hoy se maneja por cantidad, y más adelante cada pieza tendrá su número de serie y su resguardo.{' '}
+                    El <strong>insumo</strong> se gasta y sólo se cuenta. La <strong>herramienta</strong> y el{' '}
+                    <strong>activo</strong> salen y regresan. <strong>Por pieza</strong> es lo que además lleva número
+                    de serie y resguardo por persona: sin eso el kardex sabe cuántas pulidoras salieron, pero no quién
+                    tiene cuál — por eso la pulidora va marcada y el módulo de andamio no.{' '}
                     <strong>Verifica recepción</strong> detiene la entrada hasta que alguien revise el mantenimiento
                     del equipo, y va aparte porque no todo activo lo necesita. Quitar <strong>lleva kardex</strong> es
                     para lo que se compra pero no se almacena, como un flete.

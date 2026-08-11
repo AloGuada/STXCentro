@@ -3351,7 +3351,7 @@ export type AlmSalidaDemo = {
     renglones: number;
     motivo: string;
     /** Requisición que surte, si la hay: la salida urgente no lleva. */
-    requisicion_folio: string | null;
+    pedido_folio: string | null;
 };
 
 export type AlmTransferenciaDemo = {
@@ -3395,11 +3395,11 @@ export type AlmDevolucionDemo = {
 };
 
 /**
- * Qué es el producto para almacén. El `insumo` se gasta y sólo se cuenta; el
- * `activo` sale y regresa, y en la fase 3 gana identidad individual (serie,
- * foto, resguardo).
+ * Qué es el producto para almacén. El `insumo` se gasta y sólo se cuenta; la
+ * `herramienta` y el `activo` salen y regresan, así que pueden llevar identidad
+ * individual (serie, foto, resguardo). Espeja `App\Enums\Alm\ProductoTipo`.
  */
-export type AlmProductoTipo = 'insumo' | 'activo';
+export type AlmProductoTipo = 'insumo' | 'herramienta' | 'activo';
 
 export type AlmArticuloDemo = {
     id: number;
@@ -3416,18 +3416,25 @@ export type AlmArticuloDemo = {
     requiere_verificacion: boolean;
     /** Un servicio o un gasto se compra pero no se almacena: no lleva kardex. */
     controla_inventario: boolean;
+    /**
+     * Además del saldo por cantidad, cada pieza se registra con número de serie
+     * y se presta bajo resguardo. Sin esto el kardex sabe cuántas pulidoras
+     * salieron, pero no quién tiene cuál.
+     */
+    se_controla_por_pieza: boolean;
     stock_minimo: number | null;
     existencia_total: number;
 };
 
 /** Los documentos de almacén que pueden pedir firma. */
 export type AlmDocumentoTipo =
-    | 'requisicion'
+    | 'pedido'
     | 'entrada'
     | 'salida'
     | 'transferencia'
     | 'devolucion'
-    | 'ajuste';
+    | 'ajuste'
+    | 'prestamo';
 
 export type AlmUsuarioDemo = {
     id: number;
@@ -3443,29 +3450,92 @@ export type AlmReglaAprobacion = {
     usuarios: number[];
 };
 
-export type AlmRequisicionEstatus = 'borrador' | 'pendiente' | 'aprobada' | 'surtida' | 'rechazada';
+/**
+ * Se llama pedido y no requisición para no chocar con la requisición de compra
+ * de Costos, que le pide material a un proveedor. Éste le pide a un almacén lo
+ * que ya está en existencia.
+ */
+export type AlmPedidoEstatus =
+    | 'borrador'
+    | 'pendiente'
+    | 'aprobado'
+    | 'surtido'
+    | 'cancelado'
+    | 'rechazado';
 
-export type AlmRequisicionDetalleDemo = {
+export type AlmPedidoDetalleDemo = {
     producto_id: number;
     cantidad_solicitada: number;
     /**
-     * Lo que ya se entregó, sumando todas las salidas de esta requisición. Una
-     * requisición se surte en varias vueltas: sólo llega a `surtida` cuando
-     * todos sus renglones alcanzan lo solicitado.
+     * Lo que ya se entregó, sumando todas las salidas y transferencias de este
+     * pedido. Un pedido se surte en varias vueltas: sólo llega a `surtido`
+     * cuando todos sus renglones alcanzan lo solicitado.
      */
     cantidad_surtida: number;
 };
 
-export type AlmRequisicionDemo = {
+export type AlmPedidoDemo = {
     id: number;
     folio: string;
     fecha: string;
     solicitante: string;
-    obra: string;
+    /** Quién pide. Siempre hay un área responsable, haya obra o no. */
+    departamento: string;
+    /**
+     * Para dónde es. `null` es consumo interno de planta: la fabricación y las
+     * áreas de la nave también piden material, y no cuelgan de ninguna obra.
+     *
+     * De aquí sale cómo se surte: con obra hay que llevarlo al almacén de esa
+     * obra, así que lo surte una transferencia; sin obra el material se queda
+     * en el mismo domicilio y lo surte una salida.
+     */
+    obra: string | null;
     almacen: string;
     fecha_requerida: string;
-    detalle: AlmRequisicionDetalleDemo[];
-    estatus: AlmRequisicionEstatus;
+    detalle: AlmPedidoDetalleDemo[];
+    estatus: AlmPedidoEstatus;
+};
+
+/**
+ * Una pieza identificada de un artículo marcado `se_controla_por_pieza`. El
+ * kardex sigue contando por cantidad; esto es lo que responde quién tiene cuál.
+ */
+export type AlmActivoEstatus = 'disponible' | 'prestado' | 'en_reparacion' | 'baja';
+
+export type AlmActivoDemo = {
+    id: number;
+    producto_id: number;
+    codigo: string;
+    descripcion: string;
+    no_serie: string;
+    almacen: string;
+    estatus: AlmActivoEstatus;
+    condicion: string;
+};
+
+export type AlmPrestamoEstatus = 'abierto' | 'devuelto' | 'perdido';
+
+/**
+ * Resguardo de una pieza. No mueve el saldo del kardex: la herramienta sigue
+ * siendo del almacén, lo que cambia es quién la trae. Por eso Existencias
+ * puede decir "14 pulidoras · 11 disponibles · 3 prestadas".
+ */
+export type AlmPrestamoDemo = {
+    id: number;
+    folio: string;
+    activo_id: number;
+    no_serie: string;
+    articulo: string;
+    almacen: string;
+    responsable: string;
+    /** Obra o área a la que se la llevó. */
+    destino: string;
+    fecha_salida: string;
+    fecha_retorno_esperada: string;
+    fecha_retorno: string | null;
+    condicion_salida: string;
+    condicion_retorno: string | null;
+    estatus: AlmPrestamoEstatus;
 };
 
 /** Un renglón del capturador de partidas, compartido por los tres documentos. */

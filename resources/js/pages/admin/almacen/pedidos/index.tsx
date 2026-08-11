@@ -1,6 +1,6 @@
 import { ButtonLink } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
-import { ESTATUS_REQUISICION, REQUISICIONES_DEMO } from '@/lib/alm/demo';
+import { comoSeSurte, ESTATUS_PEDIDO, PEDIDOS_DEMO } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { PlusIcon } from 'lucide-react';
@@ -8,26 +8,26 @@ import { PlusIcon } from 'lucide-react';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Almacén', href: '/admin/almacen/existencias' },
-    { title: 'Requisiciones', href: '/admin/almacen/requisiciones' },
+    { title: 'Pedidos', href: '/admin/almacen/pedidos' },
 ];
 
-export default function RequisicionesIndex() {
+export default function PedidosIndex() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Requisiciones" />
+            <Head title="Pedidos" />
 
             <div className="p-6">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h1 className="text-2xl font-semibold">Requisiciones</h1>
+                        <h1 className="text-2xl font-semibold">Pedidos</h1>
                         <p className="text-base-content/60 mt-1 text-sm">
-                            Lo que la obra le pide al almacén. Al aprobarse y surtirse genera la salida: es lo que
-                            explica por qué se movió el material.
+                            Lo que la obra le pide al almacén. Al aprobarse y surtirse genera la salida o la
+                            transferencia: es lo que explica por qué se movió el material.
                         </p>
                     </div>
-                    <ButtonLink href="/admin/almacen/requisiciones/create" variant="primary">
+                    <ButtonLink href="/admin/almacen/pedidos/create" variant="primary">
                         <PlusIcon className="size-4" />
-                        Nueva requisición
+                        Nuevo pedido
                     </ButtonLink>
                 </div>
 
@@ -37,8 +37,11 @@ export default function RequisicionesIndex() {
 
                 <div className="alert alert-info mb-4">
                     <span>
-                        No confundir con la <strong>requisición de compra</strong> de Costos, que le pide material a un
-                        proveedor. Ésta le pide a un almacén lo que ya está en existencia.
+                        Se llama <strong>pedido</strong> y no requisición para no confundirlo con la{' '}
+                        <strong>requisición de compra</strong> de Costos, que le pide material a un proveedor. Éste le
+                        pide a un almacén lo que ya está en existencia. Se puede pedir para una obra o para{' '}
+                        <strong>consumo interno de planta</strong>; el destino decide si lo surte una transferencia o
+                        una salida.
                     </span>
                 </div>
 
@@ -49,8 +52,10 @@ export default function RequisicionesIndex() {
                                 <th>Folio</th>
                                 <th>Fecha</th>
                                 <th>Solicitante</th>
-                                <th>Obra</th>
+                                <th>Área</th>
+                                <th>Destino</th>
                                 <th>Le pide a</th>
+                                <th>Se surte con</th>
                                 <th>Requerido para</th>
                                 <th className="text-right">Renglones</th>
                                 <th className="text-right">Por surtir</th>
@@ -58,22 +63,31 @@ export default function RequisicionesIndex() {
                             </tr>
                         </thead>
                         <tbody>
-                            {REQUISICIONES_DEMO.map((r) => {
-                                const estatus = ESTATUS_REQUISICION[r.estatus];
+                            {PEDIDOS_DEMO.map((p) => {
+                                const estatus = ESTATUS_PEDIDO[p.estatus];
+                                const surtido = comoSeSurte(p.obra);
 
                                 return (
-                                    <tr key={r.id} className="hover">
-                                        <td className="font-mono font-medium">{r.folio}</td>
-                                        <td className="font-mono text-sm">{r.fecha}</td>
-                                        <td className="text-sm">{r.solicitante}</td>
-                                        <td>{r.obra}</td>
+                                    <tr key={p.id} className="hover">
+                                        <td className="font-mono font-medium">{p.folio}</td>
+                                        <td className="font-mono text-sm">{p.fecha}</td>
+                                        <td className="text-sm">{p.solicitante}</td>
+                                        <td className="text-sm">{p.departamento}</td>
                                         <td>
-                                            <span className="badge badge-sm badge-ghost font-mono">{r.almacen}</span>
+                                            {p.obra ?? (
+                                                <span className="badge badge-sm badge-ghost">Consumo interno</span>
+                                            )}
                                         </td>
-                                        <td className="font-mono text-sm">{r.fecha_requerida}</td>
-                                        <td className="text-right font-mono">{r.detalle.length}</td>
+                                        <td>
+                                            <span className="badge badge-sm badge-ghost font-mono">{p.almacen}</span>
+                                        </td>
+                                        <td className="text-base-content/70 text-sm" title={surtido.explicacion}>
+                                            {surtido.documento}
+                                        </td>
+                                        <td className="font-mono text-sm">{p.fecha_requerida}</td>
+                                        <td className="text-right font-mono">{p.detalle.length}</td>
                                         <td className="text-right font-mono">
-                                            {r.detalle.filter((d) => d.cantidad_surtida < d.cantidad_solicitada).length}
+                                            {p.detalle.filter((d) => d.cantidad_surtida < d.cantidad_solicitada).length}
                                         </td>
                                         <td>
                                             <span className={`badge badge-sm ${estatus.clase}`}>{estatus.etiqueta}</span>

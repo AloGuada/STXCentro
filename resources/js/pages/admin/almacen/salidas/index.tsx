@@ -41,7 +41,7 @@ export default function SalidasIndex() {
                         <thead className="bg-base-200">
                             <tr>
                                 <th>Folio</th>
-                                <th>Requisición</th>
+                                <th>Pedido</th>
                                 <th>Fecha</th>
                                 <th>Almacén</th>
                                 <th>Obra destino</th>
@@ -57,7 +57,7 @@ export default function SalidasIndex() {
                                 <tr key={s.id} className="hover">
                                     <td className="font-mono font-medium">{s.folio}</td>
                                     <td className="font-mono text-sm">
-                                        {s.requisicion_folio ?? <span className="text-base-content/40">Directa</span>}
+                                        {s.pedido_folio ?? <span className="text-base-content/40">Directa</span>}
                                     </td>
                                     <td className="font-mono text-sm">{s.fecha}</td>
                                     <td>

@@ -230,26 +230,72 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Maquetas: pantallas sin backend todavia, dibujadas con datos de
         // ejemplo para revisar diseno y flujo. Se van reemplazando por su
-        // controlador real conforme cada una se construya.
-        Route::middleware('permission:alm.almacenes.ver')->group(function () {
-            Route::get('existencias', [AlmVistasController::class, 'existencias'])->name('existencias.index');
-            Route::get('kardex', [AlmVistasController::class, 'kardex'])->name('kardex.index');
-            Route::get('entradas', [AlmVistasController::class, 'entradas'])->name('entradas.index');
-            Route::get('entradas/create', [AlmVistasController::class, 'entradaCreate'])->name('entradas.create');
-            Route::get('salidas', [AlmVistasController::class, 'salidas'])->name('salidas.index');
-            Route::get('salidas/create', [AlmVistasController::class, 'salidaCreate'])->name('salidas.create');
-            Route::get('transferencias', [AlmVistasController::class, 'transferencias'])->name('transferencias.index');
-            Route::get('transferencias/create', [AlmVistasController::class, 'transferenciaCreate'])->name('transferencias.create');
-            Route::get('devoluciones', [AlmVistasController::class, 'devoluciones'])->name('devoluciones.index');
-            Route::get('devoluciones/create', [AlmVistasController::class, 'devolucionCreate'])->name('devoluciones.create');
-            Route::get('ajustes', [AlmVistasController::class, 'ajustes'])->name('ajustes.index');
-            Route::get('ajustes/create', [AlmVistasController::class, 'ajusteCreate'])->name('ajustes.create');
-            Route::get('requisiciones', [AlmVistasController::class, 'requisiciones'])->name('requisiciones.index');
-            Route::get('requisiciones/create', [AlmVistasController::class, 'requisicionCreate'])->name('requisiciones.create');
-            Route::get('articulos', [AlmVistasController::class, 'articulos'])->name('articulos.index');
-            Route::get('articulos/create', [AlmVistasController::class, 'articuloCreate'])->name('articulos.create');
-            Route::get('aprobaciones', [AlmVistasController::class, 'aprobaciones'])->name('aprobaciones.index');
-        });
+        // controlador real conforme cada una se construya. Cada una ya va
+        // detras de su permiso definitivo: el modulo mueve existencias de
+        // forma irreversible, asi que reciclar un solo permiso no alcanza.
+        Route::get('existencias', [AlmVistasController::class, 'existencias'])
+            ->middleware('permission:alm.existencias.ver')
+            ->name('existencias.index');
+        Route::get('kardex', [AlmVistasController::class, 'kardex'])
+            ->middleware('permission:alm.kardex.ver')
+            ->name('kardex.index');
+        Route::get('entradas', [AlmVistasController::class, 'entradas'])
+            ->middleware('permission:alm.entradas.ver')
+            ->name('entradas.index');
+        Route::get('entradas/create', [AlmVistasController::class, 'entradaCreate'])
+            ->middleware('permission:alm.entradas.crear')
+            ->name('entradas.create');
+        Route::get('salidas', [AlmVistasController::class, 'salidas'])
+            ->middleware('permission:alm.salidas.ver')
+            ->name('salidas.index');
+        Route::get('salidas/create', [AlmVistasController::class, 'salidaCreate'])
+            ->middleware('permission:alm.salidas.crear')
+            ->name('salidas.create');
+        Route::get('transferencias', [AlmVistasController::class, 'transferencias'])
+            ->middleware('permission:alm.transferencias.ver')
+            ->name('transferencias.index');
+        Route::get('transferencias/create', [AlmVistasController::class, 'transferenciaCreate'])
+            ->middleware('permission:alm.transferencias.enviar')
+            ->name('transferencias.create');
+        Route::get('devoluciones', [AlmVistasController::class, 'devoluciones'])
+            ->middleware('permission:alm.devoluciones.ver')
+            ->name('devoluciones.index');
+        Route::get('devoluciones/create', [AlmVistasController::class, 'devolucionCreate'])
+            ->middleware('permission:alm.devoluciones.crear')
+            ->name('devoluciones.create');
+        Route::get('ajustes', [AlmVistasController::class, 'ajustes'])
+            ->middleware('permission:alm.ajustes.ver')
+            ->name('ajustes.index');
+        Route::get('ajustes/create', [AlmVistasController::class, 'ajusteCreate'])
+            ->middleware('permission:alm.ajustes.crear')
+            ->name('ajustes.create');
+        Route::get('pedidos', [AlmVistasController::class, 'pedidos'])
+            ->middleware('permission:alm.pedidos.ver')
+            ->name('pedidos.index');
+        Route::get('pedidos/create', [AlmVistasController::class, 'pedidoCreate'])
+            ->middleware('permission:alm.pedidos.crear')
+            ->name('pedidos.create');
+        Route::get('prestamos', [AlmVistasController::class, 'prestamos'])
+            ->middleware('permission:alm.prestamos.ver')
+            ->name('prestamos.index');
+        Route::get('prestamos/create', [AlmVistasController::class, 'prestamoCreate'])
+            ->middleware('permission:alm.prestamos.crear')
+            ->name('prestamos.create');
+        Route::get('activos', [AlmVistasController::class, 'activos'])
+            ->middleware('permission:alm.activos.ver')
+            ->name('activos.index');
+        Route::get('activos/create', [AlmVistasController::class, 'activoCreate'])
+            ->middleware('permission:alm.activos.crear')
+            ->name('activos.create');
+        Route::get('articulos', [AlmVistasController::class, 'articulos'])
+            ->middleware('permission:alm.articulos.ver')
+            ->name('articulos.index');
+        Route::get('articulos/create', [AlmVistasController::class, 'articuloCreate'])
+            ->middleware('permission:alm.articulos.crear')
+            ->name('articulos.create');
+        Route::get('aprobaciones', [AlmVistasController::class, 'aprobaciones'])
+            ->middleware('permission:alm.aprobaciones.ver')
+            ->name('aprobaciones.index');
     });
 
     // Infraestructura admin routes
