@@ -23,6 +23,7 @@ class AlmacenController extends Controller
     public function index(Request $request): Response
     {
         $almacenes = Almacen::query()
+            ->visiblesPara($request->user())
             ->with(['obra:id,no,descripcion', 'responsable:id,name'])
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('clave', 'like', "%{$s}%")
                 ->orWhere('nombre', 'like', "%{$s}%")
@@ -51,8 +52,10 @@ class AlmacenController extends Controller
         return to_route('admin.alm.almacenes.index');
     }
 
-    public function edit(Almacen $almacen): Response
+    public function edit(Request $request, Almacen $almacen): Response
     {
+        abort_unless($almacen->esVisiblePara($request->user()), 403);
+
         return Inertia::render('admin/almacen/almacenes/edit', [
             'almacen' => $almacen,
             ...$this->opciones(),
@@ -61,6 +64,8 @@ class AlmacenController extends Controller
 
     public function update(AlmacenUpdateRequest $request, Almacen $almacen): RedirectResponse
     {
+        abort_unless($almacen->esVisiblePara($request->user()), 403);
+
         $almacen->update($request->validated());
 
         return to_route('admin.alm.almacenes.index');
@@ -70,8 +75,10 @@ class AlmacenController extends Controller
      * Se borra sólo mientras esté virgen. En cuanto tenga movimientos, el
      * almacén es parte del histórico del kardex y sólo se desactiva.
      */
-    public function destroy(Almacen $almacen): RedirectResponse
+    public function destroy(Request $request, Almacen $almacen): RedirectResponse
     {
+        abort_unless($almacen->esVisiblePara($request->user()), 403);
+
         $almacen->delete();
 
         return to_route('admin.alm.almacenes.index');

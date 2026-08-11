@@ -7,9 +7,35 @@ use App\Models\Usuario;
 use Spatie\Permission\Models\Permission;
 
 /**
+ * Usuario de almacén con `ver-todos`, que es el estado normal: la migración se
+ * lo dio a todo rol que ya podía ver el catálogo, así que la visibilidad por
+ * almacén sólo muerde cuando alguien decide restringir a un almacenista. Para
+ * probar ese caso está `usuarioDeUnSoloAlmacen()`.
+ *
  * @param  list<string>  $permisos
  */
 function usuarioDeAlmacen(array $permisos = ['ver', 'crear', 'editar', 'eliminar']): User
+{
+    $user = User::factory()->create();
+
+    $nombres = array_map(fn (string $accion): string => "alm.almacenes.{$accion}", $permisos);
+    $nombres[] = 'alm.almacenes.ver-todos';
+
+    foreach ($nombres as $name) {
+        Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
+    }
+
+    $user->givePermissionTo($nombres);
+
+    return $user;
+}
+
+/**
+ * Almacenista restringido: puede operar, pero sólo donde está asignado.
+ *
+ * @param  list<string>  $permisos
+ */
+function usuarioDeUnSoloAlmacen(Almacen $almacen, array $permisos = ['ver', 'editar', 'eliminar']): User
 {
     $user = User::factory()->create();
 
@@ -20,6 +46,7 @@ function usuarioDeAlmacen(array $permisos = ['ver', 'crear', 'editar', 'eliminar
     }
 
     $user->givePermissionTo($nombres);
+    $almacen->usuarios()->attach($user->id);
 
     return $user;
 }
@@ -220,14 +247,72 @@ describe('permisos del catalogo de almacenes', function () {
             ->assertForbidden();
     });
 
-    test('el seeder de permisos incluye los del modulo', function () {
-        $delSeeder = Database\Seeders\RolesAndPermissionsSeeder::groupedPermissions()['alm'];
+    test('sin ver-todos solo se listan los almacenes asignados', function () {
+        $suyo = Almacen::factory()->create(['clave' => 'AG']);
+        Almacen::factory()->create(['clave' => 'FAK']);
+        Almacen::factory()->deObra()->create();
 
-        expect($delSeeder)->toEqualCanonicalizing([
-            'alm.almacenes.ver',
-            'alm.almacenes.crear',
-            'alm.almacenes.editar',
-            'alm.almacenes.eliminar',
-        ]);
+        $this->actingAs(usuarioDeUnSoloAlmacen($suyo, ['ver']))
+            ->get(route('admin.alm.almacenes.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('almacenes.data', 1)
+                ->where('almacenes.data.0.clave', 'AG'));
+    });
+
+    test('el responsable ve su almacen aunque no este en la lista de asignados', function () {
+        $usuario = Usuario::factory()->create();
+        $suyo = Almacen::factory()->create(['responsable_id' => $usuario->id]);
+        Almacen::factory()->create();
+
+        $almacenista = usuarioDeUnSoloAlmacen($suyo, ['ver']);
+        $suyo->usuarios()->detach($almacenista->id);
+        $suyo->update(['responsable_id' => $almacenista->id]);
+
+        $this->actingAs($almacenista)
+            ->get(route('admin.alm.almacenes.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('almacenes.data', 1));
+    });
+
+    test('no se edita ni se borra un almacen ajeno', function () {
+        $suyo = Almacen::factory()->create();
+        $ajeno = Almacen::factory()->create();
+        $almacenista = usuarioDeUnSoloAlmacen($suyo);
+
+        $this->actingAs($almacenista)
+            ->get(route('admin.alm.almacenes.edit', $ajeno))
+            ->assertForbidden();
+
+        $this->actingAs($almacenista)
+            ->put(route('admin.alm.almacenes.update', $ajeno), [
+                'clave' => 'ZZ',
+                'nombre' => 'No debería',
+                'tipo' => 'insumos',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($almacenista)
+            ->delete(route('admin.alm.almacenes.destroy', $ajeno))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('alm_almacenes', ['id' => $ajeno->id]);
+    });
+
+    /**
+     * Un permiso nuevo se crea en dos lados: la migración `firstOrCreate` (para
+     * las bases que ya existen) y `groupedPermissions()` (para las nuevas).
+     * Olvidar el segundo deja el permiso vivo pero fuera del seeder, y la
+     * diferencia sólo se nota cuando alguien levanta un ambiente desde cero.
+     */
+    test('el seeder de permisos incluye todos los del modulo', function () {
+        $delSeeder = Database\Seeders\RolesAndPermissionsSeeder::groupedPermissions()['alm'];
+        $creadosPorMigracion = Spatie\Permission\Models\Permission::where('name', 'like', 'alm.%')
+            ->pluck('name')
+            ->all();
+
+        expect($creadosPorMigracion)->not->toBeEmpty()
+            ->and(array_diff($creadosPorMigracion, $delSeeder))->toBeEmpty()
+            ->and($delSeeder)->toContain('alm.almacenes.ver', 'alm.kardex.ver', 'alm.pedidos.aprobar');
     });
 });

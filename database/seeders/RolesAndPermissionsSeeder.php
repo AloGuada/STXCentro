@@ -243,10 +243,52 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Permisos del módulo Almacén
         $almPermissions = [
+            // Catalogo de almacenes. `ver-todos` no abre pantallas: levanta el
+            // filtro de visibilidad y deja ver los almacenes no asignados.
             'alm.almacenes.ver',
             'alm.almacenes.crear',
             'alm.almacenes.editar',
             'alm.almacenes.eliminar',
+            'alm.almacenes.ver-todos',
+            // Consulta de saldos e historial
+            'alm.existencias.ver',
+            'alm.kardex.ver',
+            // Catalogo de articulos (comparte tabla con los productos de Costos)
+            'alm.articulos.ver',
+            'alm.articulos.crear',
+            'alm.articulos.editar',
+            // Pedido de material al almacen (el REQ de Costos es pedir que se compre)
+            'alm.pedidos.ver',
+            'alm.pedidos.crear',
+            'alm.pedidos.aprobar',
+            'alm.pedidos.cancelar',
+            // Recepcion de material
+            'alm.entradas.ver',
+            'alm.entradas.crear',
+            'alm.entradas.cancelar',
+            // Salidas
+            'alm.salidas.ver',
+            'alm.salidas.crear',
+            // Transferencias en dos tiempos: enviar y recibir son actos distintos
+            'alm.transferencias.ver',
+            'alm.transferencias.enviar',
+            'alm.transferencias.recibir',
+            // Material que vuelve de obra
+            'alm.devoluciones.ver',
+            'alm.devoluciones.crear',
+            // Ajustes de inventario
+            'alm.ajustes.ver',
+            'alm.ajustes.crear',
+            // Resguardo de herramienta por pieza
+            'alm.prestamos.ver',
+            'alm.prestamos.crear',
+            'alm.prestamos.devolver',
+            'alm.activos.ver',
+            'alm.activos.crear',
+            'alm.activos.editar',
+            // Configuracion de firmas por almacen y documento
+            'alm.aprobaciones.ver',
+            'alm.aprobaciones.configurar',
         ];
 
         // Permisos del módulo Infraestructura
