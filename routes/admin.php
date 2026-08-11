@@ -293,6 +293,27 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('articulos/create', [AlmVistasController::class, 'articuloCreate'])
             ->middleware('permission:alm.articulos.crear')
             ->name('articulos.create');
+        // Despues de 'create' o la ficha se comeria esa ruta
+        Route::get('articulos/{articulo}', [AlmVistasController::class, 'articuloShow'])
+            ->whereNumber('articulo')
+            ->middleware('permission:alm.articulos.ver')
+            ->name('articulos.show');
+        Route::get('ubicaciones', [AlmVistasController::class, 'ubicaciones'])
+            ->middleware('permission:alm.ubicaciones.ver')
+            ->name('ubicaciones.index');
+        Route::get('conteos', [AlmVistasController::class, 'conteos'])
+            ->middleware('permission:alm.conteos.ver')
+            ->name('conteos.index');
+        Route::get('conteos/create', [AlmVistasController::class, 'conteoCreate'])
+            ->middleware('permission:alm.conteos.crear')
+            ->name('conteos.create');
+        Route::get('conteos/{conteo}', [AlmVistasController::class, 'conteoShow'])
+            ->whereNumber('conteo')
+            ->middleware('permission:alm.conteos.capturar')
+            ->name('conteos.show');
+        Route::get('etiquetas', [AlmVistasController::class, 'etiquetas'])
+            ->middleware('permission:alm.etiquetas.ver')
+            ->name('etiquetas.index');
         Route::get('aprobaciones', [AlmVistasController::class, 'aprobaciones'])
             ->middleware('permission:alm.aprobaciones.ver')
             ->name('aprobaciones.index');

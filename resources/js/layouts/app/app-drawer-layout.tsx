@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
     BadgeDollarSign,
+    Barcode,
     BookOpen,
     Boxes,
     Briefcase,
@@ -29,6 +30,7 @@ import {
     KeyRound,
     Landmark,
     LogOut,
+    MapPin,
     MenuIcon,
     Monitor,
     Network,
@@ -230,6 +232,12 @@ const navGroups: NavGroup[] = [
                 permission: 'alm.existencias.ver',
             },
             {
+                title: 'Activos',
+                href: '/admin/almacen/activos',
+                icon: ScanBarcode,
+                permission: 'alm.activos.ver',
+            },
+            {
                 title: 'Pedidos',
                 href: '/admin/almacen/pedidos',
                 icon: ClipboardCheck,
@@ -272,6 +280,12 @@ const navGroups: NavGroup[] = [
                 permission: 'alm.ajustes.ver',
             },
             {
+                title: 'Inventarios Cíclicos',
+                href: '/admin/almacen/conteos',
+                icon: ClipboardCheck,
+                permission: 'alm.conteos.ver',
+            },
+            {
                 title: 'Kardex',
                 href: '/admin/almacen/kardex',
                 icon: BookOpen,
@@ -284,16 +298,22 @@ const navGroups: NavGroup[] = [
                 permission: 'alm.articulos.ver',
             },
             {
-                title: 'Activos',
-                href: '/admin/almacen/activos',
-                icon: ScanBarcode,
-                permission: 'alm.activos.ver',
+                title: 'Códigos de Barras',
+                href: '/admin/almacen/etiquetas',
+                icon: Barcode,
+                permission: 'alm.etiquetas.ver',
             },
             {
                 title: 'Almacenes',
                 href: '/admin/almacen/almacenes',
                 icon: Building2,
                 permission: 'alm.almacenes.ver',
+            },
+            {
+                title: 'Ubicaciones',
+                href: '/admin/almacen/ubicaciones',
+                icon: MapPin,
+                permission: 'alm.ubicaciones.ver',
             },
             {
                 title: 'Aprobaciones',

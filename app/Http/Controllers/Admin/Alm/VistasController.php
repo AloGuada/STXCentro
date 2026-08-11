@@ -115,6 +115,40 @@ class VistasController extends Controller
         return Inertia::render('admin/almacen/articulos/create');
     }
 
+    /**
+     * La maqueta no consulta la base: sólo le pasa el id para que elija de sus
+     * datos de ejemplo cuál artículo dibujar.
+     */
+    public function articuloShow(int $articulo): Response
+    {
+        return Inertia::render('admin/almacen/articulos/show', ['articuloId' => $articulo]);
+    }
+
+    public function ubicaciones(): Response
+    {
+        return Inertia::render('admin/almacen/ubicaciones/index');
+    }
+
+    public function conteos(): Response
+    {
+        return Inertia::render('admin/almacen/conteos/index');
+    }
+
+    public function conteoCreate(): Response
+    {
+        return Inertia::render('admin/almacen/conteos/create');
+    }
+
+    public function conteoShow(int $conteo): Response
+    {
+        return Inertia::render('admin/almacen/conteos/show', ['conteoId' => $conteo]);
+    }
+
+    public function etiquetas(): Response
+    {
+        return Inertia::render('admin/almacen/etiquetas/index');
+    }
+
     public function aprobaciones(): Response
     {
         return Inertia::render('admin/almacen/aprobaciones/index');

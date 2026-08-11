@@ -257,6 +257,18 @@ class RolesAndPermissionsSeeder extends Seeder
             'alm.articulos.ver',
             'alm.articulos.crear',
             'alm.articulos.editar',
+            // Hoja de codigos de barras para escaneo
+            'alm.etiquetas.ver',
+            // Lugares fisicos dentro de un almacen: pasillo, rack, nivel
+            'alm.ubicaciones.ver',
+            'alm.ubicaciones.crear',
+            'alm.ubicaciones.editar',
+            // Inventarios ciclicos. Contar y cerrar son actos distintos: cerrar
+            // es lo que genera el ajuste que corrige la existencia
+            'alm.conteos.ver',
+            'alm.conteos.crear',
+            'alm.conteos.capturar',
+            'alm.conteos.cerrar',
             // Pedido de material al almacen (el REQ de Costos es pedir que se compre)
             'alm.pedidos.ver',
             'alm.pedidos.crear',

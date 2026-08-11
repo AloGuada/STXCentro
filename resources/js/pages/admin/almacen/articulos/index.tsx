@@ -1,11 +1,11 @@
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ARTICULOS_DEMO, TIPOS_ARTICULO } from '@/lib/alm/demo';
+import { ARTICULOS_DEMO, CLASES_ABC, REGLAS_ABC, TIPOS_ARTICULO } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
-import type { AlmArticuloDemo, AlmProductoTipo } from '@/types/models';
-import { Head } from '@inertiajs/react';
-import { ImageIcon, PlusIcon, SearchIcon, TriangleAlertIcon } from 'lucide-react';
+import type { AlmArticuloDemo, AlmClasificacionAbc, AlmProductoTipo } from '@/types/models';
+import { Head, Link } from '@inertiajs/react';
+import { BarcodeIcon, ImageIcon, PlusIcon, SearchIcon, TagIcon, TriangleAlertIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -21,6 +21,7 @@ const CLASE_TIPO: Record<AlmProductoTipo, string> = {
 };
 
 const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
+const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
 /** La foto ayuda a reconocer el artículo; sin ella queda el hueco marcado. */
 function MiniaturaArticulo({ articulo }: { articulo: AlmArticuloDemo }) {
@@ -57,9 +58,17 @@ export default function ArticulosIndex() {
         setCambios((prev) => ({ ...prev, [id]: { ...prev[id], ...cambio } }));
 
     const s = query.trim().toLowerCase();
+    // Se busca también por marca, modelo y código de barras: el almacenista
+    // llega con la caja en la mano y lo que tiene enfrente es el modelo o el
+    // código escaneado, no la descripción con la que se dio de alta.
     const visibles = ARTICULOS_DEMO.map(valorDe).filter(
         (i) =>
-            (s === '' || i.codigo.toLowerCase().includes(s) || i.descripcion.toLowerCase().includes(s)) &&
+            (s === '' ||
+                i.codigo.toLowerCase().includes(s) ||
+                i.descripcion.toLowerCase().includes(s) ||
+                (i.marca ?? '').toLowerCase().includes(s) ||
+                (i.modelo ?? '').toLowerCase().includes(s) ||
+                (i.codigo_barras ?? '').toLowerCase().includes(s)) &&
             (filtroTipo === '' || i.tipo === filtroTipo),
     );
 
@@ -78,10 +87,16 @@ export default function ArticulosIndex() {
                             qué ni siquiera se guarda.
                         </p>
                     </div>
-                    <ButtonLink href="/admin/almacen/articulos/create" variant="primary">
-                        <PlusIcon className="size-4" />
-                        Nuevo artículo
-                    </ButtonLink>
+                    <div className="flex gap-2">
+                        <ButtonLink href="/admin/almacen/etiquetas" variant="outline">
+                            <TagIcon className="size-4" />
+                            Imprimir etiquetas
+                        </ButtonLink>
+                        <ButtonLink href="/admin/almacen/articulos/create" variant="primary">
+                            <PlusIcon className="size-4" />
+                            Nuevo artículo
+                        </ButtonLink>
+                    </div>
                 </div>
 
                 <div className="alert alert-warning mb-4">
@@ -123,17 +138,19 @@ export default function ArticulosIndex() {
                                 <th>Descripción</th>
                                 <th>Unidad</th>
                                 <th className="w-40">Tipo</th>
+                                <th className="w-28">Clase</th>
                                 <th className="text-center">Por pieza</th>
                                 <th className="text-center">Verifica recepción</th>
                                 <th className="text-center">Lleva kardex</th>
                                 <th className="text-right">Stock mínimo</th>
+                                <th className="text-right">Último precio</th>
                                 <th className="text-right">Existencia</th>
                             </tr>
                         </thead>
                         <tbody>
                             {visibles.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="text-base-content/50 py-6 text-center">
+                                    <td colSpan={12} className="text-base-content/50 py-6 text-center">
                                         Ningún artículo coincide con el filtro.
                                     </td>
                                 </tr>
@@ -149,12 +166,30 @@ export default function ArticulosIndex() {
                                             <td>
                                                 <MiniaturaArticulo articulo={i} />
                                             </td>
-                                            <td className="font-mono font-medium">{i.codigo}</td>
+                                            <td>
+                                                <Link
+                                                    href={`/admin/almacen/articulos/${i.id}`}
+                                                    className="link link-hover font-mono font-medium"
+                                                >
+                                                    {i.codigo}
+                                                </Link>
+                                                {i.codigo_barras && (
+                                                    <BarcodeIcon
+                                                        className="text-base-content/40 ml-1 inline size-3"
+                                                        aria-label="Tiene código de barras"
+                                                    />
+                                                )}
+                                            </td>
                                             <td>
                                                 {i.descripcion}
                                                 <span className={`badge badge-xs ml-2 ${CLASE_TIPO[i.tipo]}`}>
                                                     {TIPOS_ARTICULO[i.tipo]}
                                                 </span>
+                                                {(i.marca || i.modelo) && (
+                                                    <span className="text-base-content/50 block text-xs">
+                                                        {[i.marca, i.modelo].filter(Boolean).join(' · ')}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="text-base-content/60 font-mono text-xs">{i.unidad}</td>
                                             <td>
@@ -169,6 +204,32 @@ export default function ArticulosIndex() {
                                                         </SelectItem>
                                                     ))}
                                                 </Select>
+                                            </td>
+                                            <td>
+                                                {/*
+                                                 * De aquí sale cada cuánto lo alcanza el inventario cíclico:
+                                                 * es la única columna que decide trabajo futuro.
+                                                 */}
+                                                {i.controla_inventario ? (
+                                                    <Select
+                                                        value={i.clasificacion_abc}
+                                                        onValueChange={(v) =>
+                                                            editar(i.id, {
+                                                                clasificacion_abc: v as AlmClasificacionAbc,
+                                                            })
+                                                        }
+                                                        className={`select-sm ${CLASES_ABC[i.clasificacion_abc]}`}
+                                                        aria-label={`Clase de conteo ${i.codigo}`}
+                                                    >
+                                                        {REGLAS_ABC.map((r) => (
+                                                            <SelectItem key={r.clasificacion} value={r.clasificacion}>
+                                                                {r.clasificacion} — {r.etiqueta}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </Select>
+                                                ) : (
+                                                    <span className="text-base-content/30">—</span>
+                                                )}
                                             </td>
                                             <td className="text-center">
                                                 {/*
@@ -218,6 +279,13 @@ export default function ArticulosIndex() {
                                                     numero(i.stock_minimo)
                                                 )}
                                             </td>
+                                            <td className="text-right font-mono text-xs">
+                                                {i.precio_ultimo === null ? (
+                                                    <span className="text-base-content/40">—</span>
+                                                ) : (
+                                                    moneda(i.precio_ultimo)
+                                                )}
+                                            </td>
                                             <td className="text-right font-mono">
                                                 {i.controla_inventario ? (
                                                     <span className={bajoMinimo ? 'text-error font-semibold' : ''}>
@@ -245,7 +313,11 @@ export default function ArticulosIndex() {
                     tiene cuál — por eso la pulidora va marcada y el módulo de andamio no.{' '}
                     <strong>Verifica recepción</strong> detiene la entrada hasta que alguien revise el mantenimiento
                     del equipo, y va aparte porque no todo activo lo necesita. Quitar <strong>lleva kardex</strong> es
-                    para lo que se compra pero no se almacena, como un flete.
+                    para lo que se compra pero no se almacena, como un flete — y por eso también lo deja fuera de los
+                    conteos y las etiquetas. La <strong>clase</strong> decide cada cuánto lo alcanza el inventario
+                    cíclico: A cada mes, B cada trimestre, C cada semestre. El <strong>último precio</strong> no se
+                    teclea aquí, sale de lo que cotizaron los proveedores en Compras; el histórico completo está en la
+                    ficha del artículo.
                 </p>
             </div>
         </AppLayout>

@@ -3312,7 +3312,12 @@ export type AlmExistenciaDemo = {
     unidad: string;
     cantidad: number;
     costo_promedio: number;
-    ubicacion: string | null;
+    /**
+     * Dónde está dentro del almacén. Apunta al catálogo de ubicaciones en vez
+     * de ser un texto libre: así se puede filtrar por zona y darle una ruta al
+     * inventario cíclico. `null` es material que nadie ha acomodado.
+     */
+    ubicacion_id: number | null;
 };
 
 export type AlmMovimientoDemo = {
@@ -3401,11 +3406,40 @@ export type AlmDevolucionDemo = {
  */
 export type AlmProductoTipo = 'insumo' | 'herramienta' | 'activo';
 
+/**
+ * Cuánto pesa el artículo en el inventario, y por lo tanto cada cuánto se
+ * cuenta. `A` es lo caro o de alta rotación (un faltante duele y se nota
+ * tarde); `C` es lo barato que puede esperar al semestre.
+ */
+export type AlmClasificacionAbc = 'A' | 'B' | 'C';
+
+/** Un punto del histórico de precios. Espeja `costos_producto_precios`. */
+export type AlmPrecioDemo = {
+    id: number;
+    fecha: string;
+    proveedor: string;
+    precio: number;
+    moneda: string;
+    /** De dónde salió el precio: una cotización, una OC o captura manual. */
+    origen: string;
+};
+
 export type AlmArticuloDemo = {
     id: number;
     codigo: string;
     descripcion: string;
     unidad: string;
+    /**
+     * Lo que se escanea. Nace igual al código y se puede sobrescribir con el
+     * del fabricante cuando la caja ya trae uno impreso.
+     */
+    codigo_barras: string | null;
+    marca: string | null;
+    modelo: string | null;
+    /** Cada cuánto lo alcanza el inventario cíclico. */
+    clasificacion_abc: AlmClasificacionAbc;
+    /** Último precio del histórico, para no tener que abrir la ficha. */
+    precio_ultimo: number | null;
     /** Foto del artículo, para reconocerlo sin leer la descripción. */
     imagen_url: string | null;
     tipo: AlmProductoTipo;
@@ -3508,7 +3542,15 @@ export type AlmActivoDemo = {
     codigo: string;
     descripcion: string;
     no_serie: string;
+    /**
+     * El de la pieza, no el del artículo: dos pulidoras del mismo modelo
+     * comparten código pero se escanean distinto, que es lo que permite saber
+     * cuál volvió del préstamo.
+     */
+    codigo_barras: string | null;
     almacen: string;
+    /** Dónde vive cuando está en el pañol. */
+    ubicacion: string | null;
     estatus: AlmActivoEstatus;
     condicion: string;
 };
@@ -3536,6 +3578,83 @@ export type AlmPrestamoDemo = {
     condicion_salida: string;
     condicion_retorno: string | null;
     estatus: AlmPrestamoEstatus;
+};
+
+/**
+ * Un lugar físico dentro de un almacén: pasillo, rack, nivel o contenedor.
+ *
+ * El almacén es virtual (AG, FAK) y puede vivir dentro de una obra; esto es el
+ * tercer nivel que faltaba para poder decir "está en el Rack A-1, nivel 2" en
+ * vez de anotarlo en un texto libre que nadie puede filtrar. Es lo que también
+ * le da al inventario cíclico una ruta que recorrer.
+ */
+export type AlmUbicacionTipo = 'pasillo' | 'rack' | 'nivel' | 'contenedor' | 'zona';
+
+export type AlmUbicacionDemo = {
+    id: number;
+    almacen: string;
+    /** Único dentro del almacén: es lo que se rotula en el anaquel. */
+    codigo: string;
+    nombre: string;
+    tipo: AlmUbicacionTipo;
+    /** Cuelga de otra ubicación: un nivel vive dentro de un rack. */
+    padre_id: number | null;
+    activa: boolean;
+};
+
+/** De dónde salió la hoja de conteo. */
+export type AlmConteoOrigen = 'programado' | 'manual';
+
+export type AlmConteoEstatus = 'pendiente' | 'contando' | 'cerrado' | 'cancelado';
+
+/**
+ * Renglón de una hoja de conteo. `cantidad_sistema` se congela al generar la
+ * hoja: si se leyera al cerrar, un movimiento capturado a media mañana
+ * convertiría un conteo correcto en una diferencia inventada.
+ */
+export type AlmConteoRenglonDemo = {
+    producto_id: number;
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+    ubicacion: string | null;
+    cantidad_sistema: number;
+    /** `null` mientras nadie lo haya contado. Cero es un dato, no un hueco. */
+    cantidad_contada: number | null;
+};
+
+/**
+ * Un inventario cíclico: se cuenta una parte del almacén sin parar la
+ * operación, en vez de cerrar todo una vez al año. Al cerrarse genera un
+ * ajuste con las diferencias — y ese ajuste es el único que las escribe.
+ */
+export type AlmConteoDemo = {
+    id: number;
+    folio: string;
+    origen: AlmConteoOrigen;
+    almacen: string;
+    /** Zona que toca recorrer. `null` es el almacén completo. */
+    ubicacion: string | null;
+    /** Qué clase de artículo entró a la hoja. `null` cuando fue por zona. */
+    clasificacion: AlmClasificacionAbc | null;
+    fecha_programada: string;
+    fecha_cierre: string | null;
+    responsable: string;
+    estatus: AlmConteoEstatus;
+    renglones: AlmConteoRenglonDemo[];
+    /** Folio del ajuste que se generó al cerrar, si hubo diferencias. */
+    ajuste_folio: string | null;
+};
+
+/**
+ * La regla de cada clase: cada cuántos días hay que volver a contarla. De aquí
+ * salen solas las hojas de la semana.
+ */
+export type AlmReglaAbc = {
+    clasificacion: AlmClasificacionAbc;
+    frecuencia_dias: number;
+    etiqueta: string;
+    descripcion: string;
 };
 
 /** Un renglón del capturador de partidas, compartido por los tres documentos. */

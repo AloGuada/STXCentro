@@ -11,6 +11,9 @@ import type {
     AlmAjusteDemo,
     AlmAjusteMotivo,
     AlmArticuloDemo,
+    AlmClasificacionAbc,
+    AlmConteoDemo,
+    AlmConteoEstatus,
     AlmDevolucionDemo,
     AlmDocumentoTipo,
     AlmEntradaDemo,
@@ -18,13 +21,17 @@ import type {
     AlmMovimientoDemo,
     AlmPedidoDemo,
     AlmPedidoEstatus,
+    AlmPrecioDemo,
     AlmPrestamoDemo,
     AlmPrestamoEstatus,
     AlmProductoDemo,
     AlmProductoTipo,
+    AlmReglaAbc,
     AlmReglaAprobacion,
     AlmSalidaDemo,
     AlmTransferenciaDemo,
+    AlmUbicacionDemo,
+    AlmUbicacionTipo,
     AlmUsuarioDemo,
 } from '@/types/models';
 
@@ -49,14 +56,82 @@ export const PRODUCTOS_DEMO: AlmProductoDemo[] = [
     { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', requiere_verificacion: true },
 ];
 
+/**
+ * Lugares físicos dentro de cada almacén. El almacén dice en qué bodega está el
+ * material; esto dice en qué anaquel, que es lo que se necesita para ir por él
+ * y para recorrer una zona contando.
+ *
+ * Cuelgan unos de otros: un nivel vive dentro de un rack y el rack dentro de un
+ * pasillo. La ruta completa (`AG · Pasillo A / Rack A-1 / Nivel 2`) se arma con
+ * `rutaUbicacion`.
+ */
+export const UBICACIONES_DEMO: AlmUbicacionDemo[] = [
+    { id: 1, almacen: 'AG', codigo: 'A', nombre: 'Pasillo A', tipo: 'pasillo', padre_id: null, activa: true },
+    { id: 2, almacen: 'AG', codigo: 'A-1', nombre: 'Rack A-1', tipo: 'rack', padre_id: 1, activa: true },
+    { id: 3, almacen: 'AG', codigo: 'A-1-1', nombre: 'Nivel 1', tipo: 'nivel', padre_id: 2, activa: true },
+    { id: 4, almacen: 'AG', codigo: 'A-1-2', nombre: 'Nivel 2', tipo: 'nivel', padre_id: 2, activa: true },
+    { id: 5, almacen: 'AG', codigo: 'A-2', nombre: 'Rack A-2', tipo: 'rack', padre_id: 1, activa: true },
+    { id: 6, almacen: 'AG', codigo: 'A-2-1', nombre: 'Nivel 1', tipo: 'nivel', padre_id: 5, activa: true },
+    { id: 7, almacen: 'AG', codigo: 'B', nombre: 'Pasillo B', tipo: 'pasillo', padre_id: null, activa: true },
+    { id: 8, almacen: 'AG', codigo: 'B-1', nombre: 'Rack B-1', tipo: 'rack', padre_id: 7, activa: true },
+    { id: 9, almacen: 'AG', codigo: 'INT', nombre: 'Intemperie', tipo: 'zona', padre_id: null, activa: true },
+    { id: 10, almacen: 'FAK', codigo: 'C1', nombre: 'Contenedor 1', tipo: 'contenedor', padre_id: null, activa: true },
+    { id: 11, almacen: 'FAK', codigo: 'C2', nombre: 'Contenedor 2', tipo: 'contenedor', padre_id: null, activa: true },
+    { id: 12, almacen: 'FAD', codigo: 'C1', nombre: 'Contenedor 1', tipo: 'contenedor', padre_id: null, activa: true },
+    { id: 13, almacen: 'HER', codigo: 'EST', nombre: 'Estantería de herramienta', tipo: 'rack', padre_id: null, activa: true },
+    { id: 14, almacen: 'HER', codigo: 'CAN', nombre: 'Canastilla de préstamo', tipo: 'zona', padre_id: null, activa: true },
+    // Se dejó de usar cuando se vació el pasillo viejo: no se borra, porque hay
+    // movimientos históricos que la mencionan.
+    { id: 15, almacen: 'AG', codigo: 'OLD', nombre: 'Pasillo viejo', tipo: 'pasillo', padre_id: null, activa: false },
+];
+
+/** Cómo se lee cada tipo de lugar. */
+export const TIPOS_UBICACION: Record<AlmUbicacionTipo, string> = {
+    pasillo: 'Pasillo',
+    rack: 'Rack',
+    nivel: 'Nivel',
+    contenedor: 'Contenedor',
+    zona: 'Zona',
+};
+
+/** Las ubicaciones de un almacén, sin importar de quién cuelguen. */
+export function ubicacionesDe(claveAlmacen: string): AlmUbicacionDemo[] {
+    return UBICACIONES_DEMO.filter((u) => u.almacen === claveAlmacen);
+}
+
+/**
+ * La ruta legible de una ubicación, subiendo por sus padres:
+ * `Pasillo A / Rack A-1 / Nivel 2`.
+ */
+export function rutaUbicacion(ubicacionId: number | null): string | null {
+    if (ubicacionId === null) {
+        return null;
+    }
+
+    const partes: string[] = [];
+    let actual = UBICACIONES_DEMO.find((u) => u.id === ubicacionId);
+
+    while (actual) {
+        partes.unshift(actual.nombre);
+        actual = actual.padre_id === null ? undefined : UBICACIONES_DEMO.find((u) => u.id === actual?.padre_id);
+    }
+
+    return partes.length > 0 ? partes.join(' / ') : null;
+}
+
 export const EXISTENCIAS_DEMO: AlmExistenciaDemo[] = [
-    { almacen: 'AG', producto: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', cantidad: 12780, costo_promedio: 4.35, ubicacion: 'Rack 3' },
-    { almacen: 'AG', producto: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad: 340.5, costo_promedio: 62.1, ubicacion: 'Rack 1' },
-    { almacen: 'AG', producto: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', cantidad: 96, costo_promedio: 218.4, ubicacion: null },
-    { almacen: 'FAK', producto: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', cantidad: 42, costo_promedio: 310.0, ubicacion: 'Contenedor 2' },
-    { almacen: 'FAK', producto: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', cantidad: 8, costo_promedio: 27.5, ubicacion: null },
-    { almacen: 'FAD', producto: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', cantidad: 0, costo_promedio: 48.9, ubicacion: null },
-    { almacen: 'E', producto: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad: 74.25, costo_promedio: 63.8, ubicacion: null },
+    { almacen: 'AG', producto: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', cantidad: 12780, costo_promedio: 4.35, ubicacion_id: 4 },
+    { almacen: 'AG', producto: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad: 340.5, costo_promedio: 62.1, ubicacion_id: 3 },
+    { almacen: 'AG', producto: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', cantidad: 96, costo_promedio: 218.4, ubicacion_id: 8 },
+    { almacen: 'AG', producto: 'ART-00011', descripcion: 'Broca cobalto 1/4"', unidad: 'PZA', cantidad: 64, costo_promedio: 89.0, ubicacion_id: 6 },
+    { almacen: 'AG', producto: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', cantidad: 320, costo_promedio: 1850.0, ubicacion_id: 9 },
+    // Sin lugar asignado: es justo lo que la pantalla debe hacer visible.
+    { almacen: 'AG', producto: 'ART-00012', descripcion: 'Extensión eléctrica 25 m calibre 12', unidad: 'PZA', cantidad: 9, costo_promedio: 1240.0, ubicacion_id: null },
+    { almacen: 'FAK', producto: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', cantidad: 42, costo_promedio: 310.0, ubicacion_id: 11 },
+    { almacen: 'FAK', producto: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', cantidad: 8, costo_promedio: 27.5, ubicacion_id: null },
+    { almacen: 'FAD', producto: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', cantidad: 0, costo_promedio: 48.9, ubicacion_id: null },
+    { almacen: 'E', producto: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad: 74.25, costo_promedio: 63.8, ubicacion_id: null },
+    { almacen: 'HER', producto: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', cantidad: 14, costo_promedio: 2180.0, ubicacion_id: 13 },
 ];
 
 export const MOVIMIENTOS_DEMO: AlmMovimientoDemo[] = [
@@ -117,31 +192,86 @@ function imagenDemo(texto: string, color: string): string {
 }
 
 export const ARTICULOS_DEMO: AlmArticuloDemo[] = [
-    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', imagen_url: imagenDemo('TOR', '#64748b'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 5000, existencia_total: 12780 },
-    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', imagen_url: imagenDemo('ELE', '#0f766e'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 200, existencia_total: 414.75 },
-    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', imagen_url: imagenDemo('PIN', '#b45309'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 50, existencia_total: 96 },
-    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', imagen_url: imagenDemo('DIS', '#7c3aed'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 40, existencia_total: 8 },
-    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 30, existencia_total: 0 },
-    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 42 },
+    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', codigo_barras: 'TOR-0012', marca: null, modelo: null, clasificacion_abc: 'A', precio_ultimo: 4.4, imagen_url: imagenDemo('TOR', '#64748b'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 5000, existencia_total: 12780 },
+    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', codigo_barras: 'ELE-7018', marca: 'Infra', modelo: 'E7018', clasificacion_abc: 'A', precio_ultimo: 63.8, imagen_url: imagenDemo('ELE', '#0f766e'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 200, existencia_total: 414.75 },
+    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', codigo_barras: 'PIN-PRIM', marca: 'Comex', modelo: 'Epoxiprimer 300', clasificacion_abc: 'B', precio_ultimo: 218.4, imagen_url: imagenDemo('PIN', '#b45309'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 50, existencia_total: 96 },
+    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', codigo_barras: 'DIS-0450', marca: 'Austromex', modelo: '742', clasificacion_abc: 'B', precio_ultimo: 27.5, imagen_url: imagenDemo('DIS', '#7c3aed'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 40, existencia_total: 8 },
+    // El código de barras que ya venía impreso en la caja: se respeta en vez de
+    // pegarle encima una etiqueta nuestra.
+    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', codigo_barras: '7501234567890', marca: null, modelo: null, clasificacion_abc: 'C', precio_ultimo: 48.9, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 30, existencia_total: 0 },
+    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', codigo_barras: 'SIL-EST', marca: 'Sika', modelo: 'Sikasil SG-20', clasificacion_abc: 'A', precio_ultimo: 318.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 42 },
+    // Los dos últimos que se dieron de alta ya nacieron con el consecutivo.
+    { id: 107, codigo: 'ART-00011', descripcion: 'Broca cobalto 1/4"', unidad: 'PZA', codigo_barras: 'ART-00011', marca: 'DeWalt', modelo: 'DW1207', clasificacion_abc: 'C', precio_ultimo: 89.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 64 },
+    { id: 108, codigo: 'ART-00012', descripcion: 'Extensión eléctrica 25 m calibre 12', unidad: 'PZA', codigo_barras: 'ART-00012', marca: 'Voltech', modelo: '48042', clasificacion_abc: 'B', precio_ultimo: 1240.0, imagen_url: null, tipo: 'herramienta', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 4, existencia_total: 9 },
     // La pulidora se presta bajo resguardo: cada pieza lleva serie y dueño.
-    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', imagen_url: imagenDemo('PUL', '#be123c'), tipo: 'herramienta', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 14 },
+    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', codigo_barras: 'PUL-4120', marca: 'DeWalt', modelo: 'DWE4120', clasificacion_abc: 'A', precio_ultimo: 2180.0, imagen_url: imagenDemo('PUL', '#be123c'), tipo: 'herramienta', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 14 },
     // El andamio también se presta, pero por bulto: serializarlo no aporta.
-    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', imagen_url: null, tipo: 'herramienta', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 320 },
-    { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', imagen_url: imagenDemo('VEH', '#1d4ed8'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 1 },
-    { id: 302, codigo: 'SRV-FLET', descripcion: 'Flete foráneo', unidad: 'SRV', imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: false, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 0 },
+    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', codigo_barras: 'AND-MOD', marca: null, modelo: null, clasificacion_abc: 'C', precio_ultimo: 1850.0, imagen_url: null, tipo: 'herramienta', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 320 },
+    { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', codigo_barras: 'VEH-0007', marca: 'Ford', modelo: 'Ranger XL 2024', clasificacion_abc: 'A', precio_ultimo: 612000.0, imagen_url: imagenDemo('VEH', '#1d4ed8'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 1 },
+    // Sin kardex no hay nada que contar ni que etiquetar: un flete no se guarda.
+    { id: 302, codigo: 'SRV-FLET', descripcion: 'Flete foráneo', unidad: 'SRV', codigo_barras: null, marca: null, modelo: null, clasificacion_abc: 'C', precio_ultimo: 8500.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: false, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 0 },
 ];
+
+/**
+ * El código lo pone el sistema: un consecutivo global, sin familias. Sale del
+ * mayor `ART-#####` que exista más uno, así que los códigos viejos con prefijo
+ * propio (`TOR-0012`) conviven sin estorbar — simplemente ya no se generan.
+ */
+export function siguienteCodigoArticulo(): string {
+    const ultimo = ARTICULOS_DEMO.reduce((mayor, articulo) => {
+        const match = /^ART-(\d+)$/.exec(articulo.codigo);
+
+        return match ? Math.max(mayor, Number(match[1])) : mayor;
+    }, 0);
+
+    return `ART-${String(ultimo + 1).padStart(5, '0')}`;
+}
+
+/**
+ * Histórico de precios por artículo. En el mono ya existe
+ * `costos_producto_precios`, que se alimenta solo desde las cotizaciones de
+ * una requisición: aquí sólo se consulta, no se captura.
+ */
+export const PRECIOS_DEMO: Record<number, AlmPrecioDemo[]> = {
+    101: [
+        { id: 1, fecha: '2026-08-03', proveedor: 'Aceros del Norte S.A.', precio: 4.4, moneda: 'MXN', origen: 'OC-2608-0044' },
+        { id: 2, fecha: '2026-06-18', proveedor: 'Tornillería Industrial', precio: 4.35, moneda: 'MXN', origen: 'Cotización REQ-2606-0112' },
+        { id: 3, fecha: '2026-04-02', proveedor: 'Aceros del Norte S.A.', precio: 4.1, moneda: 'MXN', origen: 'Cotización REQ-2604-0071' },
+        { id: 4, fecha: '2026-01-15', proveedor: 'Tornillería Industrial', precio: 3.9, moneda: 'MXN', origen: 'Cotización REQ-2601-0009' },
+    ],
+    102: [
+        { id: 5, fecha: '2026-08-01', proveedor: 'Soldaduras Industriales', precio: 63.8, moneda: 'MXN', origen: 'OC-2608-0041' },
+        { id: 6, fecha: '2026-05-22', proveedor: 'Soldaduras Industriales', precio: 62.1, moneda: 'MXN', origen: 'Cotización REQ-2605-0098' },
+        { id: 7, fecha: '2026-02-10', proveedor: 'Infra Monterrey', precio: 59.5, moneda: 'MXN', origen: 'Cotización REQ-2602-0033' },
+    ],
+    106: [
+        { id: 8, fecha: '2026-07-28', proveedor: 'Selladores del Golfo', precio: 318.0, moneda: 'MXN', origen: 'OC-2607-0038' },
+        { id: 9, fecha: '2026-03-11', proveedor: 'Selladores del Golfo', precio: 310.0, moneda: 'MXN', origen: 'Cotización REQ-2603-0055' },
+    ],
+    201: [
+        { id: 10, fecha: '2026-06-30', proveedor: 'Herramientas del Bajío', precio: 2180.0, moneda: 'MXN', origen: 'OC-2606-0029' },
+        { id: 11, fecha: '2025-11-14', proveedor: 'Truper Distribuidor', precio: 1980.0, moneda: 'MXN', origen: 'Cotización REQ-2511-0201' },
+    ],
+};
+
+/** Los precios de un artículo, del más reciente al más viejo. */
+export function preciosDe(articuloId: number): AlmPrecioDemo[] {
+    return PRECIOS_DEMO[articuloId] ?? [];
+}
 
 /**
  * Piezas identificadas de los artículos marcados `se_controla_por_pieza`. Cada
  * una suma 1 a la existencia de su producto; el kardex por cantidad no cambia.
  */
 export const ACTIVOS_DEMO: AlmActivoDemo[] = [
-    { id: 1, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-07', almacen: 'HER', estatus: 'prestado', condicion: 'Buena' },
-    { id: 2, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-08', almacen: 'HER', estatus: 'prestado', condicion: 'Buena' },
-    { id: 3, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-11', almacen: 'HER', estatus: 'disponible', condicion: 'Buena' },
-    { id: 4, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-12', almacen: 'HER', estatus: 'en_reparacion', condicion: 'Carbones gastados' },
-    { id: 5, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-14', almacen: 'HER', estatus: 'prestado', condicion: 'Regular' },
-    { id: 6, producto_id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', no_serie: '3FTTW8E9XRA12345', almacen: 'AG', estatus: 'prestado', condicion: 'Buena' },
+    { id: 1, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-07', codigo_barras: 'PUL-4120-07', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'prestado', condicion: 'Buena' },
+    { id: 2, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-08', codigo_barras: 'PUL-4120-08', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'prestado', condicion: 'Buena' },
+    { id: 3, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-11', codigo_barras: 'PUL-4120-11', almacen: 'HER', ubicacion: 'Canastilla de préstamo', estatus: 'disponible', condicion: 'Buena' },
+    { id: 4, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-12', codigo_barras: 'PUL-4120-12', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'en_reparacion', condicion: 'Carbones gastados' },
+    { id: 5, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-14', codigo_barras: 'PUL-4120-14', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'prestado', condicion: 'Regular' },
+    // El VIN trae letras y números pero no guiones: se etiqueta con el nuestro
+    // para que el lector no dependa de lo que traiga grabado el fabricante.
+    { id: 6, producto_id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', no_serie: '3FTTW8E9XRA12345', codigo_barras: 'VEH-0007-01', almacen: 'AG', ubicacion: null, estatus: 'prestado', condicion: 'Buena' },
 ];
 
 export const PRESTAMOS_DEMO: AlmPrestamoDemo[] = [
@@ -336,4 +466,182 @@ export function disponibleDemo(almacen: string, codigoProducto: string): number 
     const fila = EXISTENCIAS_DEMO.find((e) => e.almacen === almacen && e.producto === codigoProducto);
 
     return fila ? fila.cantidad : null;
+}
+
+/**
+ * Cada cuánto se cuenta cada clase.
+ *
+ * La idea del inventario cíclico es no volver a parar el almacén un fin de
+ * semana entero: se cuenta un pedazo cada semana, y lo caro se repasa más
+ * seguido que lo barato. Los días son los de un ABC clásico y se pueden mover.
+ */
+export const REGLAS_ABC: AlmReglaAbc[] = [
+    {
+        clasificacion: 'A',
+        frecuencia_dias: 30,
+        etiqueta: 'Mensual',
+        descripcion: 'Lo caro o de alta rotación. Un faltante aquí se nota en el costo de la obra.',
+    },
+    {
+        clasificacion: 'B',
+        frecuencia_dias: 90,
+        etiqueta: 'Trimestral',
+        descripcion: 'Movimiento y valor medios. Se repasa cada tres meses.',
+    },
+    {
+        clasificacion: 'C',
+        frecuencia_dias: 180,
+        etiqueta: 'Semestral',
+        descripcion: 'Lo barato o de poco movimiento. Contarlo seguido cuesta más de lo que vale.',
+    },
+];
+
+/** Color de la clase en las tablas. */
+export const CLASES_ABC: Record<AlmClasificacionAbc, string> = {
+    A: 'badge-error',
+    B: 'badge-warning',
+    C: 'badge-ghost',
+};
+
+/**
+ * Hojas de conteo. Las `programado` las generó el calendario ABC; la `manual`
+ * la levantó el jefe de almacén porque sospechaba un faltante.
+ *
+ * `cantidad_sistema` viene congelada del momento en que se generó la hoja: si
+ * se leyera al cerrar, cualquier salida capturada a media mañana convertiría un
+ * conteo correcto en una diferencia inventada.
+ */
+export const CONTEOS_DEMO: AlmConteoDemo[] = [
+    {
+        id: 8,
+        folio: 'CIC-2608-0008',
+        origen: 'programado',
+        almacen: 'AG',
+        ubicacion: 'Pasillo A / Rack A-1',
+        clasificacion: 'A',
+        fecha_programada: '2026-08-11',
+        fecha_cierre: null,
+        responsable: 'M. Rangel',
+        estatus: 'contando',
+        ajuste_folio: null,
+        renglones: [
+            { producto_id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', ubicacion: 'Nivel 2', cantidad_sistema: 12780, cantidad_contada: 12742 },
+            { producto_id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', ubicacion: 'Nivel 1', cantidad_sistema: 340.5, cantidad_contada: 340.5 },
+            { producto_id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', ubicacion: 'Nivel 2', cantidad_sistema: 0, cantidad_contada: null },
+        ],
+    },
+    {
+        id: 9,
+        folio: 'CIC-2608-0009',
+        origen: 'programado',
+        almacen: 'AG',
+        ubicacion: 'Pasillo B / Rack B-1',
+        clasificacion: 'A',
+        fecha_programada: '2026-08-12',
+        fecha_cierre: null,
+        responsable: 'M. Rangel',
+        estatus: 'pendiente',
+        ajuste_folio: null,
+        renglones: [
+            { producto_id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', ubicacion: 'Rack B-1', cantidad_sistema: 96, cantidad_contada: null },
+        ],
+    },
+    {
+        id: 10,
+        folio: 'CIC-2608-0010',
+        origen: 'manual',
+        almacen: 'HER',
+        ubicacion: 'Estantería de herramienta',
+        clasificacion: null,
+        fecha_programada: '2026-08-10',
+        fecha_cierre: null,
+        responsable: 'J. Briones',
+        estatus: 'pendiente',
+        ajuste_folio: null,
+        renglones: [
+            { producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', ubicacion: 'Estantería', cantidad_sistema: 14, cantidad_contada: null },
+        ],
+    },
+    // Vencido: tocaba el 4 y sigue sin contarse.
+    {
+        id: 6,
+        folio: 'CIC-2608-0006',
+        origen: 'programado',
+        almacen: 'FAK',
+        ubicacion: 'Contenedor 2',
+        clasificacion: 'B',
+        fecha_programada: '2026-08-04',
+        fecha_cierre: null,
+        responsable: 'L. Ortega',
+        estatus: 'pendiente',
+        ajuste_folio: null,
+        renglones: [
+            { producto_id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', ubicacion: 'Contenedor 2', cantidad_sistema: 42, cantidad_contada: null },
+            { producto_id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', ubicacion: null, cantidad_sistema: 8, cantidad_contada: null },
+        ],
+    },
+    {
+        id: 5,
+        folio: 'CIC-2608-0005',
+        origen: 'programado',
+        almacen: 'AG',
+        ubicacion: 'Pasillo A / Rack A-2',
+        clasificacion: 'C',
+        fecha_programada: '2026-08-03',
+        fecha_cierre: '2026-08-03',
+        responsable: 'M. Rangel',
+        estatus: 'cerrado',
+        // Cerró con diferencia, así que dejó su ajuste: el conteo no toca el
+        // saldo por su cuenta, lo mueve el ajuste que genera.
+        ajuste_folio: 'AJU-2608-0012',
+        renglones: [
+            { producto_id: 107, codigo: 'ART-00011', descripcion: 'Broca cobalto 1/4"', unidad: 'PZA', ubicacion: 'Nivel 1', cantidad_sistema: 68, cantidad_contada: 64 },
+        ],
+    },
+    {
+        id: 4,
+        folio: 'CIC-2607-0004',
+        origen: 'manual',
+        almacen: 'AG',
+        ubicacion: null,
+        clasificacion: null,
+        fecha_programada: '2026-07-27',
+        fecha_cierre: '2026-07-28',
+        responsable: 'J. Briones',
+        estatus: 'cerrado',
+        ajuste_folio: null,
+        renglones: [
+            { producto_id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', ubicacion: 'Nivel 1', cantidad_sistema: 140.5, cantidad_contada: 140.5 },
+        ],
+    },
+];
+
+/** Cómo se lee cada estado de una hoja de conteo. */
+export const ESTATUS_CONTEO: Record<AlmConteoEstatus, { etiqueta: string; clase: string }> = {
+    pendiente: { etiqueta: 'Por contar', clase: 'badge-warning' },
+    contando: { etiqueta: 'Contando', clase: 'badge-info' },
+    cerrado: { etiqueta: 'Cerrado', clase: 'badge-success' },
+    cancelado: { etiqueta: 'Cancelado', clase: 'badge-ghost' },
+};
+
+/**
+ * Resumen de una hoja: cuánto se lleva contado y cuánto se desvía.
+ *
+ * La diferencia se mide en valor absoluto por renglón, no en neto: 100 de más
+ * en un artículo y 100 de menos en otro son dos errores, no un empate.
+ */
+export function resumenConteo(conteo: AlmConteoDemo): {
+    total: number;
+    contados: number;
+    diferencias: number;
+    vencido: boolean;
+} {
+    const contados = conteo.renglones.filter((r) => r.cantidad_contada !== null);
+
+    return {
+        total: conteo.renglones.length,
+        contados: contados.length,
+        diferencias: contados.filter((r) => r.cantidad_contada !== r.cantidad_sistema).length,
+        vencido: conteo.estatus !== 'cerrado' && conteo.estatus !== 'cancelado' && conteo.fecha_programada < HOY_DEMO,
+    };
 }

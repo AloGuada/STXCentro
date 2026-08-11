@@ -1,13 +1,14 @@
 import { FormField } from '@/components/form';
+import { CodigoBarras } from '@/components/alm/codigo-barras';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { TIPOS_ARTICULO } from '@/lib/alm/demo';
+import { REGLAS_ABC, siguienteCodigoArticulo, TIPOS_ARTICULO } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
-import type { AlmProductoTipo } from '@/types/models';
+import type { AlmClasificacionAbc, AlmProductoTipo } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon, LockIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -20,14 +21,27 @@ const breadcrumbs: BreadcrumbItem[] = [
 const UNIDADES_DEMO = ['PZA', 'KG', 'LTS', 'MTS', 'PAR', 'CTO', 'SRV'];
 
 export default function ArticuloCreate() {
-    const [codigo, setCodigo] = useState('');
+    // El código no se teclea: lo pone el sistema al guardar. Se muestra desde
+    // ahora para que quien da de alta sepa con qué va a quedar etiquetado.
+    const codigo = siguienteCodigoArticulo();
+
     const [descripcion, setDescripcion] = useState('');
     const [unidad, setUnidad] = useState('');
+    const [marca, setMarca] = useState('');
+    const [modelo, setModelo] = useState('');
+    // Vacío significa "usa el código": sólo se llena cuando la caja ya trae uno
+    // impreso de fábrica y no vale la pena taparlo con etiqueta nuestra.
+    const [codigoBarras, setCodigoBarras] = useState('');
+    const [clasificacion, setClasificacion] = useState<AlmClasificacionAbc>('C');
     const [imagen, setImagen] = useState<string | null>(null);
     const [tipo, setTipo] = useState<AlmProductoTipo>('insumo');
     const [requiereVerificacion, setRequiereVerificacion] = useState(false);
     const [controlaInventario, setControlaInventario] = useState(true);
+    const [seControlaPorPieza, setSeControlaPorPieza] = useState(false);
     const [stockMinimo, setStockMinimo] = useState('');
+
+    const barrasEfectivo = codigoBarras.trim() === '' ? codigo : codigoBarras.trim();
+    const regla = REGLAS_ABC.find((r) => r.clasificacion === clasificacion);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -48,15 +62,24 @@ export default function ArticuloCreate() {
 
                 <form onSubmit={(e) => e.preventDefault()} className="max-w-3xl space-y-6">
                     <div className="rounded-box border-base-300 border p-4">
+                        <h2 className="mb-4 font-medium">Identificación</h2>
+
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <FormField label="Código" htmlFor="codigo" required>
-                                <Input
-                                    id="codigo"
-                                    value={codigo}
-                                    onChange={(e) => setCodigo(e.target.value.toUpperCase())}
-                                    placeholder="TOR-0012"
-                                    className="font-mono"
-                                />
+                            <FormField
+                                label="Código"
+                                htmlFor="codigo"
+                                description="Lo asigna el sistema al guardar: un consecutivo, sin familias."
+                            >
+                                <label className="input input-bordered flex items-center gap-2 opacity-70">
+                                    <LockIcon className="text-base-content/40 size-4" />
+                                    <input
+                                        id="codigo"
+                                        value={codigo}
+                                        readOnly
+                                        className="grow font-mono"
+                                        aria-label="Código asignado automáticamente"
+                                    />
+                                </label>
                             </FormField>
 
                             <FormField label="Unidad" htmlFor="unidad" required>
@@ -75,6 +98,32 @@ export default function ArticuloCreate() {
                                     value={descripcion}
                                     onChange={(e) => setDescripcion(e.target.value)}
                                     placeholder='Tornillo A325 3/4" x 2"'
+                                />
+                            </FormField>
+
+                            <FormField
+                                label="Marca"
+                                htmlFor="marca"
+                                description="Opcional. El material a granel no la lleva."
+                            >
+                                <Input
+                                    id="marca"
+                                    value={marca}
+                                    onChange={(e) => setMarca(e.target.value)}
+                                    placeholder="DeWalt"
+                                />
+                            </FormField>
+
+                            <FormField
+                                label="Modelo"
+                                htmlFor="modelo"
+                                description="Opcional. Es lo que se pide al reponer una herramienta."
+                            >
+                                <Input
+                                    id="modelo"
+                                    value={modelo}
+                                    onChange={(e) => setModelo(e.target.value)}
+                                    placeholder="DWE4120"
                                 />
                             </FormField>
 
@@ -119,17 +168,89 @@ export default function ArticuloCreate() {
                                     </div>
                                 </div>
                             </FormField>
+                        </div>
+                    </div>
 
+                    <div className="rounded-box border-base-300 border p-4">
+                        <h2 className="mb-4 font-medium">Código de barras</h2>
+
+                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                            <FormField
+                                label="Código de barras"
+                                htmlFor="codigo_barras"
+                                description="Déjalo vacío y se usa el código del artículo. Llénalo sólo si la caja ya trae uno impreso de fábrica."
+                            >
+                                <Input
+                                    id="codigo_barras"
+                                    value={codigoBarras}
+                                    onChange={(e) => setCodigoBarras(e.target.value.toUpperCase())}
+                                    placeholder={codigo}
+                                    className="font-mono"
+                                    disabled={!controlaInventario}
+                                />
+                            </FormField>
+
+                            <div>
+                                <span className="label label-text text-xs">Así se va a imprimir</span>
+                                {controlaInventario ? (
+                                    <div className="rounded-box border-base-300 border bg-white p-3">
+                                        <CodigoBarras valor={barrasEfectivo} altura={44} />
+                                    </div>
+                                ) : (
+                                    <p className="text-base-content/50 text-sm">
+                                        Sin kardex no hay nada que escanear: un flete no se guarda en un anaquel.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="rounded-box border-base-300 border p-4">
+                        <h2 className="mb-4 font-medium">Comportamiento en almacén</h2>
+
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <FormField
                                 label="Tipo"
                                 htmlFor="tipo"
                                 description="Define si se gasta o si sale y regresa."
                                 required
                             >
-                                <Select id="tipo" value={tipo} onValueChange={(v) => setTipo(v as AlmProductoTipo)}>
+                                <Select
+                                    id="tipo"
+                                    value={tipo}
+                                    onValueChange={(v) => {
+                                        const nuevo = v as AlmProductoTipo;
+                                        setTipo(nuevo);
+
+                                        // Serializar un insumo no tiene sentido: se gasta.
+                                        if (nuevo === 'insumo') {
+                                            setSeControlaPorPieza(false);
+                                        }
+                                    }}
+                                >
                                     {Object.entries(TIPOS_ARTICULO).map(([valor, etiqueta]) => (
                                         <SelectItem key={valor} value={valor}>
                                             {etiqueta}
+                                        </SelectItem>
+                                    ))}
+                                </Select>
+                            </FormField>
+
+                            <FormField
+                                label="Clase de conteo"
+                                htmlFor="clasificacion_abc"
+                                description={regla ? `${regla.etiqueta}: ${regla.descripcion}` : undefined}
+                                required
+                            >
+                                <Select
+                                    id="clasificacion_abc"
+                                    value={clasificacion}
+                                    onValueChange={(v) => setClasificacion(v as AlmClasificacionAbc)}
+                                    disabled={!controlaInventario}
+                                >
+                                    {REGLAS_ABC.map((r) => (
+                                        <SelectItem key={r.clasificacion} value={r.clasificacion}>
+                                            {r.clasificacion} — {r.etiqueta} (cada {r.frecuencia_dias} días)
                                         </SelectItem>
                                     ))}
                                 </Select>
@@ -151,6 +272,27 @@ export default function ArticuloCreate() {
                                     disabled={!controlaInventario}
                                 />
                             </FormField>
+
+                            <div className="md:col-span-2">
+                                <label className="flex cursor-pointer items-start gap-3">
+                                    <input
+                                        type="checkbox"
+                                        className="checkbox checkbox-sm mt-0.5"
+                                        checked={seControlaPorPieza}
+                                        onChange={(e) => setSeControlaPorPieza(e.target.checked)}
+                                        disabled={tipo === 'insumo'}
+                                    />
+                                    <span>
+                                        <span className="font-medium">Se controla por pieza</span>
+                                        <span className="text-base-content/60 block text-sm">
+                                            Cada unidad se da de alta con su número de serie y su propia etiqueta, y se
+                                            presta bajo resguardo. Sin esto el kardex sabe cuántas pulidoras salieron,
+                                            pero no quién tiene cuál. Sólo aplica a herramienta y activos: un insumo se
+                                            gasta.
+                                        </span>
+                                    </span>
+                                </label>
+                            </div>
 
                             <div className="md:col-span-2">
                                 <label className="flex cursor-pointer items-start gap-3">
@@ -183,13 +325,21 @@ export default function ArticuloCreate() {
                                         <span className="font-medium">Lleva kardex</span>
                                         <span className="text-base-content/60 block text-sm">
                                             Desmárcalo para lo que se compra pero no se almacena (fletes, servicios,
-                                            maniobras). Sin kardex no aparece en existencias ni en los movimientos.
+                                            maniobras). Sin kardex no aparece en existencias ni en los movimientos, y
+                                            tampoco entra a los conteos ni a las etiquetas.
                                         </span>
                                     </span>
                                 </label>
                             </div>
                         </div>
                     </div>
+
+                    <p className="text-base-content/60 text-sm">
+                        El <strong>precio</strong> no se captura aquí: se va formando solo con lo que cotizan los
+                        proveedores en Compras, y la ficha del artículo muestra ese histórico. La{' '}
+                        <strong>ubicación</strong> tampoco, porque es por almacén — el mismo tornillo puede vivir en
+                        el Rack A-1 de planta y en un contenedor de obra.
+                    </p>
 
                     <div className="flex justify-end gap-2">
                         <Button variant="outline" asChild>

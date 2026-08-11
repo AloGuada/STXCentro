@@ -1,7 +1,7 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ALMACENES_DEMO, EXISTENCIAS_DEMO } from '@/lib/alm/demo';
+import { ALMACENES_DEMO, EXISTENCIAS_DEMO, rutaUbicacion, ubicacionesDe } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { HistoryIcon } from 'lucide-react';
@@ -22,8 +22,13 @@ const cantidad = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigit
  */
 export default function ExistenciasIndex() {
     const [almacen, setAlmacen] = useState('');
+    const [ubicacion, setUbicacion] = useState('');
     const [busqueda, setBusqueda] = useState('');
     const [soloConSaldo, setSoloConSaldo] = useState(false);
+
+    // Filtrar por lugar sólo tiene sentido dentro de un almacén: el "Rack A-1"
+    // de AG no es el de FAK.
+    const ubicaciones = almacen ? ubicacionesDe(almacen) : [];
 
     const filas = useMemo(() => {
         const texto = busqueda.toLowerCase();
@@ -31,12 +36,13 @@ export default function ExistenciasIndex() {
         return EXISTENCIAS_DEMO.filter(
             (e) =>
                 (!almacen || e.almacen === almacen) &&
+                (!ubicacion || String(e.ubicacion_id) === ubicacion) &&
                 (!soloConSaldo || e.cantidad > 0) &&
                 (!texto ||
                     e.producto.toLowerCase().includes(texto) ||
                     e.descripcion.toLowerCase().includes(texto)),
         );
-    }, [almacen, busqueda, soloConSaldo]);
+    }, [almacen, ubicacion, busqueda, soloConSaldo]);
 
     const valorTotal = filas.reduce((suma, e) => suma + e.cantidad * e.costo_promedio, 0);
     const sinSaldo = filas.filter((e) => e.cantidad <= 0).length;
@@ -61,7 +67,13 @@ export default function ExistenciasIndex() {
                 <div className="mb-4 flex flex-wrap items-end gap-3">
                     <div className="w-56">
                         <label className="label label-text text-xs">Almacén</label>
-                        <Select value={almacen} onValueChange={setAlmacen}>
+                        <Select
+                            value={almacen}
+                            onValueChange={(v) => {
+                                setAlmacen(v);
+                                setUbicacion('');
+                            }}
+                        >
                             <SelectItem value="">Todos los almacenes</SelectItem>
                             {ALMACENES_DEMO.map((a) => (
                                 <SelectItem key={a.id} value={a.clave}>
@@ -69,6 +81,20 @@ export default function ExistenciasIndex() {
                                     {a.obra ? ` (${a.obra})` : ''}
                                 </SelectItem>
                             ))}
+                        </Select>
+                    </div>
+
+                    <div className="w-56">
+                        <label className="label label-text text-xs">Ubicación</label>
+                        <Select value={ubicacion} onValueChange={setUbicacion} disabled={!almacen}>
+                            <SelectItem value="">{almacen ? 'Todo el almacén' : 'Elige un almacén'}</SelectItem>
+                            {ubicaciones
+                                .filter((u) => u.activa)
+                                .map((u) => (
+                                    <SelectItem key={u.id} value={String(u.id)}>
+                                        {rutaUbicacion(u.id)}
+                                    </SelectItem>
+                                ))}
                         </Select>
                     </div>
 
@@ -122,7 +148,11 @@ export default function ExistenciasIndex() {
                                         <td className="font-mono text-xs">{e.producto}</td>
                                         <td className="font-medium">{e.descripcion}</td>
                                         <td className="text-base-content/60 text-sm">
-                                            {e.ubicacion ?? <span className="text-base-content/40">—</span>}
+                                            {rutaUbicacion(e.ubicacion_id) ?? (
+                                                <span className="text-base-content/40" title="Nadie le ha asignado lugar">
+                                                    Sin acomodar
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="text-right font-mono">
                                             <span className={e.cantidad <= 0 ? 'text-error font-semibold' : ''}>
