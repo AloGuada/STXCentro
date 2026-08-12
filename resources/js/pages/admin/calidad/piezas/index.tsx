@@ -5,7 +5,7 @@ export default function CalidadPiezas() {
         <PantallaPendiente
             titulo="Piezas y planos"
             descripcion="La pieza que se inspecciona y los planos sobre los que se marca el reporte."
-            tabla="cal_piezas · cal_piezas_planos"
+            tabla="qal_piezas · qal_piezas_planos"
             campos={[
                 'Pieza: marca y cantidad, colgada de una etapa',
                 'Plano: PDF, imagen del plano y archivo DWG',

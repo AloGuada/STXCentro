@@ -5,7 +5,7 @@ export default function CalidadReportes() {
         <PantallaPendiente
             titulo="Reportes de inspección"
             descripcion="El reporte de inspección visual: sobre el plano de la pieza se marcan las juntas revisadas, cada una con su soldador."
-            tabla="cal_reportes · cal_flechas"
+            tabla="qal_reportes · qal_flechas"
             campos={[
                 'Folio automático IV{año}{mes}{consecutivo}; las plantillas no llevan folio',
                 'Plano inspeccionado, inspector, soldador, línea, módulo y comentario',

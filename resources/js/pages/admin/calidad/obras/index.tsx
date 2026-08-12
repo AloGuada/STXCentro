@@ -5,7 +5,7 @@ export default function CalidadObras() {
         <PantallaPendiente
             titulo="Obras"
             descripcion="Las obras que sigue Calidad, con sus etapas. Cada etapa agrupa las piezas que se inspeccionan."
-            tabla="cal_obras · cal_etapas"
+            tabla="qal_obras · qal_etapas"
             campos={[
                 'Obra: número, descripción y si sigue activa',
                 'Etapa: descripción, colgada de una obra',
