@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Admin\BadgeConfigController;
 use App\Http\Controllers\Admin\BancoController;
-use App\Http\Controllers\Admin\Cal\VistasController as CalVistasController;
 use App\Http\Controllers\Admin\Cob\AdendaController as CobAdendaController;
 use App\Http\Controllers\Admin\Cob\AnticipoController as CobAnticipoController;
 use App\Http\Controllers\Admin\Cob\ClienteController as CobClienteController;
@@ -110,6 +109,17 @@ use App\Http\Controllers\Admin\Prod\RegistroController as ProdRegistroController
 use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtraController;
 use App\Http\Controllers\Admin\Prod\UbicacionController as ProdUbicacionController;
 use App\Http\Controllers\Admin\ProveedorController;
+use App\Http\Controllers\Admin\Qal\CatalogoController as QalCatalogoController;
+use App\Http\Controllers\Admin\Qal\DefectoPinturaController as QalDefectoPinturaController;
+use App\Http\Controllers\Admin\Qal\DefectoSoldaduraController as QalDefectoSoldaduraController;
+use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
+use App\Http\Controllers\Admin\Qal\LaboratorioController as QalLaboratorioController;
+use App\Http\Controllers\Admin\Qal\OperadorController as QalOperadorController;
+use App\Http\Controllers\Admin\Qal\ResponsableController as QalResponsableController;
+use App\Http\Controllers\Admin\Qal\SoldadorController as QalSoldadorController;
+use App\Http\Controllers\Admin\Qal\SupervisorPinturaController as QalSupervisorPinturaController;
+use App\Http\Controllers\Admin\Qal\TipoPiezaController as QalTipoPiezaController;
+use App\Http\Controllers\Admin\Qal\VistasController as QalVistasController;
 use App\Http\Controllers\Admin\RegimenFiscalController;
 use App\Http\Controllers\Admin\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Admin\Rh\OnboardingController as RhOnboardingController;
@@ -776,22 +786,57 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     // Calidad admin routes
     //
-    // El modulo ya vive en routes/api.php con guard Sanctum; esto es su entrada
-    // web, que no existia. Reusa los permisos cal.* que ya estaban en
-    // groupedPermissions(), no crea ninguno nuevo.
-    Route::prefix('calidad')->name('cal.')->group(function () {
-        Route::get('obras', [CalVistasController::class, 'obras'])
-            ->middleware('permission:cal.obras.ver')
+    // El modulo se rehace bajo el prefijo qal_, que sustituye a cal_. Las
+    // tablas, los modelos y los permisos cal.* se quedan intactos porque los
+    // usa la aplicacion anterior por API (routes/api.php, guard Sanctum)
+    // mientras siga viva; mueren con ella. Aqui nada apunta a cal.
+    //
+    // La URL sigue siendo /admin/calidad: qal es el prefijo de la base, no el
+    // nombre del modulo.
+    Route::prefix('calidad')->name('qal.')->group(function () {
+        Route::get('obras', [QalVistasController::class, 'obras'])
+            ->middleware('permission:qal.obras.ver')
             ->name('obras.index');
-        Route::get('piezas', [CalVistasController::class, 'piezas'])
-            ->middleware('permission:cal.piezas.ver')
+        Route::get('piezas', [QalVistasController::class, 'piezas'])
+            ->middleware('permission:qal.piezas.ver')
             ->name('piezas.index');
-        Route::get('reportes', [CalVistasController::class, 'reportes'])
-            ->middleware('permission:cal.reportes.ver')
+        Route::get('reportes', [QalVistasController::class, 'reportes'])
+            ->middleware('permission:qal.reportes.ver')
             ->name('reportes.index');
-        Route::get('soldadores', [CalVistasController::class, 'soldadores'])
-            ->middleware('permission:cal.soldadores.ver')
-            ->name('soldadores.index');
+        // Catalogos del modulo: una sola pantalla con pestanas. Se entra con
+        // cualquiera de los permisos de ver, y el front esconde las pestanas
+        // que el usuario no puede consultar.
+        Route::get('catalogos', [QalCatalogoController::class, 'index'])
+            ->middleware('permission:qal.soldadores.ver|qal.laboratorios.ver|qal.tipos-pieza.ver|qal.equipos.ver|qal.operadores.ver|qal.responsables.ver|qal.supervisores-pintura.ver|qal.defectos-soldadura.ver|qal.defectos-pintura.ver')
+            ->name('catalogos.index');
+
+        // Escritura, un permiso por catalogo. Ninguno tiene destroy: aqui nada
+        // se borra, se desactiva.
+        $catalogos = [
+            'soldadores' => [QalSoldadorController::class, 'soldadores'],
+            'laboratorios' => [QalLaboratorioController::class, 'laboratorios'],
+            'tipos-pieza' => [QalTipoPiezaController::class, 'tipos-pieza'],
+            'equipos' => [QalEquipoController::class, 'equipos'],
+            'operadores' => [QalOperadorController::class, 'operadores'],
+            'responsables' => [QalResponsableController::class, 'responsables'],
+            'supervisores-pintura' => [QalSupervisorPinturaController::class, 'supervisores-pintura'],
+            'defectos-soldadura' => [QalDefectoSoldaduraController::class, 'defectos-soldadura'],
+            'defectos-pintura' => [QalDefectoPinturaController::class, 'defectos-pintura'],
+        ];
+
+        foreach ($catalogos as $ruta => [$controlador, $permiso]) {
+            Route::post("catalogos/{$ruta}", [$controlador, 'store'])
+                ->middleware("permission:qal.{$permiso}.crear")
+                ->name("catalogos.{$ruta}.store");
+            Route::put("catalogos/{$ruta}/{id}", [$controlador, 'update'])
+                ->whereNumber('id')
+                ->middleware("permission:qal.{$permiso}.editar")
+                ->name("catalogos.{$ruta}.update");
+            Route::patch("catalogos/{$ruta}/{id}/toggle", [$controlador, 'toggle'])
+                ->whereNumber('id')
+                ->middleware("permission:qal.{$permiso}.editar")
+                ->name("catalogos.{$ruta}.toggle");
+        }
     });
 
     // Documentacion

@@ -390,6 +390,68 @@ class RolesAndPermissionsSeeder extends Seeder
             'cal.usuarios.gestionar',
         ];
 
+        // Permisos del modulo Calidad, version nueva (prefijo qal_)
+        //
+        // Los cal.* de arriba se conservan porque los usa la aplicacion
+        // anterior por API mientras siga viva; se borran el dia que se apague.
+        // Todo lo que se construya de ahora en adelante pide qal.*.
+        //
+        // Los catalogos no tienen 'eliminar': ahi nada se borra, se desactiva,
+        // para no dejar reportes citando algo que ya no existe.
+        $qalPermissions = [
+            'qal.obras.ver',
+            'qal.obras.crear',
+            'qal.obras.editar',
+            'qal.etapas.ver',
+            'qal.etapas.crear',
+            'qal.etapas.editar',
+            'qal.etapas.eliminar',
+            'qal.piezas.ver',
+            'qal.piezas.crear',
+            'qal.piezas.editar',
+            'qal.piezas.eliminar',
+            'qal.planos.ver',
+            'qal.planos.crear',
+            'qal.planos.editar',
+            'qal.planos.eliminar',
+            'qal.reportes.ver',
+            'qal.reportes.crear',
+            'qal.reportes.editar',
+            'qal.reportes.eliminar',
+            'qal.flechas.ver',
+            'qal.flechas.crear',
+            'qal.flechas.editar',
+            'qal.flechas.eliminar',
+            'qal.usuarios.gestionar',
+            'qal.soldadores.ver',
+            'qal.soldadores.crear',
+            'qal.soldadores.editar',
+            'qal.laboratorios.ver',
+            'qal.laboratorios.crear',
+            'qal.laboratorios.editar',
+            'qal.tipos-pieza.ver',
+            'qal.tipos-pieza.crear',
+            'qal.tipos-pieza.editar',
+            'qal.equipos.ver',
+            'qal.equipos.crear',
+            'qal.equipos.editar',
+            'qal.operadores.ver',
+            'qal.operadores.crear',
+            'qal.operadores.editar',
+            'qal.responsables.ver',
+            'qal.responsables.crear',
+            'qal.responsables.editar',
+            'qal.supervisores-pintura.ver',
+            'qal.supervisores-pintura.crear',
+            'qal.supervisores-pintura.editar',
+            'qal.defectos-soldadura.ver',
+            'qal.defectos-soldadura.crear',
+            'qal.defectos-soldadura.editar',
+            'qal.defectos-pintura.ver',
+            'qal.defectos-pintura.crear',
+            'qal.defectos-pintura.editar',
+        ];
+
         // Permisos Core
         $corePermissions = [
             'usuarios.ver',
@@ -454,6 +516,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'drive' => $drivePermissions,
             'dg' => $dgPermissions,
             'cal' => $calPermissions,
+            'qal' => $qalPermissions,
             'core' => $corePermissions,
             'cotiz' => $cotizPermissions,
             'cotizTrabajo' => $cotizTrabajoPermissions,

@@ -181,8 +181,11 @@ class RolesSeeder extends Seeder
         // Admin RH tiene todos los permisos de recursos humanos
         $adminRh->givePermissionTo($permisos['rh']);
 
-        // Admin Calidad tiene todos los permisos de calidad
+        // Admin Calidad tiene todos los permisos de calidad, en los dos
+        // prefijos: qal.* es el modulo nuevo y cal.* lo que aun sirve la API
+        // de la aplicacion anterior. Los cal.* se quitan cuando esa se apague.
         $adminCal->givePermissionTo($permisos['cal']);
+        $adminCal->givePermissionTo($permisos['qal']);
 
         // Inspector Calidad tiene permisos de ver/crear/editar reportes y flechas
         $inspectorCal->givePermissionTo([
@@ -197,6 +200,17 @@ class RolesSeeder extends Seeder
             'cal.flechas.crear',
             'cal.flechas.editar',
             'cal.soldadores.ver',
+            'qal.obras.ver',
+            'qal.etapas.ver',
+            'qal.piezas.ver',
+            'qal.planos.ver',
+            'qal.reportes.ver',
+            'qal.reportes.crear',
+            'qal.reportes.editar',
+            'qal.flechas.ver',
+            'qal.flechas.crear',
+            'qal.flechas.editar',
+            'qal.soldadores.ver',
         ]);
 
         // Empleado tiene permisos básicos de lectura

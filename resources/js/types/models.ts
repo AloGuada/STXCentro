@@ -3566,3 +3566,58 @@ export type BadgeConfig = {
     created_at: string;
     updated_at: string;
 };
+
+// =========================================
+// Calidad
+// =========================================
+
+/**
+ * Los catálogos del módulo comparten forma: un nombre y si sigue en uso. Aquí
+ * nada se borra, se desactiva — un valor inactivo sale de los desplegables pero
+ * no toca los registros que ya lo mencionan.
+ */
+export type QalCatalogoSimple = {
+    id: number;
+    nombre: string;
+    activo: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+/** Laboratorio que firma los informes de ensayos no destructivos. */
+export type QalLaboratorio = QalCatalogoSimple & {
+    /** Como se le nombra dentro del informe. */
+    siglas: string | null;
+};
+
+/**
+ * Tipo de pieza, por el prefijo oficial de ingeniería. Con él la captura deduce
+ * sola el tipo: en `PIP-TP12-3`, el prefijo `TP` la resuelve como trabe
+ * principal sin que el inspector elija nada.
+ */
+export type QalTipoPieza = {
+    id: number;
+    prefijo: string;
+    descripcion: string;
+    activo: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+/**
+ * Soldador del padrón. La `clave` es la que se estampa en la pieza y la que
+ * enlaza con su WPQR en el dosier: si no coincide, el dosier reporta que no
+ * tiene certificado.
+ */
+export type QalSoldador = QalCatalogoSimple & {
+    clave: string | null;
+    certificacion: string | null;
+    /** Sin fecha no se puede afirmar que esté vencida, así que no se asume. */
+    certificacion_vence_at: string | null;
+};
+
+/** Métodos de prueba no destructiva. Los define la norma, no la empresa. */
+export type QalMetodoPnd = 'UT' | 'MT' | 'PT' | 'RT' | 'VT';
+
+/** Las tres transformaciones por las que pasa una pieza. */
+export type QalFaseTransformacion = '1ª' | '2ª' | '3ª';
