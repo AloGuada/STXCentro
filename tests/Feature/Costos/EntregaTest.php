@@ -31,6 +31,28 @@ function ocConPartida(float $cantidad = 10): array
     return [$oc, $partida, $factura];
 }
 
+/**
+ * La recepción se fecha con el día en que se captura, y lo pone el servidor:
+ * mandar otra fecha no la mueve. Fechar en otro día una entrada que ya movió
+ * existencias es justo lo que se cerró.
+ */
+test('la recepcion se guarda con la fecha de hoy aunque manden otra', function () {
+    [$oc, $partida, $factura] = ocConPartida();
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+            'fecha_entrega' => '2020-01-01',
+            'factura_id' => $factura->id,
+            'tipo' => 'parcial',
+            'detalles' => [
+                ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 1],
+            ],
+        ])
+        ->assertRedirect();
+
+    expect($oc->entregas()->sole()->fecha_entrega->toDateString())->toBe(today()->toDateString());
+});
+
 test('registra entrega con detalle de partida contra la OC', function () {
     [$oc, $partida, $factura] = ocConPartida();
 

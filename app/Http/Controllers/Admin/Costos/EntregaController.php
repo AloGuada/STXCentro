@@ -286,7 +286,9 @@ class EntregaController extends Controller
         DB::transaction(function () use ($request, $ordenCompra, $detallesInput, $ordenCompraDetalles, $factura) {
             $entrega = $ordenCompra->entregas()->create([
                 'recibido_por' => $request->user()->id,
-                'fecha_entrega' => $request->input('fecha_entrega'),
+                // La recepción se fecha con el día en que se captura, y lo pone
+                // el servidor: es la fecha con la que el material entró.
+                'fecha_entrega' => today(),
                 'factura_id' => $factura?->id,
                 'tipo' => $request->input('tipo'),
                 'observaciones' => $request->input('observaciones'),
@@ -338,12 +340,14 @@ class EntregaController extends Controller
     }
 
     /**
-     * Corrige los datos de captura de una recepción: fecha, quién recibió,
+     * Corrige los datos de captura de una recepción: quién recibió,
      * observaciones, evidencia y la factura a la que se ligó (el dedazo más
      * común cuando la OC trae varias facturas del proveedor).
      *
-     * Deliberadamente NO toca cantidades ni precios: mueven saldo de partidas y
-     * presupuesto, y para eso el camino sigue siendo cancelar y volver a
+     * Deliberadamente NO toca cantidades, precios ni la fecha. Las dos primeras
+     * mueven saldo de partidas y presupuesto; la fecha quedó fijada el día en
+     * que se capturó la recepción y es la fecha en que entró el material. Para
+     * cualquiera de las tres el camino sigue siendo cancelar y volver a
      * capturar, que ya sabe revertir cada efecto.
      *
      * La factura es opcional: se puede ligar la que faltó, cambiarla o dejar la
@@ -399,7 +403,7 @@ class EntregaController extends Controller
 
         DB::transaction(function () use ($request, $entrega, $facturaActual, $facturaNueva, $cambiaFactura, $completabaAntes, $completaFactura) {
             $entrega->update([
-                'fecha_entrega' => $request->input('fecha_entrega'),
+                // La fecha no se toca: quedó fijada el día de la captura.
                 'recibido_por' => $request->input('recibido_por'),
                 'observaciones' => $request->input('observaciones'),
                 'factura_id' => $facturaNueva?->id,

@@ -128,7 +128,7 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
         router.post(
             `/admin/costos/ordenes-compra/${ordenCompra.id}/entregas`,
             {
-                fecha_entrega: data.fecha_entrega,
+                // La fecha no se manda: la pone el servidor con el día de hoy.
                 tipo: tipoCalculado,
                 factura_id: data.factura_id || null,
                 completa_factura: data.completa_factura,
@@ -163,12 +163,20 @@ export function EntregaModal({ open, onClose, ordenCompra }: Props) {
                 {step === 'form' ? (
                     <form onSubmit={(e: FormEvent) => { e.preventDefault(); irAConfirmar(); }} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Fecha de entrega" htmlFor="fecha_entrega" error={errors.fecha_entrega} required>
+                            {/* No se elige: la recepción se fecha con el día en que se
+                                captura, y quien la guarda es el servidor. Se muestra
+                                para que quede claro con qué fecha va a quedar. */}
+                            <FormField
+                                label="Fecha de entrega"
+                                htmlFor="fecha_entrega"
+                                description="Es la de hoy y no se puede cambiar: la recepción se fecha el día que se captura."
+                            >
                                 <Input
                                     id="fecha_entrega"
                                     type="date"
                                     value={data.fecha_entrega}
-                                    onChange={(e) => setData('fecha_entrega', e.target.value)}
+                                    readOnly
+                                    disabled
                                 />
                             </FormField>
                             <FormField label="Factura a ligar (opcional)" htmlFor="factura_id" error={errors.factura_id}>

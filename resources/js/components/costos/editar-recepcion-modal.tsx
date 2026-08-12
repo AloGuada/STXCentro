@@ -110,19 +110,14 @@ export function EditarRecepcionModal({ recepcion, usuarios, onClose }: Props) {
                 <form onSubmit={submit} className="space-y-4">
                     {errorGeneral && <div className="alert alert-error text-sm">{errorGeneral}</div>}
 
+                    {/* Se muestra la que quedó al capturar, no la de hoy: es la fecha
+                        en que entró el material. Ya no se corrige desde aquí. */}
                     <FormField
                         label="Fecha de entrega"
                         htmlFor="fecha_entrega"
-                        error={errors.fecha_entrega}
-                        required
+                        description="Quedó fijada el día en que se capturó la recepción y no se puede cambiar. Si está mal, hay que cancelarla y volver a registrarla."
                     >
-                        <Input
-                            id="fecha_entrega"
-                            type="date"
-                            value={data.fecha_entrega}
-                            onChange={(e) => setData('fecha_entrega', e.target.value)}
-                            error={!!errors.fecha_entrega}
-                        />
+                        <Input id="fecha_entrega" type="date" value={data.fecha_entrega} readOnly disabled />
                     </FormField>
 
                     <FormField label="Recibió" htmlFor="recibido_por" error={errors.recibido_por} required>

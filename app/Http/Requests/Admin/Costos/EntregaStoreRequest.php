@@ -16,12 +16,15 @@ class EntregaStoreRequest extends FormRequest
      * haya subido su factura todavía. Se liga después desde la edición de la
      * recepción.
      *
+     * `fecha_entrega` no se recibe: la recepción se fecha con el día en que se
+     * captura, y eso lo pone el servidor. Aceptarla del cliente permitiría
+     * fechar en otro día una entrada de material que ya movió existencias.
+     *
      * @return array<string, array<int, string>>
      */
     public function rules(): array
     {
         return [
-            'fecha_entrega' => ['required', 'date'],
             'tipo' => ['required', 'in:parcial,completa'],
             'factura_id' => ['nullable', 'integer', 'exists:costos_facturas,id'],
             'completa_factura' => ['nullable', 'boolean'],

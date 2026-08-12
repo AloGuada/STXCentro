@@ -17,12 +17,15 @@ class EntregaUpdateRequest extends FormRequest
      * mueven saldo de partidas y presupuesto, y para eso el camino es cancelar
      * y volver a capturar.
      *
+     * `fecha_entrega` también quedó fuera: la recepción se fecha sola con el día
+     * en que se capturó y esa fecha ya no se corrige. Si está mal, el camino es
+     * cancelar y volver a capturar, igual que con las cantidades.
+     *
      * @return array<string, array<int, string>>
      */
     public function rules(): array
     {
         return [
-            'fecha_entrega' => ['required', 'date'],
             // `uuid` antes de `exists`: en PostgreSQL comparar un texto suelto
             // contra una columna uuid revienta con 22P02 (500) en vez de fallar
             // la validación. El guardia lo corta antes de tocar la base.
@@ -40,7 +43,6 @@ class EntregaUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'fecha_entrega.required' => 'La fecha de entrega es obligatoria.',
             'recibido_por.required' => 'Indica quién recibió el material.',
             'recibido_por.exists' => 'El usuario seleccionado no existe.',
             'factura_id.exists' => 'La factura seleccionada no existe.',
