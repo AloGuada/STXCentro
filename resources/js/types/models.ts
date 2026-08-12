@@ -3265,6 +3265,17 @@ export type RhPermisoAusencia = {
 export type AlmAlmacenTipo = 'insumos' | 'montaje' | 'herramienta';
 
 /**
+ * Área del catálogo de almacén: a qué parte de la operación pertenece un
+ * artículo. No es dónde está guardado —eso es la ubicación, que cuelga de un
+ * almacén—: el área viaja con el artículo.
+ */
+export type AlmArea = {
+    id: number;
+    descripcion: string;
+    activo: boolean;
+};
+
+/**
  * Almacén virtual. Con obra es un almacén de esa obra (montaje); sin obra es
  * central y surte a todas. La clave sólo es única dentro de su obra.
  */
@@ -3436,6 +3447,14 @@ export type AlmArticuloDemo = {
     codigo_barras: string | null;
     marca: string | null;
     modelo: string | null;
+    /**
+     * Cómo se llama este artículo en Steelex. Campo libre de 150 caracteres:
+     * no se valida ni se cruza con nada, sólo deja anotado a qué corresponde
+     * allá para poder conciliar mientras los dos sistemas convivan.
+     */
+    idsteelex: string | null;
+    /** A qué parte de la operación pertenece. Sale del catálogo de áreas. */
+    area: string | null;
     /** Cada cuánto lo alcanza el inventario cíclico. */
     clasificacion_abc: AlmClasificacionAbc;
     /** Último precio del histórico, para no tener que abrir la ficha. */

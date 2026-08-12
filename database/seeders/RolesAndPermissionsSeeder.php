@@ -263,6 +263,12 @@ class RolesAndPermissionsSeeder extends Seeder
             'alm.ubicaciones.ver',
             'alm.ubicaciones.crear',
             'alm.ubicaciones.editar',
+            // Areas: a que parte de la operacion pertenece un articulo. No es
+            // donde esta guardado, eso es la ubicacion. Sin eliminar: se
+            // desactiva, para no dejar articulos apuntando a lo que ya no esta
+            'alm.areas.ver',
+            'alm.areas.crear',
+            'alm.areas.editar',
             // Inventarios ciclicos. Contar y cerrar son actos distintos: cerrar
             // es lo que genera el ajuste que corrige la existencia
             'alm.conteos.ver',

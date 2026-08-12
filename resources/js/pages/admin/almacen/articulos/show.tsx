@@ -88,6 +88,9 @@ export default function ArticuloShow({ articuloId }: Props) {
                                         Clase {articulo.clasificacion_abc}
                                     </span>
                                 )}
+                                {articulo.area && (
+                                    <span className="badge badge-sm badge-ghost">{articulo.area}</span>
+                                )}
                             </div>
                             <p className="mt-1 text-lg">{articulo.descripcion}</p>
                             <p className="text-base-content/60 text-sm">
@@ -95,6 +98,13 @@ export default function ArticuloShow({ articuloId }: Props) {
                                 {' · se mide en '}
                                 {articulo.unidad}
                             </p>
+                            {/* Sólo si está anotado: es dato de conciliación con el sistema
+                                anterior, no algo que el almacenista necesite a diario. */}
+                            {articulo.idsteelex && (
+                                <p className="text-base-content/60 mt-1 text-sm">
+                                    En Steelex: <span className="font-mono">{articulo.idsteelex}</span>
+                                </p>
+                            )}
                         </div>
                     </div>
 

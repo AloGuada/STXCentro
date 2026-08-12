@@ -316,6 +316,12 @@ const navGroups: NavGroup[] = [
                 permission: 'alm.ubicaciones.ver',
             },
             {
+                title: 'Áreas',
+                href: '/admin/almacen/areas',
+                icon: Layers,
+                permission: 'alm.areas.ver',
+            },
+            {
                 title: 'Aprobaciones',
                 href: '/admin/almacen/aprobaciones',
                 icon: UserCheck,

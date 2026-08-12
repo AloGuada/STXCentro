@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
+use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
 use App\Http\Controllers\Admin\Alm\VistasController as AlmVistasController;
 use App\Http\Controllers\Admin\BadgeConfigController;
 use App\Http\Controllers\Admin\BancoController;
@@ -227,6 +228,24 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->middlewareFor(['create', 'store'], 'permission:alm.almacenes.crear')
             ->middlewareFor(['edit', 'update'], 'permission:alm.almacenes.editar')
             ->middlewareFor(['destroy'], 'permission:alm.almacenes.eliminar');
+
+        // Catalogo de areas: clasifica el articulo. Una sola pantalla, porque
+        // es una lista de un campo. Sin destroy: aqui nada se borra, se
+        // desactiva, para no dejar articulos apuntando a lo que ya no existe.
+        Route::get('areas', [AlmAreaController::class, 'index'])
+            ->middleware('permission:alm.areas.ver')
+            ->name('areas.index');
+        Route::post('areas', [AlmAreaController::class, 'store'])
+            ->middleware('permission:alm.areas.crear')
+            ->name('areas.store');
+        Route::put('areas/{area}', [AlmAreaController::class, 'update'])
+            ->whereNumber('area')
+            ->middleware('permission:alm.areas.editar')
+            ->name('areas.update');
+        Route::patch('areas/{area}/toggle', [AlmAreaController::class, 'toggle'])
+            ->whereNumber('area')
+            ->middleware('permission:alm.areas.editar')
+            ->name('areas.toggle');
 
         // Maquetas: pantallas sin backend todavia, dibujadas con datos de
         // ejemplo para revisar diseno y flujo. Se van reemplazando por su

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Alm;
 
 use App\Http\Controllers\Controller;
+use App\Models\Alm\Area;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -110,9 +111,17 @@ class VistasController extends Controller
         return Inertia::render('admin/almacen/articulos/index');
     }
 
+    /**
+     * El alta sigue siendo maqueta y no guarda nada, pero las áreas que ofrece
+     * son las de verdad: ese catálogo ya existe, y llenar su desplegable con
+     * datos de ejemplo obligaría a revisar el diseño contra una lista que nadie
+     * va a ver en producción.
+     */
     public function articuloCreate(): Response
     {
-        return Inertia::render('admin/almacen/articulos/create');
+        return Inertia::render('admin/almacen/articulos/create', [
+            'areas' => Area::query()->activas()->orderBy('descripcion')->get(['id', 'descripcion']),
+        ]);
     }
 
     /**

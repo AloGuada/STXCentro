@@ -60,7 +60,9 @@ export default function ArticulosIndex() {
     const s = query.trim().toLowerCase();
     // Se busca también por marca, modelo y código de barras: el almacenista
     // llega con la caja en la mano y lo que tiene enfrente es el modelo o el
-    // código escaneado, no la descripción con la que se dio de alta.
+    // código escaneado, no la descripción con la que se dio de alta. El ID de
+    // Steelex entra por lo mismo: quien viene del sistema anterior trae ese
+    // dato y no el código nuevo.
     const visibles = ARTICULOS_DEMO.map(valorDe).filter(
         (i) =>
             (s === '' ||
@@ -68,6 +70,8 @@ export default function ArticulosIndex() {
                 i.descripcion.toLowerCase().includes(s) ||
                 (i.marca ?? '').toLowerCase().includes(s) ||
                 (i.modelo ?? '').toLowerCase().includes(s) ||
+                (i.idsteelex ?? '').toLowerCase().includes(s) ||
+                (i.area ?? '').toLowerCase().includes(s) ||
                 (i.codigo_barras ?? '').toLowerCase().includes(s)) &&
             (filtroTipo === '' || i.tipo === filtroTipo),
     );

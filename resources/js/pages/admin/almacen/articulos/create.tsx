@@ -6,7 +6,7 @@ import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { REGLAS_ABC, siguienteCodigoArticulo, TIPOS_ARTICULO } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
-import type { AlmClasificacionAbc, AlmProductoTipo } from '@/types/models';
+import type { AlmArea, AlmClasificacionAbc, AlmProductoTipo } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
 import { ImageIcon, LockIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -20,7 +20,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const UNIDADES_DEMO = ['PZA', 'KG', 'LTS', 'MTS', 'PAR', 'CTO', 'SRV'];
 
-export default function ArticuloCreate() {
+type Props = {
+    /** Catálogo real: es lo único de esta pantalla que no son datos de ejemplo. */
+    areas: AlmArea[];
+};
+
+export default function ArticuloCreate({ areas }: Props) {
     // El código no se teclea: lo pone el sistema al guardar. Se muestra desde
     // ahora para que quien da de alta sepa con qué va a quedar etiquetado.
     const codigo = siguienteCodigoArticulo();
@@ -29,6 +34,10 @@ export default function ArticuloCreate() {
     const [unidad, setUnidad] = useState('');
     const [marca, setMarca] = useState('');
     const [modelo, setModelo] = useState('');
+    // Sólo se anota, no se valida ni se cruza: es el nombre del artículo en el
+    // sistema anterior, para conciliar mientras los dos convivan.
+    const [idsteelex, setIdsteelex] = useState('');
+    const [areaId, setAreaId] = useState('');
     // Vacío significa "usa el código": sólo se llena cuando la caja ya trae uno
     // impreso de fábrica y no vale la pena taparlo con etiqueta nuestra.
     const [codigoBarras, setCodigoBarras] = useState('');
@@ -124,6 +133,45 @@ export default function ArticuloCreate() {
                                     value={modelo}
                                     onChange={(e) => setModelo(e.target.value)}
                                     placeholder="DWE4120"
+                                />
+                            </FormField>
+
+                            <FormField
+                                label="Área"
+                                htmlFor="area_id"
+                                description={
+                                    areas.length === 0
+                                        ? 'No hay áreas dadas de alta todavía: se capturan en Almacén → Áreas.'
+                                        : 'A qué parte de la operación pertenece. Sale del catálogo de áreas.'
+                                }
+                            >
+                                <Select
+                                    id="area_id"
+                                    value={areaId}
+                                    onValueChange={setAreaId}
+                                    placeholder="¿A qué área pertenece?"
+                                    disabled={areas.length === 0}
+                                >
+                                    {areas.map((a) => (
+                                        <SelectItem key={a.id} value={String(a.id)}>
+                                            {a.descripcion}
+                                        </SelectItem>
+                                    ))}
+                                </Select>
+                            </FormField>
+
+                            <FormField
+                                label="ID Steelex"
+                                htmlFor="idsteelex"
+                                description="Opcional. Cómo se llama este artículo en Steelex, para poder conciliar mientras los dos sistemas convivan. Texto libre, hasta 150 caracteres."
+                                className="md:col-span-2"
+                            >
+                                <Input
+                                    id="idsteelex"
+                                    value={idsteelex}
+                                    onChange={(e) => setIdsteelex(e.target.value)}
+                                    maxLength={150}
+                                    placeholder="MAT-000412"
                                 />
                             </FormField>
 
