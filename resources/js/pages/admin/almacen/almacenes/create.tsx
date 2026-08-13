@@ -6,7 +6,7 @@ import { AlmacenForm, type OpcionTipo } from './almacen-form';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Almacén', href: '/admin/almacen/almacenes' },
+    { title: 'Insumos', href: '/admin/almacen/almacenes' },
     { title: 'Almacenes', href: '/admin/almacen/almacenes' },
     { title: 'Nuevo', href: '/admin/almacen/almacenes/create' },
 ];

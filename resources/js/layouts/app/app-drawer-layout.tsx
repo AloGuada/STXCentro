@@ -222,7 +222,7 @@ const navGroups: NavGroup[] = [
         ],
     },
     {
-        title: 'Almacén',
+        title: 'Insumos',
         icon: Warehouse,
         items: [
             {

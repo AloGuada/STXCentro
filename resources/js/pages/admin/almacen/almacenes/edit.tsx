@@ -16,7 +16,7 @@ type Props = {
 export default function AlmacenEdit({ almacen, obras, usuarios, tipos }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Almacén', href: '/admin/almacen/almacenes' },
+        { title: 'Insumos', href: '/admin/almacen/almacenes' },
         { title: 'Almacenes', href: '/admin/almacen/almacenes' },
         { title: almacen.clave, href: `/admin/almacen/almacenes/${almacen.id}/edit` },
     ];

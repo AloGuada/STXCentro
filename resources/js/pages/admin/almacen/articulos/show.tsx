@@ -46,7 +46,7 @@ export default function ArticuloShow({ articuloId }: Props) {
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Almacén', href: '/admin/almacen/existencias' },
+        { title: 'Insumos', href: '/admin/almacen/existencias' },
         { title: 'Artículos', href: '/admin/almacen/articulos' },
         { title: articulo.codigo, href: `/admin/almacen/articulos/${articulo.id}` },
     ];
