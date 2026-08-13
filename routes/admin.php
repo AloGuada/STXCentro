@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
+use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
+use App\Http\Controllers\Admin\Alm\VistasController as AlmVistasController;
 use App\Http\Controllers\Admin\BadgeConfigController;
 use App\Http\Controllers\Admin\BancoController;
 use App\Http\Controllers\Admin\Cob\AdendaController as CobAdendaController;
@@ -216,6 +219,126 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('destajos/{destajo}/registros/{registro}', [ProdRegistroController::class, 'destroy'])->name('destajos.registros.destroy');
         Route::post('destajos/{destajo}/pagos-extra', [ProdPagoExtraController::class, 'store'])->name('destajos.pagos-extra.store');
         Route::delete('destajos/{destajo}/pagos-extra/{pagoExtra}', [ProdPagoExtraController::class, 'destroy'])->name('destajos.pagos-extra.destroy');
+    });
+
+    // Almacen admin routes
+    Route::prefix('almacen')->name('alm.')->group(function () {
+        // Catalogo de almacenes: la base del modulo, sin el no hay movimientos
+        Route::resource('almacenes', AlmAlmacenController::class)
+            ->parameters(['almacenes' => 'almacen'])
+            ->except(['show'])
+            ->middlewareFor(['index'], 'permission:alm.almacenes.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.almacenes.crear')
+            ->middlewareFor(['edit', 'update'], 'permission:alm.almacenes.editar')
+            ->middlewareFor(['destroy'], 'permission:alm.almacenes.eliminar');
+
+        // Catalogo de areas: clasifica el articulo. Una sola pantalla, porque
+        // es una lista de un campo. Sin destroy: aqui nada se borra, se
+        // desactiva, para no dejar articulos apuntando a lo que ya no existe.
+        Route::get('areas', [AlmAreaController::class, 'index'])
+            ->middleware('permission:alm.areas.ver')
+            ->name('areas.index');
+        Route::post('areas', [AlmAreaController::class, 'store'])
+            ->middleware('permission:alm.areas.crear')
+            ->name('areas.store');
+        Route::put('areas/{area}', [AlmAreaController::class, 'update'])
+            ->whereNumber('area')
+            ->middleware('permission:alm.areas.editar')
+            ->name('areas.update');
+        Route::patch('areas/{area}/toggle', [AlmAreaController::class, 'toggle'])
+            ->whereNumber('area')
+            ->middleware('permission:alm.areas.editar')
+            ->name('areas.toggle');
+
+        // Maquetas: pantallas sin backend todavia, dibujadas con datos de
+        // ejemplo para revisar diseno y flujo. Se van reemplazando por su
+        // controlador real conforme cada una se construya. Cada una ya va
+        // detras de su permiso definitivo: el modulo mueve existencias de
+        // forma irreversible, asi que reciclar un solo permiso no alcanza.
+        Route::get('existencias', [AlmVistasController::class, 'existencias'])
+            ->middleware('permission:alm.existencias.ver')
+            ->name('existencias.index');
+        Route::get('kardex', [AlmVistasController::class, 'kardex'])
+            ->middleware('permission:alm.kardex.ver')
+            ->name('kardex.index');
+        Route::get('entradas', [AlmVistasController::class, 'entradas'])
+            ->middleware('permission:alm.entradas.ver')
+            ->name('entradas.index');
+        Route::get('entradas/create', [AlmVistasController::class, 'entradaCreate'])
+            ->middleware('permission:alm.entradas.crear')
+            ->name('entradas.create');
+        Route::get('salidas', [AlmVistasController::class, 'salidas'])
+            ->middleware('permission:alm.salidas.ver')
+            ->name('salidas.index');
+        Route::get('salidas/create', [AlmVistasController::class, 'salidaCreate'])
+            ->middleware('permission:alm.salidas.crear')
+            ->name('salidas.create');
+        Route::get('transferencias', [AlmVistasController::class, 'transferencias'])
+            ->middleware('permission:alm.transferencias.ver')
+            ->name('transferencias.index');
+        Route::get('transferencias/create', [AlmVistasController::class, 'transferenciaCreate'])
+            ->middleware('permission:alm.transferencias.enviar')
+            ->name('transferencias.create');
+        Route::get('devoluciones', [AlmVistasController::class, 'devoluciones'])
+            ->middleware('permission:alm.devoluciones.ver')
+            ->name('devoluciones.index');
+        Route::get('devoluciones/create', [AlmVistasController::class, 'devolucionCreate'])
+            ->middleware('permission:alm.devoluciones.crear')
+            ->name('devoluciones.create');
+        Route::get('ajustes', [AlmVistasController::class, 'ajustes'])
+            ->middleware('permission:alm.ajustes.ver')
+            ->name('ajustes.index');
+        Route::get('ajustes/create', [AlmVistasController::class, 'ajusteCreate'])
+            ->middleware('permission:alm.ajustes.crear')
+            ->name('ajustes.create');
+        Route::get('pedidos', [AlmVistasController::class, 'pedidos'])
+            ->middleware('permission:alm.pedidos.ver')
+            ->name('pedidos.index');
+        Route::get('pedidos/create', [AlmVistasController::class, 'pedidoCreate'])
+            ->middleware('permission:alm.pedidos.crear')
+            ->name('pedidos.create');
+        Route::get('prestamos', [AlmVistasController::class, 'prestamos'])
+            ->middleware('permission:alm.prestamos.ver')
+            ->name('prestamos.index');
+        Route::get('prestamos/create', [AlmVistasController::class, 'prestamoCreate'])
+            ->middleware('permission:alm.prestamos.crear')
+            ->name('prestamos.create');
+        Route::get('activos', [AlmVistasController::class, 'activos'])
+            ->middleware('permission:alm.activos.ver')
+            ->name('activos.index');
+        Route::get('activos/create', [AlmVistasController::class, 'activoCreate'])
+            ->middleware('permission:alm.activos.crear')
+            ->name('activos.create');
+        Route::get('articulos', [AlmVistasController::class, 'articulos'])
+            ->middleware('permission:alm.articulos.ver')
+            ->name('articulos.index');
+        Route::get('articulos/create', [AlmVistasController::class, 'articuloCreate'])
+            ->middleware('permission:alm.articulos.crear')
+            ->name('articulos.create');
+        // Despues de 'create' o la ficha se comeria esa ruta
+        Route::get('articulos/{articulo}', [AlmVistasController::class, 'articuloShow'])
+            ->whereNumber('articulo')
+            ->middleware('permission:alm.articulos.ver')
+            ->name('articulos.show');
+        Route::get('ubicaciones', [AlmVistasController::class, 'ubicaciones'])
+            ->middleware('permission:alm.ubicaciones.ver')
+            ->name('ubicaciones.index');
+        Route::get('conteos', [AlmVistasController::class, 'conteos'])
+            ->middleware('permission:alm.conteos.ver')
+            ->name('conteos.index');
+        Route::get('conteos/create', [AlmVistasController::class, 'conteoCreate'])
+            ->middleware('permission:alm.conteos.crear')
+            ->name('conteos.create');
+        Route::get('conteos/{conteo}', [AlmVistasController::class, 'conteoShow'])
+            ->whereNumber('conteo')
+            ->middleware('permission:alm.conteos.capturar')
+            ->name('conteos.show');
+        Route::get('etiquetas', [AlmVistasController::class, 'etiquetas'])
+            ->middleware('permission:alm.etiquetas.ver')
+            ->name('etiquetas.index');
+        Route::get('aprobaciones', [AlmVistasController::class, 'aprobaciones'])
+            ->middleware('permission:alm.aprobaciones.ver')
+            ->name('aprobaciones.index');
     });
 
     // Infraestructura admin routes

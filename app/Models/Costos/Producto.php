@@ -2,7 +2,9 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Alm\ProductoTipo;
 use App\Models\Usuario;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +30,12 @@ class Producto extends Model
         'codigo',
         'descripcion',
         'unidad',
+        'tipo',
+        'controla_inventario',
+        'se_controla_por_pieza',
+        'requiere_verificacion',
+        'stock_minimo',
+        'imagen',
         'activo',
         'creado_por',
     ];
@@ -39,7 +47,31 @@ class Producto extends Model
     {
         return [
             'activo' => 'boolean',
+            'tipo' => ProductoTipo::class,
+            'controla_inventario' => 'boolean',
+            'se_controla_por_pieza' => 'boolean',
+            'requiere_verificacion' => 'boolean',
+            'stock_minimo' => 'decimal:3',
         ];
+    }
+
+    /**
+     * Los que no llevan kardex se saltan el ledger sin error: se compran y se
+     * reciben, pero no hay nada que almacenar (fletes, maniobras, servicios).
+     */
+    public function scopeDeInventario(Builder $query): Builder
+    {
+        return $query->where('controla_inventario', true);
+    }
+
+    /**
+     * Lo que Compras tecleó al vuelo y nadie ha clasificado: sin código y fuera
+     * del inventario. Es la bandeja de entrada de la pantalla de Artículos —
+     * mientras estén aquí, comprarlos no mueve existencia.
+     */
+    public function scopeSinClasificar(Builder $query): Builder
+    {
+        return $query->whereNull('codigo')->where('controla_inventario', false);
     }
 
     public function precios(): HasMany

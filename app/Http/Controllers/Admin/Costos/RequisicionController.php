@@ -203,6 +203,17 @@ class RequisicionController extends Controller
      * Resuelve el producto del catálogo de una partida: usa el `producto_id`
      * elegido o crea uno nuevo al vuelo con la descripción capturada.
      *
+     * No deduplica a propósito: se probó `firstOrCreate` por descripción y se
+     * descartó (2026-07-28). Compras crea libre y el comando
+     * `costos:limpiar-productos` barre después los que quedaron sin uso.
+     *
+     * Lo que sí se cuida es el kardex. El catálogo lo comparten Compras y
+     * Almacén, y un producto tecleado al vuelo no lo clasificó nadie: sin
+     * código no hay forma de distinguirlo del que ya existía, y dos códigos
+     * para el mismo tornillo son dos saldos que nunca cuadran. Por eso nace
+     * fuera del inventario y sólo entra cuando Almacén lo clasifica desde la
+     * pantalla de Artículos.
+     *
      * @param  array<string, mixed>  $d
      */
     private function resolverProducto(array $d, string $userId): \App\Models\Costos\Producto
@@ -211,10 +222,13 @@ class RequisicionController extends Controller
             return \App\Models\Costos\Producto::findOrFail($d['producto_id']);
         }
 
+        $codigo = trim((string) ($d['codigo_producto'] ?? '')) ?: null;
+
         return \App\Models\Costos\Producto::create([
             'descripcion' => $d['descripcion'],
             'unidad' => $d['unidad'] ?? 'pza',
-            'codigo' => $d['codigo_producto'] ?? null,
+            'codigo' => $codigo,
+            'controla_inventario' => $codigo !== null,
             'creado_por' => $userId,
         ]);
     }

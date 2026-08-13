@@ -3309,6 +3309,437 @@ export type RhPermisoAusencia = {
 };
 
 // =========================================
+// Almacén
+// =========================================
+
+export type AlmAlmacenTipo = 'insumos' | 'montaje' | 'herramienta';
+
+/**
+ * Área del catálogo de almacén: a qué parte de la operación pertenece un
+ * artículo. No es dónde está guardado —eso es la ubicación, que cuelga de un
+ * almacén—: el área viaja con el artículo.
+ */
+export type AlmArea = {
+    id: number;
+    descripcion: string;
+    activo: boolean;
+};
+
+/**
+ * Almacén virtual. Con obra es un almacén de esa obra (montaje); sin obra es
+ * central y surte a todas. La clave sólo es única dentro de su obra.
+ */
+export type AlmAlmacen = {
+    id: number;
+    clave: string;
+    nombre: string;
+    obra_id: number | null;
+    obra?: Obra | null;
+    tipo: AlmAlmacenTipo;
+    responsable_id: string | null;
+    responsable?: Usuario | null;
+    observaciones: string | null;
+    activo: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+/**
+ * Formas de las pantallas de Almacén que todavía no tienen backend. Viven aquí
+ * para que la maqueta (`lib/alm/demo.ts`) tenga tipos; cuando existan las tablas
+ * se reemplazan por los modelos reales.
+ */
+export type AlmMovimientoTipo =
+    | 'entrada'
+    | 'salida'
+    | 'transferencia_salida'
+    | 'transferencia_entrada'
+    | 'ajuste'
+    | 'devolucion';
+
+export type AlmProductoDemo = {
+    id: number;
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+    /** Sin este palomeo en la entrada, el producto no se puede recepcionar. */
+    requiere_verificacion: boolean;
+};
+
+export type AlmExistenciaDemo = {
+    almacen: string;
+    producto: string;
+    descripcion: string;
+    unidad: string;
+    cantidad: number;
+    costo_promedio: number;
+    /**
+     * Dónde está dentro del almacén. Apunta al catálogo de ubicaciones en vez
+     * de ser un texto libre: así se puede filtrar por zona y darle una ruta al
+     * inventario cíclico. `null` es material que nadie ha acomodado.
+     */
+    ubicacion_id: number | null;
+};
+
+export type AlmMovimientoDemo = {
+    id: number;
+    fecha: string;
+    almacen: string;
+    producto: string;
+    tipo: AlmMovimientoTipo;
+    /** Con signo: negativa cuando el material sale. */
+    cantidad: number;
+    saldo_nuevo: number;
+    referencia: string;
+    usuario: string;
+    observaciones: string | null;
+};
+
+export type AlmEntradaDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    almacen: string;
+    proveedor: string | null;
+    renglones: number;
+    importe: number;
+    recibio: string;
+};
+
+export type AlmSalidaDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    almacen: string;
+    obra_destino: string | null;
+    solicitante: string;
+    recibe: string;
+    renglones: number;
+    motivo: string;
+    /** Requisición que surte, si la hay: la salida urgente no lleva. */
+    pedido_folio: string | null;
+};
+
+export type AlmTransferenciaDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    origen: string;
+    destino: string;
+    renglones: number;
+    autorizo: string;
+};
+
+/** Por qué se corrigió la existencia. Es lo que justifica el movimiento. */
+export type AlmAjusteMotivo = 'conteo_fisico' | 'merma' | 'error_captura' | 'otro';
+
+export type AlmAjusteDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    almacen: string;
+    motivo: AlmAjusteMotivo;
+    renglones: number;
+    /** Suma de las diferencias con signo: cuánto se movió el inventario. */
+    diferencia_neta: number;
+    autorizo: string;
+};
+
+/**
+ * Material que regresa de una obra al almacén. No confundir con
+ * `costos_devoluciones`, que es devolución a proveedor.
+ */
+export type AlmDevolucionDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    almacen: string;
+    obra_origen: string;
+    devolvio: string;
+    renglones: number;
+    motivo: string;
+};
+
+/**
+ * Qué es el producto para almacén. El `insumo` se gasta y sólo se cuenta; la
+ * `herramienta` y el `activo` salen y regresan, así que pueden llevar identidad
+ * individual (serie, foto, resguardo). Espeja `App\Enums\Alm\ProductoTipo`.
+ */
+export type AlmProductoTipo = 'insumo' | 'herramienta' | 'activo';
+
+/**
+ * Cuánto pesa el artículo en el inventario, y por lo tanto cada cuánto se
+ * cuenta. `A` es lo caro o de alta rotación (un faltante duele y se nota
+ * tarde); `C` es lo barato que puede esperar al semestre.
+ */
+export type AlmClasificacionAbc = 'A' | 'B' | 'C';
+
+/** Un punto del histórico de precios. Espeja `costos_producto_precios`. */
+export type AlmPrecioDemo = {
+    id: number;
+    fecha: string;
+    proveedor: string;
+    precio: number;
+    moneda: string;
+    /** De dónde salió el precio: una cotización, una OC o captura manual. */
+    origen: string;
+};
+
+export type AlmArticuloDemo = {
+    id: number;
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+    /**
+     * Lo que se escanea. Nace igual al código y se puede sobrescribir con el
+     * del fabricante cuando la caja ya trae uno impreso.
+     */
+    codigo_barras: string | null;
+    marca: string | null;
+    modelo: string | null;
+    /**
+     * Cómo se llama este artículo en Steelex. Campo libre de 150 caracteres:
+     * no se valida ni se cruza con nada, sólo deja anotado a qué corresponde
+     * allá para poder conciliar mientras los dos sistemas convivan.
+     */
+    idsteelex: string | null;
+    /** A qué parte de la operación pertenece. Sale del catálogo de áreas. */
+    area: string | null;
+    /** Cada cuánto lo alcanza el inventario cíclico. */
+    clasificacion_abc: AlmClasificacionAbc;
+    /** Último precio del histórico, para no tener que abrir la ficha. */
+    precio_ultimo: number | null;
+    /** Foto del artículo, para reconocerlo sin leer la descripción. */
+    imagen_url: string | null;
+    tipo: AlmProductoTipo;
+    /**
+     * Recepcionarlo exige verificar su mantenimiento. Va aparte del tipo
+     * porque no todo activo lo necesita: una pulidora sí, un andamio no.
+     */
+    requiere_verificacion: boolean;
+    /** Un servicio o un gasto se compra pero no se almacena: no lleva kardex. */
+    controla_inventario: boolean;
+    /**
+     * Además del saldo por cantidad, cada pieza se registra con número de serie
+     * y se presta bajo resguardo. Sin esto el kardex sabe cuántas pulidoras
+     * salieron, pero no quién tiene cuál.
+     */
+    se_controla_por_pieza: boolean;
+    stock_minimo: number | null;
+    existencia_total: number;
+};
+
+/** Los documentos de almacén que pueden pedir firma. */
+export type AlmDocumentoTipo =
+    | 'pedido'
+    | 'entrada'
+    | 'salida'
+    | 'transferencia'
+    | 'devolucion'
+    | 'ajuste'
+    | 'prestamo';
+
+export type AlmUsuarioDemo = {
+    id: number;
+    nombre: string;
+    puesto: string;
+};
+
+/** Quién puede firmar un tipo de documento en un almacén. */
+export type AlmReglaAprobacion = {
+    documento: AlmDocumentoTipo;
+    requiere: boolean;
+    /** Basta con que firme uno de ellos. */
+    usuarios: number[];
+};
+
+/**
+ * Se llama pedido y no requisición para no chocar con la requisición de compra
+ * de Costos, que le pide material a un proveedor. Éste le pide a un almacén lo
+ * que ya está en existencia.
+ */
+export type AlmPedidoEstatus =
+    | 'borrador'
+    | 'pendiente'
+    | 'aprobado'
+    | 'surtido'
+    | 'cancelado'
+    | 'rechazado';
+
+export type AlmPedidoDetalleDemo = {
+    producto_id: number;
+    cantidad_solicitada: number;
+    /**
+     * Lo que ya se entregó, sumando todas las salidas y transferencias de este
+     * pedido. Un pedido se surte en varias vueltas: sólo llega a `surtido`
+     * cuando todos sus renglones alcanzan lo solicitado.
+     */
+    cantidad_surtida: number;
+};
+
+export type AlmPedidoDemo = {
+    id: number;
+    folio: string;
+    fecha: string;
+    solicitante: string;
+    /** Quién pide. Siempre hay un área responsable, haya obra o no. */
+    departamento: string;
+    /**
+     * Para dónde es. `null` es consumo interno de planta: la fabricación y las
+     * áreas de la nave también piden material, y no cuelgan de ninguna obra.
+     *
+     * De aquí sale cómo se surte: con obra hay que llevarlo al almacén de esa
+     * obra, así que lo surte una transferencia; sin obra el material se queda
+     * en el mismo domicilio y lo surte una salida.
+     */
+    obra: string | null;
+    almacen: string;
+    fecha_requerida: string;
+    detalle: AlmPedidoDetalleDemo[];
+    estatus: AlmPedidoEstatus;
+};
+
+/**
+ * Una pieza identificada de un artículo marcado `se_controla_por_pieza`. El
+ * kardex sigue contando por cantidad; esto es lo que responde quién tiene cuál.
+ */
+export type AlmActivoEstatus = 'disponible' | 'prestado' | 'en_reparacion' | 'baja';
+
+export type AlmActivoDemo = {
+    id: number;
+    producto_id: number;
+    codigo: string;
+    descripcion: string;
+    no_serie: string;
+    /**
+     * El de la pieza, no el del artículo: dos pulidoras del mismo modelo
+     * comparten código pero se escanean distinto, que es lo que permite saber
+     * cuál volvió del préstamo.
+     */
+    codigo_barras: string | null;
+    almacen: string;
+    /** Dónde vive cuando está en el pañol. */
+    ubicacion: string | null;
+    estatus: AlmActivoEstatus;
+    condicion: string;
+};
+
+export type AlmPrestamoEstatus = 'abierto' | 'devuelto' | 'perdido';
+
+/**
+ * Resguardo de una pieza. No mueve el saldo del kardex: la herramienta sigue
+ * siendo del almacén, lo que cambia es quién la trae. Por eso Existencias
+ * puede decir "14 pulidoras · 11 disponibles · 3 prestadas".
+ */
+export type AlmPrestamoDemo = {
+    id: number;
+    folio: string;
+    activo_id: number;
+    no_serie: string;
+    articulo: string;
+    almacen: string;
+    responsable: string;
+    /** Obra o área a la que se la llevó. */
+    destino: string;
+    fecha_salida: string;
+    fecha_retorno_esperada: string;
+    fecha_retorno: string | null;
+    condicion_salida: string;
+    condicion_retorno: string | null;
+    estatus: AlmPrestamoEstatus;
+};
+
+/**
+ * Un lugar físico dentro de un almacén: pasillo, rack, nivel o contenedor.
+ *
+ * El almacén es virtual (AG, FAK) y puede vivir dentro de una obra; esto es el
+ * tercer nivel que faltaba para poder decir "está en el Rack A-1, nivel 2" en
+ * vez de anotarlo en un texto libre que nadie puede filtrar. Es lo que también
+ * le da al inventario cíclico una ruta que recorrer.
+ */
+export type AlmUbicacionTipo = 'pasillo' | 'rack' | 'nivel' | 'contenedor' | 'zona';
+
+export type AlmUbicacionDemo = {
+    id: number;
+    almacen: string;
+    /** Único dentro del almacén: es lo que se rotula en el anaquel. */
+    codigo: string;
+    nombre: string;
+    tipo: AlmUbicacionTipo;
+    /** Cuelga de otra ubicación: un nivel vive dentro de un rack. */
+    padre_id: number | null;
+    activa: boolean;
+};
+
+/** De dónde salió la hoja de conteo. */
+export type AlmConteoOrigen = 'programado' | 'manual';
+
+export type AlmConteoEstatus = 'pendiente' | 'contando' | 'cerrado' | 'cancelado';
+
+/**
+ * Renglón de una hoja de conteo. `cantidad_sistema` se congela al generar la
+ * hoja: si se leyera al cerrar, un movimiento capturado a media mañana
+ * convertiría un conteo correcto en una diferencia inventada.
+ */
+export type AlmConteoRenglonDemo = {
+    producto_id: number;
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+    ubicacion: string | null;
+    cantidad_sistema: number;
+    /** `null` mientras nadie lo haya contado. Cero es un dato, no un hueco. */
+    cantidad_contada: number | null;
+};
+
+/**
+ * Un inventario cíclico: se cuenta una parte del almacén sin parar la
+ * operación, en vez de cerrar todo una vez al año. Al cerrarse genera un
+ * ajuste con las diferencias — y ese ajuste es el único que las escribe.
+ */
+export type AlmConteoDemo = {
+    id: number;
+    folio: string;
+    origen: AlmConteoOrigen;
+    almacen: string;
+    /** Zona que toca recorrer. `null` es el almacén completo. */
+    ubicacion: string | null;
+    /** Qué clase de artículo entró a la hoja. `null` cuando fue por zona. */
+    clasificacion: AlmClasificacionAbc | null;
+    fecha_programada: string;
+    fecha_cierre: string | null;
+    responsable: string;
+    estatus: AlmConteoEstatus;
+    renglones: AlmConteoRenglonDemo[];
+    /** Folio del ajuste que se generó al cerrar, si hubo diferencias. */
+    ajuste_folio: string | null;
+};
+
+/**
+ * La regla de cada clase: cada cuántos días hay que volver a contarla. De aquí
+ * salen solas las hojas de la semana.
+ */
+export type AlmReglaAbc = {
+    clasificacion: AlmClasificacionAbc;
+    frecuencia_dias: number;
+    etiqueta: string;
+    descripcion: string;
+};
+
+/** Un renglón del capturador de partidas, compartido por los tres documentos. */
+export type AlmPartidaBorrador = {
+    producto_id: string;
+    cantidad: string;
+    costo_unitario: string;
+    observaciones: string;
+    /**
+     * Sólo aplica a los activos y sólo en la entrada: sin este palomeo el
+     * equipo no se puede recepcionar.
+     */
+    mantenimiento_verificado: boolean;
+};
+
+// =========================================
 // Drive
 // =========================================
 
