@@ -24,9 +24,9 @@ type Props = {
      */
     avisarFaltante?: boolean;
     /**
-     * Sólo la entrada la pide: los productos marcados con "verifica recepción"
-     * no se reciben sin revisar su mantenimiento. Los demás documentos no
-     * preguntan nada.
+     * Sólo la entrada la pide: los productos marcados con "inspección de
+     * mantenimiento" no se reciben sin revisar en qué estado llegan. Los demás
+     * documentos no preguntan nada.
      */
     pedirVerificacionMantenimiento?: boolean;
 };

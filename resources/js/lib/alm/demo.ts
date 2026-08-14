@@ -202,11 +202,11 @@ export const ARTICULOS_DEMO: AlmArticuloDemo[] = [
     { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', codigo_barras: 'SIL-EST', marca: 'Sika', modelo: 'Sikasil SG-20', idsteelex: null, area: null, clasificacion_abc: 'A', precio_ultimo: 318.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 42 },
     // Los dos últimos que se dieron de alta ya nacieron con el consecutivo.
     { id: 107, codigo: 'ART-00011', descripcion: 'Broca cobalto 1/4"', unidad: 'PZA', codigo_barras: 'ART-00011', marca: 'DeWalt', modelo: 'DW1207', idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 89.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 64 },
-    { id: 108, codigo: 'ART-00012', descripcion: 'Extensión eléctrica 25 m calibre 12', unidad: 'PZA', codigo_barras: 'ART-00012', marca: 'Voltech', modelo: '48042', idsteelex: null, area: null, clasificacion_abc: 'B', precio_ultimo: 1240.0, imagen_url: null, tipo: 'herramienta', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 4, existencia_total: 9 },
+    { id: 108, codigo: 'ART-00012', descripcion: 'Extensión eléctrica 25 m calibre 12', unidad: 'PZA', codigo_barras: 'ART-00012', marca: 'Voltech', modelo: '48042', idsteelex: null, area: null, clasificacion_abc: 'B', precio_ultimo: 1240.0, imagen_url: null, tipo: 'activo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 4, existencia_total: 9 },
     // La pulidora se presta bajo resguardo: cada pieza lleva serie y dueño.
-    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', codigo_barras: 'PUL-4120', marca: 'DeWalt', modelo: 'DWE4120', idsteelex: 'HERR-0098', area: 'Herramienta', clasificacion_abc: 'A', precio_ultimo: 2180.0, imagen_url: imagenDemo('PUL', '#be123c'), tipo: 'herramienta', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 14 },
+    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', codigo_barras: 'PUL-4120', marca: 'DeWalt', modelo: 'DWE4120', idsteelex: 'HERR-0098', area: 'Herramienta', clasificacion_abc: 'A', precio_ultimo: 2180.0, imagen_url: imagenDemo('PUL', '#be123c'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 14 },
     // El andamio también se presta, pero por bulto: serializarlo no aporta.
-    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', codigo_barras: 'AND-MOD', marca: null, modelo: null, idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 1850.0, imagen_url: null, tipo: 'herramienta', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 320 },
+    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', codigo_barras: 'AND-MOD', marca: null, modelo: null, idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 1850.0, imagen_url: null, tipo: 'activo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 320 },
     { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', codigo_barras: 'VEH-0007', marca: 'Ford', modelo: 'Ranger XL 2024', idsteelex: null, area: null, clasificacion_abc: 'A', precio_ultimo: 612000.0, imagen_url: imagenDemo('VEH', '#1d4ed8'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 1 },
     // Sin kardex no hay nada que contar ni que etiquetar: un flete no se guarda.
     { id: 302, codigo: 'SRV-FLET', descripcion: 'Flete foráneo', unidad: 'SRV', codigo_barras: null, marca: null, modelo: null, idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 8500.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: false, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 0 },
@@ -423,10 +423,16 @@ export function pedidosSurtibles(claveAlmacen: string | undefined): AlmPedidoDem
     );
 }
 
+/**
+ * En qué se puede medir un artículo. Lo comparten el alta y la edición: si cada
+ * pantalla trajera su propia lista, un artículo dado de alta en MTS podría
+ * quedarse sin esa opción al corregirlo.
+ */
+export const UNIDADES_ARTICULO = ['PZA', 'KG', 'LTS', 'MTS', 'PAR', 'CTO', 'SRV'];
+
 /** Cómo se lee cada tipo de producto en pantalla. */
 export const TIPOS_ARTICULO: Record<AlmProductoTipo, string> = {
     insumo: 'Insumo',
-    herramienta: 'Herramienta',
     activo: 'Activo',
 };
 

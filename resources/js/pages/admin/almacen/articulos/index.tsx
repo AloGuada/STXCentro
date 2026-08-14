@@ -1,55 +1,35 @@
+import { MiniaturaArticulo } from '@/components/alm/miniatura-articulo';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { ARTICULOS_DEMO, CLASES_ABC, REGLAS_ABC, TIPOS_ARTICULO } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
-import type { AlmArticuloDemo, AlmClasificacionAbc, AlmProductoTipo } from '@/types/models';
+import type { AlmArticuloDemo, AlmProductoTipo } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-import { BarcodeIcon, ImageIcon, PlusIcon, SearchIcon, TagIcon, TriangleAlertIcon } from 'lucide-react';
+import { BarcodeIcon, PencilIcon, PlusIcon, SearchIcon, TagIcon, TriangleAlertIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Insumos', href: '/admin/almacen/existencias' },
+    { title: 'Inventarios', href: '/admin/almacen/existencias' },
     { title: 'Artículos', href: '/admin/almacen/articulos' },
 ];
 
 const CLASE_TIPO: Record<AlmProductoTipo, string> = {
     insumo: 'badge-ghost',
-    herramienta: 'badge-info',
     activo: 'badge-warning',
 };
 
 const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
-/** La foto ayuda a reconocer el artículo; sin ella queda el hueco marcado. */
-function MiniaturaArticulo({ articulo }: { articulo: AlmArticuloDemo }) {
-    if (!articulo.imagen_url) {
-        return (
-            <div
-                className="border-base-300 text-base-content/30 flex size-10 items-center justify-center rounded border border-dashed"
-                title="Sin imagen"
-            >
-                <ImageIcon className="size-4" />
-            </div>
-        );
-    }
-
-    return (
-        <img
-            src={articulo.imagen_url}
-            alt={articulo.descripcion}
-            className="border-base-300 size-10 rounded border object-cover"
-        />
-    );
-}
-
 export default function ArticulosIndex() {
     const [query, setQuery] = useState('');
     const [filtroTipo, setFiltroTipo] = useState('');
-    // La clasificación se edita en la propia lista: es lo que se viene a hacer
-    // aquí, y obligar a entrar renglón por renglón lo volvería inservible.
+    // Aquí sólo quedan los interruptores. El tipo y la clase se cambian en la
+    // pantalla de edición: son las dos cosas que cambian cómo se comporta el
+    // artículo en todos los movimientos, y de paso los desplegables ensanchaban
+    // la tabla hasta dejarla sin espacio para lo que se viene a consultar.
     const [cambios, setCambios] = useState<Record<number, Partial<AlmArticuloDemo>>>({});
 
     const valorDe = (articulo: AlmArticuloDemo): AlmArticuloDemo => ({ ...articulo, ...cambios[articulo.id] });
@@ -141,20 +121,21 @@ export default function ArticulosIndex() {
                                 <th>Código</th>
                                 <th>Descripción</th>
                                 <th>Unidad</th>
-                                <th className="w-40">Tipo</th>
-                                <th className="w-28">Clase</th>
+                                <th className="w-28">Tipo</th>
+                                <th className="w-24">Clase</th>
                                 <th className="text-center">Por pieza</th>
-                                <th className="text-center">Verifica recepción</th>
+                                <th className="text-center">Inspección de mantenimiento</th>
                                 <th className="text-center">Lleva kardex</th>
                                 <th className="text-right">Stock mínimo</th>
                                 <th className="text-right">Último precio</th>
                                 <th className="text-right">Existencia</th>
+                                <th className="w-10"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {visibles.length === 0 ? (
                                 <tr>
-                                    <td colSpan={12} className="text-base-content/50 py-6 text-center">
+                                    <td colSpan={13} className="text-base-content/50 py-6 text-center">
                                         Ningún artículo coincide con el filtro.
                                     </td>
                                 </tr>
@@ -164,11 +145,15 @@ export default function ArticulosIndex() {
                                         i.controla_inventario &&
                                         i.stock_minimo !== null &&
                                         i.existencia_total < i.stock_minimo;
+                                    const regla = REGLAS_ABC.find((r) => r.clasificacion === i.clasificacion_abc);
 
                                     return (
                                         <tr key={i.id} className="hover">
                                             <td>
-                                                <MiniaturaArticulo articulo={i} />
+                                                <MiniaturaArticulo
+                                                    url={i.imagen_url}
+                                                    descripcion={i.descripcion}
+                                                />
                                             </td>
                                             <td>
                                                 <Link
@@ -186,9 +171,6 @@ export default function ArticulosIndex() {
                                             </td>
                                             <td>
                                                 {i.descripcion}
-                                                <span className={`badge badge-xs ml-2 ${CLASE_TIPO[i.tipo]}`}>
-                                                    {TIPOS_ARTICULO[i.tipo]}
-                                                </span>
                                                 {(i.marca || i.modelo) && (
                                                     <span className="text-base-content/50 block text-xs">
                                                         {[i.marca, i.modelo].filter(Boolean).join(' · ')}
@@ -197,17 +179,9 @@ export default function ArticulosIndex() {
                                             </td>
                                             <td className="text-base-content/60 font-mono text-xs">{i.unidad}</td>
                                             <td>
-                                                <Select
-                                                    value={i.tipo}
-                                                    onValueChange={(v) => editar(i.id, { tipo: v as AlmProductoTipo })}
-                                                    className="select-sm"
-                                                >
-                                                    {Object.entries(TIPOS_ARTICULO).map(([valor, etiqueta]) => (
-                                                        <SelectItem key={valor} value={valor}>
-                                                            {etiqueta}
-                                                        </SelectItem>
-                                                    ))}
-                                                </Select>
+                                                <span className={`badge badge-sm ${CLASE_TIPO[i.tipo]}`}>
+                                                    {TIPOS_ARTICULO[i.tipo]}
+                                                </span>
                                             </td>
                                             <td>
                                                 {/*
@@ -215,22 +189,12 @@ export default function ArticulosIndex() {
                                                  * es la única columna que decide trabajo futuro.
                                                  */}
                                                 {i.controla_inventario ? (
-                                                    <Select
-                                                        value={i.clasificacion_abc}
-                                                        onValueChange={(v) =>
-                                                            editar(i.id, {
-                                                                clasificacion_abc: v as AlmClasificacionAbc,
-                                                            })
-                                                        }
-                                                        className={`select-sm ${CLASES_ABC[i.clasificacion_abc]}`}
-                                                        aria-label={`Clase de conteo ${i.codigo}`}
+                                                    <span
+                                                        className={`badge badge-sm ${CLASES_ABC[i.clasificacion_abc]}`}
+                                                        title={regla ? `Se cuenta cada ${regla.frecuencia_dias} días` : undefined}
                                                     >
-                                                        {REGLAS_ABC.map((r) => (
-                                                            <SelectItem key={r.clasificacion} value={r.clasificacion}>
-                                                                {r.clasificacion} — {r.etiqueta}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </Select>
+                                                        Clase {i.clasificacion_abc}
+                                                    </span>
                                                 ) : (
                                                     <span className="text-base-content/30">—</span>
                                                 )}
@@ -262,7 +226,7 @@ export default function ArticulosIndex() {
                                                     onChange={(e) =>
                                                         editar(i.id, { requiere_verificacion: e.target.checked })
                                                     }
-                                                    aria-label={`Verifica recepción ${i.codigo}`}
+                                                    aria-label={`Inspección de mantenimiento ${i.codigo}`}
                                                 />
                                             </td>
                                             <td className="text-center">
@@ -302,6 +266,21 @@ export default function ArticulosIndex() {
                                                     <span className="text-base-content/40">No aplica</span>
                                                 )}
                                             </td>
+                                            <td>
+                                                {/*
+                                                 * Aquí sólo se palomea; el tipo, la clase y lo demás
+                                                 * —descripción, marca, foto, código de barras— se
+                                                 * corrigen en la pantalla de edición.
+                                                 */}
+                                                <Link
+                                                    href={`/admin/almacen/articulos/${i.id}/edit`}
+                                                    className="btn btn-ghost btn-xs"
+                                                    aria-label={`Editar ${i.codigo}`}
+                                                    title="Editar artículo"
+                                                >
+                                                    <PencilIcon className="size-4" />
+                                                </Link>
+                                            </td>
                                         </tr>
                                     );
                                 })
@@ -311,17 +290,18 @@ export default function ArticulosIndex() {
                 </div>
 
                 <p className="text-base-content/60 mt-4 text-sm">
-                    El <strong>insumo</strong> se gasta y sólo se cuenta. La <strong>herramienta</strong> y el{' '}
-                    <strong>activo</strong> salen y regresan. <strong>Por pieza</strong> es lo que además lleva número
-                    de serie y resguardo por persona: sin eso el kardex sabe cuántas pulidoras salieron, pero no quién
-                    tiene cuál — por eso la pulidora va marcada y el módulo de andamio no.{' '}
-                    <strong>Verifica recepción</strong> detiene la entrada hasta que alguien revise el mantenimiento
+                    El <strong>insumo</strong> se gasta y sólo se cuenta. El <strong>activo</strong> sale y regresa:
+                    ahí entra la herramienta, que no es un caso aparte. <strong>Por pieza</strong> es lo que además
+                    lleva número de serie y resguardo por persona: sin eso el kardex sabe cuántas pulidoras salieron,
+                    pero no quién tiene cuál — por eso la pulidora va marcada y el módulo de andamio no.{' '}
+                    <strong>Inspección de mantenimiento</strong> detiene la entrada hasta que alguien revise el estado
                     del equipo, y va aparte porque no todo activo lo necesita. Quitar <strong>lleva kardex</strong> es
                     para lo que se compra pero no se almacena, como un flete — y por eso también lo deja fuera de los
                     conteos y las etiquetas. La <strong>clase</strong> decide cada cuánto lo alcanza el inventario
-                    cíclico: A cada mes, B cada trimestre, C cada semestre. El <strong>último precio</strong> no se
-                    teclea aquí, sale de lo que cotizaron los proveedores en Compras; el histórico completo está en la
-                    ficha del artículo.
+                    cíclico: A cada mes, B cada trimestre, C cada semestre. El <strong>tipo</strong> y la{' '}
+                    <strong>clase</strong> se cambian con el lápiz, en la pantalla del artículo. El{' '}
+                    <strong>último precio</strong> no se teclea aquí, sale de lo que cotizaron los proveedores en
+                    Compras; el histórico completo está en la ficha del artículo.
                 </p>
             </div>
         </AppLayout>

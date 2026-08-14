@@ -3411,11 +3411,12 @@ export type AlmDevolucionDemo = {
 };
 
 /**
- * Qué es el producto para almacén. El `insumo` se gasta y sólo se cuenta; la
- * `herramienta` y el `activo` salen y regresan, así que pueden llevar identidad
- * individual (serie, foto, resguardo). Espeja `App\Enums\Alm\ProductoTipo`.
+ * Qué es el producto para almacén. El `insumo` se gasta y sólo se cuenta; el
+ * `activo` sale y regresa, así que puede llevar identidad individual (serie,
+ * foto, resguardo) — la herramienta entra aquí, no era un caso aparte.
+ * Espeja `App\Enums\Alm\ProductoTipo`.
  */
-export type AlmProductoTipo = 'insumo' | 'herramienta' | 'activo';
+export type AlmProductoTipo = 'insumo' | 'activo';
 
 /**
  * Cuánto pesa el artículo en el inventario, y por lo tanto cada cuánto se

@@ -1,4 +1,5 @@
 import { CodigoBarras } from '@/components/alm/codigo-barras';
+import { MiniaturaArticulo } from '@/components/alm/miniatura-articulo';
 import { ButtonLink } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
@@ -16,7 +17,7 @@ import {
 } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeftIcon, ImageIcon, TagIcon, TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
+import { ArrowLeftIcon, PencilIcon, TagIcon, TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
@@ -46,7 +47,7 @@ export default function ArticuloShow({ articuloId }: Props) {
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Insumos', href: '/admin/almacen/existencias' },
+        { title: 'Inventarios', href: '/admin/almacen/existencias' },
         { title: 'Artículos', href: '/admin/almacen/articulos' },
         { title: articulo.codigo, href: `/admin/almacen/articulos/${articulo.id}` },
     ];
@@ -65,17 +66,12 @@ export default function ArticuloShow({ articuloId }: Props) {
             <div className="p-6">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-start gap-4">
-                        {articulo.imagen_url ? (
-                            <img
-                                src={articulo.imagen_url}
-                                alt={articulo.descripcion}
-                                className="border-base-300 size-16 rounded border object-cover"
-                            />
-                        ) : (
-                            <div className="border-base-300 text-base-content/30 flex size-16 items-center justify-center rounded border border-dashed">
-                                <ImageIcon className="size-6" />
-                            </div>
-                        )}
+                        <MiniaturaArticulo
+                            url={articulo.imagen_url}
+                            descripcion={articulo.descripcion}
+                            className="size-16"
+                            iconClassName="size-6"
+                        />
                         <div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <h1 className="font-mono text-2xl font-semibold">{articulo.codigo}</h1>
@@ -112,6 +108,10 @@ export default function ArticuloShow({ articuloId }: Props) {
                         <ButtonLink href="/admin/almacen/articulos" variant="outline">
                             <ArrowLeftIcon className="size-4" />
                             Volver
+                        </ButtonLink>
+                        <ButtonLink href={`/admin/almacen/articulos/${articulo.id}/edit`} variant="outline">
+                            <PencilIcon className="size-4" />
+                            Editar
                         </ButtonLink>
                         {articulo.controla_inventario && (
                             <ButtonLink href={`/admin/almacen/etiquetas?articulo=${articulo.id}`} variant="primary">

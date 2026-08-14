@@ -21,7 +21,7 @@ import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Insumos', href: '/admin/almacen/existencias' },
+    { title: 'Inventarios', href: '/admin/almacen/existencias' },
     { title: 'Inventarios cíclicos', href: '/admin/almacen/conteos' },
     { title: 'Nuevo conteo', href: '/admin/almacen/conteos/create' },
 ];
@@ -73,7 +73,6 @@ export default function ConteoCreate() {
 
     const tipoLegible: Record<AlmProductoTipo, string> = {
         insumo: 'Insumo',
-        herramienta: 'Herramienta',
         activo: 'Activo',
     };
 

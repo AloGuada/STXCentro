@@ -317,6 +317,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereNumber('articulo')
             ->middleware('permission:alm.articulos.ver')
             ->name('articulos.show');
+        Route::get('articulos/{articulo}/edit', [AlmVistasController::class, 'articuloEdit'])
+            ->whereNumber('articulo')
+            ->middleware('permission:alm.articulos.editar')
+            ->name('articulos.edit');
         Route::get('ubicaciones', [AlmVistasController::class, 'ubicaciones'])
             ->middleware('permission:alm.ubicaciones.ver')
             ->name('ubicaciones.index');

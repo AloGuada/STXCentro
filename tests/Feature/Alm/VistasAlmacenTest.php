@@ -46,6 +46,7 @@ $pantallas = [
  */
 $pantallasConId = [
     'ficha de articulo' => ['admin.alm.articulos.show', 'admin/almacen/articulos/show', 'alm.articulos.ver', 101],
+    'edicion de articulo' => ['admin.alm.articulos.edit', 'admin/almacen/articulos/edit', 'alm.articulos.editar', 101],
     'captura de conteo' => ['admin.alm.conteos.show', 'admin/almacen/conteos/show', 'alm.conteos.capturar', 8],
 ];
 
@@ -94,6 +95,20 @@ test('el permiso de una pantalla no abre las demas', function () {
     $this->actingAs($consultor)->get(route('admin.alm.existencias.index'))->assertOk();
     $this->actingAs($consultor)->get(route('admin.alm.salidas.create'))->assertForbidden();
     $this->actingAs($consultor)->get(route('admin.alm.ajustes.create'))->assertForbidden();
+});
+
+/**
+ * El catálogo lo consulta cualquiera que trabaje en almacén, pero corregirlo
+ * cambia cómo se comporta el artículo en todos los movimientos y en Compras.
+ */
+test('ver un articulo no alcanza para editarlo', function () {
+    Permission::firstOrCreate(['name' => 'alm.articulos.ver', 'guard_name' => 'web']);
+
+    $usuario = User::factory()->create();
+    $usuario->givePermissionTo('alm.articulos.ver');
+
+    $this->actingAs($usuario)->get(route('admin.alm.articulos.show', 101))->assertOk();
+    $this->actingAs($usuario)->get(route('admin.alm.articulos.edit', 101))->assertForbidden();
 });
 
 /**

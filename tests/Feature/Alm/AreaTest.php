@@ -146,3 +146,21 @@ test('el alta de articulo solo ofrece las areas activas', function () {
             ->has('areas', 1)
             ->where('areas.0.descripcion', 'Pintura'));
 });
+
+/** Por lo mismo: corregir un artículo tampoco debe reasignarlo a un área muerta. */
+test('la edicion de articulo solo ofrece las areas activas', function () {
+    Area::factory()->create(['descripcion' => 'Pintura']);
+    Area::factory()->inactiva()->create(['descripcion' => 'Obsoleta']);
+
+    Permission::firstOrCreate(['name' => 'alm.articulos.editar', 'guard_name' => 'web']);
+
+    $user = User::factory()->create();
+    $user->givePermissionTo('alm.articulos.editar');
+
+    $this->actingAs($user)
+        ->get(route('admin.alm.articulos.edit', 101))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('areas', 1)
+            ->where('areas.0.descripcion', 'Pintura'));
+});

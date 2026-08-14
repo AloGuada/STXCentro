@@ -133,6 +133,18 @@ class VistasController extends Controller
         return Inertia::render('admin/almacen/articulos/show', ['articuloId' => $articulo]);
     }
 
+    /**
+     * Igual que el alta: la maqueta no guarda, pero las áreas son las de verdad
+     * para poder revisar el desplegable contra el catálogo real.
+     */
+    public function articuloEdit(int $articulo): Response
+    {
+        return Inertia::render('admin/almacen/articulos/edit', [
+            'articuloId' => $articulo,
+            'areas' => Area::query()->activas()->orderBy('descripcion')->get(['id', 'descripcion']),
+        ]);
+    }
+
     public function ubicaciones(): Response
     {
         return Inertia::render('admin/almacen/ubicaciones/index');

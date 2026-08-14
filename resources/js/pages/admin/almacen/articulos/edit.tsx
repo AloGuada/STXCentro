@@ -1,65 +1,98 @@
-import { FormField } from '@/components/form';
 import { CodigoBarras } from '@/components/alm/codigo-barras';
+import { MiniaturaArticulo } from '@/components/alm/miniatura-articulo';
+import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { REGLAS_ABC, siguienteCodigoArticulo, TIPOS_ARTICULO, UNIDADES_ARTICULO } from '@/lib/alm/demo';
+import {
+    ACTIVOS_DEMO,
+    ARTICULOS_DEMO,
+    EXISTENCIAS_DEMO,
+    REGLAS_ABC,
+    TIPOS_ARTICULO,
+    UNIDADES_ARTICULO,
+} from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmArea, AlmClasificacionAbc, AlmProductoTipo } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-import { ImageIcon, LockIcon } from 'lucide-react';
+import { LockIcon, TriangleAlertIcon } from 'lucide-react';
 import { useState } from 'react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Inventarios', href: '/admin/almacen/existencias' },
-    { title: 'Artículos', href: '/admin/almacen/articulos' },
-    { title: 'Nuevo', href: '/admin/almacen/articulos/create' },
-];
+const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
 type Props = {
+    /** Id del artículo. La maqueta lo lee de la URL y busca en los datos demo. */
+    articuloId?: number;
     /** Catálogo real: es lo único de esta pantalla que no son datos de ejemplo. */
     areas: AlmArea[];
 };
 
-export default function ArticuloCreate({ areas }: Props) {
-    // El código no se teclea: lo pone el sistema al guardar. Se muestra desde
-    // ahora para que quien da de alta sepa con qué va a quedar etiquetado.
-    const codigo = siguienteCodigoArticulo();
+/**
+ * Corrección de un artículo ya dado de alta.
+ *
+ * Es el alta con los campos llenos salvo por dos cosas: el código no se cambia
+ * —ya salió impreso en etiquetas y anaqueles— y lo que aquí se toca puede
+ * chocar con lo que el almacén ya movió, así que los interruptores que dejarían
+ * el kardex inconsistente avisan antes de guardar.
+ */
+export default function ArticuloEdit({ articuloId, areas }: Props) {
+    const articulo = ARTICULOS_DEMO.find((a) => a.id === articuloId) ?? ARTICULOS_DEMO[0];
 
-    const [descripcion, setDescripcion] = useState('');
-    const [unidad, setUnidad] = useState('');
-    const [marca, setMarca] = useState('');
-    const [modelo, setModelo] = useState('');
-    // Sólo se anota, no se valida ni se cruza: es el nombre del artículo en el
-    // sistema anterior, para conciliar mientras los dos convivan.
-    const [idsteelex, setIdsteelex] = useState('');
-    const [areaId, setAreaId] = useState('');
+    const existencias = EXISTENCIAS_DEMO.filter((e) => e.producto === articulo.codigo);
+    const piezas = ACTIVOS_DEMO.filter((p) => p.producto_id === articulo.id);
+
+    const [descripcion, setDescripcion] = useState(articulo.descripcion);
+    const [unidad, setUnidad] = useState(articulo.unidad);
+    const [marca, setMarca] = useState(articulo.marca ?? '');
+    const [modelo, setModelo] = useState(articulo.modelo ?? '');
+    const [idsteelex, setIdsteelex] = useState(articulo.idsteelex ?? '');
+    // El demo guarda el nombre del área, no su id: se busca en el catálogo real
+    // para preseleccionarla. Con backend llegará el `area_id` y esto se va.
+    const [areaId, setAreaId] = useState(String(areas.find((a) => a.descripcion === articulo.area)?.id ?? ''));
     // Vacío significa "usa el código": sólo se llena cuando la caja ya trae uno
     // impreso de fábrica y no vale la pena taparlo con etiqueta nuestra.
-    const [codigoBarras, setCodigoBarras] = useState('');
-    const [clasificacion, setClasificacion] = useState<AlmClasificacionAbc>('C');
-    const [imagen, setImagen] = useState<string | null>(null);
-    const [tipo, setTipo] = useState<AlmProductoTipo>('insumo');
-    const [requiereVerificacion, setRequiereVerificacion] = useState(false);
-    const [controlaInventario, setControlaInventario] = useState(true);
-    const [seControlaPorPieza, setSeControlaPorPieza] = useState(false);
-    const [stockMinimo, setStockMinimo] = useState('');
+    const [codigoBarras, setCodigoBarras] = useState(
+        articulo.codigo_barras && articulo.codigo_barras !== articulo.codigo ? articulo.codigo_barras : '',
+    );
+    const [clasificacion, setClasificacion] = useState<AlmClasificacionAbc>(articulo.clasificacion_abc);
+    const [imagen, setImagen] = useState<string | null>(articulo.imagen_url);
+    const [tipo, setTipo] = useState<AlmProductoTipo>(articulo.tipo);
+    const [requiereVerificacion, setRequiereVerificacion] = useState(articulo.requiere_verificacion);
+    const [controlaInventario, setControlaInventario] = useState(articulo.controla_inventario);
+    const [seControlaPorPieza, setSeControlaPorPieza] = useState(articulo.se_controla_por_pieza);
+    const [stockMinimo, setStockMinimo] = useState(articulo.stock_minimo === null ? '' : String(articulo.stock_minimo));
 
-    const barrasEfectivo = codigoBarras.trim() === '' ? codigo : codigoBarras.trim();
+    const barrasEfectivo = codigoBarras.trim() === '' ? articulo.codigo : codigoBarras.trim();
+    const barrasOriginal = articulo.codigo_barras ?? articulo.codigo;
     const regla = REGLAS_ABC.find((r) => r.clasificacion === clasificacion);
+
+    // Sacarlo del kardex teniendo existencia deja ese saldo sin dueño: nadie lo
+    // va a corregir después, porque las pantallas de almacén ya no lo listan.
+    const sacaDelKardexConSaldo = !controlaInventario && articulo.existencia_total > 0;
+    // Las piezas ya dadas de alta traen serie, etiqueta y resguardo. Dejar de
+    // controlar por pieza las deja huérfanas.
+    const abandonaPiezas = !seControlaPorPieza && piezas.length > 0;
+
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Inventarios', href: '/admin/almacen/existencias' },
+        { title: 'Artículos', href: '/admin/almacen/articulos' },
+        { title: articulo.codigo, href: `/admin/almacen/articulos/${articulo.id}` },
+        { title: 'Editar', href: `/admin/almacen/articulos/${articulo.id}/edit` },
+    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Nuevo artículo" />
+            <Head title={`Editar ${articulo.codigo}`} />
 
             <div className="p-6">
                 <div className="mb-6">
-                    <h1 className="text-2xl font-semibold">Nuevo artículo</h1>
+                    <h1 className="text-2xl font-semibold">
+                        Editar <span className="font-mono">{articulo.codigo}</span>
+                    </h1>
                     <p className="text-base-content/60 mt-1 text-sm">
-                        Se da de alta en el catálogo que comparten Compras y Almacén: el mismo código sirve para
-                        cotizar y para el kardex.
+                        Se corrige en el catálogo que comparten Compras y Almacén: el cambio se ve de los dos lados.
                     </p>
                 </div>
 
@@ -75,21 +108,30 @@ export default function ArticuloCreate({ areas }: Props) {
                             <FormField
                                 label="Código"
                                 htmlFor="codigo"
-                                description="Lo asigna el sistema al guardar: un consecutivo, sin familias."
+                                description="No se cambia: ya salió impreso en etiquetas y anaqueles."
                             >
                                 <label className="input input-bordered flex items-center gap-2 opacity-70">
                                     <LockIcon className="text-base-content/40 size-4" />
                                     <input
                                         id="codigo"
-                                        value={codigo}
+                                        value={articulo.codigo}
                                         readOnly
                                         className="grow font-mono"
-                                        aria-label="Código asignado automáticamente"
+                                        aria-label="Código del artículo"
                                     />
                                 </label>
                             </FormField>
 
-                            <FormField label="Unidad" htmlFor="unidad" required>
+                            <FormField
+                                label="Unidad"
+                                htmlFor="unidad"
+                                description={
+                                    articulo.existencia_total > 0
+                                        ? `Cambiarla no reconvierte lo que ya está en piso (${numero(articulo.existencia_total)} ${articulo.unidad}).`
+                                        : undefined
+                                }
+                                required
+                            >
                                 <Select id="unidad" value={unidad} onValueChange={setUnidad} placeholder="¿En qué se mide?">
                                     {UNIDADES_ARTICULO.map((u) => (
                                         <SelectItem key={u} value={u}>
@@ -150,6 +192,7 @@ export default function ArticuloCreate({ areas }: Props) {
                                     placeholder="¿A qué área pertenece?"
                                     disabled={areas.length === 0}
                                 >
+                                    <SelectItem value="">Sin área</SelectItem>
                                     {areas.map((a) => (
                                         <SelectItem key={a.id} value={String(a.id)}>
                                             {a.descripcion}
@@ -176,21 +219,16 @@ export default function ArticuloCreate({ areas }: Props) {
                             <FormField
                                 label="Imagen"
                                 htmlFor="imagen"
-                                description="Opcional. Sirve para reconocer el artículo sin leer la descripción."
+                                description="Opcional. Sirve para reconocer el artículo sin leer la descripción. Pasa el mouse encima para verla completa."
                                 className="md:col-span-2"
                             >
                                 <div className="flex items-center gap-4">
-                                    {imagen ? (
-                                        <img
-                                            src={imagen}
-                                            alt="Vista previa"
-                                            className="border-base-300 size-20 rounded border object-cover"
-                                        />
-                                    ) : (
-                                        <div className="border-base-300 text-base-content/30 flex size-20 items-center justify-center rounded border border-dashed">
-                                            <ImageIcon className="size-6" />
-                                        </div>
-                                    )}
+                                    <MiniaturaArticulo
+                                        url={imagen}
+                                        descripcion={descripcion}
+                                        className="size-20"
+                                        iconClassName="size-6"
+                                    />
                                     <div className="flex-1">
                                         <input
                                             id="imagen"
@@ -199,7 +237,12 @@ export default function ArticuloCreate({ areas }: Props) {
                                             className="file-input file-input-bordered file-input-sm w-full max-w-xs"
                                             onChange={(e) => {
                                                 const archivo = e.target.files?.[0];
-                                                setImagen(archivo ? URL.createObjectURL(archivo) : null);
+
+                                                // Sin archivo no se borra la que ya tenía: cancelar el
+                                                // diálogo no es lo mismo que quitar la foto.
+                                                if (archivo) {
+                                                    setImagen(URL.createObjectURL(archivo));
+                                                }
                                             }}
                                         />
                                         {imagen && (
@@ -230,7 +273,7 @@ export default function ArticuloCreate({ areas }: Props) {
                                     id="codigo_barras"
                                     value={codigoBarras}
                                     onChange={(e) => setCodigoBarras(e.target.value.toUpperCase())}
-                                    placeholder={codigo}
+                                    placeholder={articulo.codigo}
                                     className="font-mono"
                                     disabled={!controlaInventario}
                                 />
@@ -249,6 +292,18 @@ export default function ArticuloCreate({ areas }: Props) {
                                 )}
                             </div>
                         </div>
+
+                        {/* Cambiarlo invalida lo ya pegado: quien escanee la etiqueta vieja
+                            no encuentra el artículo. */}
+                        {controlaInventario && barrasEfectivo !== barrasOriginal && (
+                            <p className="text-warning mt-3 flex items-start gap-2 text-sm">
+                                <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+                                <span>
+                                    Las etiquetas ya impresas con <span className="font-mono">{barrasOriginal}</span>{' '}
+                                    dejan de servir: hay que volver a imprimirlas.
+                                </span>
+                            </p>
+                        )}
                     </div>
 
                     <div className="rounded-box border-base-300 border p-4">
@@ -337,6 +392,17 @@ export default function ArticuloCreate({ areas }: Props) {
                                         </span>
                                     </span>
                                 </label>
+
+                                {abandonaPiezas && (
+                                    <p className="text-warning mt-2 flex items-start gap-2 text-sm">
+                                        <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+                                        <span>
+                                            Ya hay {piezas.length} pieza(s) con número de serie y resguardo. Al quitarlo
+                                            se pierde el rastro de quién tiene cuál: primero hay que darlas de baja en
+                                            Activos.
+                                        </span>
+                                    </p>
+                                )}
                             </div>
 
                             <div className="md:col-span-2">
@@ -375,6 +441,18 @@ export default function ArticuloCreate({ areas }: Props) {
                                         </span>
                                     </span>
                                 </label>
+
+                                {sacaDelKardexConSaldo && (
+                                    <p className="text-warning mt-2 flex items-start gap-2 text-sm">
+                                        <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+                                        <span>
+                                            Hay {numero(articulo.existencia_total)} {articulo.unidad} en{' '}
+                                            {existencias.length} almacén(es). Al quitarlo, ese saldo deja de aparecer en
+                                            existencias sin que nadie lo haya dado de baja: primero hay que sacarlo con
+                                            una salida o un ajuste.
+                                        </span>
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -382,16 +460,16 @@ export default function ArticuloCreate({ areas }: Props) {
                     <p className="text-base-content/60 text-sm">
                         El <strong>precio</strong> no se captura aquí: se va formando solo con lo que cotizan los
                         proveedores en Compras, y la ficha del artículo muestra ese histórico. La{' '}
-                        <strong>ubicación</strong> tampoco, porque es por almacén — el mismo tornillo puede vivir en
-                        el Rack A-1 de planta y en un contenedor de obra.
+                        <strong>ubicación</strong> tampoco, porque es por almacén — se corrige en la ficha, ahí donde se
+                        ve qué cantidad hay en cada uno.
                     </p>
 
                     <div className="flex justify-end gap-2">
                         <Button variant="outline" asChild>
-                            <Link href="/admin/almacen/articulos">Cancelar</Link>
+                            <Link href={`/admin/almacen/articulos/${articulo.id}`}>Cancelar</Link>
                         </Button>
                         <Button type="submit" disabled>
-                            Guardar artículo
+                            Guardar cambios
                         </Button>
                     </div>
                 </form>
