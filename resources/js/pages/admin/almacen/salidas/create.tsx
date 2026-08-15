@@ -1,4 +1,5 @@
 import { CapturadorPartidas, PARTIDA_VACIA } from '@/components/alm/capturador-partidas';
+import { FechasMovimiento } from '@/components/alm/fechas-movimiento';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,7 +36,7 @@ export default function SalidaCreate() {
     const surtibles = pedidosSurtibles(claveAlmacen);
     const pedido = surtibles.find((p) => String(p.id) === pedidoId);
 
-    /** Cambiar de almacén invalida el pedido: ya no es del mismo pañol. */
+    /** Cambiar de almacén invalida el pedido: ya no sale de ahí. */
     const elegirAlmacen = (valor: string) => {
         setAlmacenId(valor);
         setPedidoId('');
@@ -142,14 +143,7 @@ export default function SalidaCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Fecha" htmlFor="fecha" required>
-                                <Input
-                                    id="fecha"
-                                    type="date"
-                                    value={fecha}
-                                    onChange={(e) => setFecha(e.target.value)}
-                                />
-                            </FormField>
+                            <FechasMovimiento fecha={fecha} onChange={setFecha} />
 
                             <FormField
                                 label="Recibe"

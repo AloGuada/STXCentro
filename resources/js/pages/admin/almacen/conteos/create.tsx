@@ -1,6 +1,6 @@
+import { FechasMovimiento } from '@/components/alm/fechas-movimiento';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import {
@@ -169,14 +169,7 @@ export default function ConteoCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Fecha del conteo" htmlFor="fecha" required>
-                                <Input
-                                    id="fecha"
-                                    type="date"
-                                    value={fecha}
-                                    onChange={(e) => setFecha(e.target.value)}
-                                />
-                            </FormField>
+                            <FechasMovimiento fecha={fecha} onChange={setFecha} label="Fecha del conteo" />
 
                             <div className="md:col-span-2 lg:col-span-3">
                                 <label className="flex cursor-pointer items-start gap-3">

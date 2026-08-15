@@ -19,7 +19,6 @@ const ETIQUETA_TIPO: Record<AlmMovimientoTipo, string> = {
     transferencia_entrada: 'Transf. entrada',
     transferencia_salida: 'Transf. salida',
     ajuste: 'Ajuste',
-    devolucion: 'Devolución',
 };
 
 const CLASE_TIPO: Record<AlmMovimientoTipo, string> = {
@@ -28,7 +27,6 @@ const CLASE_TIPO: Record<AlmMovimientoTipo, string> = {
     transferencia_entrada: 'badge-info',
     transferencia_salida: 'badge-info badge-outline',
     ajuste: 'badge-warning',
-    devolucion: 'badge-ghost',
 };
 
 const cantidad = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });

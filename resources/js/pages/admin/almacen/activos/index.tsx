@@ -96,7 +96,7 @@ export default function ActivosIndex() {
 
                     <div className="w-56">
                         <label className="label" htmlFor="almacen">
-                            <span className="label-text">Pañol</span>
+                            <span className="label-text">Almacén</span>
                         </label>
                         <Select id="almacen" value={almacen} onValueChange={setAlmacen} placeholder="Todos">
                             {ALMACENES_DEMO.map((a) => (
@@ -128,7 +128,7 @@ export default function ActivosIndex() {
                                 <th>Serie</th>
                                 <th>Código</th>
                                 <th>Artículo</th>
-                                <th>Pañol</th>
+                                <th>Almacén</th>
                                 <th>Estado</th>
                                 <th>Quién la trae</th>
                                 <th>Condición</th>
@@ -162,7 +162,7 @@ export default function ActivosIndex() {
                                             </td>
                                             <td className="text-sm">
                                                 {responsablePorActivo[a.id] ?? (
-                                                    <span className="text-base-content/40">En el pañol</span>
+                                                    <span className="text-base-content/40">En el almacén</span>
                                                 )}
                                             </td>
                                             <td className="text-base-content/70 text-sm">{a.condicion}</td>
@@ -177,7 +177,7 @@ export default function ActivosIndex() {
                 <p className="text-base-content/60 mt-4 text-sm">
                     Cada pieza suma 1 a la existencia de su artículo, así que estas{' '}
                     <strong>{ACTIVOS_DEMO.filter((a) => a.codigo === 'PUL-4120').length} pulidoras</strong> son las
-                    mismas que cuenta el kardex — no es un inventario aparte. Prestarla no la saca del pañol, sólo deja
+                    mismas que cuenta el kardex — no es un inventario aparte. Prestarla no la saca del almacén, sólo deja
                     de estar disponible; eso se maneja desde{' '}
                     <Link href="/admin/almacen/prestamos" className="link">
                         Préstamos

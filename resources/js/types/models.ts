@@ -3298,14 +3298,16 @@ export type AlmAlmacen = {
  * Formas de las pantallas de Almacén que todavía no tienen backend. Viven aquí
  * para que la maqueta (`lib/alm/demo.ts`) tenga tipos; cuando existan las tablas
  * se reemplazan por los modelos reales.
+ *
+ * Los movimientos que mueven saldo. La devolución no está: es de piezas con
+ * número de serie y sólo cambia la custodia, nunca la existencia.
  */
 export type AlmMovimientoTipo =
     | 'entrada'
     | 'salida'
     | 'transferencia_salida'
     | 'transferencia_entrada'
-    | 'ajuste'
-    | 'devolucion';
+    | 'ajuste';
 
 export type AlmProductoDemo = {
     id: number;
@@ -3396,18 +3398,22 @@ export type AlmAjusteDemo = {
 };
 
 /**
- * Material que regresa de una obra al almacén. No confundir con
- * `costos_devoluciones`, que es devolución a proveedor.
+ * Piezas que vuelven y dejan de estar a nombre de alguien. No mueve existencia:
+ * el material por cantidad que sobra en una obra regresa por transferencia, no
+ * por aquí. No confundir con `costos_devoluciones`, que es devolución a
+ * proveedor.
  */
 export type AlmDevolucionDemo = {
     id: number;
     folio: string;
     fecha: string;
-    almacen: string;
-    obra_origen: string;
     devolvio: string;
-    renglones: number;
-    motivo: string;
+    recibio: string;
+    piezas: number;
+    /** A qué almacenes volvieron; casi siempre uno. */
+    almacenes: string[];
+    /** Cuántas volvieron peor de como salieron. */
+    con_dano: number;
 };
 
 /**
@@ -3496,6 +3502,19 @@ export type AlmUsuarioDemo = {
     puesto: string;
 };
 
+/**
+ * Cuadrilla de planta, tomada de `prod_grupos_trabajo`. El almacén no las
+ * administra: sólo las nombra para saber a quién se le prestó la herramienta
+ * cuando no se va a ninguna obra.
+ */
+export type AlmGrupoTrabajoDemo = {
+    id: number;
+    descripcion: string;
+    /** Dónde trabaja el grupo; ahí es donde hay que ir a buscar la pieza. */
+    ubicaciones: string[];
+    empleados: number;
+};
+
 /** Quién puede firmar un tipo de documento en un almacén. */
 export type AlmReglaAprobacion = {
     documento: AlmDocumentoTipo;
@@ -3569,7 +3588,7 @@ export type AlmActivoDemo = {
      */
     codigo_barras: string | null;
     almacen: string;
-    /** Dónde vive cuando está en el pañol. */
+    /** Dónde vive cuando está en el almacén. */
     ubicacion: string | null;
     estatus: AlmActivoEstatus;
     condicion: string;
@@ -3688,6 +3707,17 @@ export type AlmPartidaBorrador = {
      * equipo no se puede recepcionar.
      */
     mantenimiento_verificado: boolean;
+};
+
+/**
+ * Un renglón del capturador de préstamos. No lleva cantidad: lo que se presta
+ * es la pieza, y cada renglón se convierte en su propio resguardo con folio.
+ */
+export type AlmPrestamoPiezaBorrador = {
+    activo_id: string;
+    /** Arranca con la que trae registrada la pieza; contra esto se compara al volver. */
+    condicion_salida: string;
+    observaciones: string;
 };
 
 // =========================================

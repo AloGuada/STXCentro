@@ -18,6 +18,7 @@ import type {
     AlmDocumentoTipo,
     AlmEntradaDemo,
     AlmExistenciaDemo,
+    AlmGrupoTrabajoDemo,
     AlmMovimientoDemo,
     AlmPedidoDemo,
     AlmPedidoEstatus,
@@ -37,7 +38,7 @@ import type {
 
 export const ALMACENES_DEMO = [
     { id: 1, clave: 'AG', nombre: 'Almacén general', obra: null, tipo: 'insumos' as const },
-    { id: 6, clave: 'HER', nombre: 'Pañol de herramienta', obra: null, tipo: 'herramienta' as const },
+    { id: 6, clave: 'HER', nombre: 'Almacén de herramienta', obra: null, tipo: 'herramienta' as const },
     { id: 2, clave: 'FAK', nombre: 'Fachadas', obra: 'T4', tipo: 'montaje' as const },
     { id: 3, clave: 'FAD', nombre: 'Fachada domo', obra: 'T4', tipo: 'montaje' as const },
     { id: 4, clave: 'A', nombre: 'Andamios', obra: 'T4', tipo: 'herramienta' as const },
@@ -135,7 +136,9 @@ export const EXISTENCIAS_DEMO: AlmExistenciaDemo[] = [
 ];
 
 export const MOVIMIENTOS_DEMO: AlmMovimientoDemo[] = [
-    { id: 10, fecha: '2026-08-05 18:10', almacen: 'AG', producto: 'TOR-0012', tipo: 'devolucion', cantidad: 300, saldo_nuevo: 12780, referencia: 'DEV-2608-0006', usuario: 'M. Rangel', observaciones: 'Sobrante de T4' },
+    // El sobrante de una obra vuelve por transferencia, no por devolución: la
+    // devolución es de piezas con serie y no mueve saldo.
+    { id: 10, fecha: '2026-08-05 18:10', almacen: 'AG', producto: 'TOR-0012', tipo: 'transferencia_entrada', cantidad: 300, saldo_nuevo: 12780, referencia: 'TRA-2608-0006', usuario: 'M. Rangel', observaciones: 'Sobrante de T4, desde FAK' },
     { id: 9, fecha: '2026-08-05 16:40', almacen: 'AG', producto: 'TOR-0012', tipo: 'salida', cantidad: -1500, saldo_nuevo: 12480, referencia: 'SAL-2608-0031', usuario: 'M. Rangel', observaciones: 'Montaje eje 4' },
     { id: 8, fecha: '2026-08-05 11:02', almacen: 'AG', producto: 'TOR-0012', tipo: 'entrada', cantidad: 8000, saldo_nuevo: 13980, referencia: 'ENT-2608-0017', usuario: 'J. Briones', observaciones: null },
     { id: 7, fecha: '2026-08-04 17:15', almacen: 'FAK', producto: 'SIL-EST', tipo: 'transferencia_entrada', cantidad: 12, saldo_nuevo: 42, referencia: 'TRA-2608-0004', usuario: 'M. Rangel', observaciones: 'Desde AG' },
@@ -168,9 +171,11 @@ export const AJUSTES_DEMO: AlmAjusteDemo[] = [
     { id: 10, folio: 'AJU-2607-0010', fecha: '2026-07-21', almacen: 'AG', motivo: 'error_captura', renglones: 1, diferencia_neta: 150, autorizo: 'M. Rangel' },
 ];
 
+// Salen de los préstamos ya cerrados: cada devolución es el otro extremo de un
+// resguardo, por eso las fechas empatan con `fecha_retorno` de PRESTAMOS_DEMO.
 export const DEVOLUCIONES_DEMO: AlmDevolucionDemo[] = [
-    { id: 6, folio: 'DEV-2608-0006', fecha: '2026-08-05', almacen: 'AG', obra_origen: 'T4 — Torre 4', devolvio: 'Cuadrilla 3', renglones: 2, motivo: 'Sobrante de montaje eje 4' },
-    { id: 5, folio: 'DEV-2607-0005', fecha: '2026-07-29', almacen: 'FAK', obra_origen: 'T4 — Torre 4', devolvio: 'A. Pérez', renglones: 1, motivo: 'Material equivocado' },
+    { id: 6, folio: 'DEV-2607-0006', fecha: '2026-07-26', devolvio: 'M. Rangel', recibio: 'J. Briones', piezas: 1, almacenes: ['HER'], con_dano: 0 },
+    { id: 5, folio: 'DEV-2607-0005', fecha: '2026-07-19', devolvio: 'A. Pérez', recibio: 'J. Briones', piezas: 1, almacenes: ['HER'], con_dano: 1 },
 ];
 
 /** Cómo se lee cada motivo de ajuste en pantalla. */
@@ -323,6 +328,20 @@ export function activosPrestables(claveAlmacen: string | undefined): AlmActivoDe
     return ACTIVOS_DEMO.filter((a) => a.almacen === claveAlmacen && a.estatus === 'disponible');
 }
 
+/** Lo que trae afuera una persona, para no tener que ir a buscarlo a Préstamos. */
+export function prestamosAbiertosDe(responsable: string): AlmPrestamoDemo[] {
+    return PRESTAMOS_DEMO.filter((p) => p.responsable === responsable && p.estatus === 'abierto');
+}
+
+/** Quién trae herramienta sin devolver, ordenado por quién trae más. */
+export function responsablesConPrestamos(): string[] {
+    const abiertos = PRESTAMOS_DEMO.filter((p) => p.estatus === 'abierto');
+
+    return [...new Set(abiertos.map((p) => p.responsable))].sort(
+        (a, b) => prestamosAbiertosDe(b).length - prestamosAbiertosDe(a).length || a.localeCompare(b),
+    );
+}
+
 export const USUARIOS_DEMO: AlmUsuarioDemo[] = [
     { id: 1, nombre: 'J. Briones', puesto: 'Jefe de almacén' },
     { id: 2, nombre: 'M. Rangel', puesto: 'Almacenista AG' },
@@ -385,6 +404,18 @@ export const DEPARTAMENTOS_DEMO = [
     { id: 4, nombre: 'Montaje' },
     { id: 5, nombre: 'Fachadas' },
     { id: 6, nombre: 'Mantenimiento' },
+];
+
+/**
+ * Las cuadrillas de planta, que en firme salen de `prod_grupos_trabajo`. Aquí
+ * se copian a mano nada más para la maqueta: el almacén no las da de alta ni
+ * las edita, sólo las nombra al prestar herramienta que se queda en planta.
+ */
+export const GRUPOS_TRABAJO_DEMO: AlmGrupoTrabajoDemo[] = [
+    { id: 1, descripcion: 'Cuadrilla A · Armado', ubicaciones: ['Línea 1 · Módulo 1', 'Línea 1 · Módulo 2'], empleados: 4 },
+    { id: 2, descripcion: 'Cuadrilla B · Soldadura', ubicaciones: ['Línea 2 · Módulo 1'], empleados: 3 },
+    { id: 3, descripcion: 'Cuadrilla C · Habilitado', ubicaciones: ['Patio de habilitado'], empleados: 2 },
+    { id: 4, descripcion: 'Cuadrilla D · Pintura', ubicaciones: ['Nave de pintura', 'Patio de habilitado'], empleados: 2 },
 ];
 
 /**
@@ -454,7 +485,8 @@ export const DOCUMENTOS_ALM: Record<AlmDocumentoTipo, string> = {
  */
 export const AYUDA_DOCUMENTO: Partial<Record<AlmDocumentoTipo, string>> = {
     ajuste: 'El único movimiento que cambia la existencia sin un documento que lo respalde.',
-    prestamo: 'Aparte del resguardo que firma quien se la lleva: esto es quién autoriza que salga del pañol.',
+    prestamo: 'Aparte del resguardo que firma quien se la lleva: esto es quién autoriza que salga del almacén.',
+    devolucion: 'Cierra el resguardo de una pieza. No mueve existencia, pero deja constancia de cómo volvió.',
 };
 
 /** Color del badge de estatus de pedido. */

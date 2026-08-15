@@ -1,7 +1,7 @@
 import { CapturadorPartidas, PARTIDA_VACIA, partidasSinVerificar } from '@/components/alm/capturador-partidas';
+import { FechasMovimiento } from '@/components/alm/fechas-movimiento';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { ALMACENES_DEMO } from '@/lib/alm/demo';
@@ -89,14 +89,7 @@ export default function EntradaCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Fecha" htmlFor="fecha" required>
-                                <Input
-                                    id="fecha"
-                                    type="date"
-                                    value={fecha}
-                                    onChange={(e) => setFecha(e.target.value)}
-                                />
-                            </FormField>
+                            <FechasMovimiento fecha={fecha} onChange={setFecha} />
                         </div>
 
                         <FormField label="Observaciones" htmlFor="observaciones" className="mt-4">

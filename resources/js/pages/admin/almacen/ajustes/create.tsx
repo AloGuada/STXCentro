@@ -1,4 +1,5 @@
 import { CapturadorPartidas, PARTIDA_VACIA } from '@/components/alm/capturador-partidas';
+import { FechasMovimiento } from '@/components/alm/fechas-movimiento';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,14 +83,7 @@ export default function AjusteCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Fecha" htmlFor="fecha" required>
-                                <Input
-                                    id="fecha"
-                                    type="date"
-                                    value={fecha}
-                                    onChange={(e) => setFecha(e.target.value)}
-                                />
-                            </FormField>
+                            <FechasMovimiento fecha={fecha} onChange={setFecha} />
 
                             <FormField
                                 label="Observaciones"

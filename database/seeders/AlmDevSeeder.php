@@ -98,7 +98,7 @@ class AlmDevSeeder extends Seeder
             ],
             [
                 'clave' => 'HER',
-                'nombre' => 'Pañol de Herramienta',
+                'nombre' => 'Almacén de Herramienta',
                 'obra_id' => null,
                 'tipo' => AlmacenTipo::Herramienta,
                 'observaciones' => 'Herramienta que se presta y regresa.',

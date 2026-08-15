@@ -336,7 +336,7 @@ export default function ArticuloShow({ articuloId }: Props) {
                                 <tr>
                                     <th>No. de serie</th>
                                     <th>Código de barras</th>
-                                    <th>Pañol</th>
+                                    <th>Almacén</th>
                                     <th>Ubicación</th>
                                     <th>Estado</th>
                                     <th>Condición</th>

@@ -60,7 +60,7 @@ export default function ActivoCreate() {
                     <h1 className="text-2xl font-semibold">Alta de activos</h1>
                     <p className="text-base-content/60 mt-1 text-sm">
                         Da de alta las piezas de un artículo, una por número de serie. Varias a la vez: es lo que se
-                        necesita para cargar el pañol la primera vez.
+                        necesita para cargar el almacén la primera vez.
                     </p>
                 </div>
 
@@ -91,7 +91,7 @@ export default function ActivoCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Pañol" htmlFor="almacen" required>
+                            <FormField label="Almacén" htmlFor="almacen" required>
                                 <Select
                                     id="almacen"
                                     value={almacenId}

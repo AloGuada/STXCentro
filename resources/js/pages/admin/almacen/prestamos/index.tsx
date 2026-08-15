@@ -103,7 +103,7 @@ export default function PrestamosIndex() {
                                 <th>Folio</th>
                                 <th>Artículo</th>
                                 <th>Serie</th>
-                                <th>Pañol</th>
+                                <th>Almacén</th>
                                 <th>Quién la tiene</th>
                                 <th>Dónde</th>
                                 <th>Salió</th>

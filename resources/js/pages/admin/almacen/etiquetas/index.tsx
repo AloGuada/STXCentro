@@ -43,7 +43,7 @@ type Etiqueta = {
     codigo: string;
     descripcion: string;
     barras: string;
-    /** Línea chica de abajo: marca/modelo, o el pañol y la serie de la pieza. */
+    /** Línea chica de abajo: marca/modelo, o el almacén y la serie de la pieza. */
     detalle: string | null;
 };
 
