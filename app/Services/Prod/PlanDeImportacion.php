@@ -25,6 +25,7 @@ namespace App\Services\Prod;
  *     grupo_trabajo_id: int|null,
  *     porcentaje: float|null,
  *     por_qs: bool,
+ *     asignado_por: 'qr'|'qs'|'marca',
  *     candidatas: int|null,
  * }
  */

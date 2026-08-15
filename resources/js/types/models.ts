@@ -611,8 +611,10 @@ export type ProdPlanRenglon = {
     grupo: string | null;
     grupo_trabajo_id: number | null;
     porcentaje: number | null;
-    /** El archivo no traía QR: la pieza se eligió por QS, del QR más chico al más alto. */
+    /** El archivo no traía QR: la pieza la eligió el sistema, del QR más chico al más alto. */
     por_qs: boolean;
+    /** Con qué precisión venía el renglón: la pieza (`qr`), sus hermanas (`qs`) o el modelo (`marca`). */
+    asignado_por: 'qr' | 'qs' | 'marca';
     candidatas: number | null;
 };
 
@@ -623,7 +625,8 @@ export type ProdPlanImportacion = {
         aplicables: number;
         omitidas: number;
         errores: number;
-        asignadas_por_qs: number;
+        /** Renglones que no traían QR y cuya pieza eligió el sistema. */
+        asignadas_por_sistema: number;
         ignorados_por_evento: number;
     };
     /** Eventos que no pagan destajo, agregados: son la mayoría del export. */

@@ -80,7 +80,7 @@ test('analizar devuelve el QR al que se asigno cada renglon', function () {
         ->assertJsonPath('renglones.0.qr', 'QR-100')
         ->assertJsonPath('renglones.0.por_qs', true)
         ->assertJsonPath('renglones.0.candidatas', 2)
-        ->assertJsonPath('resumen.asignadas_por_qs', 1);
+        ->assertJsonPath('resumen.asignadas_por_sistema', 1);
 });
 
 test('analizar clasifica lo que no entra con su codigo', function () {
@@ -106,6 +106,96 @@ test('analizar agrega los eventos que no pagan destajo en vez de listarlos', fun
         ->and($respuesta->json('ignorados.0.evento'))->toBe('10')
         ->and($respuesta->json('ignorados.0.renglones'))->toBe(2)
         ->and($respuesta->json('resumen.ignorados_por_evento'))->toBe(2);
+});
+
+/**
+ * El export de planta que no numera pieza: mismas columnas, sin QS ni QR. Antes
+ * de esto reventaba con "Undefined array key QS" y se caia el import entero.
+ *
+ * @param  list<array{0: string, 1: string, 2: string}>  $movimientos  ternas de [proceso, ubicacion, marca]
+ */
+function exportSinQs(array $movimientos): string
+{
+    $csv = "Proceso,Contracto,Movido el,Ubicacion,Marca,Peso,Cantidad,Trabajador\n";
+
+    foreach ($movimientos as [$proceso, $ubicacion, $marca]) {
+        $csv .= "{$proceso},S26-05-05 REJAS,46195,{$ubicacion},{$marca},1746,1,SAUL DZUL\n";
+    }
+
+    return $csv;
+}
+
+test('el export sin columna QS ya no revienta', function () {
+    analizar(exportSinQs([['75 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-1']]))
+        ->assertOk()
+        ->assertJsonPath('resumen.aplicables', 1);
+});
+
+test('cinco renglones de la misma marca toman los cinco QR mas chicos sin pagar', function () {
+    // La pieza del beforeEach es QR-500; estas quedan por debajo y por encima
+    // para que el orden natural importe: 7 piezas para 5 movimientos.
+    foreach (['QR-9', 'QR-10', 'QR-100', 'QR-3', 'QR-70', 'QR-800'] as $qr) {
+        Pieza::factory()->create([
+            'concepto_id' => $this->marca->id,
+            'catalogo_id' => $this->marca->catalogo_id,
+            'qr' => $qr,
+            'qs' => null,
+        ]);
+    }
+
+    $movimientos = array_fill(0, 5, ['75 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-1']);
+
+    $respuesta = analizar(exportSinQs($movimientos))->assertOk();
+
+    expect($respuesta->json('resumen.aplicables'))->toBe(5)
+        // Orden natural, no alfabetico: QR-10 va despues de QR-9, no antes.
+        ->and(array_column($respuesta->json('renglones'), 'qr'))
+        ->toBe(['QR-3', 'QR-9', 'QR-10', 'QR-70', 'QR-100'])
+        ->and($respuesta->json('resumen.asignadas_por_sistema'))->toBe(5)
+        ->and($respuesta->json('renglones.0.asignado_por'))->toBe('marca');
+});
+
+test('lo ya pagado no se vuelve a tomar', function () {
+    Pieza::factory()->create([
+        'concepto_id' => $this->marca->id,
+        'catalogo_id' => $this->marca->catalogo_id,
+        'qr' => 'QR-1',
+        'qs' => null,
+    ]);
+
+    // QR-1 es el mas chico, pero ya se capturo completo en soldadura.
+    Registro::factory()->create([
+        'fecha' => '2026-02-04',
+        'pieza_id' => Pieza::where('qr', 'QR-1')->value('id'),
+        'proceso_id' => $this->soldadura->id,
+        'grupo_trabajo_id' => $this->grupo->id,
+        'porcentaje' => 100,
+    ]);
+
+    $respuesta = analizar(exportSinQs([['75 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-1']]))->assertOk();
+
+    expect($respuesta->json('renglones.0.qr'))->toBe('QR-500')
+        ->and($respuesta->json('resumen.aplicables'))->toBe(1);
+});
+
+test('mas renglones que piezas sin pagar: el sobrante no entra', function () {
+    // Solo existe la pieza del beforeEach, y el archivo pide tres.
+    $movimientos = array_fill(0, 3, ['75 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-1']);
+
+    $respuesta = analizar(exportSinQs($movimientos))->assertOk();
+
+    expect($respuesta->json('resumen.aplicables'))->toBe(1)
+        ->and($respuesta->json('resumen.omitidas'))->toBe(2)
+        ->and($respuesta->json('renglones.1.codigo'))->toBe('duplicado');
+});
+
+test('la marca que no esta en ningun catalogo vigente se reporta con su nombre', function () {
+    $respuesta = analizar(exportSinQs([['75 Soldadura', 'M3.6 Fabricacion', 'NO-EXISTE-1']]))->assertOk();
+
+    expect($respuesta->json('resumen.errores'))->toBe(1)
+        ->and($respuesta->json('renglones.0.codigo'))->toBe('pieza_no_encontrada')
+        // Sin pieza resuelta, la marca del archivo es lo unico que identifica el renglon.
+        ->and($respuesta->json('renglones.0.marca'))->toBe('NO-EXISTE-1');
 });
 
 test('analizar corta por grupo lo que entra y lo que no', function () {
@@ -170,6 +260,30 @@ test('el corte por grupo suma el archivo completo aunque el detalle vaya truncad
         // Si el corte se calculara en el front, sobre lo truncado, dirian 1000.
         ->and($respuesta->json('por_grupo.0.movimientos'))->toBe($respuesta->json('resumen.aplicables'))
         ->and($respuesta->json('por_grupo.0.movimientos'))->toBeGreaterThan(1000);
+});
+
+test('confirmar un archivo sin QS escribe una pieza distinta por renglon', function () {
+    foreach (['QR-2', 'QR-3'] as $qr) {
+        Pieza::factory()->create([
+            'concepto_id' => $this->marca->id,
+            'catalogo_id' => $this->marca->catalogo_id,
+            'qr' => $qr,
+            'qs' => null,
+        ]);
+    }
+
+    $csv = exportSinQs(array_fill(0, 3, ['75 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-1']));
+
+    $this->actingAs($this->user)
+        ->post(route('admin.prod.destajos.registros.import-csv', $this->destajo), [
+            'csv_file' => UploadedFile::fake()->createWithContent('avance.csv', $csv),
+            'fecha' => '2026-02-05',
+        ])
+        ->assertSessionHasNoErrors();
+
+    // Tres renglones, tres piezas: nunca se paga dos veces la misma.
+    expect(Registro::count())->toBe(3)
+        ->and(Registro::distinct()->count('pieza_id'))->toBe(3);
 });
 
 test('analizar rechaza el destajo cerrado y la fecha fuera del periodo', function () {

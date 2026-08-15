@@ -78,22 +78,22 @@ export function RevisarImportacionModal({
                                 clase="text-warning"
                             />
                             <Tarjeta valor={resumen.errores} etiqueta="con problema" clase="text-error" />
-                            {resumen.asignadas_por_qs > 0 && (
+                            {resumen.asignadas_por_sistema > 0 && (
                                 <Tarjeta
-                                    valor={resumen.asignadas_por_qs}
-                                    etiqueta="asignados por QS"
+                                    valor={resumen.asignadas_por_sistema}
+                                    etiqueta="los eligió el sistema"
                                     clase="text-info"
                                 />
                             )}
                         </div>
 
-                        {resumen.asignadas_por_qs > 0 && (
+                        {resumen.asignadas_por_sistema > 0 && (
                             <div className="alert alert-info">
                                 <InfoIcon className="size-5 shrink-0" />
                                 <span>
-                                    El archivo no trae QR para {resumen.asignadas_por_qs} movimiento(s): se tomó la
-                                    pieza con el <strong>QR disponible más chico</strong> de las que comparten cada QS.
-                                    Revísalos abajo.
+                                    El archivo no trae QR para {resumen.asignadas_por_sistema} movimiento(s): se tomó
+                                    cada vez la pieza con el <strong>QR disponible más chico</strong> que todavía no se
+                                    ha pagado en ese proceso. Revísalos abajo.
                                 </span>
                             </div>
                         )}
@@ -260,9 +260,13 @@ function Renglon({ renglon }: { renglon: ProdPlanRenglon }) {
                 {renglon.por_qs && (
                     <span
                         className="badge badge-xs badge-info ml-1"
-                        title={`El archivo no traía QR; se tomó la pieza con el QR disponible más chico de las ${renglon.candidatas} que comparten este QS.`}
+                        title={
+                            `El archivo no traía QR; se tomó la pieza con el QR disponible más chico de las ` +
+                            `${renglon.candidatas} que comparten ` +
+                            (renglon.asignado_por === 'marca' ? 'esta marca.' : 'este QS.')
+                        }
                     >
-                        por QS
+                        {renglon.asignado_por === 'marca' ? 'por marca' : 'por QS'}
                     </span>
                 )}
             </td>

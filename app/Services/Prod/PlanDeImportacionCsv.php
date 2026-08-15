@@ -8,6 +8,7 @@ use App\Models\Prod\Pieza;
 use App\Models\Prod\Proceso;
 use App\Models\Prod\ProcesoEvento;
 use App\Models\Prod\Ubicacion;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -35,7 +36,7 @@ class PlanDeImportacionCsv
     ) {}
 
     /**
-     * @param  list<array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}>  $filas
+     * @param  list<array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, marca: ?string, evento: ?string, proceso: ?string, porcentaje: float}>  $filas
      */
     public function armar(array $filas, string $formato): PlanDeImportacion
     {
@@ -51,8 +52,8 @@ class PlanDeImportacionCsv
         $ignorados = [];
         /** @var array<string, float> $topes */
         $topes = [];
-        /** @var array<string, int> $asignadosPorQs */
-        $asignadosPorQs = [];
+        /** @var array<string, int> $asignadosPorModelo */
+        $asignadosPorModelo = [];
 
         foreach ($filas as $fila) {
             $proceso = $fila['evento'] !== null
@@ -92,7 +93,7 @@ class PlanDeImportacionCsv
                 continue;
             }
 
-            $renglones[] = $this->resolverPieza($fila, $proceso, $grupo, $piezas, $topes, $asignadosPorQs);
+            $renglones[] = $this->resolverPieza($fila, $proceso, $grupo, $piezas, $topes, $asignadosPorModelo);
         }
 
         return new PlanDeImportacion(
@@ -105,23 +106,31 @@ class PlanDeImportacionCsv
     /**
      * Elige la pieza del renglón y decide si cabe.
      *
-     * @param  array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}  $fila
-     * @param  array{qr: array<string, Collection<int, Pieza>>, qs: array<string, Collection<int, Pieza>>}  $piezas
+     * @param  array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, marca: ?string, evento: ?string, proceso: ?string, porcentaje: float}  $fila
+     * @param  array{qr: array<string, Collection<int, Pieza>>, qs: array<string, Collection<int, Pieza>>, marca: array<string, Collection<int, Pieza>>}  $piezas
      * @param  array<string, float>  $topes
-     * @param  array<string, int>  $asignadosPorQs
+     * @param  array<string, int>  $asignadosPorModelo
      * @return array<string, mixed>
      */
-    private function resolverPieza(array $fila, Proceso $proceso, GrupoTrabajo $grupo, array $piezas, array &$topes, array &$asignadosPorQs): array
+    private function resolverPieza(array $fila, Proceso $proceso, GrupoTrabajo $grupo, array $piezas, array &$topes, array &$asignadosPorModelo): array
     {
-        $porQr = $fila['qr'] !== null && $fila['qr'] !== '';
-        $identificador = $porQr ? "QR {$fila['qr']}" : "QS {$fila['qs']}";
+        $modo = $this->modo($fila);
+        $porQr = $modo === 'qr';
 
-        $candidatas = $porQr
-            ? ($piezas['qr'][$fila['qr']] ?? collect())
-            : ($piezas['qs'][$fila['qs']] ?? collect());
+        $identificador = match ($modo) {
+            'qr' => "QR {$fila['qr']}",
+            'qs' => "QS {$fila['qs']}",
+            default => "la marca {$fila['marca']}",
+        };
+
+        $candidatas = match ($modo) {
+            'qr' => $piezas['qr'][$fila['qr']] ?? collect(),
+            'qs' => $piezas['qs'][$fila['qs']] ?? collect(),
+            default => $piezas['marca'][$this->lector->normalizar((string) $fila['marca'])] ?? collect(),
+        };
 
         if ($candidatas->isEmpty()) {
-            return $this->renglon($fila, 'error', 'pieza_no_encontrada', "La pieza {$identificador} no está en ningún catálogo vigente.", $proceso, $grupo);
+            return $this->renglon($fila, 'error', 'pieza_no_encontrada', "No hay ninguna pieza con {$identificador} en un catálogo vigente.", $proceso, $grupo);
         }
 
         $obras = $candidatas->map(fn (Pieza $pieza): int => (int) $pieza->catalogo?->obra_id)->unique();
@@ -129,11 +138,11 @@ class PlanDeImportacionCsv
         // Elegir "el QR más chico" entre obras distintas cargaría producción a la
         // obra equivocada, que es dinero mal repartido. Eso sigue siendo un alto.
         if ($obras->count() > 1) {
-            return $this->renglon($fila, 'error', 'ambiguo_entre_obras', "El {$identificador} existe en {$obras->count()} obras; el archivo tiene que traer el QR.", $proceso, $grupo, $candidatas->count());
+            return $this->renglon($fila, 'error', 'ambiguo_entre_obras', "Hay piezas con {$identificador} en {$obras->count()} obras; el archivo tiene que traer el QR.", $proceso, $grupo, $candidatas->count());
         }
 
         if ($porQr && $candidatas->count() > 1) {
-            return $this->renglon($fila, 'error', 'ambiguo_entre_obras', "El {$identificador} existe en varias piezas del mismo catálogo.", $proceso, $grupo, $candidatas->count());
+            return $this->renglon($fila, 'error', 'ambiguo_entre_obras', "Hay varias piezas con {$identificador} en el mismo catálogo.", $proceso, $grupo, $candidatas->count());
         }
 
         $obraId = (int) $obras->first();
@@ -146,7 +155,9 @@ class PlanDeImportacionCsv
 
         // Las candidatas vienen ordenadas por QR ascendente: se llena la de QR
         // más chico antes de pasar a la siguiente, así el segundo movimiento del
-        // mismo QS cae en la pieza siguiente y no se pisan.
+        // mismo modelo cae en la pieza siguiente y no se pisan. Es lo que hace
+        // que cinco renglones de la misma marca tomen los cinco QR más chicos
+        // que sigan sin pagarse.
         foreach ($candidatas as $pieza) {
             $clave = $pieza->id.'|'.$proceso->id;
             $disponible = $topes[$clave] ??= $this->avance->disponible($pieza, $proceso->id);
@@ -155,13 +166,15 @@ class PlanDeImportacionCsv
                 continue;
             }
 
+            $modeloProceso = $this->claveDeModelo($fila).'|'.$proceso->id;
+
             $topes[$clave] -= $consumo;
-            $asignadosPorQs[$fila['qs'].'|'.$proceso->id] = ($asignadosPorQs[$fila['qs'].'|'.$proceso->id] ?? 0) + 1;
+            $asignadosPorModelo[$modeloProceso] = ($asignadosPorModelo[$modeloProceso] ?? 0) + 1;
 
             return $this->renglon(
                 $fila,
                 'aplicable',
-                $porQr ? 'ok' : 'asignado_por_qs',
+                $porQr ? 'ok' : "asignado_por_{$modo}",
                 null,
                 $proceso,
                 $grupo,
@@ -171,7 +184,38 @@ class PlanDeImportacionCsv
             );
         }
 
-        return $this->sinCupo($fila, $proceso, $grupo, $candidatas, $topes, $asignadosPorQs, $porQr);
+        return $this->sinCupo($fila, $proceso, $grupo, $candidatas, $topes, $asignadosPorModelo, $modo, $identificador);
+    }
+
+    /**
+     * Con qué precisión dice el renglón de qué pieza habla. El QR señala una, el
+     * QS a sus hermanas y la marca al modelo entero; se usa el más fino que
+     * traiga el archivo.
+     *
+     * @param  array{qr: ?string, qs: string, marca: ?string}  $fila
+     * @return 'qr'|'qs'|'marca'
+     */
+    private function modo(array $fila): string
+    {
+        return match (true) {
+            $fila['qr'] !== null && $fila['qr'] !== '' => 'qr',
+            $fila['qs'] !== '' => 'qs',
+            default => 'marca',
+        };
+    }
+
+    /**
+     * Qué conjunto de piezas hermanas toca este renglón. Es la clave con la que
+     * se cuenta cuántas van asignadas en el archivo, para distinguir un escaneo
+     * repetido de un movimiento nuevo.
+     *
+     * @param  array{qr: ?string, qs: string, marca: ?string}  $fila
+     */
+    private function claveDeModelo(array $fila): string
+    {
+        return $this->modo($fila) === 'marca'
+            ? 'marca:'.$this->lector->normalizar((string) $fila['marca'])
+            : 'qs:'.$fila['qs'];
     }
 
     /**
@@ -179,25 +223,26 @@ class PlanDeImportacionCsv
      * asignaron sus hermanas, lo más probable es que la pieza se escaneó dos
      * veces: se omite en vez de tratarse como error.
      *
-     * @param  array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}  $fila
+     * @param  array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, marca: ?string, evento: ?string, proceso: ?string, porcentaje: float}  $fila
      * @param  Collection<int, Pieza>  $candidatas
      * @param  array<string, float>  $topes
-     * @param  array<string, int>  $asignadosPorQs
+     * @param  array<string, int>  $asignadosPorModelo
+     * @param  'qr'|'qs'|'marca'  $modo
      * @return array<string, mixed>
      */
-    private function sinCupo(array $fila, Proceso $proceso, GrupoTrabajo $grupo, Collection $candidatas, array $topes, array $asignadosPorQs, bool $porQr): array
+    private function sinCupo(array $fila, Proceso $proceso, GrupoTrabajo $grupo, Collection $candidatas, array $topes, array $asignadosPorModelo, string $modo, string $identificador): array
     {
-        $yaAsignadas = $asignadosPorQs[$fila['qs'].'|'.$proceso->id] ?? 0;
+        $yaAsignadas = $asignadosPorModelo[$this->claveDeModelo($fila).'|'.$proceso->id] ?? 0;
 
         // Sólo en el export de planta, que es el que genera la máquina y donde
         // dejamos de deduplicar. En el CSV capturado a mano los renglones los
         // escribió alguien a propósito: uno que no cabe es un error que atender.
-        if (! $porQr && $yaAsignadas > 0 && $fila['evento'] !== null) {
+        if ($modo !== 'qr' && $yaAsignadas > 0 && $fila['evento'] !== null) {
             return $this->renglon(
                 $fila,
                 'omitida',
                 'duplicado',
-                "El QS {$fila['qs']} ya se asignó a {$yaAsignadas} pieza(s) en este archivo; este movimiento parece el mismo escaneo repetido.",
+                "Ya se asignaron {$yaAsignadas} pieza(s) con {$identificador} en este archivo y ninguna otra tiene cupo; este movimiento parece el mismo escaneo repetido.",
                 $proceso,
                 $grupo,
                 $candidatas->count(),
@@ -214,14 +259,14 @@ class PlanDeImportacionCsv
         $motivo = $this->avance->mensajeDeTope($conMasMargen, $proceso, $disponible);
 
         if ($candidatas->count() > 1) {
-            $motivo = "Ninguna de las {$candidatas->count()} piezas con QS {$fila['qs']} tiene cupo: ".$motivo;
+            $motivo = "Ninguna de las {$candidatas->count()} piezas con {$identificador} tiene cupo: ".$motivo;
         }
 
         return $this->renglon($fila, 'error', 'sin_tope', $motivo, $proceso, $grupo, $candidatas->count());
     }
 
     /**
-     * @param  array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}  $fila
+     * @param  array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, marca: ?string, evento: ?string, proceso: ?string, porcentaje: float}  $fila
      * @param  array<string, GrupoTrabajo|string>  $ubicaciones
      * @param  Collection<string, GrupoTrabajo>  $grupos
      * @return array{0: GrupoTrabajo|null, 1: string|null, 2: string}
@@ -274,16 +319,17 @@ class PlanDeImportacionCsv
 
     /**
      * Todas las piezas que el archivo menciona, en una consulta, agrupadas por
-     * QR y por QS. Los grupos por QS se ordenan aquí una sola vez: es el orden
-     * en el que se van a ir asignando.
+     * QR, por QS y por marca. Cada grupo se ordena aquí una sola vez: es el
+     * orden en el que se van a ir asignando.
      *
      * @param  list<array<string, mixed>>  $filas
-     * @return array{qr: array<string, Collection<int, Pieza>>, qs: array<string, Collection<int, Pieza>>}
+     * @return array{qr: array<string, Collection<int, Pieza>>, qs: array<string, Collection<int, Pieza>>, marca: array<string, Collection<int, Pieza>>}
      */
     private function mapaDePiezas(array $filas): array
     {
         $qrs = array_values(array_unique(array_filter(array_column($filas, 'qr'))));
         $qss = array_values(array_unique(array_filter(array_column($filas, 'qs'))));
+        $marcas = array_values(array_unique(array_filter(array_column($filas, 'marca'))));
 
         $piezas = collect();
 
@@ -295,12 +341,22 @@ class PlanDeImportacionCsv
             $piezas = $piezas->concat($this->consultarPiezas('qs', $lote));
         }
 
+        foreach (array_chunk($marcas, self::LOTE_CONSULTA) as $lote) {
+            $piezas = $piezas->concat($this->piezasDeMarcas($lote));
+        }
+
         $piezas = $piezas->unique('id');
 
         return [
             'qr' => $piezas->groupBy('qr')->map(fn (Collection $grupo): Collection => $this->porQrAscendente($grupo))->all(),
             'qs' => $piezas->filter(fn (Pieza $pieza): bool => $pieza->qs !== null && $pieza->qs !== '')
                 ->groupBy('qs')->map(fn (Collection $grupo): Collection => $this->porQrAscendente($grupo))->all(),
+            // Todos los lotes de la marca caen en el mismo saco a propósito: el
+            // archivo no dice lote, y el orden por QR ya reparte de menor a
+            // mayor sin importar en qué lote quedó cada pieza.
+            'marca' => $piezas->filter(fn (Pieza $pieza): bool => $pieza->marca !== null)
+                ->groupBy(fn (Pieza $pieza): string => $this->lector->normalizar((string) $pieza->marca->marca))
+                ->map(fn (Collection $grupo): Collection => $this->porQrAscendente($grupo))->all(),
         ];
     }
 
@@ -319,6 +375,23 @@ class PlanDeImportacionCsv
     }
 
     /**
+     * Las piezas de esos modelos. La marca vive en el concepto, no en la pieza,
+     * así que se filtra por la relación.
+     *
+     * @param  list<string>  $marcas
+     * @return Collection<int, Pieza>
+     */
+    private function piezasDeMarcas(array $marcas): Collection
+    {
+        return Pieza::query()
+            ->with(['marca:id,marca,lote', 'catalogo:id,obra_id,vigente'])
+            ->deCatalogoVigente()
+            ->where('activo', true)
+            ->whereHas('marca', fn (Builder $query) => $query->whereIn('marca', $marcas))
+            ->get();
+    }
+
+    /**
      * Orden natural, no alfabético: el QR es texto, y alfabéticamente "10" va
      * antes que "9".
      *
@@ -333,7 +406,7 @@ class PlanDeImportacionCsv
     }
 
     /**
-     * @param  array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, evento: ?string, proceso: ?string, porcentaje: float}  $fila
+     * @param  array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, marca: ?string, evento: ?string, proceso: ?string, porcentaje: float}  $fila
      * @return array<string, mixed>
      */
     private function renglon(
@@ -356,15 +429,18 @@ class PlanDeImportacionCsv
             'pieza_id' => $pieza?->id,
             'qr' => $pieza?->qr ?? $fila['qr'],
             'qs' => $fila['qs'] !== '' ? $fila['qs'] : null,
+            // Si no se resolvió pieza se enseña la marca que traía el archivo:
+            // sin eso, el renglón con problema sale sin nada que lo identifique.
             'marca' => $pieza?->marca !== null
                 ? Concepto::etiquetaDeModelo($pieza->marca->marca, $pieza->marca->lote)
-                : null,
+                : $fila['marca'],
             'proceso' => $proceso?->nombre,
             'proceso_id' => $proceso?->id,
             'grupo' => $grupo?->descripcion,
             'grupo_trabajo_id' => $grupo?->id,
             'porcentaje' => $fila['porcentaje'],
             'por_qs' => $porQs,
+            'asignado_por' => $this->modo($fila),
             'candidatas' => $candidatas,
         ];
     }
@@ -384,7 +460,9 @@ class PlanDeImportacionCsv
             'aplicables' => $estados['aplicable'] ?? 0,
             'omitidas' => $estados['omitida'] ?? 0,
             'errores' => $estados['error'] ?? 0,
-            'asignadas_por_qs' => count(array_filter($renglones, fn (array $r): bool => $r['por_qs'] && $r['estado'] === 'aplicable')),
+            // Los que el archivo no numeró y eligió el sistema, sea porque sólo
+            // traía QS o porque sólo traía marca. Son los que hay que revisar.
+            'asignadas_por_sistema' => count(array_filter($renglones, fn (array $r): bool => $r['por_qs'] && $r['estado'] === 'aplicable')),
             'ignorados_por_evento' => array_sum(array_column($ignorados, 'renglones')),
         ];
     }
