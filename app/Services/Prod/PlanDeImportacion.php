@@ -121,9 +121,66 @@ readonly class PlanDeImportacion
         return [
             'resumen' => $this->resumen,
             'ignorados' => $this->ignorados,
+            'por_grupo' => $this->porGrupo(),
             'renglones' => $detalle,
             'mostrados' => count($detalle),
             'truncado' => count($detalle) < count($this->renglones),
         ];
+    }
+
+    /**
+     * Qué le toca a cada cuadrilla, sobre el archivo completo.
+     *
+     * Se calcula aquí y no en el front porque el detalle que viaja va truncado:
+     * sumar los renglones que se alcanzan a mostrar daría totales cortos justo
+     * en los archivos grandes, que son los que se revisan a ojo.
+     *
+     * Los movimientos que no llegaron a resolver grupo —una ubicación que no
+     * está en el catálogo, un grupo mal escrito— caen en un renglón sin nombre:
+     * son los que hay que atender antes de importar.
+     *
+     * @return list<array{grupo: string|null, grupo_trabajo_id: int|null, movimientos: int, piezas: float, no_entran: int}>
+     */
+    private function porGrupo(): array
+    {
+        $grupos = [];
+
+        foreach ($this->renglones as $renglon) {
+            $clave = $renglon['grupo_trabajo_id'] ?? 'sin_grupo';
+
+            $grupos[$clave] ??= [
+                'grupo' => $renglon['grupo'],
+                'grupo_trabajo_id' => $renglon['grupo_trabajo_id'],
+                'movimientos' => 0,
+                'piezas' => 0.0,
+                'no_entran' => 0,
+            ];
+
+            if ($renglon['estado'] !== 'aplicable') {
+                $grupos[$clave]['no_entran']++;
+
+                continue;
+            }
+
+            $grupos[$clave]['movimientos']++;
+            $grupos[$clave]['piezas'] += ($renglon['porcentaje'] ?? 0) / 100;
+        }
+
+        foreach ($grupos as $clave => $grupo) {
+            $grupos[$clave]['piezas'] = round($grupo['piezas'], 2);
+        }
+
+        // Primero quien más recibe; los que no resolvieron grupo, hasta abajo:
+        // no son una cuadrilla, son trabajo pendiente sobre el archivo.
+        usort($grupos, function (array $a, array $b): int {
+            if (($a['grupo'] === null) !== ($b['grupo'] === null)) {
+                return $a['grupo'] === null ? 1 : -1;
+            }
+
+            return $b['movimientos'] <=> $a['movimientos']
+                ?: strcasecmp((string) $a['grupo'], (string) $b['grupo']);
+        });
+
+        return array_values($grupos);
     }
 }

@@ -589,7 +589,6 @@ export type ProdCategoriaEmpleado = {
     updated_at: string;
 };
 
-/** Pieza pagada a medias que todavía tiene saldo por liquidar. */
 /**
  * La revisión previa del CSV de producción: lo que pasaría si se aplicara, ya
  * resuelto contra el catálogo pero sin haber escrito nada.
@@ -629,11 +628,27 @@ export type ProdPlanImportacion = {
     };
     /** Eventos que no pagan destajo, agregados: son la mayoría del export. */
     ignorados: { evento: string; muestra: string; renglones: number }[];
+    /** Qué le toca a cada cuadrilla. Sale del archivo completo, no del detalle truncado. */
+    por_grupo: ProdPlanGrupo[];
     renglones: ProdPlanRenglon[];
     mostrados: number;
     truncado: boolean;
 };
 
+/** El corte por cuadrilla de la revisión previa. */
+export type ProdPlanGrupo = {
+    /** `null` cuando el renglón ni siquiera resolvió grupo: son los que hay que corregir. */
+    grupo: string | null;
+    grupo_trabajo_id: number | null;
+    /** Movimientos que van a entrar. */
+    movimientos: number;
+    /** A cuántas piezas equivalen esos movimientos, sumando porcentajes. */
+    piezas: number;
+    /** Los que se quedan fuera, entre omitidos y con problema. */
+    no_entran: number;
+};
+
+/** Pieza pagada a medias que todavía tiene saldo por liquidar. */
 export type ProdPendienteLiquidar = {
     pieza_id: number;
     qr: string;

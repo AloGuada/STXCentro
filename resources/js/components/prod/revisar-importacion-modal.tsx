@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import type { ProdPlanEstado, ProdPlanImportacion, ProdPlanRenglon } from '@/types/models';
+import type { ProdPlanEstado, ProdPlanGrupo, ProdPlanImportacion, ProdPlanRenglon } from '@/types/models';
 import { AlertTriangleIcon, InfoIcon, Loader2Icon } from 'lucide-react';
 import { useState } from 'react';
 
@@ -105,6 +105,8 @@ export function RevisarImportacionModal({
                             </p>
                         )}
 
+                        {plan.por_grupo.length > 0 && <PorGrupo grupos={plan.por_grupo} />}
+
                         <div className="flex flex-wrap gap-2">
                             {(['todos', 'aplicable', 'omitida', 'error'] as const).map((valor) => (
                                 <button
@@ -176,6 +178,65 @@ export function RevisarImportacionModal({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+    );
+}
+
+/**
+ * A quién le va a quedar cada cosa. Es lo que se revisa antes de aceptar: los
+ * movimientos son lo que se escribe y las piezas lo que se paga, que dejan de
+ * ser lo mismo en cuanto hay avances parciales.
+ *
+ * Los totales los manda el backend sobre el archivo completo; la tabla de abajo
+ * va truncada y sumarla daría de menos justo en los archivos grandes.
+ */
+function PorGrupo({ grupos }: { grupos: ProdPlanGrupo[] }) {
+    const total = (campo: 'movimientos' | 'piezas' | 'no_entran') =>
+        grupos.reduce((suma, g) => suma + g[campo], 0);
+
+    return (
+        <div>
+            <h3 className="mb-2 text-sm font-semibold">Qué le toca a cada grupo</h3>
+            <div className="rounded-box border-base-300 max-h-56 overflow-auto border">
+                <table className="table table-sm">
+                    <thead className="bg-base-200 sticky top-0">
+                        <tr>
+                            <th>Grupo</th>
+                            <th className="text-right">Movimientos</th>
+                            <th className="text-right">Piezas</th>
+                            <th className="text-right">No entran</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {grupos.map((grupo) => (
+                            <tr key={grupo.grupo_trabajo_id ?? 'sin-grupo'} className="hover">
+                                <td className={grupo.grupo === null ? 'text-error text-sm' : 'text-sm'}>
+                                    {grupo.grupo ?? 'Sin grupo resuelto'}
+                                </td>
+                                <td className="text-right font-mono">{grupo.movimientos}</td>
+                                <td className="text-right font-mono">{grupo.piezas.toFixed(2)}</td>
+                                <td className="text-right font-mono">
+                                    {grupo.no_entran > 0 ? (
+                                        <span className="text-error">{grupo.no_entran}</span>
+                                    ) : (
+                                        <span className="text-base-content/30">—</span>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                    {grupos.length > 1 && (
+                        <tfoot className="bg-base-200">
+                            <tr>
+                                <th>Total</th>
+                                <th className="text-right font-mono">{total('movimientos')}</th>
+                                <th className="text-right font-mono">{total('piezas').toFixed(2)}</th>
+                                <th className="text-right font-mono">{total('no_entran')}</th>
+                            </tr>
+                        </tfoot>
+                    )}
+                </table>
+            </div>
+        </div>
     );
 }
 

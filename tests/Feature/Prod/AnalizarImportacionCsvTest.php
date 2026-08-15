@@ -108,6 +108,70 @@ test('analizar agrega los eventos que no pagan destajo en vez de listarlos', fun
         ->and($respuesta->json('resumen.ignorados_por_evento'))->toBe(2);
 });
 
+test('analizar corta por grupo lo que entra y lo que no', function () {
+    $otro = GrupoTrabajo::factory()->create(['descripcion' => 'Cuadrilla B']);
+    $otro->ubicaciones()->attach(Ubicacion::factory()->create(['nombre' => 'M4.1 Pintura']));
+
+    Pieza::factory()->create([
+        'concepto_id' => $this->marca->id,
+        'catalogo_id' => $this->marca->catalogo_id,
+        'qr' => 'QR-600',
+        'qs' => '67890',
+    ]);
+
+    $csv = exportConMovimientos([['75 Soldadura', 'M3.6 Fabricacion']])
+        // Otra cuadrilla, otra pieza: tiene que salir en su propio renglon.
+        ."75 Soldadura,S26-05-05 REJAS,46195,M4.1 Pintura,67890,TG-CM5-1,1746,1,SAUL DZUL\n"
+        // Sin ubicacion en el catalogo no hay grupo a quien cargarle esto.
+        ."75 Soldadura,S26-05-05 REJAS,46195,Modulo Fantasma,12345,TG-CM5-1,1746,1,SAUL DZUL\n";
+
+    $grupos = analizar($csv)->assertOk()->json('por_grupo');
+
+    expect($grupos)->toHaveCount(3)
+        ->and($grupos[0])->toMatchArray(['grupo' => 'Cuadrilla A', 'movimientos' => 1, 'piezas' => 1.0, 'no_entran' => 0])
+        ->and($grupos[1])->toMatchArray(['grupo' => 'Cuadrilla B', 'movimientos' => 1, 'piezas' => 1.0, 'no_entran' => 0])
+        // Lo que no resolvio grupo va hasta abajo: es trabajo pendiente sobre el archivo.
+        ->and($grupos[2])->toMatchArray(['grupo' => null, 'movimientos' => 0, 'no_entran' => 1]);
+});
+
+test('el corte por grupo cuenta piezas equivalentes, no movimientos', function () {
+    $csv = "GRUPO,QS,PROCESO,PORCENTAJE\n"
+        ."Cuadrilla A,12345,Soldadura,60\n";
+
+    $grupos = analizar($csv)->assertOk()->json('por_grupo');
+
+    // Un movimiento al 60% se escribe una vez pero se paga como 0.6 de pieza.
+    expect($grupos[0])->toMatchArray(['grupo' => 'Cuadrilla A', 'movimientos' => 1, 'piezas' => 0.6]);
+});
+
+test('el corte por grupo suma el archivo completo aunque el detalle vaya truncado', function () {
+    $movimientos = [];
+    $piezas = [];
+
+    // Una pieza por movimiento, o el tope los iria rechazando. Se insertan de
+    // golpe: con factory, mil doscientas piezas hacen el test eterno.
+    for ($i = 0; $i < 1200; $i++) {
+        $movimientos[] = ['75 Soldadura', 'M3.6 Fabricacion'];
+        $piezas[] = [
+            'concepto_id' => $this->marca->id,
+            'catalogo_id' => $this->marca->catalogo_id,
+            'qr' => "QR-MASIVO-{$i}",
+            'qs' => '12345',
+            'activo' => true,
+        ];
+    }
+
+    Pieza::insert($piezas);
+
+    $respuesta = analizar(exportConMovimientos($movimientos))->assertOk();
+
+    expect($respuesta->json('truncado'))->toBeTrue()
+        ->and($respuesta->json('renglones'))->toHaveCount(1000)
+        // Si el corte se calculara en el front, sobre lo truncado, dirian 1000.
+        ->and($respuesta->json('por_grupo.0.movimientos'))->toBe($respuesta->json('resumen.aplicables'))
+        ->and($respuesta->json('por_grupo.0.movimientos'))->toBeGreaterThan(1000);
+});
+
 test('analizar rechaza el destajo cerrado y la fecha fuera del periodo', function () {
     analizar(exportConMovimientos([['75 Soldadura', 'M3.6 Fabricacion']]), '2026-03-01')
         ->assertStatus(422)
