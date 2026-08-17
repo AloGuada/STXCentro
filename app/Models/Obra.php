@@ -17,6 +17,30 @@ class Obra extends Model
     protected $table = 'obras';
 
     /**
+     * La obra la usan varios módulos, así que el hook sale de inmediato salvo
+     * que cambie algo que altere el valor a ejecutar del ICSOE: el tipo de
+     * contrato (define si manda el comparativo o las partidas) o el proyecto al
+     * que pertenece.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (self $obra) {
+            if (! $obra->wasChanged(['tipo_contrato', 'proyecto_id'])) {
+                return;
+            }
+
+            $icsoe = app(\App\Services\Cob\IcsoeService::class);
+            $icsoe->programarRecalculo($obra->proyecto_id, 'Cambió el contrato de una obra del proyecto');
+
+            $anterior = $obra->getOriginal('proyecto_id');
+
+            if ($anterior !== null && $anterior !== $obra->proyecto_id) {
+                $icsoe->programarRecalculo((int) $anterior, 'Una obra salió del proyecto');
+            }
+        });
+    }
+
+    /**
      * @var list<string>
      */
     protected $fillable = [
