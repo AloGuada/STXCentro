@@ -1,5 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
+import { rutaUbicacion } from '@/lib/alm/demo';
 import type { AlmActivoDemo, AlmPrestamoPiezaBorrador } from '@/types/models';
 import { PlusIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 
@@ -105,7 +106,9 @@ export function CapturadorPiezasPrestamo({ piezas, onChange, prestables, almacen
                                         <td className="text-base-content/60 font-mono text-xs">
                                             {activo?.codigo ?? '—'}
                                         </td>
-                                        <td className="text-base-content/60 text-xs">{activo?.ubicacion ?? '—'}</td>
+                                        <td className="text-base-content/60 text-xs">
+                                            {rutaUbicacion(activo?.ubicacion_id ?? null) ?? '—'}
+                                        </td>
                                         <td>
                                             <Input
                                                 className="input-sm"

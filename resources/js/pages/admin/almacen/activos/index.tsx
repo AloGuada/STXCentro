@@ -2,7 +2,7 @@ import { ButtonLink } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ACTIVOS_DEMO, ALMACENES_DEMO, ESTATUS_ACTIVO, PRESTAMOS_DEMO } from '@/lib/alm/demo';
+import { ACTIVOS_DEMO, ALMACENES_DEMO, ESTATUS_ACTIVO, PRESTAMOS_DEMO, rutaUbicacion } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmActivoEstatus } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
@@ -11,7 +11,6 @@ import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Inventarios', href: '/admin/almacen/existencias' },
     { title: 'Activos', href: '/admin/almacen/activos' },
 ];
 
@@ -23,8 +22,13 @@ const breadcrumbs: BreadcrumbItem[] = [
  * artículos marcados "por pieza" en el catálogo.
  */
 export default function ActivosIndex() {
-    const [query, setQuery] = useState('');
-    const [almacen, setAlmacen] = useState('');
+    // Existencias manda aquí con el artículo ya elegido: el renglón dice cuántas
+    // hay y esta pantalla, cuáles son. Llegar sin el filtro puesto obligaría a
+    // teclear otra vez lo que ya se había señalado.
+    const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+
+    const [query, setQuery] = useState(params.get('codigo') ?? '');
+    const [almacen, setAlmacen] = useState(params.get('almacen') ?? '');
     const [estatus, setEstatus] = useState('');
 
     /** Quién trae cada pieza prestada, para no tener que ir a Préstamos. */
@@ -129,6 +133,7 @@ export default function ActivosIndex() {
                                 <th>Código</th>
                                 <th>Artículo</th>
                                 <th>Almacén</th>
+                                <th>Ubicación</th>
                                 <th>Estado</th>
                                 <th>Quién la trae</th>
                                 <th>Condición</th>
@@ -137,7 +142,7 @@ export default function ActivosIndex() {
                         <tbody>
                             {visibles.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="text-base-content/50 py-6 text-center">
+                                    <td colSpan={8} className="text-base-content/50 py-6 text-center">
                                         Ninguna pieza coincide con el filtro.
                                     </td>
                                 </tr>
@@ -154,6 +159,11 @@ export default function ActivosIndex() {
                                                 <span className="badge badge-sm badge-ghost font-mono">
                                                     {a.almacen}
                                                 </span>
+                                            </td>
+                                            <td className="text-base-content/60 text-sm">
+                                                {rutaUbicacion(a.ubicacion_id) ?? (
+                                                    <span className="text-base-content/40">Sin acomodar</span>
+                                                )}
                                             </td>
                                             <td>
                                                 <span className={`badge badge-sm ${estado.clase}`}>

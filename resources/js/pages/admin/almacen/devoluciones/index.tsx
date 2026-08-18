@@ -8,7 +8,7 @@ import { PlusIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Inventarios', href: '/admin/almacen/existencias' },
+    { title: 'Activos', href: '/admin/almacen/activos' },
     { title: 'Devoluciones', href: '/admin/almacen/devoluciones' },
 ];
 

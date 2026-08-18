@@ -3318,6 +3318,81 @@ export type AlmProductoDemo = {
     requiere_verificacion: boolean;
 };
 
+/**
+ * Con quién se compra. Vive en Costos —`proveedores`—; el almacén sólo lo lee
+ * para saber contra qué orden está recibiendo.
+ */
+export type AlmProveedorDemo = {
+    id: number;
+    nombre: string;
+    rfc: string;
+};
+
+/** Cómo va la recepción de una orden o de una factura. */
+export type AlmRecepcionEstatus = 'pendiente' | 'parcial' | 'recibida';
+
+/**
+ * Un renglón de la orden de compra: lo que se pidió y lo que ya llegó.
+ *
+ * `cantidad_recibida` es el acumulado de todas las entradas anteriores contra
+ * ese renglón, no lo de una sola. Es lo que impide recibir dos veces la misma
+ * tonelada de tornillo cuando el material llega en tres viajes.
+ */
+export type AlmOcPartidaDemo = {
+    producto_id: number;
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+    cantidad_pedida: number;
+    cantidad_recibida: number;
+    costo_unitario: number;
+};
+
+/**
+ * La orden de compra vista desde el almacén.
+ *
+ * No se captura aquí: nace en Costos y llega con lo que se le pidió al
+ * proveedor. El almacén la usa como la lista contra la cual cotejar lo que
+ * bajó del camión, que es lo que evita recibir de más o material que nadie
+ * pidió.
+ */
+export type AlmOrdenCompraDemo = {
+    id: number;
+    folio: string;
+    proveedor_id: number;
+    fecha: string;
+    /** A dónde va dirigida la compra: obra o planta. */
+    destino: string;
+    estatus: AlmRecepcionEstatus;
+    partidas: AlmOcPartidaDemo[];
+};
+
+/**
+ * La factura del proveedor, colgada de su orden.
+ *
+ * Nace `pendiente` de recepción y no se paga hasta que el almacén confirma que
+ * lo facturado llegó: es el amarre entre el papel y el material. Una orden
+ * puede tener varias —el proveedor surte en parcialidades— y el material puede
+ * llegar antes que el CFDI, por eso también se puede recibir sin factura.
+ */
+export type AlmFacturaDemo = {
+    id: number;
+    /** Serie y folio del CFDI, tal como lo timbró el proveedor. */
+    folio: string;
+    uuid: string;
+    orden_compra_id: number;
+    fecha: string;
+    importe: number;
+    estatus: AlmRecepcionEstatus;
+    /** Qué renglones de la orden ampara y por cuánto. */
+    renglones: AlmFacturaRenglonDemo[];
+};
+
+export type AlmFacturaRenglonDemo = {
+    producto_id: number;
+    cantidad_facturada: number;
+};
+
 export type AlmExistenciaDemo = {
     almacen: string;
     producto: string;
@@ -3328,9 +3403,32 @@ export type AlmExistenciaDemo = {
     /**
      * Dónde está dentro del almacén. Apunta al catálogo de ubicaciones en vez
      * de ser un texto libre: así se puede filtrar por zona y darle una ruta al
-     * inventario cíclico. `null` es material que nadie ha acomodado.
+     * inventario cíclico. `null` es material que nadie ha acomodado —o, en un
+     * renglón por pieza, que las piezas están repartidas en más de un lugar;
+     * `piezas.ubicaciones` dice cuáles.
      */
     ubicacion_id: number | null;
+    /**
+     * Presente sólo cuando el renglón se armó contando piezas con serie en vez
+     * de leer un saldo. Es la misma existencia —una pieza suma 1—, pero aquí sí
+     * se sabe en qué anda cada una, y eso cambia lo que el almacenista puede
+     * prometer: 5 pulidoras con 3 prestadas no son 5 pulidoras que entregar.
+     */
+    piezas?: AlmExistenciaPiezas;
+};
+
+/** El desglose de un renglón por pieza. Suma exactamente la existencia. */
+export type AlmExistenciaPiezas = {
+    disponibles: number;
+    prestadas: number;
+    en_reparacion: number;
+    /**
+     * Los lugares del almacén donde están repartidas, sin repetir; `null` es una
+     * pieza que nadie acomodó. El renglón agrupa por almacén, no por lugar, así
+     * que las 5 pulidoras de HER son una sola fila aunque estén en dos estantes:
+     * esto es lo que permite que el filtro por ubicación siga alcanzándolas.
+     */
+    ubicaciones: (number | null)[];
 };
 
 export type AlmMovimientoDemo = {
@@ -3621,8 +3719,18 @@ export type AlmActivoDemo = {
      */
     codigo_barras: string | null;
     almacen: string;
-    /** Dónde vive cuando está en el almacén. */
-    ubicacion: string | null;
+    /**
+     * Dónde vive cuando está en el almacén. Es el id del árbol de ubicaciones y
+     * no un texto: así la pieza cae en el mismo renglón de Existencias que el
+     * resto de lo que hay en ese lugar, y el filtro por ubicación la alcanza.
+     */
+    ubicacion_id: number | null;
+    /**
+     * Lo que costó *esta* pieza. Va por pieza y no por artículo porque el costo
+     * promedio del renglón sale de promediarlas: dos pulidoras del mismo modelo
+     * compradas con dos años de diferencia no valen lo mismo.
+     */
+    costo: number;
     estatus: AlmActivoEstatus;
     condicion: string;
 };

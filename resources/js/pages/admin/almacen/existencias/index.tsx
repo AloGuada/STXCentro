@@ -1,10 +1,17 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ALMACENES_DEMO, EXISTENCIAS_DEMO, rutaUbicacion, ubicacionesDe } from '@/lib/alm/demo';
+import {
+    ALMACENES_DEMO,
+    EXISTENCIAS_CON_ACTIVOS_DEMO,
+    existenciaEnUbicacion,
+    rutaUbicacion,
+    ubicacionesDe,
+} from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
+import type { AlmExistenciaPiezas } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-import { HistoryIcon } from 'lucide-react';
+import { HistoryIcon, ScanBarcodeIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -16,9 +23,28 @@ const breadcrumbs: BreadcrumbItem[] = [
 const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 const cantidad = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
+/** Dónde están repartidas las piezas de un renglón, para el tooltip. */
+const lugaresDe = (piezas: AlmExistenciaPiezas): string =>
+    piezas.ubicaciones.map((u) => rutaUbicacion(u) ?? 'Sin acomodar').join(' · ');
+
+/** Por qué no todas las piezas del renglón se pueden entregar. */
+const comprometidas = (piezas: AlmExistenciaPiezas): string =>
+    [
+        piezas.prestadas > 0 ? `${piezas.prestadas} prestada${piezas.prestadas === 1 ? '' : 's'}` : null,
+        piezas.en_reparacion > 0 ? `${piezas.en_reparacion} en reparación` : null,
+    ]
+        .filter(Boolean)
+        .join(' · ');
+
 /**
  * La pantalla de diario: qué hay y cuánto en cada almacén. Sin filtro de almacén
  * se ve el consolidado de la empresa; con filtro, el inventario de esa bodega.
+ *
+ * Lo medido y lo contado van juntos. Un artículo por pieza no es un inventario
+ * aparte —cada pieza suma 1 a la existencia de su artículo—, así que aquí
+ * aparece agrupado por almacén y artículo, como cualquier otro renglón. La
+ * diferencia es que ese renglón sabe en qué anda cada pieza, y por eso puede
+ * decir cuántas de las que hay se pueden entregar hoy.
  */
 export default function ExistenciasIndex() {
     const [almacen, setAlmacen] = useState('');
@@ -33,10 +59,10 @@ export default function ExistenciasIndex() {
     const filas = useMemo(() => {
         const texto = busqueda.toLowerCase();
 
-        return EXISTENCIAS_DEMO.filter(
+        return EXISTENCIAS_CON_ACTIVOS_DEMO.filter(
             (e) =>
                 (!almacen || e.almacen === almacen) &&
-                (!ubicacion || String(e.ubicacion_id) === ubicacion) &&
+                (!ubicacion || existenciaEnUbicacion(e, Number(ubicacion))) &&
                 (!soloConSaldo || e.cantidad > 0) &&
                 (!texto ||
                     e.producto.toLowerCase().includes(texto) ||
@@ -46,6 +72,11 @@ export default function ExistenciasIndex() {
 
     const valorTotal = filas.reduce((suma, e) => suma + e.cantidad * e.costo_promedio, 0);
     const sinSaldo = filas.filter((e) => e.cantidad <= 0).length;
+    // Lo que está contado pero no se puede entregar: prestado o descompuesto.
+    const noDisponibles = filas.reduce(
+        (suma, e) => suma + (e.piezas ? e.piezas.prestadas + e.piezas.en_reparacion : 0),
+        0,
+    );
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -56,7 +87,8 @@ export default function ExistenciasIndex() {
                     <h1 className="text-2xl font-semibold">Existencias</h1>
                     <p className="text-base-content/60 mt-1 text-sm">
                         Saldo actual por almacén. Sale del kardex: aquí nada se edita a mano, se mueve con entradas,
-                        salidas y transferencias.
+                        salidas y transferencias. Los artículos por pieza entran agrupados por almacén y artículo
+                        —cada pieza suma 1—, y el renglón dice cuántas se pueden entregar hoy.
                     </p>
                 </div>
 
@@ -141,17 +173,42 @@ export default function ExistenciasIndex() {
                                 </tr>
                             ) : (
                                 filas.map((e) => (
-                                    <tr key={`${e.almacen}-${e.producto}`} className="hover">
+                                    // El mismo artículo puede estar en dos lugares del mismo almacén:
+                                    // sin la ubicación en la llave, los dos renglones serían uno.
+                                    <tr key={`${e.almacen}-${e.producto}-${e.ubicacion_id ?? 'sin'}`} className="hover">
                                         <td>
                                             <span className="badge badge-sm badge-ghost font-mono">{e.almacen}</span>
                                         </td>
                                         <td className="font-mono text-xs">{e.producto}</td>
-                                        <td className="font-medium">{e.descripcion}</td>
-                                        <td className="text-base-content/60 text-sm">
-                                            {rutaUbicacion(e.ubicacion_id) ?? (
-                                                <span className="text-base-content/40" title="Nadie le ha asignado lugar">
-                                                    Sin acomodar
+                                        <td className="font-medium">
+                                            {e.descripcion}
+                                            {e.piezas && (
+                                                <span
+                                                    className="badge badge-xs badge-ghost ml-2 align-middle"
+                                                    title="Se cuenta pieza por pieza: cada una tiene número de serie"
+                                                >
+                                                    por pieza
                                                 </span>
+                                            )}
+                                        </td>
+                                        <td className="text-base-content/60 text-sm">
+                                            {e.piezas && e.piezas.ubicaciones.length > 1 ? (
+                                                // Repartidas: el renglón es del almacén, no de un estante.
+                                                <span
+                                                    className="cursor-help underline decoration-dotted"
+                                                    title={lugaresDe(e.piezas)}
+                                                >
+                                                    {e.piezas.ubicaciones.length} lugares
+                                                </span>
+                                            ) : (
+                                                (rutaUbicacion(e.ubicacion_id) ?? (
+                                                    <span
+                                                        className="text-base-content/40"
+                                                        title="Nadie le ha asignado lugar"
+                                                    >
+                                                        Sin acomodar
+                                                    </span>
+                                                ))
                                             )}
                                         </td>
                                         <td className="text-right font-mono">
@@ -159,19 +216,41 @@ export default function ExistenciasIndex() {
                                                 {cantidad(e.cantidad)}
                                             </span>
                                             <span className="text-base-content/40"> {e.unidad}</span>
+                                            {/* Lo que hay no es lo que se puede entregar: la pieza
+                                                prestada sigue siendo del almacén, pero no está. Sólo
+                                                se avisa cuando las dos cifras no coinciden. */}
+                                            {e.piezas && e.piezas.disponibles < e.cantidad && (
+                                                <p
+                                                    className="text-warning mt-0.5 font-sans text-xs"
+                                                    title={comprometidas(e.piezas)}
+                                                >
+                                                    {e.piezas.disponibles} de {e.cantidad} disponibles
+                                                </p>
+                                            )}
                                         </td>
                                         <td className="text-right font-mono">{moneda(e.costo_promedio)}</td>
                                         <td className="text-right font-mono">
                                             {moneda(e.cantidad * e.costo_promedio)}
                                         </td>
                                         <td>
-                                            <Link
-                                                href={`/admin/almacen/kardex?almacen=${e.almacen}&producto=${e.producto}`}
-                                                className="btn btn-ghost btn-xs"
-                                                title="Ver kardex de este producto"
-                                            >
-                                                <HistoryIcon className="size-4" />
-                                            </Link>
+                                            <div className="flex items-center gap-1">
+                                                <Link
+                                                    href={`/admin/almacen/kardex?almacen=${e.almacen}&producto=${e.producto}`}
+                                                    className="btn btn-ghost btn-xs"
+                                                    title="Ver kardex de este producto"
+                                                >
+                                                    <HistoryIcon className="size-4" />
+                                                </Link>
+                                                {e.piezas && (
+                                                    <Link
+                                                        href={`/admin/almacen/activos?almacen=${e.almacen}&codigo=${e.producto}`}
+                                                        className="btn btn-ghost btn-xs"
+                                                        title="Ver cuáles son estas piezas"
+                                                    >
+                                                        <ScanBarcodeIcon className="size-4" />
+                                                    </Link>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -182,9 +261,12 @@ export default function ExistenciasIndex() {
                     {filas.length > 0 && (
                         <div className="border-base-300 bg-base-200 flex flex-wrap items-center justify-between gap-2 border-t px-4 py-2 text-sm">
                             <span>
-                                {filas.length} producto(s)
+                                {filas.length} renglón(es)
                                 {sinSaldo > 0 && (
                                     <span className="text-error"> · {sinSaldo} en ceros</span>
+                                )}
+                                {noDisponibles > 0 && (
+                                    <span className="text-warning"> · {noDisponibles} pieza(s) no disponibles</span>
                                 )}
                             </span>
                             <span className="font-mono">Valor del inventario: {moneda(valorTotal)}</span>

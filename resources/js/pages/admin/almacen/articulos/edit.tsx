@@ -8,7 +8,7 @@ import AppLayout from '@/layouts/app-layout';
 import {
     ACTIVOS_DEMO,
     ARTICULOS_DEMO,
-    EXISTENCIAS_DEMO,
+    EXISTENCIAS_CON_ACTIVOS_DEMO,
     REGLAS_ABC,
     TIPOS_ARTICULO,
     UNIDADES_ARTICULO,
@@ -39,7 +39,7 @@ type Props = {
 export default function ArticuloEdit({ articuloId, areas }: Props) {
     const articulo = ARTICULOS_DEMO.find((a) => a.id === articuloId) ?? ARTICULOS_DEMO[0];
 
-    const existencias = EXISTENCIAS_DEMO.filter((e) => e.producto === articulo.codigo);
+    const existencias = EXISTENCIAS_CON_ACTIVOS_DEMO.filter((e) => e.producto === articulo.codigo);
     const piezas = ACTIVOS_DEMO.filter((p) => p.producto_id === articulo.id);
 
     const [descripcion, setDescripcion] = useState(articulo.descripcion);

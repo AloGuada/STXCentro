@@ -13,7 +13,7 @@ import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Inventarios', href: '/admin/almacen/existencias' },
+    { title: 'Activos', href: '/admin/almacen/activos' },
     { title: 'Devoluciones', href: '/admin/almacen/devoluciones' },
     { title: 'Nueva', href: '/admin/almacen/devoluciones/create' },
 ];

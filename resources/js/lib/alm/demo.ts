@@ -18,8 +18,12 @@ import type {
     AlmDocumentoTipo,
     AlmEntradaDemo,
     AlmExistenciaDemo,
+    AlmFacturaDemo,
+    AlmExistenciaPiezas,
     AlmGrupoTrabajoDemo,
     AlmMovimientoDemo,
+    AlmOcPartidaDemo,
+    AlmOrdenCompraDemo,
     AlmPedidoDemo,
     AlmPedidoEstatus,
     AlmPrecioDemo,
@@ -27,6 +31,8 @@ import type {
     AlmPrestamoEstatus,
     AlmProductoDemo,
     AlmProductoTipo,
+    AlmProveedorDemo,
+    AlmRecepcionEstatus,
     AlmReglaAbc,
     AlmReglaAprobacion,
     AlmSalidaDemo,
@@ -121,6 +127,11 @@ export function rutaUbicacion(ubicacionId: number | null): string | null {
     return partes.length > 0 ? partes.join(' / ') : null;
 }
 
+/**
+ * Sólo lo que se mide: material a granel con un saldo. Las piezas con serie no
+ * están aquí, se cuentan desde el padrón de activos. Para «qué hay de verdad en
+ * el almacén» usa `EXISTENCIAS_CON_ACTIVOS_DEMO`, no esta lista.
+ */
 export const EXISTENCIAS_DEMO: AlmExistenciaDemo[] = [
     { almacen: 'AG', producto: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', cantidad: 12780, costo_promedio: 4.35, ubicacion_id: 4 },
     { almacen: 'AG', producto: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad: 340.5, costo_promedio: 62.1, ubicacion_id: 3 },
@@ -133,7 +144,6 @@ export const EXISTENCIAS_DEMO: AlmExistenciaDemo[] = [
     { almacen: 'FAK', producto: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', cantidad: 8, costo_promedio: 27.5, ubicacion_id: null },
     { almacen: 'FAD', producto: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', cantidad: 0, costo_promedio: 48.9, ubicacion_id: null },
     { almacen: 'E', producto: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad: 74.25, costo_promedio: 63.8, ubicacion_id: null },
-    { almacen: 'HER', producto: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', cantidad: 14, costo_promedio: 2180.0, ubicacion_id: 13 },
 ];
 
 export const MOVIMIENTOS_DEMO: AlmMovimientoDemo[] = [
@@ -319,6 +329,148 @@ function imagenDemo(texto: string, color: string): string {
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+/**
+ * Con quién se compra. El almacén no da de alta proveedores —eso es de
+ * Costos—, sólo recibe lo que ellos mandan.
+ */
+export const PROVEEDORES_DEMO: AlmProveedorDemo[] = [
+    { id: 1, nombre: 'Aceros del Norte S.A.', rfc: 'ANO980312QW3' },
+    { id: 2, nombre: 'Soldaduras Industriales', rfc: 'SIN050718HK1' },
+    { id: 3, nombre: 'Selladores del Golfo', rfc: 'SGO110923MN7' },
+];
+
+/**
+ * Las órdenes de compra abiertas, con lo que ya se recibió de cada renglón.
+ *
+ * El almacenista no teclea qué llegó: escoge la orden y coteja. Lo pedido es lo
+ * que acota la recepción —no se puede recibir más de lo comprado— y el
+ * acumulado por renglón es lo que permite surtir en parcialidades sin contar
+ * dos veces el mismo viaje.
+ */
+export const ORDENES_COMPRA_DEMO: AlmOrdenCompraDemo[] = [
+    {
+        id: 42,
+        folio: 'OC-2607-0042',
+        proveedor_id: 1,
+        fecha: '2026-07-28',
+        destino: 'Planta — consumo interno',
+        estatus: 'parcial',
+        partidas: [
+            // Llegó el primer viaje de tornillo; falta el resto y las brocas.
+            { producto_id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', cantidad_pedida: 20000, cantidad_recibida: 8000, costo_unitario: 4.35 },
+            { producto_id: 107, codigo: 'ART-00011', descripcion: 'Broca cobalto 1/4"', unidad: 'PZA', cantidad_pedida: 100, cantidad_recibida: 0, costo_unitario: 89.0 },
+        ],
+    },
+    {
+        id: 51,
+        folio: 'OC-2608-0051',
+        proveedor_id: 1,
+        fecha: '2026-08-10',
+        destino: 'T4 — Torre 4',
+        estatus: 'pendiente',
+        partidas: [
+            { producto_id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', cantidad_pedida: 40, cantidad_recibida: 0, costo_unitario: 1850.0 },
+        ],
+    },
+    {
+        id: 47,
+        folio: 'OC-2608-0047',
+        proveedor_id: 2,
+        fecha: '2026-08-03',
+        destino: 'Planta — consumo interno',
+        estatus: 'parcial',
+        partidas: [
+            { producto_id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad_pedida: 400, cantidad_recibida: 200, costo_unitario: 62.1 },
+            { producto_id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', cantidad_pedida: 50, cantidad_recibida: 50, costo_unitario: 27.5 },
+        ],
+    },
+    {
+        id: 55,
+        folio: 'OC-2608-0055',
+        proveedor_id: 3,
+        fecha: '2026-08-12',
+        destino: 'MBP — Museo Bellas Artes',
+        estatus: 'pendiente',
+        partidas: [
+            { producto_id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', cantidad_pedida: 60, cantidad_recibida: 0, costo_unitario: 310.0 },
+            // Pide inspección al recibirla: una pulidora se enciende antes de
+            // firmarle al proveedor.
+            { producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', cantidad_pedida: 2, cantidad_recibida: 0, costo_unitario: 2180.0 },
+        ],
+    },
+];
+
+/**
+ * Las facturas de cada orden. Una orden surtida en parcialidades trae varias, y
+ * cada una ampara sólo lo que venía en ese viaje.
+ */
+export const FACTURAS_DEMO: AlmFacturaDemo[] = [
+    // Ya cotejada: es el primer viaje de tornillo que sí llegó.
+    { id: 1, folio: 'A-14520', uuid: '9f2c1d84-5b30-4e77-9a11-c0de00014520', orden_compra_id: 42, fecha: '2026-08-05', importe: 34800.0, estatus: 'recibida', renglones: [{ producto_id: 101, cantidad_facturada: 8000 }] },
+    { id: 2, folio: 'A-14688', uuid: '9f2c1d84-5b30-4e77-9a11-c0de00014688', orden_compra_id: 42, fecha: '2026-08-12', importe: 61100.0, estatus: 'pendiente', renglones: [{ producto_id: 101, cantidad_facturada: 12000 }, { producto_id: 107, cantidad_facturada: 100 }] },
+    { id: 3, folio: 'SI-3021', uuid: '4a7b0e15-88cc-4f21-b6d3-c0de00003021', orden_compra_id: 47, fecha: '2026-08-03', importe: 13795.0, estatus: 'recibida', renglones: [{ producto_id: 102, cantidad_facturada: 200 }, { producto_id: 104, cantidad_facturada: 50 }] },
+    { id: 4, folio: 'SI-3080', uuid: '4a7b0e15-88cc-4f21-b6d3-c0de00003080', orden_compra_id: 47, fecha: '2026-08-14', importe: 12420.0, estatus: 'pendiente', renglones: [{ producto_id: 102, cantidad_facturada: 200 }] },
+    { id: 5, folio: 'SG-778', uuid: '1c55af90-2d64-49ab-8f07-c0de00000778', orden_compra_id: 55, fecha: '2026-08-15', importe: 22960.0, estatus: 'pendiente', renglones: [{ producto_id: 106, cantidad_facturada: 60 }, { producto_id: 201, cantidad_facturada: 2 }] },
+];
+
+/** Cómo se lee el avance de una orden o de una factura. */
+export const ESTATUS_RECEPCION: Record<AlmRecepcionEstatus, { etiqueta: string; clase: string }> = {
+    pendiente: { etiqueta: 'Por recibir', clase: 'badge-warning' },
+    parcial: { etiqueta: 'Parcial', clase: 'badge-info' },
+    recibida: { etiqueta: 'Recibida', clase: 'badge-success' },
+};
+
+/** Las órdenes de un proveedor a las que todavía les falta llegar material. */
+export function ordenesAbiertasDe(proveedorId: number): AlmOrdenCompraDemo[] {
+    return ORDENES_COMPRA_DEMO.filter((oc) => oc.proveedor_id === proveedorId && oc.estatus !== 'recibida');
+}
+
+/** Las facturas colgadas de una orden, la pendiente primero. */
+export function facturasDeOrden(ordenId: number): AlmFacturaDemo[] {
+    return FACTURAS_DEMO.filter((f) => f.orden_compra_id === ordenId).sort((a, b) =>
+        a.estatus === b.estatus ? a.fecha.localeCompare(b.fecha) : a.estatus === 'recibida' ? 1 : -1,
+    );
+}
+
+/** Lo pedido y lo que ya llegó de una orden completa, para el resumen. */
+export function avanceOrden(orden: AlmOrdenCompraDemo): { pedido: number; recibido: number; pendiente: number } {
+    return orden.partidas.reduce(
+        (resumen, p) => ({
+            pedido: resumen.pedido + p.cantidad_pedida,
+            recibido: resumen.recibido + p.cantidad_recibida,
+            // Recibir de más no compensa otro renglón corto: se suma por renglón.
+            pendiente: resumen.pendiente + Math.max(0, p.cantidad_pedida - p.cantidad_recibida),
+        }),
+        { pedido: 0, recibido: 0, pendiente: 0 },
+    );
+}
+
+/**
+ * Cuánto falta por recibir de un renglón.
+ *
+ * Con factura manda el menor de los dos: la factura no puede traer más de lo
+ * que la orden dejó pendiente, y el proveedor no puede entregar más de lo que
+ * facturó. Sin factura, lo que falte de la orden.
+ *
+ * Una factura ya cotejada no vuelve a ofrecer material aunque su orden siga
+ * abierta: lo que falta llegará con la siguiente factura, no con ésta.
+ */
+export function pendientePorRecibir(partida: AlmOcPartidaDemo, factura: AlmFacturaDemo | null): number {
+    const pendienteOrden = Math.max(0, partida.cantidad_pedida - partida.cantidad_recibida);
+
+    if (factura === null) {
+        return pendienteOrden;
+    }
+
+    if (factura.estatus === 'recibida') {
+        return 0;
+    }
+
+    const facturado = factura.renglones.find((r) => r.producto_id === partida.producto_id)?.cantidad_facturada ?? 0;
+
+    return Math.min(facturado, pendienteOrden);
+}
+
 export const ARTICULOS_DEMO: AlmArticuloDemo[] = [
     { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', codigo_barras: 'TOR-0012', marca: null, modelo: null, idsteelex: 'MAT-000412', area: 'Estructura', clasificacion_abc: 'A', precio_ultimo: 4.4, imagen_url: imagenDemo('TOR', '#64748b'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 5000, existencia_total: 12780 },
     { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', codigo_barras: 'ELE-7018', marca: 'Infra', modelo: 'E7018', idsteelex: '7018-125', area: null, clasificacion_abc: 'A', precio_ultimo: 63.8, imagen_url: imagenDemo('ELE', '#0f766e'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 200, existencia_total: 414.75 },
@@ -392,15 +544,111 @@ export function preciosDe(articuloId: number): AlmPrecioDemo[] {
  * una suma 1 a la existencia de su producto; el kardex por cantidad no cambia.
  */
 export const ACTIVOS_DEMO: AlmActivoDemo[] = [
-    { id: 1, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-07', codigo_barras: 'PUL-4120-07', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'prestado', condicion: 'Buena' },
-    { id: 2, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-08', codigo_barras: 'PUL-4120-08', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'prestado', condicion: 'Buena' },
-    { id: 3, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-11', codigo_barras: 'PUL-4120-11', almacen: 'HER', ubicacion: 'Canastilla de préstamo', estatus: 'disponible', condicion: 'Buena' },
-    { id: 4, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-12', codigo_barras: 'PUL-4120-12', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'en_reparacion', condicion: 'Carbones gastados' },
-    { id: 5, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-14', codigo_barras: 'PUL-4120-14', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'prestado', condicion: 'Regular' },
+    { id: 1, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-07', codigo_barras: 'PUL-4120-07', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'prestado', condicion: 'Buena' },
+    { id: 2, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-08', codigo_barras: 'PUL-4120-08', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'prestado', condicion: 'Buena' },
+    { id: 3, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-11', codigo_barras: 'PUL-4120-11', almacen: 'HER', ubicacion_id: 14, costo: 2340.0, estatus: 'disponible', condicion: 'Buena' },
+    { id: 4, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-12', codigo_barras: 'PUL-4120-12', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'en_reparacion', condicion: 'Carbones gastados' },
+    { id: 5, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-14', codigo_barras: 'PUL-4120-14', almacen: 'HER', ubicacion_id: 13, costo: 2020.0, estatus: 'prestado', condicion: 'Regular' },
     // El VIN trae letras y números pero no guiones: se etiqueta con el nuestro
     // para que el lector no dependa de lo que traiga grabado el fabricante.
-    { id: 6, producto_id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', no_serie: '3FTTW8E9XRA12345', codigo_barras: 'VEH-0007-01', almacen: 'AG', ubicacion: null, estatus: 'prestado', condicion: 'Buena' },
+    // Sin ubicación: una camioneta no se guarda en un rack, y así se ve que el
+    // renglón «sin acomodar» no siempre es un descuido.
+    { id: 6, producto_id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', no_serie: '3FTTW8E9XRA12345', codigo_barras: 'VEH-0007-01', almacen: 'AG', ubicacion_id: null, costo: 789400.0, estatus: 'prestado', condicion: 'Buena' },
 ];
+
+/**
+ * Los activos vistos como existencia: una fila por almacén y artículo, no por
+ * número de serie.
+ *
+ * La pieza y el saldo no son dos inventarios: cada pieza suma 1 a la existencia
+ * de su artículo. Lo que cambia es el detalle con el que se puede responder
+ * —cuáles son y en qué anda cada una— y por eso el renglón carga su desglose.
+ *
+ * `baja` no cuenta: es una pieza que ya no existe para el almacén aunque su
+ * historia se conserve. Prestada y en reparación sí cuentan, porque siguen
+ * siendo de la empresa; lo que no son es *disponibles*.
+ */
+function existenciasDeActivos(): AlmExistenciaDemo[] {
+    type Grupo = {
+        activo: AlmActivoDemo;
+        cantidad: number;
+        costoTotal: number;
+        piezas: AlmExistenciaPiezas;
+    };
+
+    const grupos = new Map<string, Grupo>();
+
+    ACTIVOS_DEMO.filter((a) => a.estatus !== 'baja').forEach((a) => {
+        // Almacén y artículo, nada más: las 5 pulidoras de HER son un renglón
+        // aunque estén repartidas en dos estantes. El lugar no parte la fila,
+        // se guarda aparte para que el filtro por ubicación siga sirviendo.
+        const clave = `${a.almacen}|${a.codigo}`;
+        const grupo = grupos.get(clave) ?? {
+            activo: a,
+            cantidad: 0,
+            costoTotal: 0,
+            piezas: { disponibles: 0, prestadas: 0, en_reparacion: 0, ubicaciones: [] },
+        };
+
+        grupo.cantidad += 1;
+        grupo.costoTotal += a.costo;
+
+        if (!grupo.piezas.ubicaciones.includes(a.ubicacion_id)) {
+            grupo.piezas.ubicaciones.push(a.ubicacion_id);
+        }
+
+        if (a.estatus === 'disponible') {
+            grupo.piezas.disponibles += 1;
+        } else if (a.estatus === 'prestado') {
+            grupo.piezas.prestadas += 1;
+        } else if (a.estatus === 'en_reparacion') {
+            grupo.piezas.en_reparacion += 1;
+        }
+
+        grupos.set(clave, grupo);
+    });
+
+    return [...grupos.values()].map((g) => ({
+        almacen: g.activo.almacen,
+        producto: g.activo.codigo,
+        descripcion: g.activo.descripcion,
+        unidad: 'PZA',
+        cantidad: g.cantidad,
+        // Promedio de verdad, no el costo de la última que entró.
+        costo_promedio: g.costoTotal / g.cantidad,
+        // Un solo lugar se muestra como cualquier otro renglón; repartido queda
+        // en null y la pantalla lo dice con `piezas.ubicaciones`.
+        ubicacion_id: g.piezas.ubicaciones.length === 1 ? g.piezas.ubicaciones[0] : null,
+        piezas: g.piezas,
+    }));
+}
+
+/**
+ * Todo lo que hay, medido y contado en la misma tabla.
+ *
+ * Existencias es la pantalla de «qué tengo», y un almacenista al que le
+ * preguntan por una pulidora no debería tener que saber que las pulidoras se
+ * llevan en otro lado. Los activos entran agrupados por almacén y artículo
+ * —igual que el material—, y el renglón dice cuántas de esas piezas están
+ * realmente disponibles.
+ */
+export const EXISTENCIAS_CON_ACTIVOS_DEMO: AlmExistenciaDemo[] = [...EXISTENCIAS_DEMO, ...existenciasDeActivos()];
+
+/**
+ * Si el renglón toca ese lugar.
+ *
+ * Un renglón medido está en un solo lado; uno por pieza puede estar repartido,
+ * y filtrar por «Estantería de herramienta» tiene que traerlo aunque una de sus
+ * pulidoras esté en la canastilla.
+ */
+export function existenciaEnUbicacion(existencia: AlmExistenciaDemo, ubicacionId: number): boolean {
+    return existencia.ubicacion_id === ubicacionId || (existencia.piezas?.ubicaciones.includes(ubicacionId) ?? false);
+}
+
+/** Si algo de ese renglón está sin acomodar. En los repartidos, basta una pieza. */
+export function existenciaSinAcomodar(existencia: AlmExistenciaDemo): boolean {
+    return existencia.piezas ? existencia.piezas.ubicaciones.includes(null) : existencia.ubicacion_id === null;
+}
 
 export const PRESTAMOS_DEMO: AlmPrestamoDemo[] = [
     // Vencido: debía volver el 2026-08-04 y sigue afuera.
@@ -578,6 +826,30 @@ export function pedidosSurtibles(claveAlmacen: string | undefined): AlmPedidoDem
 }
 
 /**
+ * Pedidos que una transferencia puede surtir: los que le pidieron al almacén
+ * origen y van a una obra.
+ *
+ * Los de consumo interno no salen por aquí. Es la misma regla que dibuja
+ * `comoSeSurte`: si el material se queda en la planta no hay a dónde
+ * transferirlo, se entrega con una salida.
+ */
+export function pedidosTransferibles(claveAlmacen: string | undefined): AlmPedidoDemo[] {
+    return pedidosSurtibles(claveAlmacen).filter((p) => p.obra !== null);
+}
+
+/**
+ * Los almacenes de una obra, que son los destinos válidos de su pedido.
+ *
+ * La obra viene etiquetada como `T4 — Torre 4` y el almacén sólo guarda la
+ * clave, así que se compara contra lo que va antes del guión.
+ */
+export function almacenesDeObra(obra: string): typeof ALMACENES_DEMO {
+    const clave = obra.split(' — ')[0];
+
+    return ALMACENES_DEMO.filter((a) => a.obra === clave);
+}
+
+/**
  * En qué se puede medir un artículo. Lo comparten el alta y la edición: si cada
  * pantalla trajera su propia lista, un artículo dado de alta en MTS podría
  * quedarse sin esa opción al corregirlo.
@@ -712,7 +984,10 @@ export const CONTEOS_DEMO: AlmConteoDemo[] = [
         folio: 'CIC-2608-0010',
         origen: 'manual',
         almacen: 'HER',
-        ubicacion: 'Estantería de herramienta',
+        // Todo el almacén y no un estante: la existencia de un artículo por
+        // pieza es del almacén completo, así que contar sólo la estantería
+        // dejaría fuera la que está en la canastilla.
+        ubicacion: null,
         clasificacion: null,
         fecha_programada: '2026-08-10',
         fecha_cierre: null,
@@ -720,7 +995,7 @@ export const CONTEOS_DEMO: AlmConteoDemo[] = [
         estatus: 'pendiente',
         ajuste_folio: null,
         renglones: [
-            { producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', ubicacion: 'Estantería', cantidad_sistema: 14, cantidad_contada: null },
+            { producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', ubicacion: null, cantidad_sistema: 5, cantidad_contada: null },
         ],
     },
     // Vencido: tocaba el 4 y sigue sin contarse.

@@ -7,7 +7,8 @@ import {
     ALMACENES_DEMO,
     ARTICULOS_DEMO,
     CLASES_ABC,
-    EXISTENCIAS_DEMO,
+    EXISTENCIAS_CON_ACTIVOS_DEMO,
+    existenciaEnUbicacion,
     REGLAS_ABC,
     rutaUbicacion,
     ubicacionesDe,
@@ -52,14 +53,15 @@ export default function ConteoCreate() {
             return [];
         }
 
-        return EXISTENCIAS_DEMO.filter((e) => e.almacen === almacen)
+        return EXISTENCIAS_CON_ACTIVOS_DEMO
+            .filter((e) => e.almacen === almacen)
             .map((e) => ({ existencia: e, articulo: ARTICULOS_DEMO.find((a) => a.codigo === e.producto) }))
             .filter(({ existencia, articulo }) => {
                 if (!articulo?.controla_inventario) {
                     return false;
                 }
 
-                if (ubicacion && String(existencia.ubicacion_id) !== ubicacion) {
+                if (ubicacion && !existenciaEnUbicacion(existencia, Number(ubicacion))) {
                     return false;
                 }
 

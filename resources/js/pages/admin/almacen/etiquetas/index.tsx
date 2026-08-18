@@ -8,7 +8,7 @@ import {
     ALMACENES_DEMO,
     ARTICULOS_DEMO,
     CLASES_ABC,
-    EXISTENCIAS_DEMO,
+    EXISTENCIAS_CON_ACTIVOS_DEMO,
     REGLAS_ABC,
     rutaUbicacion,
 } from '@/lib/alm/demo';
@@ -86,7 +86,7 @@ export default function EtiquetasIndex() {
                 codigo: p.no_serie,
                 descripcion: p.descripcion,
                 barras: p.codigo_barras ?? p.no_serie,
-                detalle: `${p.almacen}${p.ubicacion ? ` · ${p.ubicacion}` : ''}`,
+                detalle: [p.almacen, rutaUbicacion(p.ubicacion_id)].filter(Boolean).join(' · '),
             }));
         }
 
@@ -96,7 +96,7 @@ export default function EtiquetasIndex() {
                 return false;
             }
 
-            if (almacen && !EXISTENCIAS_DEMO.some((e) => e.almacen === almacen && e.producto === a.codigo)) {
+            if (almacen && !EXISTENCIAS_CON_ACTIVOS_DEMO.some((e) => e.almacen === almacen && e.producto === a.codigo)) {
                 return false;
             }
 
@@ -112,7 +112,7 @@ export default function EtiquetasIndex() {
                 (a.modelo ?? '').toLowerCase().includes(texto)
             );
         }).map((a) => {
-            const existencia = EXISTENCIAS_DEMO.find(
+            const existencia = EXISTENCIAS_CON_ACTIVOS_DEMO.find(
                 (e) => e.producto === a.codigo && (!almacen || e.almacen === almacen),
             );
             const lugar = existencia ? rutaUbicacion(existencia.ubicacion_id) : null;

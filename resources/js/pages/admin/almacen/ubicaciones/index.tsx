@@ -3,7 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ALMACENES_DEMO, EXISTENCIAS_DEMO, TIPOS_UBICACION, ubicacionesDe } from '@/lib/alm/demo';
+import {
+    ALMACENES_DEMO,
+    existenciaEnUbicacion,
+    existenciaSinAcomodar,
+    EXISTENCIAS_CON_ACTIVOS_DEMO,
+    TIPOS_UBICACION,
+    ubicacionesDe,
+} from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmUbicacionDemo, AlmUbicacionTipo } from '@/types/models';
 import { Head } from '@inertiajs/react';
@@ -57,11 +64,15 @@ export default function UbicacionesIndex() {
     const delAlmacen = ubicacionesDe(almacen).filter((u) => mostrarInactivas || u.activa);
     const filas = arbolDe(delAlmacen);
 
+    // Incluye las piezas con serie: la estantería de herramienta no está vacía
+    // sólo porque su existencia se cuente pieza por pieza.
+    const existencias = EXISTENCIAS_CON_ACTIVOS_DEMO;
+
     /** Cuántos artículos viven en cada lugar: sin esto, borrar es a ciegas. */
     const articulosEn = (ubicacionId: number) =>
-        EXISTENCIAS_DEMO.filter((e) => e.ubicacion_id === ubicacionId).length;
+        existencias.filter((e) => existenciaEnUbicacion(e, ubicacionId)).length;
 
-    const sinAcomodar = EXISTENCIAS_DEMO.filter((e) => e.almacen === almacen && e.ubicacion_id === null).length;
+    const sinAcomodar = existencias.filter((e) => e.almacen === almacen && existenciaSinAcomodar(e)).length;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

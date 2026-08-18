@@ -8,7 +8,7 @@ import {
     ARTICULOS_DEMO,
     CLASES_ABC,
     ESTATUS_ACTIVO,
-    EXISTENCIAS_DEMO,
+    EXISTENCIAS_CON_ACTIVOS_DEMO,
     preciosDe,
     REGLAS_ABC,
     rutaUbicacion,
@@ -37,7 +37,7 @@ export default function ArticuloShow({ articuloId }: Props) {
     const articulo = ARTICULOS_DEMO.find((a) => a.id === articuloId) ?? ARTICULOS_DEMO[0];
 
     const precios = preciosDe(articulo.id);
-    const existencias = EXISTENCIAS_DEMO.filter((e) => e.producto === articulo.codigo);
+    const existencias = EXISTENCIAS_CON_ACTIVOS_DEMO.filter((e) => e.producto === articulo.codigo);
     const piezas = ACTIVOS_DEMO.filter((p) => p.producto_id === articulo.id);
     const regla = REGLAS_ABC.find((r) => r.clasificacion === articulo.clasificacion_abc);
 
@@ -360,7 +360,9 @@ export default function ArticuloShow({ articuloId }: Props) {
                                                 <span className="badge badge-sm badge-ghost font-mono">{p.almacen}</span>
                                             </td>
                                             <td className="text-base-content/60 text-sm">
-                                                {p.ubicacion ?? <span className="text-base-content/40">—</span>}
+                                                {rutaUbicacion(p.ubicacion_id) ?? (
+                                                    <span className="text-base-content/40">—</span>
+                                                )}
                                             </td>
                                             <td>
                                                 <span className={`badge badge-sm ${ESTATUS_ACTIVO[p.estatus].clase}`}>

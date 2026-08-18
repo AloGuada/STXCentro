@@ -4,7 +4,7 @@ import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ALMACENES_DEMO, disponibleDemo } from '@/lib/alm/demo';
+import { almacenesDeObra, ALMACENES_DEMO, disponibleDemo, pedidosTransferibles } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmPartidaBorrador } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
@@ -21,12 +21,57 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function TransferenciaCreate() {
     const [origenId, setOrigenId] = useState('');
     const [destinoId, setDestinoId] = useState('');
+    const [pedidoId, setPedidoId] = useState('');
     const [fecha, setFecha] = useState('');
     const [observaciones, setObservaciones] = useState('');
     const [partidas, setPartidas] = useState<AlmPartidaBorrador[]>([{ ...PARTIDA_VACIA }]);
 
     const claveOrigen = ALMACENES_DEMO.find((a) => String(a.id) === origenId)?.clave;
     const mismoAlmacen = origenId !== '' && origenId === destinoId;
+
+    const surtibles = pedidosTransferibles(claveOrigen);
+    const pedido = surtibles.find((p) => String(p.id) === pedidoId);
+
+    // Con pedido, el destino se acota a los almacenes de esa obra: mandarlo a
+    // otro lado dejaría el pedido abierto y el material en la bodega equivocada.
+    const destinos = pedido?.obra ? almacenesDeObra(pedido.obra) : ALMACENES_DEMO;
+
+    /** Cambiar de origen invalida el pedido: ya no es el almacén al que le pidieron. */
+    const elegirOrigen = (valor: string) => {
+        setOrigenId(valor);
+        setPedidoId('');
+    };
+
+    /**
+     * Al surtir un pedido los renglones se traen solos, con lo que falta por
+     * entregar. El almacenista puede mandar menos: el resto queda pendiente
+     * para el siguiente viaje.
+     */
+    const elegirPedido = (valor: string) => {
+        setPedidoId(valor);
+
+        const elegido = surtibles.find((p) => String(p.id) === valor);
+
+        if (!elegido) {
+            setPartidas([{ ...PARTIDA_VACIA }]);
+
+            return;
+        }
+
+        // Si la obra tiene un solo almacén no hay nada que preguntar.
+        const posibles = elegido.obra ? almacenesDeObra(elegido.obra) : [];
+        setDestinoId(posibles.length === 1 ? String(posibles[0].id) : '');
+
+        setPartidas(
+            elegido.detalle
+                .filter((d) => d.cantidad_surtida < d.cantidad_solicitada)
+                .map((d) => ({
+                    ...PARTIDA_VACIA,
+                    producto_id: String(d.producto_id),
+                    cantidad: String(d.cantidad_solicitada - d.cantidad_surtida),
+                })),
+        );
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -56,12 +101,12 @@ export default function TransferenciaCreate() {
 
                 <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
                     <div className="rounded-box border-base-300 border p-4">
-                        <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[1fr_auto_1fr_1fr]">
+                        <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[1fr_auto_1fr]">
                             <FormField label="Almacén origen" htmlFor="origen" required>
                                 <Select
                                     id="origen"
                                     value={origenId}
-                                    onValueChange={setOrigenId}
+                                    onValueChange={elegirOrigen}
                                     placeholder="¿De dónde sale?"
                                 >
                                     {ALMACENES_DEMO.map((a) => (
@@ -78,6 +123,7 @@ export default function TransferenciaCreate() {
                                 label="Almacén destino"
                                 htmlFor="destino"
                                 error={mismoAlmacen ? 'El destino tiene que ser otro almacén.' : undefined}
+                                description={pedido?.obra ? `Almacenes de ${pedido.obra}` : undefined}
                                 required
                             >
                                 <Select
@@ -87,9 +133,35 @@ export default function TransferenciaCreate() {
                                     placeholder="¿A dónde llega?"
                                     error={mismoAlmacen}
                                 >
-                                    {ALMACENES_DEMO.map((a) => (
+                                    {destinos.map((a) => (
                                         <SelectItem key={a.id} value={String(a.id)}>
                                             {a.clave} — {a.nombre}
+                                        </SelectItem>
+                                    ))}
+                                </Select>
+                            </FormField>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <FormField
+                                label="Pedido que surte"
+                                htmlFor="pedido"
+                                description={
+                                    claveOrigen
+                                        ? 'Trae los renglones que faltan por entregar. Déjalo vacío si el envío no lo pidió nadie.'
+                                        : 'Elige primero el almacén origen: el pedido se le hizo a él.'
+                                }
+                            >
+                                <Select
+                                    id="pedido"
+                                    value={pedidoId}
+                                    onValueChange={elegirPedido}
+                                    placeholder="Sin pedido — envío por decisión del almacén"
+                                    disabled={!claveOrigen}
+                                >
+                                    {surtibles.map((p) => (
+                                        <SelectItem key={p.id} value={String(p.id)}>
+                                            {p.folio} — {p.obra}
                                         </SelectItem>
                                     ))}
                                 </Select>
