@@ -8,7 +8,7 @@ import { ALMACENES_DEMO, disponibleDemo } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmPartidaBorrador } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
-import { ArrowRightIcon } from 'lucide-react';
+import { ArrowRightIcon, TruckIcon } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -35,14 +35,23 @@ export default function TransferenciaCreate() {
             <div className="p-6">
                 <div className="mb-6">
                     <h1 className="text-2xl font-semibold">Nueva transferencia</h1>
-                    <p className="text-base-content/60 mt-1 text-sm">
-                        Se registra como una sola operación: lo que sale del origen entra al destino en el mismo
-                        instante, nunca a medias.
+                    <p className="text-base-content/60 mt-1 max-w-3xl text-sm">
+                        Este es el <strong>primer tiempo</strong>: el envío. Lo que se capture aquí sale del almacén
+                        origen y queda en tránsito —no suma en el destino todavía—. El mismo folio se firma otra vez
+                        cuando la obra confirme qué llegó.
                     </p>
                 </div>
 
                 <div className="alert alert-warning mb-4">
                     <span>Vista de maqueta: el formulario todavía no guarda nada.</span>
+                </div>
+
+                <div className="alert alert-info mb-4">
+                    <TruckIcon className="size-5" />
+                    <span>
+                        Planta y obra están a kilómetros, así que el documento no se cierra de un golpe: el destino
+                        puede confirmar menos de lo enviado y la diferencia queda como faltante con dueño y fecha.
+                    </span>
                 </div>
 
                 <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
@@ -86,7 +95,7 @@ export default function TransferenciaCreate() {
                                 </Select>
                             </FormField>
 
-                            <FechasMovimiento fecha={fecha} onChange={setFecha} />
+                            <FechasMovimiento fecha={fecha} onChange={setFecha} label="Fecha del envío" />
                         </div>
 
                         <FormField label="Observaciones" htmlFor="observaciones" className="mt-4">
@@ -103,6 +112,9 @@ export default function TransferenciaCreate() {
 
                     <div>
                         <h2 className="mb-3 text-lg font-semibold">Partidas</h2>
+                        <p className="text-base-content/60 mb-3 text-sm">
+                            Lo que se manda. Contra esto va a confirmar el destino, renglón por renglón.
+                        </p>
                         <CapturadorPartidas
                             partidas={partidas}
                             onChange={setPartidas}
@@ -115,7 +127,7 @@ export default function TransferenciaCreate() {
                             <Link href="/admin/almacen/transferencias">Cancelar</Link>
                         </Button>
                         <Button type="submit" disabled>
-                            Guardar transferencia
+                            Registrar envío
                         </Button>
                     </div>
                 </form>

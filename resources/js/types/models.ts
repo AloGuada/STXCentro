@@ -3372,14 +3372,47 @@ export type AlmSalidaDemo = {
     pedido_folio: string | null;
 };
 
+/**
+ * En qué tiempo va la transferencia. No es un adorno: mientras esté
+ * `en_transito` el material no es existencia de nadie —salió del origen y el
+ * destino todavía no lo confirma—, así que el saldo vive en un tercer lugar.
+ */
+export type AlmTransferenciaEstatus = 'en_transito' | 'recibida';
+
+export type AlmTransferenciaRenglonDemo = {
+    producto_id: number;
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+    cantidad_enviada: number;
+    /** Lo que el destino confirmó. `null` mientras va en el camión. */
+    cantidad_recibida: number | null;
+};
+
+/**
+ * Un documento en dos tiempos, no dos documentos: un folio `TRA` que se firma
+ * al enviar y otra vez al recibir. El destino puede confirmar menos, y esa
+ * diferencia se queda como faltante con dueño y fecha en vez de perdonarse.
+ */
 export type AlmTransferenciaDemo = {
     id: number;
     folio: string;
-    fecha: string;
+    /** Primer tiempo: cuándo salió del origen. */
+    fecha_envio: string;
+    /** Segundo tiempo: cuándo lo confirmó el destino. */
+    fecha_recepcion: string | null;
     origen: string;
     destino: string;
-    renglones: number;
+    estatus: AlmTransferenciaEstatus;
     autorizo: string;
+    envio: string;
+    recibio: string | null;
+    /** Pedido de obra que surte, si viene de uno. */
+    pedido_folio: string | null;
+    /** A quién se le cargó el faltante del tránsito. */
+    faltante_responsable: string | null;
+    observaciones: string | null;
+    renglones: AlmTransferenciaRenglonDemo[];
 };
 
 /** Por qué se corrigió la existencia. Es lo que justifica el movimiento. */

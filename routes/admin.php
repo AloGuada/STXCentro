@@ -276,6 +276,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('transferencias/create', [AlmVistasController::class, 'transferenciaCreate'])
             ->middleware('permission:alm.transferencias.enviar')
             ->name('transferencias.create');
+        // Despues de 'create' o la recepcion se comeria esa ruta. Va con
+        // 'recibir' y no con 'ver': esta pantalla es la firma del destino.
+        Route::get('transferencias/{transferencia}', [AlmVistasController::class, 'transferenciaShow'])
+            ->whereNumber('transferencia')
+            ->middleware('permission:alm.transferencias.recibir')
+            ->name('transferencias.show');
         Route::get('devoluciones', [AlmVistasController::class, 'devoluciones'])
             ->middleware('permission:alm.devoluciones.ver')
             ->name('devoluciones.index');

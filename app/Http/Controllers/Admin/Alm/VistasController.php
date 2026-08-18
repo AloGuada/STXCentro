@@ -56,6 +56,15 @@ class VistasController extends Controller
         return Inertia::render('admin/almacen/transferencias/create');
     }
 
+    /**
+     * Segundo tiempo de la transferencia: el destino confirma qué llegó. Es el
+     * mismo documento, no uno nuevo, así que vive en el show y no en un create.
+     */
+    public function transferenciaShow(int $transferencia): Response
+    {
+        return Inertia::render('admin/almacen/transferencias/show', ['transferenciaId' => $transferencia]);
+    }
+
     public function devoluciones(): Response
     {
         return Inertia::render('admin/almacen/devoluciones/index');

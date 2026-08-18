@@ -48,6 +48,7 @@ $pantallasConId = [
     'ficha de articulo' => ['admin.alm.articulos.show', 'admin/almacen/articulos/show', 'alm.articulos.ver', 101],
     'edicion de articulo' => ['admin.alm.articulos.edit', 'admin/almacen/articulos/edit', 'alm.articulos.editar', 101],
     'captura de conteo' => ['admin.alm.conteos.show', 'admin/almacen/conteos/show', 'alm.conteos.capturar', 8],
+    'recepcion de transferencia' => ['admin.alm.transferencias.show', 'admin/almacen/transferencias/show', 'alm.transferencias.recibir', 7],
 ];
 
 test('la pantalla abre con su permiso', function (string $ruta, string $componente, string $permiso) {
@@ -115,6 +116,32 @@ test('ver un articulo no alcanza para editarlo', function () {
  * Consultar el programa de conteos y teclear lo contado son cosas distintas:
  * lo capturado termina en un ajuste de existencias.
  */
+/**
+ * Los dos tiempos de la transferencia son de dos personas distintas: el origen
+ * despacha y el destino confirma qué llegó. Si una sola firma alcanzara para
+ * ambos, el faltante del camino lo cerraría quien lo cargó.
+ */
+test('enviar una transferencia no alcanza para recibirla', function () {
+    Permission::firstOrCreate(['name' => 'alm.transferencias.enviar', 'guard_name' => 'web']);
+
+    $almacenista = User::factory()->create();
+    $almacenista->givePermissionTo('alm.transferencias.enviar');
+
+    $this->actingAs($almacenista)->get(route('admin.alm.transferencias.create'))->assertOk();
+    $this->actingAs($almacenista)->get(route('admin.alm.transferencias.show', 7))->assertForbidden();
+});
+
+/** Y al revés: quien recibe en la obra no despacha desde la planta. */
+test('recibir una transferencia no alcanza para enviarla', function () {
+    Permission::firstOrCreate(['name' => 'alm.transferencias.recibir', 'guard_name' => 'web']);
+
+    $obra = User::factory()->create();
+    $obra->givePermissionTo('alm.transferencias.recibir');
+
+    $this->actingAs($obra)->get(route('admin.alm.transferencias.show', 7))->assertOk();
+    $this->actingAs($obra)->get(route('admin.alm.transferencias.create'))->assertForbidden();
+});
+
 test('ver los conteos no alcanza para capturarlos', function () {
     Permission::firstOrCreate(['name' => 'alm.conteos.ver', 'guard_name' => 'web']);
 

@@ -31,6 +31,7 @@ import type {
     AlmReglaAprobacion,
     AlmSalidaDemo,
     AlmTransferenciaDemo,
+    AlmTransferenciaEstatus,
     AlmUbicacionDemo,
     AlmUbicacionTipo,
     AlmUsuarioDemo,
@@ -160,10 +161,132 @@ export const SALIDAS_DEMO: AlmSalidaDemo[] = [
     { id: 28, folio: 'SAL-2608-0028', fecha: '2026-08-02', almacen: 'FAD', obra_destino: 'T4 — Torre 4', solicitante: 'L. Ortega', recibe: 'Cuadrilla 2', renglones: 1, motivo: 'Equipo de protección', pedido_folio: null },
 ];
 
+/**
+ * Cada transferencia es un solo folio con dos firmas. La de arriba va en el
+ * camión: ya salió de AG y todavía no es existencia de E, y ese es justo el
+ * saldo que el kardex tiene que poder mostrar aparte.
+ */
 export const TRANSFERENCIAS_DEMO: AlmTransferenciaDemo[] = [
-    { id: 4, folio: 'TRA-2608-0004', fecha: '2026-08-04', origen: 'AG', destino: 'FAK', renglones: 1, autorizo: 'J. Briones' },
-    { id: 3, folio: 'TRA-2608-0003', fecha: '2026-07-30', origen: 'AG', destino: 'E', renglones: 2, autorizo: 'J. Briones' },
+    {
+        id: 7,
+        folio: 'TRA-2608-0007',
+        fecha_envio: '2026-08-10',
+        fecha_recepcion: null,
+        origen: 'AG',
+        destino: 'E',
+        estatus: 'en_transito',
+        autorizo: 'J. Briones',
+        envio: 'M. Rangel',
+        recibio: null,
+        pedido_folio: 'PED-2608-0021',
+        faltante_responsable: null,
+        observaciones: 'Va en la Ranger con el material de MBP',
+        renglones: [
+            { producto_id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', cantidad_enviada: 20, cantidad_recibida: null },
+            { producto_id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad_enviada: 60, cantidad_recibida: null },
+        ],
+    },
+    // El sobrante de una obra vuelve por aquí, no por devolución: la devolución
+    // es de piezas con serie y no mueve saldo.
+    {
+        id: 6,
+        folio: 'TRA-2608-0006',
+        fecha_envio: '2026-08-05',
+        fecha_recepcion: '2026-08-05',
+        origen: 'FAK',
+        destino: 'AG',
+        estatus: 'recibida',
+        autorizo: 'J. Briones',
+        envio: 'L. Ortega',
+        recibio: 'M. Rangel',
+        pedido_folio: null,
+        faltante_responsable: null,
+        observaciones: 'Sobrante de T4',
+        renglones: [
+            { producto_id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', cantidad_enviada: 300, cantidad_recibida: 300 },
+        ],
+    },
+    {
+        id: 4,
+        folio: 'TRA-2608-0004',
+        fecha_envio: '2026-08-04',
+        fecha_recepcion: '2026-08-04',
+        origen: 'AG',
+        destino: 'FAK',
+        estatus: 'recibida',
+        autorizo: 'J. Briones',
+        envio: 'M. Rangel',
+        recibio: 'L. Ortega',
+        pedido_folio: null,
+        faltante_responsable: null,
+        observaciones: null,
+        renglones: [
+            { producto_id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', cantidad_enviada: 12, cantidad_recibida: 12 },
+        ],
+    },
+    // Llegó menos de lo que salió: se recibió lo que había y la diferencia
+    // quedó con dueño y fecha, que es lo que se pierde cuando el documento se
+    // captura de un solo golpe.
+    {
+        id: 3,
+        folio: 'TRA-2608-0003',
+        fecha_envio: '2026-07-30',
+        fecha_recepcion: '2026-07-31',
+        origen: 'AG',
+        destino: 'E',
+        estatus: 'recibida',
+        autorizo: 'J. Briones',
+        envio: 'M. Rangel',
+        recibio: 'L. Ortega',
+        pedido_folio: null,
+        faltante_responsable: 'M. Rangel',
+        observaciones: 'Un tambo de electrodo llegó abierto',
+        renglones: [
+            { producto_id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad_enviada: 80, cantidad_recibida: 74.25 },
+            { producto_id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', cantidad_enviada: 12, cantidad_recibida: 12 },
+        ],
+    },
 ];
+
+/**
+ * Cómo se lee cada tiempo. «Recibida con faltante» no es un estatus aparte: es
+ * una recepción cerrada en la que lo confirmado no alcanzó lo enviado, y se
+ * distingue en pantalla porque es lo que alguien tiene que ir a explicar.
+ */
+export const ESTATUS_TRANSFERENCIA: Record<AlmTransferenciaEstatus, { etiqueta: string; clase: string }> = {
+    en_transito: { etiqueta: 'En tránsito', clase: 'badge-warning' },
+    recibida: { etiqueta: 'Recibida', clase: 'badge-success' },
+};
+
+/**
+ * Lo enviado, lo confirmado y lo que se quedó en el camino.
+ *
+ * El faltante se suma por renglón y nunca se compensa entre renglones: que
+ * llegara un disco de más no repone el electrodo que faltó.
+ */
+export function resumenTransferencia(transferencia: AlmTransferenciaDemo): {
+    enviado: number;
+    recibido: number;
+    faltante: number;
+    renglonesConFaltante: number;
+} {
+    return transferencia.renglones.reduce(
+        (resumen, renglon) => {
+            // Sin confirmar todavía no hay faltante: lo que va en el camión no
+            // se le debe a nadie, está en tránsito.
+            const confirmado = renglon.cantidad_recibida;
+            const faltante = confirmado === null ? 0 : Math.max(0, renglon.cantidad_enviada - confirmado);
+
+            return {
+                enviado: resumen.enviado + renglon.cantidad_enviada,
+                recibido: resumen.recibido + (confirmado ?? 0),
+                faltante: resumen.faltante + faltante,
+                renglonesConFaltante: resumen.renglonesConFaltante + (faltante > 0 ? 1 : 0),
+            };
+        },
+        { enviado: 0, recibido: 0, faltante: 0, renglonesConFaltante: 0 },
+    );
+}
 
 export const AJUSTES_DEMO: AlmAjusteDemo[] = [
     { id: 12, folio: 'AJU-2608-0012', fecha: '2026-08-01', almacen: 'AG', motivo: 'conteo_fisico', renglones: 1, diferencia_neta: -4, autorizo: 'J. Briones' },
