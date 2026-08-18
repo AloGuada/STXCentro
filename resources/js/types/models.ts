@@ -1717,6 +1717,11 @@ export type PresupuestoRow = {
     sum_presupuestado: number;
     sum_acumulado: number;
     sum_apartado?: number;
+    /**
+     * El PDF autorizado del presupuesto, cuando ya se cargó. Es uno solo: al
+     * subir otro reemplaza al anterior.
+     */
+    documento: { nombre: string | null; path: string } | null;
 };
 
 export type CostosPermiso = {

@@ -48,6 +48,9 @@ enum DocumentoTipo: string
     case SolicitudArchivo = 'solicitud_archivo';
     case SolicitudFirmada = 'solicitud_firmada';
 
+    // Presupuesto (el documento autorizado de la obra)
+    case PresupuestoDocumento = 'presupuesto_documento';
+
     public function label(): string
     {
         return match ($this) {
@@ -67,6 +70,7 @@ enum DocumentoTipo: string
             self::Contrarecibo => 'Contrarecibo',
             self::SolicitudArchivo => 'Anexo de solicitud',
             self::SolicitudFirmada => 'Solicitud firmada',
+            self::PresupuestoDocumento => 'Documento del presupuesto',
         };
     }
 
@@ -86,7 +90,8 @@ enum DocumentoTipo: string
             self::OcPdfFirmado,
             self::ComprobantePago,
             self::Contrarecibo,
-            self::SolicitudFirmada => 'pdf',
+            self::SolicitudFirmada,
+            self::PresupuestoDocumento => 'pdf',
             self::EvidenciaRecepcion,
             self::ComprobanteRecepcion,
             self::EvidenciaDevolucion => 'pdf,jpg,jpeg,png,webp',

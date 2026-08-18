@@ -1,8 +1,9 @@
+import { Head, router } from '@inertiajs/react';
+import { FileTextIcon, PrinterIcon } from 'lucide-react';
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosPresupuestoEstatus, PaginatedData, PresupuestableTipo, PresupuestoRow } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -51,6 +52,31 @@ const columns: Column<PresupuestoRow>[] = [
             <span className="text-sm text-base-content/70">{p.descripcion ?? '—'}</span>
         ),
     },
+    {
+        // El PDF autorizado del presupuesto. Se sube en la pantalla de edición
+        // y se abre desde aquí, que es donde se consulta la obra.
+        key: 'documento',
+        label: 'Presupuesto',
+        className: 'text-center',
+        render: (p) =>
+            p.documento ? (
+                <a
+                    href={`/storage/${p.documento.path}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-ghost btn-xs"
+                    title={p.documento.nombre ?? 'Abrir el PDF del presupuesto'}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <FileTextIcon className="size-4" />
+                    PDF
+                </a>
+            ) : (
+                <span className="text-base-content/30" title="Todavía no se ha cargado el documento">
+                    —
+                </span>
+            ),
+    },
 ];
 
 type Props = {
@@ -69,6 +95,13 @@ export default function ObrasActivasIndex({ presupuestos, estatus, conteos, filt
     };
 
     const tabClass = (activo: boolean) => `tab ${activo ? 'tab-active font-medium' : ''}`;
+
+    const parametros = new URLSearchParams({
+        estatus,
+        ...(filters.search ? { search: filters.search } : {}),
+        ...(sortBy ? { sort_by: sortBy, sort_dir: sortDir ?? 'asc' } : {}),
+    });
+    const urlImpresion = `/admin/costos/obras-activas/pdf?${parametros.toString()}`;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -96,7 +129,14 @@ export default function ObrasActivasIndex({ presupuestos, estatus, conteos, filt
                     getRowHref={(p) => `/admin/costos/presupuestos/${p.id}/edit`}
                     sortBy={sortBy}
                     sortDir={sortDir}
-                />
+                >
+                    {/* Imprime lo que se está viendo: se lleva la pestaña, la
+                        búsqueda y el orden, pero sin paginar. */}
+                    <a href={urlImpresion} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">
+                        <PrinterIcon className="size-4" />
+                        Imprimir PDF
+                    </a>
+                </DataTable>
             </div>
         </AppLayout>
     );

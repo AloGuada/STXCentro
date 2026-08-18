@@ -505,12 +505,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // Presupuestos (proyecto / obra / partida)
         Route::get('presupuestos', [CostosPresupuestoController::class, 'index'])->name('presupuestos.index');
         Route::get('obras-activas', [CostosPresupuestoController::class, 'obrasActivas'])->name('obras-activas.index');
+        Route::get('obras-activas/pdf', [CostosPresupuestoController::class, 'obrasActivasPdf'])->name('obras-activas.pdf');
         Route::get('presupuestos/reporte-pdf', [CostosPresupuestoController::class, 'generarReportePdf'])->name('presupuestos.reporte-pdf');
         Route::post('presupuestos/planta', [CostosPresupuestoController::class, 'storePlanta'])->name('presupuestos.planta.store');
         Route::post('presupuestos', [CostosPresupuestoController::class, 'store'])->name('presupuestos.store');
         Route::get('presupuestos/{presupuesto}/edit', [CostosPresupuestoController::class, 'edit'])->name('presupuestos.edit');
         Route::put('presupuestos/{presupuesto}', [CostosPresupuestoController::class, 'update'])->name('presupuestos.update');
         Route::post('presupuestos/{presupuesto}/estado', [CostosPresupuestoController::class, 'cambiarEstado'])->name('presupuestos.estado');
+        Route::post('presupuestos/{presupuesto}/documento', [CostosPresupuestoController::class, 'subirDocumento'])->name('presupuestos.documento');
 
         // Cuentas Internas
         Route::get('cuentas-internas', [CostosCuentaInternaController::class, 'index'])->name('cuentas-internas.index');
