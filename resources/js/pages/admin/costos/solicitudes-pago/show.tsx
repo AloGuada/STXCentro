@@ -460,7 +460,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
                         obraRubros={obraRubros}
                         detallesActuales={solicitud.detalles ?? []}
                         totalBloqueado={solicitud.estatus === 'pagada'}
-                        montoPagado={Number(solicitud.monto_total)}
+                        montoSolicitud={Number(solicitud.monto_total)}
                     />
                 )}
             </div>
