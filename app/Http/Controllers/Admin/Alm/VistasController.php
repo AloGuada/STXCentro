@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Admin\Alm;
 
 use App\Http\Controllers\Controller;
-use App\Models\Alm\Area;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -113,50 +112,6 @@ class VistasController extends Controller
     public function activoCreate(): Response
     {
         return Inertia::render('admin/almacen/activos/create');
-    }
-
-    public function articulos(): Response
-    {
-        return Inertia::render('admin/almacen/articulos/index');
-    }
-
-    /**
-     * El alta sigue siendo maqueta y no guarda nada, pero las áreas que ofrece
-     * son las de verdad: ese catálogo ya existe, y llenar su desplegable con
-     * datos de ejemplo obligaría a revisar el diseño contra una lista que nadie
-     * va a ver en producción.
-     */
-    public function articuloCreate(): Response
-    {
-        return Inertia::render('admin/almacen/articulos/create', [
-            'areas' => Area::query()->activas()->orderBy('descripcion')->get(['id', 'descripcion']),
-        ]);
-    }
-
-    /**
-     * La maqueta no consulta la base: sólo le pasa el id para que elija de sus
-     * datos de ejemplo cuál artículo dibujar.
-     */
-    public function articuloShow(int $articulo): Response
-    {
-        return Inertia::render('admin/almacen/articulos/show', ['articuloId' => $articulo]);
-    }
-
-    /**
-     * Igual que el alta: la maqueta no guarda, pero las áreas son las de verdad
-     * para poder revisar el desplegable contra el catálogo real.
-     */
-    public function articuloEdit(int $articulo): Response
-    {
-        return Inertia::render('admin/almacen/articulos/edit', [
-            'articuloId' => $articulo,
-            'areas' => Area::query()->activas()->orderBy('descripcion')->get(['id', 'descripcion']),
-        ]);
-    }
-
-    public function ubicaciones(): Response
-    {
-        return Inertia::render('admin/almacen/ubicaciones/index');
     }
 
     public function conteos(): Response

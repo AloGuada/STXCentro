@@ -3795,6 +3795,102 @@ export type AlmPrestamoDemo = {
  */
 export type AlmUbicacionTipo = 'pasillo' | 'rack' | 'nivel' | 'contenedor' | 'zona';
 
+/**
+ * Un renglón del árbol de ubicaciones de un almacén, ya aplanado en el orden en
+ * que se recorre físicamente. `nivel` es la profundidad, para sangrarlo sin
+ * tener que rearmar la jerarquía en el navegador.
+ */
+export type AlmUbicacionFila = {
+    id: number;
+    padre_id: number | null;
+    /** Único dentro del almacén: es lo que se rotula en el anaquel. */
+    codigo: string;
+    nombre: string;
+    tipo: AlmUbicacionTipo;
+    activa: boolean;
+    nivel: number;
+    /** Cuántos artículos con saldo viven ahí. Dar de baja a ciegas pierde material. */
+    articulos: number;
+};
+
+/** El almacén como lo ofrece el selector de las pantallas de inventario. */
+export type AlmAlmacenOpcion = {
+    id: number;
+    clave: string;
+    nombre: string;
+    obra_id: number | null;
+    obra?: { id: number; no: string; descripcion?: string | null } | null;
+    tipo: AlmAlmacenTipo;
+};
+
+/** Una opción de catálogo con su etiqueta ya resuelta en el servidor. */
+export type AlmOpcion = {
+    value: string;
+    label: string;
+};
+
+/** La clase ABC con lo que decide: cada cuánto toca contar. */
+export type AlmOpcionClase = AlmOpcion & {
+    frecuencia_dias: number;
+    descripcion: string;
+};
+
+/**
+ * Un artículo del catálogo compartido con Compras, visto desde Almacén.
+ *
+ * `codigo` no se edita nunca: lo pone el sistema y con él se etiquetaron cajas y
+ * se sellaron movimientos.
+ */
+export type AlmArticulo = {
+    id: number;
+    codigo: string;
+    codigo_barras: string | null;
+    descripcion: string;
+    /** Cómo se llama en el sistema anterior. Sólo para conciliar; no se valida. */
+    idsteelex: string | null;
+    area_id: number | null;
+    area: string | null;
+    unidad: string;
+    tipo: AlmProductoTipo;
+    clasificacion_abc: AlmClasificacionAbc;
+    /** Un servicio o un gasto se compra pero no se almacena: no lleva kardex. */
+    controla_inventario: boolean;
+    /** Además del saldo, cada pieza con su número de serie y su resguardo. */
+    se_controla_por_pieza: boolean;
+    requiere_verificacion: boolean;
+    stock_minimo: number | null;
+    imagen_url: string | null;
+    /** Del histórico de Compras. Aquí sólo se consulta, nunca se captura. */
+    precio_ultimo: number | null;
+    /** Sumando todos los almacenes. */
+    existencia_total: number;
+};
+
+/** Cuánto hay de un artículo en un almacén, para la ficha. */
+export type AlmArticuloExistencia = {
+    /** El id de la existencia, para poder acomodarla desde la ficha. */
+    id: number;
+    almacen_id: number;
+    almacen: string;
+    almacen_nombre: string;
+    obra: string | null;
+    cantidad: number;
+    costo_promedio: number;
+    ubicacion_id: number | null;
+    /** La ruta completa: `Pasillo A / Rack A-1 / Nivel 2`. */
+    ubicacion: string | null;
+};
+
+/** Un punto del histórico de precios. Espeja `costos_producto_precios`. */
+export type AlmArticuloPrecio = {
+    id: number;
+    fecha: string | null;
+    proveedor: string | null;
+    precio: number;
+    moneda: string;
+    requisicion_id: number | null;
+};
+
 export type AlmUbicacionDemo = {
     id: number;
     almacen: string;

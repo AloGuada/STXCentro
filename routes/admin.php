@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
 use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
+use App\Http\Controllers\Admin\Alm\ArticuloController as AlmArticuloController;
+use App\Http\Controllers\Admin\Alm\UbicacionController as AlmUbicacionController;
 use App\Http\Controllers\Admin\Alm\VistasController as AlmVistasController;
 use App\Http\Controllers\Admin\BadgeConfigController;
 use App\Http\Controllers\Admin\BancoController;
@@ -312,24 +314,39 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('activos/create', [AlmVistasController::class, 'activoCreate'])
             ->middleware('permission:alm.activos.crear')
             ->name('activos.create');
-        Route::get('articulos', [AlmVistasController::class, 'articulos'])
-            ->middleware('permission:alm.articulos.ver')
-            ->name('articulos.index');
-        Route::get('articulos/create', [AlmVistasController::class, 'articuloCreate'])
-            ->middleware('permission:alm.articulos.crear')
-            ->name('articulos.create');
-        // Despues de 'create' o la ficha se comeria esa ruta
-        Route::get('articulos/{articulo}', [AlmVistasController::class, 'articuloShow'])
-            ->whereNumber('articulo')
-            ->middleware('permission:alm.articulos.ver')
-            ->name('articulos.show');
-        Route::get('articulos/{articulo}/edit', [AlmVistasController::class, 'articuloEdit'])
-            ->whereNumber('articulo')
-            ->middleware('permission:alm.articulos.editar')
-            ->name('articulos.edit');
-        Route::get('ubicaciones', [AlmVistasController::class, 'ubicaciones'])
+        // Catalogo de articulos: es costos_productos visto desde Almacen, no una
+        // tabla nueva. Sin destroy: un articulo con movimientos es parte del
+        // historico del kardex, y se desactiva.
+        Route::resource('articulos', AlmArticuloController::class)
+            ->parameters(['articulos' => 'articulo'])
+            ->except(['destroy'])
+            ->middlewareFor(['index', 'show'], 'permission:alm.articulos.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.articulos.crear')
+            ->middlewareFor(['edit', 'update'], 'permission:alm.articulos.editar');
+
+        // Ubicaciones: una sola pantalla con el arbol y el alta. Sin destroy,
+        // el kardex viejo menciona el lugar y borrarlo dejaria movimientos
+        // apuntando a un anaquel que ya no existe.
+        Route::get('ubicaciones', [AlmUbicacionController::class, 'index'])
             ->middleware('permission:alm.ubicaciones.ver')
             ->name('ubicaciones.index');
+        Route::post('ubicaciones', [AlmUbicacionController::class, 'store'])
+            ->middleware('permission:alm.ubicaciones.crear')
+            ->name('ubicaciones.store');
+        Route::put('ubicaciones/{ubicacion}', [AlmUbicacionController::class, 'update'])
+            ->whereNumber('ubicacion')
+            ->middleware('permission:alm.ubicaciones.editar')
+            ->name('ubicaciones.update');
+        Route::patch('ubicaciones/{ubicacion}/toggle', [AlmUbicacionController::class, 'toggle'])
+            ->whereNumber('ubicacion')
+            ->middleware('permission:alm.ubicaciones.editar')
+            ->name('ubicaciones.toggle');
+        // Acomodar material: la unica columna de alm_existencias que se escribe
+        // fuera del ledger, porque donde esta guardado no cambia el saldo.
+        Route::patch('existencias/{existencia}/ubicacion', [AlmUbicacionController::class, 'asignar'])
+            ->whereNumber('existencia')
+            ->middleware('permission:alm.ubicaciones.editar')
+            ->name('existencias.ubicacion');
         Route::get('conteos', [AlmVistasController::class, 'conteos'])
             ->middleware('permission:alm.conteos.ver')
             ->name('conteos.index');

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Alm\Area;
+use App\Models\Costos\Producto;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 
@@ -157,8 +158,10 @@ test('la edicion de articulo solo ofrece las areas activas', function () {
     $user = User::factory()->create();
     $user->givePermissionTo('alm.articulos.editar');
 
+    $articulo = Producto::factory()->create();
+
     $this->actingAs($user)
-        ->get(route('admin.alm.articulos.edit', 101))
+        ->get(route('admin.alm.articulos.edit', $articulo))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('areas', 1)
