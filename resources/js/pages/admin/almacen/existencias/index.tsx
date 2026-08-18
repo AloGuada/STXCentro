@@ -34,6 +34,12 @@ type ExistenciaFila = {
     ubicacion_id: number | null;
     ubicacion: string | null;
     ultimo_movimiento_at: string | null;
+    /**
+     * Sólo en los renglones por pieza. Suma exactamente la existencia: lo que
+     * cambia es que aquí sí se sabe en qué anda cada una, y eso decide lo que el
+     * almacenista puede prometer.
+     */
+    piezas: { disponibles: number; prestadas: number; en_reparacion: number } | null;
 };
 
 type Props = {
@@ -205,13 +211,14 @@ export default function ExistenciasIndex({ existencias, filters, resumen, almace
                                                     {e.codigo}
                                                 </Link>
                                                 <span className="block">{e.descripcion}</span>
-                                                {e.se_controla_por_pieza && (
-                                                    <span
+                                                {e.piezas && (
+                                                    <Link
+                                                        href={`/admin/almacen/activos?producto_id=${e.producto_id}&almacen_id=${e.almacen_id}`}
                                                         className="badge badge-xs badge-info"
-                                                        title="Cada pieza lleva número de serie; el detalle vive en Activos"
+                                                        title="Ver las piezas de este renglón"
                                                     >
-                                                        Por pieza
-                                                    </span>
+                                                        {e.piezas.disponibles} de {cantidad(e.cantidad)} disponible(s)
+                                                    </Link>
                                                 )}
                                             </td>
                                             <td className="text-base-content/60 font-mono text-xs">{e.unidad}</td>
@@ -224,6 +231,26 @@ export default function ExistenciasIndex({ existencias, filters, resumen, almace
                                                 )}
                                             </td>
                                             <td className="text-right font-mono">
+                                                {/* Cinco pulidoras con tres prestadas no son
+                                                    cinco pulidoras que entregar. */}
+                                                {e.piezas &&
+                                                    e.piezas.prestadas + e.piezas.en_reparacion > 0 && (
+                                                        <span
+                                                            className="text-base-content/50 block text-xs"
+                                                            title="Siguen siendo del almacén, pero no se pueden entregar"
+                                                        >
+                                                            {[
+                                                                e.piezas.prestadas > 0
+                                                                    ? `${e.piezas.prestadas} afuera`
+                                                                    : null,
+                                                                e.piezas.en_reparacion > 0
+                                                                    ? `${e.piezas.en_reparacion} en reparación`
+                                                                    : null,
+                                                            ]
+                                                                .filter(Boolean)
+                                                                .join(' · ')}
+                                                        </span>
+                                                    )}
                                                 <span
                                                     className={
                                                         e.cantidad < 0

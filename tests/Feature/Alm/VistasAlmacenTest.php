@@ -7,7 +7,7 @@ use Spatie\Permission\Models\Permission;
  * Las pantallas del módulo que todavía no tienen backend: sólo se comprueba que
  * la ruta abre su maqueta y que sigue detrás de su propio permiso. Conforme cada
  * una se construye sale de aquí y se prueba de verdad en su propio archivo
- * —artículos, ubicaciones, ajustes, kardex y existencias ya salieron—, hasta que este archivo desaparezca.
+ * —artículos, ubicaciones, ajustes, activos, kardex y existencias ya salieron—, hasta que este archivo desaparezca.
  *
  * Cada pantalla tiene el suyo a propósito. Mientras todas reciclaban
  * `alm.almacenes.ver`, quien podía consultar el catálogo podía capturar
@@ -27,8 +27,6 @@ $pantallas = [
     'alta de pedido' => ['admin.alm.pedidos.create', 'admin/almacen/pedidos/create', 'alm.pedidos.crear'],
     'prestamos' => ['admin.alm.prestamos.index', 'admin/almacen/prestamos/index', 'alm.prestamos.ver'],
     'alta de prestamo' => ['admin.alm.prestamos.create', 'admin/almacen/prestamos/create', 'alm.prestamos.crear'],
-    'activos' => ['admin.alm.activos.index', 'admin/almacen/activos/index', 'alm.activos.ver'],
-    'alta de activo' => ['admin.alm.activos.create', 'admin/almacen/activos/create', 'alm.activos.crear'],
     'conteos' => ['admin.alm.conteos.index', 'admin/almacen/conteos/index', 'alm.conteos.ver'],
     'alta de conteo' => ['admin.alm.conteos.create', 'admin/almacen/conteos/create', 'alm.conteos.crear'],
     'etiquetas' => ['admin.alm.etiquetas.index', 'admin/almacen/etiquetas/index', 'alm.etiquetas.ver'],

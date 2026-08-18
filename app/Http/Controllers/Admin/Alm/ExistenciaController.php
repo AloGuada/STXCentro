@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Admin\Alm;
 
+use App\Enums\Alm\ActivoEstatus;
 use App\Http\Controllers\Controller;
+use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Ubicacion;
@@ -55,28 +57,35 @@ class ExistenciaController extends Controller
             ->orderBy('costos_productos.descripcion')
             ->select('alm_existencias.*')
             ->paginate(50)
-            ->withQueryString()
-            ->through(fn (Existencia $e): array => [
-                'id' => $e->id,
-                'almacen_id' => $e->almacen_id,
-                'almacen' => $e->almacen?->clave,
-                'obra' => $e->almacen?->obra?->no,
-                'producto_id' => $e->producto_id,
-                'codigo' => $e->producto?->codigo,
-                'descripcion' => $e->producto?->descripcion,
-                'unidad' => $e->producto?->unidad,
-                'clasificacion_abc' => $e->producto?->clasificacion_abc?->value,
-                'se_controla_por_pieza' => (bool) $e->producto?->se_controla_por_pieza,
-                'stock_minimo' => $e->producto?->stock_minimo === null
-                    ? null
-                    : (float) $e->producto->stock_minimo,
-                'cantidad' => (float) $e->cantidad,
-                'costo_promedio' => (float) $e->costo_promedio,
-                'valor' => (float) $e->valor,
-                'ubicacion_id' => $e->ubicacion_id,
-                'ubicacion' => $e->ubicacion?->ruta(),
-                'ultimo_movimiento_at' => $e->ultimo_movimiento_at?->toDateTimeString(),
-            ]);
+            ->withQueryString();
+
+        $piezas = $this->desglosePiezas($existencias->getCollection());
+
+        $existencias->through(fn (Existencia $e): array => [
+            'id' => $e->id,
+            'almacen_id' => $e->almacen_id,
+            'almacen' => $e->almacen?->clave,
+            'obra' => $e->almacen?->obra?->no,
+            'producto_id' => $e->producto_id,
+            'codigo' => $e->producto?->codigo,
+            'descripcion' => $e->producto?->descripcion,
+            'unidad' => $e->producto?->unidad,
+            'clasificacion_abc' => $e->producto?->clasificacion_abc?->value,
+            'se_controla_por_pieza' => (bool) $e->producto?->se_controla_por_pieza,
+            'stock_minimo' => $e->producto?->stock_minimo === null
+                ? null
+                : (float) $e->producto->stock_minimo,
+            'cantidad' => (float) $e->cantidad,
+            'costo_promedio' => (float) $e->costo_promedio,
+            'valor' => (float) $e->valor,
+            'ubicacion_id' => $e->ubicacion_id,
+            'ubicacion' => $e->ubicacion?->ruta(),
+            'ultimo_movimiento_at' => $e->ultimo_movimiento_at?->toDateTimeString(),
+            // Sólo en los renglones por pieza: el mismo saldo, pero sabiendo
+            // en qué anda cada una. Cinco pulidoras con tres prestadas no
+            // son cinco pulidoras que entregar.
+            'piezas' => $piezas[$e->almacen_id.'|'.$e->producto_id] ?? null,
+        ]);
 
         return Inertia::render('admin/almacen/existencias/index', [
             'existencias' => $existencias,
@@ -87,6 +96,43 @@ class ExistenciaController extends Controller
             // «Rack A-1» de AG no es el de FAK.
             'ubicaciones' => $almacenId === null ? [] : $this->ubicacionesDe($almacenId),
         ]);
+    }
+
+    /**
+     * Cuántas piezas hay de cada renglón serializado y en qué andan.
+     *
+     * Se calcula sólo para lo que está en pantalla y con una consulta agrupada:
+     * pedirlo renglón por renglón sería una consulta por fila, y la pantalla que
+     * más se usa a diario es justo ésta.
+     *
+     * @param  \Illuminate\Support\Collection<int, Existencia>  $enPantalla
+     * @return array<string, array<string, int>>
+     */
+    private function desglosePiezas(\Illuminate\Support\Collection $enPantalla): array
+    {
+        $serializados = $enPantalla
+            ->filter(fn (Existencia $e): bool => (bool) $e->producto?->se_controla_por_pieza)
+            ->pluck('producto_id')
+            ->unique();
+
+        if ($serializados->isEmpty()) {
+            return [];
+        }
+
+        return Activo::query()
+            ->vigentes()
+            ->whereIn('producto_id', $serializados)
+            ->whereIn('almacen_id', $enPantalla->pluck('almacen_id')->unique())
+            ->selectRaw('almacen_id, producto_id, estatus, COUNT(*) as total')
+            ->groupBy('almacen_id', 'producto_id', 'estatus')
+            ->get()
+            ->groupBy(fn ($fila): string => $fila->almacen_id.'|'.$fila->producto_id)
+            ->map(fn ($filas): array => [
+                'disponibles' => (int) ($filas->firstWhere('estatus', ActivoEstatus::Disponible)?->total ?? 0),
+                'prestadas' => (int) ($filas->firstWhere('estatus', ActivoEstatus::Prestado)?->total ?? 0),
+                'en_reparacion' => (int) ($filas->firstWhere('estatus', ActivoEstatus::EnReparacion)?->total ?? 0),
+            ])
+            ->all();
     }
 
     /**

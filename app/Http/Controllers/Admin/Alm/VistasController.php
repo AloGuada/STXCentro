@@ -84,16 +84,6 @@ class VistasController extends Controller
         return Inertia::render('admin/almacen/prestamos/create');
     }
 
-    public function activos(): Response
-    {
-        return Inertia::render('admin/almacen/activos/index');
-    }
-
-    public function activoCreate(): Response
-    {
-        return Inertia::render('admin/almacen/activos/create');
-    }
-
     public function conteos(): Response
     {
         return Inertia::render('admin/almacen/conteos/index');

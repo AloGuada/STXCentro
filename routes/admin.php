@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\Alm\ActivoController as AlmActivoController;
 use App\Http\Controllers\Admin\Alm\AjusteController as AlmAjusteController;
 use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
 use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
@@ -322,12 +323,19 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('prestamos/create', [AlmVistasController::class, 'prestamoCreate'])
             ->middleware('permission:alm.prestamos.crear')
             ->name('prestamos.create');
-        Route::get('activos', [AlmVistasController::class, 'activos'])
-            ->middleware('permission:alm.activos.ver')
-            ->name('activos.index');
-        Route::get('activos/create', [AlmVistasController::class, 'activoCreate'])
-            ->middleware('permission:alm.activos.crear')
-            ->name('activos.create');
+        // Activos: el padron de piezas con numero de serie. Sin show, la pieza
+        // se corrige desde el modal de lapiz de su renglon. La baja va aparte
+        // de la edicion porque descarga existencia.
+        Route::resource('activos', AlmActivoController::class)
+            ->only(['index', 'create', 'store', 'update'])
+            ->parameters(['activos' => 'activo'])
+            ->middlewareFor(['index'], 'permission:alm.activos.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.activos.crear')
+            ->middlewareFor(['update'], 'permission:alm.activos.editar');
+        Route::patch('activos/{activo}/baja', [AlmActivoController::class, 'baja'])
+            ->whereNumber('activo')
+            ->middleware('permission:alm.activos.editar')
+            ->name('activos.baja');
         // Catalogo de articulos: es costos_productos visto desde Almacen, no una
         // tabla nueva. Sin destroy: un articulo con movimientos es parte del
         // historico del kardex, y se desactiva.
