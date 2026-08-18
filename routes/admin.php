@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\Alm\AjusteController as AlmAjusteController;
 use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
 use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
 use App\Http\Controllers\Admin\Alm\ArticuloController as AlmArticuloController;
+use App\Http\Controllers\Admin\Alm\EntradaController as AlmEntradaController;
 use App\Http\Controllers\Admin\Alm\ExistenciaController as AlmExistenciaController;
 use App\Http\Controllers\Admin\Alm\KardexController as AlmKardexController;
 use App\Http\Controllers\Admin\Alm\PedidoController as AlmPedidoController;
@@ -269,12 +270,15 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('kardex', [AlmKardexController::class, 'index'])
             ->middleware('permission:alm.kardex.ver')
             ->name('kardex.index');
-        Route::get('entradas', [AlmVistasController::class, 'entradas'])
-            ->middleware('permission:alm.entradas.ver')
-            ->name('entradas.index');
-        Route::get('entradas/create', [AlmVistasController::class, 'entradaCreate'])
-            ->middleware('permission:alm.entradas.crear')
-            ->name('entradas.create');
+        // Entradas: la recepcion vista desde Almacen. Escribe en costos_entregas,
+        // que es lo que destraba la factura — no es una tabla nueva. Aqui vive
+        // la entrada SIN orden; la que va contra una orden se captura en el
+        // flujo de Costos, donde esta el tope contra lo pedido y lo facturado.
+        Route::resource('entradas', AlmEntradaController::class)
+            ->only(['index', 'create', 'store', 'show'])
+            ->parameters(['entradas' => 'entrada'])
+            ->middlewareFor(['index', 'show'], 'permission:alm.entradas.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.entradas.crear');
         // Salidas: entrega de material que se queda en el mismo domicilio. Sin
         // edit ni update, se corrige cancelando y volviendo a capturar.
         Route::resource('salidas', AlmSalidaController::class)

@@ -23,6 +23,9 @@ class EntregaDetalle extends Model
     protected $fillable = [
         'entrega_id',
         'orden_compra_detalle_id',
+        'producto_id',
+        'descripcion',
+        'unidad',
         'cantidad_recibida',
         'precio_unitario',
         'observaciones',
@@ -42,6 +45,18 @@ class EntregaDetalle extends Model
     public function entrega(): BelongsTo
     {
         return $this->belongsTo(Entrega::class, 'entrega_id');
+    }
+
+    /**
+     * El artículo recibido. Se guarda aquí y no sólo en la partida de la orden:
+     * las entradas sin orden no tienen partida, y si alguien re-apunta la de la
+     * orden el movimiento ya sellado no debe cambiar de artículo.
+     *
+     * @return BelongsTo<Producto, $this>
+     */
+    public function producto(): BelongsTo
+    {
+        return $this->belongsTo(Producto::class);
     }
 
     public function ordenCompraDetalle(): BelongsTo

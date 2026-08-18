@@ -16,6 +16,7 @@ use App\Models\Costos\EntregaDetalle;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Usuario;
+use App\Services\Alm\RegistradorEntradaAlmacen;
 use App\Services\Costos\ApartadoPresupuestal;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -28,7 +29,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class EntregaController extends Controller
 {
-    public function __construct(private readonly ApartadoPresupuestal $apartado) {}
+    public function __construct(
+        private readonly ApartadoPresupuestal $apartado,
+        private readonly RegistradorEntradaAlmacen $almacen,
+    ) {}
 
     /**
      * Listado global de recepciones (folio REC-…), cada una ligada a su OC y a
@@ -290,6 +294,12 @@ class EntregaController extends Controller
 
                 $entrega->detalles()->create([
                     'orden_compra_detalle_id' => $detalle['orden_compra_detalle_id'],
+                    // Se sella el artículo de la partida: si alguien la
+                    // re-apunta después, el movimiento del kardex ya no debe
+                    // cambiar de artículo.
+                    'producto_id' => $ocd?->producto_id,
+                    'descripcion' => $ocd?->descripcion,
+                    'unidad' => $ocd?->unidad,
                     'cantidad_recibida' => $detalle['cantidad_recibida'],
                     'precio_unitario' => $precioRecibido,
                     'observaciones' => $detalle['observaciones'] ?? null,
@@ -310,6 +320,11 @@ class EntregaController extends Controller
                 $factura->update(['completamente_entregada' => true]);
                 $factura->intentarPasarAAprobacion();
             }
+
+            // Y hasta el final, el kardex: una recepción con almacén incrementa
+            // existencias. Sin almacén es no-op, que es el caso de las
+            // recepciones que no pasan por una bodega.
+            $this->almacen->aplicar($entrega->load('detalles'), $request->user()->id);
         });
 
         return back()->with('success', 'Entrega registrada correctamente.');
@@ -429,7 +444,12 @@ class EntregaController extends Controller
                 'motivo_cancelacion' => $request->input('motivo'),
             ]);
 
-            // 4. Recalcular el estatus de la OC: esta entrega ya no cuenta.
+            // 4. Devolver al kardex lo que esta recepción había cargado. Es un
+            // movimiento espejo: si el material ya se consumió el saldo puede
+            // quedar en negativo, y eso es información correcta.
+            $this->almacen->revertir($entrega, (string) $request->input('motivo'), $request->user()->id);
+
+            // 5. Recalcular el estatus de la OC: esta entrega ya no cuenta.
             $entrega->ordenCompra?->recalcularEstatus();
 
             activity('costos')
