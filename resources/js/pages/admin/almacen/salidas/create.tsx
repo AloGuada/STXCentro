@@ -59,6 +59,10 @@ export default function SalidaCreate() {
         }
 
         setObra(String(OBRAS_DEMO.find((o) => o.etiqueta === elegido.obra)?.id ?? ''));
+        // Si el pedido interno ya dijo quién pasa por el material, el vale sale
+        // con ese nombre puesto; si sólo trae cuadrilla, con la cuadrilla. Es
+        // dato del pedido, así que se puede corregir antes de imprimir.
+        setRecibe(elegido.recibe ?? elegido.grupo_trabajo ?? '');
         setPartidas(
             elegido.detalle
                 .filter((d) => d.cantidad_surtida < d.cantidad_solicitada)

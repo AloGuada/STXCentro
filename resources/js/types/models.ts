@@ -3692,6 +3692,19 @@ export type AlmPedidoDemo = {
      * en el mismo domicilio y lo surte una salida.
      */
     obra: string | null;
+    /**
+     * Sólo en los internos de planta: a nombre de quién se entrega. Opcional
+     * —el área levanta el pedido y no siempre sabe de antemano quién va a
+     * pasar por el material—, pero cuando viene, la salida trae puesto quién
+     * firma el vale. En los de obra no aplica: ahí recibe el almacén destino.
+     */
+    recibe: string | null;
+    /**
+     * La cuadrilla que se lo lleva, del catálogo de producción
+     * (`prod_grupos_trabajo`). También opcional, y por la misma razón: sirve
+     * para saber a qué frente se fue el material sin tener que preguntar.
+     */
+    grupo_trabajo: string | null;
     almacen: string;
     fecha_requerida: string;
     detalle: AlmPedidoDetalleDemo[];

@@ -751,36 +751,36 @@ export const APROBACIONES_DEMO: AlmReglaAprobacion[] = [
 ];
 
 export const PEDIDOS_DEMO: AlmPedidoDemo[] = [
-    { id: 23, folio: 'PED-2608-0023', fecha: '2026-08-06', solicitante: 'M. Rangel', departamento: 'Montaje', obra: 'T4 — Torre 4', almacen: 'AG', fecha_requerida: '2026-08-08', estatus: 'aprobado', detalle: [
+    { id: 23, folio: 'PED-2608-0023', fecha: '2026-08-06', solicitante: 'M. Rangel', departamento: 'Montaje', obra: 'T4 — Torre 4', recibe: null, grupo_trabajo: null, almacen: 'AG', fecha_requerida: '2026-08-08', estatus: 'aprobado', detalle: [
         // Surtido a medias: la salida nueva debe traer sólo lo que falta.
         { producto_id: 101, cantidad_solicitada: 2000, cantidad_surtida: 800 },
         { producto_id: 102, cantidad_solicitada: 50, cantidad_surtida: 50 },
         { producto_id: 104, cantidad_solicitada: 30, cantidad_surtida: 0 },
     ] },
-    { id: 22, folio: 'PED-2608-0022', fecha: '2026-08-06', solicitante: 'L. Ortega', departamento: 'Montaje', obra: 'T4 — Torre 4', almacen: 'AG', fecha_requerida: '2026-08-08', estatus: 'pendiente', detalle: [
+    { id: 22, folio: 'PED-2608-0022', fecha: '2026-08-06', solicitante: 'L. Ortega', departamento: 'Montaje', obra: 'T4 — Torre 4', recibe: null, grupo_trabajo: null, almacen: 'AG', fecha_requerida: '2026-08-08', estatus: 'pendiente', detalle: [
         { producto_id: 101, cantidad_solicitada: 500, cantidad_surtida: 0 },
         { producto_id: 103, cantidad_solicitada: 12, cantidad_surtida: 0 },
         { producto_id: 105, cantidad_solicitada: 24, cantidad_surtida: 0 },
         { producto_id: 201, cantidad_solicitada: 2, cantidad_surtida: 0 },
     ] },
     // Consumo interno: la nave de fabricación pide para sí misma, sin obra.
-    { id: 24, folio: 'PED-2608-0024', fecha: '2026-08-06', solicitante: 'J. Briones', departamento: 'Fabricación Nave K', obra: null, almacen: 'AG', fecha_requerida: '2026-08-07', estatus: 'aprobado', detalle: [
+    { id: 24, folio: 'PED-2608-0024', fecha: '2026-08-06', solicitante: 'J. Briones', departamento: 'Fabricación Nave K', obra: null, recibe: 'A. Pérez', grupo_trabajo: 'Cuadrilla B · Soldadura', almacen: 'AG', fecha_requerida: '2026-08-07', estatus: 'aprobado', detalle: [
         { producto_id: 102, cantidad_solicitada: 120, cantidad_surtida: 0 },
         { producto_id: 104, cantidad_solicitada: 60, cantidad_surtida: 0 },
     ] },
-    { id: 25, folio: 'PED-2608-0025', fecha: '2026-08-05', solicitante: 'M. Rangel', departamento: 'Pintura', obra: null, almacen: 'AG', fecha_requerida: '2026-08-06', estatus: 'surtido', detalle: [
+    { id: 25, folio: 'PED-2608-0025', fecha: '2026-08-05', solicitante: 'M. Rangel', departamento: 'Pintura', obra: null, recibe: null, grupo_trabajo: null, almacen: 'AG', fecha_requerida: '2026-08-06', estatus: 'surtido', detalle: [
         { producto_id: 103, cantidad_solicitada: 40, cantidad_surtida: 40 },
     ] },
-    { id: 21, folio: 'PED-2608-0021', fecha: '2026-08-05', solicitante: 'M. Rangel', departamento: 'Montaje', obra: 'MBP — Museo Bellas Artes', almacen: 'AG', fecha_requerida: '2026-08-07', estatus: 'aprobado', detalle: [
+    { id: 21, folio: 'PED-2608-0021', fecha: '2026-08-05', solicitante: 'M. Rangel', departamento: 'Montaje', obra: 'MBP — Museo Bellas Artes', recibe: null, grupo_trabajo: null, almacen: 'AG', fecha_requerida: '2026-08-07', estatus: 'aprobado', detalle: [
         { producto_id: 106, cantidad_solicitada: 8, cantidad_surtida: 0 },
         { producto_id: 103, cantidad_solicitada: 20, cantidad_surtida: 0 },
     ] },
-    { id: 20, folio: 'PED-2608-0020', fecha: '2026-08-04', solicitante: 'L. Ortega', departamento: 'Montaje', obra: 'T4 — Torre 4', almacen: 'AG', fecha_requerida: '2026-08-05', estatus: 'surtido', detalle: [
+    { id: 20, folio: 'PED-2608-0020', fecha: '2026-08-04', solicitante: 'L. Ortega', departamento: 'Montaje', obra: 'T4 — Torre 4', recibe: null, grupo_trabajo: null, almacen: 'AG', fecha_requerida: '2026-08-05', estatus: 'surtido', detalle: [
         { producto_id: 101, cantidad_solicitada: 1200, cantidad_surtida: 1200 },
         { producto_id: 102, cantidad_solicitada: 40, cantidad_surtida: 40 },
         { producto_id: 104, cantidad_solicitada: 15, cantidad_surtida: 15 },
     ] },
-    { id: 19, folio: 'PED-2607-0019', fecha: '2026-07-31', solicitante: 'R. Salas', departamento: 'Fachadas', obra: 'T4 — Torre 4', almacen: 'FAK', fecha_requerida: '2026-08-01', estatus: 'rechazado', detalle: [
+    { id: 19, folio: 'PED-2607-0019', fecha: '2026-07-31', solicitante: 'R. Salas', departamento: 'Fachadas', obra: 'T4 — Torre 4', recibe: null, grupo_trabajo: null, almacen: 'FAK', fecha_requerida: '2026-08-01', estatus: 'rechazado', detalle: [
         { producto_id: 106, cantidad_solicitada: 6, cantidad_surtida: 0 },
     ] },
 ];

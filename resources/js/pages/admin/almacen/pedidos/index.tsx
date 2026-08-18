@@ -79,6 +79,14 @@ export default function PedidosIndex() {
                                             {p.obra ?? (
                                                 <span className="badge badge-sm badge-ghost">Consumo interno</span>
                                             )}
+                                            {/* Del interno se anota a quién se le entrega, cuando
+                                                se sabe: es lo que el almacén necesita para saber a
+                                                quién llamar y qué frente se quedó esperando. */}
+                                            {(p.recibe || p.grupo_trabajo) && (
+                                                <span className="text-base-content/50 block text-xs">
+                                                    {[p.recibe, p.grupo_trabajo].filter(Boolean).join(' · ')}
+                                                </span>
+                                            )}
                                         </td>
                                         <td>
                                             <span className="badge badge-sm badge-ghost font-mono">{p.almacen}</span>

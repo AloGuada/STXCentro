@@ -4,7 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ALMACENES_DEMO, comoSeSurte, DEPARTAMENTOS_DEMO, disponibleDemo } from '@/lib/alm/demo';
+import {
+    ALMACENES_DEMO,
+    comoSeSurte,
+    DEPARTAMENTOS_DEMO,
+    disponibleDemo,
+    GRUPOS_TRABAJO_DEMO,
+} from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmPartidaBorrador } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
@@ -32,6 +38,12 @@ export default function PedidoCreate() {
     // formulario exigía obra, así que ese pedido no se podía levantar.
     const [destino, setDestino] = useState<Destino>('obra');
     const [obra, setObra] = useState('');
+    // Sólo en los internos: a nombre de quién se entrega y qué cuadrilla se lo
+    // lleva. Los dos son opcionales —el área pide el material y a veces manda
+    // por él a quien esté libre—, pero cuando se saben, la salida ya trae
+    // puesto quién firma el vale y a qué frente se fue.
+    const [recibe, setRecibe] = useState('');
+    const [grupoTrabajo, setGrupoTrabajo] = useState('');
     const [departamento, setDepartamento] = useState('');
     const [fechaRequerida, setFechaRequerida] = useState('');
     const [motivo, setMotivo] = useState('');
@@ -41,10 +53,12 @@ export default function PedidoCreate() {
     const nombreObra = OBRAS_DEMO.find((o) => String(o.id) === obra)?.etiqueta ?? null;
     const surtido = comoSeSurte(destino === 'obra' ? nombreObra : null);
 
-    /** Cambiar de destino limpia el otro campo: sólo uno de los dos aplica. */
+    /** Cambiar de destino limpia lo del otro: los campos no se comparten. */
     const elegirDestino = (valor: Destino) => {
         setDestino(valor);
         setObra('');
+        setRecibe('');
+        setGrupoTrabajo('');
     };
 
     return (
@@ -156,12 +170,47 @@ export default function PedidoCreate() {
                                     </Select>
                                 </FormField>
                             ) : (
-                                <div className="text-base-content/60 self-end pb-3 text-sm md:col-span-1">
-                                    El material se consume en la planta, sin cargarse a ninguna obra.
-                                </div>
+                                <FormField
+                                    label="Quién recibe"
+                                    htmlFor="recibe"
+                                    description="Opcional. Quien pase por el material; es el que firma el vale."
+                                >
+                                    <Input
+                                        id="recibe"
+                                        value={recibe}
+                                        onChange={(e) => setRecibe(e.target.value)}
+                                        placeholder="A. Pérez"
+                                    />
+                                </FormField>
                             )}
 
-                            <FormField label="Motivo" htmlFor="motivo" className="md:col-span-2" required>
+                            {destino === 'planta' && (
+                                <FormField
+                                    label="Cuadrilla"
+                                    htmlFor="grupo_trabajo"
+                                    description="Opcional. Sale de los grupos de trabajo de Producción."
+                                >
+                                    <Select
+                                        id="grupo_trabajo"
+                                        value={grupoTrabajo}
+                                        onValueChange={setGrupoTrabajo}
+                                        placeholder="Sin cuadrilla"
+                                    >
+                                        {GRUPOS_TRABAJO_DEMO.map((g) => (
+                                            <SelectItem key={g.id} value={String(g.id)}>
+                                                {g.descripcion}
+                                            </SelectItem>
+                                        ))}
+                                    </Select>
+                                </FormField>
+                            )}
+
+                            <FormField
+                                label="Motivo"
+                                htmlFor="motivo"
+                                className={destino === 'planta' ? 'md:col-span-3' : 'md:col-span-2'}
+                                required
+                            >
                                 <Input
                                     id="motivo"
                                     value={motivo}
@@ -185,6 +234,7 @@ export default function PedidoCreate() {
                             <span>
                                 Se surtirá con una <strong>{surtido.documento.toLowerCase()}</strong>.{' '}
                                 {surtido.explicacion}
+                                {destino === 'planta' && ' No se carga a ninguna obra.'}
                             </span>
                         </div>
                     </div>
