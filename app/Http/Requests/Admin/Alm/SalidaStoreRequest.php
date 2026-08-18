@@ -1,0 +1,174 @@
+<?php
+
+namespace App\Http\Requests\Admin\Alm;
+
+use App\Models\Alm\Pedido;
+use App\Models\Alm\PedidoDetalle;
+use App\Services\Alm\AlmacenLedger;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
+
+class SalidaStoreRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user()?->can('alm.salidas.crear') ?? false;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules(): array
+    {
+        return [
+            'almacen_id' => ['required', 'integer', 'exists:alm_almacenes,id'],
+            'pedido_id' => ['nullable', 'integer', 'exists:alm_pedidos,id'],
+            'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
+            'obra_destino_id' => ['nullable', 'integer', 'exists:obras,id'],
+            'grupo_trabajo_id' => ['nullable', 'integer', 'exists:prod_grupos_trabajo,id'],
+            'solicitante_id' => ['nullable', 'uuid', 'exists:usuarios,id'],
+            'recibe_nombre' => ['required', 'string', 'max:255'],
+            'fecha' => ['required', 'date'],
+            'motivo' => ['nullable', 'string', 'max:255'],
+            'observaciones' => ['nullable', 'string', 'max:1000'],
+            'detalles' => ['required', 'array', 'min:1'],
+            'detalles.*.producto_id' => [
+                'required', 'integer',
+                Rule::exists('costos_productos', 'id')->where('controla_inventario', true),
+            ],
+            'detalles.*.pedido_detalle_id' => ['nullable', 'integer', 'exists:alm_pedido_detalle,id'],
+            'detalles.*.cantidad' => ['required', 'numeric', 'gt:0'],
+            'detalles.*.observaciones' => ['nullable', 'string', 'max:500'],
+        ];
+    }
+
+    /**
+     * Aquí sí es error sacar de más: a diferencia del pedido, este material sale
+     * de verdad.
+     *
+     * Se valida antes de abrir la transacción para poder devolver **todos** los
+     * renglones cortos de un golpe, en vez de rebotar el formulario de uno en
+     * uno; el ledger vuelve a comprobarlo con la fila bloqueada, que es lo que
+     * de verdad protege el saldo contra dos salidas simultáneas.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $this->validarExistencia($validator);
+            $this->validarPedido($validator);
+        });
+    }
+
+    private function validarExistencia(Validator $validator): void
+    {
+        $ledger = app(AlmacenLedger::class);
+        $almacenId = $this->integer('almacen_id');
+        $porProducto = [];
+
+        // Se acumula por artículo: dos renglones del mismo tornillo se llevan
+        // del mismo saldo, y validarlos por separado dejaría pasar el doble.
+        foreach ((array) $this->input('detalles', []) as $i => $detalle) {
+            $productoId = (int) ($detalle['producto_id'] ?? 0);
+            $porProducto[$productoId]['cantidad'] = ($porProducto[$productoId]['cantidad'] ?? 0)
+                + (float) ($detalle['cantidad'] ?? 0);
+            $porProducto[$productoId]['renglones'][] = $i;
+        }
+
+        $epsilon = (float) config('costos.epsilon_cantidad');
+
+        foreach ($porProducto as $productoId => $datos) {
+            $disponible = $ledger->disponible($almacenId, $productoId);
+
+            if ($datos['cantidad'] <= $disponible + $epsilon) {
+                continue;
+            }
+
+            foreach ($datos['renglones'] as $i) {
+                $validator->errors()->add(
+                    "detalles.{$i}.cantidad",
+                    "No hay existencia suficiente: hay {$disponible} y se están sacando {$datos['cantidad']}.",
+                );
+            }
+        }
+    }
+
+    /**
+     * Si la salida surte un pedido, tiene que ser uno que el almacén todavía
+     * deba, del mismo almacén, y ningún renglón puede entregar más de lo que le
+     * falta — surtir de más dejaría un pedido «sobre-surtido» que ya nadie sabe
+     * cerrar.
+     */
+    private function validarPedido(Validator $validator): void
+    {
+        if (! $this->filled('pedido_id')) {
+            return;
+        }
+
+        $pedido = Pedido::find($this->integer('pedido_id'));
+
+        if ($pedido === null) {
+            return;
+        }
+
+        if ((int) $pedido->almacen_id !== $this->integer('almacen_id')) {
+            $validator->errors()->add('pedido_id', 'Ese pedido es de otro almacén.');
+
+            return;
+        }
+
+        if (! $pedido->estatus->admiteSurtido()) {
+            $validator->errors()->add('pedido_id', 'Ese pedido ya no admite surtido.');
+
+            return;
+        }
+
+        // Un pedido de obra se surte con transferencia: el material va a otro
+        // domicilio y la obra tiene que confirmar que llegó.
+        if ($pedido->seSurteConTransferencia()) {
+            $validator->errors()->add(
+                'pedido_id',
+                'Ese pedido va a una obra: se surte con una transferencia, no con una salida.',
+            );
+
+            return;
+        }
+
+        $epsilon = (float) config('costos.epsilon_cantidad');
+
+        foreach ((array) $this->input('detalles', []) as $i => $detalle) {
+            if (empty($detalle['pedido_detalle_id'])) {
+                continue;
+            }
+
+            $renglon = PedidoDetalle::find($detalle['pedido_detalle_id']);
+
+            if ($renglon === null || (int) $renglon->pedido_id !== (int) $pedido->id) {
+                $validator->errors()->add("detalles.{$i}.pedido_detalle_id", 'Ese renglón no es de este pedido.');
+
+                continue;
+            }
+
+            if ((float) ($detalle['cantidad'] ?? 0) > $renglon->pendiente() + $epsilon) {
+                $validator->errors()->add(
+                    "detalles.{$i}.cantidad",
+                    "A ese renglón del pedido sólo le faltan {$renglon->pendiente()}.",
+                );
+            }
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'almacen_id.required' => 'Indica de qué almacén sale el material.',
+            'recibe_nombre.required' => 'Escribe quién recibe: es quien firma el vale.',
+            'detalles.required' => 'Captura al menos un artículo.',
+            'detalles.*.cantidad.gt' => 'Entregar cero no es entregar.',
+            'detalles.*.producto_id.exists' => 'Ese artículo no lleva kardex: el almacén no lo guarda.',
+        ];
+    }
+}

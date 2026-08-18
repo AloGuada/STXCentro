@@ -7,6 +7,8 @@ use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
 use App\Http\Controllers\Admin\Alm\ArticuloController as AlmArticuloController;
 use App\Http\Controllers\Admin\Alm\ExistenciaController as AlmExistenciaController;
 use App\Http\Controllers\Admin\Alm\KardexController as AlmKardexController;
+use App\Http\Controllers\Admin\Alm\PedidoController as AlmPedidoController;
+use App\Http\Controllers\Admin\Alm\SalidaController as AlmSalidaController;
 use App\Http\Controllers\Admin\Alm\UbicacionController as AlmUbicacionController;
 use App\Http\Controllers\Admin\Alm\VistasController as AlmVistasController;
 use App\Http\Controllers\Admin\BadgeConfigController;
@@ -272,12 +274,17 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('entradas/create', [AlmVistasController::class, 'entradaCreate'])
             ->middleware('permission:alm.entradas.crear')
             ->name('entradas.create');
-        Route::get('salidas', [AlmVistasController::class, 'salidas'])
-            ->middleware('permission:alm.salidas.ver')
-            ->name('salidas.index');
-        Route::get('salidas/create', [AlmVistasController::class, 'salidaCreate'])
+        // Salidas: entrega de material que se queda en el mismo domicilio. Sin
+        // edit ni update, se corrige cancelando y volviendo a capturar.
+        Route::resource('salidas', AlmSalidaController::class)
+            ->only(['index', 'create', 'store', 'show'])
+            ->parameters(['salidas' => 'salida'])
+            ->middlewareFor(['index', 'show'], 'permission:alm.salidas.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.salidas.crear');
+        Route::patch('salidas/{salida}/cancelar', [AlmSalidaController::class, 'cancelar'])
+            ->whereNumber('salida')
             ->middleware('permission:alm.salidas.crear')
-            ->name('salidas.create');
+            ->name('salidas.cancelar');
         Route::get('transferencias', [AlmVistasController::class, 'transferencias'])
             ->middleware('permission:alm.transferencias.ver')
             ->name('transferencias.index');
@@ -311,12 +318,17 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereNumber('almacen')
             ->middleware('permission:alm.ajustes.crear')
             ->name('almacenes.existencias');
-        Route::get('pedidos', [AlmVistasController::class, 'pedidos'])
-            ->middleware('permission:alm.pedidos.ver')
-            ->name('pedidos.index');
-        Route::get('pedidos/create', [AlmVistasController::class, 'pedidoCreate'])
-            ->middleware('permission:alm.pedidos.crear')
-            ->name('pedidos.create');
+        // Pedidos: lo que un area le pide al almacen. Nace aprobado mientras la
+        // matriz de aprobadores no exista.
+        Route::resource('pedidos', AlmPedidoController::class)
+            ->only(['index', 'create', 'store', 'show'])
+            ->parameters(['pedidos' => 'pedido'])
+            ->middlewareFor(['index', 'show'], 'permission:alm.pedidos.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.pedidos.crear');
+        Route::patch('pedidos/{pedido}/cancelar', [AlmPedidoController::class, 'cancelar'])
+            ->whereNumber('pedido')
+            ->middleware('permission:alm.pedidos.cancelar')
+            ->name('pedidos.cancelar');
         Route::get('prestamos', [AlmVistasController::class, 'prestamos'])
             ->middleware('permission:alm.prestamos.ver')
             ->name('prestamos.index');

@@ -7,7 +7,7 @@ use Spatie\Permission\Models\Permission;
  * Las pantallas del módulo que todavía no tienen backend: sólo se comprueba que
  * la ruta abre su maqueta y que sigue detrás de su propio permiso. Conforme cada
  * una se construye sale de aquí y se prueba de verdad en su propio archivo
- * —artículos, ubicaciones, ajustes, activos, kardex y existencias ya salieron—, hasta que este archivo desaparezca.
+ * —de las 24 originales sólo quedan las de conteos, etiquetas, préstamos, devoluciones, aprobaciones, entradas y transferencias—, hasta que este archivo desaparezca.
  *
  * Cada pantalla tiene el suyo a propósito. Mientras todas reciclaban
  * `alm.almacenes.ver`, quien podía consultar el catálogo podía capturar
@@ -17,14 +17,10 @@ use Spatie\Permission\Models\Permission;
 $pantallas = [
     'entradas' => ['admin.alm.entradas.index', 'admin/almacen/entradas/index', 'alm.entradas.ver'],
     'alta de entrada' => ['admin.alm.entradas.create', 'admin/almacen/entradas/create', 'alm.entradas.crear'],
-    'salidas' => ['admin.alm.salidas.index', 'admin/almacen/salidas/index', 'alm.salidas.ver'],
-    'alta de salida' => ['admin.alm.salidas.create', 'admin/almacen/salidas/create', 'alm.salidas.crear'],
     'transferencias' => ['admin.alm.transferencias.index', 'admin/almacen/transferencias/index', 'alm.transferencias.ver'],
     'alta de transferencia' => ['admin.alm.transferencias.create', 'admin/almacen/transferencias/create', 'alm.transferencias.enviar'],
     'devoluciones' => ['admin.alm.devoluciones.index', 'admin/almacen/devoluciones/index', 'alm.devoluciones.ver'],
     'alta de devolucion' => ['admin.alm.devoluciones.create', 'admin/almacen/devoluciones/create', 'alm.devoluciones.crear'],
-    'pedidos' => ['admin.alm.pedidos.index', 'admin/almacen/pedidos/index', 'alm.pedidos.ver'],
-    'alta de pedido' => ['admin.alm.pedidos.create', 'admin/almacen/pedidos/create', 'alm.pedidos.crear'],
     'prestamos' => ['admin.alm.prestamos.index', 'admin/almacen/prestamos/index', 'alm.prestamos.ver'],
     'alta de prestamo' => ['admin.alm.prestamos.create', 'admin/almacen/prestamos/create', 'alm.prestamos.crear'],
     'conteos' => ['admin.alm.conteos.index', 'admin/almacen/conteos/index', 'alm.conteos.ver'],

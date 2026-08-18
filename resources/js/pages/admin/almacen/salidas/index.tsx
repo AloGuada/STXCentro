@@ -1,10 +1,10 @@
-import { BotonPdf } from '@/components/alm/boton-pdf';
-import { ButtonLink } from '@/components/ui/button';
+import { DataTable, type Column } from '@/components/data-table';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { SALIDAS_DEMO } from '@/lib/alm/demo';
+import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
-import { PlusIcon } from 'lucide-react';
+import type { AlmAlmacenOpcion, PaginatedData } from '@/types/models';
+import { Head, Link, router } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -12,72 +12,137 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Salidas', href: '/admin/almacen/salidas' },
 ];
 
-export default function SalidasIndex() {
+type SalidaFila = {
+    id: number;
+    folio: string | null;
+    fecha: string | null;
+    almacen: string | null;
+    obra_destino: string | null;
+    pedido_folio: string | null;
+    recibe: string | null;
+    entrego: string | null;
+    renglones: number;
+    motivo: string | null;
+    cancelada: boolean;
+};
+
+type Props = {
+    salidas: PaginatedData<SalidaFila>;
+    filters: {
+        almacen_id?: string;
+        obra_id?: string;
+        desde?: string;
+        hasta?: string;
+        search?: string;
+        ver_canceladas?: boolean;
+    };
+    almacenes: AlmAlmacenOpcion[];
+    obras: { id: number; no: string; descripcion: string }[];
+};
+
+const columns: Column<SalidaFila>[] = [
+    {
+        key: 'folio',
+        label: 'Folio',
+        render: (s) => (
+            <span className={`font-mono font-medium ${s.cancelada ? 'line-through opacity-60' : ''}`}>{s.folio}</span>
+        ),
+    },
+    { key: 'fecha', label: 'Fecha', className: 'font-mono text-xs' },
+    {
+        key: 'almacen',
+        label: 'Almacén',
+        render: (s) => <span className="badge badge-sm badge-ghost font-mono">{s.almacen}</span>,
+    },
+    {
+        key: 'pedido_folio',
+        label: 'Surte',
+        render: (s) =>
+            s.pedido_folio ? (
+                <span className="font-mono text-xs">{s.pedido_folio}</span>
+            ) : (
+                <span className="text-base-content/50 text-sm" title="Salida directa, sin pedido previo">
+                    Directa
+                </span>
+            ),
+    },
+    { key: 'recibe', label: 'Recibe' },
+    { key: 'motivo', label: 'Motivo', className: 'text-base-content/70 text-sm' },
+    { key: 'renglones', label: 'Renglones', className: 'text-right font-mono' },
+    { key: 'entrego', label: 'Entregó' },
+    {
+        key: 'cancelada',
+        label: '',
+        render: (s) => (s.cancelada ? <span className="badge badge-sm badge-ghost">Cancelada</span> : null),
+    },
+];
+
+export default function SalidasIndex({ salidas, filters, almacenes, obras }: Props) {
+    const filtrar = (cambio: Record<string, string | undefined>) =>
+        router.get('/admin/almacen/salidas', { ...filters, ...cambio, page: undefined }, { preserveState: true });
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Salidas" />
 
             <div className="p-6">
-                <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold">Salidas</h1>
-                        <p className="text-base-content/60 mt-1 text-sm">
-                            El material deja el almacén: quién lo pidió, a qué obra va y quién lo recibió. De cada una
-                            se imprime el vale que firma quien se lo lleva.
-                        </p>
-                    </div>
-                    <ButtonLink href="/admin/almacen/salidas/create" variant="primary">
-                        <PlusIcon className="size-4" />
-                        Nueva salida
-                    </ButtonLink>
+                <div className="mb-6">
+                    <h1 className="text-2xl font-semibold">Salidas</h1>
+                    <p className="text-base-content/60 mt-1 text-sm">
+                        Material que sale del almacén y se queda en el mismo domicilio. El «vale» es el impreso que
+                        firma quien se lo lleva; el documento se llama salida.
+                    </p>
                 </div>
 
-                <div className="alert alert-warning mb-4">
-                    <span>Vista de maqueta: los datos son de ejemplo, todavía no hay backend.</span>
-                </div>
-
-                <div className="rounded-box border-base-300 overflow-hidden border">
-                    <table className="table">
-                        <thead className="bg-base-200">
-                            <tr>
-                                <th>Folio</th>
-                                <th>Pedido</th>
-                                <th>Fecha</th>
-                                <th>Almacén</th>
-                                <th>Obra destino</th>
-                                <th>Solicitó</th>
-                                <th>Recibió</th>
-                                <th className="text-right">Renglones</th>
-                                <th>Motivo</th>
-                                <th className="w-20"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {SALIDAS_DEMO.map((s) => (
-                                <tr key={s.id} className="hover">
-                                    <td className="font-mono font-medium">{s.folio}</td>
-                                    <td className="font-mono text-sm">
-                                        {s.pedido_folio ?? <span className="text-base-content/40">Directa</span>}
-                                    </td>
-                                    <td className="font-mono text-sm">{s.fecha}</td>
-                                    <td>
-                                        <span className="badge badge-sm badge-ghost font-mono">{s.almacen}</span>
-                                    </td>
-                                    <td>
-                                        {s.obra_destino ?? <span className="text-base-content/40">Consumo interno</span>}
-                                    </td>
-                                    <td className="text-sm">{s.solicitante}</td>
-                                    <td className="text-sm">{s.recibe}</td>
-                                    <td className="text-right font-mono">{s.renglones}</td>
-                                    <td className="text-base-content/70 text-sm">{s.motivo}</td>
-                                    <td>
-                                        <BotonPdf folio={s.folio} etiqueta="Vale" />
-                                    </td>
-                                </tr>
+                <DataTable
+                    columns={columns}
+                    data={salidas}
+                    searchable
+                    searchValue={filters.search}
+                    searchPlaceholder="Buscar por folio o quién recibe..."
+                    createHref="/admin/almacen/salidas/create"
+                    createLabel="Nueva salida"
+                    emptyMessage="No hay salidas con esos filtros."
+                    getRowHref={(s) => `/admin/almacen/salidas/${s.id}`}
+                >
+                    <div className="w-48">
+                        <Select
+                            value={filters.almacen_id ?? ''}
+                            onValueChange={(v) => filtrar({ almacen_id: v || undefined })}
+                            placeholder="Todos los almacenes"
+                        >
+                            {almacenes.map((a) => (
+                                <SelectItem key={a.id} value={String(a.id)}>
+                                    {etiquetaDeAlmacen(a)}
+                                </SelectItem>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
+                        </Select>
+                    </div>
+
+                    <div className="w-48">
+                        <Select
+                            value={filters.obra_id ?? ''}
+                            onValueChange={(v) => filtrar({ obra_id: v || undefined })}
+                            placeholder="Todas las obras"
+                        >
+                            {obras.map((o) => (
+                                <SelectItem key={o.id} value={String(o.id)}>
+                                    {o.no} — {o.descripcion}
+                                </SelectItem>
+                            ))}
+                        </Select>
+                    </div>
+
+                    <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                            type="checkbox"
+                            className="checkbox checkbox-sm"
+                            checked={Boolean(filters.ver_canceladas)}
+                            onChange={(e) => filtrar({ ver_canceladas: e.target.checked ? '1' : undefined })}
+                        />
+                        <span className="text-sm">Ver canceladas</span>
+                    </label>
+                </DataTable>
             </div>
         </AppLayout>
     );

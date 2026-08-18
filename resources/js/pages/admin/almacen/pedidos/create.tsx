@@ -4,19 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import {
-    ALMACENES_DEMO,
-    comoSeSurte,
-    DEPARTAMENTOS_DEMO,
-    disponiblePorProductoDemo,
-    PRODUCTOS_DEMO,
-    GRUPOS_TRABAJO_DEMO,
-} from '@/lib/alm/demo';
+import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
-import type { AlmPartidaBorrador } from '@/types/models';
-import { Head, Link } from '@inertiajs/react';
+import type { AlmAlmacenOpcion, AlmPartidaBorrador, AlmProductoOpcion } from '@/types/models';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { InfoIcon } from 'lucide-react';
-import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -25,41 +17,47 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Nuevo', href: '/admin/almacen/pedidos/create' },
 ];
 
-const OBRAS_DEMO = [
-    { id: 1, etiqueta: 'T4 — Torre 4' },
-    { id: 2, etiqueta: 'MBP — Museo Bellas Artes' },
-];
+type Props = {
+    almacenes: AlmAlmacenOpcion[];
+    departamentos: { id: number; descripcion: string }[];
+    obras: { id: number; no: string; descripcion: string }[];
+    gruposTrabajo: { id: number; descripcion: string }[];
+    productos: AlmProductoOpcion[];
+};
 
-type Destino = 'obra' | 'planta';
+export default function PedidoCreate({ almacenes, departamentos, obras, gruposTrabajo, productos }: Props) {
+    const hoy = new Date().toISOString().slice(0, 10);
 
-export default function PedidoCreate() {
-    const [almacenId, setAlmacenId] = useState('');
-    // La planta también pide para sí misma: fabricación, pintura y
-    // mantenimiento consumen material y no cuelgan de ninguna obra. Antes el
-    // formulario exigía obra, así que ese pedido no se podía levantar.
-    const [destino, setDestino] = useState<Destino>('obra');
-    const [obra, setObra] = useState('');
-    // Sólo en los internos: a nombre de quién se entrega y qué cuadrilla se lo
-    // lleva. Los dos son opcionales —el área pide el material y a veces manda
-    // por él a quien esté libre—, pero cuando se saben, la salida ya trae
-    // puesto quién firma el vale y a qué frente se fue.
-    const [recibe, setRecibe] = useState('');
-    const [grupoTrabajo, setGrupoTrabajo] = useState('');
-    const [departamento, setDepartamento] = useState('');
-    const [fechaRequerida, setFechaRequerida] = useState('');
-    const [motivo, setMotivo] = useState('');
-    const [partidas, setPartidas] = useState<AlmPartidaBorrador[]>([{ ...PARTIDA_VACIA }]);
+    const form = useForm({
+        almacen_id: '',
+        departamento_id: '',
+        obra_id: '',
+        recibe_nombre: '',
+        grupo_trabajo_id: '',
+        fecha: hoy,
+        fecha_requerida: hoy,
+        motivo: '',
+        observaciones: '',
+        detalles: [{ ...PARTIDA_VACIA }] as AlmPartidaBorrador[],
+    });
 
-    const claveAlmacen = ALMACENES_DEMO.find((a) => String(a.id) === almacenId)?.clave;
-    const nombreObra = OBRAS_DEMO.find((o) => String(o.id) === obra)?.etiqueta ?? null;
-    const surtido = comoSeSurte(destino === 'obra' ? nombreObra : null);
+    // Con obra hay que llevar el material a otro domicilio, así que lo surte una
+    // transferencia y la obra confirma. Sin obra se queda aquí y sale directo.
+    const esDeObra = form.data.obra_id !== '';
 
-    /** Cambiar de destino limpia lo del otro: los campos no se comparten. */
-    const elegirDestino = (valor: Destino) => {
-        setDestino(valor);
-        setObra('');
-        setRecibe('');
-        setGrupoTrabajo('');
+    const enviar = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        form.transform((datos) => ({
+            ...datos,
+            detalles: datos.detalles.map((d) => ({
+                producto_id: d.producto_id,
+                cantidad_solicitada: d.cantidad,
+                observaciones: d.observaciones || null,
+            })),
+        }));
+
+        form.post('/admin/almacen/pedidos');
     };
 
     return (
@@ -70,190 +68,184 @@ export default function PedidoCreate() {
                 <div className="mb-6">
                     <h1 className="text-2xl font-semibold">Nuevo pedido</h1>
                     <p className="text-base-content/60 mt-1 text-sm">
-                        Pide material a un almacén. Se puede pedir más de lo que hay: el almacén decide si surte
-                        parcial o si hay que comprar.
+                        Lo que le pides a un almacén de lo que ya tiene. Aquí sí se puede pedir más de lo que hay: el
+                        almacén decide si surte parcial o si hay que comprar.
                     </p>
                 </div>
 
-                <div className="alert alert-warning mb-4">
-                    <span>Vista de maqueta: el formulario todavía no guarda nada.</span>
-                </div>
-
-                <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+                <form onSubmit={enviar} className="space-y-6">
                     <div className="rounded-box border-base-300 border p-4">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField label="Le pide a" htmlFor="almacen" required>
+                            <FormField label="Almacén" htmlFor="almacen_id" error={form.errors.almacen_id} required>
                                 <Select
-                                    id="almacen"
-                                    value={almacenId}
-                                    onValueChange={setAlmacenId}
-                                    placeholder="¿Qué almacén surte?"
+                                    id="almacen_id"
+                                    value={form.data.almacen_id}
+                                    onValueChange={(v) => form.setData('almacen_id', v)}
+                                    placeholder="¿A quién se le pide?"
                                 >
-                                    {ALMACENES_DEMO.map((a) => (
+                                    {almacenes.map((a) => (
                                         <SelectItem key={a.id} value={String(a.id)}>
-                                            {a.clave} — {a.nombre}
-                                            {a.obra ? ` (${a.obra})` : ''}
-                                        </SelectItem>
-                                    ))}
-                                </Select>
-                            </FormField>
-
-                            <FormField label="Área que lo pide" htmlFor="departamento" required>
-                                <Select
-                                    id="departamento"
-                                    value={departamento}
-                                    onValueChange={setDepartamento}
-                                    placeholder="¿Quién lo necesita?"
-                                >
-                                    {DEPARTAMENTOS_DEMO.map((d) => (
-                                        <SelectItem key={d.id} value={String(d.id)}>
-                                            {d.nombre}
+                                            {etiquetaDeAlmacen(a)} — {a.nombre}
                                         </SelectItem>
                                     ))}
                                 </Select>
                             </FormField>
 
                             <FormField
-                                label="Requerido para"
+                                label="Área que pide"
+                                htmlFor="departamento_id"
+                                error={form.errors.departamento_id}
+                                description="Siempre hay un área responsable, haya obra o no."
+                                required
+                            >
+                                <Select
+                                    id="departamento_id"
+                                    value={form.data.departamento_id}
+                                    onValueChange={(v) => form.setData('departamento_id', v)}
+                                    placeholder="¿Quién lo pide?"
+                                >
+                                    {departamentos.map((d) => (
+                                        <SelectItem key={d.id} value={String(d.id)}>
+                                            {d.descripcion}
+                                        </SelectItem>
+                                    ))}
+                                </Select>
+                            </FormField>
+
+                            <FormField
+                                label="Obra destino"
+                                htmlFor="obra_id"
+                                error={form.errors.obra_id}
+                                description="Déjalo vacío si el material se queda en la planta."
+                            >
+                                <Select
+                                    id="obra_id"
+                                    value={form.data.obra_id}
+                                    onValueChange={(v) => {
+                                        form.setData('obra_id', v);
+
+                                        // En un pedido de obra recibe el almacén
+                                        // destino, no una persona.
+                                        if (v !== '') {
+                                            form.setData('recibe_nombre', '');
+                                            form.setData('grupo_trabajo_id', '');
+                                        }
+                                    }}
+                                    placeholder="Consumo interno de planta"
+                                >
+                                    <SelectItem value="">Consumo interno de planta</SelectItem>
+                                    {obras.map((o) => (
+                                        <SelectItem key={o.id} value={String(o.id)}>
+                                            {o.no} — {o.descripcion}
+                                        </SelectItem>
+                                    ))}
+                                </Select>
+                            </FormField>
+
+                            {!esDeObra && (
+                                <>
+                                    <FormField
+                                        label="A nombre de quién"
+                                        htmlFor="recibe_nombre"
+                                        error={form.errors.recibe_nombre}
+                                        description="Opcional: el área no siempre sabe de antemano quién va a pasar por el material."
+                                    >
+                                        <Input
+                                            id="recibe_nombre"
+                                            value={form.data.recibe_nombre}
+                                            onChange={(e) => form.setData('recibe_nombre', e.target.value)}
+                                            placeholder="A. Pérez"
+                                        />
+                                    </FormField>
+
+                                    <FormField
+                                        label="Cuadrilla"
+                                        htmlFor="grupo_trabajo_id"
+                                        error={form.errors.grupo_trabajo_id}
+                                        description="Opcional. Sirve para saber a qué frente se fue el material."
+                                    >
+                                        <Select
+                                            id="grupo_trabajo_id"
+                                            value={form.data.grupo_trabajo_id}
+                                            onValueChange={(v) => form.setData('grupo_trabajo_id', v)}
+                                            placeholder="Sin cuadrilla"
+                                        >
+                                            <SelectItem value="">Sin cuadrilla</SelectItem>
+                                            {gruposTrabajo.map((g) => (
+                                                <SelectItem key={g.id} value={String(g.id)}>
+                                                    {g.descripcion}
+                                                </SelectItem>
+                                            ))}
+                                        </Select>
+                                    </FormField>
+                                </>
+                            )}
+
+                            <FormField label="Fecha" htmlFor="fecha" error={form.errors.fecha} required>
+                                <Input
+                                    id="fecha"
+                                    type="date"
+                                    value={form.data.fecha}
+                                    onChange={(e) => form.setData('fecha', e.target.value)}
+                                />
+                            </FormField>
+
+                            <FormField
+                                label="Se necesita el"
                                 htmlFor="fecha_requerida"
-                                description="Cuándo se necesita."
+                                error={form.errors.fecha_requerida}
                                 required
                             >
                                 <Input
                                     id="fecha_requerida"
                                     type="date"
-                                    value={fechaRequerida}
-                                    onChange={(e) => setFechaRequerida(e.target.value)}
+                                    value={form.data.fecha_requerida}
+                                    onChange={(e) => form.setData('fecha_requerida', e.target.value)}
                                 />
                             </FormField>
-                        </div>
 
-                        <fieldset className="mt-4">
-                            <legend className="mb-2 text-sm font-medium">¿Para dónde es el material?</legend>
-                            <div className="flex flex-wrap gap-4">
-                                <label className="flex cursor-pointer items-center gap-2">
-                                    <input
-                                        type="radio"
-                                        name="destino"
-                                        className="radio radio-sm"
-                                        checked={destino === 'obra'}
-                                        onChange={() => elegirDestino('obra')}
-                                    />
-                                    <span className="text-sm">Para una obra</span>
-                                </label>
-                                <label className="flex cursor-pointer items-center gap-2">
-                                    <input
-                                        type="radio"
-                                        name="destino"
-                                        className="radio radio-sm"
-                                        checked={destino === 'planta'}
-                                        onChange={() => elegirDestino('planta')}
-                                    />
-                                    <span className="text-sm">Consumo interno de planta</span>
-                                </label>
-                            </div>
-                        </fieldset>
-
-                        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-                            {destino === 'obra' ? (
-                                <FormField label="Obra destino" htmlFor="obra" required>
-                                    <Select
-                                        id="obra"
-                                        value={obra}
-                                        onValueChange={setObra}
-                                        placeholder="¿A qué obra va?"
-                                    >
-                                        {OBRAS_DEMO.map((o) => (
-                                            <SelectItem key={o.id} value={String(o.id)}>
-                                                {o.etiqueta}
-                                            </SelectItem>
-                                        ))}
-                                    </Select>
-                                </FormField>
-                            ) : (
-                                <FormField
-                                    label="Quién recibe"
-                                    htmlFor="recibe"
-                                    description="Opcional. Quien pase por el material; es el que firma el vale."
-                                >
-                                    <Input
-                                        id="recibe"
-                                        value={recibe}
-                                        onChange={(e) => setRecibe(e.target.value)}
-                                        placeholder="A. Pérez"
-                                    />
-                                </FormField>
-                            )}
-
-                            {destino === 'planta' && (
-                                <FormField
-                                    label="Cuadrilla"
-                                    htmlFor="grupo_trabajo"
-                                    description="Opcional. Sale de los grupos de trabajo de Producción."
-                                >
-                                    <Select
-                                        id="grupo_trabajo"
-                                        value={grupoTrabajo}
-                                        onValueChange={setGrupoTrabajo}
-                                        placeholder="Sin cuadrilla"
-                                    >
-                                        {GRUPOS_TRABAJO_DEMO.map((g) => (
-                                            <SelectItem key={g.id} value={String(g.id)}>
-                                                {g.descripcion}
-                                            </SelectItem>
-                                        ))}
-                                    </Select>
-                                </FormField>
-                            )}
-
-                            <FormField
-                                label="Motivo"
-                                htmlFor="motivo"
-                                className={destino === 'planta' ? 'md:col-span-3' : 'md:col-span-2'}
-                                required
-                            >
+                            <FormField label="Motivo" htmlFor="motivo" error={form.errors.motivo}>
                                 <Input
                                     id="motivo"
-                                    value={motivo}
-                                    onChange={(e) => setMotivo(e.target.value)}
-                                    placeholder={
-                                        destino === 'obra'
-                                            ? 'Montaje eje 4, sellado de fachada norte...'
-                                            : 'Habilitado de placa, retoque de pintura...'
-                                    }
+                                    value={form.data.motivo}
+                                    onChange={(e) => form.setData('motivo', e.target.value)}
+                                    placeholder="Montaje eje 4"
                                 />
                             </FormField>
-                        </div>
 
-                        {/*
-                         * Que se vea desde la captura con qué documento se va a
-                         * surtir: es lo que decide si la obra tiene que confirmar
-                         * la recepción o si el material sale y ya.
-                         */}
-                        <div className="alert alert-info mt-4">
-                            <InfoIcon className="size-5" />
-                            <span>
-                                Se surtirá con una <strong>{surtido.documento.toLowerCase()}</strong>.{' '}
-                                {surtido.explicacion}
-                                {destino === 'planta' && ' No se carga a ninguna obra.'}
-                            </span>
+                            <FormField
+                                label="Observaciones"
+                                htmlFor="observaciones"
+                                error={form.errors.observaciones}
+                                className="md:col-span-3"
+                            >
+                                <Input
+                                    id="observaciones"
+                                    value={form.data.observaciones}
+                                    onChange={(e) => form.setData('observaciones', e.target.value)}
+                                />
+                            </FormField>
                         </div>
                     </div>
 
+                    <div className="alert">
+                        <InfoIcon className="size-4" />
+                        <span>
+                            {esDeObra
+                                ? 'El material va al almacén de la obra: lo surte una transferencia, y la obra confirma cuando lo recibe.'
+                                : 'El material se queda en planta: lo surte una salida directa del almacén.'}
+                        </span>
+                    </div>
+
                     <div>
-                        <h2 className="mb-3 text-lg font-semibold">Partidas</h2>
-                        {!claveAlmacen && (
-                            <p className="text-base-content/60 mb-2 text-sm">
-                                Elige el almacén para ver qué tiene disponible de cada producto.
-                            </p>
-                        )}
+                        <h2 className="mb-3 text-lg font-semibold">Qué se pide</h2>
+                        {form.errors.detalles && <p className="text-error mb-2 text-sm">{form.errors.detalles}</p>}
                         <CapturadorPartidas
-                            partidas={partidas}
-                            onChange={setPartidas}
-                            productos={PRODUCTOS_DEMO}
-                            disponibleDe={
-                                claveAlmacen ? (id) => disponiblePorProductoDemo(claveAlmacen, id) : undefined
-                            }
+                            partidas={form.data.detalles}
+                            onChange={(detalles) => form.setData('detalles', detalles)}
+                            productos={productos}
+                            // Pedir de más no es un error aquí: el material
+                            // todavía no sale, y el almacén decide qué hacer.
                             avisarFaltante={false}
                         />
                     </div>
@@ -262,11 +254,8 @@ export default function PedidoCreate() {
                         <Button variant="outline" asChild>
                             <Link href="/admin/almacen/pedidos">Cancelar</Link>
                         </Button>
-                        <Button variant="outline" type="submit" disabled>
-                            Guardar borrador
-                        </Button>
-                        <Button type="submit" disabled>
-                            Enviar a aprobación
+                        <Button type="submit" disabled={form.processing}>
+                            Levantar pedido
                         </Button>
                     </div>
                 </form>
