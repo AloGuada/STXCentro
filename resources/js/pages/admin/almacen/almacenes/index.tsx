@@ -3,7 +3,6 @@ import { BotonReporteExistencias } from '@/components/alm/reporte-existencias';
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeTipo } from '@/lib/alm/almacenes';
-import { existenciasDe, valorDeExistencias } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmAlmacen, PaginatedData } from '@/types/models';
 
@@ -15,7 +14,13 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Almacenes', href: '/admin/almacen/almacenes' },
 ];
 
-const columns: Column<AlmAlmacen>[] = [
+type AlmacenFila = AlmAlmacen & {
+    /** Sumado por el servidor desde el kardex. */
+    valor_inventario: number | null;
+    articulos_con_saldo: number;
+};
+
+const columns: Column<AlmacenFila>[] = [
     {
         key: 'clave',
         label: 'Clave',
@@ -57,17 +62,14 @@ const columns: Column<AlmAlmacen>[] = [
         ),
     },
     {
-        // Lo que vale lo que está a cargo de esa bodega: material medido y
-        // piezas con serie a costo promedio. Sale de los datos de ejemplo
-        // mientras el kardex no exista, así que un almacén nuevo aparece sin
-        // valor aunque en la vida real tenga material.
-        key: 'valor',
+        // Lo que vale lo que está a cargo de esa bodega, a costo promedio. Lo
+        // suma el servidor desde el kardex: contarlo aquí obligaría a traer
+        // todas las existencias de todos los almacenes al navegador.
+        key: 'valor_inventario',
         label: 'Valor',
         className: 'text-right',
         render: (a) => {
-            const existencias = existenciasDe(a.clave);
-
-            if (existencias.length === 0) {
+            if (!a.articulos_con_saldo) {
                 return (
                     <span className="text-base-content/40" title="Todavía no hay existencias registradas">
                         —
@@ -76,10 +78,10 @@ const columns: Column<AlmAlmacen>[] = [
             }
 
             return (
-                <span title={`${existencias.length} artículo(s) con saldo`}>
-                    <span className="font-mono">{moneda(valorDeExistencias(existencias))}</span>
+                <span title={`${a.articulos_con_saldo} artículo(s) con saldo`}>
+                    <span className="font-mono">{moneda(a.valor_inventario ?? 0)}</span>
                     <span className="text-base-content/50 block text-xs">
-                        {existencias.length} artículo(s)
+                        {a.articulos_con_saldo} artículo(s)
                     </span>
                 </span>
             );
@@ -94,7 +96,7 @@ const columns: Column<AlmAlmacen>[] = [
 ];
 
 type Props = {
-    almacenes: PaginatedData<AlmAlmacen>;
+    almacenes: PaginatedData<AlmacenFila>;
     filters: { search?: string };
 };
 

@@ -11,12 +11,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Almacén virtual: dónde vive el material. Con obra es un almacén de la obra
  * (montaje); sin obra es central y surte a todas.
  *
- * De aquí colgarán las existencias y el kardex; por ahora es sólo el catálogo.
+ * De aquí cuelgan las existencias y el kardex, así que un almacén con
+ * movimientos ya no se borra: se desactiva.
  */
 class Almacen extends Model
 {
@@ -75,6 +77,22 @@ class Almacen extends Model
     public function etiqueta(): string
     {
         return $this->obra ? "{$this->clave} · {$this->obra->no}" : $this->clave;
+    }
+
+    /**
+     * @return HasMany<Existencia, $this>
+     */
+    public function existencias(): HasMany
+    {
+        return $this->hasMany(Existencia::class);
+    }
+
+    /**
+     * @return HasMany<Movimiento, $this>
+     */
+    public function movimientos(): HasMany
+    {
+        return $this->hasMany(Movimiento::class);
     }
 
     /**

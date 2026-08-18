@@ -1,25 +1,17 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ALMACENES_DEMO, MOVIMIENTOS_DEMO, PRODUCTOS_DEMO } from '@/lib/alm/demo';
+import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
-import type { AlmMovimientoTipo } from '@/types/models';
-import { Head } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import type { AlmAlmacenOpcion, AlmMovimientoTipo, AlmOpcion, AlmProductoOpcion, PaginatedData } from '@/types/models';
+import { Head, Link, router } from '@inertiajs/react';
+import { UndoDotIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Inventarios', href: '/admin/almacen/existencias' },
     { title: 'Kardex', href: '/admin/almacen/kardex' },
 ];
-
-const ETIQUETA_TIPO: Record<AlmMovimientoTipo, string> = {
-    entrada: 'Entrada',
-    salida: 'Salida',
-    transferencia_entrada: 'Transf. entrada',
-    transferencia_salida: 'Transf. salida',
-    ajuste: 'Ajuste',
-};
 
 const CLASE_TIPO: Record<AlmMovimientoTipo, string> = {
     entrada: 'badge-success',
@@ -31,35 +23,55 @@ const CLASE_TIPO: Record<AlmMovimientoTipo, string> = {
 
 const cantidad = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
+type MovimientoFila = {
+    id: number;
+    fecha: string | null;
+    almacen: string | null;
+    codigo: string | null;
+    descripcion: string | null;
+    unidad: string | null;
+    tipo: AlmMovimientoTipo;
+    tipo_etiqueta: string;
+    cantidad: number;
+    /** Se lee del asiento, no se recalcula: es el punto entero del ledger. */
+    saldo_despues: number;
+    costo_unitario: number | null;
+    referencia: string | null;
+    es_reverso: boolean;
+    observaciones: string | null;
+    usuario: string | null;
+};
+
+type Props = {
+    movimientos: PaginatedData<MovimientoFila>;
+    filters: {
+        almacen_id?: string;
+        producto_id?: string;
+        tipo?: string;
+        desde?: string;
+        hasta?: string;
+        referencia?: string;
+    };
+    /** Sobre el filtro completo, no sobre la página. */
+    totales: { movimientos: number; entradas: number; salidas: number };
+    almacenes: AlmAlmacenOpcion[];
+    productos: AlmProductoOpcion[];
+    tipos: AlmOpcion[];
+};
+
 /**
  * El libro de movimientos: cada renglón dice qué pasó y con qué saldo quedó el
- * producto en ese almacén. Es sólo lectura — corregir un error es capturar el
+ * artículo en ese almacén. Es sólo lectura — corregir un error es capturar el
  * movimiento contrario, no borrar el renglón.
  */
-export default function KardexIndex() {
-    const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+export default function KardexIndex({ movimientos, filters, totales, almacenes, productos, tipos }: Props) {
+    const filtrar = (cambio: Record<string, string | undefined>) =>
+        router.get('/admin/almacen/kardex', { ...filters, ...cambio, page: undefined }, { preserveState: true });
 
-    const [almacen, setAlmacen] = useState(params.get('almacen') ?? '');
-    const [producto, setProducto] = useState(params.get('producto') ?? '');
-    const [tipo, setTipo] = useState('');
-    const [desde, setDesde] = useState('');
-    const [hasta, setHasta] = useState('');
-
-    const filas = useMemo(
-        () =>
-            MOVIMIENTOS_DEMO.filter(
-                (m) =>
-                    (!almacen || m.almacen === almacen) &&
-                    (!producto || m.producto === producto) &&
-                    (!tipo || m.tipo === tipo) &&
-                    (!desde || m.fecha >= desde) &&
-                    (!hasta || m.fecha <= `${hasta} 23:59`),
-            ),
-        [almacen, producto, tipo, desde, hasta],
-    );
-
-    const entradas = filas.filter((m) => m.cantidad > 0).reduce((s, m) => s + m.cantidad, 0);
-    const salidas = filas.filter((m) => m.cantidad < 0).reduce((s, m) => s + m.cantidad, 0);
+    // El saldo corriente sólo se puede leer de arriba abajo cuando la columna
+    // habla de un solo artículo en un solo almacén; si no, cada renglón trae el
+    // saldo de otra cosa y la columna parece contradecirse.
+    const saldoLegible = Boolean(filters.almacen_id) && Boolean(filters.producto_id);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -69,34 +81,36 @@ export default function KardexIndex() {
                 <div className="mb-6">
                     <h1 className="text-2xl font-semibold">Kardex</h1>
                     <p className="text-base-content/60 mt-1 text-sm">
-                        Todo lo que entró y salió, con el saldo que dejó cada movimiento. El saldo sólo es legible con
-                        un almacén y un producto elegidos.
+                        Todo lo que entró y salió, con el saldo que dejó cada movimiento. El saldo sólo se lee de
+                        corrido con un almacén y un artículo elegidos.
                     </p>
-                </div>
-
-                <div className="alert alert-warning mb-4">
-                    <span>Vista de maqueta: los datos son de ejemplo, todavía no hay backend.</span>
                 </div>
 
                 <div className="mb-4 flex flex-wrap items-end gap-3">
                     <div className="w-52">
                         <label className="label label-text text-xs">Almacén</label>
-                        <Select value={almacen} onValueChange={setAlmacen}>
-                            <SelectItem value="">Todos</SelectItem>
-                            {ALMACENES_DEMO.map((a) => (
-                                <SelectItem key={a.id} value={a.clave}>
-                                    {a.clave} — {a.nombre}
+                        <Select
+                            value={filters.almacen_id ?? ''}
+                            onValueChange={(v) => filtrar({ almacen_id: v || undefined })}
+                            placeholder="Todos"
+                        >
+                            {almacenes.map((a) => (
+                                <SelectItem key={a.id} value={String(a.id)}>
+                                    {etiquetaDeAlmacen(a)} — {a.nombre}
                                 </SelectItem>
                             ))}
                         </Select>
                     </div>
 
                     <div className="w-64">
-                        <label className="label label-text text-xs">Producto</label>
-                        <Select value={producto} onValueChange={setProducto}>
-                            <SelectItem value="">Todos</SelectItem>
-                            {PRODUCTOS_DEMO.map((p) => (
-                                <SelectItem key={p.id} value={p.codigo}>
+                        <label className="label label-text text-xs">Artículo</label>
+                        <Select
+                            value={filters.producto_id ?? ''}
+                            onValueChange={(v) => filtrar({ producto_id: v || undefined })}
+                            placeholder="Todos"
+                        >
+                            {productos.map((p) => (
+                                <SelectItem key={p.id} value={String(p.id)}>
                                     {p.codigo} — {p.descripcion}
                                 </SelectItem>
                             ))}
@@ -105,11 +119,14 @@ export default function KardexIndex() {
 
                     <div className="w-44">
                         <label className="label label-text text-xs">Tipo</label>
-                        <Select value={tipo} onValueChange={setTipo}>
-                            <SelectItem value="">Todos</SelectItem>
-                            {Object.entries(ETIQUETA_TIPO).map(([valor, etiqueta]) => (
-                                <SelectItem key={valor} value={valor}>
-                                    {etiqueta}
+                        <Select
+                            value={filters.tipo ?? ''}
+                            onValueChange={(v) => filtrar({ tipo: v || undefined })}
+                            placeholder="Todos"
+                        >
+                            {tipos.map((t) => (
+                                <SelectItem key={t.value} value={t.value}>
+                                    {t.label}
                                 </SelectItem>
                             ))}
                         </Select>
@@ -117,22 +134,39 @@ export default function KardexIndex() {
 
                     <div className="w-40">
                         <label className="label label-text text-xs">Desde</label>
-                        <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
+                        <Input
+                            type="date"
+                            defaultValue={filters.desde ?? ''}
+                            onChange={(e) => filtrar({ desde: e.target.value || undefined })}
+                        />
                     </div>
 
                     <div className="w-40">
                         <label className="label label-text text-xs">Hasta</label>
-                        <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+                        <Input
+                            type="date"
+                            defaultValue={filters.hasta ?? ''}
+                            onChange={(e) => filtrar({ hasta: e.target.value || undefined })}
+                        />
                     </div>
                 </div>
 
-                <div className="rounded-box border-base-300 overflow-hidden border">
+                {!saldoLegible && movimientos.data.length > 0 && (
+                    <div className="alert alert-info mb-4">
+                        <span>
+                            Elige un almacén y un artículo para poder leer la columna de saldo de corrido: mezclados,
+                            cada renglón trae el saldo de otra cosa.
+                        </span>
+                    </div>
+                )}
+
+                <div className="rounded-box border-base-300 overflow-x-auto border">
                     <table className="table table-sm">
                         <thead className="bg-base-200">
                             <tr>
                                 <th>Fecha</th>
                                 <th>Almacén</th>
-                                <th>Producto</th>
+                                <th>Artículo</th>
                                 <th>Tipo</th>
                                 <th>Referencia</th>
                                 <th className="text-right">Cantidad</th>
@@ -141,27 +175,36 @@ export default function KardexIndex() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filas.length === 0 ? (
+                            {movimientos.data.length === 0 ? (
                                 <tr>
                                     <td colSpan={8} className="text-base-content/50 py-6 text-center">
-                                        No hay movimientos con esos filtros
+                                        No hay movimientos con esos filtros.
                                     </td>
                                 </tr>
                             ) : (
-                                filas.map((m) => (
+                                movimientos.data.map((m) => (
                                     <tr key={m.id} className="hover">
                                         <td className="font-mono text-xs whitespace-nowrap">{m.fecha}</td>
                                         <td>
                                             <span className="badge badge-sm badge-ghost font-mono">{m.almacen}</span>
                                         </td>
-                                        <td className="font-mono text-xs">{m.producto}</td>
+                                        <td>
+                                            <span className="font-mono text-xs">{m.codigo}</span>
+                                            <span className="text-base-content/60 block text-xs">{m.descripcion}</span>
+                                        </td>
                                         <td>
                                             <span className={`badge badge-sm ${CLASE_TIPO[m.tipo]}`}>
-                                                {ETIQUETA_TIPO[m.tipo]}
+                                                {m.tipo_etiqueta}
                                             </span>
+                                            {m.es_reverso && (
+                                                <UndoDotIcon
+                                                    className="text-base-content/50 ml-1 inline size-3"
+                                                    aria-label="Reverso de un documento cancelado"
+                                                />
+                                            )}
                                         </td>
                                         <td className="font-mono text-xs" title={m.observaciones ?? undefined}>
-                                            {m.referencia}
+                                            {m.referencia ?? <span className="text-base-content/40">—</span>}
                                         </td>
                                         <td
                                             className={`text-right font-mono ${m.cantidad < 0 ? 'text-error' : 'text-success'}`}
@@ -169,7 +212,13 @@ export default function KardexIndex() {
                                             {m.cantidad > 0 ? '+' : ''}
                                             {cantidad(m.cantidad)}
                                         </td>
-                                        <td className="text-right font-mono font-medium">{cantidad(m.saldo_nuevo)}</td>
+                                        <td
+                                            className={`text-right font-mono ${
+                                                saldoLegible ? 'font-medium' : 'text-base-content/50'
+                                            }`}
+                                        >
+                                            {cantidad(m.saldo_despues)}
+                                        </td>
                                         <td className="text-sm">{m.usuario}</td>
                                     </tr>
                                 ))
@@ -177,17 +226,38 @@ export default function KardexIndex() {
                         </tbody>
                     </table>
 
-                    {filas.length > 0 && (
+                    {totales.movimientos > 0 && (
                         <div className="border-base-300 bg-base-200 flex flex-wrap items-center justify-between gap-2 border-t px-4 py-2 text-sm">
-                            <span>{filas.length} movimiento(s)</span>
+                            <span>{totales.movimientos} movimiento(s)</span>
                             <span className="font-mono">
-                                <span className="text-success">+{cantidad(entradas)}</span>
+                                <span className="text-success">+{cantidad(totales.entradas)}</span>
                                 {' / '}
-                                <span className="text-error">{cantidad(salidas)}</span>
+                                <span className="text-error">{cantidad(totales.salidas)}</span>
                             </span>
                         </div>
                     )}
                 </div>
+
+                {movimientos.links.length > 3 && (
+                    <div className="join mt-4 flex justify-center">
+                        {movimientos.links.map((link, i) =>
+                            link.url === null ? (
+                                <button key={i} className="join-item btn btn-sm btn-disabled">
+                                    <span dangerouslySetInnerHTML={{ __html: link.label }} />
+                                </button>
+                            ) : (
+                                <Link
+                                    key={i}
+                                    href={link.url}
+                                    className={`join-item btn btn-sm ${link.active ? 'btn-active' : ''}`}
+                                    preserveState
+                                >
+                                    <span dangerouslySetInnerHTML={{ __html: link.label }} />
+                                </Link>
+                            ),
+                        )}
+                    </div>
+                )}
             </div>
         </AppLayout>
     );

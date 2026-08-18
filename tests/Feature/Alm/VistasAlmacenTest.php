@@ -7,7 +7,7 @@ use Spatie\Permission\Models\Permission;
  * Las pantallas del módulo que todavía no tienen backend: sólo se comprueba que
  * la ruta abre su maqueta y que sigue detrás de su propio permiso. Conforme cada
  * una se construye sale de aquí y se prueba de verdad en su propio archivo
- * —artículos, ubicaciones y ajustes ya salieron—, hasta que este archivo desaparezca.
+ * —artículos, ubicaciones, ajustes, kardex y existencias ya salieron—, hasta que este archivo desaparezca.
  *
  * Cada pantalla tiene el suyo a propósito. Mientras todas reciclaban
  * `alm.almacenes.ver`, quien podía consultar el catálogo podía capturar
@@ -15,8 +15,6 @@ use Spatie\Permission\Models\Permission;
  * irreversible.
  */
 $pantallas = [
-    'existencias' => ['admin.alm.existencias.index', 'admin/almacen/existencias/index', 'alm.existencias.ver'],
-    'kardex' => ['admin.alm.kardex.index', 'admin/almacen/kardex/index', 'alm.kardex.ver'],
     'entradas' => ['admin.alm.entradas.index', 'admin/almacen/entradas/index', 'alm.entradas.ver'],
     'alta de entrada' => ['admin.alm.entradas.create', 'admin/almacen/entradas/create', 'alm.entradas.crear'],
     'salidas' => ['admin.alm.salidas.index', 'admin/almacen/salidas/index', 'alm.salidas.ver'],

@@ -4,6 +4,8 @@ use App\Http\Controllers\Admin\Alm\AjusteController as AlmAjusteController;
 use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
 use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
 use App\Http\Controllers\Admin\Alm\ArticuloController as AlmArticuloController;
+use App\Http\Controllers\Admin\Alm\ExistenciaController as AlmExistenciaController;
+use App\Http\Controllers\Admin\Alm\KardexController as AlmKardexController;
 use App\Http\Controllers\Admin\Alm\UbicacionController as AlmUbicacionController;
 use App\Http\Controllers\Admin\Alm\VistasController as AlmVistasController;
 use App\Http\Controllers\Admin\BadgeConfigController;
@@ -255,10 +257,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // controlador real conforme cada una se construya. Cada una ya va
         // detras de su permiso definitivo: el modulo mueve existencias de
         // forma irreversible, asi que reciclar un solo permiso no alcanza.
-        Route::get('existencias', [AlmVistasController::class, 'existencias'])
+        // Existencias y kardex: solo lectura. Corregir un movimiento es capturar
+        // el contrario, no borrar el renglon.
+        Route::get('existencias', [AlmExistenciaController::class, 'index'])
             ->middleware('permission:alm.existencias.ver')
             ->name('existencias.index');
-        Route::get('kardex', [AlmVistasController::class, 'kardex'])
+        Route::get('kardex', [AlmKardexController::class, 'index'])
             ->middleware('permission:alm.kardex.ver')
             ->name('kardex.index');
         Route::get('entradas', [AlmVistasController::class, 'entradas'])

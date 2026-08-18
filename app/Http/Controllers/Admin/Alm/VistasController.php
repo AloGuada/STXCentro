@@ -15,16 +15,6 @@ use Inertia\Response;
  */
 class VistasController extends Controller
 {
-    public function existencias(): Response
-    {
-        return Inertia::render('admin/almacen/existencias/index');
-    }
-
-    public function kardex(): Response
-    {
-        return Inertia::render('admin/almacen/kardex/index');
-    }
-
     public function entradas(): Response
     {
         return Inertia::render('admin/almacen/entradas/index');
