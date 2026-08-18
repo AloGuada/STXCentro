@@ -44,8 +44,6 @@ export default function ArticuloEdit({ articuloId, areas }: Props) {
 
     const [descripcion, setDescripcion] = useState(articulo.descripcion);
     const [unidad, setUnidad] = useState(articulo.unidad);
-    const [marca, setMarca] = useState(articulo.marca ?? '');
-    const [modelo, setModelo] = useState(articulo.modelo ?? '');
     const [idsteelex, setIdsteelex] = useState(articulo.idsteelex ?? '');
     // El demo guarda el nombre del área, no su id: se busca en el catálogo real
     // para preseleccionarla. Con backend llegará el `area_id` y esto se va.
@@ -147,32 +145,6 @@ export default function ArticuloEdit({ articuloId, areas }: Props) {
                                     value={descripcion}
                                     onChange={(e) => setDescripcion(e.target.value)}
                                     placeholder='Tornillo A325 3/4" x 2"'
-                                />
-                            </FormField>
-
-                            <FormField
-                                label="Marca"
-                                htmlFor="marca"
-                                description="Opcional. El material a granel no la lleva."
-                            >
-                                <Input
-                                    id="marca"
-                                    value={marca}
-                                    onChange={(e) => setMarca(e.target.value)}
-                                    placeholder="DeWalt"
-                                />
-                            </FormField>
-
-                            <FormField
-                                label="Modelo"
-                                htmlFor="modelo"
-                                description="Opcional. Es lo que se pide al reponer una herramienta."
-                            >
-                                <Input
-                                    id="modelo"
-                                    value={modelo}
-                                    onChange={(e) => setModelo(e.target.value)}
-                                    placeholder="DWE4120"
                                 />
                             </FormField>
 
@@ -386,7 +358,8 @@ export default function ArticuloEdit({ articuloId, areas }: Props) {
                                     <span>
                                         <span className="font-medium">Se controla por pieza</span>
                                         <span className="text-base-content/60 block text-sm">
-                                            Cada unidad se da de alta con su número de serie y su propia etiqueta, y se
+                                            Cada unidad se da de alta en Activos con su número de serie —y ahí mismo su
+                                            marca, su modelo y su id de mantenimiento—, lleva su propia etiqueta y se
                                             presta bajo resguardo. Sin esto el kardex sabe cuántas pulidoras salieron,
                                             pero no quién tiene cuál. Sólo aplica a los activos: un insumo se gasta.
                                         </span>

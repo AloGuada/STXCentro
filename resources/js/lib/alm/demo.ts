@@ -472,24 +472,24 @@ export function pendientePorRecibir(partida: AlmOcPartidaDemo, factura: AlmFactu
 }
 
 export const ARTICULOS_DEMO: AlmArticuloDemo[] = [
-    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', codigo_barras: 'TOR-0012', marca: null, modelo: null, idsteelex: 'MAT-000412', area: 'Estructura', clasificacion_abc: 'A', precio_ultimo: 4.4, imagen_url: imagenDemo('TOR', '#64748b'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 5000, existencia_total: 12780 },
-    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', codigo_barras: 'ELE-7018', marca: 'Infra', modelo: 'E7018', idsteelex: '7018-125', area: null, clasificacion_abc: 'A', precio_ultimo: 63.8, imagen_url: imagenDemo('ELE', '#0f766e'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 200, existencia_total: 414.75 },
-    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', codigo_barras: 'PIN-PRIM', marca: 'Comex', modelo: 'Epoxiprimer 300', idsteelex: null, area: 'Pintura', clasificacion_abc: 'B', precio_ultimo: 218.4, imagen_url: imagenDemo('PIN', '#b45309'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 50, existencia_total: 96 },
-    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', codigo_barras: 'DIS-0450', marca: 'Austromex', modelo: '742', idsteelex: null, area: null, clasificacion_abc: 'B', precio_ultimo: 27.5, imagen_url: imagenDemo('DIS', '#7c3aed'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 40, existencia_total: 8 },
+    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', codigo_barras: 'TOR-0012', idsteelex: 'MAT-000412', area: 'Estructura', clasificacion_abc: 'A', precio_ultimo: 4.4, imagen_url: imagenDemo('TOR', '#64748b'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 5000, existencia_total: 12780 },
+    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', codigo_barras: 'ELE-7018', idsteelex: '7018-125', area: null, clasificacion_abc: 'A', precio_ultimo: 63.8, imagen_url: imagenDemo('ELE', '#0f766e'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 200, existencia_total: 414.75 },
+    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', codigo_barras: 'PIN-PRIM', idsteelex: null, area: 'Pintura', clasificacion_abc: 'B', precio_ultimo: 218.4, imagen_url: imagenDemo('PIN', '#b45309'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 50, existencia_total: 96 },
+    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', codigo_barras: 'DIS-0450', idsteelex: null, area: null, clasificacion_abc: 'B', precio_ultimo: 27.5, imagen_url: imagenDemo('DIS', '#7c3aed'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 40, existencia_total: 8 },
     // El código de barras que ya venía impreso en la caja: se respeta en vez de
     // pegarle encima una etiqueta nuestra.
-    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', codigo_barras: '7501234567890', marca: null, modelo: null, idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 48.9, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 30, existencia_total: 0 },
-    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', codigo_barras: 'SIL-EST', marca: 'Sika', modelo: 'Sikasil SG-20', idsteelex: null, area: null, clasificacion_abc: 'A', precio_ultimo: 318.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 42 },
+    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', codigo_barras: '7501234567890', idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 48.9, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 30, existencia_total: 0 },
+    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', codigo_barras: 'SIL-EST', idsteelex: null, area: null, clasificacion_abc: 'A', precio_ultimo: 318.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 42 },
     // Los dos últimos que se dieron de alta ya nacieron con el consecutivo.
-    { id: 107, codigo: 'ART-00011', descripcion: 'Broca cobalto 1/4"', unidad: 'PZA', codigo_barras: 'ART-00011', marca: 'DeWalt', modelo: 'DW1207', idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 89.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 64 },
-    { id: 108, codigo: 'ART-00012', descripcion: 'Extensión eléctrica 25 m calibre 12', unidad: 'PZA', codigo_barras: 'ART-00012', marca: 'Voltech', modelo: '48042', idsteelex: null, area: null, clasificacion_abc: 'B', precio_ultimo: 1240.0, imagen_url: null, tipo: 'activo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 4, existencia_total: 9 },
+    { id: 107, codigo: 'ART-00011', descripcion: 'Broca cobalto 1/4"', unidad: 'PZA', codigo_barras: 'ART-00011', idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 89.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 64 },
+    { id: 108, codigo: 'ART-00012', descripcion: 'Extensión eléctrica 25 m calibre 12', unidad: 'PZA', codigo_barras: 'ART-00012', idsteelex: null, area: null, clasificacion_abc: 'B', precio_ultimo: 1240.0, imagen_url: null, tipo: 'activo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 4, existencia_total: 9 },
     // La pulidora se presta bajo resguardo: cada pieza lleva serie y dueño.
-    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', codigo_barras: 'PUL-4120', marca: 'DeWalt', modelo: 'DWE4120', idsteelex: 'HERR-0098', area: 'Herramienta', clasificacion_abc: 'A', precio_ultimo: 2180.0, imagen_url: imagenDemo('PUL', '#be123c'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 14 },
+    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', codigo_barras: 'PUL-4120', idsteelex: 'HERR-0098', area: 'Herramienta', clasificacion_abc: 'A', precio_ultimo: 2180.0, imagen_url: imagenDemo('PUL', '#be123c'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 14 },
     // El andamio también se presta, pero por bulto: serializarlo no aporta.
-    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', codigo_barras: 'AND-MOD', marca: null, modelo: null, idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 1850.0, imagen_url: null, tipo: 'activo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 320 },
-    { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', codigo_barras: 'VEH-0007', marca: 'Ford', modelo: 'Ranger XL 2024', idsteelex: null, area: null, clasificacion_abc: 'A', precio_ultimo: 612000.0, imagen_url: imagenDemo('VEH', '#1d4ed8'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 1 },
+    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', codigo_barras: 'AND-MOD', idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 1850.0, imagen_url: null, tipo: 'activo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 320 },
+    { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', codigo_barras: 'VEH-0007', idsteelex: null, area: null, clasificacion_abc: 'A', precio_ultimo: 612000.0, imagen_url: imagenDemo('VEH', '#1d4ed8'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 1 },
     // Sin kardex no hay nada que contar ni que etiquetar: un flete no se guarda.
-    { id: 302, codigo: 'SRV-FLET', descripcion: 'Flete foráneo', unidad: 'SRV', codigo_barras: null, marca: null, modelo: null, idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 8500.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: false, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 0 },
+    { id: 302, codigo: 'SRV-FLET', descripcion: 'Flete foráneo', unidad: 'SRV', codigo_barras: null, idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 8500.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: false, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 0 },
 ];
 
 /**
@@ -544,16 +544,16 @@ export function preciosDe(articuloId: number): AlmPrecioDemo[] {
  * una suma 1 a la existencia de su producto; el kardex por cantidad no cambia.
  */
 export const ACTIVOS_DEMO: AlmActivoDemo[] = [
-    { id: 1, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-07', codigo_barras: 'PUL-4120-07', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'prestado', condicion: 'Buena' },
-    { id: 2, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-08', codigo_barras: 'PUL-4120-08', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'prestado', condicion: 'Buena' },
-    { id: 3, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-11', codigo_barras: 'PUL-4120-11', almacen: 'HER', ubicacion_id: 14, costo: 2340.0, estatus: 'disponible', condicion: 'Buena' },
-    { id: 4, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-12', codigo_barras: 'PUL-4120-12', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'en_reparacion', condicion: 'Carbones gastados' },
-    { id: 5, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-14', codigo_barras: 'PUL-4120-14', almacen: 'HER', ubicacion_id: 13, costo: 2020.0, estatus: 'prestado', condicion: 'Regular' },
+    { id: 1, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-07', marca: 'DeWalt', modelo: 'DWE4120', id_mantenimiento: 'MTO-0071', codigo_barras: 'PUL-4120-07', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'prestado', condicion: 'Buena' },
+    { id: 2, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-08', marca: 'DeWalt', modelo: 'DWE4120', id_mantenimiento: 'MTO-0072', codigo_barras: 'PUL-4120-08', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'prestado', condicion: 'Buena' },
+    { id: 3, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-11', marca: 'Makita', modelo: 'GA4530', id_mantenimiento: 'MTO-0088', codigo_barras: 'PUL-4120-11', almacen: 'HER', ubicacion_id: 14, costo: 2340.0, estatus: 'disponible', condicion: 'Buena' },
+    { id: 4, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-12', marca: 'DeWalt', modelo: 'DWE4120', id_mantenimiento: 'MTO-0073', codigo_barras: 'PUL-4120-12', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'en_reparacion', condicion: 'Carbones gastados' },
+    { id: 5, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-14', marca: 'DeWalt', modelo: 'DWE4120', id_mantenimiento: null, codigo_barras: 'PUL-4120-14', almacen: 'HER', ubicacion_id: 13, costo: 2020.0, estatus: 'prestado', condicion: 'Regular' },
     // El VIN trae letras y números pero no guiones: se etiqueta con el nuestro
     // para que el lector no dependa de lo que traiga grabado el fabricante.
     // Sin ubicación: una camioneta no se guarda en un rack, y así se ve que el
     // renglón «sin acomodar» no siempre es un descuido.
-    { id: 6, producto_id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', no_serie: '3FTTW8E9XRA12345', codigo_barras: 'VEH-0007-01', almacen: 'AG', ubicacion_id: null, costo: 789400.0, estatus: 'prestado', condicion: 'Buena' },
+    { id: 6, producto_id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', no_serie: '3FTTW8E9XRA12345', marca: 'Ford', modelo: 'Ranger XL 2024', id_mantenimiento: 'VEH-07', codigo_barras: 'VEH-0007-01', almacen: 'AG', ubicacion_id: null, costo: 789400.0, estatus: 'prestado', condicion: 'Buena' },
 ];
 
 /**
@@ -633,6 +633,24 @@ function existenciasDeActivos(): AlmExistenciaDemo[] {
  * realmente disponibles.
  */
 export const EXISTENCIAS_CON_ACTIVOS_DEMO: AlmExistenciaDemo[] = [...EXISTENCIAS_DEMO, ...existenciasDeActivos()];
+
+/**
+ * Lo que hay en un almacén, medido y contado junto: es lo que se responde
+ * cuando preguntan cuánto vale esa bodega.
+ *
+ * Los datos de ejemplo sólo conocen la clave, así que dos almacenes que la
+ * comparten entre obras —el `A` de T4 y el de MBP— se ven el mismo renglón.
+ * Con el kardex real la existencia cuelga del id del almacén y el empate
+ * desaparece solo.
+ */
+export function existenciasDe(claveAlmacen: string): AlmExistenciaDemo[] {
+    return EXISTENCIAS_CON_ACTIVOS_DEMO.filter((e) => e.almacen === claveAlmacen);
+}
+
+/** Lo que vale un puño de renglones: cantidad por costo promedio. */
+export function valorDeExistencias(existencias: AlmExistenciaDemo[]): number {
+    return existencias.reduce((suma, e) => suma + e.cantidad * e.costo_promedio, 0);
+}
 
 /**
  * Si el renglón toca ese lugar.

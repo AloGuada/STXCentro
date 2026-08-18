@@ -38,18 +38,17 @@ export default function ArticulosIndex() {
         setCambios((prev) => ({ ...prev, [id]: { ...prev[id], ...cambio } }));
 
     const s = query.trim().toLowerCase();
-    // Se busca también por marca, modelo y código de barras: el almacenista
-    // llega con la caja en la mano y lo que tiene enfrente es el modelo o el
-    // código escaneado, no la descripción con la que se dio de alta. El ID de
-    // Steelex entra por lo mismo: quien viene del sistema anterior trae ese
-    // dato y no el código nuevo.
+    // Se busca también por código de barras: el almacenista llega con la caja
+    // en la mano y lo que tiene enfrente es el código escaneado, no la
+    // descripción con la que se dio de alta. El ID de Steelex entra por lo
+    // mismo: quien viene del sistema anterior trae ese dato y no el código
+    // nuevo. La marca y el modelo ya no se buscan aquí: son de la pieza, y de
+    // eso sabe Activos.
     const visibles = ARTICULOS_DEMO.map(valorDe).filter(
         (i) =>
             (s === '' ||
                 i.codigo.toLowerCase().includes(s) ||
                 i.descripcion.toLowerCase().includes(s) ||
-                (i.marca ?? '').toLowerCase().includes(s) ||
-                (i.modelo ?? '').toLowerCase().includes(s) ||
                 (i.idsteelex ?? '').toLowerCase().includes(s) ||
                 (i.area ?? '').toLowerCase().includes(s) ||
                 (i.codigo_barras ?? '').toLowerCase().includes(s)) &&
@@ -169,14 +168,7 @@ export default function ArticulosIndex() {
                                                     />
                                                 )}
                                             </td>
-                                            <td>
-                                                {i.descripcion}
-                                                {(i.marca || i.modelo) && (
-                                                    <span className="text-base-content/50 block text-xs">
-                                                        {[i.marca, i.modelo].filter(Boolean).join(' · ')}
-                                                    </span>
-                                                )}
-                                            </td>
+                                            <td>{i.descripcion}</td>
                                             <td className="text-base-content/60 font-mono text-xs">{i.unidad}</td>
                                             <td>
                                                 <span className={`badge badge-sm ${CLASE_TIPO[i.tipo]}`}>
@@ -269,8 +261,8 @@ export default function ArticulosIndex() {
                                             <td>
                                                 {/*
                                                  * Aquí sólo se palomea; el tipo, la clase y lo demás
-                                                 * —descripción, marca, foto, código de barras— se
-                                                 * corrigen en la pantalla de edición.
+                                                 * —descripción, foto, código de barras— se corrigen
+                                                 * en la pantalla de edición.
                                                  */}
                                                 <Link
                                                     href={`/admin/almacen/articulos/${i.id}/edit`}

@@ -89,11 +89,7 @@ export default function ArticuloShow({ articuloId }: Props) {
                                 )}
                             </div>
                             <p className="mt-1 text-lg">{articulo.descripcion}</p>
-                            <p className="text-base-content/60 text-sm">
-                                {[articulo.marca, articulo.modelo].filter(Boolean).join(' · ') || 'Sin marca ni modelo'}
-                                {' · se mide en '}
-                                {articulo.unidad}
-                            </p>
+                            <p className="text-base-content/60 text-sm">Se mide en {articulo.unidad}</p>
                             {/* Sólo si está anotado: es dato de conciliación con el sistema
                                 anterior, no algo que el almacenista necesite a diario. */}
                             {articulo.idsteelex && (
@@ -323,8 +319,8 @@ export default function ArticuloShow({ articuloId }: Props) {
                             <div>
                                 <h2 className="font-medium">Piezas</h2>
                                 <p className="text-base-content/60 text-sm">
-                                    Cada una suma 1 a la existencia y lleva su propio número de serie y su etiqueta. El
-                                    kardex por cantidad no cambia.
+                                    Cada una suma 1 a la existencia y lleva su propio número de serie, su marca y su
+                                    etiqueta. El kardex por cantidad no cambia.
                                 </p>
                             </div>
                             <Link href="/admin/almacen/activos" className="btn btn-ghost btn-sm">
@@ -335,6 +331,8 @@ export default function ArticuloShow({ articuloId }: Props) {
                             <thead className="bg-base-200">
                                 <tr>
                                     <th>No. de serie</th>
+                                    <th>Marca y modelo</th>
+                                    <th>Id de mto.</th>
                                     <th>Código de barras</th>
                                     <th>Almacén</th>
                                     <th>Ubicación</th>
@@ -345,7 +343,7 @@ export default function ArticuloShow({ articuloId }: Props) {
                             <tbody>
                                 {piezas.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="text-base-content/50 py-6 text-center">
+                                        <td colSpan={8} className="text-base-content/50 py-6 text-center">
                                             Está marcado por pieza pero no se ha dado de alta ninguna.
                                         </td>
                                     </tr>
@@ -353,6 +351,14 @@ export default function ArticuloShow({ articuloId }: Props) {
                                     piezas.map((p) => (
                                         <tr key={p.id} className="hover">
                                             <td className="font-mono">{p.no_serie}</td>
+                                            <td className="text-sm">
+                                                {[p.marca, p.modelo].filter(Boolean).join(' · ') || (
+                                                    <span className="text-base-content/40">—</span>
+                                                )}
+                                            </td>
+                                            <td className="text-base-content/60 font-mono text-xs">
+                                                {p.id_mantenimiento ?? '—'}
+                                            </td>
                                             <td className="text-base-content/60 font-mono text-xs">
                                                 {p.codigo_barras ?? '—'}
                                             </td>

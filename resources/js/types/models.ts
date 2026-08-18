@@ -3583,8 +3583,6 @@ export type AlmArticuloDemo = {
      * del fabricante cuando la caja ya trae uno impreso.
      */
     codigo_barras: string | null;
-    marca: string | null;
-    modelo: string | null;
     /**
      * Cómo se llama este artículo en Steelex. Campo libre de 150 caracteres:
      * no se valida ni se cruza con nada, sólo deja anotado a qué corresponde
@@ -3718,6 +3716,20 @@ export type AlmActivoDemo = {
      * cuál volvió del préstamo.
      */
     codigo_barras: string | null;
+    /**
+     * De la pieza, no del artículo: el catálogo dice qué es («pulidora de 4
+     * 1/2\" 850W») y la pieza con qué se cumplió, que es lo que se necesita
+     * para pedir la refacción correcta. Dos altas del mismo artículo pueden
+     * traer marcas distintas.
+     */
+    marca: string | null;
+    modelo: string | null;
+    /**
+     * Con qué número identifica mantenimiento a esta pieza en su propio
+     * control. Texto libre: no se valida ni se cruza con nada, sólo deja
+     * anotado a qué corresponde allá para poder conciliar.
+     */
+    id_mantenimiento: string | null;
     almacen: string;
     /**
      * Dónde vive cuando está en el almacén. Es el id del árbol de ubicaciones y

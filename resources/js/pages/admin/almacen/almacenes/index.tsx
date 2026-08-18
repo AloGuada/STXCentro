@@ -1,9 +1,13 @@
+import { Head } from '@inertiajs/react';
+import { BotonReporteExistencias } from '@/components/alm/reporte-existencias';
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeTipo } from '@/lib/alm/almacenes';
+import { existenciasDe, valorDeExistencias } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmAlmacen, PaginatedData } from '@/types/models';
-import { Head } from '@inertiajs/react';
+
+const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -52,6 +56,41 @@ const columns: Column<AlmAlmacen>[] = [
             </span>
         ),
     },
+    {
+        // Lo que vale lo que está a cargo de esa bodega: material medido y
+        // piezas con serie a costo promedio. Sale de los datos de ejemplo
+        // mientras el kardex no exista, así que un almacén nuevo aparece sin
+        // valor aunque en la vida real tenga material.
+        key: 'valor',
+        label: 'Valor',
+        className: 'text-right',
+        render: (a) => {
+            const existencias = existenciasDe(a.clave);
+
+            if (existencias.length === 0) {
+                return (
+                    <span className="text-base-content/40" title="Todavía no hay existencias registradas">
+                        —
+                    </span>
+                );
+            }
+
+            return (
+                <span title={`${existencias.length} artículo(s) con saldo`}>
+                    <span className="font-mono">{moneda(valorDeExistencias(existencias))}</span>
+                    <span className="text-base-content/50 block text-xs">
+                        {existencias.length} artículo(s)
+                    </span>
+                </span>
+            );
+        },
+    },
+    {
+        key: 'reporte',
+        label: 'Existencias',
+        className: 'text-center',
+        render: (a) => <BotonReporteExistencias almacen={a} compacto />,
+    },
 ];
 
 type Props = {
@@ -83,7 +122,11 @@ export default function AlmacenesIndex({ almacenes, filters }: Props) {
                     createLabel="Nuevo almacén"
                     emptyMessage="No hay almacenes registrados"
                     getRowHref={(a) => `/admin/almacen/almacenes/${a.id}/edit`}
-                />
+                >
+                    {/* El consolidado de la empresa: todas las existencias
+                        valuadas a costo promedio, sin importar la bodega. */}
+                    <BotonReporteExistencias etiqueta="Reporte de existencias" />
+                </DataTable>
             </div>
         </AppLayout>
     );

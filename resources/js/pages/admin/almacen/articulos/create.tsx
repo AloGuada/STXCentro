@@ -30,8 +30,6 @@ export default function ArticuloCreate({ areas }: Props) {
 
     const [descripcion, setDescripcion] = useState('');
     const [unidad, setUnidad] = useState('');
-    const [marca, setMarca] = useState('');
-    const [modelo, setModelo] = useState('');
     // Sólo se anota, no se valida ni se cruza: es el nombre del artículo en el
     // sistema anterior, para conciliar mientras los dos convivan.
     const [idsteelex, setIdsteelex] = useState('');
@@ -105,32 +103,6 @@ export default function ArticuloCreate({ areas }: Props) {
                                     value={descripcion}
                                     onChange={(e) => setDescripcion(e.target.value)}
                                     placeholder='Tornillo A325 3/4" x 2"'
-                                />
-                            </FormField>
-
-                            <FormField
-                                label="Marca"
-                                htmlFor="marca"
-                                description="Opcional. El material a granel no la lleva."
-                            >
-                                <Input
-                                    id="marca"
-                                    value={marca}
-                                    onChange={(e) => setMarca(e.target.value)}
-                                    placeholder="DeWalt"
-                                />
-                            </FormField>
-
-                            <FormField
-                                label="Modelo"
-                                htmlFor="modelo"
-                                description="Opcional. Es lo que se pide al reponer una herramienta."
-                            >
-                                <Input
-                                    id="modelo"
-                                    value={modelo}
-                                    onChange={(e) => setModelo(e.target.value)}
-                                    placeholder="DWE4120"
                                 />
                             </FormField>
 
@@ -331,7 +303,8 @@ export default function ArticuloCreate({ areas }: Props) {
                                     <span>
                                         <span className="font-medium">Se controla por pieza</span>
                                         <span className="text-base-content/60 block text-sm">
-                                            Cada unidad se da de alta con su número de serie y su propia etiqueta, y se
+                                            Cada unidad se da de alta en Activos con su número de serie —y ahí mismo su
+                                            marca, su modelo y su id de mantenimiento—, lleva su propia etiqueta y se
                                             presta bajo resguardo. Sin esto el kardex sabe cuántas pulidoras salieron,
                                             pero no quién tiene cuál. Sólo aplica a los activos: un insumo se gasta.
                                         </span>
