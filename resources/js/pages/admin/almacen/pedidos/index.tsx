@@ -1,3 +1,4 @@
+import { BotonPdf } from '@/components/alm/boton-pdf';
 import { ButtonLink } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { comoSeSurte, ESTATUS_PEDIDO, PEDIDOS_DEMO } from '@/lib/alm/demo';
@@ -60,6 +61,7 @@ export default function PedidosIndex() {
                                 <th className="text-right">Renglones</th>
                                 <th className="text-right">Por surtir</th>
                                 <th>Estatus</th>
+                                <th className="w-20"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -91,6 +93,9 @@ export default function PedidosIndex() {
                                         </td>
                                         <td>
                                             <span className={`badge badge-sm ${estatus.clase}`}>{estatus.etiqueta}</span>
+                                        </td>
+                                        <td>
+                                            <BotonPdf folio={p.folio} etiqueta="PDF" />
                                         </td>
                                     </tr>
                                 );
