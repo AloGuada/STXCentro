@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\Alm\AjusteController as AlmAjusteController;
 use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
 use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
 use App\Http\Controllers\Admin\Alm\ArticuloController as AlmArticuloController;
@@ -290,12 +291,21 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('devoluciones/create', [AlmVistasController::class, 'devolucionCreate'])
             ->middleware('permission:alm.devoluciones.crear')
             ->name('devoluciones.create');
-        Route::get('ajustes', [AlmVistasController::class, 'ajustes'])
-            ->middleware('permission:alm.ajustes.ver')
-            ->name('ajustes.index');
-        Route::get('ajustes/create', [AlmVistasController::class, 'ajusteCreate'])
+        // Ajustes: el unico documento que cambia la existencia sin material de
+        // por medio. Sin edit/update/destroy, como todos los de almacen: un
+        // ajuste equivocado se corrige con otro y los dos quedan en el kardex.
+        Route::resource('ajustes', AlmAjusteController::class)
+            ->only(['index', 'create', 'store', 'show'])
+            ->parameters(['ajustes' => 'ajuste'])
+            ->middlewareFor(['index', 'show'], 'permission:alm.ajustes.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.ajustes.crear');
+
+        // Lo que hay ahora en el almacen, para arrancar la hoja del ajuste con
+        // el saldo registrado en vez de a mano.
+        Route::get('almacenes/{almacen}/existencias', [AlmAjusteController::class, 'existencias'])
+            ->whereNumber('almacen')
             ->middleware('permission:alm.ajustes.crear')
-            ->name('ajustes.create');
+            ->name('almacenes.existencias');
         Route::get('pedidos', [AlmVistasController::class, 'pedidos'])
             ->middleware('permission:alm.pedidos.ver')
             ->name('pedidos.index');

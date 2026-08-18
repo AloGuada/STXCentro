@@ -145,7 +145,7 @@ export default function EntradaCreate() {
     const recibirTodo = () =>
         setRecibido(Object.fromEntries(renglones.map((r) => [r.partida.producto_id, String(r.porRecibir)])));
 
-    const sinVerificarLibre = partidasSinVerificar(partidas);
+    const sinVerificarLibre = partidasSinVerificar(partidas, PRODUCTOS_DEMO);
     const contraOrden = origen === 'orden';
 
     return (
@@ -532,6 +532,7 @@ export default function EntradaCreate() {
                                 Conviene dejar en observaciones de dónde salió.
                             </p>
                             <CapturadorPartidas
+                                productos={PRODUCTOS_DEMO}
                                 partidas={partidas}
                                 onChange={setPartidas}
                                 conCosto

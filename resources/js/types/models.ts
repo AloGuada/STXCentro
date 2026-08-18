@@ -3309,6 +3309,19 @@ export type AlmMovimientoTipo =
     | 'transferencia_entrada'
     | 'ajuste';
 
+/**
+ * Un artículo como lo ofrece el capturador de renglones: lo mínimo para
+ * elegirlo, medirlo y saber si pide inspección al recibirlo.
+ */
+export type AlmProductoOpcion = {
+    id: number;
+    codigo: string | null;
+    descripcion: string;
+    unidad: string;
+    /** Sin este palomeo en la entrada, el producto no se puede recepcionar. */
+    requiere_verificacion: boolean;
+};
+
 export type AlmProductoDemo = {
     id: number;
     codigo: string;

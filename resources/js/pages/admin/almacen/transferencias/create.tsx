@@ -4,7 +4,13 @@ import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { almacenesDeObra, ALMACENES_DEMO, disponibleDemo, pedidosTransferibles } from '@/lib/alm/demo';
+import {
+    almacenesDeObra,
+    ALMACENES_DEMO,
+    disponiblePorProductoDemo,
+    pedidosTransferibles,
+    PRODUCTOS_DEMO,
+} from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmPartidaBorrador } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
@@ -190,7 +196,10 @@ export default function TransferenciaCreate() {
                         <CapturadorPartidas
                             partidas={partidas}
                             onChange={setPartidas}
-                            disponibleDe={claveOrigen ? (codigo) => disponibleDemo(claveOrigen, codigo) : undefined}
+                            productos={PRODUCTOS_DEMO}
+                            disponibleDe={
+                                claveOrigen ? (id) => disponiblePorProductoDemo(claveOrigen, id) : undefined
+                            }
                         />
                     </div>
 

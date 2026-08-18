@@ -7,7 +7,7 @@ use Spatie\Permission\Models\Permission;
  * Las pantallas del módulo que todavía no tienen backend: sólo se comprueba que
  * la ruta abre su maqueta y que sigue detrás de su propio permiso. Conforme cada
  * una se construye sale de aquí y se prueba de verdad en su propio archivo
- * —artículos y ubicaciones ya salieron—, hasta que este archivo desaparezca.
+ * —artículos, ubicaciones y ajustes ya salieron—, hasta que este archivo desaparezca.
  *
  * Cada pantalla tiene el suyo a propósito. Mientras todas reciclaban
  * `alm.almacenes.ver`, quien podía consultar el catálogo podía capturar
@@ -25,8 +25,6 @@ $pantallas = [
     'alta de transferencia' => ['admin.alm.transferencias.create', 'admin/almacen/transferencias/create', 'alm.transferencias.enviar'],
     'devoluciones' => ['admin.alm.devoluciones.index', 'admin/almacen/devoluciones/index', 'alm.devoluciones.ver'],
     'alta de devolucion' => ['admin.alm.devoluciones.create', 'admin/almacen/devoluciones/create', 'alm.devoluciones.crear'],
-    'ajustes' => ['admin.alm.ajustes.index', 'admin/almacen/ajustes/index', 'alm.ajustes.ver'],
-    'alta de ajuste' => ['admin.alm.ajustes.create', 'admin/almacen/ajustes/create', 'alm.ajustes.crear'],
     'pedidos' => ['admin.alm.pedidos.index', 'admin/almacen/pedidos/index', 'alm.pedidos.ver'],
     'alta de pedido' => ['admin.alm.pedidos.create', 'admin/almacen/pedidos/create', 'alm.pedidos.crear'],
     'prestamos' => ['admin.alm.prestamos.index', 'admin/almacen/prestamos/index', 'alm.prestamos.ver'],

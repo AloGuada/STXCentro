@@ -1,9 +1,10 @@
-import { ButtonLink } from '@/components/ui/button';
+import { DataTable, type Column } from '@/components/data-table';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { AJUSTES_DEMO, MOTIVOS_AJUSTE } from '@/lib/alm/demo';
+import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
-import { PlusIcon } from 'lucide-react';
+import type { AlmAlmacenOpcion, AlmOpcion, PaginatedData } from '@/types/models';
+import { Head, router } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -13,71 +14,114 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
-export default function AjustesIndex() {
+type AjusteFila = {
+    id: number;
+    folio: string | null;
+    fecha: string | null;
+    almacen: string | null;
+    motivo: string;
+    motivo_etiqueta: string;
+    renglones: number;
+    /** Con signo, sumando todos los renglones: si repuso o si bajó. */
+    diferencia_neta: number;
+    autorizo: string | null;
+};
+
+type Props = {
+    ajustes: PaginatedData<AjusteFila>;
+    filters: { almacen_id?: string; motivo?: string; desde?: string; hasta?: string; search?: string };
+    almacenes: AlmAlmacenOpcion[];
+    motivos: AlmOpcion[];
+};
+
+const columns: Column<AjusteFila>[] = [
+    { key: 'folio', label: 'Folio', render: (a) => <span className="font-mono font-medium">{a.folio}</span> },
+    { key: 'fecha', label: 'Fecha', className: 'font-mono text-xs' },
+    {
+        key: 'almacen',
+        label: 'Almacén',
+        render: (a) => <span className="badge badge-sm badge-ghost font-mono">{a.almacen}</span>,
+    },
+    {
+        key: 'motivo',
+        label: 'Motivo',
+        render: (a) => <span className="badge badge-sm badge-ghost">{a.motivo_etiqueta}</span>,
+    },
+    { key: 'renglones', label: 'Renglones', className: 'text-right font-mono' },
+    {
+        key: 'diferencia_neta',
+        label: 'Diferencia neta',
+        className: 'text-right',
+        render: (a) => (
+            <span
+                className={`font-mono ${
+                    a.diferencia_neta < 0 ? 'text-error' : a.diferencia_neta > 0 ? 'text-success' : 'text-base-content/40'
+                }`}
+            >
+                {a.diferencia_neta > 0 ? '+' : ''}
+                {numero(a.diferencia_neta)}
+            </span>
+        ),
+    },
+    { key: 'autorizo', label: 'Autorizó' },
+];
+
+export default function AjustesIndex({ ajustes, filters, almacenes, motivos }: Props) {
+    const filtrar = (cambio: Record<string, string | undefined>) =>
+        router.get('/admin/almacen/ajustes', { ...filters, ...cambio, page: undefined }, { preserveState: true });
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Ajustes" />
 
             <div className="p-6">
-                <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold">Ajustes</h1>
-                        <p className="text-base-content/60 mt-1 text-sm">
-                            La única forma de corregir una existencia. Los documentos no se editan ni se borran: lo que
-                            no cuadra se explica aquí, con motivo y con quién lo autorizó.
-                        </p>
-                    </div>
-                    <ButtonLink href="/admin/almacen/ajustes/create" variant="primary">
-                        <PlusIcon className="size-4" />
-                        Nuevo ajuste
-                    </ButtonLink>
+                <div className="mb-6">
+                    <h1 className="text-2xl font-semibold">Ajustes</h1>
+                    <p className="text-base-content/60 mt-1 text-sm">
+                        El único movimiento que cambia la existencia sin que haya entrado ni salido material. Queda con
+                        folio, motivo y quién lo autorizó — y no se edita: un ajuste equivocado se corrige con otro.
+                    </p>
                 </div>
 
-                <div className="alert alert-warning mb-4">
-                    <span>Vista de maqueta: los datos son de ejemplo, todavía no hay backend.</span>
-                </div>
-
-                <div className="rounded-box border-base-300 overflow-hidden border">
-                    <table className="table">
-                        <thead className="bg-base-200">
-                            <tr>
-                                <th>Folio</th>
-                                <th>Fecha</th>
-                                <th>Almacén</th>
-                                <th>Motivo</th>
-                                <th className="text-right">Renglones</th>
-                                <th className="text-right">Diferencia neta</th>
-                                <th>Autorizó</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {AJUSTES_DEMO.map((a) => (
-                                <tr key={a.id} className="hover">
-                                    <td className="font-mono font-medium">{a.folio}</td>
-                                    <td className="font-mono text-sm">{a.fecha}</td>
-                                    <td>
-                                        <span className="badge badge-sm badge-ghost font-mono">{a.almacen}</span>
-                                    </td>
-                                    <td className="text-sm">{MOTIVOS_AJUSTE[a.motivo]}</td>
-                                    <td className="text-right font-mono">{a.renglones}</td>
-                                    <td className="text-right font-mono">
-                                        <span
-                                            className={
-                                                a.diferencia_neta < 0
-                                                    ? 'text-error font-semibold'
-                                                    : 'text-success font-semibold'
-                                            }
-                                        >
-                                            {a.diferencia_neta > 0 ? '+' : ''}
-                                            {numero(a.diferencia_neta)}
-                                        </span>
-                                    </td>
-                                    <td className="text-sm">{a.autorizo}</td>
-                                </tr>
+                <DataTable
+                    columns={columns}
+                    data={ajustes}
+                    searchable
+                    searchValue={filters.search}
+                    searchPlaceholder="Buscar por folio..."
+                    createHref="/admin/almacen/ajustes/create"
+                    createLabel="Nuevo ajuste"
+                    emptyMessage="Todavía no se ha capturado ningún ajuste."
+                    getRowHref={(a) => `/admin/almacen/ajustes/${a.id}`}
+                >
+                    <div className="w-52">
+                        <Select
+                            value={filters.almacen_id ?? ''}
+                            onValueChange={(v) => filtrar({ almacen_id: v || undefined })}
+                            placeholder="Todos los almacenes"
+                        >
+                            {almacenes.map((a) => (
+                                <SelectItem key={a.id} value={String(a.id)}>
+                                    {etiquetaDeAlmacen(a)}
+                                </SelectItem>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
+                        </Select>
+                    </div>
+
+                    <div className="w-44">
+                        <Select
+                            value={filters.motivo ?? ''}
+                            onValueChange={(v) => filtrar({ motivo: v || undefined })}
+                            placeholder="Todos los motivos"
+                        >
+                            {motivos.map((m) => (
+                                <SelectItem key={m.value} value={m.value}>
+                                    {m.label}
+                                </SelectItem>
+                            ))}
+                        </Select>
+                    </div>
+                </DataTable>
             </div>
         </AppLayout>
     );

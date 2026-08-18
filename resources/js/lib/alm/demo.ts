@@ -919,6 +919,13 @@ export function disponibleDemo(almacen: string, codigoProducto: string): number 
     return fila ? fila.cantidad : null;
 }
 
+/** El mismo dato, buscado por id: es como lo pide el capturador de renglones. */
+export function disponiblePorProductoDemo(almacen: string, productoId: number): number | null {
+    const producto = PRODUCTOS_DEMO.find((p) => p.id === productoId);
+
+    return producto ? disponibleDemo(almacen, producto.codigo) : null;
+}
+
 /**
  * Cada cuánto se cuenta cada clase.
  *

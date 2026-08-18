@@ -8,7 +8,8 @@ import {
     ALMACENES_DEMO,
     comoSeSurte,
     DEPARTAMENTOS_DEMO,
-    disponibleDemo,
+    disponiblePorProductoDemo,
+    PRODUCTOS_DEMO,
     GRUPOS_TRABAJO_DEMO,
 } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
@@ -249,7 +250,10 @@ export default function PedidoCreate() {
                         <CapturadorPartidas
                             partidas={partidas}
                             onChange={setPartidas}
-                            disponibleDe={claveAlmacen ? (codigo) => disponibleDemo(claveAlmacen, codigo) : undefined}
+                            productos={PRODUCTOS_DEMO}
+                            disponibleDe={
+                                claveAlmacen ? (id) => disponiblePorProductoDemo(claveAlmacen, id) : undefined
+                            }
                             avisarFaltante={false}
                         />
                     </div>

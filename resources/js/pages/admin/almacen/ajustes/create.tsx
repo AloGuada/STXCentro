@@ -1,15 +1,14 @@
 import { CapturadorPartidas, PARTIDA_VACIA } from '@/components/alm/capturador-partidas';
-import { FechasMovimiento } from '@/components/alm/fechas-movimiento';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ALMACENES_DEMO, MOTIVOS_AJUSTE, disponibleDemo } from '@/lib/alm/demo';
+import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
-import type { AlmAjusteMotivo, AlmPartidaBorrador } from '@/types/models';
-import { Head, Link } from '@inertiajs/react';
-import { useState } from 'react';
+import type { AlmAlmacenOpcion, AlmOpcion, AlmPartidaBorrador, AlmProductoOpcion } from '@/types/models';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -18,14 +17,76 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Nuevo', href: '/admin/almacen/ajustes/create' },
 ];
 
-export default function AjusteCreate() {
-    const [almacenId, setAlmacenId] = useState('');
-    const [motivo, setMotivo] = useState('');
-    const [fecha, setFecha] = useState('');
-    const [observaciones, setObservaciones] = useState('');
-    const [partidas, setPartidas] = useState<AlmPartidaBorrador[]>([{ ...PARTIDA_VACIA }]);
+type Props = {
+    almacenes: AlmAlmacenOpcion[];
+    motivos: AlmOpcion[];
+    productos: AlmProductoOpcion[];
+};
 
-    const claveAlmacen = ALMACENES_DEMO.find((a) => String(a.id) === almacenId)?.clave;
+/** El saldo registrado de un artículo en el almacén elegido. */
+type Saldo = { producto_id: number; cantidad: number };
+
+export default function AjusteCreate({ almacenes, motivos, productos }: Props) {
+    const form = useForm({
+        almacen_id: '',
+        motivo: '',
+        fecha: new Date().toISOString().slice(0, 10),
+        observaciones: '',
+        detalles: [{ ...PARTIDA_VACIA }] as AlmPartidaBorrador[],
+    });
+
+    // El saldo se pide al cambiar de almacén, no viene con la pantalla: cambia
+    // por almacén y todavía no se sabe cuál van a elegir.
+    const [saldos, setSaldos] = useState<Saldo[]>([]);
+
+    useEffect(() => {
+        if (form.data.almacen_id === '') {
+            setSaldos([]);
+
+            return;
+        }
+
+        let vigente = true;
+
+        fetch(`/admin/almacen/almacenes/${form.data.almacen_id}/existencias`, {
+            headers: { Accept: 'application/json' },
+        })
+            .then((r) => (r.ok ? r.json() : []))
+            .then((datos: Saldo[]) => {
+                if (vigente) {
+                    setSaldos(datos);
+                }
+            })
+            .catch(() => setSaldos([]));
+
+        // Cambiar de almacén a media captura descarta el saldo viejo: dejarlo
+        // compararía lo contado aquí contra lo que hay en la otra bodega.
+        return () => {
+            vigente = false;
+        };
+    }, [form.data.almacen_id]);
+
+    const disponibleDe = (productoId: number) =>
+        saldos.find((s) => s.producto_id === productoId)?.cantidad ?? 0;
+
+    const enviar = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // El capturador es el mismo de entradas y salidas, así que habla de
+        // «cantidad». Aquí esa cantidad es lo contado, y la traducción se hace
+        // al mandar en vez de tener un capturador aparte para el ajuste.
+        form.transform((datos) => ({
+            ...datos,
+            detalles: datos.detalles.map((d) => ({
+                producto_id: d.producto_id,
+                cantidad_contada: d.cantidad,
+                costo_unitario: d.costo_unitario === '' ? null : d.costo_unitario,
+                observaciones: d.observaciones || null,
+            })),
+        }));
+
+        form.post('/admin/almacen/ajustes');
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -40,24 +101,19 @@ export default function AjusteCreate() {
                     </p>
                 </div>
 
-                <div className="alert alert-warning mb-4">
-                    <span>Vista de maqueta: el formulario todavía no guarda nada.</span>
-                </div>
-
-                <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+                <form onSubmit={enviar} className="space-y-6">
                     <div className="rounded-box border-base-300 border p-4">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <FormField label="Almacén" htmlFor="almacen" required>
+                            <FormField label="Almacén" htmlFor="almacen_id" error={form.errors.almacen_id} required>
                                 <Select
-                                    id="almacen"
-                                    value={almacenId}
-                                    onValueChange={setAlmacenId}
+                                    id="almacen_id"
+                                    value={form.data.almacen_id}
+                                    onValueChange={(v) => form.setData('almacen_id', v)}
                                     placeholder="¿Cuál se ajusta?"
                                 >
-                                    {ALMACENES_DEMO.map((a) => (
+                                    {almacenes.map((a) => (
                                         <SelectItem key={a.id} value={String(a.id)}>
-                                            {a.clave} — {a.nombre}
-                                            {a.obra ? ` (${a.obra})` : ''}
+                                            {etiquetaDeAlmacen(a)} — {a.nombre}
                                         </SelectItem>
                                     ))}
                                 </Select>
@@ -66,35 +122,44 @@ export default function AjusteCreate() {
                             <FormField
                                 label="Motivo"
                                 htmlFor="motivo"
+                                error={form.errors.motivo}
                                 description="Es lo que justifica mover el inventario sin un documento."
                                 required
                             >
                                 <Select
                                     id="motivo"
-                                    value={motivo}
-                                    onValueChange={setMotivo}
+                                    value={form.data.motivo}
+                                    onValueChange={(v) => form.setData('motivo', v)}
                                     placeholder="¿Por qué no cuadra?"
                                 >
-                                    {Object.entries(MOTIVOS_AJUSTE).map(([valor, etiqueta]) => (
-                                        <SelectItem key={valor} value={valor as AlmAjusteMotivo}>
-                                            {etiqueta}
+                                    {motivos.map((m) => (
+                                        <SelectItem key={m.value} value={m.value}>
+                                            {m.label}
                                         </SelectItem>
                                     ))}
                                 </Select>
                             </FormField>
 
-                            <FechasMovimiento fecha={fecha} onChange={setFecha} />
+                            <FormField label="Fecha" htmlFor="fecha" error={form.errors.fecha} required>
+                                <Input
+                                    id="fecha"
+                                    type="date"
+                                    value={form.data.fecha}
+                                    onChange={(e) => form.setData('fecha', e.target.value)}
+                                />
+                            </FormField>
 
                             <FormField
                                 label="Observaciones"
                                 htmlFor="observaciones"
+                                error={form.errors.observaciones}
                                 className="md:col-span-3"
                                 description="Quedan en el kardex para siempre: explica qué pasó, no sólo que faltó."
                             >
                                 <Input
                                     id="observaciones"
-                                    value={observaciones}
-                                    onChange={(e) => setObservaciones(e.target.value)}
+                                    value={form.data.observaciones}
+                                    onChange={(e) => form.setData('observaciones', e.target.value)}
                                     placeholder="Conteo del cierre de mes, se mojó el material..."
                                 />
                             </FormField>
@@ -103,16 +168,20 @@ export default function AjusteCreate() {
 
                     <div>
                         <h2 className="mb-3 text-lg font-semibold">Conteo</h2>
-                        {!claveAlmacen && (
+                        {form.data.almacen_id === '' && (
                             <p className="text-base-content/60 mb-2 text-sm">
-                                Elige el almacén para ver contra qué saldo se compara cada producto.
+                                Elige el almacén para ver contra qué saldo se compara cada artículo.
                             </p>
                         )}
+                        {form.errors.detalles && (
+                            <p className="text-error mb-2 text-sm">{form.errors.detalles}</p>
+                        )}
                         <CapturadorPartidas
-                            partidas={partidas}
-                            onChange={setPartidas}
+                            partidas={form.data.detalles}
+                            onChange={(detalles) => form.setData('detalles', detalles)}
+                            productos={productos}
                             modo="conteo"
-                            disponibleDe={claveAlmacen ? (codigo) => disponibleDemo(claveAlmacen, codigo) : undefined}
+                            disponibleDe={form.data.almacen_id === '' ? undefined : disponibleDe}
                         />
                     </div>
 
@@ -120,7 +189,7 @@ export default function AjusteCreate() {
                         <Button variant="outline" asChild>
                             <Link href="/admin/almacen/ajustes">Cancelar</Link>
                         </Button>
-                        <Button type="submit" disabled>
+                        <Button type="submit" disabled={form.processing}>
                             Guardar ajuste
                         </Button>
                     </div>

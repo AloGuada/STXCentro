@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ALMACENES_DEMO, disponibleDemo, pedidosSurtibles } from '@/lib/alm/demo';
+import { ALMACENES_DEMO, disponiblePorProductoDemo, pedidosSurtibles, PRODUCTOS_DEMO } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmPartidaBorrador } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
@@ -193,8 +193,9 @@ export default function SalidaCreate() {
                         <CapturadorPartidas
                             partidas={partidas}
                             onChange={setPartidas}
+                            productos={PRODUCTOS_DEMO}
                             disponibleDe={
-                                claveAlmacen ? (codigo) => disponibleDemo(claveAlmacen, codigo) : undefined
+                                claveAlmacen ? (id) => disponiblePorProductoDemo(claveAlmacen, id) : undefined
                             }
                         />
                     </div>
