@@ -8,6 +8,7 @@ use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Ubicacion;
+use App\Services\Alm\SaldoEnTransito;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -24,6 +25,8 @@ use Inertia\Response;
  */
 class ExistenciaController extends Controller
 {
+    public function __construct(private readonly SaldoEnTransito $transito) {}
+
     public function index(Request $request): Response
     {
         $visibles = $this->almacenesVisibles($request);
@@ -60,6 +63,9 @@ class ExistenciaController extends Controller
             ->withQueryString();
 
         $piezas = $this->desglosePiezas($existencias->getCollection());
+        // Lo que viene hacia acá y todavía no es de nadie. Va en columna aparte
+        // y **no** entra al valor del inventario: no es de esta bodega todavía.
+        $enTransito = $almacenId === null ? [] : $this->transito->haciaAlmacen($almacenId);
 
         $existencias->through(fn (Existencia $e): array => [
             'id' => $e->id,

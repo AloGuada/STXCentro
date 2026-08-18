@@ -7,7 +7,7 @@ use Spatie\Permission\Models\Permission;
  * Las pantallas del módulo que todavía no tienen backend: sólo se comprueba que
  * la ruta abre su maqueta y que sigue detrás de su propio permiso. Conforme cada
  * una se construye sale de aquí y se prueba de verdad en su propio archivo
- * —de las 24 originales sólo quedan las de conteos, etiquetas, préstamos, devoluciones, aprobaciones, entradas y transferencias—, hasta que este archivo desaparezca.
+ * —de las 24 originales sólo quedan las de conteos, etiquetas, préstamos, devoluciones, aprobaciones y entradas—, hasta que este archivo desaparezca.
  *
  * Cada pantalla tiene el suyo a propósito. Mientras todas reciclaban
  * `alm.almacenes.ver`, quien podía consultar el catálogo podía capturar
@@ -17,8 +17,6 @@ use Spatie\Permission\Models\Permission;
 $pantallas = [
     'entradas' => ['admin.alm.entradas.index', 'admin/almacen/entradas/index', 'alm.entradas.ver'],
     'alta de entrada' => ['admin.alm.entradas.create', 'admin/almacen/entradas/create', 'alm.entradas.crear'],
-    'transferencias' => ['admin.alm.transferencias.index', 'admin/almacen/transferencias/index', 'alm.transferencias.ver'],
-    'alta de transferencia' => ['admin.alm.transferencias.create', 'admin/almacen/transferencias/create', 'alm.transferencias.enviar'],
     'devoluciones' => ['admin.alm.devoluciones.index', 'admin/almacen/devoluciones/index', 'alm.devoluciones.ver'],
     'alta de devolucion' => ['admin.alm.devoluciones.create', 'admin/almacen/devoluciones/create', 'alm.devoluciones.crear'],
     'prestamos' => ['admin.alm.prestamos.index', 'admin/almacen/prestamos/index', 'alm.prestamos.ver'],
@@ -35,7 +33,6 @@ $pantallas = [
  */
 $pantallasConId = [
     'captura de conteo' => ['admin.alm.conteos.show', 'admin/almacen/conteos/show', 'alm.conteos.capturar', 8],
-    'recepcion de transferencia' => ['admin.alm.transferencias.show', 'admin/almacen/transferencias/show', 'alm.transferencias.recibir', 7],
 ];
 
 test('la pantalla abre con su permiso', function (string $ruta, string $componente, string $permiso) {
@@ -89,32 +86,6 @@ test('el permiso de una pantalla no abre las demas', function () {
  * Consultar el programa de conteos y teclear lo contado son cosas distintas:
  * lo capturado termina en un ajuste de existencias.
  */
-/**
- * Los dos tiempos de la transferencia son de dos personas distintas: el origen
- * despacha y el destino confirma qué llegó. Si una sola firma alcanzara para
- * ambos, el faltante del camino lo cerraría quien lo cargó.
- */
-test('enviar una transferencia no alcanza para recibirla', function () {
-    Permission::firstOrCreate(['name' => 'alm.transferencias.enviar', 'guard_name' => 'web']);
-
-    $almacenista = User::factory()->create();
-    $almacenista->givePermissionTo('alm.transferencias.enviar');
-
-    $this->actingAs($almacenista)->get(route('admin.alm.transferencias.create'))->assertOk();
-    $this->actingAs($almacenista)->get(route('admin.alm.transferencias.show', 7))->assertForbidden();
-});
-
-/** Y al revés: quien recibe en la obra no despacha desde la planta. */
-test('recibir una transferencia no alcanza para enviarla', function () {
-    Permission::firstOrCreate(['name' => 'alm.transferencias.recibir', 'guard_name' => 'web']);
-
-    $obra = User::factory()->create();
-    $obra->givePermissionTo('alm.transferencias.recibir');
-
-    $this->actingAs($obra)->get(route('admin.alm.transferencias.show', 7))->assertOk();
-    $this->actingAs($obra)->get(route('admin.alm.transferencias.create'))->assertForbidden();
-});
-
 test('ver los conteos no alcanza para capturarlos', function () {
     Permission::firstOrCreate(['name' => 'alm.conteos.ver', 'guard_name' => 'web']);
 

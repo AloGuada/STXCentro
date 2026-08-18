@@ -40,6 +40,11 @@ type ExistenciaFila = {
      * almacenista puede prometer.
      */
     piezas: { disponibles: number; prestadas: number; en_reparacion: number } | null;
+    /**
+     * Lo que viene en camino hacia este almacén. No entra al saldo ni al valor:
+     * salió de otra bodega y todavía no es de ésta.
+     */
+    en_transito: number;
 };
 
 type Props = {
@@ -177,6 +182,7 @@ export default function ExistenciasIndex({ existencias, filters, resumen, almace
                                 <th>Unidad</th>
                                 <th>Ubicación</th>
                                 <th className="text-right">Existencia</th>
+                                <th className="text-right">En camino</th>
                                 <th className="text-right">Costo promedio</th>
                                 <th className="text-right">Valor</th>
                                 <th className="w-10"></th>
@@ -185,7 +191,7 @@ export default function ExistenciasIndex({ existencias, filters, resumen, almace
                         <tbody>
                             {existencias.data.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="text-base-content/50 py-6 text-center">
+                                    <td colSpan={9} className="text-base-content/50 py-6 text-center">
                                         No hay existencias con esos filtros.
                                     </td>
                                 </tr>
@@ -267,6 +273,18 @@ export default function ExistenciasIndex({ existencias, filters, resumen, almace
                                                         className="text-warning ml-1 inline size-3"
                                                         aria-label={`Por debajo del mínimo (${cantidad(e.stock_minimo ?? 0)})`}
                                                     />
+                                                )}
+                                            </td>
+                                            <td className="text-right font-mono">
+                                                {e.en_transito > 0 ? (
+                                                    <span
+                                                        className="text-warning"
+                                                        title="Salió de otro almacén y todavía no llega: no cuenta como existencia"
+                                                    >
+                                                        {cantidad(e.en_transito)}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-base-content/30">—</span>
                                                 )}
                                             </td>
                                             <td className="text-base-content/60 text-right font-mono">

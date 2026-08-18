@@ -77,9 +77,15 @@ class SurtidoPedido
             ->get()
             ->keyBy('pedido_detalle_id');
 
-        // La transferencia todavía no existe como documento; cuando se
-        // construya, su rama suma aquí `cantidad_enviada` de las no canceladas.
-        $porTransferencia = collect();
+        $porTransferencia = DB::table('alm_transferencia_detalle')
+            ->join('alm_transferencias', 'alm_transferencias.id', '=', 'alm_transferencia_detalle.transferencia_id')
+            ->whereIn('alm_transferencia_detalle.pedido_detalle_id', $renglones)
+            ->whereNull('alm_transferencias.cancelada_at')
+            ->groupBy('alm_transferencia_detalle.pedido_detalle_id')
+            ->select('alm_transferencia_detalle.pedido_detalle_id')
+            ->selectRaw('SUM(alm_transferencia_detalle.cantidad_enviada) as entregado')
+            ->get()
+            ->keyBy('pedido_detalle_id');
 
         $total = [];
 

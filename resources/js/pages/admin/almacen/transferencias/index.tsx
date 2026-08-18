@@ -1,10 +1,11 @@
-import { BotonPdf } from '@/components/alm/boton-pdf';
-import { ButtonLink } from '@/components/ui/button';
+import { DataTable, type Column } from '@/components/data-table';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ESTATUS_TRANSFERENCIA, TRANSFERENCIAS_DEMO, resumenTransferencia } from '@/lib/alm/demo';
+import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
-import { ArrowRightIcon, PlusIcon, TriangleAlertIcon, TruckIcon } from 'lucide-react';
+import type { AlmAlmacenOpcion, AlmTransferenciaEstatus, PaginatedData } from '@/types/models';
+import { Head, router } from '@inertiajs/react';
+import { ArrowRightIcon, TruckIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -14,122 +15,197 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
-export default function TransferenciasIndex() {
-    const enTransito = TRANSFERENCIAS_DEMO.filter((t) => t.estatus === 'en_transito');
+type TransferenciaFila = {
+    id: number;
+    folio: string | null;
+    fecha_envio: string | null;
+    fecha_recepcion: string | null;
+    origen: string | null;
+    destino: string | null;
+    estatus: AlmTransferenciaEstatus;
+    estatus_etiqueta: string;
+    pedido_folio: string | null;
+    envio: string | null;
+    recibio: string | null;
+    faltante_responsable: string | null;
+    renglones: number;
+    cancelada: boolean;
+    resumen: { enviado: number; recibido: number; faltante: number; renglones_con_faltante: number };
+};
+
+type Props = {
+    transferencias: PaginatedData<TransferenciaFila>;
+    filters: {
+        almacen_id?: string;
+        estatus?: string;
+        desde?: string;
+        hasta?: string;
+        search?: string;
+        ver_canceladas?: boolean;
+    };
+    almacenes: AlmAlmacenOpcion[];
+};
+
+const columns: Column<TransferenciaFila>[] = [
+    {
+        key: 'folio',
+        label: 'Folio',
+        render: (t) => (
+            <span className={`font-mono font-medium ${t.cancelada ? 'line-through opacity-60' : ''}`}>{t.folio}</span>
+        ),
+    },
+    {
+        key: 'origen',
+        label: 'Ruta',
+        render: (t) => (
+            <span className="inline-flex items-center gap-1 font-mono text-sm">
+                {t.origen}
+                <ArrowRightIcon className="text-base-content/40 size-3" />
+                {t.destino}
+            </span>
+        ),
+    },
+    { key: 'fecha_envio', label: 'Salió', className: 'font-mono text-xs' },
+    {
+        key: 'fecha_recepcion',
+        label: 'Llegó',
+        className: 'font-mono text-xs',
+        render: (t) =>
+            t.fecha_recepcion ?? (
+                <span className="text-warning inline-flex items-center gap-1 text-xs">
+                    <TruckIcon className="size-3" />
+                    Va en camino
+                </span>
+            ),
+    },
+    {
+        key: 'resumen',
+        label: 'Enviado / recibido',
+        className: 'text-right',
+        render: (t) => (
+            <span className="font-mono text-sm">
+                {numero(t.resumen.enviado)}
+                {t.estatus === 'recibida' && ` / ${numero(t.resumen.recibido)}`}
+                {t.resumen.faltante > 0 && (
+                    <span className="text-error block text-xs">
+                        faltaron {numero(t.resumen.faltante)} en {t.resumen.renglones_con_faltante} renglón(es)
+                    </span>
+                )}
+            </span>
+        ),
+    },
+    {
+        key: 'pedido_folio',
+        label: 'Surte',
+        render: (t) =>
+            t.pedido_folio ? <span className="font-mono text-xs">{t.pedido_folio}</span> : <span className="text-base-content/40">—</span>,
+    },
+    {
+        key: 'estatus',
+        label: 'Estado',
+        render: (t) => {
+            if (t.cancelada) {
+                return <span className="badge badge-sm badge-ghost">Cancelada</span>;
+            }
+
+            // «Recibida con faltante» no es un estatus aparte: es una recepción
+            // cerrada en la que alguien tiene algo que explicar.
+            if (t.estatus === 'recibida' && t.resumen.faltante > 0) {
+                return (
+                    <span className="badge badge-sm badge-error" title={`Responde ${t.faltante_responsable}`}>
+                        Con faltante
+                    </span>
+                );
+            }
+
+            return (
+                <span className={`badge badge-sm ${t.estatus === 'recibida' ? 'badge-success' : 'badge-warning'}`}>
+                    {t.estatus_etiqueta}
+                </span>
+            );
+        },
+    },
+];
+
+export default function TransferenciasIndex({ transferencias, filters, almacenes }: Props) {
+    const filtrar = (cambio: Record<string, string | undefined>) =>
+        router.get(
+            '/admin/almacen/transferencias',
+            { ...filters, ...cambio, page: undefined },
+            { preserveState: true },
+        );
+
+    const enCamino = transferencias.data.filter((t) => t.estatus === 'en_transito' && !t.cancelada).length;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Transferencias" />
 
             <div className="p-6">
-                <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold">Transferencias</h1>
-                        <p className="text-base-content/60 mt-1 max-w-3xl text-sm">
-                            Material que cambia de almacén. Un solo folio en dos tiempos: el origen registra el envío y
-                            el material queda <strong>en tránsito</strong>; el destino confirma lo que de verdad llegó.
-                            Hasta esa segunda firma no es existencia de nadie.
-                        </p>
-                    </div>
-                    <ButtonLink href="/admin/almacen/transferencias/create" variant="primary">
-                        <PlusIcon className="size-4" />
-                        Nueva transferencia
-                    </ButtonLink>
+                <div className="mb-6">
+                    <h1 className="text-2xl font-semibold">Transferencias</h1>
+                    <p className="text-base-content/60 mt-1 text-sm">
+                        Material que se mueve entre almacenes. Un folio con dos firmas: el origen despacha y el destino
+                        confirma qué bajó del camión.
+                    </p>
                 </div>
 
-                <div className="alert alert-warning mb-4">
-                    <span>Vista de maqueta: los datos son de ejemplo, todavía no hay backend.</span>
-                </div>
-
-                {enTransito.length > 0 && (
-                    <div className="alert alert-info mb-4">
-                        <TruckIcon className="size-5" />
+                {enCamino > 0 && (
+                    <div className="alert alert-warning mb-4">
+                        <TruckIcon className="size-4" />
                         <span>
-                            <strong>{enTransito.length}</strong>{' '}
-                            {enTransito.length === 1 ? 'transferencia va' : 'transferencias van'} en el camino sin
-                            confirmar. Ese saldo no está disponible en ningún almacén.
+                            {enCamino} transferencia(s) van en el camino. Ese material salió de su almacén y todavía no
+                            es existencia del destino.
                         </span>
                     </div>
                 )}
 
-                <div className="rounded-box border-base-300 overflow-x-auto border">
-                    <table className="table">
-                        <thead className="bg-base-200">
-                            <tr>
-                                <th>Folio</th>
-                                <th>Envío</th>
-                                <th>Recepción</th>
-                                <th>Movimiento</th>
-                                <th className="text-right">Renglones</th>
-                                <th>Estatus</th>
-                                <th>Autorizó</th>
-                                <th className="w-32"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {TRANSFERENCIAS_DEMO.map((t) => {
-                                const resumen = resumenTransferencia(t);
-                                const estatus = ESTATUS_TRANSFERENCIA[t.estatus];
+                <DataTable
+                    columns={columns}
+                    data={transferencias}
+                    searchable
+                    searchValue={filters.search}
+                    searchPlaceholder="Buscar por folio..."
+                    createHref="/admin/almacen/transferencias/create"
+                    createLabel="Nuevo envío"
+                    emptyMessage="No hay transferencias con esos filtros."
+                    getRowHref={(t) => `/admin/almacen/transferencias/${t.id}`}
+                >
+                    <div className="w-52">
+                        <Select
+                            value={filters.almacen_id ?? ''}
+                            onValueChange={(v) => filtrar({ almacen_id: v || undefined })}
+                            placeholder="Cualquier almacén"
+                        >
+                            {almacenes.map((a) => (
+                                <SelectItem key={a.id} value={String(a.id)}>
+                                    {etiquetaDeAlmacen(a)}
+                                </SelectItem>
+                            ))}
+                        </Select>
+                    </div>
 
-                                return (
-                                    <tr key={t.id} className="hover">
-                                        <td>
-                                            <Link
-                                                href={`/admin/almacen/transferencias/${t.id}`}
-                                                className="link link-hover font-mono font-medium"
-                                            >
-                                                {t.folio}
-                                            </Link>
-                                            {t.pedido_folio && (
-                                                <p className="text-base-content/50 mt-0.5 font-mono text-xs">
-                                                    surte {t.pedido_folio}
-                                                </p>
-                                            )}
-                                        </td>
-                                        <td className="font-mono text-sm">{t.fecha_envio}</td>
-                                        <td className="font-mono text-sm">
-                                            {t.fecha_recepcion ?? <span className="text-base-content/30">—</span>}
-                                        </td>
-                                        <td>
-                                            <span className="flex items-center gap-2">
-                                                <span className="badge badge-sm badge-ghost font-mono">{t.origen}</span>
-                                                <ArrowRightIcon className="text-base-content/40 size-4" />
-                                                <span className="badge badge-sm badge-info font-mono">{t.destino}</span>
-                                            </span>
-                                        </td>
-                                        <td className="text-right font-mono">{t.renglones.length}</td>
-                                        <td>
-                                            <span className={`badge badge-sm ${estatus.clase}`}>
-                                                {estatus.etiqueta}
-                                            </span>
-                                            {resumen.faltante > 0 && (
-                                                <p className="text-error mt-0.5 text-xs">
-                                                    <TriangleAlertIcon className="mr-1 inline size-3" />
-                                                    faltan {numero(resumen.faltante)}
-                                                </p>
-                                            )}
-                                        </td>
-                                        <td className="text-sm">{t.autorizo}</td>
-                                        <td>
-                                            <div className="flex items-center gap-1">
-                                                {t.estatus === 'en_transito' && (
-                                                    <ButtonLink
-                                                        href={`/admin/almacen/transferencias/${t.id}`}
-                                                        variant="outline"
-                                                        className="btn-xs"
-                                                    >
-                                                        Recibir
-                                                    </ButtonLink>
-                                                )}
-                                                <BotonPdf folio={t.folio} etiqueta="PDF" />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                    <div className="w-40">
+                        <Select
+                            value={filters.estatus ?? ''}
+                            onValueChange={(v) => filtrar({ estatus: v || undefined })}
+                            placeholder="Todos los estados"
+                        >
+                            <SelectItem value="en_transito">En tránsito</SelectItem>
+                            <SelectItem value="recibida">Recibida</SelectItem>
+                        </Select>
+                    </div>
+
+                    <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                            type="checkbox"
+                            className="checkbox checkbox-sm"
+                            checked={Boolean(filters.ver_canceladas)}
+                            onChange={(e) => filtrar({ ver_canceladas: e.target.checked ? '1' : undefined })}
+                        />
+                        <span className="text-sm">Ver canceladas</span>
+                    </label>
+                </DataTable>
             </div>
         </AppLayout>
     );

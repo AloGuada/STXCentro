@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\Alm\ExistenciaController as AlmExistenciaControll
 use App\Http\Controllers\Admin\Alm\KardexController as AlmKardexController;
 use App\Http\Controllers\Admin\Alm\PedidoController as AlmPedidoController;
 use App\Http\Controllers\Admin\Alm\SalidaController as AlmSalidaController;
+use App\Http\Controllers\Admin\Alm\TransferenciaController as AlmTransferenciaController;
 use App\Http\Controllers\Admin\Alm\UbicacionController as AlmUbicacionController;
 use App\Http\Controllers\Admin\Alm\VistasController as AlmVistasController;
 use App\Http\Controllers\Admin\BadgeConfigController;
@@ -285,18 +286,31 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereNumber('salida')
             ->middleware('permission:alm.salidas.crear')
             ->name('salidas.cancelar');
-        Route::get('transferencias', [AlmVistasController::class, 'transferencias'])
+        // Transferencias: un folio y dos firmas. `create` es el envio y `show`
+        // es la recepcion del destino, no una ficha de consulta — por eso va
+        // con 'recibir' y no con 'ver'. Declarada despues de 'create' o esa
+        // ruta se la comeria.
+        Route::get('transferencias', [AlmTransferenciaController::class, 'index'])
             ->middleware('permission:alm.transferencias.ver')
             ->name('transferencias.index');
-        Route::get('transferencias/create', [AlmVistasController::class, 'transferenciaCreate'])
+        Route::get('transferencias/create', [AlmTransferenciaController::class, 'create'])
             ->middleware('permission:alm.transferencias.enviar')
             ->name('transferencias.create');
-        // Despues de 'create' o la recepcion se comeria esa ruta. Va con
-        // 'recibir' y no con 'ver': esta pantalla es la firma del destino.
-        Route::get('transferencias/{transferencia}', [AlmVistasController::class, 'transferenciaShow'])
+        Route::post('transferencias', [AlmTransferenciaController::class, 'store'])
+            ->middleware('permission:alm.transferencias.enviar')
+            ->name('transferencias.store');
+        Route::get('transferencias/{transferencia}', [AlmTransferenciaController::class, 'show'])
             ->whereNumber('transferencia')
             ->middleware('permission:alm.transferencias.recibir')
             ->name('transferencias.show');
+        Route::patch('transferencias/{transferencia}/recibir', [AlmTransferenciaController::class, 'recibir'])
+            ->whereNumber('transferencia')
+            ->middleware('permission:alm.transferencias.recibir')
+            ->name('transferencias.recibir');
+        Route::patch('transferencias/{transferencia}/cancelar', [AlmTransferenciaController::class, 'cancelar'])
+            ->whereNumber('transferencia')
+            ->middleware('permission:alm.transferencias.enviar')
+            ->name('transferencias.cancelar');
         Route::get('devoluciones', [AlmVistasController::class, 'devoluciones'])
             ->middleware('permission:alm.devoluciones.ver')
             ->name('devoluciones.index');
