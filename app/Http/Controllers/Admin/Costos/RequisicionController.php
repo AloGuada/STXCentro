@@ -501,22 +501,14 @@ class RequisicionController extends Controller
     /**
      * Formato comparativo de la requisición en PDF. Mismo render que el que se
      * obtiene desde la OC, pero accesible directamente desde la requisición.
+     * Se puede imprimir en cualquier estatus; mientras el gerente de compras no
+     * dé la aprobación interna (`control_at`), el PDF sale marcado como borrador.
      */
     public function pdf(Requisicion $requisicion): HttpResponse
     {
         Gate::authorize('costos.requisiciones.ver');
 
-        abort_unless(
-            in_array($requisicion->estatus, [
-                RequisicionEstatus::PendienteAprobacionInterna,
-                RequisicionEstatus::AprobadaInterna,
-                RequisicionEstatus::PendienteAprobacion,
-                RequisicionEstatus::Aprobada,
-                RequisicionEstatus::Liberada,
-            ], true),
-            403,
-            'El comparativo solo puede generarse una vez enviada a aprobación.'
-        );
+        $esBorrador = $requisicion->control_at === null;
 
         $requisicion->load([
             'solicitante',
@@ -539,11 +531,16 @@ class RequisicionController extends Controller
             $requisicion->aprobaciones()->with('aprobador')->get(),
         );
 
+        $nombre = $esBorrador
+            ? "Comparativo-BORRADOR-{$requisicion->folio}.pdf"
+            : "Comparativo-{$requisicion->folio}.pdf";
+
         return Pdf::loadView('pdf.costos.formato-requisicion-comparativo', [
             'requisicion' => $requisicion,
             'firmas' => $firmas,
             'totales' => app(ComparativoTotalesBuilder::class)->build($requisicion),
-        ])->setPaper('letter', 'landscape')->stream("Comparativo-{$requisicion->folio}.pdf");
+            'esBorrador' => $esBorrador,
+        ])->setPaper('letter', 'landscape')->stream($nombre);
     }
 
     /**

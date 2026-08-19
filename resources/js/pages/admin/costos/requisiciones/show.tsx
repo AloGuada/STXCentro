@@ -737,7 +737,6 @@ export default function RequisicionesShow({
         null,
     );
     const [validando, setValidando] = useState(false);
-    const [pdfBloqueado, setPdfBloqueado] = useState(false);
 
     const requiereValidacion =
         esUltimoNivel && proveedoresPorValidar.length > 0;
@@ -747,15 +746,6 @@ export default function RequisicionesShow({
         requisicion.estatus,
     );
     const tieneOcDefinida = (requisicion.ocs?.length ?? 0) > 0;
-    // El comparativo (PDF) queda disponible una vez que la requisición entra a
-    // la bandeja del gerente, para que él lo revise antes de aprobar.
-    const comparativoDisponible = [
-        'pendiente_aprobacion_interno',
-        'aprobada_interna',
-        'pendiente_aprobacion',
-        'aprobada',
-        'liberada',
-    ].includes(requisicion.estatus);
     // Nivel/usuario que tiene la firma pendiente en la etapa formal: se muestra
     // debajo del estatus para saber en manos de quién está la aprobación.
     const aprobacionPendiente = useMemo(() => {
@@ -992,24 +982,15 @@ export default function RequisicionesShow({
                     </div>
 
                     <div className="flex gap-2">
-                        {comparativoDisponible ? (
-                            <Button variant="outline" asChild>
-                                <a
-                                    href={`/admin/costos/requisiciones/${requisicion.id}/pdf`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    Generar Formato PDF
-                                </a>
-                            </Button>
-                        ) : (
-                            <Button
-                                variant="outline"
-                                onClick={() => setPdfBloqueado(true)}
+                        <Button variant="outline" asChild>
+                            <a
+                                href={`/admin/costos/requisiciones/${requisicion.id}/pdf`}
+                                target="_blank"
+                                rel="noreferrer"
                             >
                                 Generar Formato PDF
-                            </Button>
-                        )}
+                            </a>
+                        </Button>
 
                         {can('costos.requisiciones.cotizar') && (
                             <Button
@@ -1714,36 +1695,6 @@ export default function RequisicionesShow({
                         requisicionId={requisicion.id}
                         onClose={() => setMarcandoControl(false)}
                     />
-                )}
-
-                {pdfBloqueado && (
-                    <dialog className="modal-open modal">
-                        <div className="modal-box">
-                            <h2 className="text-xl font-bold">
-                                Comparativo no disponible aún
-                            </h2>
-                            <p className="mt-3 text-sm text-base-content/70">
-                                El comparativo solo puede generarse una vez que
-                                la requisición se{' '}
-                                <strong>envía a aprobación</strong>. Envíala
-                                desde el botón de la cabecera y vuelve a
-                                intentarlo.
-                            </p>
-                            <div className="modal-action">
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    onClick={() => setPdfBloqueado(false)}
-                                >
-                                    Entendido
-                                </button>
-                            </div>
-                        </div>
-                        <div
-                            className="modal-backdrop"
-                            onClick={() => setPdfBloqueado(false)}
-                        />
-                    </dialog>
                 )}
 
                 {tab === 'ocs' && (
