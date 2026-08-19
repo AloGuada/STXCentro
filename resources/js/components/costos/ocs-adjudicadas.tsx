@@ -4,7 +4,9 @@
  *
  * Con una sola OC se muestra el proveedor y su folio. Con varias se muestra el
  * primero y un "+N", y el detalle (folio de OC, proveedor y monto) vive en un
- * popover para no reventar el alto del renglón.
+ * popover colgado del badge "+N" para no reventar el alto del renglón. El
+ * popover va solo en el badge para que el click sobre el nombre del proveedor
+ * siga abriendo el detalle del renglón.
  */
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -77,21 +79,25 @@ export default function OcsAdjudicadas({ ocs, alinearDerecha = false }: Props) {
 
     return (
         <>
-            <span
-                ref={triggerRef}
-                onMouseEnter={abrir}
-                onMouseLeave={cerrarConDelay}
-                onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setShow((v) => !v);
-                }}
-                className="cursor-help"
-            >
-                <span className="text-sm font-medium underline decoration-dotted underline-offset-2">
-                    {nombre(ocs[0])}
+            <span>
+                {/* El nombre no abre el popover: así el click sigue cayendo en el
+                    renglón y el usuario entra al detalle. El popover cuelga solo
+                    del badge "+N". */}
+                <span className="text-sm font-medium">{nombre(ocs[0])}</span>
+                <span
+                    ref={triggerRef}
+                    onMouseEnter={abrir}
+                    onMouseLeave={cerrarConDelay}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShow((v) => !v);
+                    }}
+                    title="Ver todas las órdenes de compra"
+                    className="ml-1 badge badge-ghost badge-xs cursor-help align-middle underline decoration-dotted underline-offset-2"
+                >
+                    +{ocs.length - 1}
                 </span>
-                <span className="ml-1 badge badge-ghost badge-xs align-middle">+{ocs.length - 1}</span>
                 <span className="mt-0.5 block text-[11px] text-base-content/50">{ocs.length} órdenes de compra</span>
             </span>
 
