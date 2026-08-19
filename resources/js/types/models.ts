@@ -2033,6 +2033,8 @@ export type CostosRequisicion = {
         total: number;
     } | null;
     proveedores_cotizadores_count?: number;
+    // Un renglón por OC adjudicada (grupo proveedor+numero_oc); vacío mientras no haya selecciones.
+    ocs_resumen?: CostosRequisicionOcResumen[];
     // Neto a pagar (subtotal + IVA - retenciones); 0 mientras no haya OC definida.
     total_neto?: number;
     tiene_sobregiro?: boolean;
@@ -2040,6 +2042,17 @@ export type CostosRequisicion = {
     activities?: CostosActivity[];
     created_at: string;
     updated_at: string;
+};
+
+export type CostosRequisicionOcResumen = {
+    numero_oc: number;
+    /** Folio de la OC generada; null mientras la requisición no se libera. */
+    folio: string | null;
+    proveedor_id: number;
+    razon_social: string;
+    nombre_comercial: string | null;
+    /** Neto a pagar de esa OC (subtotal + IVA - retenciones). */
+    total: number;
 };
 
 export type CostosRequisicionDetalle = {

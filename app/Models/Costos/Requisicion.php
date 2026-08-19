@@ -94,16 +94,26 @@ class Requisicion extends Model implements Aprobable
         return $this->firma_adicional_aprobador_id;
     }
 
+    /** @var list<array<string, mixed>>|null */
+    private ?array $ocsResumenCache = null;
+
     /**
-     * Total neto a pagar (subtotal + IVA - retenciones) agrupando las
-     * selecciones por (proveedor, OC) con {@see \App\Services\Costos\RetencionCalculator}.
-     * Es 0 mientras no haya selecciones (antes de definir la OC).
+     * Resumen de las OCs adjudicadas: un renglón por grupo (proveedor, numero_oc)
+     * de las selecciones, con el proveedor elegido, su neto a pagar y —si la
+     * requisición ya se liberó— el folio de la orden de compra generada.
+     * Vacío mientras no haya selecciones (antes de definir la OC).
+     *
+     * @return list<array{numero_oc: int, folio: string|null, proveedor_id: int, razon_social: string, nombre_comercial: string|null, total: float}>
      */
-    public function getTotalNetoAttribute(): float
+    public function getOcsResumenAttribute(): array
     {
+        if ($this->ocsResumenCache !== null) {
+            return $this->ocsResumenCache;
+        }
+
         $calculador = new \App\Services\Costos\RetencionCalculator;
 
-        /** @var array<string, array{proveedor: \App\Models\Proveedor, lineas: list<array{tipo_fiscal: ?string, subtotal: float}>}> $grupos */
+        /** @var array<string, array{numero_oc: int, folio: string|null, proveedor: \App\Models\Proveedor, lineas: list<array{tipo_fiscal: ?string, subtotal: float}>}> $grupos */
         $grupos = [];
         foreach ($this->detalles as $detalle) {
             if ($detalle->solo_cotizacion) {
@@ -115,10 +125,13 @@ class Requisicion extends Model implements Aprobable
                     continue;
                 }
 
-                $clave = $seleccion->proveedor_id.'|'.($seleccion->numero_oc ?? 1);
+                $numeroOc = (int) ($seleccion->numero_oc ?? 1);
+                $clave = $seleccion->proveedor_id.'|'.$numeroOc;
                 $subtotal = (float) ($seleccion->cotizacionPrecio?->precio_unitario ?? 0) * (float) $seleccion->cantidad;
 
+                $grupos[$clave]['numero_oc'] ??= $numeroOc;
                 $grupos[$clave]['proveedor'] ??= $seleccion->proveedor;
+                $grupos[$clave]['folio'] ??= $seleccion->ordenCompraDetalle?->ordenCompra?->folio;
                 $grupos[$clave]['lineas'][] = [
                     'tipo_fiscal' => $detalle->tipo_fiscal?->value,
                     'subtotal' => $subtotal,
@@ -126,12 +139,31 @@ class Requisicion extends Model implements Aprobable
             }
         }
 
-        $neto = 0.0;
+        $resumen = [];
         foreach ($grupos as $grupo) {
-            $neto += $calculador->calcular($grupo['proveedor'], $grupo['lineas'])['total_neto'];
+            $proveedor = $grupo['proveedor'];
+            $resumen[] = [
+                'numero_oc' => $grupo['numero_oc'],
+                'folio' => $grupo['folio'] ?? null,
+                'proveedor_id' => (int) $proveedor->id,
+                'razon_social' => (string) $proveedor->razon_social,
+                'nombre_comercial' => $proveedor->nombre_comercial,
+                'total' => $calculador->calcular($proveedor, $grupo['lineas'])['total_neto'],
+            ];
         }
 
-        return round($neto, 2);
+        usort($resumen, fn (array $a, array $b) => [$a['numero_oc'], $a['razon_social']] <=> [$b['numero_oc'], $b['razon_social']]);
+
+        return $this->ocsResumenCache = $resumen;
+    }
+
+    /**
+     * Total neto a pagar (subtotal + IVA - retenciones) sumando el neto de cada
+     * OC adjudicada. Es 0 mientras no haya selecciones (antes de definir la OC).
+     */
+    public function getTotalNetoAttribute(): float
+    {
+        return round(array_sum(array_column($this->ocs_resumen, 'total')), 2);
     }
 
     public function controlador(): BelongsTo

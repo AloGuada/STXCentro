@@ -58,13 +58,16 @@ class RequisicionController extends Controller
             ->with([
                 'solicitante:id,name',
                 'departamento:id,descripcion',
-                'detalles:id,requisicion_id,cantidad,tipo_fiscal',
+                'detalles:id,requisicion_id,cantidad,tipo_fiscal,solo_cotizacion',
                 'detalles.cotizaciones:id,requisicion_detalle_id,proveedor_id,precio_unitario',
                 'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
                 // Para el neto a pagar (cuando ya hay OC definida) — ver total_neto.
-                'detalles.selecciones:id,requisicion_detalle_id,proveedor_id,numero_oc,cantidad,cotizacion_precio_id',
+                'detalles.selecciones:id,requisicion_detalle_id,proveedor_id,numero_oc,cantidad,cotizacion_precio_id,orden_compra_detalle_id',
                 'detalles.selecciones.proveedor.regimenFiscal',
                 'detalles.selecciones.cotizacionPrecio:id,precio_unitario',
+                // Folio de la OC ya generada (nulo mientras la requisición no se libera).
+                'detalles.selecciones.ordenCompraDetalle:id,orden_compra_id',
+                'detalles.selecciones.ordenCompraDetalle.ordenCompra:id,folio',
             ])
             // Los usuarios comunes solo ven sus requisiciones; los operadores con
             // `ver-todas` ven las de todos. Con `ver-departamentos-aprobador`, un
@@ -120,7 +123,7 @@ class RequisicionController extends Controller
 
         $requisiciones->getCollection()->each(function ($r) use ($mejores) {
             $r->precargarMejorProveedor($mejores[$r->id] ?? null);
-            $r->append(['mejor_proveedor', 'proveedores_cotizadores_count', 'total_neto']);
+            $r->append(['mejor_proveedor', 'proveedores_cotizadores_count', 'total_neto', 'ocs_resumen']);
         });
 
         return Inertia::render('admin/costos/requisiciones/index', [

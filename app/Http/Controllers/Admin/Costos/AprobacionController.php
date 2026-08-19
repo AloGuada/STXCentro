@@ -84,7 +84,8 @@ class AprobacionController extends Controller
                         'solicitante',
                         'media',
                         'detalles.selecciones.cotizacionPrecio',
-                        'detalles.selecciones.proveedor',
+                        'detalles.selecciones.proveedor.regimenFiscal',
+                        'detalles.selecciones.ordenCompraDetalle.ordenCompra:id,folio',
                         'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
                     ],
                 ]);
@@ -304,7 +305,7 @@ class AprobacionController extends Controller
             $a->setAttribute('tipo', 'solicitud_pago');
             $a->setRelation('solicitud', $aprobable);
         } elseif ($aprobable instanceof Requisicion) {
-            $aprobable->append(['mejor_proveedor', 'proveedores_cotizadores_count']);
+            $aprobable->append(['mejor_proveedor', 'proveedores_cotizadores_count', 'ocs_resumen']);
             $aprobable->setAttribute('tiene_sobregiro', $tieneSobregiro);
             $a->setAttribute('tipo', 'requisicion');
             $a->setRelation('requisicion', $aprobable);
