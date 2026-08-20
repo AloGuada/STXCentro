@@ -3621,3 +3621,137 @@ export type QalMetodoPnd = 'UT' | 'MT' | 'PT' | 'RT' | 'VT';
 
 /** Las tres transformaciones por las que pasa una pieza. */
 export type QalFaseTransformacion = '1ª' | '2ª' | '3ª';
+
+/**
+ * El veredicto del laboratorio sobre un punto examinado. Son dos: el reexamen
+ * posterior a una reparación entra como su propio renglón, no corrigiendo el
+ * veredicto anterior.
+ */
+export type QalResultadoPnd = 'aceptada' | 'rechazada';
+
+/** La obra vista desde Calidad. */
+export type QalObra = {
+    id: number;
+    no: string;
+    descripcion: string | null;
+    activa?: boolean;
+    /** De dónde sale el número de pruebas comprometidas, en palabras. */
+    pnd_nota?: string | null;
+};
+
+/**
+ * Un método dentro del plan de PND de la obra, ya cruzado con lo ensayado.
+ *
+ * `comprometidas` en **nulo** significa «este método no entra en el contrato»,
+ * que no es lo mismo que un cero —«se pactaron cero»—. La pantalla los pinta
+ * distinto, así que el nulo no debe colapsarse a 0 al leerlo.
+ */
+export type QalPndAvance = {
+    metodo: QalMetodoPnd;
+    nombre: string;
+    detecta: string;
+    /** Los parámetros que suele traer el informe de este método. */
+    parametros: string[];
+    comprometidas: number | null;
+    /** Puntos examinados, no juntas: el denominador del porcentaje de rechazo. */
+    spots: number;
+    rechazados: number;
+    reportes: number;
+};
+
+/** Un parámetro con que el laboratorio corrió la prueba. */
+export type QalPndParametro = {
+    id: number;
+    clave: string;
+    valor: string;
+};
+
+/**
+ * Un renglón de la rejilla del informe: **un punto examinado, no una junta**.
+ * `J-18-1-2` es el segundo spot de la junta `18-1`.
+ */
+export type QalPndJunta = {
+    id: number;
+    qal_pieza_id: number | null;
+    /** El texto tal como lo escribió el laboratorio; se conserva siempre. */
+    marca: string;
+    junta: string;
+    modulo: string | null;
+    spot: number;
+    resultado: QalResultadoPnd;
+    discontinuidad: string | null;
+    longitud_discontinuidad: string | null;
+    espesor: string | null;
+    soldador_id: number | null;
+    pieza?: { id: number; marca: string } | null;
+};
+
+/** Evidencia fotográfica del informe. */
+export type QalPndFoto = {
+    id: number;
+    ruta: string;
+    nombre: string | null;
+};
+
+/**
+ * El informe que emite el laboratorio de pruebas no destructivas.
+ *
+ * `reporte_no` es el folio **del laboratorio**: se teclea, no se genera. El
+ * encabezado vive una sola vez y la rejilla cuelga de él.
+ */
+export type QalPndReporte = {
+    id: number;
+    reporte_no: string;
+    metodo: QalMetodoPnd;
+    laboratorio_id: number;
+    qal_obra_id: number;
+    lugar: string | null;
+    fecha_prueba: string;
+    fecha_emision: string | null;
+    /** La semana va siempre con su año: sola es ambigua entre ejercicios. */
+    anio: number;
+    semana: number;
+    porcentaje_inspeccion: string | null;
+    tecnico: string | null;
+    material: string | null;
+    norma: string | null;
+    archivo_pdf: string | null;
+    created_at?: string;
+    updated_at?: string;
+    laboratorio?: QalLaboratorio | null;
+    juntas?: QalPndJunta[];
+    parametros?: QalPndParametro[];
+    fotos?: QalPndFoto[];
+    /** Puntos examinados del informe, contados en la consulta. */
+    spots?: number;
+    rechazados?: number;
+};
+
+/**
+ * Una obra en la hoja de PND del reporte semanal.
+ *
+ * Va en **acumulado del proyecto**, no de la semana: lo que se pactó con el
+ * cliente es el total del contrato, así que el avance sólo significa algo
+ * contra todo lo ensayado hasta la fecha.
+ *
+ * La unidad es el **spot** —un punto examinado—, no la junta: una junta puede
+ * llevar varios puntos, y contarlas subestimaría lo ensayado.
+ */
+export type QalReporteSemanalPnd = {
+    obra_id: number;
+    obra: string;
+    descripcion: string | null;
+    /** Puntos examinados en toda la obra. */
+    spots: number;
+    rechazados: number;
+    /** El numerador del avance: un punto rechazado se ensayó, pero no cumple. */
+    aceptados: number;
+    metodos: Record<QalMetodoPnd, { spots: number; aceptados: number; rechazados: number }>;
+    /** Piezas del proyecto. `null` = no está capturado en la ficha de la obra. */
+    pz_total: number | null;
+    /** Spots comprometidos. `null` = la obra no tiene plan de PND todavía. */
+    comprometidos: number | null;
+    /** Marcas distintas con al menos un ensayo. Son piezas, no ensayos. */
+    piezas_con_pnd: number;
+    piezas_sin_rechazo: number;
+};

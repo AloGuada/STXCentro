@@ -450,6 +450,18 @@ class RolesAndPermissionsSeeder extends Seeder
             'qal.defectos-pintura.ver',
             'qal.defectos-pintura.crear',
             'qal.defectos-pintura.editar',
+            // PND es recurso aparte de reportes: son juntas soldadas evaluadas
+            // por un laboratorio externo, no piezas revisadas a la vista, y las
+            // captura otra persona.
+            'qal.pnd.ver',
+            'qal.pnd.crear',
+            'qal.pnd.editar',
+            'qal.pnd.eliminar',
+            // El tablero solo lee, y su lector es direccion, no el inspector.
+            'qal.dashboard.ver',
+            // El reporte semanal es el documento con folio de formato que sale
+            // de la empresa, no la herramienta diaria del area.
+            'qal.reporte-semanal.ver',
         ];
 
         // Permisos Core

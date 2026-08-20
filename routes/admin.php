@@ -115,6 +115,8 @@ use App\Http\Controllers\Admin\Qal\DefectoSoldaduraController as QalDefectoSolda
 use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
 use App\Http\Controllers\Admin\Qal\LaboratorioController as QalLaboratorioController;
 use App\Http\Controllers\Admin\Qal\OperadorController as QalOperadorController;
+use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
+use App\Http\Controllers\Admin\Qal\ReporteSemanalController as QalReporteSemanalController;
 use App\Http\Controllers\Admin\Qal\ResponsableController as QalResponsableController;
 use App\Http\Controllers\Admin\Qal\SoldadorController as QalSoldadorController;
 use App\Http\Controllers\Admin\Qal\SupervisorPinturaController as QalSupervisorPinturaController;
@@ -794,6 +796,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // La URL sigue siendo /admin/calidad: qal es el prefijo de la base, no el
     // nombre del modulo.
     Route::prefix('calidad')->name('qal.')->group(function () {
+        // El tablero solo lee: resume lo que capturaron las demas pantallas.
+        Route::get('dashboard', [QalVistasController::class, 'dashboard'])
+            ->middleware('permission:qal.dashboard.ver')
+            ->name('dashboard');
         Route::get('obras', [QalVistasController::class, 'obras'])
             ->middleware('permission:qal.obras.ver')
             ->name('obras.index');
@@ -803,6 +809,44 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('reportes', [QalVistasController::class, 'reportes'])
             ->middleware('permission:qal.reportes.ver')
             ->name('reportes.index');
+
+        // Pruebas no destructivas. Es recurso aparte de reportes: aqui se
+        // cuentan juntas soldadas evaluadas por un laboratorio externo, alla
+        // piezas revisadas a la vista por el inspector. No se suman.
+        Route::get('pnd', [QalPndController::class, 'index'])
+            ->middleware('permission:qal.pnd.ver')
+            ->name('pnd.index');
+        Route::get('pnd/create', [QalPndController::class, 'create'])
+            ->middleware('permission:qal.pnd.crear')
+            ->name('pnd.create');
+        Route::post('pnd', [QalPndController::class, 'store'])
+            ->middleware('permission:qal.pnd.crear')
+            ->name('pnd.store');
+        Route::get('pnd/{pnd}/edit', [QalPndController::class, 'edit'])
+            ->middleware('permission:qal.pnd.ver')
+            ->name('pnd.edit');
+        Route::post('pnd/{pnd}', [QalPndController::class, 'update'])
+            ->middleware('permission:qal.pnd.editar')
+            ->name('pnd.update');
+        Route::delete('pnd/{pnd}', [QalPndController::class, 'destroy'])
+            ->middleware('permission:qal.pnd.eliminar')
+            ->name('pnd.destroy');
+        Route::post('pnd/{pnd}/resolver-marcas', [QalPndController::class, 'resolverMarcas'])
+            ->middleware('permission:qal.pnd.editar')
+            ->name('pnd.resolver-marcas');
+
+        // El reporte semanal (F-STX-CA-31). Permiso propio y no el del
+        // tablero: el tablero es la herramienta diaria del area y esto es el
+        // documento con folio de formato que sale de la empresa.
+        Route::get('reporte-semanal', [QalReporteSemanalController::class, 'index'])
+            ->middleware('permission:qal.reporte-semanal.ver')
+            ->name('reporte-semanal');
+
+        // El plan comprometido es contrato, no captura: lo edita quien
+        // administra la ficha de la obra.
+        Route::put('pnd/plan/{obra}', [QalPndController::class, 'guardarPlan'])
+            ->middleware('permission:qal.obras.editar')
+            ->name('pnd.plan');
         // Catalogos del modulo: una sola pantalla con pestanas. Se entra con
         // cualquiera de los permisos de ver, y el front esconde las pestanas
         // que el usuario no puede consultar.

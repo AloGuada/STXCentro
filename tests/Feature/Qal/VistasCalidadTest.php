@@ -12,6 +12,7 @@ $pantallas = [
     'obras' => ['admin.qal.obras.index', 'admin/calidad/obras/index', 'qal.obras.ver'],
     'piezas' => ['admin.qal.piezas.index', 'admin/calidad/piezas/index', 'qal.piezas.ver'],
     'reportes' => ['admin.qal.reportes.index', 'admin/calidad/reportes/index', 'qal.reportes.ver'],
+    'tablero' => ['admin.qal.dashboard', 'admin/calidad/dashboard/index', 'qal.dashboard.ver'],
 ];
 
 test('la pantalla abre con su permiso', function (string $ruta, string $componente, string $permiso) {

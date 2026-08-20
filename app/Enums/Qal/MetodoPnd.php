@@ -27,6 +27,27 @@ enum MetodoPnd: string
         };
     }
 
+    /**
+     * Los parámetros que el laboratorio suele reportar para este método.
+     *
+     * Es una ayuda de captura, no una lista cerrada: los parámetros se guardan
+     * como clave/valor justamente porque cambian con el método y con el
+     * laboratorio. Si el informe trae uno que no está aquí, se teclea y se
+     * guarda igual.
+     *
+     * @return list<string>
+     */
+    public function parametrosSugeridos(): array
+    {
+        return match ($this) {
+            self::Ut => ['Equipo', 'Frecuencia', 'Palpador', 'Ángulo', 'Acoplante', 'Bloque de calibración'],
+            self::Mt => ['Equipo', 'Tipo de partícula', 'Técnica', 'Corriente', 'Iluminación'],
+            self::Pt => ['Penetrante', 'Revelador', 'Limpiador', 'Tiempo de penetración', 'Tiempo de revelado'],
+            self::Rt => ['Fuente', 'Película', 'Tiempo de exposición', 'Distancia foco-película', 'Densidad'],
+            self::Vt => ['Instrumento', 'Iluminación', 'Distancia', 'Ángulo de observación'],
+        };
+    }
+
     /** Qué detecta cada uno. Es lo que decide cuál se pacta en el contrato. */
     public function detecta(): string
     {

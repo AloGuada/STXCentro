@@ -24,6 +24,7 @@ import {
     Globe,
     Image,
     Layers,
+    LayoutDashboard,
     LayoutGrid,
     KeyRound,
     Landmark,
@@ -37,6 +38,7 @@ import {
     PanelLeftOpen,
     PenTool,
     Puzzle,
+    Radar,
     Receipt,
     Settings,
     Shield,
@@ -221,6 +223,14 @@ const navGroups: NavGroup[] = [
         icon: ShieldCheck,
         items: [
             {
+                // Va primero: es la pantalla con la que se entra a mirar como
+                // va la obra, no una mas del modulo.
+                title: 'Tablero',
+                href: '/admin/calidad/dashboard',
+                icon: LayoutDashboard,
+                permission: 'qal.dashboard.ver',
+            },
+            {
                 title: 'Obras',
                 href: '/admin/calidad/obras',
                 icon: Briefcase,
@@ -237,6 +247,23 @@ const navGroups: NavGroup[] = [
                 href: '/admin/calidad/reportes',
                 icon: FileCheck,
                 permission: 'qal.reportes.ver',
+            },
+            {
+                // Pruebas no destructivas: juntas soldadas evaluadas por un
+                // laboratorio externo. No se suman con las piezas que el
+                // inspector revisa a la vista, por eso es entrada aparte.
+                title: 'PND',
+                href: '/admin/calidad/pnd',
+                icon: Radar,
+                permission: 'qal.pnd.ver',
+            },
+            {
+                // El F-STX-CA-31 que se manda a direccion. Es un documento con
+                // folio de formato y semana de corte, no el tablero filtrado.
+                title: 'Reporte semanal',
+                href: '/admin/calidad/reporte-semanal',
+                icon: CalendarRange,
+                permission: 'qal.reporte-semanal.ver',
             },
             {
                 title: 'Catálogos',

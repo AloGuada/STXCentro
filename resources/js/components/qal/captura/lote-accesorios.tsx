@@ -1,0 +1,314 @@
+/**
+ * Lote de accesorios — 2ª transformación.
+ *
+ * Un lote de accesorios NO es una pieza: son cientos de unidades iguales de la
+ * misma marca que llegan en entregas, a módulos y días distintos, y se
+ * controlan por muestreo. Por eso el formulario cambia entero: la pieza se
+ * inspecciona al 100% y el lote se estima a partir de una muestra, y promediar
+ * las dos cosas daría números que parecen buenos y no significan nada.
+ */
+
+import { useState } from 'react';
+import { DEFECTOS_ACC_BARRENOS, DEFECTOS_ACC_DIMENSIONAL, DEFECTOS_SOLDADURA, DISPOSICIONES, type NivelMuestreo } from './datos';
+import { textoPiezaRechazada, type Campos, type PiezaRechazada } from './estado';
+import { planMuestreo, veredictoMuestreo } from './reglas';
+import { Boton, CajaVeredicto, Campo, Chips, Pista, Progreso, Rejilla, Selector, Tarjeta, Texto } from './ui';
+
+const NIVELES: [string, string][] = [
+    ['I', 'I — reducida'],
+    ['II', 'II — normal'],
+    ['III', 'III — severa'],
+];
+
+const RECHAZADA_VACIA: PiezaRechazada = { soldadura: [], dimensional: [], barrenos: [], limpieza: false };
+
+export function LoteAccesorios({
+    campos,
+    conformes,
+    onConformes,
+    rechazadas,
+    onRechazadas,
+    disposicion,
+    onDisposicion,
+    onAviso,
+}: {
+    campos: Campos;
+    conformes: number;
+    onConformes: (conformes: number) => void;
+    rechazadas: PiezaRechazada[];
+    onRechazadas: (rechazadas: PiezaRechazada[]) => void;
+    disposicion: string;
+    onDisposicion: (disposicion: string) => void;
+    onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
+}) {
+    const [modal, setModal] = useState(false);
+    const [borrador, setBorrador] = useState<PiezaRechazada>(RECHAZADA_VACIA);
+
+    const unidades = parseInt(campos.v('ac_unid'), 10);
+    const nivel = (campos.v('ac_nivel') || 'II') as NivelMuestreo;
+    // El sublote nunca inspecciona más unidades de las que trae la entrega.
+    const plan = planMuestreo(unidades, nivel, unidades);
+    const vistas = conformes + rechazadas.length;
+    const completa = plan ? vistas >= plan.muestra : false;
+    const veredicto = veredictoMuestreo(plan, conformes, rechazadas.length, 'SUBLOTE');
+
+    const aceptarDefecto = () => {
+        const algo = borrador.soldadura.length || borrador.dimensional.length || borrador.barrenos.length || borrador.limpieza;
+        if (!algo) {
+            onAviso('Marca al menos una familia', 'error');
+            return;
+        }
+        onRechazadas([...rechazadas, borrador]);
+        setBorrador(RECHAZADA_VACIA);
+        setModal(false);
+    };
+
+    return (
+        <>
+            <Tarjeta titulo="Datos de la marca" etiqueta="lote completo">
+                <Pista>
+                    Si la marca ya se registró antes, estos campos se rellenan solos. Los datos de arriba (obra,
+                    módulo, línea, responsable, soldador, fecha) son los de <b>esta entrega</b> y sí cambian.
+                </Pista>
+                <Rejilla cols={3}>
+                    <Campo label="Marca del accesorio" req>
+                        <Texto value={campos.v('ac_marca')} onChange={(valor) => campos.set('ac_marca', valor)} placeholder="ej. ACC-123" mayusculas />
+                    </Campo>
+                    <Campo label="Descripción">
+                        <Texto
+                            value={campos.v('ac_desc')}
+                            onChange={(valor) => campos.set('ac_desc', valor)}
+                            placeholder="ej. 2 ángulos unidos por tubo"
+                        />
+                    </Campo>
+                    <Campo label="Total de unidades de la marca" req>
+                        <Texto tipo="number" value={campos.v('ac_total')} onChange={(valor) => campos.set('ac_total', valor)} placeholder="ej. 1600" />
+                    </Campo>
+                    <Campo label="Peso por unidad (kg)">
+                        <Texto tipo="number" paso="0.01" value={campos.v('ac_kg')} onChange={(valor) => campos.set('ac_kg', valor)} placeholder="ej. 4.5" />
+                    </Campo>
+                    <Campo label="Elementos por unidad">
+                        <Texto tipo="number" value={campos.v('ac_elem')} onChange={(valor) => campos.set('ac_elem', valor)} placeholder="ej. 3" />
+                    </Campo>
+                </Rejilla>
+            </Tarjeta>
+
+            <Tarjeta titulo="Muestreo de este sublote (AQL 10)">
+                <Pista>
+                    Todas las piezas son iguales: se marca conforme con un toque y sólo las que fallan piden detalle.
+                    El número también se puede llevar a mano.
+                </Pista>
+                <Rejilla cols={3}>
+                    <Campo label="Unidades de esta entrega" req>
+                        <Texto tipo="number" value={campos.v('ac_unid')} onChange={(valor) => campos.set('ac_unid', valor)} placeholder="ej. 300" />
+                    </Campo>
+                    <Campo label="Nivel de inspección">
+                        <Selector value={nivel} onChange={(valor) => campos.set('ac_nivel', valor)} opciones={NIVELES} vacio={null} />
+                    </Campo>
+                    <Campo label="Muestra a inspeccionar">
+                        <Texto value={plan ? String(plan.muestra) : ''} readOnly placeholder="—" className="font-bold" />
+                    </Campo>
+                    <Campo label="# Inspección de este sublote">
+                        <Texto value="1" readOnly className="max-w-[170px]" />
+                    </Campo>
+                </Rejilla>
+
+                {plan && (
+                    <Pista className="mt-2">
+                        Inspecciona {plan.muestra} de {plan.lote} · Acepta el sublote si ≤ {plan.aceptacion} rechazadas ·
+                        Recházalo si ≥ {plan.rechazo} rechazadas.
+                    </Pista>
+                )}
+
+                {!plan ? (
+                    <Pista>Indica primero las unidades de la entrega.</Pista>
+                ) : (
+                    <div>
+                        <p className="mt-3 text-[15px] font-extrabold text-primary">
+                            Inspeccionadas: {vistas} de {plan.muestra}
+                            {rechazadas.length > 0 && <span className="text-error"> · {rechazadas.length} con defecto</span>}
+                            <Progreso hechas={vistas} total={plan.muestra} />
+                        </p>
+
+                        <div className="mt-3 flex flex-wrap gap-[10px]">
+                            <Boton
+                                tono="ok"
+                                disabled={completa}
+                                onClick={() => onConformes(conformes + 1)}
+                                className="min-w-[130px] flex-1 py-4"
+                            >
+                                ✓ Conforme
+                            </Boton>
+                            <Boton
+                                tono="rechazo"
+                                disabled={completa}
+                                onClick={() => setModal(true)}
+                                className="min-w-[130px] flex-1 py-4"
+                            >
+                                ✗ Con defecto
+                            </Boton>
+                        </div>
+
+                        <div className="mt-3 max-w-[280px]">
+                            <Campo label="Conformes (editable a mano)">
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => onConformes(Math.max(0, conformes - 1))}
+                                        className="btn btn-outline w-12 px-0 text-xl font-extrabold"
+                                    >
+                                        −
+                                    </button>
+                                    <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        value={conformes}
+                                        onChange={(e) => {
+                                            const valor = parseInt(e.target.value, 10);
+                                            const tope = Math.max(0, plan.muestra - rechazadas.length);
+                                            onConformes(Math.min(tope, Number.isNaN(valor) ? 0 : Math.max(0, valor)));
+                                        }}
+                                        className="input input-bordered w-full text-center text-base font-extrabold"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => onConformes(Math.min(Math.max(0, plan.muestra - rechazadas.length), conformes + 1))}
+                                        className="btn btn-outline w-12 px-0 text-xl font-extrabold"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </Campo>
+                        </div>
+
+                        {rechazadas.length > 0 && (
+                            <div className="mt-[11px]">
+                                {rechazadas.map((pieza, indice) => (
+                                    <div
+                                        key={indice}
+                                        className="mt-[6px] flex items-start gap-[9px] rounded-[9px] bg-error/10 px-[11px] py-2 text-[12.5px]"
+                                    >
+                                        <b className="text-error">#{indice + 1}</b>
+                                        <span className="flex-1">{textoPiezaRechazada(pieza)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => onRechazadas(rechazadas.filter((_, i) => i !== indice))}
+                                            className="font-extrabold text-error"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {veredicto && <CajaVeredicto texto={veredicto.texto} rechazado={veredicto.rechazado} cerrado={veredicto.cerrado} />}
+
+                        {veredicto?.rechazado && (
+                            <div className="mt-3 rounded-[10px] bg-warning/10 px-[13px] py-[11px]">
+                                <Campo label="¿Qué se hizo con el sublote rechazado?">
+                                    <Selector
+                                        value={disposicion}
+                                        onChange={onDisposicion}
+                                        opciones={DISPOSICIONES}
+                                        vacio="Sin definir — pendiente de decidir"
+                                    />
+                                </Campo>
+                                <Pista className="mt-2 mb-0">
+                                    Si se queda en <b>Sin definir</b> aparecerá marcado en Registros. Es a propósito: un
+                                    sublote rechazado sin decisión es material que se puede perder.
+                                </Pista>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </Tarjeta>
+
+            {modal && (
+                <div className="fixed inset-0 z-[400] flex items-start justify-center overflow-y-auto bg-[rgba(16,24,40,.55)] p-5">
+                    <div className="w-full max-w-[620px] rounded-2xl bg-base-100 p-5">
+                        <Pista className="mt-0">
+                            Marca todas las familias que apliquen. Una misma pieza puede fallar por varias a la vez.
+                        </Pista>
+
+                        <FamiliaDefecto
+                            titulo="Fallo de soldadura"
+                            opciones={DEFECTOS_SOLDADURA}
+                            valor={borrador.soldadura}
+                            onChange={(soldadura) => setBorrador({ ...borrador, soldadura })}
+                        />
+                        <FamiliaDefecto
+                            titulo="Fallo dimensional"
+                            opciones={DEFECTOS_ACC_DIMENSIONAL}
+                            valor={borrador.dimensional}
+                            onChange={(dimensional) => setBorrador({ ...borrador, dimensional })}
+                        />
+                        <FamiliaDefecto
+                            titulo="Fallo de barrenos habilitados"
+                            opciones={DEFECTOS_ACC_BARRENOS}
+                            valor={borrador.barrenos}
+                            onChange={(barrenos) => setBorrador({ ...borrador, barrenos })}
+                        />
+
+                        <label className="mb-[10px] flex items-center gap-[9px] rounded-[11px] border border-base-300 p-3 font-extrabold text-primary">
+                            <input
+                                type="checkbox"
+                                checked={borrador.limpieza}
+                                onChange={(e) => setBorrador({ ...borrador, limpieza: e.target.checked })}
+                                className="size-5"
+                            />
+                            Falta de limpieza
+                        </label>
+
+                        <div className="mt-[14px] flex flex-wrap gap-[9px]">
+                            <Boton tono="rechazo" onClick={aceptarDefecto}>
+                                Añadir pieza rechazada
+                            </Boton>
+                            <Boton tono="claro" onClick={() => (setModal(false), setBorrador(RECHAZADA_VACIA))}>
+                                Cancelar
+                            </Boton>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+}
+
+/** Familia de defecto del modal: se despliega al marcarla. */
+function FamiliaDefecto({
+    titulo,
+    opciones,
+    valor,
+    onChange,
+}: {
+    titulo: string;
+    opciones: string[];
+    valor: string[];
+    onChange: (valor: string[]) => void;
+}) {
+    const [abierta, setAbierta] = useState(false);
+
+    return (
+        <div className={`mb-[10px] rounded-[11px] border p-3 ${abierta ? 'border-warning/40 bg-warning/5' : 'border-base-300'}`}>
+            <label className="flex items-center gap-[9px] text-[13.5px] font-extrabold text-primary">
+                <input
+                    type="checkbox"
+                    checked={abierta}
+                    onChange={(e) => {
+                        setAbierta(e.target.checked);
+                        // Familia marcada sin elegir tipo: entra como "Otro" en vez de perderse.
+                        onChange(e.target.checked ? (valor.length ? valor : ['Otro']) : []);
+                    }}
+                    className="size-5"
+                />
+                {titulo}
+            </label>
+            {abierta && (
+                <div className="mt-[10px]">
+                    <Chips opciones={opciones} valor={valor} onChange={(seleccion) => onChange(seleccion.length ? seleccion : ['Otro'])} />
+                </div>
+            )}
+        </div>
+    );
+}

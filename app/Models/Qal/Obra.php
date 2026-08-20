@@ -32,6 +32,7 @@ class Obra extends Model
         'descripcion',
         'responsable_calidad',
         'pnd_nota',
+        'pz_total',
         'activa',
     ];
 
@@ -42,6 +43,7 @@ class Obra extends Model
     {
         return [
             'activa' => 'boolean',
+            'pz_total' => 'integer',
         ];
     }
 
@@ -65,5 +67,16 @@ class Obra extends Model
     public function pndPlan(): HasMany
     {
         return $this->hasMany(ObraPndPlan::class, 'qal_obra_id');
+    }
+
+    /**
+     * Los informes de laboratorio de la obra. Contra el plan de arriba se mide
+     * el avance de PND.
+     *
+     * @return HasMany<PndReporte, $this>
+     */
+    public function pndReportes(): HasMany
+    {
+        return $this->hasMany(PndReporte::class, 'qal_obra_id');
     }
 }

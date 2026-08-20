@@ -31,8 +31,28 @@ class VistasController extends Controller
         return Inertia::render('admin/calidad/piezas/index');
     }
 
+    /**
+     * Captura de inspección: el `captura.html` de la aplicación anterior.
+     *
+     * La pantalla ya está construida, pero todavía no recibe nada: sus
+     * catálogos son de ejemplo y viven en el front. Deja de pasar por aquí
+     * cuando existan las tablas de inspección y tenga su propio controlador.
+     */
     public function reportes(): Response
     {
         return Inertia::render('admin/calidad/reportes/index');
+    }
+
+    /**
+     * Tablero de Calidad: el `Dashboard_Calidad_Steelex.html` de la aplicación
+     * anterior, reestructurado en una sola página.
+     *
+     * Tampoco recibe nada todavía. Sus números salen de un módulo del front
+     * marcado como falso porque las tablas de inspección —de donde tendría que
+     * calcularlos— no existen; se conecta cuando existan.
+     */
+    public function dashboard(): Response
+    {
+        return Inertia::render('admin/calidad/dashboard/index');
     }
 }
