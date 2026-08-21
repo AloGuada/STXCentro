@@ -3890,7 +3890,7 @@ export type DriveArchivo = {
     size: number | null;
     descripcion: string | null;
     subido_por_type: string;
-    subido_por_id: number;
+    subido_por_id: string;
     link_token: string | null;
     link_expira_en: string | null;
     auto_eliminar_en: string | null;

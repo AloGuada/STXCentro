@@ -49,7 +49,7 @@ test('externo puede subir archivo a carpeta asignada', function () {
         'carpeta_id' => $this->carpeta->id,
         'nombre_original' => 'documento.pdf',
         'subido_por_type' => 'externo',
-        'subido_por_id' => $this->externo->id,
+        'subido_por_id' => (string) $this->externo->id,
     ]);
 });
 
@@ -96,7 +96,7 @@ test('externo puede eliminar archivo propio', function () {
         'carpeta_id' => $this->carpeta->id,
         'path' => 'drive/test.pdf',
         'subido_por_type' => 'externo',
-        'subido_por_id' => $this->externo->id,
+        'subido_por_id' => (string) $this->externo->id,
     ]);
 
     $this->actingAs($this->externo, 'externo')
@@ -110,7 +110,7 @@ test('externo no puede eliminar archivo subido por otro', function () {
     $archivo = Archivo::factory()->create([
         'carpeta_id' => $this->carpeta->id,
         'subido_por_type' => 'interno',
-        'subido_por_id' => 1,
+        'subido_por_id' => '1',
     ]);
 
     $this->actingAs($this->externo, 'externo')
