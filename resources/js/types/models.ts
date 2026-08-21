@@ -3877,8 +3877,18 @@ export type DriveCarpeta = {
     externos_count?: number;
     archivos_sum_size?: number | null;
     externos?: DriveExterno[];
+    usuarios?: DriveCarpetaUsuario[];
     created_at: string;
     updated_at: string;
+};
+
+/** Usuario interno con acceso compartido a una carpeta. */
+export type DriveCarpetaUsuario = Usuario & {
+    pivot: {
+        carpeta_id: number;
+        usuario_id: string;
+        puede_escribir: boolean;
+    };
 };
 
 export type DriveArchivo = {

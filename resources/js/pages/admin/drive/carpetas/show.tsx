@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
-import { Copy, Download, FileUp, Link2, Link2Off, Trash2, Upload, UserMinus, UserPlus } from 'lucide-react';
+import { Copy, Download, Eye, FileUp, Link2, Link2Off, Pencil, Trash2, Upload, UserMinus, UserPlus } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 type Archivo = {
@@ -32,6 +32,26 @@ type Carpeta = {
     usuario: { id: string; name: string } | null;
 };
 
+type Interno = {
+    id: string;
+    name: string;
+    email: string;
+    puede_escribir: boolean;
+};
+
+type UsuarioDisponible = {
+    id: string;
+    name: string;
+    email: string;
+};
+
+type Permisos = {
+    editar: boolean;
+    eliminar: boolean;
+    subir: boolean;
+    gestionar_accesos: boolean;
+};
+
 type Props = {
     carpeta: Carpeta;
     archivos: {
@@ -43,6 +63,9 @@ type Props = {
     };
     externos: Externo[];
     externosDisponibles: Externo[];
+    internos: Interno[];
+    internosDisponibles: UsuarioDisponible[];
+    permisos: Permisos;
 };
 
 function formatSize(bytes: number | null): string {
@@ -57,12 +80,15 @@ function formatSize(bytes: number | null): string {
     return `${size.toFixed(1)} ${units[i]}`;
 }
 
-export default function DriveCarpetaShow({ carpeta, archivos, externos, externosDisponibles }: Props) {
-    const [activeTab, setActiveTab] = useState<'archivos' | 'accesos'>('archivos');
+export default function DriveCarpetaShow({ carpeta, archivos, externos, externosDisponibles, internos, internosDisponibles, permisos }: Props) {
+    const [activeTab, setActiveTab] = useState<'archivos' | 'accesos' | 'internos'>('archivos');
     const [showUpload, setShowUpload] = useState(false);
     const [linkModal, setLinkModal] = useState<Archivo | null>(null);
     const [showAccesoModal, setShowAccesoModal] = useState(false);
     const [selectedExternoId, setSelectedExternoId] = useState('');
+    const [showInternoModal, setShowInternoModal] = useState(false);
+    const [selectedInternoId, setSelectedInternoId] = useState('');
+    const [internoPuedeEscribir, setInternoPuedeEscribir] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -108,6 +134,26 @@ export default function DriveCarpetaShow({ carpeta, archivos, externos, externos
         });
     }
 
+    function handleAgregarInterno() {
+        router.post(`/admin/drive/carpetas/${carpeta.id}/accesos-internos`, {
+            usuario_id: selectedInternoId,
+            puede_escribir: internoPuedeEscribir,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => { setSelectedInternoId(''); setInternoPuedeEscribir(false); setShowInternoModal(false); },
+        });
+    }
+
+    function handleToggleEscritura(interno: Interno) {
+        router.patch(`/admin/drive/carpetas/${carpeta.id}/accesos-internos/${interno.id}`, {}, { preserveScroll: true });
+    }
+
+    function handleQuitarInterno(interno: Interno) {
+        if (confirm(`¿Quitar el acceso de ${interno.name}?`)) {
+            router.delete(`/admin/drive/carpetas/${carpeta.id}/accesos-internos/${interno.id}`, { preserveScroll: true });
+        }
+    }
+
     function handleDeleteArchivo(archivo: Archivo) {
         if (confirm('¿Eliminar este archivo?')) {
             router.delete(`/admin/drive/archivos/${archivo.id}`);
@@ -130,14 +176,22 @@ export default function DriveCarpetaShow({ carpeta, archivos, externos, externos
                         {carpeta.usuario && <p className="text-xs text-base-content/40 mt-1">Creada por: {carpeta.usuario.name}</p>}
                     </div>
                     <div className="flex gap-2">
-                        <button className="btn btn-primary" onClick={() => setShowUpload(!showUpload)}>
-                            <Upload className="size-4" />
-                            Subir Archivo
-                        </button>
-                        {externosDisponibles.length > 0 && (
+                        {permisos.subir && (
+                            <button className="btn btn-primary" onClick={() => setShowUpload(!showUpload)}>
+                                <Upload className="size-4" />
+                                Subir Archivo
+                            </button>
+                        )}
+                        {permisos.gestionar_accesos && externosDisponibles.length > 0 && (
                             <button className="btn btn-outline btn-primary" onClick={() => setShowAccesoModal(true)}>
                                 <UserPlus className="size-4" />
-                                Agregar Acceso
+                                Agregar Externo
+                            </button>
+                        )}
+                        {permisos.gestionar_accesos && internosDisponibles.length > 0 && (
+                            <button className="btn btn-outline" onClick={() => setShowInternoModal(true)}>
+                                <UserPlus className="size-4" />
+                                Compartir con Interno
                             </button>
                         )}
                     </div>
@@ -176,7 +230,10 @@ export default function DriveCarpetaShow({ carpeta, archivos, externos, externos
                         Archivos
                     </button>
                     <button className={`tab ${activeTab === 'accesos' ? 'tab-active' : ''}`} onClick={() => setActiveTab('accesos')}>
-                        Accesos ({externos.length})
+                        Externos ({externos.length})
+                    </button>
+                    <button className={`tab ${activeTab === 'internos' ? 'tab-active' : ''}`} onClick={() => setActiveTab('internos')}>
+                        Internos ({internos.length})
                     </button>
                 </div>
 
@@ -231,7 +288,7 @@ export default function DriveCarpetaShow({ carpeta, archivos, externos, externos
                                                         <a href={`/admin/drive/archivos/${archivo.id}/descargar`} className="btn btn-ghost btn-xs" title="Descargar">
                                                             <Download className="size-4" />
                                                         </a>
-                                                        {archivo.link_token ? (
+                                                        {permisos.subir && (archivo.link_token ? (
                                                             <button className="btn btn-ghost btn-xs text-warning" onClick={() => handleRevocarLink(archivo)} title="Revocar link">
                                                                 <Link2Off className="size-4" />
                                                             </button>
@@ -239,10 +296,12 @@ export default function DriveCarpetaShow({ carpeta, archivos, externos, externos
                                                             <button className="btn btn-ghost btn-xs text-success" onClick={() => { setLinkModal(archivo); linkForm.reset(); }} title="Generar link">
                                                                 <Link2 className="size-4" />
                                                             </button>
+                                                        ))}
+                                                        {permisos.subir && (
+                                                            <button className="btn btn-ghost btn-xs text-error" onClick={() => handleDeleteArchivo(archivo)} title="Eliminar">
+                                                                <Trash2 className="size-4" />
+                                                            </button>
                                                         )}
-                                                        <button className="btn btn-ghost btn-xs text-error" onClick={() => handleDeleteArchivo(archivo)} title="Eliminar">
-                                                            <Trash2 className="size-4" />
-                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -276,9 +335,68 @@ export default function DriveCarpetaShow({ carpeta, archivos, externos, externos
                                                 <td>{ext.email}</td>
                                                 <td>{ext.empresa ?? '-'}</td>
                                                 <td className="text-center">
-                                                    <button className="btn btn-ghost btn-xs text-error" onClick={() => handleToggleAcceso(ext.id)} title="Quitar acceso">
-                                                        <UserMinus className="size-4" />
-                                                    </button>
+                                                    {permisos.gestionar_accesos ? (
+                                                        <button className="btn btn-ghost btn-xs text-error" onClick={() => handleToggleAcceso(ext.id)} title="Quitar acceso">
+                                                            <UserMinus className="size-4" />
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-base-content/40">-</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {activeTab === 'internos' && (
+                    <>
+                        <p className="text-sm text-base-content/60 mb-4">
+                            Quien crea la carpeta siempre la ve. Aquí compartes la carpeta con otros usuarios de la empresa.
+                        </p>
+                        {internos.length === 0 ? (
+                            <p className="text-center py-8 text-base-content/60">Esta carpeta no está compartida con nadie más.</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th>Email</th>
+                                            <th>Permiso</th>
+                                            <th className="text-center">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {internos.map((interno) => (
+                                            <tr key={interno.id} className="hover">
+                                                <td className="font-medium">{interno.name}</td>
+                                                <td>{interno.email}</td>
+                                                <td>
+                                                    <span className={`badge badge-sm ${interno.puede_escribir ? 'badge-info' : 'badge-ghost'}`}>
+                                                        {interno.puede_escribir ? 'Lectura y escritura' : 'Solo lectura'}
+                                                    </span>
+                                                </td>
+                                                <td className="text-center">
+                                                    {permisos.gestionar_accesos ? (
+                                                        <div className="flex justify-center gap-1">
+                                                            <button
+                                                                className="btn btn-ghost btn-xs"
+                                                                onClick={() => handleToggleEscritura(interno)}
+                                                                title={interno.puede_escribir ? 'Dejar solo lectura' : 'Permitir escritura'}
+                                                            >
+                                                                {interno.puede_escribir ? <Eye className="size-4" /> : <Pencil className="size-4" />}
+                                                            </button>
+                                                            <button className="btn btn-ghost btn-xs text-error" onClick={() => handleQuitarInterno(interno)} title="Quitar acceso">
+                                                                <UserMinus className="size-4" />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-base-content/40">-</span>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}
@@ -289,6 +407,51 @@ export default function DriveCarpetaShow({ carpeta, archivos, externos, externos
                     </>
                 )}
             </div>
+
+            {/* Interno modal */}
+            {showInternoModal && (
+                <dialog className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="font-bold text-lg">Compartir con un Interno</h3>
+                        <p className="text-sm text-base-content/60 mt-1">El usuario verá esta carpeta en su Drive.</p>
+
+                        <div className="mt-4">
+                            <select
+                                className="select select-bordered w-full"
+                                value={selectedInternoId}
+                                onChange={(e) => setSelectedInternoId(e.target.value)}
+                            >
+                                <option value="">Seleccionar usuario...</option>
+                                {internosDisponibles.map((usuario) => (
+                                    <option key={usuario.id} value={usuario.id}>
+                                        {usuario.name} — {usuario.email}
+                                    </option>
+                                ))}
+                            </select>
+
+                            <label className="label cursor-pointer justify-start gap-3 mt-3">
+                                <input
+                                    type="checkbox"
+                                    className="checkbox checkbox-sm"
+                                    checked={internoPuedeEscribir}
+                                    onChange={(e) => setInternoPuedeEscribir(e.target.checked)}
+                                />
+                                <span className="label-text">Puede subir y eliminar archivos</span>
+                            </label>
+                        </div>
+
+                        <div className="modal-action">
+                            <button type="button" className="btn btn-ghost" onClick={() => { setShowInternoModal(false); setSelectedInternoId(''); }}>Cancelar</button>
+                            <button type="button" className="btn btn-primary" disabled={!selectedInternoId} onClick={handleAgregarInterno}>
+                                Compartir
+                            </button>
+                        </div>
+                    </div>
+                    <form method="dialog" className="modal-backdrop">
+                        <button onClick={() => { setShowInternoModal(false); setSelectedInternoId(''); }}>close</button>
+                    </form>
+                </dialog>
+            )}
 
             {/* Acceso modal */}
             {showAccesoModal && (

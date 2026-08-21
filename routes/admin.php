@@ -88,6 +88,7 @@ use App\Http\Controllers\Admin\Dg\DashboardController as DgDashboardController;
 use App\Http\Controllers\Admin\Dg\MisReportesController as DgMisReportesController;
 use App\Http\Controllers\Admin\Dg\NotaController as DgNotaController;
 use App\Http\Controllers\Admin\Dg\ReporteController as DgReporteController;
+use App\Http\Controllers\Admin\Drive\DriveCarpetaAccesoController;
 use App\Http\Controllers\Admin\Drive\DriveCarpetaController;
 use App\Http\Controllers\Admin\Drive\DriveDashboardController as DriveAdminDashboardController;
 use App\Http\Controllers\Admin\Drive\DriveExternoController;
@@ -883,6 +884,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('externos', DriveExternoController::class)->parameters(['externos' => 'externo']);
         Route::resource('carpetas', DriveCarpetaController::class)->parameters(['carpetas' => 'carpeta']);
         Route::patch('carpetas/{carpeta}/acceso/{externo}', [DriveCarpetaController::class, 'toggleAcceso'])->name('carpetas.toggle-acceso');
+        Route::post('carpetas/{carpeta}/accesos-internos', [DriveCarpetaAccesoController::class, 'store'])->name('carpetas.accesos-internos.store');
+        Route::patch('carpetas/{carpeta}/accesos-internos/{usuario}', [DriveCarpetaAccesoController::class, 'update'])->name('carpetas.accesos-internos.update');
+        Route::delete('carpetas/{carpeta}/accesos-internos/{usuario}', [DriveCarpetaAccesoController::class, 'destroy'])->name('carpetas.accesos-internos.destroy');
         Route::post('carpetas/{carpeta}/archivos', [DriveCarpetaController::class, 'uploadArchivo'])->name('carpetas.archivos.store');
         Route::get('archivos/{archivo}/descargar', [DriveCarpetaController::class, 'downloadArchivo'])->name('archivos.descargar');
         Route::delete('archivos/{archivo}', [DriveCarpetaController::class, 'destroyArchivo'])->name('archivos.destroy');

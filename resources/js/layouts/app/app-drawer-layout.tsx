@@ -766,13 +766,13 @@ const navGroups: NavGroup[] = [
                 title: 'Dashboard',
                 href: '/admin/drive',
                 icon: LayoutGrid,
-                permission: 'drive.gestionar',
+                permissionModulo: 'drive',
             },
             {
                 title: 'Carpetas',
                 href: '/admin/drive/carpetas',
                 icon: FolderTree,
-                permission: 'drive.gestionar',
+                permissionModulo: 'drive',
             },
             {
                 title: 'Usuarios Externos',

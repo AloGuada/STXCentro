@@ -425,6 +425,7 @@ class RolesAndPermissionsSeeder extends Seeder
         // Permisos del módulo Drive
         $drivePermissions = [
             'drive.gestionar',
+            'drive.propias',
         ];
 
         // Permisos del módulo DG Reportes
