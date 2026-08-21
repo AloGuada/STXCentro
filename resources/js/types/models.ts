@@ -3755,3 +3755,98 @@ export type QalReporteSemanalPnd = {
     piezas_con_pnd: number;
     piezas_sin_rechazo: number;
 };
+
+/**
+ * Dónde se originó una incidencia aparecida en obra.
+ *
+ * El taller de pintura cuenta como taller en el corte del reporte semanal:
+ * también es un defecto que salió de la nave.
+ */
+export type QalAreaIncidencia = 'taller' | 'taller_pintura' | 'montaje';
+
+/** A quién se le atribuye la incidencia. Son los siete del formato en Excel. */
+export type QalDepartamentoIncidencia =
+    | '1a'
+    | '2a'
+    | 'pintura_taller'
+    | 'pintura_obra'
+    | 'ingenieria'
+    | 'logistica'
+    | 'construccion';
+
+/** Una opción de enum con la etiqueta que se enseña. */
+export type QalOpcion = { valor: string; etiqueta: string };
+
+/**
+ * El avance de montaje de una obra en una semana: el **denominador**.
+ *
+ * `pz_montadas` en nulo es «falta el dato»; cero es «no se montó nada». La
+ * pantalla los pinta distinto porque el porcentaje del segundo es calculable y
+ * el del primero no.
+ *
+ * `sin_incidencias` es un dato, no un hueco: dice que la semana se revisó y no
+ * hubo hallazgos, que no es lo mismo que una semana en blanco.
+ */
+export type QalObraMontaje = {
+    id: number;
+    qal_obra_id: number;
+    anio: number;
+    semana: number;
+    pz_montadas: number | null;
+    sin_incidencias: boolean;
+    notas: string | null;
+};
+
+/**
+ * Una incidencia de montaje.
+ *
+ * El numerador son las **piezas con defecto**, no el número de incidencias: un
+ * solo hallazgo puede afectar a diez piezas. El estado sale de `cerrada_en`;
+ * `abierta` es la misma verdad ya resuelta por el modelo.
+ */
+export type QalObraIncidencia = {
+    id: number;
+    qal_obra_id: number;
+    anio: number;
+    semana: number;
+    fecha: string;
+    area: QalAreaIncidencia;
+    departamento: QalDepartamentoIncidencia;
+    pz_defecto: number;
+    folio: string | null;
+    descripcion: string | null;
+    cerrada_en: string | null;
+    abierta: boolean;
+    capturista?: { id: string; name: string } | null;
+};
+
+/** Una obra en la portada de incidencias, con su año ya sumado. */
+export type QalIncidenciaObraResumen = {
+    id: number;
+    no: string;
+    descripcion: string | null;
+    pz_total: number | null;
+    pz_montadas: number;
+    pz_montadas_semana: number;
+    semanas: number;
+    incidencias: number;
+    pz_defecto: number;
+    abiertas: number;
+    incidencias_semana: number;
+    /** `null` = no hay piezas montadas capturadas, así que no hay porcentaje. */
+    tasa: number | null;
+};
+
+/** Una semana en la tabla de historial de la obra. */
+export type QalIncidenciaSemana = {
+    semana: number;
+    /** Lunes y domingo de la semana ISO, en palabras. */
+    rango: string;
+    montaje_id: number | null;
+    pz_montadas: number | null;
+    sin_incidencias: boolean;
+    notas: string | null;
+    incidencias: number;
+    pz_defecto: number;
+    tasa: number | null;
+};

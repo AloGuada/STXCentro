@@ -79,4 +79,26 @@ class Obra extends Model
     {
         return $this->hasMany(PndReporte::class, 'qal_obra_id');
     }
+
+    /**
+     * El avance de montaje semana por semana: el denominador con el que se
+     * miden las incidencias en obra.
+     *
+     * @return HasMany<ObraMontaje, $this>
+     */
+    public function montaje(): HasMany
+    {
+        return $this->hasMany(ObraMontaje::class, 'qal_obra_id');
+    }
+
+    /**
+     * Lo que falló durante el montaje. Es circuito aparte de la inspección de
+     * taller: mide lo que aparece en sitio, no lo que se rechaza en planta.
+     *
+     * @return HasMany<ObraIncidencia, $this>
+     */
+    public function incidencias(): HasMany
+    {
+        return $this->hasMany(ObraIncidencia::class, 'qal_obra_id');
+    }
 }

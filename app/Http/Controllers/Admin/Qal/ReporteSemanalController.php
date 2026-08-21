@@ -6,8 +6,11 @@ use App\Enums\Qal\MetodoPnd;
 use App\Enums\Qal\ResultadoPnd;
 use App\Http\Controllers\Controller;
 use App\Models\Qal\Obra;
+use App\Models\Qal\ObraIncidencia;
+use App\Models\Qal\ObraMontaje;
 use App\Models\Qal\PndJunta;
 use App\Models\Qal\PndReporte;
+use App\Services\Qal\EstadisticaIncidencias;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -22,13 +25,13 @@ use Inertia\Response;
  * folio de formato, seis hojas fijas y una semana de corte, que sale igual
  * todas las semanas para que se pueda comparar con las anteriores.
  *
- * Hoy sólo una de las seis hojas puede calcularse de verdad:
+ * Hoy tres de las seis hojas se calculan de verdad:
  *
  *  - **Hoja 2 · PND** sale entera de `qal_pnd_reportes` y del plan de la obra.
+ *  - **Hojas 4 y 5 · montaje e incidencias** salen de `qal_obra_montaje` y
+ *    `qal_obra_incidencias`, que llena el módulo de incidencias en obra.
  *  - Las hojas 0, 1 y 3 se calculan de la inspección visual, y
  *    `qal_inspecciones` todavía no existe.
- *  - Las hojas 4 y 5 se calculan del montaje y de las incidencias en obra, que
- *    tampoco tienen tabla en `qal_`.
  *
  * Lo que falta se dibuja en el front como maqueta y **va marcado como tal en la
  * propia hoja**: un reporte que se manda fuera no puede dejar la duda de qué
@@ -36,6 +39,8 @@ use Inertia\Response;
  */
 class ReporteSemanalController extends Controller
 {
+    public function __construct(private readonly EstadisticaIncidencias $incidencias) {}
+
     public function index(Request $request): Response
     {
         $anios = $this->aniosConDatos();
@@ -50,6 +55,10 @@ class ReporteSemanalController extends Controller
             'anios' => $anios,
             'semanas' => $semanas,
             'pnd' => $this->hojaPnd(),
+            // Las hojas 4 y 5 son el mismo cálculo con dos cortes distintos, y
+            // la regla que los parte vive en el servicio para que el documento
+            // que sale de la empresa no pueda desviarse de la pantalla.
+            ...$this->incidencias->hojasDelReporteSemanal($anio, $semana),
         ]);
     }
 
@@ -184,18 +193,18 @@ class ReporteSemanalController extends Controller
     /**
      * Los años con algo que reportar.
      *
-     * Salen de los informes de PND porque es lo único capturado hoy. Cuando
-     * exista la inspección visual habrá que unir sus fechas aquí: el año del
-     * reporte no lo decide PND, lo decide que haya trabajo registrado.
+     * Salen de PND, del montaje y de las incidencias, que es lo capturado hoy.
+     * Cuando exista la inspección visual habrá que unir sus fechas aquí: el año
+     * del reporte no lo decide un módulo, lo decide que haya trabajo
+     * registrado.
      *
      * @return list<int>
      */
     private function aniosConDatos(): array
     {
-        return PndReporte::query()
-            ->select('anio')
-            ->distinct()
-            ->pluck('anio')
+        return $this->anios(PndReporte::query())
+            ->merge($this->anios(ObraMontaje::query()))
+            ->merge($this->anios(ObraIncidencia::query()))
             ->push(Carbon::now()->isoFormat('GGGG'))
             ->map(fn ($anio): int => (int) $anio)
             ->unique()
@@ -205,21 +214,34 @@ class ReporteSemanalController extends Controller
     }
 
     /**
+     * @param  \Illuminate\Database\Eloquent\Builder<*>  $consulta
+     * @return Collection<int, mixed>
+     */
+    private function anios($consulta): Collection
+    {
+        return $consulta->select('anio')->distinct()->pluck('anio');
+    }
+
+    /**
      * Las semanas de ese año, de la más reciente a la más vieja.
      *
      * El año en curso siempre ofrece la semana actual aunque no tenga nada
      * capturado: el reporte se abre para emitir el de esta semana, y no poder
-     * seleccionarla porque todavía no hay informes sería absurdo.
+     * seleccionarla porque todavía no hay nada registrado sería absurdo.
      *
      * @return list<int>
      */
     private function semanasConDatos(int $anio): array
     {
-        $semanas = PndReporte::query()
+        $de = fn (string $modelo) => $modelo::query()
             ->where('anio', $anio)
             ->select('semana')
             ->distinct()
-            ->pluck('semana')
+            ->pluck('semana');
+
+        $semanas = $de(PndReporte::class)
+            ->merge($de(ObraMontaje::class))
+            ->merge($de(ObraIncidencia::class))
             ->map(fn ($semana): int => (int) $semana);
 
         if ($anio === (int) Carbon::now()->isoFormat('GGGG')) {

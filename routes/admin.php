@@ -113,6 +113,7 @@ use App\Http\Controllers\Admin\Qal\CatalogoController as QalCatalogoController;
 use App\Http\Controllers\Admin\Qal\DefectoPinturaController as QalDefectoPinturaController;
 use App\Http\Controllers\Admin\Qal\DefectoSoldaduraController as QalDefectoSoldaduraController;
 use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
+use App\Http\Controllers\Admin\Qal\IncidenciasController as QalIncidenciasController;
 use App\Http\Controllers\Admin\Qal\LaboratorioController as QalLaboratorioController;
 use App\Http\Controllers\Admin\Qal\OperadorController as QalOperadorController;
 use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
@@ -834,6 +835,41 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('pnd/{pnd}/resolver-marcas', [QalPndController::class, 'resolverMarcas'])
             ->middleware('permission:qal.pnd.editar')
             ->name('pnd.resolver-marcas');
+
+        // Incidencias en obra: lo que falla durante el montaje. Circuito
+        // aparte del taller, y quien lo captura es el residente, no el
+        // inspector, por eso tiene sus propios permisos.
+        //
+        // La captura va toda colgada de la obra ({obra}) porque el avance de
+        // montaje y las incidencias solo significan algo dentro de una: un
+        // porcentaje de todas las obras juntas mezcla denominadores.
+        Route::prefix('incidencias')->name('incidencias.')->group(function () {
+            Route::get('/', [QalIncidenciasController::class, 'index'])
+                ->middleware('permission:qal.incidencias.ver')
+                ->name('index');
+            Route::get('{obra}', [QalIncidenciasController::class, 'show'])
+                ->whereNumber('obra')
+                ->middleware('permission:qal.incidencias.ver')
+                ->name('show');
+
+            Route::middleware('permission:qal.incidencias.capturar')->group(function () {
+                Route::post('{obra}/montaje', [QalIncidenciasController::class, 'guardarMontaje'])
+                    ->name('montaje');
+                Route::post('{obra}/sin-incidencias', [QalIncidenciasController::class, 'sinIncidencias'])
+                    ->name('sin-incidencias');
+                Route::post('{obra}', [QalIncidenciasController::class, 'store'])
+                    ->name('store');
+                Route::patch('{obra}/{incidencia}/estado', [QalIncidenciasController::class, 'cambiarEstado'])
+                    ->name('estado');
+            });
+
+            Route::middleware('permission:qal.incidencias.eliminar')->group(function () {
+                Route::delete('{obra}/montaje/{montaje}', [QalIncidenciasController::class, 'borrarMontaje'])
+                    ->name('montaje.destroy');
+                Route::delete('{obra}/{incidencia}', [QalIncidenciasController::class, 'destroy'])
+                    ->name('destroy');
+            });
+        });
 
         // El reporte semanal (F-STX-CA-31). Permiso propio y no el del
         // tablero: el tablero es la herramienta diaria del area y esto es el

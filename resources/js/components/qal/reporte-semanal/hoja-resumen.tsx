@@ -1,11 +1,5 @@
 import { num, pct } from '@/components/qal/paleta';
-import {
-    INSPECCION_VISUAL,
-    KG_LIBERADOS,
-    PIEZAS_CON_INCIDENCIA_SEMANA,
-    SERIE_ANIO,
-    totalVisual,
-} from '@/components/qal/reporte-semanal/datos';
+import { INSPECCION_VISUAL, KG_LIBERADOS, SERIE_ANIO, totalVisual } from '@/components/qal/reporte-semanal/datos';
 import {
     Bloque,
     estadoIncidencia,
@@ -30,11 +24,14 @@ export function HojaResumen({
     semana,
     obras,
     spotsPnd,
+    incidenciasSemana,
 }: {
     anio: number;
     semana: number;
     obras: string[];
     spotsPnd: number;
+    /** Piezas con incidencia en taller y obra durante la semana. Es real. */
+    incidenciasSemana: number;
 }) {
     const T = totalVisual(INSPECCION_VISUAL);
     const t2 = porcentaje(T.conRechazo2t, T.liberadas2t);
@@ -69,8 +66,8 @@ export function HojaResumen({
                 `previo: ${pct(t3, 0)}.`,
         );
     }
-    if (PIEZAS_CON_INCIDENCIA_SEMANA > 0) {
-        lectura.push(`Se registraron ${PIEZAS_CON_INCIDENCIA_SEMANA} piezas con incidencia en taller y obra.`);
+    if (incidenciasSemana > 0) {
+        lectura.push(`Se registraron ${num(incidenciasSemana)} piezas con incidencia en taller y obra.`);
     }
     if (lectura.length === 0) {
         lectura.push('No hay inspecciones registradas en esta semana.');

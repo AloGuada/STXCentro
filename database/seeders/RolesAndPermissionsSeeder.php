@@ -462,6 +462,12 @@ class RolesAndPermissionsSeeder extends Seeder
             // El reporte semanal es el documento con folio de formato que sale
             // de la empresa, no la herramienta diaria del area.
             'qal.reporte-semanal.ver',
+            // Incidencias en obra: lo que falla durante el montaje. Es un
+            // circuito aparte del taller y lo captura el residente, no el
+            // inspector, por eso lleva sus propios permisos.
+            'qal.incidencias.ver',
+            'qal.incidencias.capturar',
+            'qal.incidencias.eliminar',
         ];
 
         // Permisos Core

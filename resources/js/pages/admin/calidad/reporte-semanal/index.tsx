@@ -8,11 +8,11 @@
  * con las anteriores. Por eso arriba sólo hay dos controles —año y semana— y no
  * la barra de filtros del tablero.
  *
- * De las seis hojas, hoy **sólo la 2 (PND) se calcula de verdad**. Las otras
- * cuatro dependen de tablas que no existen todavía (`qal_inspecciones` para la
- * inspección visual; el montaje y las incidencias de obra para las dos últimas)
- * y salen con datos de ejemplo. Cada hoja lo dice en su encabezado, porque un
- * documento que se manda fuera no puede dejar la duda de qué número es real.
+ * De las seis hojas, hoy se calculan de verdad **la 2 (PND) y las dos de
+ * montaje e incidencias en obra**. Las otras tres dependen de
+ * `qal_inspecciones`, que todavía no existe, y salen con datos de ejemplo. Cada
+ * hoja lo dice en su encabezado, porque un documento que se manda fuera no
+ * puede dejar la duda de qué número es real.
  *
  * La corrección de fórmula que trae este reporte y que no hay que perder: el
  * porcentaje de incidencias es **piezas liberadas que traían rechazo previo ÷
@@ -22,7 +22,7 @@
 
 import { Head, router } from '@inertiajs/react';
 import { PrinterIcon } from 'lucide-react';
-import { MONTADAS_SEMANA, MONTAJE, PINTURA } from '@/components/qal/reporte-semanal/datos';
+import type { FilaMontaje } from '@/components/qal/reporte-semanal/datos';
 import { HojaMontaje } from '@/components/qal/reporte-semanal/hoja-montaje';
 import { HojaPnd } from '@/components/qal/reporte-semanal/hoja-pnd';
 import { HojaResumen } from '@/components/qal/reporte-semanal/hoja-resumen';
@@ -45,9 +45,24 @@ type Props = {
     anios: number[];
     semanas: number[];
     pnd: QalReporteSemanalPnd[];
+    /** Hoja 4: todas las incidencias, partidas por área —taller / montaje—. */
+    montaje: FilaMontaje[];
+    /** Hoja 5: sólo las de pintura, partidas por departamento —taller / obra—. */
+    pintura: FilaMontaje[];
+    /** Piezas montadas en la semana de corte, en todas las obras. */
+    montadas_semana: number;
 };
 
-export default function ReporteSemanal({ anio, semana, anios, semanas, pnd }: Props) {
+export default function ReporteSemanal({
+    anio,
+    semana,
+    anios,
+    semanas,
+    pnd,
+    montaje,
+    pintura,
+    montadas_semana: montadasSemana,
+}: Props) {
     /** El corte viaja en la URL: un reporte se manda por correo con su semana. */
     const cortar = (cambios: Record<string, string>) => {
         router.get(window.location.pathname, { anio: String(anio), semana: String(semana), ...cambios }, {
@@ -57,6 +72,10 @@ export default function ReporteSemanal({ anio, semana, anios, semanas, pnd }: Pr
     };
 
     const spotsPnd = pnd.reduce((a, f) => a + f.spots, 0);
+
+    // Las piezas con incidencia de la semana salen de la hoja 4, que es la que
+    // cuenta todas: la 5 es un corte suyo y sumarlas contaría dos veces.
+    const incidenciasSemana = montaje.reduce((a, f) => a + f.aSemana + f.bSemana, 0);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -113,6 +132,7 @@ export default function ReporteSemanal({ anio, semana, anios, semanas, pnd }: Pr
                     semana={semana}
                     obras={pnd.map((f) => f.obra)}
                     spotsPnd={spotsPnd}
+                    incidenciasSemana={incidenciasSemana}
                 />
                 <HojaVisual semana={semana} />
                 <HojaPnd filas={pnd} />
@@ -122,8 +142,8 @@ export default function ReporteSemanal({ anio, semana, anios, semanas, pnd }: Pr
                     titulo="Montaje e incidencias en obra"
                     pregunta="¿Cuánto se ha montado y cuántas piezas dieron problema?"
                     semana={semana}
-                    filas={MONTAJE}
-                    montadasSemana={MONTADAS_SEMANA}
+                    filas={montaje}
+                    montadasSemana={montadasSemana}
                     nombreA="Incidencias de taller"
                     nombreB="Incidencias de montaje"
                     columnaA="Inc. taller"
@@ -136,8 +156,8 @@ export default function ReporteSemanal({ anio, semana, anios, semanas, pnd }: Pr
                     titulo="Incidencias de pintura"
                     pregunta="¿Dónde se está dañando el recubrimiento, en taller o en obra?"
                     semana={semana}
-                    filas={PINTURA}
-                    montadasSemana={MONTADAS_SEMANA}
+                    filas={pintura}
+                    montadasSemana={montadasSemana}
                     nombreA="Incidencias de pintura en taller"
                     nombreB="Incidencias de pintura en obra"
                     columnaA="Inc. taller"

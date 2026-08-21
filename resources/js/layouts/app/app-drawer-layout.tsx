@@ -47,6 +47,7 @@ import {
     Tag,
     Ticket,
     TrendingDown,
+    TriangleAlert,
     Users,
     HardDrive,
     HardHat,
@@ -256,6 +257,15 @@ const navGroups: NavGroup[] = [
                 href: '/admin/calidad/pnd',
                 icon: Radar,
                 permission: 'qal.pnd.ver',
+            },
+            {
+                // Lo que falla durante el montaje, en obra. Circuito aparte del
+                // taller: aqui el denominador son las piezas ya montadas, no
+                // las inspeccionadas en planta.
+                title: 'Incidencias en obra',
+                href: '/admin/calidad/incidencias',
+                icon: TriangleAlert,
+                permission: 'qal.incidencias.ver',
             },
             {
                 // El F-STX-CA-31 que se manda a direccion. Es un documento con

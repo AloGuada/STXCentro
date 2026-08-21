@@ -75,8 +75,8 @@ export function HojaMontaje({
             submeta={`al corte de la semana ${semana}`}
             origen={
                 <Origen
-                    real={false}
-                    detalle="Sale del montaje y de las incidencias en obra, que todavía no tienen tabla en qal_."
+                    real
+                    detalle="Sale de qal_obra_montaje y qal_obra_incidencias, que llena el módulo de incidencias en obra."
                 />
             }
         >
@@ -223,8 +223,9 @@ export function HojaMontaje({
                 />
                 <Nota>
                     Las piezas totales de cada obra salen de su ficha en Calidad; el avance montado, del módulo de
-                    incidencias de obra. Sin piezas totales no se puede calcular el avance, y la fila lo dice en vez de
-                    dar un porcentaje sobre un denominador supuesto.
+                    incidencias en obra. Sin piezas totales no se puede calcular el avance, y la fila lo dice en vez de
+                    dar un porcentaje sobre un denominador supuesto. Sólo salen las obras con avance de montaje
+                    capturado: sin denominador no hay porcentaje que publicar.
                 </Nota>
             </Bloque>
 
