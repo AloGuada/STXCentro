@@ -7,6 +7,7 @@ use App\Models\Prod\Pieza;
 use App\Models\Prod\Registro;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -448,6 +449,32 @@ describe('import del layout por QR', function () {
 
         expect(session('errors')->first('csv_file'))->toContain('CATEGORIAQS')
             ->and($marca->piezas()->sole()->qs)->toBeNull();
+    });
+
+    test('las piezas se escriben en bloque, no una por una', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        $filas = '';
+        foreach (range(1, 40) as $n) {
+            $marca = $n <= 20 ? 'TG-BAR-1' : 'TG-BAR-2';
+            $filas .= "QR-{$n},{$marca},OC-BAR,Barandales,{$n},20,10,1,1000,\n";
+        }
+
+        $consultas = 0;
+        DB::listen(function ($query) use (&$consultas) {
+            if (str_contains($query->sql, 'prod_piezas')) {
+                $consultas++;
+            }
+        });
+
+        subirLayout($catalogo, $filas)->assertSessionHas('success');
+
+        // Fila por fila serían ~80 viajes (el select y el insert de cada
+        // updateOrCreate), y en PostgreSQL además un savepoint por pieza: es lo
+        // que agota max_locks_per_transaction con un layout de planta completo.
+        expect($consultas)->toBeLessThan(10)
+            ->and(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(40)
+            ->and(Concepto::where('catalogo_id', $catalogo->id)->pluck('cantidad')->all())->toBe([20, 20]);
     });
 
     test('el import exige archivo', function () {

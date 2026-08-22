@@ -51,10 +51,13 @@ class ImportadorDeLayout
         $avisosDeEmpate = [];
 
         DB::transaction(function () use ($catalogo, $filas, &$categorias, &$marcasEscritas, &$piezasEscritas, &$avisosDeEmpate): void {
+            $porEscribir = [];
+            $marcasTocadas = [];
+
             foreach ($filas as $modelo) {
                 $categoriaId = null;
                 if ($modelo['categoria'] !== '') {
-                    $categoriaId = $categorias[$modelo['categoria']] ??= Categoria::firstOrCreate(['nombre' => $modelo['categoria']])->id;
+                    $categoriaId = $categorias[$modelo['categoria']] ??= $this->categoria($modelo['categoria']);
                 }
 
                 $marca = $this->marcaDelCatalogo($catalogo, $modelo['marca'], $modelo['lote'], $avisosDeEmpate);
@@ -72,20 +75,25 @@ class ImportadorDeLayout
                     'longitud' => $modelo['longitud'],
                 ])->save();
                 $marcasEscritas++;
+                $marcasTocadas[$marca->id] = $marca->id;
 
                 foreach ($modelo['piezas'] as $pieza) {
-                    Pieza::updateOrCreate(
-                        ['catalogo_id' => $catalogo->id, 'qr' => $pieza['qr']],
-                        ['concepto_id' => $marca->id, 'qs' => $pieza['qs']],
-                    );
+                    $porEscribir[] = [
+                        'catalogo_id' => $catalogo->id,
+                        'concepto_id' => $marca->id,
+                        'qr' => $pieza['qr'],
+                        'qs' => $pieza['qs'],
+                    ];
                     $piezasEscritas++;
                 }
-
-                // Se cuenta despues de escribir las piezas y sobre las que tiene
-                // la marca en el catalogo, no sobre las del archivo: asi un
-                // layout parcial suma sus piezas en vez de borrar la cuenta previa.
-                $marca->update(['cantidad' => $marca->piezas()->count()]);
             }
+
+            $this->escribirPiezas($porEscribir);
+
+            // Se cuenta despues de escribir las piezas y sobre las que tiene
+            // la marca en el catalogo, no sobre las del archivo: asi un
+            // layout parcial suma sus piezas en vez de borrar la cuenta previa.
+            $this->recontarPiezas($marcasTocadas);
         });
 
         return [
@@ -93,6 +101,71 @@ class ImportadorDeLayout
             'piezas' => $piezasEscritas,
             'avisos' => [...$avisos, ...$avisosDeEmpate, ...$this->avisosDeCantidad($filas)],
         ];
+    }
+
+    /**
+     * Escribe las piezas del layout en bloque.
+     *
+     * Va en `upsert` y no en `updateOrCreate` por pieza a propósito. Cada
+     * `updateOrCreate` abre un SAVEPOINT dentro de la transacción del import, y
+     * en PostgreSQL cada subtransacción se queda con un lock hasta el commit:
+     * con un layout de miles de renglones se agota el pool de locks y revienta
+     * con «out of shared memory / max_locks_per_transaction». Un `upsert` por
+     * bloque es una sola sentencia, sin savepoints y sin ida y vuelta por fila.
+     *
+     * El `ON CONFLICT` se apoya en el unique `(catalogo_id, qr)`; el lector ya
+     * garantiza que un QR no venga dos veces en el mismo archivo, que Postgres
+     * tampoco deja tocar la misma fila dos veces en la misma sentencia.
+     *
+     * @param  list<array{catalogo_id: int, concepto_id: int, qr: string, qs: ?string}>  $piezas
+     */
+    private function escribirPiezas(array $piezas): void
+    {
+        foreach (array_chunk($piezas, 500) as $bloque) {
+            Pieza::upsert($bloque, ['catalogo_id', 'qr'], ['concepto_id', 'qs']);
+        }
+    }
+
+    /**
+     * Deja en cada marca tocada la cuenta de piezas que le quedaron colgando.
+     *
+     * Se hace al final y en bloque por lo mismo que las piezas: un `count()` y
+     * un `update()` por marca son dos viajes por renglón del layout. Las marcas
+     * se agrupan por cuenta, que casi todas comparten el mismo número.
+     *
+     * @param  array<int, int>  $marcaIds
+     */
+    private function recontarPiezas(array $marcaIds): void
+    {
+        foreach (array_chunk(array_values($marcaIds), 500) as $bloque) {
+            $conteos = Pieza::query()
+                ->whereIn('concepto_id', $bloque)
+                ->groupBy('concepto_id')
+                ->selectRaw('concepto_id, count(*) as total')
+                ->pluck('total', 'concepto_id');
+
+            $porCantidad = [];
+
+            foreach ($bloque as $id) {
+                $porCantidad[(int) ($conteos[$id] ?? 0)][] = $id;
+            }
+
+            foreach ($porCantidad as $cantidad => $ids) {
+                Concepto::whereIn('id', $ids)->update(['cantidad' => $cantidad]);
+            }
+        }
+    }
+
+    /**
+     * La categoría del layout, creándola si es nueva. Se evita `firstOrCreate`
+     * por la misma razón que en las piezas: abre un savepoint por categoría
+     * nueva dentro de la transacción del import.
+     */
+    private function categoria(string $nombre): int
+    {
+        $existente = Categoria::where('nombre', $nombre)->value('id');
+
+        return $existente ?? Categoria::create(['nombre' => $nombre])->id;
     }
 
     /**
