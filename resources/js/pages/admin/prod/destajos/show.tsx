@@ -9,7 +9,6 @@ import AppLayout from '@/layouts/app-layout';
 import { etiquetaDePieza } from '@/lib/prod/piezas';
 import type { BreadcrumbItem } from '@/types';
 import type {
-    Concepto,
     ProdProceso,
     Obra,
     ProdDestajo,
@@ -29,7 +28,7 @@ type Props = {
     pagosExtraPreview?: Record<string, PagoExtraPreview[]>;
     piezasSinPrecio?: ProdPiezaSinPrecio[];
     gruposTrabajo?: ProdGrupoTrabajo[];
-    marcas?: (Concepto & { obra?: Obra })[];
+    obras?: Obra[];
     procesos?: ProdProceso[];
     procesosPorObra?: Record<number, number[]>;
     tipos?: ProdTipoPagoExtra[];
@@ -43,7 +42,7 @@ export default function DestajosShow({
     pagosExtraPreview = {},
     piezasSinPrecio = [],
     gruposTrabajo = [],
-    marcas = [],
+    obras = [],
     procesos = [],
     procesosPorObra = {},
     tipos = [],
@@ -179,7 +178,7 @@ export default function DestajosShow({
 
                         <CapturarProduccion
                             destajo={destajo}
-                            marcas={marcas}
+                            obras={obras}
                             procesos={procesos}
                             procesosPorObra={procesosPorObra}
                             gruposTrabajo={gruposTrabajo}

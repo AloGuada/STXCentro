@@ -207,11 +207,16 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('configuracion', [ProdConfiguracionController::class, 'edit'])->name('configuracion.edit');
         Route::put('configuracion', [ProdConfiguracionController::class, 'update'])->name('configuracion.update');
 
+        // El catalogo baja en tres tiempos —obra, marca, QR— y estos son los dos
+        // escalones de abajo. Los comparten la captura del destajo y el catalogo:
+        // ninguna pantalla puede darse el lujo de traerse la obra entera.
+        Route::get('obras/{obra}/marcas', [ProdConceptoController::class, 'marcasDeObra'])->name('obras.marcas');
+        Route::get('marcas/{concepto}/piezas', [ProdConceptoController::class, 'piezas'])->name('marcas.piezas');
+
         // Destajos (semanal) y liquidaciones
         Route::resource('destajos', ProdDestajoController::class)->except(['edit', 'update'])->parameters(['destajos' => 'destajo']);
         Route::post('destajos/{destajo}/cerrar', [ProdDestajoController::class, 'cerrar'])->name('destajos.cerrar');
         Route::get('destajos/{destajo}/orden-pago', [ProdDestajoController::class, 'ordenPagoPdf'])->name('destajos.orden-pago');
-        Route::get('destajos/{destajo}/marcas/{concepto}/piezas', [ProdDestajoController::class, 'piezasDeMarca'])->name('destajos.marcas.piezas');
         Route::get('destajos/{destajo}/asistencia', [ProdAsistenciaController::class, 'show'])->name('destajos.asistencia');
         Route::post('destajos/{destajo}/asistencia', [ProdAsistenciaController::class, 'store'])->name('destajos.asistencia.store');
 

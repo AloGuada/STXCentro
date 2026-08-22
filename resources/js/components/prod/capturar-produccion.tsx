@@ -28,7 +28,8 @@ type PiezaConAvance = Pick<ProdPieza, 'id' | 'qr' | 'qs'> & {
 
 type Props = {
     destajo: ProdDestajo;
-    marcas: MarcaDelCatalogo[];
+    /** Sólo las obras con catálogo vigente: el primer escalón de la captura. */
+    obras: Obra[];
     procesos: ProdProceso[];
     /** Qué procesos paga cada obra: obraId => ids de proceso. */
     procesosPorObra: Record<number, number[]>;
@@ -37,7 +38,7 @@ type Props = {
 
 export function CapturarProduccion({
     destajo,
-    marcas,
+    obras,
     procesos,
     procesosPorObra,
     gruposTrabajo,
@@ -144,21 +145,51 @@ export function CapturarProduccion({
     // quien captura. Si viene vacía se cae al número, que siempre existe.
     const nombreDeObra = (obra: Obra): string => obra.descripcion?.trim() || obra.no;
 
-    const marcaOptions = marcas.map((m) => ({
-        value: String(m.id),
-        label: `${m.obra ? `[${nombreDeObra(m.obra)}] ` : ''}${etiquetaDePieza(m.marca, m.lote)} - ${m.descripcion}`,
-    }));
+    const obraOptions = obras.map((o) => ({ value: String(o.id), label: nombreDeObra(o) }));
 
-    const marcaElegida = marcas.find((m) => String(m.id) === registroForm.data.marca_id);
-
-    // Las piezas de la marca se piden al elegirla. El catálogo completo de una
-    // obra son decenas de miles de QR: mandarlos todos en la pantalla del
-    // destajo la tumbaba por memoria, y de ellos sólo se usan los de una marca.
+    // El catálogo baja en tres tiempos: la obra viene en la pantalla, y marcas y
+    // QR se piden al elegir el escalón de arriba. Una obra son decenas de miles
+    // de piezas: mandarlas todas tumbaba la pantalla por memoria para acabar
+    // usando las de una sola marca.
+    const [obraId, setObraId] = useState('');
+    const [marcas, setMarcas] = useState<MarcaDelCatalogo[]>([]);
+    const [cargandoMarcas, setCargandoMarcas] = useState(false);
     const [piezasDeLaMarca, setPiezasDeLaMarca] = useState<PiezaConAvance[]>([]);
     const [cargandoPiezas, setCargandoPiezas] = useState(false);
     // Tras capturar hay que volver a preguntar: lo recién guardado consume cupo.
     const [refresco, setRefresco] = useState(0);
     const marcaId = registroForm.data.marca_id;
+
+    /** Trae un escalón del catálogo y avisa si la petición ya se abandonó. */
+    const pedir = <T,>(url: string, recibir: (datos: T | null) => void, marcarCarga: (v: boolean) => void) => {
+        const control = new AbortController();
+        marcarCarga(true);
+
+        fetch(url, { headers: { Accept: 'application/json' }, signal: control.signal })
+            .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+            .then(recibir)
+            .catch(() => {
+                if (!control.signal.aborted) recibir(null);
+            })
+            .finally(() => {
+                if (!control.signal.aborted) marcarCarga(false);
+            });
+
+        return () => control.abort();
+    };
+
+    useEffect(() => {
+        if (!obraId) {
+            setMarcas([]);
+            return;
+        }
+
+        return pedir<{ marcas: MarcaDelCatalogo[] }>(
+            `/admin/prod/obras/${obraId}/marcas`,
+            (datos) => setMarcas(datos?.marcas ?? []),
+            setCargandoMarcas,
+        );
+    }, [destajo.id, obraId]);
 
     useEffect(() => {
         if (!marcaId) {
@@ -166,32 +197,27 @@ export function CapturarProduccion({
             return;
         }
 
-        const control = new AbortController();
-        setCargandoPiezas(true);
-
-        fetch(`/admin/prod/destajos/${destajo.id}/marcas/${marcaId}/piezas`, {
-            headers: { Accept: 'application/json' },
-            signal: control.signal,
-        })
-            .then((res) => (res.ok ? res.json() : Promise.reject(res)))
-            .then((data) => setPiezasDeLaMarca(data.piezas ?? []))
-            .catch(() => {
-                if (!control.signal.aborted) setPiezasDeLaMarca([]);
-            })
-            .finally(() => {
-                if (!control.signal.aborted) setCargandoPiezas(false);
-            });
-
-        return () => control.abort();
+        return pedir<{ piezas: PiezaConAvance[] }>(
+            `/admin/prod/marcas/${marcaId}/piezas`,
+            (datos) => setPiezasDeLaMarca(datos?.piezas ?? []),
+            setCargandoPiezas,
+        );
     }, [destajo.id, marcaId, refresco]);
 
-    // Sólo los procesos que paga la obra de esa marca: capturar pintura donde
-    // nadie la presupuestó inventaría dinero.
+    const marcaOptions = marcas.map((m) => ({
+        value: String(m.id),
+        label: `${etiquetaDePieza(m.marca, m.lote)} - ${m.descripcion}`,
+    }));
+
+    const marcaElegida = marcas.find((m) => String(m.id) === marcaId);
+
+    // Sólo los procesos que paga la obra: capturar pintura donde nadie la
+    // presupuestó inventaría dinero.
     const procesosDisponibles = useMemo(() => {
-        if (!marcaElegida) return [];
-        const permitidos = procesosPorObra[marcaElegida.obra_id] ?? [];
+        if (!obraId) return [];
+        const permitidos = procesosPorObra[Number(obraId)] ?? [];
         return procesos.filter((p) => permitidos.includes(p.id));
-    }, [marcaElegida, procesos, procesosPorObra]);
+    }, [obraId, procesos, procesosPorObra]);
 
     const procesoId = Number(registroForm.data.proceso_id);
     const disponibleDe = (pieza: PiezaConAvance): number => pieza.avance?.[procesoId]?.disponible ?? 1;
@@ -236,7 +262,33 @@ export function CapturarProduccion({
                     <PlusIcon className="size-4" /> Capturar producción
                 </h3>
                 <form onSubmit={submitRegistro} className="space-y-3">
-                    <FormField label="Marca" htmlFor="marca_id" error={registroForm.errors.marca_id} required>
+                    <FormField label="Obra" htmlFor="obra_id" required>
+                        <SearchSelect
+                            options={obraOptions}
+                            value={obraId}
+                            onValueChange={(v) => {
+                                setObraId(v);
+                                // La marca y el proceso cuelgan de la obra: al
+                                // cambiarla dejan de tener sentido.
+                                registroForm.setData('marca_id', '');
+                                registroForm.setData('proceso_id', '');
+                                registroForm.setData('piezas', []);
+                            }}
+                            placeholder="Buscar obra..."
+                        />
+                    </FormField>
+
+                    <FormField
+                        label="Marca"
+                        htmlFor="marca_id"
+                        error={registroForm.errors.marca_id}
+                        description={
+                            obraId && !cargandoMarcas && marcaOptions.length === 0
+                                ? 'Esta obra no tiene marcas en su catálogo vigente.'
+                                : undefined
+                        }
+                        required
+                    >
                         <SearchSelect
                             options={marcaOptions}
                             value={registroForm.data.marca_id}
@@ -244,7 +296,13 @@ export function CapturarProduccion({
                                 registroForm.setData('marca_id', v);
                                 registroForm.setData('piezas', []);
                             }}
-                            placeholder="Buscar marca..."
+                            placeholder={
+                                !obraId
+                                    ? 'Elige primero una obra'
+                                    : cargandoMarcas
+                                      ? 'Cargando marcas...'
+                                      : 'Buscar marca...'
+                            }
                         />
                     </FormField>
 

@@ -231,9 +231,11 @@ describe('visibilidad del avance', function () {
             ->get(route('admin.prod.catalogos.show', $this->catalogo))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->has('marcas.0.piezas', 3)
+                ->has('marcas.data', 1)
                 ->has('procesos', 2)
-                ->where('marcas.0.piezas.0.avance.'.$this->soldadura->id.'.capturado', 1)
+                // El avance de la marca lo resume el servidor: 3 de sus piezas
+                // pagadas en soldadura. Los QR se piden al desplegarla.
+                ->where('avancePorMarca.'.$this->marca->id.'.'.$this->soldadura->id, 3)
             );
     });
 
@@ -246,12 +248,12 @@ describe('visibilidad del avance', function () {
             ->get(route('admin.prod.destajos.show', $this->destajo))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->has('marcas')
+                ->has('obras')
                 ->has('procesos')
             );
 
         $respuesta = $this->actingAs($this->user)
-            ->getJson(route('admin.prod.destajos.marcas.piezas', [$this->destajo, $this->marca]))
+            ->getJson(route('admin.prod.marcas.piezas', $this->marca))
             ->assertOk();
 
         $pieza = collect($respuesta->json('piezas'))->firstWhere('id', $this->pieza->id);

@@ -152,29 +152,66 @@ describe('admin destajos', function () {
                 ->has('pagosExtraPreview')
                 ->has('piezasSinPrecio')
                 ->has('gruposTrabajo')
-                ->has('marcas')
+                ->has('obras')
                 ->has('procesos')
                 ->has('tipos')
             );
     });
 
-    test('el catalogo de captura no manda las piezas del catalogo', function () {
-        marcaConPiezas(3);
+    test('la pantalla solo manda las obras, no el catalogo', function () {
+        $marca = marcaConPiezas(3);
 
         $destajo = Destajo::factory()->create([
             'fecha_inicio' => '2026-02-03',
             'fecha_fin' => '2026-02-09',
         ]);
 
-        // Una obra grande son decenas de miles de piezas: mandarlas en la
-        // pantalla la tumbaba por memoria. Se piden por marca al capturar.
+        // Una obra son decenas de miles de piezas: mandarlas en la pantalla la
+        // tumbaba por memoria. El catalogo baja en tres tiempos y aqui solo
+        // viaja el primero.
         $this->actingAs($this->user)
             ->get(route('admin.prod.destajos.show', $destajo))
             ->assertInertia(fn ($page) => $page
-                ->has('marcas.0')
-                ->missing('marcas.0.piezas')
+                ->has('obras', 1)
+                ->where('obras.0.id', $marca->obra_id)
+                ->missing('marcas')
                 ->missing('avance')
             );
+    });
+
+    test('la obra sin catalogo vigente no sale en la captura', function () {
+        $marca = marcaConPiezas(1);
+        $marca->catalogo->update(['vigente' => false]);
+
+        $destajo = Destajo::factory()->create([
+            'fecha_inicio' => '2026-02-03',
+            'fecha_fin' => '2026-02-09',
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.destajos.show', $destajo))
+            ->assertInertia(fn ($page) => $page->has('obras', 0));
+    });
+
+    test('las marcas de la obra se piden aparte', function () {
+        $marca = marcaConPiezas(2);
+        $otraObra = marcaConPiezas(1);
+
+        $destajo = Destajo::factory()->create([
+            'fecha_inicio' => '2026-02-03',
+            'fecha_fin' => '2026-02-09',
+        ]);
+
+        $respuesta = $this->actingAs($this->user)
+            ->getJson(route('admin.prod.obras.marcas', $marca->obra_id))
+            ->assertOk();
+
+        $marcas = collect($respuesta->json('marcas'));
+
+        // Solo las de esa obra, y sin arrastrar sus piezas.
+        expect($marcas->pluck('id')->all())->toBe([$marca->id])
+            ->and($marcas->first())->not->toHaveKey('piezas')
+            ->and($marcas->pluck('id'))->not->toContain($otraObra->id);
     });
 
     test('las piezas de una marca se piden aparte, con su avance', function () {
@@ -188,7 +225,7 @@ describe('admin destajos', function () {
         ]);
 
         $respuesta = $this->actingAs($this->user)
-            ->getJson(route('admin.prod.destajos.marcas.piezas', [$destajo, $marca]))
+            ->getJson(route('admin.prod.marcas.piezas', $marca))
             ->assertOk();
 
         $piezas = collect($respuesta->json('piezas'));
@@ -216,7 +253,7 @@ describe('admin destajos', function () {
         ]);
 
         $respuesta = $this->actingAs($this->user)
-            ->getJson(route('admin.prod.destajos.marcas.piezas', [$destajo, $marca]))
+            ->getJson(route('admin.prod.marcas.piezas', $marca))
             ->assertOk();
 
         expect((float) $respuesta->json("piezas.0.avance.{$proceso->id}.disponible"))->toBe(0.0);

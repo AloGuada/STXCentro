@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin\Prod;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Prod\DestajoStoreRequest;
-use App\Models\Concepto;
 use App\Models\Obra;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoTrabajo;
@@ -13,11 +12,9 @@ use App\Models\Prod\Proceso;
 use App\Models\Prod\Registro;
 use App\Models\Prod\TipoPagoExtra;
 use App\Services\Prod\AsistenciaDelDestajo;
-use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\GeneradorLiquidaciones;
 use App\Services\Prod\PendientesDeLiquidar;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -91,55 +88,30 @@ class DestajoController extends Controller
 
         $data['piezasSinPrecio'] = $generador->piezasSinPrecio($destajo);
         $data['gruposTrabajo'] = GrupoTrabajo::where('activo', true)->orderBy('descripcion')->get();
-        // El catalogo de captura: solo las marcas del catalogo vigente, sin sus
-        // piezas. Una obra grande son decenas de miles de piezas y mandarlas
-        // todas para usar las de una sola marca eran 17 MB de respuesta y cientos
-        // de MB de memoria; las piezas de la marca elegida se piden aparte
-        // (`piezasDeMarca`), que es como el formulario las usa: marca -> QR.
-        $data['marcas'] = Concepto::query()
-            ->with('obra:id,no,descripcion')
-            ->deCatalogoVigente()
-            ->where('activo', true)
-            ->orderBy('marca')
-            ->orderBy('lote')
-            ->get(['id', 'obra_id', 'marca', 'lote', 'descripcion', 'cantidad']);
 
-        $data['procesos'] = Proceso::activos()->orderBy('orden')->get();
-        $data['procesosPorObra'] = Obra::query()
-            ->whereIn('id', $data['marcas']->pluck('obra_id')->unique())
+        // El catalogo de captura baja en tres tiempos —obra, marca, QR— y aqui
+        // solo viaja el primero. Mandar el catalogo entero eran 17 MB de
+        // respuesta y cientos de MB de memoria por una obra de 12 mil piezas,
+        // para terminar usando las de una sola marca. Los otros dos escalones
+        // los sirven `marcasDeObra` y `piezasDeMarca`.
+        $obras = Obra::query()
+            ->whereHas('catalogos', fn ($q) => $q->where('vigente', true)
+                ->whereHas('conceptos', fn ($c) => $c->where('activo', true)))
             ->with('procesos:id')
-            ->get()
-            ->mapWithKeys(fn (Obra $obra) => [$obra->id => $obra->procesos->pluck('id')]);
+            ->orderBy('no')
+            ->get(['id', 'no', 'descripcion']);
+
+        $data['obras'] = $obras->map->only(['id', 'no', 'descripcion'])->values();
+        $data['procesos'] = Proceso::activos()->orderBy('orden')->get();
+        $data['procesosPorObra'] = $obras->mapWithKeys(
+            fn (Obra $obra) => [$obra->id => $obra->procesos->pluck('id')],
+        );
 
         $data['tipos'] = TipoPagoExtra::orderBy('orden')->get();
         $data['pendientes'] = $pendientes->paraDestajo($destajo);
         $data['asistenciaFaltante'] = $asistencia->faltantes($destajo);
 
         return Inertia::render('admin/prod/destajos/show', $data);
-    }
-
-    /**
-     * Las piezas de una marca con su avance por proceso, para el formulario de
-     * captura. Se piden al elegir la marca en vez de venir en el `show`: es lo
-     * que evita cargar el catalogo entero de la obra en cada visita.
-     */
-    public function piezasDeMarca(Destajo $destajo, Concepto $concepto, AvanceDePiezas $avance): JsonResponse
-    {
-        $piezas = $concepto->piezas()
-            ->where('activo', true)
-            ->orderBy('qr')
-            ->get(['id', 'catalogo_id', 'concepto_id', 'qr', 'qs']);
-
-        $procesoIds = Proceso::activos()->pluck('id')->all();
-
-        return response()->json([
-            'piezas' => $avance->decorar($piezas, $procesoIds)->map(fn ($pieza) => [
-                'id' => $pieza->id,
-                'qr' => $pieza->qr,
-                'qs' => $pieza->qs,
-                'avance' => $pieza->avance,
-            ])->values(),
-        ]);
     }
 
     public function destroy(Destajo $destajo): RedirectResponse

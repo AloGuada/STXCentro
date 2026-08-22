@@ -8,9 +8,13 @@ use App\Http\Requests\Admin\ConceptoImportCsvRequest;
 use App\Http\Requests\Admin\Prod\ConceptoStoreRequest;
 use App\Http\Requests\Admin\Prod\ConceptoUpdateRequest;
 use App\Models\Concepto;
+use App\Models\Obra;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
+use App\Models\Prod\Proceso;
+use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\ImportadorDeLayout;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -97,6 +101,50 @@ class ConceptoController extends Controller
         $concepto->delete();
 
         return to_route('admin.prod.catalogos.show', $catalogoId);
+    }
+
+    /**
+     * Las marcas del catálogo vigente de una obra.
+     *
+     * Segundo escalón de la carga del catálogo: la pantalla trae las obras y
+     * pide estas al elegir una. Nunca viajan con sus piezas —para eso está
+     * `piezas()`—, que es lo que mantiene la respuesta en unos KB por grande
+     * que sea la obra.
+     */
+    public function marcasDeObra(Obra $obra): JsonResponse
+    {
+        return response()->json([
+            'marcas' => Concepto::query()
+                ->where('obra_id', $obra->id)
+                ->deCatalogoVigente()
+                ->where('activo', true)
+                ->orderBy('marca')
+                ->orderBy('lote')
+                ->get(['id', 'obra_id', 'marca', 'lote', 'descripcion', 'cantidad']),
+        ]);
+    }
+
+    /**
+     * Las piezas de una marca con su avance por proceso: el tercer escalón, que
+     * se pide al elegir la marca o al desplegarla en el catálogo.
+     */
+    public function piezas(Concepto $concepto, AvanceDePiezas $avance): JsonResponse
+    {
+        $piezas = $concepto->piezas()
+            ->where('activo', true)
+            ->orderBy('qr')
+            ->get(['id', 'catalogo_id', 'concepto_id', 'qr', 'qs']);
+
+        $procesoIds = Proceso::activos()->pluck('id')->all();
+
+        return response()->json([
+            'piezas' => $avance->decorar($piezas, $procesoIds)->map(fn ($pieza) => [
+                'id' => $pieza->id,
+                'qr' => $pieza->qr,
+                'qs' => $pieza->qs,
+                'avance' => $pieza->avance,
+            ])->values(),
+        ]);
     }
 
     public function descargarLayout(): BinaryFileResponse
