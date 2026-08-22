@@ -158,21 +158,68 @@ describe('admin destajos', function () {
             );
     });
 
-    test('el catalogo de captura manda el QR de cada pieza', function () {
-        $marca = marcaConPiezas(1);
-        $marca->piezas[0]->update(['qs' => null]);
+    test('el catalogo de captura no manda las piezas del catalogo', function () {
+        marcaConPiezas(3);
 
         $destajo = Destajo::factory()->create([
             'fecha_inicio' => '2026-02-03',
             'fecha_fin' => '2026-02-09',
         ]);
 
+        // Una obra grande son decenas de miles de piezas: mandarlas en la
+        // pantalla la tumbaba por memoria. Se piden por marca al capturar.
         $this->actingAs($this->user)
             ->get(route('admin.prod.destajos.show', $destajo))
             ->assertInertia(fn ($page) => $page
-                ->where('marcas.0.piezas.0.qr', $marca->piezas[0]->qr)
-                ->where('marcas.0.piezas.0.qs', null)
+                ->has('marcas.0')
+                ->missing('marcas.0.piezas')
+                ->missing('avance')
             );
+    });
+
+    test('las piezas de una marca se piden aparte, con su avance', function () {
+        $marca = marcaConPiezas(2);
+        $marca->piezas[0]->update(['qs' => null]);
+        $proceso = proceso();
+
+        $destajo = Destajo::factory()->create([
+            'fecha_inicio' => '2026-02-03',
+            'fecha_fin' => '2026-02-09',
+        ]);
+
+        $respuesta = $this->actingAs($this->user)
+            ->getJson(route('admin.prod.destajos.marcas.piezas', [$destajo, $marca]))
+            ->assertOk();
+
+        $piezas = collect($respuesta->json('piezas'));
+
+        expect($piezas)->toHaveCount(2)
+            ->and($piezas->firstWhere('id', $marca->piezas[0]->id))
+            ->toMatchArray(['qr' => $marca->piezas[0]->qr, 'qs' => null])
+            ->and((float) $piezas->first()['avance'][$proceso->id]['disponible'])->toBe(1.0);
+    });
+
+    test('la pieza ya pagada llega sin cupo en su proceso', function () {
+        $marca = marcaConPiezas(1);
+        $proceso = proceso();
+
+        $destajo = Destajo::factory()->create([
+            'fecha_inicio' => '2026-02-03',
+            'fecha_fin' => '2026-02-09',
+        ]);
+
+        Registro::factory()->create([
+            'pieza_id' => $marca->piezas[0]->id,
+            'proceso_id' => $proceso->id,
+            'fecha' => '2026-02-04',
+            'porcentaje' => 100,
+        ]);
+
+        $respuesta = $this->actingAs($this->user)
+            ->getJson(route('admin.prod.destajos.marcas.piezas', [$destajo, $marca]))
+            ->assertOk();
+
+        expect((float) $respuesta->json("piezas.0.avance.{$proceso->id}.disponible"))->toBe(0.0);
     });
 
     test('destajo can be deleted if not cerrado', function () {

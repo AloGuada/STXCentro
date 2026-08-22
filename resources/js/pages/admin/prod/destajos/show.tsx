@@ -10,7 +10,6 @@ import { etiquetaDePieza } from '@/lib/prod/piezas';
 import type { BreadcrumbItem } from '@/types';
 import type {
     Concepto,
-    ProdPieza,
     ProdProceso,
     Obra,
     ProdDestajo,
@@ -30,10 +29,9 @@ type Props = {
     pagosExtraPreview?: Record<string, PagoExtraPreview[]>;
     piezasSinPrecio?: ProdPiezaSinPrecio[];
     gruposTrabajo?: ProdGrupoTrabajo[];
-    marcas?: (Concepto & { obra?: Obra; piezas?: ProdPieza[] })[];
+    marcas?: (Concepto & { obra?: Obra })[];
     procesos?: ProdProceso[];
     procesosPorObra?: Record<number, number[]>;
-    avance?: Record<number, Record<number, { capturado: number; disponible: number }>>;
     tipos?: ProdTipoPagoExtra[];
     pendientes?: ProdPendienteLiquidar[];
     asistenciaFaltante?: { grupo: string; empleados: string[] }[];
@@ -48,7 +46,6 @@ export default function DestajosShow({
     marcas = [],
     procesos = [],
     procesosPorObra = {},
-    avance = {},
     tipos = [],
     pendientes = [],
     asistenciaFaltante = [],
@@ -185,7 +182,6 @@ export default function DestajosShow({
                             marcas={marcas}
                             procesos={procesos}
                             procesosPorObra={procesosPorObra}
-                            avance={avance}
                             gruposTrabajo={gruposTrabajo}
                         />
                         <AgregarPagoExtra destajo={destajo} tipos={tipos} gruposTrabajo={gruposTrabajo} />

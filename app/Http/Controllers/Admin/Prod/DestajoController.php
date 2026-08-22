@@ -17,6 +17,7 @@ use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\GeneradorLiquidaciones;
 use App\Services\Prod\PendientesDeLiquidar;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -59,7 +60,6 @@ class DestajoController extends Controller
     public function show(
         Destajo $destajo,
         GeneradorLiquidaciones $generador,
-        AvanceDePiezas $avance,
         PendientesDeLiquidar $pendientes,
         AsistenciaDelDestajo $asistencia,
     ): Response {
@@ -91,34 +91,55 @@ class DestajoController extends Controller
 
         $data['piezasSinPrecio'] = $generador->piezasSinPrecio($destajo);
         $data['gruposTrabajo'] = GrupoTrabajo::where('activo', true)->orderBy('descripcion')->get();
-        // El catalogo de captura: las marcas del catalogo vigente con sus piezas,
-        // para que el formulario ofrezca marca -> lote -> QR. Se ordena por QR
-        // porque el QS es opcional y dejaria las piezas nuevas en desorden.
+        // El catalogo de captura: solo las marcas del catalogo vigente, sin sus
+        // piezas. Una obra grande son decenas de miles de piezas y mandarlas
+        // todas para usar las de una sola marca eran 17 MB de respuesta y cientos
+        // de MB de memoria; las piezas de la marca elegida se piden aparte
+        // (`piezasDeMarca`), que es como el formulario las usa: marca -> QR.
         $data['marcas'] = Concepto::query()
-            ->with(['obra:id,no,descripcion', 'piezas' => fn ($q) => $q->where('activo', true)->orderBy('qr')])
+            ->with('obra:id,no,descripcion')
             ->deCatalogoVigente()
             ->where('activo', true)
             ->orderBy('marca')
             ->orderBy('lote')
-            ->get();
+            ->get(['id', 'obra_id', 'marca', 'lote', 'descripcion', 'cantidad']);
 
-        $procesos = Proceso::activos()->orderBy('orden')->get();
-        $data['procesos'] = $procesos;
+        $data['procesos'] = Proceso::activos()->orderBy('orden')->get();
         $data['procesosPorObra'] = Obra::query()
             ->whereIn('id', $data['marcas']->pluck('obra_id')->unique())
             ->with('procesos:id')
             ->get()
             ->mapWithKeys(fn (Obra $obra) => [$obra->id => $obra->procesos->pluck('id')]);
 
-        $data['avance'] = $avance->decorar(
-            $data['marcas']->flatMap->piezas,
-            $procesos->pluck('id')->all(),
-        )->mapWithKeys(fn ($pieza) => [$pieza->id => $pieza->avance]);
         $data['tipos'] = TipoPagoExtra::orderBy('orden')->get();
         $data['pendientes'] = $pendientes->paraDestajo($destajo);
         $data['asistenciaFaltante'] = $asistencia->faltantes($destajo);
 
         return Inertia::render('admin/prod/destajos/show', $data);
+    }
+
+    /**
+     * Las piezas de una marca con su avance por proceso, para el formulario de
+     * captura. Se piden al elegir la marca en vez de venir en el `show`: es lo
+     * que evita cargar el catalogo entero de la obra en cada visita.
+     */
+    public function piezasDeMarca(Destajo $destajo, Concepto $concepto, AvanceDePiezas $avance): JsonResponse
+    {
+        $piezas = $concepto->piezas()
+            ->where('activo', true)
+            ->orderBy('qr')
+            ->get(['id', 'catalogo_id', 'concepto_id', 'qr', 'qs']);
+
+        $procesoIds = Proceso::activos()->pluck('id')->all();
+
+        return response()->json([
+            'piezas' => $avance->decorar($piezas, $procesoIds)->map(fn ($pieza) => [
+                'id' => $pieza->id,
+                'qr' => $pieza->qr,
+                'qs' => $pieza->qs,
+                'avance' => $pieza->avance,
+            ])->values(),
+        ]);
     }
 
     public function destroy(Destajo $destajo): RedirectResponse

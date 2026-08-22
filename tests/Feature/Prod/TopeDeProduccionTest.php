@@ -240,14 +240,23 @@ describe('visibilidad del avance', function () {
     test('el destajo comparte el avance de cada pieza para capturar', function () {
         capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
 
+        // El avance viaja con las piezas de la marca, que se piden al elegirla:
+        // la pantalla del destajo ya no carga el catalogo entero.
         $this->actingAs($this->user)
             ->get(route('admin.prod.destajos.show', $this->destajo))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->has('marcas')
                 ->has('procesos')
-                ->where('avance.'.$this->pieza->id.'.'.$this->soldadura->id.'.disponible', 0)
             );
+
+        $respuesta = $this->actingAs($this->user)
+            ->getJson(route('admin.prod.destajos.marcas.piezas', [$this->destajo, $this->marca]))
+            ->assertOk();
+
+        $pieza = collect($respuesta->json('piezas'))->firstWhere('id', $this->pieza->id);
+
+        expect((float) $pieza['avance'][$this->soldadura->id]['disponible'])->toBe(0.0);
     });
 });
 

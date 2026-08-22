@@ -211,6 +211,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('destajos', ProdDestajoController::class)->except(['edit', 'update'])->parameters(['destajos' => 'destajo']);
         Route::post('destajos/{destajo}/cerrar', [ProdDestajoController::class, 'cerrar'])->name('destajos.cerrar');
         Route::get('destajos/{destajo}/orden-pago', [ProdDestajoController::class, 'ordenPagoPdf'])->name('destajos.orden-pago');
+        Route::get('destajos/{destajo}/marcas/{concepto}/piezas', [ProdDestajoController::class, 'piezasDeMarca'])->name('destajos.marcas.piezas');
         Route::get('destajos/{destajo}/asistencia', [ProdAsistenciaController::class, 'show'])->name('destajos.asistencia');
         Route::post('destajos/{destajo}/asistencia', [ProdAsistenciaController::class, 'store'])->name('destajos.asistencia.store');
 

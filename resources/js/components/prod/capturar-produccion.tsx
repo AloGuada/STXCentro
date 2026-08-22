@@ -17,18 +17,21 @@ import type {
 } from '@/types/models';
 import { useForm, usePage } from '@inertiajs/react';
 import { ListChecksIcon, Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
-type MarcaConPiezas = Concepto & { obra?: Obra; piezas?: ProdPieza[] };
+type MarcaDelCatalogo = Concepto & { obra?: Obra };
+
+/** Lo que devuelve el endpoint de piezas: el QR y cuánto le falta por proceso. */
+type PiezaConAvance = Pick<ProdPieza, 'id' | 'qr' | 'qs'> & {
+    avance: Record<number, { capturado: number; disponible: number }>;
+};
 
 type Props = {
     destajo: ProdDestajo;
-    marcas: MarcaConPiezas[];
+    marcas: MarcaDelCatalogo[];
     procesos: ProdProceso[];
     /** Qué procesos paga cada obra: obraId => ids de proceso. */
     procesosPorObra: Record<number, number[]>;
-    /** Avance por pieza y proceso, para saber cuánto le falta a cada QR. */
-    avance: Record<number, Record<number, { capturado: number; disponible: number }>>;
     gruposTrabajo: ProdGrupoTrabajo[];
 };
 
@@ -37,7 +40,6 @@ export function CapturarProduccion({
     marcas,
     procesos,
     procesosPorObra,
-    avance,
     gruposTrabajo,
 }: Props) {
     const soloFecha = (v: string) => v.slice(0, 10);
@@ -149,6 +151,40 @@ export function CapturarProduccion({
 
     const marcaElegida = marcas.find((m) => String(m.id) === registroForm.data.marca_id);
 
+    // Las piezas de la marca se piden al elegirla. El catálogo completo de una
+    // obra son decenas de miles de QR: mandarlos todos en la pantalla del
+    // destajo la tumbaba por memoria, y de ellos sólo se usan los de una marca.
+    const [piezasDeLaMarca, setPiezasDeLaMarca] = useState<PiezaConAvance[]>([]);
+    const [cargandoPiezas, setCargandoPiezas] = useState(false);
+    // Tras capturar hay que volver a preguntar: lo recién guardado consume cupo.
+    const [refresco, setRefresco] = useState(0);
+    const marcaId = registroForm.data.marca_id;
+
+    useEffect(() => {
+        if (!marcaId) {
+            setPiezasDeLaMarca([]);
+            return;
+        }
+
+        const control = new AbortController();
+        setCargandoPiezas(true);
+
+        fetch(`/admin/prod/destajos/${destajo.id}/marcas/${marcaId}/piezas`, {
+            headers: { Accept: 'application/json' },
+            signal: control.signal,
+        })
+            .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+            .then((data) => setPiezasDeLaMarca(data.piezas ?? []))
+            .catch(() => {
+                if (!control.signal.aborted) setPiezasDeLaMarca([]);
+            })
+            .finally(() => {
+                if (!control.signal.aborted) setCargandoPiezas(false);
+            });
+
+        return () => control.abort();
+    }, [destajo.id, marcaId, refresco]);
+
     // Sólo los procesos que paga la obra de esa marca: capturar pintura donde
     // nadie la presupuestó inventaría dinero.
     const procesosDisponibles = useMemo(() => {
@@ -158,14 +194,13 @@ export function CapturarProduccion({
     }, [marcaElegida, procesos, procesosPorObra]);
 
     const procesoId = Number(registroForm.data.proceso_id);
-    const disponibleDe = (piezaId: number): number => avance[piezaId]?.[procesoId]?.disponible ?? 1;
+    const disponibleDe = (pieza: PiezaConAvance): number => pieza.avance?.[procesoId]?.disponible ?? 1;
 
-    const piezasDeLaMarca = marcaElegida?.piezas ?? [];
     const consumo = registroForm.data.porcentaje / 100;
     const seleccionadas = registroForm.data.piezas;
 
     // Las que ya no admiten lo que se quiere pagar: se marcan y no se pueden elegir.
-    const sinCupo = (pieza: ProdPieza) => !!procesoId && consumo > disponibleDe(pieza.id) + 0.0001;
+    const sinCupo = (pieza: PiezaConAvance) => !!procesoId && consumo > disponibleDe(pieza) + 0.0001;
 
     const alternarPieza = (piezaId: number) => {
         registroForm.setData(
@@ -187,7 +222,10 @@ export function CapturarProduccion({
         e.preventDefault();
         registroForm.post(`/admin/prod/destajos/${destajo.id}/registros`, {
             preserveScroll: true,
-            onSuccess: () => registroForm.setData('piezas', []),
+            onSuccess: () => {
+                registroForm.setData('piezas', []);
+                setRefresco((n) => n + 1);
+            },
         });
     };
 
@@ -288,14 +326,18 @@ export function CapturarProduccion({
                         required
                     >
                         <div className="rounded-box border-base-300 max-h-52 overflow-auto border p-2">
-                            {piezasDeLaMarca.length === 0 ? (
+                            {cargandoPiezas ? (
+                                <p className="text-base-content/50 flex items-center justify-center gap-2 py-4 text-center text-sm">
+                                    <Loader2Icon className="size-4 animate-spin" /> Cargando piezas...
+                                </p>
+                            ) : piezasDeLaMarca.length === 0 ? (
                                 <p className="text-base-content/50 py-4 text-center text-sm">
                                     {marcaElegida ? 'Esta marca no tiene piezas cargadas.' : 'Sin marca seleccionada'}
                                 </p>
                             ) : (
                                 <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
                                     {piezasDeLaMarca.map((pieza) => {
-                                        const falta = procesoId ? disponibleDe(pieza.id) : 1;
+                                        const falta = procesoId ? disponibleDe(pieza) : 1;
                                         const bloqueada = sinCupo(pieza);
 
                                         return (
