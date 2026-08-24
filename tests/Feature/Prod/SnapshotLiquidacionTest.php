@@ -123,7 +123,7 @@ describe('snapshot del renglon liquidado', function () {
 
         $grupos = app(GeneradorLiquidaciones::class)->ordenDePago($this->destajo->fresh());
 
-        expect($grupos[0]['piezas'][0]['precio_kilo'])->toBe(10.0)
+        expect($grupos[0]['piezas'][0]['precio_unitario'])->toBe(10.0)
             ->and($grupos[0]['total_produccion'])->toBe(4000.0);
     });
 

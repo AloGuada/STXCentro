@@ -162,9 +162,14 @@ export default function DestajosShow({
                                     <div className="text-sm">
                                         Se pagarían en $0 al cerrar:{' '}
                                         {piezasSinPrecio
-                                            .map((p) => `${etiquetaDePieza(p.marca, p.lote)} (${p.proceso})`)
+                                            .map(
+                                                (p) =>
+                                                    `${etiquetaDePieza(p.marca, p.lote)} (${p.proceso}${
+                                                        p.subproceso ? ` / ${p.subproceso}` : ''
+                                                    })`,
+                                            )
                                             .join(', ')}
-                                        . Asígnales un grupo de precio con tarifa para ese proceso.
+                                        . Asígnales un grupo de precio con tarifa para ese paso.
                                     </div>
                                 </div>
                             </div>

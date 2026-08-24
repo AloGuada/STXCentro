@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Prod\RegistroImportCsvRequest;
 use App\Http\Requests\Admin\Prod\RegistroStoreRequest;
 use App\Models\Prod\Destajo;
+use App\Models\Prod\GrupoPrecioSubproceso;
 use App\Models\Prod\Pieza;
 use App\Models\Prod\Proceso;
 use App\Models\Prod\Registro;
 use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\LectorCsvDeProduccion;
+use App\Services\Prod\ModalidadDePago;
 use App\Services\Prod\PlanDeImportacionCsv;
 use App\Services\Prod\ProcesosPagadosPorObra;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +22,8 @@ use Illuminate\Support\Facades\DB;
 class RegistroController extends Controller
 {
     /**
-     * Captura manual: una o varias piezas (QS) del mismo modelo, en un proceso.
+     * Captura manual: una o varias piezas (QS) del mismo modelo, en un proceso y
+     * —si su grupo de precios paga por pasos— en un subproceso.
      * Las que no caben en su tope se reportan y el resto sí se guarda.
      */
     public function store(
@@ -28,6 +31,7 @@ class RegistroController extends Controller
         Destajo $destajo,
         AvanceDePiezas $avance,
         ProcesosPagadosPorObra $procesos,
+        ModalidadDePago $modalidad,
     ): RedirectResponse {
         if ($destajo->cerrado) {
             return back()->withErrors(['error' => 'No se puede capturar produccion en un destajo cerrado.']);
@@ -39,6 +43,9 @@ class RegistroController extends Controller
 
         $proceso = Proceso::findOrFail($request->integer('proceso_id'));
         $porcentaje = (float) ($request->porcentaje ?? 100);
+        $subproceso = $request->filled('subproceso_id')
+            ? GrupoPrecioSubproceso::find($request->integer('subproceso_id'))
+            : null;
         // Sin deduplicar, el mismo QS repetido en el payload se cobraria dos
         // veces: el tope se resuelve contra una foto del avance que no ve lo que
         // se acaba de guardar en este mismo bucle.
@@ -53,8 +60,25 @@ class RegistroController extends Controller
         $guardadas = 0;
 
         foreach ($piezas as $pieza) {
-            if (! $avance->cabe($pieza, $proceso->id, $porcentaje)) {
-                $rechazadas[] = $avance->mensajeDeTope($pieza, $proceso, $avance->disponible($pieza, $proceso->id));
+            // El subproceso pone el precio, asi que capturarlo cruzado pagaria
+            // una tarifa que nadie autorizo para esa marca.
+            if ($error = $modalidad->errorDeSubproceso($pieza, (int) $proceso->id, $subproceso)) {
+                $rechazadas[] = $error;
+
+                continue;
+            }
+
+            // En un grupo por kilo el subproceso no se guarda aunque venga en el
+            // payload: la guarda de arriba ya lo rechazo, esto solo lo hace explicito.
+            $subprocesoId = $modalidad->piezaPagaPorSubproceso($pieza) ? (int) $subproceso->id : null;
+
+            if (! $avance->cabe($pieza, $proceso->id, $porcentaje, $subprocesoId)) {
+                $rechazadas[] = $avance->mensajeDeTope(
+                    $pieza,
+                    $proceso,
+                    $avance->disponible($pieza, $proceso->id, $subprocesoId),
+                    $subprocesoId !== null ? $subproceso : null,
+                );
 
                 continue;
             }
@@ -63,6 +87,7 @@ class RegistroController extends Controller
                 'fecha' => $request->date('fecha'),
                 'pieza_id' => $pieza->id,
                 'proceso_id' => $proceso->id,
+                'subproceso_id' => $subprocesoId,
                 'grupo_trabajo_id' => $request->integer('grupo_trabajo_id'),
                 'porcentaje' => $porcentaje,
             ]);

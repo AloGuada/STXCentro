@@ -26,6 +26,7 @@ class Registro extends Model
         'fecha',
         'pieza_id',
         'proceso_id',
+        'subproceso_id',
         'grupo_trabajo_id',
         'porcentaje',
     ];
@@ -53,6 +54,15 @@ class Registro extends Model
     public function pieza(): BelongsTo
     {
         return $this->belongsTo(Pieza::class, 'pieza_id');
+    }
+
+    /**
+     * Paso del proceso que se hizo, cuando el grupo de precios paga por
+     * subproceso. Nulo en la produccion que se paga por kilo.
+     */
+    public function subproceso(): BelongsTo
+    {
+        return $this->belongsTo(GrupoPrecioSubproceso::class, 'subproceso_id');
     }
 
     public function proceso(): BelongsTo

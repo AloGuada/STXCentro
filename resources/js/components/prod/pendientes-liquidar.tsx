@@ -25,9 +25,9 @@ export function PendientesLiquidar({ destajo, pendientes, gruposTrabajo }: Props
         return null;
     }
 
-    // Una pieza puede quedar a medias en más de un proceso, así que la fila se
-    // identifica por el par, no por la pieza sola.
-    const claveDe = (p: ProdPendienteLiquidar) => `${p.pieza_id}|${p.proceso_id}`;
+    // Una pieza puede quedar a medias en más de un proceso —y en más de un paso
+    // dentro del mismo proceso—, así que la fila se identifica por la terna.
+    const claveDe = (p: ProdPendienteLiquidar) => `${p.pieza_id}|${p.proceso_id}|${p.subproceso_id ?? 0}`;
 
     const borradorDe = (p: ProdPendienteLiquidar): Borrador =>
         borradores[claveDe(p)] ?? {
@@ -48,6 +48,7 @@ export function PendientesLiquidar({ destajo, pendientes, gruposTrabajo }: Props
                 fecha: destajo.fecha_inicio.slice(0, 10),
                 piezas: [p.pieza_id],
                 proceso_id: p.proceso_id,
+                subproceso_id: p.subproceso_id,
                 grupo_trabajo_id: b.grupo,
                 porcentaje: b.porcentaje,
             },
@@ -98,6 +99,9 @@ export function PendientesLiquidar({ destajo, pendientes, gruposTrabajo }: Props
                                     </td>
                                     <td>
                                         <span className="badge badge-sm badge-ghost">{p.proceso}</span>
+                                        {p.subproceso && (
+                                            <span className="badge badge-sm badge-info ml-1">{p.subproceso}</span>
+                                        )}
                                     </td>
                                     <td className="text-right font-mono">{pct(p.pagado)}</td>
                                     <td className="text-right font-mono font-semibold">{pct(p.saldo)}</td>

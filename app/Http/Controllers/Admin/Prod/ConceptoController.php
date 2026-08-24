@@ -14,6 +14,7 @@ use App\Models\Prod\Categoria;
 use App\Models\Prod\Proceso;
 use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\ImportadorDeLayout;
+use App\Services\Prod\ModalidadDePago;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -127,8 +128,12 @@ class ConceptoController extends Controller
     /**
      * Las piezas de una marca con su avance por proceso: el tercer escalón, que
      * se pide al elegir la marca o al desplegarla en el catálogo.
+     *
+     * Si el grupo de precios de la marca paga por subproceso, también bajan los
+     * pasos con su precio y el avance de cada uno: la captura tiene que ofrecer
+     * el paso, y el tope se cuenta por paso, no por proceso.
      */
-    public function piezas(Concepto $concepto, AvanceDePiezas $avance): JsonResponse
+    public function piezas(Concepto $concepto, AvanceDePiezas $avance, ModalidadDePago $modalidad): JsonResponse
     {
         $piezas = $concepto->piezas()
             ->where('activo', true)
@@ -137,12 +142,27 @@ class ConceptoController extends Controller
 
         $procesoIds = Proceso::activos()->pluck('id')->all();
 
+        $grupo = $modalidad->grupo((int) $concepto->id, (int) $concepto->obra_id);
+        $pagaPorSubproceso = $grupo?->pagaPorSubproceso() ?? false;
+
+        $subprocesos = $pagaPorSubproceso
+            ? $grupo->subprocesos->where('activo', true)->sortBy('orden')->values()
+            : collect();
+
         return response()->json([
-            'piezas' => $avance->decorar($piezas, $procesoIds)->map(fn ($pieza) => [
+            'paga_por_subproceso' => $pagaPorSubproceso,
+            'subprocesos' => $subprocesos->map(fn ($subproceso) => [
+                'id' => $subproceso->id,
+                'proceso_id' => $subproceso->proceso_id,
+                'nombre' => $subproceso->nombre,
+                'precio' => (float) $subproceso->precio,
+            ])->values(),
+            'piezas' => $avance->decorar($piezas, $procesoIds, $subprocesos)->map(fn ($pieza) => [
                 'id' => $pieza->id,
                 'qr' => $pieza->qr,
                 'qs' => $pieza->qs,
                 'avance' => $pieza->avance,
+                'avance_subprocesos' => $pieza->avance_subprocesos,
             ])->values(),
         ]);
     }

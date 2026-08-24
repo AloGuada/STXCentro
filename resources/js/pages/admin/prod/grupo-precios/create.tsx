@@ -1,11 +1,13 @@
 import { FormField } from '@/components/form';
+import { SubprocesosPorProceso, type SubprocesoForm } from '@/components/prod/subprocesos-por-proceso';
 import { TarifasPorProceso } from '@/components/prod/tarifas-por-proceso';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
+import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Obra, ProdProceso } from '@/types/models';
+import type { Obra, ProdProceso, ProdTipoPago } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import { type FormEvent, useMemo } from 'react';
@@ -16,9 +18,11 @@ type Props = {
     obra?: Obra | null;
     /** Procesos que paga la obra: una tarifa por cada uno. */
     procesos: ProdProceso[];
+    /** Kilo o subproceso: el grupo elige una y son excluyentes. */
+    tiposPago: { value: ProdTipoPago; label: string }[];
 };
 
-export default function GrupoPreciosCreate({ obras, obra, procesos }: Props) {
+export default function GrupoPreciosCreate({ obras, obra, procesos, tiposPago }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
@@ -32,11 +36,15 @@ export default function GrupoPreciosCreate({ obras, obra, procesos }: Props) {
     const { data, setData, post, processing, errors } = useForm<{
         obra_id: string;
         descripcion: string;
+        tipo_pago: ProdTipoPago;
         precios: Record<number, string>;
+        subprocesos: SubprocesoForm[];
     }>({
         obra_id: obra ? String(obra.id) : '',
         descripcion: '',
+        tipo_pago: 'kilo',
         precios: {},
+        subprocesos: [],
     });
 
     const obraOptions = useMemo(
@@ -90,14 +98,38 @@ export default function GrupoPreciosCreate({ obras, obra, procesos }: Props) {
                             />
                         </FormField>
 
-                        <TarifasPorProceso
-                            procesos={procesos}
-                            valores={data.precios}
-                            onChange={(procesoId, valor) =>
-                                setData('precios', { ...data.precios, [procesoId]: valor })
-                            }
-                            errors={errors as Record<string, string>}
-                        />
+                        <FormField label="Forma de pago" htmlFor="tipo_pago" error={errors.tipo_pago} required>
+                            <Select
+                                id="tipo_pago"
+                                value={data.tipo_pago}
+                                onValueChange={(valor) => setData('tipo_pago', valor as ProdTipoPago)}
+                                error={!!errors.tipo_pago}
+                            >
+                                {tiposPago.map((tipo) => (
+                                    <SelectItem key={tipo.value} value={tipo.value}>
+                                        {tipo.label}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+                        </FormField>
+
+                        {data.tipo_pago === 'subproceso' ? (
+                            <SubprocesosPorProceso
+                                procesos={procesos}
+                                valores={data.subprocesos}
+                                onChange={(valores) => setData('subprocesos', valores)}
+                                errors={errors as Record<string, string>}
+                            />
+                        ) : (
+                            <TarifasPorProceso
+                                procesos={procesos}
+                                valores={data.precios}
+                                onChange={(procesoId, valor) =>
+                                    setData('precios', { ...data.precios, [procesoId]: valor })
+                                }
+                                errors={errors as Record<string, string>}
+                            />
+                        )}
 
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" asChild>
