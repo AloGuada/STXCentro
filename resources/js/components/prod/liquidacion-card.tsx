@@ -34,7 +34,7 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                                     <th>Proceso</th>
                                     <th className="text-right">%</th>
                                     <th className="text-right">Kilos</th>
-                                    <th className="text-right">$/kg</th>
+                                    <th className="text-right">Precio u.</th>
                                     <th className="text-right">Total</th>
                                 </tr>
                             </thead>
