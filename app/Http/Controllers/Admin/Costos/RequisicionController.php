@@ -58,7 +58,7 @@ class RequisicionController extends Controller
             ->with([
                 'solicitante:id,name',
                 'departamento:id,descripcion',
-                'detalles:id,requisicion_id,cantidad,tipo_fiscal,solo_cotizacion',
+                'detalles:id,requisicion_id,cantidad,tipo_fiscal,solo_cotizacion,sin_impuestos',
                 'detalles.cotizaciones:id,requisicion_detalle_id,proveedor_id,precio_unitario',
                 'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
                 // Para el neto a pagar (cuando ya hay OC definida) — ver total_neto.
@@ -287,6 +287,7 @@ class RequisicionController extends Controller
                     'obra_rubro_id' => $detalle->obra_rubro_id,
                     'uso_cfdi_id' => $detalle->uso_cfdi_id,
                     'tipo_fiscal' => $detalle->tipo_fiscal,
+                    'sin_impuestos' => $detalle->sin_impuestos,
                     'notas' => $detalle->notas,
                 ]);
 

@@ -63,8 +63,15 @@
         $obra = $oc?->obra;
         $folio = $entrega->folio ?? ('REC-'.str_pad((string) $entrega->id, 4, '0', STR_PAD_LEFT));
         $total = 0.0;
+        // Base del IVA estimado: las partidas "sin impuestos" de la OC suman al
+        // recibido pero no causan IVA.
+        $baseIva = 0.0;
         foreach ($entrega->detalles as $d) {
-            $total += (float) $d->cantidad_recibida * (float) $d->precio_unitario_efectivo;
+            $importe = (float) $d->cantidad_recibida * (float) $d->precio_unitario_efectivo;
+            $total += $importe;
+            if (! $d->ordenCompraDetalle?->sin_impuestos) {
+                $baseIva += $importe;
+            }
         }
     @endphp
 
@@ -172,7 +179,7 @@
                 // bloque tiene que cuadrar aunque el CFDI todavía no exista, y
                 // se rotula como estimado para no confundirlo con el timbrado.
                 $ivaEstimado = $factura === null;
-                $iva = $factura ? (float) $factura->iva : round($total * 0.16, 2);
+                $iva = $factura ? (float) $factura->iva : round($baseIva * config('costos.iva_rate'), 2);
                 $totalPagar = $factura ? (float) $factura->total : round($total + $iva, 2);
                 // `iva` guarda sólo el trasladado y `total` ya viene neto de
                 // retenciones: sin desglosarlas, el bloque no cuadra.

@@ -413,6 +413,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/re-apartar', [CostosRequisicionController::class, 'reApartar'])->name('requisiciones.re-apartar');
         Route::post('requisiciones/detalles/{detalle}/clasificacion', [CostosRequisicionCotizacionController::class, 'clasificar'])->name('requisiciones.detalles.clasificar');
         Route::post('requisiciones/detalles/{detalle}/solo-cotizacion', [CostosRequisicionCotizacionController::class, 'soloCotizacion'])->name('requisiciones.detalles.solo-cotizacion');
+        Route::post('requisiciones/detalles/{detalle}/sin-impuestos', [CostosRequisicionCotizacionController::class, 'sinImpuestos'])->name('requisiciones.detalles.sin-impuestos');
         Route::patch('requisiciones/detalles/{detalle}/producto', [CostosRequisicionCotizacionController::class, 'actualizarProducto'])->name('requisiciones.detalles.producto');
         Route::post('requisiciones/{requisicion}/detalles', [CostosRequisicionCotizacionController::class, 'detalleStore'])->name('requisiciones.detalles.store');
         Route::delete('requisiciones/detalles/{detalle}', [CostosRequisicionCotizacionController::class, 'detalleDestroy'])->name('requisiciones.detalles.destroy');

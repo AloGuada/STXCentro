@@ -7,7 +7,12 @@ import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
 import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { OcBuilder } from '@/components/costos/oc-builder';
-import { calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
+import {
+    baseImpuestos,
+    calcularRetenciones,
+    IVA_RATE,
+    type LineaFiscal,
+} from '@/components/costos/retenciones';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -790,10 +795,7 @@ export default function RequisicionesShow({
             {
                 proveedorId: number;
                 moneda: string;
-                lines: {
-                    tipo_fiscal: CostosTipoFiscalPartida;
-                    subtotal: number;
-                }[];
+                lines: LineaFiscal[];
             }
         >();
         (requisicion.detalles ?? []).forEach((d) => {
@@ -810,15 +812,27 @@ export default function RequisicionesShow({
                     moneda,
                     lines: [],
                 };
-                g.lines.push({ tipo_fiscal: d.tipo_fiscal, subtotal: sub });
+                g.lines.push({
+                    tipo_fiscal: d.tipo_fiscal,
+                    subtotal: sub,
+                    sin_impuestos: d.sin_impuestos,
+                });
                 grupos.set(key, g);
             });
         });
         if (grupos.size === 0) return null;
-        const porMoneda = new Map<string, { subtotal: number; ret: number }>();
+        const porMoneda = new Map<
+            string,
+            { subtotal: number; baseIva: number; ret: number }
+        >();
         grupos.forEach((g) => {
-            const acc = porMoneda.get(g.moneda) ?? { subtotal: 0, ret: 0 };
+            const acc = porMoneda.get(g.moneda) ?? {
+                subtotal: 0,
+                baseIva: 0,
+                ret: 0,
+            };
             acc.subtotal += g.lines.reduce((a, l) => a + l.subtotal, 0);
+            acc.baseIva += baseImpuestos(g.lines);
             acc.ret += calcularRetenciones(
                 provMap.get(g.proveedorId),
                 g.lines,
@@ -828,8 +842,8 @@ export default function RequisicionesShow({
         // Un bloque de totales por divisa (divisas primero, MXN al final); el
         // combinado en MXN se arma en el render con el TC capturado.
         const bloques = Array.from(porMoneda.entries())
-            .map(([moneda, { subtotal, ret }]) => {
-                const iva = subtotal * IVA_RATE;
+            .map(([moneda, { subtotal, baseIva, ret }]) => {
+                const iva = baseIva * IVA_RATE;
                 return {
                     moneda,
                     subtotal,

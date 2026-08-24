@@ -62,7 +62,11 @@ class ComparativoTotalesBuilder
                 $moneda = strtolower($seleccion->cotizacionPrecio->moneda ?? 'mxn');
                 $clave = $seleccion->proveedor_id.'|'.($seleccion->numero_oc ?? 1).'|'.$moneda;
                 $grupos[$clave] ??= ['proveedor' => $seleccion->proveedor, 'moneda' => $moneda, 'lineas' => []];
-                $grupos[$clave]['lineas'][] = ['tipo_fiscal' => $tipoFiscal, 'subtotal' => $subtotal];
+                $grupos[$clave]['lineas'][] = [
+                    'tipo_fiscal' => $tipoFiscal,
+                    'subtotal' => $subtotal,
+                    'sin_impuestos' => (bool) $detalle->sin_impuestos,
+                ];
             }
         }
 
@@ -88,8 +92,8 @@ class ComparativoTotalesBuilder
         foreach (array_unique([...array_keys($porMoneda), ...array_keys($referenciaPorMoneda)]) as $moneda) {
             $subtotalOc = round($porMoneda[$moneda]['subtotal'] ?? 0.0, 2);
             $ivaOc = round($porMoneda[$moneda]['iva'] ?? 0.0, 2);
-            $refSubtotal = round($referenciaPorMoneda[$moneda] ?? 0.0, 2);
-            $refIva = round($refSubtotal * 0.16, 2);
+            $refSubtotal = round($referenciaPorMoneda[$moneda]['subtotal'] ?? 0.0, 2);
+            $refIva = round(($referenciaPorMoneda[$moneda]['base_iva'] ?? 0.0) * (float) config('costos.iva_rate'), 2);
             $desglose = array_map(
                 fn (array $r) => ['concepto' => $r['concepto'], 'monto' => round($r['monto'], 2)],
                 array_values($porMoneda[$moneda]['retenciones'] ?? []),
@@ -143,7 +147,7 @@ class ComparativoTotalesBuilder
      * regla best-case que el comparativo en pantalla), por la cantidad
      * solicitada.
      *
-     * @return array{0: array<string, float>, 1: array<int, array{importe: float, moneda: string}>}
+     * @return array{0: array<string, array{subtotal: float, base_iva: float}>, 1: array<int, array{importe: float, moneda: string}>}
      */
     private function referenciasSoloCotizacion(Requisicion $requisicion): array
     {
@@ -168,7 +172,11 @@ class ComparativoTotalesBuilder
 
             $importe = (float) $cot->precio_unitario * (float) $detalle->cantidad;
             $moneda = strtolower($cot->moneda ?? 'mxn');
-            $porMoneda[$moneda] = ($porMoneda[$moneda] ?? 0.0) + $importe;
+            $porMoneda[$moneda] ??= ['subtotal' => 0.0, 'base_iva' => 0.0];
+            $porMoneda[$moneda]['subtotal'] += $importe;
+            if (! $detalle->sin_impuestos) {
+                $porMoneda[$moneda]['base_iva'] += $importe;
+            }
             $porDetalle[$detalle->id] = ['importe' => round($importe, 2), 'moneda' => $moneda];
         }
 

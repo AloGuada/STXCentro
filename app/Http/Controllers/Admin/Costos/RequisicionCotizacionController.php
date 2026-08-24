@@ -212,6 +212,27 @@ class RequisicionCotizacionController extends Controller
     }
 
     /**
+     * Marca/desmarca una partida como "sin impuestos": suma al subtotal pero no
+     * causa IVA ni entra a la base de las retenciones. Se captura a mano porque
+     * la clave genérica del SAT no distingue qué producto es exento.
+     */
+    public function sinImpuestos(Request $request, RequisicionDetalle $detalle): RedirectResponse
+    {
+        Gate::authorize('costos.requisiciones.cotizar');
+
+        $detalle->load('requisicion');
+        $this->ensureEditable($detalle->requisicion->estatus);
+
+        $validated = $request->validate([
+            'sin_impuestos' => ['required', 'boolean'],
+        ]);
+
+        $detalle->update(['sin_impuestos' => $validated['sin_impuestos']]);
+
+        return back()->with('success', 'Partida actualizada.');
+    }
+
+    /**
      * Agrega una partida (renglón) a la requisición desde el tab de cotización.
      * Compras puede sumar partidas mientras la requisición siga editable, sin
      * volver a la edición del solicitante. Se captura como texto libre (sin

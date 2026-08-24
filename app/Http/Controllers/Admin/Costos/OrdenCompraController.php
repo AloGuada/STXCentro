@@ -327,6 +327,7 @@ class OrdenCompraController extends Controller
         $lineas = $ordenCompra->detalles->map(fn ($d) => [
             'tipo_fiscal' => $d->tipo_fiscal?->value ?? 'mercancia',
             'subtotal' => (float) $d->subtotal,
+            'sin_impuestos' => (bool) $d->sin_impuestos,
         ]);
 
         return Inertia::render('admin/costos/ordenes-compra/show', [

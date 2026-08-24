@@ -363,6 +363,7 @@ export function CotizacionMatriz({
                                         </td>
                                         <td className={`${COL_FIJA.tipo} z-10 bg-base-100`}>
                                             <TipoFiscalSelect detalle={d} editable={editable && !d.solo_cotizacion} />
+                                            <SinImpuestosToggle detalle={d} editable={editable} />
                                             <SoloCotizacionToggle detalle={d} editable={editable} />
                                         </td>
                                         {columnas.map(({ op }) => {
@@ -794,6 +795,50 @@ function TipoFiscalSelect({
             <option value="servicio_profesional">Servicio profesional</option>
             <option value="renta">Renta</option>
         </select>
+    );
+}
+
+/**
+ * Marca una partida como exenta: suma al subtotal pero no causa IVA ni entra a
+ * la base de las retenciones. Se captura a mano porque la clave genérica del
+ * SAT no distingue qué producto es exento. La marca viaja a la orden de compra.
+ */
+function SinImpuestosToggle({
+    detalle,
+    editable,
+}: {
+    detalle: CostosRequisicionDetalle;
+    editable: boolean;
+}) {
+    const [checked, setChecked] = useState(detalle.sin_impuestos);
+
+    if (!editable) {
+        return checked ? (
+            <span className="badge mt-1 badge-outline badge-xs">Sin impuestos</span>
+        ) : null;
+    }
+
+    return (
+        <label
+            className="mt-1 flex cursor-pointer items-center gap-1 text-[10px] text-base-content/60"
+            title="La partida suma al subtotal pero no causa IVA ni entra a la base de retenciones."
+        >
+            <input
+                type="checkbox"
+                className="checkbox checkbox-xs"
+                checked={checked}
+                onChange={(e) => {
+                    const v = e.target.checked;
+                    setChecked(v);
+                    router.post(
+                        `/admin/costos/requisiciones/detalles/${detalle.id}/sin-impuestos`,
+                        { sin_impuestos: v },
+                        { preserveScroll: true },
+                    );
+                }}
+            />
+            Sin impuestos
+        </label>
     );
 }
 

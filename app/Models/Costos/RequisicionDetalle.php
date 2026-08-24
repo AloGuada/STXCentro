@@ -25,6 +25,7 @@ class RequisicionDetalle extends Model
         'obra_rubro_id',
         'uso_cfdi_id',
         'tipo_fiscal',
+        'sin_impuestos',
         'descripcion',
         'codigo_producto',
         'unidad',
@@ -41,6 +42,7 @@ class RequisicionDetalle extends Model
         return [
             'cantidad' => 'decimal:2',
             'solo_cotizacion' => 'boolean',
+            'sin_impuestos' => 'boolean',
             'tipo_fiscal' => \App\Enums\Costos\TipoFiscalPartida::class,
         ];
     }

@@ -190,6 +190,9 @@
                     @if($d->solo_cotizacion)
                         <span style="font-size: 8px; color: #666; font-style: italic;">(solo cotización — no se surte en OC)</span>
                     @endif
+                    @if($d->sin_impuestos)
+                        <span style="font-size: 8px; color: #666; font-style: italic;">(sin impuestos)</span>
+                    @endif
                 </td>
                 <td>
                     @if($d->obraRubro?->obra)

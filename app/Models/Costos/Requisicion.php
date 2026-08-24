@@ -113,7 +113,7 @@ class Requisicion extends Model implements Aprobable
 
         $calculador = new \App\Services\Costos\RetencionCalculator;
 
-        /** @var array<string, array{numero_oc: int, folio: string|null, proveedor: \App\Models\Proveedor, lineas: list<array{tipo_fiscal: ?string, subtotal: float}>}> $grupos */
+        /** @var array<string, array{numero_oc: int, folio: string|null, proveedor: \App\Models\Proveedor, lineas: list<array{tipo_fiscal: ?string, subtotal: float, sin_impuestos: bool}>}> $grupos */
         $grupos = [];
         foreach ($this->detalles as $detalle) {
             if ($detalle->solo_cotizacion) {
@@ -135,6 +135,7 @@ class Requisicion extends Model implements Aprobable
                 $grupos[$clave]['lineas'][] = [
                     'tipo_fiscal' => $detalle->tipo_fiscal?->value,
                     'subtotal' => $subtotal,
+                    'sin_impuestos' => (bool) $detalle->sin_impuestos,
                 ];
             }
         }

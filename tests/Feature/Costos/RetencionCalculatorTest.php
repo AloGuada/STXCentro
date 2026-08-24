@@ -88,3 +88,29 @@ test('total neto = subtotal + IVA menos suma de retenciones', function () {
     // subtotal 1000 + IVA 160 - (ISR 100 + IVA hon 106.7) = 953.3
     expect($desglose['total_neto'])->toBe(953.3);
 });
+
+test('una línea sin impuestos suma al subtotal pero no a la base del IVA', function () {
+    $pm = Proveedor::factory()->create(['tipo_persona' => 'moral', 'regimen_fiscal_id' => $this->otro->id]);
+
+    $desglose = $this->calc->calcular($pm, [
+        ['tipo_fiscal' => 'mercancia', 'subtotal' => 1000],
+        ['tipo_fiscal' => 'mercancia', 'subtotal' => 1000, 'sin_impuestos' => true],
+    ]);
+
+    expect($desglose['subtotal'])->toBe(2000.0);
+    expect($desglose['iva'])->toBe(160.0);
+    expect($desglose['total_neto'])->toBe(2160.0);
+});
+
+test('una línea sin impuestos tampoco entra a la base de las retenciones', function () {
+    $pf = Proveedor::factory()->create(['tipo_persona' => 'fisica', 'regimen_fiscal_id' => $this->otro->id]);
+
+    $desglose = $this->calc->calcular($pf, [
+        ['tipo_fiscal' => 'flete', 'subtotal' => 1000, 'sin_impuestos' => true],
+        ['tipo_fiscal' => 'servicio_profesional', 'subtotal' => 1000, 'sin_impuestos' => true],
+    ]);
+
+    expect($desglose['retenciones'])->toBe([]);
+    expect($desglose['iva'])->toBe(0.0);
+    expect($desglose['total_neto'])->toBe(2000.0);
+});

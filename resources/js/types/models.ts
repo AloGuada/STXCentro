@@ -2068,6 +2068,8 @@ export type CostosRequisicionDetalle = {
     cantidad: number;
     /** Partida de referencia (ej. flete variable): se cotiza pero no se adjudica, no entra al comparativo/PDF ni al neto. */
     solo_cotizacion: boolean;
+    /** Partida exenta: suma al subtotal pero no causa IVA ni entra a la base de retenciones. */
+    sin_impuestos: boolean;
     notas: string | null;
     uso_cfdi?: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>;
     obra_rubro?: {
@@ -2466,6 +2468,8 @@ export type CostosOrdenCompraDetalle = {
     requisicion_detalle_id: number | null;
     obra_rubro_id: number;
     tipo_fiscal: CostosTipoFiscalPartida;
+    /** Partida exenta: suma al subtotal pero no causa IVA ni entra a la base de retenciones. */
+    sin_impuestos: boolean;
     descripcion: string;
     unidad: string;
     cantidad: number;
