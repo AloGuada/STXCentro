@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
+import { etiquetaProveedor } from '@/lib/proveedores';
 import {
     formatBytes,
     MAX_FILE_SIZE_BYTES,
@@ -498,9 +499,7 @@ export default function SolicitudesPagoCreate({
                                             },
                                             ...proveedores.map((p) => ({
                                                 value: String(p.id),
-                                                label:
-                                                    p.nombre_comercial ||
-                                                    p.razon_social,
+                                                label: etiquetaProveedor(p),
                                             })),
                                         ]}
                                     />
