@@ -87,6 +87,13 @@ type Props = {
 
 type Tab = 'datos' | 'cotizacion' | 'definir-oc' | 'aprobacion' | 'ocs';
 
+/**
+ * El bloque "Total de las órdenes de compra" del resumen queda oculto de
+ * momento: se confunde con el total del comparativo, que sí incluye las
+ * partidas "solo cotización". El cálculo se conserva para volver a mostrarlo.
+ */
+const MOSTRAR_TOTAL_OCS = false;
+
 const fmtDate = (date: string | null) =>
     date
         ? new Date(date).toLocaleDateString('es-MX', {
@@ -1395,7 +1402,7 @@ export default function RequisicionesShow({
                             tc={Number(tcRequis) || 0}
                         />
 
-                        {resumenNeto && (
+                        {MOSTRAR_TOTAL_OCS && resumenNeto && (
                             <div className="mt-4 rounded-lg border border-base-300 bg-base-200/40 p-4">
                                 <h3 className="mb-2 text-xs tracking-wider text-base-content/60 uppercase">
                                     Total de las órdenes de compra
