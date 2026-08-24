@@ -2081,23 +2081,33 @@ function ComparativoCotizaciones({
     const filas = detalles.map((d) => ({
         d,
         esSoloCotizacion: !!d.solo_cotizacion,
+        esSinImpuestos: !!d.sin_impuestos,
         ...importeDetalle(d),
     }));
 
     // Totales del pie por divisa (divisas primero, MXN al final) + combinado
     // en MXN con el TC del documento cuando hay exactamente una divisa.
-    const porMoneda = new Map<string, number>();
+    // Las partidas "sin impuestos" suman al subtotal pero no a la base del IVA.
+    const porMoneda = new Map<string, { subtotal: number; baseIva: number }>();
     filas.forEach((f) =>
-        f.contribs.forEach((c) =>
-            porMoneda.set(c.moneda, (porMoneda.get(c.moneda) ?? 0) + c.importe),
-        ),
+        f.contribs.forEach((c) => {
+            const acc = porMoneda.get(c.moneda) ?? { subtotal: 0, baseIva: 0 };
+            acc.subtotal += c.importe;
+            if (!f.esSinImpuestos) {
+                acc.baseIva += c.importe;
+            }
+            porMoneda.set(c.moneda, acc);
+        }),
     );
-    const bloquesTotales = Array.from(porMoneda, ([moneda, sub]) => ({
-        moneda,
-        subtotal: sub,
-        iva: sub * 0.16,
-        total: sub * 1.16,
-    })).sort((a, b) =>
+    const bloquesTotales = Array.from(
+        porMoneda,
+        ([moneda, { subtotal, baseIva }]) => ({
+            moneda,
+            subtotal,
+            iva: baseIva * IVA_RATE,
+            total: subtotal + baseIva * IVA_RATE,
+        }),
+    ).sort((a, b) =>
         a.moneda === 'mxn'
             ? 1
             : b.moneda === 'mxn'
@@ -2170,7 +2180,13 @@ function ComparativoCotizaciones({
                         </tr>
                     </thead>
                     <tbody>
-                        {filas.map(({ d, tieneImporte, contribs, esSoloCotizacion }) => (
+                        {filas.map(({
+                            d,
+                            tieneImporte,
+                            contribs,
+                            esSoloCotizacion,
+                            esSinImpuestos,
+                        }) => (
                             <tr key={d.id}>
                                 <td className="text-right">
                                     {Number(d.cantidad).toLocaleString('es-MX')}{' '}
@@ -2184,6 +2200,14 @@ function ComparativoCotizaciones({
                                             title="Suma al total del comparativo con su precio de referencia, pero no se surte en la OC (no entra al neto a pagar)"
                                         >
                                             solo cotización
+                                        </span>
+                                    )}
+                                    {esSinImpuestos && (
+                                        <span
+                                            className="badge badge-ghost badge-xs ml-1 align-middle"
+                                            title="Suma al subtotal pero no causa IVA ni entra a la base de retenciones"
+                                        >
+                                            sin impuestos
                                         </span>
                                     )}
                                 </td>
