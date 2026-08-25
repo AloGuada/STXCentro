@@ -227,6 +227,10 @@ class SalidaController extends Controller
                 'id' => $p->id,
                 'folio' => $p->folio,
                 'departamento' => $p->departamento?->descripcion,
+                // Los ids, para que la salida herede el destino del pedido en
+                // vez de volver a preguntarlo.
+                'departamento_id' => $p->departamento_id,
+                'grupo_trabajo_id' => $p->grupo_trabajo_id,
                 'recibe' => $p->recibe_nombre,
                 'fecha_requerida' => $p->fecha_requerida?->toDateString(),
                 'detalles' => $p->detalles

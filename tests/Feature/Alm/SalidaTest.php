@@ -10,6 +10,7 @@ use App\Models\Alm\Salida;
 use App\Models\Costos\Producto;
 use App\Models\Departamento;
 use App\Models\Obra;
+use App\Models\Prod\GrupoTrabajo;
 use App\Models\User;
 use App\Services\Alm\AlmacenLedger;
 use Spatie\Permission\Models\Permission;
@@ -49,7 +50,7 @@ function salidaValida(Almacen $almacen, array $detalles, array $extra = []): arr
     return [
         'almacen_id' => $almacen->id,
         // El almacen de la factoria es central: una salida directa de planta
-        // tiene que decir a que area se le carga.
+        // tiene que decir a que departamento se le carga.
         'departamento_id' => Departamento::factory()->create()->id,
         'recibe_nombre' => 'Cuadrilla 3',
         'fecha' => now()->toDateString(),
@@ -485,11 +486,11 @@ describe('la fecha no puede ser de manana', function () {
 
 /**
  * En planta el material no se va a otro domicilio: se consume aqui mismo. Si
- * ademas no hay pedido que diga quien lo pidio, el area es lo unico que dice a
- * quien cargarle el consumo.
+ * ademas no hay pedido que diga quien lo pidio, el departamento es lo unico que
+ * dice a quien cargarle el consumo.
  */
-describe('la salida directa de planta exige area', function () {
-    it('rechaza la salida directa de un almacen central sin area', function () {
+describe('la salida directa de planta exige departamento', function () {
+    it('rechaza la salida directa de un almacen central sin departamento', function () {
         $almacen = Almacen::factory()->create(['obra_id' => null]);
         $producto = Producto::factory()->create();
         sembrar($almacen, $producto, 50);
@@ -503,19 +504,19 @@ describe('la salida directa de planta exige area', function () {
         expect(Salida::count())->toBe(0);
     });
 
-    it('la acepta con area', function () {
+    it('la acepta con departamento', function () {
         $almacen = Almacen::factory()->create(['obra_id' => null]);
         $producto = Producto::factory()->create();
         sembrar($almacen, $producto, 50);
-        $area = Departamento::factory()->create();
+        $departamento = Departamento::factory()->create();
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
                 ['producto_id' => $producto->id, 'cantidad' => 5],
-            ], ['departamento_id' => $area->id]))
+            ], ['departamento_id' => $departamento->id]))
             ->assertSessionHasNoErrors();
 
-        expect(Salida::firstOrFail()->departamento_id)->toBe($area->id);
+        expect(Salida::firstOrFail()->departamento_id)->toBe($departamento->id);
     });
 
     /** El almacen de obra ya dice a donde va el material: es la obra. */
@@ -548,5 +549,71 @@ describe('la salida directa de planta exige area', function () {
                 ['producto_id' => $producto->id, 'cantidad' => 5, 'pedido_detalle_id' => $renglon->id],
             ], ['pedido_id' => $pedido->id, 'departamento_id' => null]))
             ->assertSessionHasNoErrors();
+    });
+});
+
+/**
+ * El pedido ya contesto a quien se le carga y quien se lo lleva; la salida lo
+ * hereda en vez de volver a preguntarlo, y queda escrito en el documento para
+ * que el vale impreso no tenga que ir a leer el pedido.
+ */
+describe('la salida hereda el destino del pedido', function () {
+    it('guarda el departamento y el modulo que traia el pedido', function () {
+        $almacen = Almacen::factory()->create(['obra_id' => null]);
+        $producto = Producto::factory()->create();
+        sembrar($almacen, $producto, 50);
+
+        $departamento = Departamento::factory()->create();
+        $modulo = GrupoTrabajo::factory()->create();
+
+        $pedido = Pedido::factory()->de($almacen)->create([
+            'departamento_id' => $departamento->id,
+            'grupo_trabajo_id' => $modulo->id,
+            'recibe_nombre' => 'A. Perez',
+        ]);
+        $renglon = $pedido->detalles()->create([
+            'producto_id' => $producto->id,
+            'cantidad_solicitada' => 10,
+        ]);
+
+        $this->actingAs(usuarioDeSalidas())
+            ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
+                ['producto_id' => $producto->id, 'cantidad' => 5, 'pedido_detalle_id' => $renglon->id],
+            ], [
+                'pedido_id' => $pedido->id,
+                'departamento_id' => $departamento->id,
+                'grupo_trabajo_id' => $modulo->id,
+                'recibe_nombre' => 'A. Perez',
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $salida = Salida::firstOrFail();
+
+        expect($salida->departamento_id)->toBe($departamento->id)
+            ->and($salida->grupo_trabajo_id)->toBe($modulo->id)
+            ->and($salida->recibe_nombre)->toBe('A. Perez');
+    });
+
+    /** La pantalla necesita los ids, no solo la etiqueta, para precargarlos. */
+    it('el listado de pedidos surtibles manda los ids del destino', function () {
+        $almacen = Almacen::factory()->create(['obra_id' => null]);
+        $producto = Producto::factory()->create();
+        sembrar($almacen, $producto, 50);
+
+        $departamento = Departamento::factory()->create();
+        $modulo = GrupoTrabajo::factory()->create();
+
+        $pedido = Pedido::factory()->de($almacen)->create([
+            'departamento_id' => $departamento->id,
+            'grupo_trabajo_id' => $modulo->id,
+        ]);
+        $pedido->detalles()->create(['producto_id' => $producto->id, 'cantidad_solicitada' => 10]);
+
+        $this->actingAs(usuarioDeSalidas())
+            ->get(route('admin.alm.salidas.create', ['almacen_id' => $almacen->id]))
+            ->assertInertia(fn ($page) => $page
+                ->where('pedidosSurtibles.0.departamento_id', $departamento->id)
+                ->where('pedidosSurtibles.0.grupo_trabajo_id', $modulo->id)
+            );
     });
 });

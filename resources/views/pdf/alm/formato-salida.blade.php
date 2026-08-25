@@ -135,7 +135,7 @@
             <td>{{ $salida->grupoTrabajo?->descripcion ?? '-' }}</td>
         </tr>
         <tr>
-            <td class="label">Área</td>
+            <td class="label">Departamento</td>
             <td>{{ $salida->departamento?->descripcion ?? '-' }}</td>
             <td class="label">Surte el pedido</td>
             <td>{{ $salida->pedido?->folio ?? 'Salida directa, sin pedido' }}</td>

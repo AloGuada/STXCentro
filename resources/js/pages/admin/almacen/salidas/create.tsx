@@ -27,6 +27,8 @@ type PedidoSurtible = {
     id: number;
     folio: string | null;
     departamento: string | null;
+    departamento_id: number | null;
+    grupo_trabajo_id: number | null;
     recibe: string | null;
     fecha_requerida: string | null;
     detalles: {
@@ -106,11 +108,16 @@ export default function SalidaCreate({
     const almacen = almacenes.find((a) => String(a.id) === form.data.almacen_id);
 
     /**
-     * En planta el material no se va a otro domicilio: se consume aqui mismo,
-     * asi que hay que decir a que area y con que modulo. Cuando surte un pedido
-     * ya lo dijo el pedido, y en un almacen de obra el destino es la obra.
+     * A quien se le carga el consumo. Se pregunta cuando el material se queda
+     * en planta —ahi no hay obra a la cual cargarlo— y cuando surte un pedido,
+     * que ya lo trae contestado y solo hay que dejar corregirlo. En un almacen
+     * de obra sin pedido el destino es la obra, y sobra.
      */
-    const consumoDePlanta = almacen !== undefined && almacen.obra_id === null && form.data.pedido_id === '';
+    const pideDestino =
+        form.data.pedido_id !== '' || (almacen !== undefined && almacen.obra_id === null);
+
+    /** Sin pedido detras, el destino es lo unico que dice a quien cargarle. */
+    const destinoObligatorio = pideDestino && form.data.pedido_id === '';
 
     /**
      * Al elegir un pedido, la salida arranca con lo que le falta a cada renglón:
@@ -122,12 +129,20 @@ export default function SalidaCreate({
         const elegido = pedidosSurtibles.find((p) => String(p.id) === id);
 
         if (elegido === undefined) {
+            // Soltar el pedido suelta tambien lo que habia heredado de el: si
+            // no, la salida directa arranca con el destino de un pedido que ya
+            // no la respalda.
             form.setData('detalles', [{ ...RENGLON_VACIO }]);
+            form.setData('recibe_nombre', '');
+            form.setData('departamento_id', '');
+            form.setData('grupo_trabajo_id', '');
 
             return;
         }
 
         form.setData('recibe_nombre', elegido.recibe ?? '');
+        form.setData('departamento_id', elegido.departamento_id === null ? '' : String(elegido.departamento_id));
+        form.setData('grupo_trabajo_id', elegido.grupo_trabajo_id === null ? '' : String(elegido.grupo_trabajo_id));
         form.setData(
             'detalles',
             elegido.detalles.map((d) => ({
@@ -139,10 +154,10 @@ export default function SalidaCreate({
         );
     };
 
-    // Al dejar de ser consumo de planta los dos campos desaparecen; limpiarlos
-    // evita mandar en el POST algo que la pantalla ya no ensena.
+    // Cuando los dos campos desaparecen hay que limpiarlos: mandar en el POST
+    // algo que la pantalla ya no ensena es como nacio `obra_destino_id`.
     useEffect(() => {
-        if (consumoDePlanta) {
+        if (pideDestino) {
             return;
         }
 
@@ -153,7 +168,7 @@ export default function SalidaCreate({
         if (form.data.grupo_trabajo_id !== '') {
             form.setData('grupo_trabajo_id', '');
         }
-    }, [consumoDePlanta]);
+    }, [pideDestino]);
 
     const disponibleDe = (productoId: number) => saldos.find((s) => s.producto_id === productoId)?.cantidad ?? 0;
 
@@ -263,20 +278,24 @@ export default function SalidaCreate({
                                 />
                             </FormField>
 
-                            {consumoDePlanta && (
+                            {pideDestino && (
                                 <>
                                     <FormField
-                                        label="Área"
+                                        label="Departamento"
                                         htmlFor="departamento_id"
                                         error={form.errors.departamento_id}
-                                        description="A quién se le carga el consumo."
-                                        required
+                                        description={
+                                            form.data.pedido_id === ''
+                                                ? 'A quién se le carga el consumo.'
+                                                : 'Viene del pedido; corrígelo si el material se fue a otro lado.'
+                                        }
+                                        required={destinoObligatorio}
                                     >
                                         <Select
                                             id="departamento_id"
                                             value={form.data.departamento_id}
                                             onValueChange={(v) => form.setData('departamento_id', v)}
-                                            placeholder="¿A qué área se le carga?"
+                                            placeholder="¿A qué departamento se le carga?"
                                         >
                                             {departamentos.map((d) => (
                                                 <SelectItem key={d.id} value={String(d.id)}>

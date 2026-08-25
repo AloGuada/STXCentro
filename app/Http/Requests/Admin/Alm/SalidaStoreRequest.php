@@ -65,8 +65,8 @@ class SalidaStoreRequest extends FormRequest
     /**
      * En planta el material no se va a otro domicilio: se consume aqui mismo.
      * Si ademas no hay pedido que diga quien lo pidio, el departamento es lo
-     * unico que dice a que area cargarle el consumo, y sin el la salida se
-     * pierde en "almacen central".
+     * unico que dice a quien cargarle el consumo, y sin el la salida se pierde
+     * en "almacen central".
      *
      * Se resuelve contra el almacen guardado y no contra lo que mande la
      * pantalla: quien decide si es de planta es el catalogo.
@@ -85,7 +85,7 @@ class SalidaStoreRequest extends FormRequest
 
         $validator->errors()->add(
             'departamento_id',
-            'Una salida directa de planta tiene que decir a que area se le carga.',
+            'Una salida directa de planta tiene que decir a qué departamento se le carga.',
         );
     }
 
