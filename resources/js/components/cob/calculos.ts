@@ -169,6 +169,10 @@ export function calcularResumenProyecto(proyecto: Proyecto): ResumenFinanciero {
         }
     }
 
+    // OJO: esta regla vive DUPLICADA en PHP, en
+    // `app/Services/Cob/ValorAEjecutarService.php` (la consume el módulo ICSOE).
+    // Si cambias una, cambia la otra y corre `tests/Feature/Cob/ValorAEjecutarTest.php`.
+    //
     // Presupuesto a ejecutar = suma del valor de cada obra. Regla de negocio:
     //  - Si el proyecto no tiene ningún comparativo → todo por partidas (normal).
     //  - Obra a precio UNITARIO → su comparativo (último) si tiene; si no, 0

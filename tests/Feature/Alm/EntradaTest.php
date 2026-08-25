@@ -227,10 +227,12 @@ describe('permisos', function () {
 });
 
 /**
- * Igual que la salida: el almacen asienta lo que ya llego. Con fecha de manana
- * el kardex sube por material que nadie ha bajado del camion.
+ * `fecha_entrega` es la fecha de la transaccion y la elige quien captura: el
+ * camion llego el viernes y el almacen lo asienta el lunes. Lo que no se puede
+ * es fechar hacia adelante. Cuando se capturo lo guarda el servidor aparte, en
+ * `created_at`, y eso no lo mueve nadie desde la pantalla.
  */
-describe('la fecha no puede ser de manana', function () {
+describe('la fecha de transaccion se elige, la de registro la pone el servidor', function () {
     it('rechaza la entrada fechada en el futuro', function () {
         $almacen = Almacen::factory()->create();
         $producto = Producto::factory()->create();
@@ -247,21 +249,23 @@ describe('la fecha no puede ser de manana', function () {
         expect(Entrega::count())->toBe(0);
     });
 
-    it('acepta hoy y acepta lo capturado con retraso', function (string $fecha) {
+    it('respeta la fecha capturada con retraso y sella aparte la de registro', function () {
         $almacen = Almacen::factory()->create();
         $producto = Producto::factory()->create();
 
         $datos = entradaValida($almacen, [
             ['producto_id' => $producto->id, 'cantidad_recibida' => 10, 'precio_unitario' => 4.35],
         ]);
-        $datos['fecha_entrega'] = $fecha;
+        $datos['fecha_entrega'] = now()->subWeek()->toDateString();
 
         $this->actingAs(usuarioDeEntradas())
             ->post(route('admin.alm.entradas.store'), $datos)
             ->assertSessionHasNoErrors();
-    })->with([
-        'hoy' => fn (): string => now()->toDateString(),
-        'ayer' => fn (): string => now()->subDay()->toDateString(),
-        'la semana pasada' => fn (): string => now()->subWeek()->toDateString(),
-    ]);
+
+        $entrada = Entrega::firstOrFail();
+
+        expect($entrada->fecha_entrega->toDateString())->toBe(now()->subWeek()->toDateString())
+            // La de registro es de hoy, la haya fechado hacia atras o no.
+            ->and($entrada->created_at->toDateString())->toBe(today()->toDateString());
+    });
 });

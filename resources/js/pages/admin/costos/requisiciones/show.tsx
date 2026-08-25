@@ -7,7 +7,12 @@ import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
 import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { OcBuilder } from '@/components/costos/oc-builder';
-import { calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
+import {
+    baseImpuestos,
+    calcularRetenciones,
+    IVA_RATE,
+    type LineaFiscal,
+} from '@/components/costos/retenciones';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -81,6 +86,13 @@ type Props = {
 };
 
 type Tab = 'datos' | 'cotizacion' | 'definir-oc' | 'aprobacion' | 'ocs';
+
+/**
+ * El bloque "Total de las órdenes de compra" del resumen queda oculto de
+ * momento: se confunde con el total del comparativo, que sí incluye las
+ * partidas "solo cotización". El cálculo se conserva para volver a mostrarlo.
+ */
+const MOSTRAR_TOTAL_OCS = false;
 
 const fmtDate = (date: string | null) =>
     date
@@ -737,7 +749,6 @@ export default function RequisicionesShow({
         null,
     );
     const [validando, setValidando] = useState(false);
-    const [pdfBloqueado, setPdfBloqueado] = useState(false);
 
     const requiereValidacion =
         esUltimoNivel && proveedoresPorValidar.length > 0;
@@ -747,15 +758,6 @@ export default function RequisicionesShow({
         requisicion.estatus,
     );
     const tieneOcDefinida = (requisicion.ocs?.length ?? 0) > 0;
-    // El comparativo (PDF) queda disponible una vez que la requisición entra a
-    // la bandeja del gerente, para que él lo revise antes de aprobar.
-    const comparativoDisponible = [
-        'pendiente_aprobacion_interno',
-        'aprobada_interna',
-        'pendiente_aprobacion',
-        'aprobada',
-        'liberada',
-    ].includes(requisicion.estatus);
     // Nivel/usuario que tiene la firma pendiente en la etapa formal: se muestra
     // debajo del estatus para saber en manos de quién está la aprobación.
     const aprobacionPendiente = useMemo(() => {
@@ -800,10 +802,7 @@ export default function RequisicionesShow({
             {
                 proveedorId: number;
                 moneda: string;
-                lines: {
-                    tipo_fiscal: CostosTipoFiscalPartida;
-                    subtotal: number;
-                }[];
+                lines: LineaFiscal[];
             }
         >();
         (requisicion.detalles ?? []).forEach((d) => {
@@ -820,15 +819,27 @@ export default function RequisicionesShow({
                     moneda,
                     lines: [],
                 };
-                g.lines.push({ tipo_fiscal: d.tipo_fiscal, subtotal: sub });
+                g.lines.push({
+                    tipo_fiscal: d.tipo_fiscal,
+                    subtotal: sub,
+                    sin_impuestos: d.sin_impuestos,
+                });
                 grupos.set(key, g);
             });
         });
         if (grupos.size === 0) return null;
-        const porMoneda = new Map<string, { subtotal: number; ret: number }>();
+        const porMoneda = new Map<
+            string,
+            { subtotal: number; baseIva: number; ret: number }
+        >();
         grupos.forEach((g) => {
-            const acc = porMoneda.get(g.moneda) ?? { subtotal: 0, ret: 0 };
+            const acc = porMoneda.get(g.moneda) ?? {
+                subtotal: 0,
+                baseIva: 0,
+                ret: 0,
+            };
             acc.subtotal += g.lines.reduce((a, l) => a + l.subtotal, 0);
+            acc.baseIva += baseImpuestos(g.lines);
             acc.ret += calcularRetenciones(
                 provMap.get(g.proveedorId),
                 g.lines,
@@ -838,8 +849,8 @@ export default function RequisicionesShow({
         // Un bloque de totales por divisa (divisas primero, MXN al final); el
         // combinado en MXN se arma en el render con el TC capturado.
         const bloques = Array.from(porMoneda.entries())
-            .map(([moneda, { subtotal, ret }]) => {
-                const iva = subtotal * IVA_RATE;
+            .map(([moneda, { subtotal, baseIva, ret }]) => {
+                const iva = baseIva * IVA_RATE;
                 return {
                     moneda,
                     subtotal,
@@ -992,24 +1003,15 @@ export default function RequisicionesShow({
                     </div>
 
                     <div className="flex gap-2">
-                        {comparativoDisponible ? (
-                            <Button variant="outline" asChild>
-                                <a
-                                    href={`/admin/costos/requisiciones/${requisicion.id}/pdf`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    Generar Formato PDF
-                                </a>
-                            </Button>
-                        ) : (
-                            <Button
-                                variant="outline"
-                                onClick={() => setPdfBloqueado(true)}
+                        <Button variant="outline" asChild>
+                            <a
+                                href={`/admin/costos/requisiciones/${requisicion.id}/pdf`}
+                                target="_blank"
+                                rel="noreferrer"
                             >
                                 Generar Formato PDF
-                            </Button>
-                        )}
+                            </a>
+                        </Button>
 
                         {can('costos.requisiciones.cotizar') && (
                             <Button
@@ -1400,7 +1402,7 @@ export default function RequisicionesShow({
                             tc={Number(tcRequis) || 0}
                         />
 
-                        {resumenNeto && (
+                        {MOSTRAR_TOTAL_OCS && resumenNeto && (
                             <div className="mt-4 rounded-lg border border-base-300 bg-base-200/40 p-4">
                                 <h3 className="mb-2 text-xs tracking-wider text-base-content/60 uppercase">
                                     Total de las órdenes de compra
@@ -1714,36 +1716,6 @@ export default function RequisicionesShow({
                         requisicionId={requisicion.id}
                         onClose={() => setMarcandoControl(false)}
                     />
-                )}
-
-                {pdfBloqueado && (
-                    <dialog className="modal-open modal">
-                        <div className="modal-box">
-                            <h2 className="text-xl font-bold">
-                                Comparativo no disponible aún
-                            </h2>
-                            <p className="mt-3 text-sm text-base-content/70">
-                                El comparativo solo puede generarse una vez que
-                                la requisición se{' '}
-                                <strong>envía a aprobación</strong>. Envíala
-                                desde el botón de la cabecera y vuelve a
-                                intentarlo.
-                            </p>
-                            <div className="modal-action">
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    onClick={() => setPdfBloqueado(false)}
-                                >
-                                    Entendido
-                                </button>
-                            </div>
-                        </div>
-                        <div
-                            className="modal-backdrop"
-                            onClick={() => setPdfBloqueado(false)}
-                        />
-                    </dialog>
                 )}
 
                 {tab === 'ocs' && (
@@ -2116,23 +2088,33 @@ function ComparativoCotizaciones({
     const filas = detalles.map((d) => ({
         d,
         esSoloCotizacion: !!d.solo_cotizacion,
+        esSinImpuestos: !!d.sin_impuestos,
         ...importeDetalle(d),
     }));
 
     // Totales del pie por divisa (divisas primero, MXN al final) + combinado
     // en MXN con el TC del documento cuando hay exactamente una divisa.
-    const porMoneda = new Map<string, number>();
+    // Las partidas "sin impuestos" suman al subtotal pero no a la base del IVA.
+    const porMoneda = new Map<string, { subtotal: number; baseIva: number }>();
     filas.forEach((f) =>
-        f.contribs.forEach((c) =>
-            porMoneda.set(c.moneda, (porMoneda.get(c.moneda) ?? 0) + c.importe),
-        ),
+        f.contribs.forEach((c) => {
+            const acc = porMoneda.get(c.moneda) ?? { subtotal: 0, baseIva: 0 };
+            acc.subtotal += c.importe;
+            if (!f.esSinImpuestos) {
+                acc.baseIva += c.importe;
+            }
+            porMoneda.set(c.moneda, acc);
+        }),
     );
-    const bloquesTotales = Array.from(porMoneda, ([moneda, sub]) => ({
-        moneda,
-        subtotal: sub,
-        iva: sub * 0.16,
-        total: sub * 1.16,
-    })).sort((a, b) =>
+    const bloquesTotales = Array.from(
+        porMoneda,
+        ([moneda, { subtotal, baseIva }]) => ({
+            moneda,
+            subtotal,
+            iva: baseIva * IVA_RATE,
+            total: subtotal + baseIva * IVA_RATE,
+        }),
+    ).sort((a, b) =>
         a.moneda === 'mxn'
             ? 1
             : b.moneda === 'mxn'
@@ -2205,7 +2187,13 @@ function ComparativoCotizaciones({
                         </tr>
                     </thead>
                     <tbody>
-                        {filas.map(({ d, tieneImporte, contribs, esSoloCotizacion }) => (
+                        {filas.map(({
+                            d,
+                            tieneImporte,
+                            contribs,
+                            esSoloCotizacion,
+                            esSinImpuestos,
+                        }) => (
                             <tr key={d.id}>
                                 <td className="text-right">
                                     {Number(d.cantidad).toLocaleString('es-MX')}{' '}
@@ -2219,6 +2207,14 @@ function ComparativoCotizaciones({
                                             title="Suma al total del comparativo con su precio de referencia, pero no se surte en la OC (no entra al neto a pagar)"
                                         >
                                             solo cotización
+                                        </span>
+                                    )}
+                                    {esSinImpuestos && (
+                                        <span
+                                            className="badge badge-ghost badge-xs ml-1 align-middle"
+                                            title="Suma al subtotal pero no causa IVA ni entra a la base de retenciones"
+                                        >
+                                            sin impuestos
                                         </span>
                                     )}
                                 </td>

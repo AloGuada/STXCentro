@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin\Prod;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Prod\DestajoStoreRequest;
-use App\Models\Concepto;
 use App\Models\Obra;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoTrabajo;
@@ -13,7 +12,6 @@ use App\Models\Prod\Proceso;
 use App\Models\Prod\Registro;
 use App\Models\Prod\TipoPagoExtra;
 use App\Services\Prod\AsistenciaDelDestajo;
-use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\GeneradorLiquidaciones;
 use App\Services\Prod\PendientesDeLiquidar;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -59,7 +57,6 @@ class DestajoController extends Controller
     public function show(
         Destajo $destajo,
         GeneradorLiquidaciones $generador,
-        AvanceDePiezas $avance,
         PendientesDeLiquidar $pendientes,
         AsistenciaDelDestajo $asistencia,
     ): Response {
@@ -91,28 +88,25 @@ class DestajoController extends Controller
 
         $data['piezasSinPrecio'] = $generador->piezasSinPrecio($destajo);
         $data['gruposTrabajo'] = GrupoTrabajo::where('activo', true)->orderBy('descripcion')->get();
-        // El catalogo de captura: las marcas del catalogo vigente con sus piezas,
-        // para que el formulario ofrezca marca -> lote -> QS.
-        $data['marcas'] = Concepto::query()
-            ->with(['obra:id,no,descripcion', 'piezas' => fn ($q) => $q->where('activo', true)->orderBy('qs')])
-            ->deCatalogoVigente()
-            ->where('activo', true)
-            ->orderBy('marca')
-            ->orderBy('lote')
-            ->get();
 
-        $procesos = Proceso::activos()->orderBy('orden')->get();
-        $data['procesos'] = $procesos;
-        $data['procesosPorObra'] = Obra::query()
-            ->whereIn('id', $data['marcas']->pluck('obra_id')->unique())
+        // El catalogo de captura baja en tres tiempos —obra, marca, QR— y aqui
+        // solo viaja el primero. Mandar el catalogo entero eran 17 MB de
+        // respuesta y cientos de MB de memoria por una obra de 12 mil piezas,
+        // para terminar usando las de una sola marca. Los otros dos escalones
+        // los sirven `marcasDeObra` y `piezasDeMarca`.
+        $obras = Obra::query()
+            ->whereHas('catalogos', fn ($q) => $q->where('vigente', true)
+                ->whereHas('conceptos', fn ($c) => $c->where('activo', true)))
             ->with('procesos:id')
-            ->get()
-            ->mapWithKeys(fn (Obra $obra) => [$obra->id => $obra->procesos->pluck('id')]);
+            ->orderBy('no')
+            ->get(['id', 'no', 'descripcion']);
 
-        $data['avance'] = $avance->decorar(
-            $data['marcas']->flatMap->piezas,
-            $procesos->pluck('id')->all(),
-        )->mapWithKeys(fn ($pieza) => [$pieza->id => $pieza->avance]);
+        $data['obras'] = $obras->map->only(['id', 'no', 'descripcion'])->values();
+        $data['procesos'] = Proceso::activos()->orderBy('orden')->get();
+        $data['procesosPorObra'] = $obras->mapWithKeys(
+            fn (Obra $obra) => [$obra->id => $obra->procesos->pluck('id')],
+        );
+
         $data['tipos'] = TipoPagoExtra::orderBy('orden')->get();
         $data['pendientes'] = $pendientes->paraDestajo($destajo);
         $data['asistenciaFaltante'] = $asistencia->faltantes($destajo);

@@ -13,6 +13,11 @@ use Illuminate\Validation\Rule;
  * El almacén es obligatorio en las dos: una entrada que no dice a dónde entra
  * no sube el valor de ningún inventario, que es justo lo que esta pantalla
  * registra.
+ *
+ * `fecha_entrega` es la fecha de la transacción —cuándo entró el material— y la
+ * elige quien captura: el camión llegó el viernes y el almacén lo asienta el
+ * lunes. No puede ser futura. Cuándo se capturó lo guarda el servidor aparte,
+ * en `created_at`, y es lo que responde "¿esto se fechó hacia atrás?".
  */
 class EntradaStoreRequest extends FormRequest
 {

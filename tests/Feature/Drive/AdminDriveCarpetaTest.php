@@ -5,6 +5,7 @@ use App\Models\Drive\Carpeta;
 use App\Models\Drive\Externo;
 use App\Models\Usuario;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 
@@ -105,7 +106,12 @@ test('admin puede subir archivo a carpeta', function () {
     $this->assertDatabaseHas('drive_archivos', [
         'carpeta_id' => $carpeta->id,
         'subido_por_type' => 'interno',
+        'subido_por_id' => $this->admin->id,
     ]);
+});
+
+test('subido_por_id es texto porque un interno se identifica con uuid', function () {
+    expect(Schema::getColumnType('drive_archivos', 'subido_por_id'))->not->toContain('int');
 });
 
 test('admin puede generar link publico para archivo', function () {

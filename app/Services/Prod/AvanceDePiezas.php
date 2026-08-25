@@ -5,6 +5,7 @@ namespace App\Services\Prod;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\LiquidacionDetalle;
 use App\Models\Prod\Pieza;
+use App\Models\Prod\Proceso;
 use App\Models\Prod\Registro;
 use Illuminate\Support\Collection;
 
@@ -174,6 +175,27 @@ class AvanceDePiezas
     public function cabe(Pieza $pieza, int $procesoId, float $porcentaje): bool
     {
         return round($porcentaje / 100, 4) <= $this->disponible($pieza, $procesoId) + self::EPSILON;
+    }
+
+    /**
+     * Explica el tope: una pieza vale 1 en cada proceso, así que lo que queda es
+     * una fracción. Las piezas rehechas se pagan como pago extra.
+     *
+     * Vive aquí y no en quien captura para que la captura manual y la revisión
+     * del CSV digan exactamente lo mismo.
+     */
+    public function mensajeDeTope(Pieza $pieza, Proceso $proceso, float $disponible): string
+    {
+        $salida = ' Si es una pieza rehecha, regístrala como pago extra.';
+        $etiqueta = $pieza->etiqueta();
+
+        if ($disponible <= 0) {
+            return "La pieza {$etiqueta} ya está pagada al 100% en {$proceso->nombre}.".$salida;
+        }
+
+        $pendiente = rtrim(rtrim(number_format($disponible * 100, 2, '.', ''), '0'), '.');
+
+        return "La pieza {$etiqueta} sólo tiene {$pendiente}% por pagar en {$proceso->nombre}.".$salida;
     }
 
     /**

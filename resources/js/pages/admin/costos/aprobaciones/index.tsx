@@ -1,7 +1,8 @@
 import { DocumentoUpload } from '@/components/costos/documento-upload';
+import OcsAdjudicadas from '@/components/costos/ocs-adjudicadas';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosAprobacionSolicitud, CostosRequisicionEstatus, CostosSolicitudPago } from '@/types/models';
+import type { CostosAprobacionSolicitud, CostosRequisicionEstatus, CostosRequisicionOcResumen, CostosSolicitudPago } from '@/types/models';
 import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, CheckIcon, EyeIcon, FileCheckIcon, FileTextIcon, PaperclipIcon, XIcon } from 'lucide-react';
@@ -197,6 +198,9 @@ type RowDisplay = {
     solicitanteName: string;
     departamentoNombre: string;
     proveedor: { razon_social: string; rfc?: string | null; subLabel?: string | null } | null;
+    // Requisiciones ya adjudicadas: el proveedor que quedó en la(s) OC(s).
+    // Cuando viene con renglones, sustituye a `proveedor` en la columna.
+    ocsAdjudicadas: CostosRequisicionOcResumen[];
     tipoLabel: string;
     monto: number;
     // Para requisiciones: el monto es el neto a pagar (subtotal + IVA - retenciones)
@@ -218,6 +222,7 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
     if (a.tipo === 'requisicion' && a.requisicion) {
         const req = a.requisicion;
         const mejor = req.mejor_proveedor;
+        const ocs = req.ocs_resumen ?? [];
         const cotCount = req.proveedores_cotizadores_count ?? 0;
         const subLabel = cotCount > 0
             ? `${cotCount} ${cotCount === 1 ? 'proveedor cotizó' : 'proveedores cotizaron'}`
@@ -228,9 +233,12 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
             createdAt: req.created_at,
             solicitanteName: req.solicitante?.name ?? '-',
             departamentoNombre: req.departamento?.descripcion ?? '',
+            // Con OC definida manda el proveedor adjudicado; antes de eso, el
+            // mejor precio del comparativo como referencia.
             proveedor: mejor
                 ? { razon_social: mejor.nombre_comercial || mejor.razon_social, rfc: null, subLabel }
                 : { razon_social: 'Cotización parcial', rfc: null, subLabel },
+            ocsAdjudicadas: ocs,
             tipoLabel: 'Requisición de compras',
             // Al inicio (sin OC/selecciones) el neto es 0: se muestra el mejor
             // precio como estimado. Una vez definida la OC, se muestra el neto.
@@ -266,6 +274,7 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
         solicitanteName: sol.solicitante?.name ?? '-',
         departamentoNombre: sol.departamento?.descripcion ?? '',
         proveedor: sol.proveedor ? { razon_social: sol.proveedor.razon_social, rfc: sol.proveedor.rfc } : null,
+        ocsAdjudicadas: [],
         tipoLabel: sol.tipo_solicitud?.titulo ?? '-',
         monto: Number(sol.monto_total ?? 0),
         montoEsNeto: true,
@@ -322,7 +331,9 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
                 case 'nivel': return a.nivel ?? 0;
                 case 'folio': return d.folio;
                 case 'solicitante': return d.solicitanteName;
-                case 'proveedor': return d.proveedor?.razon_social ?? '';
+                case 'proveedor': return d.ocsAdjudicadas[0]
+                    ? (d.ocsAdjudicadas[0].nombre_comercial || d.ocsAdjudicadas[0].razon_social)
+                    : (d.proveedor?.razon_social ?? '');
                 case 'concepto': return d.tipoLabel;
                 case 'monto': return d.monto;
                 case 'fecha': return a.fecha_respuesta ?? '';
@@ -416,7 +427,9 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
                                         </div>
                                     </td>
                                     <td>
-                                        {d.proveedor ? (
+                                        {d.ocsAdjudicadas.length > 0 ? (
+                                            <OcsAdjudicadas ocs={d.ocsAdjudicadas} />
+                                        ) : d.proveedor ? (
                                             <div>
                                                 <div className="text-sm">{d.proveedor.razon_social}</div>
                                                 {d.proveedor.rfc && (

@@ -15,6 +15,7 @@ type Props = {
         id: number;
         folio: string | null;
         fecha: string | null;
+        registrada_at: string | null;
         almacen: string | null;
         almacen_nombre: string | null;
         obra_destino: string | null;
@@ -71,6 +72,14 @@ export default function SalidaShow({ salida, detalles }: Props) {
                         </div>
                         <p className="text-base-content/60 mt-1 text-sm">
                             {salida.almacen} · {salida.almacen_nombre} · {salida.fecha}
+                            {salida.registrada_at && (
+                                <span
+                                    className="text-base-content/40"
+                                    title="Cuándo se capturó. La fecha de arriba es cuándo salió el material."
+                                >
+                                    {' '}· registrada {salida.registrada_at}
+                                </span>
+                            )}
                         </p>
                         <p className="text-base-content/60 text-sm">
                             Recibe {salida.recibe}

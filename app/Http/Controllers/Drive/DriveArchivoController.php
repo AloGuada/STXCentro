@@ -69,7 +69,7 @@ class DriveArchivoController extends Controller
         $externo = Auth::guard('externo')->user();
 
         abort_if(! $externo->carpetas()->where('drive_carpetas.id', $archivo->carpeta_id)->exists(), 403);
-        abort_if($archivo->subido_por_type !== 'externo' || $archivo->subido_por_id !== $externo->id, 403);
+        abort_if($archivo->subido_por_type !== 'externo' || $archivo->subido_por_id !== (string) $externo->id, 403);
 
         Storage::disk('local')->delete($archivo->path);
         $archivo->delete();

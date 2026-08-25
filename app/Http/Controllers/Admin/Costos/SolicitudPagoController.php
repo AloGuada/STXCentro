@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Costos;
 use App\Enums\Costos\AprobacionEstatus;
 use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\SolicitudPagoEstatus;
+use App\Exports\Costos\SolicitudesRequisicionesExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarRequest;
 use App\Http\Requests\Admin\Costos\ReasignarCentroCostosRequest;
@@ -39,6 +40,8 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class SolicitudPagoController extends Controller
@@ -56,6 +59,42 @@ class SolicitudPagoController extends Controller
     {
         Gate::authorize('costos.solicitudes-pago.ver');
 
+        ['solicitudes' => $solicitudes, 'requisiciones' => $requisiciones] = $this->datosReporte($request);
+
+        $pdf = Pdf::loadView('pdf.costos.reporte-solicitudes-requisiciones', [
+            'solicitudes' => $solicitudes,
+            'requisiciones' => $requisiciones,
+            'fechaGeneracion' => now(),
+        ])->setPaper('letter', 'landscape');
+
+        return $pdf->download('reporte-solicitudes-requisiciones-'.now()->format('Y-m-d').'.pdf');
+    }
+
+    /**
+     * Mismo reporte que el PDF pero en Excel: una hoja por tabla. Comparte la
+     * consulta con `reportePdf`, así que ambos archivos siempre traen lo mismo.
+     */
+    public function reporteExcel(Request $request): BinaryFileResponse
+    {
+        Gate::authorize('costos.solicitudes-pago.ver');
+
+        ['solicitudes' => $solicitudes, 'requisiciones' => $requisiciones] = $this->datosReporte($request);
+
+        return Excel::download(
+            new SolicitudesRequisicionesExport($solicitudes, $requisiciones),
+            'reporte-solicitudes-requisiciones-'.now()->format('Y-m-d').'.xlsx',
+        );
+    }
+
+    /**
+     * Datos del reporte (PDF y Excel): solicitudes de pago y requisiciones con
+     * la visibilidad del index (solo propias salvo permiso `ver-todas`) y los
+     * filtros de búsqueda y estatus.
+     *
+     * @return array{solicitudes: \Illuminate\Database\Eloquent\Collection<int, SolicitudPago>, requisiciones: \Illuminate\Database\Eloquent\Collection<int, Requisicion>}
+     */
+    private function datosReporte(Request $request): array
+    {
         $verTodas = $request->user()->can('costos.solicitudes-pago.ver-todas');
         $search = $request->string('search')->toString();
 
@@ -81,13 +120,7 @@ class SolicitudPagoController extends Controller
             ->latest()
             ->get();
 
-        $pdf = Pdf::loadView('pdf.costos.reporte-solicitudes-requisiciones', [
-            'solicitudes' => $solicitudes,
-            'requisiciones' => $requisiciones,
-            'fechaGeneracion' => now(),
-        ])->setPaper('letter', 'landscape');
-
-        return $pdf->download('reporte-solicitudes-requisiciones-'.now()->format('Y-m-d').'.pdf');
+        return ['solicitudes' => $solicitudes, 'requisiciones' => $requisiciones];
     }
 
     public function index(Request $request): Response

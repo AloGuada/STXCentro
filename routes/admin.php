@@ -27,6 +27,9 @@ use App\Http\Controllers\Admin\Cob\DocumentoSeccionController as CobDocumentoSec
 use App\Http\Controllers\Admin\Cob\EstimacionController as CobEstimacionController;
 use App\Http\Controllers\Admin\Cob\EstimacionPagoController as CobEstimacionPagoController;
 use App\Http\Controllers\Admin\Cob\EventoController as CobEventoController;
+use App\Http\Controllers\Admin\Cob\IcsoeController as CobIcsoeController;
+use App\Http\Controllers\Admin\Cob\IcsoeMesController as CobIcsoeMesController;
+use App\Http\Controllers\Admin\Cob\IcsoeSbcAnioController as CobIcsoeSbcAnioController;
 use App\Http\Controllers\Admin\Cob\ObraCobranzaController as CobObraCobranzaController;
 use App\Http\Controllers\Admin\Cob\PartidaController as CobPartidaController;
 use App\Http\Controllers\Admin\Cob\PenalizacionController as CobPenalizacionController;
@@ -95,6 +98,7 @@ use App\Http\Controllers\Admin\Dg\DashboardController as DgDashboardController;
 use App\Http\Controllers\Admin\Dg\MisReportesController as DgMisReportesController;
 use App\Http\Controllers\Admin\Dg\NotaController as DgNotaController;
 use App\Http\Controllers\Admin\Dg\ReporteController as DgReporteController;
+use App\Http\Controllers\Admin\Drive\DriveCarpetaAccesoController;
 use App\Http\Controllers\Admin\Drive\DriveCarpetaController;
 use App\Http\Controllers\Admin\Drive\DriveDashboardController as DriveAdminDashboardController;
 use App\Http\Controllers\Admin\Drive\DriveExternoController;
@@ -213,6 +217,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('configuracion', [ProdConfiguracionController::class, 'edit'])->name('configuracion.edit');
         Route::put('configuracion', [ProdConfiguracionController::class, 'update'])->name('configuracion.update');
 
+        // El catalogo baja en tres tiempos —obra, marca, QR— y estos son los dos
+        // escalones de abajo. Los comparten la captura del destajo y el catalogo:
+        // ninguna pantalla puede darse el lujo de traerse la obra entera.
+        Route::get('obras/{obra}/marcas', [ProdConceptoController::class, 'marcasDeObra'])->name('obras.marcas');
+        Route::get('marcas/{concepto}/piezas', [ProdConceptoController::class, 'piezas'])->name('marcas.piezas');
+
         // Destajos (semanal) y liquidaciones
         Route::resource('destajos', ProdDestajoController::class)->except(['edit', 'update'])->parameters(['destajos' => 'destajo']);
         Route::post('destajos/{destajo}/cerrar', [ProdDestajoController::class, 'cerrar'])->name('destajos.cerrar');
@@ -222,6 +232,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         // Produccion y pagos extra dentro del destajo
         Route::post('destajos/{destajo}/registros', [ProdRegistroController::class, 'store'])->name('destajos.registros.store');
+        // El import va en dos pasos: analizar devuelve lo que pasaria y no toca
+        // la base; import-csv es el que escribe, ya con el usuario enterado.
+        Route::post('destajos/{destajo}/registros/analizar-csv', [ProdRegistroController::class, 'analizarCsv'])->name('destajos.registros.analizar-csv');
         Route::post('destajos/{destajo}/registros/import-csv', [ProdRegistroController::class, 'importCsv'])->name('destajos.registros.import-csv');
         Route::delete('destajos/{destajo}/registros/{registro}', [ProdRegistroController::class, 'destroy'])->name('destajos.registros.destroy');
         Route::post('destajos/{destajo}/pagos-extra', [ProdPagoExtraController::class, 'store'])->name('destajos.pagos-extra.store');
@@ -485,6 +498,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/re-apartar', [CostosRequisicionController::class, 'reApartar'])->name('requisiciones.re-apartar');
         Route::post('requisiciones/detalles/{detalle}/clasificacion', [CostosRequisicionCotizacionController::class, 'clasificar'])->name('requisiciones.detalles.clasificar');
         Route::post('requisiciones/detalles/{detalle}/solo-cotizacion', [CostosRequisicionCotizacionController::class, 'soloCotizacion'])->name('requisiciones.detalles.solo-cotizacion');
+        Route::post('requisiciones/detalles/{detalle}/sin-impuestos', [CostosRequisicionCotizacionController::class, 'sinImpuestos'])->name('requisiciones.detalles.sin-impuestos');
         Route::patch('requisiciones/detalles/{detalle}/producto', [CostosRequisicionCotizacionController::class, 'actualizarProducto'])->name('requisiciones.detalles.producto');
         Route::post('requisiciones/{requisicion}/detalles', [CostosRequisicionCotizacionController::class, 'detalleStore'])->name('requisiciones.detalles.store');
         Route::delete('requisiciones/detalles/{detalle}', [CostosRequisicionCotizacionController::class, 'detalleDestroy'])->name('requisiciones.detalles.destroy');
@@ -503,6 +517,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/ocs', [CostosRequisicionOcController::class, 'store'])->name('requisiciones.ocs.store');
 
         Route::get('solicitudes-pago/reporte-pdf', [CostosSolicitudPagoController::class, 'reportePdf'])->name('solicitudes-pago.reporte-pdf');
+        Route::get('solicitudes-pago/reporte-excel', [CostosSolicitudPagoController::class, 'reporteExcel'])->name('solicitudes-pago.reporte-excel');
         Route::resource('solicitudes-pago', CostosSolicitudPagoController::class)->parameters(['solicitudes-pago' => 'solicitudPago']);
         Route::post('solicitudes-pago/{solicitudPago}/archivos', [CostosSolicitudPagoController::class, 'storeArchivo'])->name('solicitudes-pago.archivos.store');
         Route::patch('solicitudes-pago/{solicitudPago}/archivos/{solicitudArchivo}', [CostosSolicitudPagoController::class, 'updateArchivo'])->name('solicitudes-pago.archivos.update');
@@ -583,12 +598,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // Presupuestos (proyecto / obra / partida)
         Route::get('presupuestos', [CostosPresupuestoController::class, 'index'])->name('presupuestos.index');
         Route::get('obras-activas', [CostosPresupuestoController::class, 'obrasActivas'])->name('obras-activas.index');
+        Route::get('obras-activas/pdf', [CostosPresupuestoController::class, 'obrasActivasPdf'])->name('obras-activas.pdf');
         Route::get('presupuestos/reporte-pdf', [CostosPresupuestoController::class, 'generarReportePdf'])->name('presupuestos.reporte-pdf');
         Route::post('presupuestos/planta', [CostosPresupuestoController::class, 'storePlanta'])->name('presupuestos.planta.store');
         Route::post('presupuestos', [CostosPresupuestoController::class, 'store'])->name('presupuestos.store');
         Route::get('presupuestos/{presupuesto}/edit', [CostosPresupuestoController::class, 'edit'])->name('presupuestos.edit');
         Route::put('presupuestos/{presupuesto}', [CostosPresupuestoController::class, 'update'])->name('presupuestos.update');
         Route::post('presupuestos/{presupuesto}/estado', [CostosPresupuestoController::class, 'cambiarEstado'])->name('presupuestos.estado');
+        Route::post('presupuestos/{presupuesto}/documento', [CostosPresupuestoController::class, 'subirDocumento'])->name('presupuestos.documento');
 
         // Cuentas Internas
         Route::get('cuentas-internas', [CostosCuentaInternaController::class, 'index'])->name('cuentas-internas.index');
@@ -818,6 +835,22 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('obras/{obra}/penalizaciones/{penalizacion}', [CobPenalizacionController::class, 'update'])->name('obras.penalizaciones.update');
         Route::delete('obras/{obra}/penalizaciones/{penalizacion}', [CobPenalizacionController::class, 'destroy'])->name('obras.penalizaciones.destroy');
 
+        // ICSOE / SIROC (IMSS): un seguimiento por proyecto
+        Route::get('icsoe', [CobIcsoeController::class, 'index'])->name('icsoe.index');
+        Route::post('proyectos/{proyecto}/icsoe', [CobIcsoeController::class, 'store'])->name('proyectos.icsoe.store');
+        Route::get('icsoe/{seguimiento}', [CobIcsoeController::class, 'show'])->whereNumber('seguimiento')->name('icsoe.show');
+        Route::put('icsoe/{seguimiento}', [CobIcsoeController::class, 'update'])->whereNumber('seguimiento')->name('icsoe.update');
+        Route::delete('icsoe/{seguimiento}', [CobIcsoeController::class, 'destroy'])->whereNumber('seguimiento')->name('icsoe.destroy');
+        Route::put('icsoe/{seguimiento}/meses', [CobIcsoeMesController::class, 'update'])->whereNumber('seguimiento')->name('icsoe.meses.update');
+        Route::post('icsoe/{seguimiento}/recalcular', [CobIcsoeController::class, 'recalcular'])->whereNumber('seguimiento')->name('icsoe.recalcular');
+        Route::post('icsoe/{seguimiento}/verificar', [CobIcsoeController::class, 'verificar'])->whereNumber('seguimiento')->name('icsoe.verificar');
+
+        // Catálogo de SBC / costo DOF / prima de riesgo por año
+        Route::get('icsoe-sbc', [CobIcsoeSbcAnioController::class, 'index'])->name('icsoe-sbc.index');
+        Route::post('icsoe-sbc', [CobIcsoeSbcAnioController::class, 'store'])->name('icsoe-sbc.store');
+        Route::put('icsoe-sbc/{sbcAnio}', [CobIcsoeSbcAnioController::class, 'update'])->name('icsoe-sbc.update');
+        Route::delete('icsoe-sbc/{sbcAnio}', [CobIcsoeSbcAnioController::class, 'destroy'])->name('icsoe-sbc.destroy');
+
         // Catálogo de secciones de documentación
         Route::get('documento-secciones', [CobDocumentoSeccionController::class, 'index'])->name('documento-secciones.index');
         Route::post('documento-secciones', [CobDocumentoSeccionController::class, 'store'])->name('documento-secciones.store');
@@ -942,6 +975,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('externos', DriveExternoController::class)->parameters(['externos' => 'externo']);
         Route::resource('carpetas', DriveCarpetaController::class)->parameters(['carpetas' => 'carpeta']);
         Route::patch('carpetas/{carpeta}/acceso/{externo}', [DriveCarpetaController::class, 'toggleAcceso'])->name('carpetas.toggle-acceso');
+        Route::post('carpetas/{carpeta}/accesos-internos', [DriveCarpetaAccesoController::class, 'store'])->name('carpetas.accesos-internos.store');
+        Route::patch('carpetas/{carpeta}/accesos-internos/{usuario}', [DriveCarpetaAccesoController::class, 'update'])->name('carpetas.accesos-internos.update');
+        Route::delete('carpetas/{carpeta}/accesos-internos/{usuario}', [DriveCarpetaAccesoController::class, 'destroy'])->name('carpetas.accesos-internos.destroy');
         Route::post('carpetas/{carpeta}/archivos', [DriveCarpetaController::class, 'uploadArchivo'])->name('carpetas.archivos.store');
         Route::get('archivos/{archivo}/descargar', [DriveCarpetaController::class, 'downloadArchivo'])->name('archivos.descargar');
         Route::delete('archivos/{archivo}', [DriveCarpetaController::class, 'destroyArchivo'])->name('archivos.destroy');

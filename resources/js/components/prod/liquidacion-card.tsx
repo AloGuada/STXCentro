@@ -1,5 +1,5 @@
 import { FormattedDate } from '@/components/ui/formatted-date';
-import { etiquetaDePieza } from '@/lib/prod/piezas';
+import { etiquetaDePieza, etiquetaDeUnidad } from '@/lib/prod/piezas';
 import type { ProdLiquidacion, ProdLiquidacionDetalle, ProdLiquidacionEmpleado, ProdGrupoTrabajo, Usuario } from '@/types/models';
 
 export type LiquidacionFull = ProdLiquidacion & {
@@ -55,7 +55,9 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                                                         <span className="font-medium">
                                                             {etiquetaDePieza(d.marca, d.lote)}
                                                         </span>{' '}
-                                                        <span className="font-mono text-xs">QS {d.qs}</span>{' '}
+                                                        <span className="font-mono text-xs">
+                                                            {etiquetaDeUnidad(d)}
+                                                        </span>{' '}
                                                         <span className="text-base-content/60">{d.descripcion}</span>
                                                     </>
                                                 ) : (

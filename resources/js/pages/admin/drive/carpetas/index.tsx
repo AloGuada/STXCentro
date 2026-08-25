@@ -28,6 +28,8 @@ type Props = {
         next_page_url: string | null;
         prev_page_url: string | null;
     };
+    usuarioId: string;
+    esAdmin: boolean;
 };
 
 function formatSize(bytes: number | null): string {
@@ -42,7 +44,9 @@ function formatSize(bytes: number | null): string {
     return `${size.toFixed(1)} ${units[i]}`;
 }
 
-export default function DriveCarpetasIndex({ carpetas }: Props) {
+export default function DriveCarpetasIndex({ carpetas, usuarioId, esAdmin }: Props) {
+    const puedeAdministrar = (carpeta: Carpeta) => esAdmin || carpeta.usuario?.id === usuarioId;
+
     function handleDelete(carpeta: Carpeta) {
         if (confirm(`¿Eliminar la carpeta "${carpeta.nombre}" y todos sus archivos?`)) {
             router.delete(`/admin/drive/carpetas/${carpeta.id}`);
@@ -94,12 +98,16 @@ export default function DriveCarpetasIndex({ carpetas }: Props) {
                                             <Link href={`/admin/drive/carpetas/${carpeta.id}`} className="btn btn-ghost btn-xs">
                                                 <Eye className="size-4" />
                                             </Link>
-                                            <Link href={`/admin/drive/carpetas/${carpeta.id}/edit`} className="btn btn-ghost btn-xs">
-                                                <Edit className="size-4" />
-                                            </Link>
-                                            <button className="btn btn-ghost btn-xs text-error" onClick={() => handleDelete(carpeta)}>
-                                                <Trash2 className="size-4" />
-                                            </button>
+                                            {puedeAdministrar(carpeta) && (
+                                                <>
+                                                    <Link href={`/admin/drive/carpetas/${carpeta.id}/edit`} className="btn btn-ghost btn-xs">
+                                                        <Edit className="size-4" />
+                                                    </Link>
+                                                    <button className="btn btn-ghost btn-xs text-error" onClick={() => handleDelete(carpeta)}>
+                                                        <Trash2 className="size-4" />
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

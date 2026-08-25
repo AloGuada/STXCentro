@@ -1,10 +1,11 @@
 import { Head, router } from '@inertiajs/react';
+import OcsAdjudicadas from '@/components/costos/ocs-adjudicadas';
 import { DataTable, type Column } from '@/components/data-table';
+import { formatDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosRequisicion, Departamento, PaginatedData } from '@/types/models';
 import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS } from '@/types/models';
-import { formatDate } from '@/components/ui/formatted-date';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -51,6 +52,20 @@ const columns: Column<CostosRequisicion>[] = [
         label: 'Monto',
         render: (row) => {
             const cotCount = row.proveedores_cotizadores_count ?? 0;
+            const ocs = row.ocs_resumen ?? [];
+
+            // Ya hay proveedor adjudicado: manda lo seleccionado en la(s) OC(s),
+            // no el mejor precio del comparativo.
+            if (ocs.length > 0) {
+                return (
+                    <div>
+                        <OcsAdjudicadas ocs={ocs} />
+                        <div className="mt-0.5 text-xs font-semibold text-success">{fmtMoney(row.total_neto ?? 0)} MXN</div>
+                        <div className="mt-0.5 text-[11px] text-base-content/50">Neto a pagar</div>
+                    </div>
+                );
+            }
+
             if (!row.mejor_proveedor) {
                 return (
                     <div>
@@ -61,17 +76,9 @@ const columns: Column<CostosRequisicion>[] = [
                     </div>
                 );
             }
+
             const m = row.mejor_proveedor;
-            // Con OC definida (hay selecciones) el neto es > 0: se muestra el neto
-            // a pagar. Antes de eso, el mejor precio como estimado.
-            const neto = row.total_neto ?? 0;
-            return neto > 0 ? (
-                <div>
-                    <div className="text-sm font-medium">{m.nombre_comercial || m.razon_social}</div>
-                    <div className="mt-0.5 text-xs font-semibold text-success">{fmtMoney(neto)} MXN</div>
-                    <div className="mt-0.5 text-[11px] text-base-content/50">Neto a pagar</div>
-                </div>
-            ) : (
+            return (
                 <div>
                     <div className="text-sm font-medium">{m.nombre_comercial || m.razon_social}</div>
                     <div className="mt-0.5 text-xs font-semibold text-success">{fmtMoney(m.total)} MXN</div>

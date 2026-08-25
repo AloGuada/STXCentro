@@ -29,7 +29,7 @@ class RequisicionStoreRequest extends FormRequest
     {
         return [
             'departamento_id' => ['required', 'exists:departamentos,id'],
-            'firma_adicional_aprobador_id' => ['nullable', 'exists:usuarios,id'],
+            'firma_adicional_aprobador_id' => ['nullable', 'uuid', 'exists:usuarios,id'],
             // Requisición "sin obra": no carga a ningún centro de costos, así que
             // ni lleva presupuesto de cabecera ni obra_rubro por partida.
             'sin_centro_costos' => ['boolean'],

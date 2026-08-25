@@ -71,16 +71,21 @@ export default function ProyectoShow({ proyecto, clientes, documentoSecciones }:
             <Head title={`${proyecto.no} - Proyecto`} />
 
             <div className="p-6">
-                <div className="mb-4">
-                    <h1 className="flex items-center gap-2 text-2xl font-semibold">
-                        {proyecto.descripcion}
-                        <span className={`badge ${proyecto.estatus === 'cerrada' ? 'badge-error' : 'badge-success'}`}>
-                            {OBRA_ESTATUS_LABELS[proyecto.estatus]}
-                        </span>
-                    </h1>
-                    <p className="text-base-content/60 text-sm">
-                        {proyecto.no} · {proyecto.cliente?.nombre ?? 'Sin cliente'}
-                    </p>
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+                            {proyecto.descripcion}
+                            <span className={`badge ${proyecto.estatus === 'cerrada' ? 'badge-error' : 'badge-success'}`}>
+                                {OBRA_ESTATUS_LABELS[proyecto.estatus]}
+                            </span>
+                        </h1>
+                        <p className="text-base-content/60 text-sm">
+                            {proyecto.no} · {proyecto.cliente?.nombre ?? 'Sin cliente'}
+                        </p>
+                    </div>
+                    <a href="/admin/cob/icsoe" className="btn btn-ghost btn-sm">
+                        ICSOE / SIROC
+                    </a>
                 </div>
 
                 <div className="tabs tabs-bordered mb-6">

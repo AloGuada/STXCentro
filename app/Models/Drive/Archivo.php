@@ -36,6 +36,7 @@ class Archivo extends Model
     {
         return [
             'size' => 'integer',
+            'subido_por_id' => 'string',
             'link_expira_en' => 'datetime',
             'auto_eliminar_en' => 'datetime',
         ];

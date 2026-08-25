@@ -78,7 +78,7 @@ class CuentaInternaController extends Controller
         Gate::authorize('costos.cuentas-internas.editar');
 
         $validated = $request->validate([
-            'usuario_id' => ['required', 'exists:usuarios,id'],
+            'usuario_id' => ['required', 'uuid', 'exists:usuarios,id'],
             'rol' => ['required', 'in:'.implode(',', self::COSTOS_ROLES)],
         ]);
 

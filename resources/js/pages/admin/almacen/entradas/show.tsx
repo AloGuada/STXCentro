@@ -12,6 +12,7 @@ type Props = {
         id: number;
         folio: string | null;
         fecha: string | null;
+        registrada_at: string | null;
         almacen: string | null;
         almacen_nombre: string | null;
         orden_compra_id: number | null;
@@ -64,6 +65,14 @@ export default function EntradaShow({ entrada, detalles }: Props) {
                         </div>
                         <p className="text-base-content/60 mt-1 text-sm">
                             {entrada.almacen} · {entrada.almacen_nombre} · {entrada.fecha}
+                            {entrada.registrada_at && (
+                                <span
+                                    className="text-base-content/40"
+                                    title="Cuándo se capturó. La fecha de arriba es cuándo entró el material."
+                                >
+                                    {' '}· registrada {entrada.registrada_at}
+                                </span>
+                            )}
                         </p>
                         {entrada.orden_folio && (
                             <p className="text-sm">

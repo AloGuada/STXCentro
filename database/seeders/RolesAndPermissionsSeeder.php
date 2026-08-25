@@ -348,6 +348,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'cob.comparativos.crear',
             'cob.comparativos.editar',
             'cob.comparativos.eliminar',
+            'cob.icsoe.ver',
+            'cob.icsoe.crear',
+            'cob.icsoe.editar',
+            'cob.icsoe.eliminar',
+            'cob.icsoe.verificar',
+            'cob.icsoe-sbc.ver',
+            'cob.icsoe-sbc.editar',
             'cob.deducciones.ver',
             'cob.deducciones.crear',
             'cob.deducciones.editar',
@@ -418,6 +425,7 @@ class RolesAndPermissionsSeeder extends Seeder
         // Permisos del módulo Drive
         $drivePermissions = [
             'drive.gestionar',
+            'drive.propias',
         ];
 
         // Permisos del módulo DG Reportes

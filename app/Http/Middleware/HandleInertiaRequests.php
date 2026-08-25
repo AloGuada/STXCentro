@@ -102,6 +102,10 @@ class HandleInertiaRequests extends Middleware
                     ]),
             'flash' => fn () => [
                 'permiso' => $request->session()->get('permiso'),
+                // Media app hace `->with('success', ...)` y nadie lo veia: el
+                // prop no viajaba. Las pantallas que ya lo pintan empiezan a
+                // funcionar; las que no, no cambian.
+                'success' => $request->session()->get('success'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

@@ -6,6 +6,8 @@ use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\Pieza;
 use App\Models\Prod\Registro;
+use App\Models\User;
+use Illuminate\Http\UploadedFile;
 
 /**
  * Un catálogo con una marca, dos piezas y un precio asignado.
@@ -76,7 +78,30 @@ test('con --con-produccion borra tambien los registros', function () {
     ])->assertSuccessful();
 
     expect(Registro::count())->toBe(0)
-        ->and(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(0);
+        ->and(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(0)
+        ->and(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(0);
+});
+
+test('tras vaciarlo, volver a subir el layout no deja marcas repetidas', function () {
+    $catalogo = catalogoConMarcas();
+
+    $this->artisan('prod:vaciar-catalogo', ['catalogo' => $catalogo->id, '--force' => true])
+        ->assertSuccessful();
+
+    $subir = fn () => test()->actingAs(User::factory()->create())
+        ->post(route('admin.prod.catalogos.import-csv', $catalogo), [
+            'csv_file' => UploadedFile::fake()->createWithContent(
+                'layout.csv',
+                "QR,MARCA,DESCRIPCION,CATEGORIA,QS,CANTIDAD,PESO KG,AREA,LONGITUD MM,LOTE\n"
+                    ."QR-01,TG-BAR-1,OC-BAR,Barandales,1001,1,10,1,1000,1\n",
+            ),
+        ]);
+
+    $subir();
+    $subir();
+
+    expect(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(1)
+        ->and(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(1);
 });
 
 test('avisa cuando el catalogo ya esta vacio', function () {

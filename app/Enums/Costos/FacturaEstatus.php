@@ -13,13 +13,17 @@ enum FacturaEstatus: string implements HasStateTransitions
     case Cancelada = 'cancelada';
 
     /**
+     * PendienteAprobacion puede regresar a PendienteRecepcion: es el retroceso
+     * cuando desaparece la recepción que la había marcado como completamente
+     * entregada (se canceló o se re-ligó a otra factura).
+     *
      * @return array<int, self>
      */
     public function allowedTransitions(): array
     {
         return match ($this) {
             self::PendienteRecepcion => [self::PendienteAprobacion, self::Cancelada],
-            self::PendienteAprobacion => [self::PendientePago, self::Cancelada],
+            self::PendienteAprobacion => [self::PendientePago, self::PendienteRecepcion, self::Cancelada],
             self::PendientePago => [self::Pagada, self::Cancelada],
             self::Pagada,
             self::Cancelada => [],

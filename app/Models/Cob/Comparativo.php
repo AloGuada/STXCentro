@@ -4,6 +4,7 @@ namespace App\Models\Cob;
 
 use App\Models\Obra;
 use App\Models\Proyecto;
+use App\Services\Cob\IcsoeService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,27 @@ class Comparativo extends Model
     use HasFactory;
 
     protected $table = 'cob_comparativos';
+
+    /**
+     * El comparativo define el valor a ejecutar de las obras a precio unitario,
+     * así que tocarlo obliga a recalcular el ICSOE del proyecto.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (self $comparativo) {
+            if ($comparativo->wasRecentlyCreated || $comparativo->wasChanged(['monto_impacto', 'obra_id'])) {
+                app(IcsoeService::class)->programarRecalculo(
+                    $comparativo->proyecto_id,
+                    'Cambió el comparativo de ingeniería',
+                );
+            }
+        });
+
+        static::deleted(fn (self $comparativo) => app(IcsoeService::class)->programarRecalculo(
+            $comparativo->proyecto_id,
+            'Se eliminó un comparativo de ingeniería',
+        ));
+    }
 
     /** @var list<string> */
     protected $fillable = [

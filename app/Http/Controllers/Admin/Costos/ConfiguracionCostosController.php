@@ -35,7 +35,7 @@ class ConfiguracionCostosController extends Controller
             'corte_dia' => ['required', 'integer', 'min:1', 'max:5'],
             'corte_hora' => ['required', 'date_format:H:i'],
             'dia_comprobante_recepcion' => ['nullable', 'integer', 'min:0', 'max:6'],
-            'gerente_compras_id' => ['nullable', 'string', 'exists:usuarios,id'],
+            'gerente_compras_id' => ['nullable', 'uuid', 'exists:usuarios,id'],
         ]);
 
         ConfiguracionCostos::actual()->update($validated);

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useEditLock } from '@/hooks/use-edit-lock';
 import AppLayout from '@/layouts/app-layout';
+import { etiquetaProveedor } from '@/lib/proveedores';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosObraRubro, CostosSolicitudPago, CostosTipoSolicitud, Departamento, Obra, Proveedor } from '@/types/models';
 
@@ -218,7 +219,7 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
                                     >
                                         <option value="">Sin proveedor</option>
                                         {proveedores.map((p) => (
-                                            <option key={p.id} value={p.id}>{p.nombre_comercial || p.razon_social}</option>
+                                            <option key={p.id} value={p.id}>{etiquetaProveedor(p)}</option>
                                         ))}
                                     </select>
                                 </FormField>

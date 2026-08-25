@@ -53,7 +53,7 @@ type Props = {
 /** Lo que se captura por renglón de la orden: cuánto llegó y a qué precio. */
 type RenglonOrden = { cantidad: string; precio: string; observaciones: string };
 
-/** El almacen captura lo que ya paso: el material entro hoy o ya habia entrado. */
+/** Tope de la fecha de transaccion: el material entro hoy o ya habia entrado. */
 const HOY = new Date().toISOString().slice(0, 10);
 
 const fmt = (n: number, moneda: string) =>

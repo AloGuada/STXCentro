@@ -20,7 +20,8 @@ class PendientesDeLiquidar
     /**
      * @return Collection<int, array{
      *     pieza_id: int,
-     *     qs: string,
+     *     qr: string,
+     *     qs: ?string,
      *     marca: string,
      *     lote: ?string,
      *     descripcion: string,
@@ -72,6 +73,7 @@ class PendientesDeLiquidar
 
                 return [
                     'pieza_id' => (int) $pieza->id,
+                    'qr' => $pieza->qr,
                     'qs' => $pieza->qs,
                     'marca' => $marca->marca,
                     'lote' => $marca->lote,
@@ -88,7 +90,7 @@ class PendientesDeLiquidar
                 ];
             })
             ->filter()
-            ->sortBy(['marca', 'qs'])
+            ->sortBy(['marca', 'qr'])
             ->values();
     }
 }

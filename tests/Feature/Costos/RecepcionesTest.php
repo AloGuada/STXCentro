@@ -3,9 +3,11 @@
 use App\Exports\Costos\RecepcionesExport;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
+use App\Models\Costos\Factura;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
+use App\Models\Costos\Pago;
 use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\SolicitudPago;
@@ -35,6 +37,28 @@ test('lista las recepciones con su orden de compra', function () {
             ->has('recepciones.data', 1)
             ->where('recepciones.data.0.id', $entrega->id)
             ->where('recepciones.data.0.oc.folio', $entrega->ordenCompra->folio)
+        );
+});
+
+test('la recepción con factura ya pagada se lista y no se puede editar', function () {
+    $oc = OrdenCompra::factory()->create();
+    $factura = Factura::factory()->create(['orden_compra_id' => $oc->id]);
+    Pago::factory()->create([
+        'pagable_type' => Factura::class,
+        'pagable_id' => $factura->id,
+    ]);
+    Entrega::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'factura_id' => $factura->id,
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('admin.costos.recepciones.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('recepciones.data', 1)
+            ->where('recepciones.data.0.factura.folio', $factura->folio)
+            ->where('recepciones.data.0.puede_editar', false)
         );
 });
 

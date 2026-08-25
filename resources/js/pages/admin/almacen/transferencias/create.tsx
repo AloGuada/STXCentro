@@ -18,6 +18,9 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Envío', href: '/admin/almacen/transferencias/create' },
 ];
 
+/** Tope de la fecha de transaccion: el material sale hoy o ya salio. */
+const HOY = new Date().toISOString().slice(0, 10);
+
 const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
 type PedidoTransferible = {
@@ -64,7 +67,7 @@ export default function TransferenciaCreate({
         almacen_origen_id: '',
         almacen_destino_id: '',
         pedido_id: pedidoSeleccionado === null ? '' : String(pedidoSeleccionado),
-        fecha_envio: new Date().toISOString().slice(0, 10),
+        fecha_envio: HOY,
         observaciones: '',
         detalles: [{ ...RENGLON_VACIO }] as Renglon[],
     });
@@ -236,6 +239,7 @@ export default function TransferenciaCreate({
                                 <Input
                                     id="fecha_envio"
                                     type="date"
+                                    max={HOY}
                                     value={form.data.fecha_envio}
                                     onChange={(e) => form.setData('fecha_envio', e.target.value)}
                                 />

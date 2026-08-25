@@ -18,7 +18,7 @@ class SolicitudPagoStoreRequest extends FormRequest
     {
         return [
             'departamento_id' => ['required', 'exists:departamentos,id'],
-            'firma_adicional_aprobador_id' => ['nullable', 'exists:usuarios,id'],
+            'firma_adicional_aprobador_id' => ['nullable', 'uuid', 'exists:usuarios,id'],
             'proveedor_id' => ['nullable', 'exists:proveedores,id'],
             'tipo_solicitud_id' => ['required', 'exists:costos_tipo_solicitud,id'],
             'concepto' => ['required', 'string', 'max:75'],

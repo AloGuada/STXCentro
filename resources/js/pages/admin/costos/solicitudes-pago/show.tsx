@@ -78,6 +78,11 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
         can('costos.centros-costos.reasignar') &&
         (solicitud.detalles?.length ?? 0) > 0;
 
+    // Lo cargado al presupuesto es la suma del desglose, no el monto de la
+    // solicitud: son dos números distintos y el desglose puede sumar menos (se
+    // comprueba por partes).
+    const cargadoCostos = (solicitud.detalles ?? []).reduce((acumulado, d) => acumulado + Number(d.subtotal ?? 0), 0);
+
     const handleConfirmarCostos = () => {
         if (confirm('¿Confirmar esta solicitud por costos?')) {
             router.post(`/admin/costos/solicitudes-pago/${solicitud.id}/confirmar-costos`);
@@ -329,7 +334,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
                                         <tfoot>
                                             <tr>
                                                 <td colSpan={5} className="text-right font-bold">Cargado a costos</td>
-                                                <td className="text-right font-bold">{fmtMonto(solicitud.monto_total, solicitud.tipo_moneda)}</td>
+                                                <td className="text-right font-bold">{fmtMonto(cargadoCostos, solicitud.tipo_moneda)}</td>
                                                 <td></td>
                                             </tr>
                                         </tfoot>
@@ -460,7 +465,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
                         obraRubros={obraRubros}
                         detallesActuales={solicitud.detalles ?? []}
                         totalBloqueado={solicitud.estatus === 'pagada'}
-                        montoPagado={Number(solicitud.monto_total)}
+                        montoSolicitud={Number(solicitud.monto_total)}
                     />
                 )}
             </div>

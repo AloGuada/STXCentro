@@ -142,7 +142,9 @@
         </tr>
         <tr>
             <td class="label">Entregó</td>
-            <td colspan="3">{{ $salida->entregador?->name ?? '-' }}</td>
+            <td>{{ $salida->entregador?->name ?? '-' }}</td>
+            <td class="label">Registrada</td>
+            <td>{{ $salida->created_at?->format('d/m/Y H:i') ?? '-' }}</td>
         </tr>
         @if ($salida->observaciones)
         <tr>

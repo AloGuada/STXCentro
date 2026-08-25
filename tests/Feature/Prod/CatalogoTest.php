@@ -5,6 +5,7 @@ use App\Models\Obra;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
+use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Pieza;
 use App\Models\Prod\Registro;
 use App\Models\Proyecto;
@@ -156,9 +157,74 @@ describe('show del catalogo', function () {
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('admin/prod/catalogos/show')
-            ->has('marcas', 2)
+            ->has('marcas.data', 2)
             ->has('versiones', 2)
         );
+    });
+
+    test('las marcas van paginadas y sin sus piezas', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        foreach (range(1, 30) as $n) {
+            marcaConPiezas(2, [
+                'obra_id' => $catalogo->obra_id,
+                'catalogo_id' => $catalogo->id,
+                'marca' => sprintf('TG-%03d', $n),
+            ]);
+        }
+
+        // Un catalogo de obra son decenas de miles de QR: la pantalla trae 25
+        // marcas sin piezas y los QR se piden al desplegar la marca.
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.catalogos.show', $catalogo))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('marcas.data', 25)
+                ->where('marcas.total', 30)
+                ->missing('marcas.data.0.piezas')
+                ->where('marcas.data.0.piezas_count', 2)
+                // Los totales son del catalogo entero, no de la pagina.
+                ->where('totales.marcas', 30)
+                ->where('totales.piezas', 60)
+            );
+    });
+
+    test('el buscador filtra en el servidor', function () {
+        $catalogo = Catalogo::factory()->create();
+        $buscada = marcaConPiezas(1, [
+            'obra_id' => $catalogo->obra_id,
+            'catalogo_id' => $catalogo->id,
+            'marca' => 'TG-BUSCADA',
+        ]);
+        marcaConPiezas(1, [
+            'obra_id' => $catalogo->obra_id,
+            'catalogo_id' => $catalogo->id,
+            'marca' => 'TG-OTRA',
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.catalogos.show', ['catalogo' => $catalogo, 'search' => 'BUSCADA']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('marcas.data', 1)
+                ->where('marcas.data.0.id', $buscada->id)
+            );
+    });
+
+    test('el avance de la marca lo resume el servidor', function () {
+        $catalogo = Catalogo::factory()->create();
+        $marca = marcaConPiezas(2, ['obra_id' => $catalogo->obra_id, 'catalogo_id' => $catalogo->id]);
+        $proceso = proceso();
+        obraPagaProcesos($catalogo->obra_id, $proceso);
+
+        capturarPiezas([$marca->piezas[0]], GrupoTrabajo::factory()->create(), '2026-02-04');
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.catalogos.show', $catalogo))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('avancePorMarca.'.$marca->id.'.'.$proceso->id, 1)
+            );
     });
 });
 

@@ -4,31 +4,43 @@ import { formatDate } from '@/components/ui/formatted-date';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
 import { Select, SelectItem } from '@/components/ui/select';
-import { etiquetaDePieza } from '@/lib/prod/piezas';
-import type { Concepto, Obra, ProdDestajo, ProdGrupoTrabajo, ProdPieza, ProdProceso } from '@/types/models';
-import { useForm } from '@inertiajs/react';
-import { Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
-import { useMemo, type FormEvent } from 'react';
+import { RevisarImportacionModal } from '@/components/prod/revisar-importacion-modal';
+import { etiquetaDePieza, etiquetaDeUnidad } from '@/lib/prod/piezas';
+import type {
+    Concepto,
+    Obra,
+    ProdDestajo,
+    ProdGrupoTrabajo,
+    ProdPieza,
+    ProdPlanImportacion,
+    ProdProceso,
+} from '@/types/models';
+import { useForm, usePage } from '@inertiajs/react';
+import { ListChecksIcon, Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
-type MarcaConPiezas = Concepto & { obra?: Obra; piezas?: ProdPieza[] };
+type MarcaDelCatalogo = Concepto & { obra?: Obra };
+
+/** Lo que devuelve el endpoint de piezas: el QR y cuánto le falta por proceso. */
+type PiezaConAvance = Pick<ProdPieza, 'id' | 'qr' | 'qs'> & {
+    avance: Record<number, { capturado: number; disponible: number }>;
+};
 
 type Props = {
     destajo: ProdDestajo;
-    marcas: MarcaConPiezas[];
+    /** Sólo las obras con catálogo vigente: el primer escalón de la captura. */
+    obras: Obra[];
     procesos: ProdProceso[];
     /** Qué procesos paga cada obra: obraId => ids de proceso. */
     procesosPorObra: Record<number, number[]>;
-    /** Avance por pieza y proceso, para saber cuánto le falta a cada QS. */
-    avance: Record<number, Record<number, { capturado: number; disponible: number }>>;
     gruposTrabajo: ProdGrupoTrabajo[];
 };
 
 export function CapturarProduccion({
     destajo,
-    marcas,
+    obras,
     procesos,
     procesosPorObra,
-    avance,
     gruposTrabajo,
 }: Props) {
     const soloFecha = (v: string) => v.slice(0, 10);
@@ -54,30 +66,167 @@ export function CapturarProduccion({
         fecha: soloFecha(destajo.fecha_inicio),
     });
 
+    // El import va en dos pasos: primero se analiza el archivo y se enseña el
+    // plan, y sólo al confirmar se escribe. El plan se tira en cuanto cambia el
+    // archivo o la fecha, para no confirmar nunca uno que ya no corresponde.
+    const [plan, setPlan] = useState<ProdPlanImportacion | null>(null);
+    const [analizando, setAnalizando] = useState(false);
+    const [errorPlan, setErrorPlan] = useState<string | null>(null);
+    const [modalAbierto, setModalAbierto] = useState(false);
+
+    const flash = usePage<{ flash?: { success?: string } }>().props.flash;
+
+    const olvidarPlan = () => {
+        setPlan(null);
+        setErrorPlan(null);
+    };
+
+    const analizar = async (e: FormEvent) => {
+        e.preventDefault();
+
+        if (!csvForm.data.csv_file) {
+            return;
+        }
+
+        setModalAbierto(true);
+        setAnalizando(true);
+        setErrorPlan(null);
+
+        const cuerpo = new FormData();
+        cuerpo.append('csv_file', csvForm.data.csv_file);
+        cuerpo.append('fecha', csvForm.data.fecha);
+
+        // La app Inertia no expone un meta csrf-token: el token va en
+        // X-XSRF-TOKEN leído de la cookie, o Laravel responde 419.
+        const cookie = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+
+        try {
+            const respuesta = await fetch(`/admin/prod/destajos/${destajo.id}/registros/analizar-csv`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'X-XSRF-TOKEN': cookie ? decodeURIComponent(cookie[1]) : '',
+                },
+                body: cuerpo,
+            });
+
+            const datos = await respuesta.json();
+
+            if (!respuesta.ok) {
+                const errores: string[] = Object.values(datos.errors ?? {}).flat() as string[];
+
+                setErrorPlan(errores.join(' ') || 'No se pudo analizar el archivo.');
+
+                return;
+            }
+
+            setPlan(datos as ProdPlanImportacion);
+        } catch {
+            setErrorPlan('No se pudo analizar el archivo.');
+        } finally {
+            setAnalizando(false);
+        }
+    };
+
+    const confirmarImportacion = () => {
+        csvForm.post(`/admin/prod/destajos/${destajo.id}/registros/import-csv`, {
+            preserveScroll: true,
+            forceFormData: true,
+            onSuccess: () => {
+                setModalAbierto(false);
+                olvidarPlan();
+                csvForm.reset('csv_file');
+            },
+        });
+    };
+
+    // La obra se nombra por su descripción: el número de OP no le dice nada a
+    // quien captura. Si viene vacía se cae al número, que siempre existe.
+    const nombreDeObra = (obra: Obra): string => obra.descripcion?.trim() || obra.no;
+
+    const obraOptions = obras.map((o) => ({ value: String(o.id), label: nombreDeObra(o) }));
+
+    // El catálogo baja en tres tiempos: la obra viene en la pantalla, y marcas y
+    // QR se piden al elegir el escalón de arriba. Una obra son decenas de miles
+    // de piezas: mandarlas todas tumbaba la pantalla por memoria para acabar
+    // usando las de una sola marca.
+    const [obraId, setObraId] = useState('');
+    const [marcas, setMarcas] = useState<MarcaDelCatalogo[]>([]);
+    const [cargandoMarcas, setCargandoMarcas] = useState(false);
+    const [piezasDeLaMarca, setPiezasDeLaMarca] = useState<PiezaConAvance[]>([]);
+    const [cargandoPiezas, setCargandoPiezas] = useState(false);
+    // Tras capturar hay que volver a preguntar: lo recién guardado consume cupo.
+    const [refresco, setRefresco] = useState(0);
+    const marcaId = registroForm.data.marca_id;
+
+    /** Trae un escalón del catálogo y avisa si la petición ya se abandonó. */
+    const pedir = <T,>(url: string, recibir: (datos: T | null) => void, marcarCarga: (v: boolean) => void) => {
+        const control = new AbortController();
+        marcarCarga(true);
+
+        fetch(url, { headers: { Accept: 'application/json' }, signal: control.signal })
+            .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+            .then(recibir)
+            .catch(() => {
+                if (!control.signal.aborted) recibir(null);
+            })
+            .finally(() => {
+                if (!control.signal.aborted) marcarCarga(false);
+            });
+
+        return () => control.abort();
+    };
+
+    useEffect(() => {
+        if (!obraId) {
+            setMarcas([]);
+            return;
+        }
+
+        return pedir<{ marcas: MarcaDelCatalogo[] }>(
+            `/admin/prod/obras/${obraId}/marcas`,
+            (datos) => setMarcas(datos?.marcas ?? []),
+            setCargandoMarcas,
+        );
+    }, [destajo.id, obraId]);
+
+    useEffect(() => {
+        if (!marcaId) {
+            setPiezasDeLaMarca([]);
+            return;
+        }
+
+        return pedir<{ piezas: PiezaConAvance[] }>(
+            `/admin/prod/marcas/${marcaId}/piezas`,
+            (datos) => setPiezasDeLaMarca(datos?.piezas ?? []),
+            setCargandoPiezas,
+        );
+    }, [destajo.id, marcaId, refresco]);
+
     const marcaOptions = marcas.map((m) => ({
         value: String(m.id),
-        label: `${m.obra ? `[${m.obra.no}] ` : ''}${etiquetaDePieza(m.marca, m.lote)} - ${m.descripcion}`,
+        label: `${etiquetaDePieza(m.marca, m.lote)} - ${m.descripcion}`,
     }));
 
-    const marcaElegida = marcas.find((m) => String(m.id) === registroForm.data.marca_id);
+    const marcaElegida = marcas.find((m) => String(m.id) === marcaId);
 
-    // Sólo los procesos que paga la obra de esa marca: capturar pintura donde
-    // nadie la presupuestó inventaría dinero.
+    // Sólo los procesos que paga la obra: capturar pintura donde nadie la
+    // presupuestó inventaría dinero.
     const procesosDisponibles = useMemo(() => {
-        if (!marcaElegida) return [];
-        const permitidos = procesosPorObra[marcaElegida.obra_id] ?? [];
+        if (!obraId) return [];
+        const permitidos = procesosPorObra[Number(obraId)] ?? [];
         return procesos.filter((p) => permitidos.includes(p.id));
-    }, [marcaElegida, procesos, procesosPorObra]);
+    }, [obraId, procesos, procesosPorObra]);
 
     const procesoId = Number(registroForm.data.proceso_id);
-    const disponibleDe = (piezaId: number): number => avance[piezaId]?.[procesoId]?.disponible ?? 1;
+    const disponibleDe = (pieza: PiezaConAvance): number => pieza.avance?.[procesoId]?.disponible ?? 1;
 
-    const piezasDeLaMarca = marcaElegida?.piezas ?? [];
     const consumo = registroForm.data.porcentaje / 100;
     const seleccionadas = registroForm.data.piezas;
 
     // Las que ya no admiten lo que se quiere pagar: se marcan y no se pueden elegir.
-    const sinCupo = (pieza: ProdPieza) => !!procesoId && consumo > disponibleDe(pieza.id) + 0.0001;
+    const sinCupo = (pieza: PiezaConAvance) => !!procesoId && consumo > disponibleDe(pieza) + 0.0001;
 
     const alternarPieza = (piezaId: number) => {
         registroForm.setData(
@@ -99,16 +248,10 @@ export function CapturarProduccion({
         e.preventDefault();
         registroForm.post(`/admin/prod/destajos/${destajo.id}/registros`, {
             preserveScroll: true,
-            onSuccess: () => registroForm.setData('piezas', []),
-        });
-    };
-
-    const submitCsv = (e: FormEvent) => {
-        e.preventDefault();
-        csvForm.post(`/admin/prod/destajos/${destajo.id}/registros/import-csv`, {
-            preserveScroll: true,
-            forceFormData: true,
-            onSuccess: () => csvForm.reset('csv_file'),
+            onSuccess: () => {
+                registroForm.setData('piezas', []);
+                setRefresco((n) => n + 1);
+            },
         });
     };
 
@@ -119,7 +262,33 @@ export function CapturarProduccion({
                     <PlusIcon className="size-4" /> Capturar producción
                 </h3>
                 <form onSubmit={submitRegistro} className="space-y-3">
-                    <FormField label="Marca" htmlFor="marca_id" error={registroForm.errors.marca_id} required>
+                    <FormField label="Obra" htmlFor="obra_id" required>
+                        <SearchSelect
+                            options={obraOptions}
+                            value={obraId}
+                            onValueChange={(v) => {
+                                setObraId(v);
+                                // La marca y el proceso cuelgan de la obra: al
+                                // cambiarla dejan de tener sentido.
+                                registroForm.setData('marca_id', '');
+                                registroForm.setData('proceso_id', '');
+                                registroForm.setData('piezas', []);
+                            }}
+                            placeholder="Buscar obra..."
+                        />
+                    </FormField>
+
+                    <FormField
+                        label="Marca"
+                        htmlFor="marca_id"
+                        error={registroForm.errors.marca_id}
+                        description={
+                            obraId && !cargandoMarcas && marcaOptions.length === 0
+                                ? 'Esta obra no tiene marcas en su catálogo vigente.'
+                                : undefined
+                        }
+                        required
+                    >
                         <SearchSelect
                             options={marcaOptions}
                             value={registroForm.data.marca_id}
@@ -127,7 +296,13 @@ export function CapturarProduccion({
                                 registroForm.setData('marca_id', v);
                                 registroForm.setData('piezas', []);
                             }}
-                            placeholder="Buscar marca..."
+                            placeholder={
+                                !obraId
+                                    ? 'Elige primero una obra'
+                                    : cargandoMarcas
+                                      ? 'Cargando marcas...'
+                                      : 'Buscar marca...'
+                            }
                         />
                     </FormField>
 
@@ -198,7 +373,7 @@ export function CapturarProduccion({
                     </FormField>
 
                     <FormField
-                        label="Piezas (QS)"
+                        label="Piezas (QR)"
                         htmlFor="piezas"
                         error={registroForm.errors.piezas}
                         description={
@@ -209,14 +384,18 @@ export function CapturarProduccion({
                         required
                     >
                         <div className="rounded-box border-base-300 max-h-52 overflow-auto border p-2">
-                            {piezasDeLaMarca.length === 0 ? (
+                            {cargandoPiezas ? (
+                                <p className="text-base-content/50 flex items-center justify-center gap-2 py-4 text-center text-sm">
+                                    <Loader2Icon className="size-4 animate-spin" /> Cargando piezas...
+                                </p>
+                            ) : piezasDeLaMarca.length === 0 ? (
                                 <p className="text-base-content/50 py-4 text-center text-sm">
                                     {marcaElegida ? 'Esta marca no tiene piezas cargadas.' : 'Sin marca seleccionada'}
                                 </p>
                             ) : (
                                 <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
                                     {piezasDeLaMarca.map((pieza) => {
-                                        const falta = procesoId ? disponibleDe(pieza.id) : 1;
+                                        const falta = procesoId ? disponibleDe(pieza) : 1;
                                         const bloqueada = sinCupo(pieza);
 
                                         return (
@@ -225,22 +404,31 @@ export function CapturarProduccion({
                                                 className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm ${
                                                     bloqueada ? 'text-base-content/40' : 'hover:bg-base-200'
                                                 }`}
-                                                title={
+                                                title={[
+                                                    etiquetaDeUnidad(pieza),
                                                     bloqueada
                                                         ? falta <= 0
                                                             ? 'Ya está pagada al 100% en este proceso'
                                                             : `Sólo le falta ${(falta * 100).toFixed(0)}%`
-                                                        : undefined
-                                                }
+                                                        : null,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' · ')}
                                             >
                                                 <input
                                                     type="checkbox"
-                                                    className="checkbox checkbox-xs"
+                                                    className="checkbox checkbox-xs shrink-0"
                                                     checked={seleccionadas.includes(pieza.id)}
                                                     disabled={bloqueada}
                                                     onChange={() => alternarPieza(pieza.id)}
                                                 />
-                                                <span className="font-mono">{pieza.qs}</span>
+                                                {/* El QR identifica; el QS sólo acompaña y puede venir vacío. */}
+                                                <span className="truncate font-mono">{pieza.qr}</span>
+                                                {pieza.qs && (
+                                                    <span className="text-base-content/50 shrink-0 font-mono text-xs">
+                                                        QS {pieza.qs}
+                                                    </span>
+                                                )}
                                                 {procesoId > 0 && falta > 0 && falta < 1 && (
                                                     <span className="badge badge-xs badge-warning">
                                                         {(falta * 100).toFixed(0)}%
@@ -297,14 +485,23 @@ export function CapturarProduccion({
                 <h3 className="mb-3 flex items-center gap-2 font-semibold">
                     <UploadIcon className="size-4" /> Importar producción (CSV)
                 </h3>
-                <form onSubmit={submitCsv} className="space-y-3">
+                {flash?.success && (
+                    <div className="alert alert-success mb-3">
+                        <span>{flash.success}</span>
+                    </div>
+                )}
+
+                <form onSubmit={analizar} className="space-y-3">
                     <FormField label="Archivo CSV" htmlFor="csv_file" error={csvForm.errors.csv_file} required>
                         <input
                             id="csv_file"
                             type="file"
                             accept=".csv,.txt"
                             className="file-input file-input-bordered w-full"
-                            onChange={(e) => csvForm.setData('csv_file', e.target.files?.[0] ?? null)}
+                            onChange={(e) => {
+                                csvForm.setData('csv_file', e.target.files?.[0] ?? null);
+                                olvidarPlan();
+                            }}
                         />
                     </FormField>
 
@@ -315,34 +512,45 @@ export function CapturarProduccion({
                             min={soloFecha(destajo.fecha_inicio)}
                             max={soloFecha(destajo.fecha_fin)}
                             value={csvForm.data.fecha}
-                            onChange={(e) => csvForm.setData('fecha', e.target.value)}
+                            onChange={(e) => {
+                                csvForm.setData('fecha', e.target.value);
+                                olvidarPlan();
+                            }}
                             error={!!csvForm.errors.fecha}
                         />
                     </FormField>
 
                     <p className="text-base-content/60 text-xs">
-                        Acepta el <strong>export de avance de planta</strong>: la pieza se resuelve por{' '}
-                        <span className="font-mono">QS</span> y el número de <span className="font-mono">Proceso</span>{' '}
-                        decide qué se paga (los eventos que no son de destajo se ignoran). Cada ubicación debe estar en
-                        el catálogo de módulos y pertenecer a un solo grupo. También acepta un CSV a mano con{' '}
-                        <span className="font-mono">Grupo, QS, Proceso</span> y opcionalmente{' '}
-                        <span className="font-mono">Porcentaje</span> (si no viene, se paga al 100%). Todos los
-                        renglones toman la fecha seleccionada.
+                        Acepta el <strong>export de avance de planta</strong>: el número de{' '}
+                        <span className="font-mono">Proceso</span> decide qué se paga (los eventos que no son de destajo
+                        se ignoran) y cada ubicación debe estar en el catálogo de módulos y pertenecer a un solo grupo.
+                        También acepta un CSV a mano con <span className="font-mono">Grupo, QS, Proceso</span> y
+                        opcionalmente <span className="font-mono">Porcentaje</span> (si no viene, se paga al 100%).
+                        Todos los renglones toman la fecha seleccionada.
+                        <br />
+                        Si el archivo no trae <span className="font-mono">QR</span>, cada movimiento se asigna a la
+                        pieza con el <strong>QR disponible más chico</strong> de las que comparten ese QS. Nada se
+                        guarda hasta que lo confirmes en la revisión.
                     </p>
 
                     <div className="flex justify-end">
-                        <Button
-                            type="submit"
-                            size="sm"
-                            variant="outline"
-                            disabled={csvForm.processing || !csvForm.data.csv_file}
-                        >
-                            {csvForm.processing && <Loader2Icon className="size-4 animate-spin" />}
-                            Importar
+                        <Button type="submit" size="sm" variant="outline" disabled={!csvForm.data.csv_file}>
+                            <ListChecksIcon className="size-4" />
+                            Revisar
                         </Button>
                     </div>
                 </form>
             </div>
+
+            <RevisarImportacionModal
+                open={modalAbierto}
+                onClose={() => setModalAbierto(false)}
+                plan={plan}
+                cargando={analizando}
+                error={errorPlan}
+                confirmando={csvForm.processing}
+                onConfirmar={confirmarImportacion}
+            />
         </div>
     );
 }

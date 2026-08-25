@@ -46,7 +46,7 @@ class EntradaController extends Controller
 
         $entradas = Entrega::query()
             ->whereIn('almacen_id', $visibles)
-            ->with(['almacen:id,clave', 'ordenCompra:id,folio,proveedor_id', 'ordenCompra.proveedor:id,razon_social,nombre_comercial', 'recibidoPor:id,name'])
+            ->with(['almacen:id,clave', 'ordenCompra:id,folio,proveedor_id', 'ordenCompra.proveedor:id,razon_social,nombre_comercial', 'recibidor:id,name'])
             ->withCount('detalles')
             ->when(! $request->boolean('ver_canceladas'), fn ($q) => $q->activa())
             ->when($request->integer('almacen_id') ?: null, fn ($q, int $id) => $q->where('almacen_id', $id))
@@ -65,7 +65,7 @@ class EntradaController extends Controller
                 'proveedor' => $this->nombreDe($e->ordenCompra?->proveedor),
                 'renglones' => $e->detalles_count,
                 'importe' => $e->importeRecibido(),
-                'recibio' => $e->recibidoPor?->name,
+                'recibio' => $e->recibidor?->name,
                 'cancelada' => $e->estaCancelada(),
             ]);
 
@@ -227,7 +227,7 @@ class EntradaController extends Controller
             'almacen:id,clave,nombre',
             'ordenCompra:id,folio,proveedor_id',
             'ordenCompra.proveedor:id,razon_social,nombre_comercial,rfc',
-            'recibidoPor:id,name',
+            'recibidor:id,name',
             'detalles.producto:id,codigo,descripcion,unidad',
             'detalles.ordenCompraDetalle',
         ]);
@@ -237,6 +237,8 @@ class EntradaController extends Controller
                 'id' => $entrada->id,
                 'folio' => $entrada->folio,
                 'fecha' => $entrada->fecha_entrega?->toDateString(),
+                // Cuando se capturo. Es lo que responde "esto se fecho hacia atras?".
+                'registrada_at' => $entrada->created_at?->toDateTimeString(),
                 'almacen' => $entrada->almacen?->clave,
                 'almacen_nombre' => $entrada->almacen?->nombre,
                 'orden_compra_id' => $entrada->orden_compra_id,
@@ -244,7 +246,7 @@ class EntradaController extends Controller
                 'proveedor' => $this->nombreDe($entrada->ordenCompra?->proveedor),
                 'sin_orden' => $entrada->esSinOrden(),
                 'observaciones' => $entrada->observaciones,
-                'recibio' => $entrada->recibidoPor?->name,
+                'recibio' => $entrada->recibidor?->name,
                 'cancelada' => $entrada->estaCancelada(),
                 'motivo_cancelacion' => $entrada->motivo_cancelacion,
                 'importe' => $entrada->importeRecibido(),

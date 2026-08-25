@@ -5,18 +5,17 @@ namespace App\Http\Controllers\Admin\Prod;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Prod\RegistroImportCsvRequest;
 use App\Http\Requests\Admin\Prod\RegistroStoreRequest;
-use App\Models\Obra;
 use App\Models\Prod\Destajo;
-use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Pieza;
 use App\Models\Prod\Proceso;
-use App\Models\Prod\ProcesoEvento;
 use App\Models\Prod\Registro;
-use App\Models\Prod\Ubicacion;
 use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\LectorCsvDeProduccion;
+use App\Services\Prod\PlanDeImportacionCsv;
+use App\Services\Prod\ProcesosPagadosPorObra;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class RegistroController extends Controller
 {
@@ -24,8 +23,12 @@ class RegistroController extends Controller
      * Captura manual: una o varias piezas (QS) del mismo modelo, en un proceso.
      * Las que no caben en su tope se reportan y el resto sí se guarda.
      */
-    public function store(RegistroStoreRequest $request, Destajo $destajo, AvanceDePiezas $avance): RedirectResponse
-    {
+    public function store(
+        RegistroStoreRequest $request,
+        Destajo $destajo,
+        AvanceDePiezas $avance,
+        ProcesosPagadosPorObra $procesos,
+    ): RedirectResponse {
         if ($destajo->cerrado) {
             return back()->withErrors(['error' => 'No se puede capturar produccion en un destajo cerrado.']);
         }
@@ -42,7 +45,7 @@ class RegistroController extends Controller
         $piezas = Pieza::with(['marca', 'catalogo'])
             ->findMany(array_unique($request->input('piezas', [])));
 
-        if ($error = $this->errorDeProcesoEnObra($piezas, $proceso)) {
+        if ($error = $procesos->error($piezas, $proceso)) {
             return back()->withErrors(['proceso_id' => $error]);
         }
 
@@ -51,7 +54,7 @@ class RegistroController extends Controller
 
         foreach ($piezas as $pieza) {
             if (! $avance->cabe($pieza, $proceso->id, $porcentaje)) {
-                $rechazadas[] = $this->mensajeDeTope($pieza, $proceso, $avance->disponible($pieza, $proceso->id));
+                $rechazadas[] = $avance->mensajeDeTope($pieza, $proceso, $avance->disponible($pieza, $proceso->id));
 
                 continue;
             }
@@ -87,229 +90,130 @@ class RegistroController extends Controller
     }
 
     /**
-     * Carga masiva de produccion. Acepta el export de avance de planta (Proceso,
-     * Ubicacion y QS) o un CSV a mano con GRUPO, QS y opcionalmente PROCESO y
-     * PORCENTAJE. Todos los renglones toman la fecha del formulario.
+     * Paso 1: analiza el archivo y devuelve lo que pasaria, sin escribir nada.
      *
-     * La pieza se resuelve por QS contra el catalogo vigente: exacto, sin
-     * adivinar por marca. El numero de evento decide el proceso.
+     * Es lo que alimenta el modal de revision. Sale del mismo armador que usa el
+     * guardado, para que lo que se ensena y lo que se escribe no puedan diferir.
      */
-    public function importCsv(
+    public function analizarCsv(
         RegistroImportCsvRequest $request,
         Destajo $destajo,
-        AvanceDePiezas $avance,
         LectorCsvDeProduccion $lector,
-    ): RedirectResponse {
-        if ($destajo->cerrado) {
-            return back()->withErrors(['error' => 'No se puede importar produccion en un destajo cerrado.']);
-        }
-
-        $fecha = $request->date('fecha');
-        if ($fecha->lt($destajo->fecha_inicio) || $fecha->gt($destajo->fecha_fin)) {
-            return back()->withErrors(['fecha' => 'La fecha debe estar dentro del periodo del destajo.']);
+        PlanDeImportacionCsv $planificador,
+    ): JsonResponse {
+        if ($error = $this->errorDeArchivo($request, $destajo)) {
+            return response()->json(['errors' => $error], 422);
         }
 
         ['formato' => $formato, 'filas' => $filas] = $lector->leer($request->file('csv_file')->getRealPath());
 
         if ($filas === []) {
-            $vacio = $formato === LectorCsvDeProduccion::FORMATO_EXPORT
-                ? 'El archivo no trae ningun movimiento con QS de los eventos configurados.'
-                : 'El archivo no trae renglones para importar.';
-
-            return back()->withErrors(['csv_file' => $vacio]);
+            return response()->json(['errors' => ['csv_file' => [$this->mensajeDeArchivoVacio($formato)]]], 422);
         }
 
-        $procesosPorEvento = ProcesoEvento::with('proceso')->get()->keyBy('evento');
-        $procesosPorNombre = Proceso::activos()->get()->keyBy(fn (Proceso $p) => $lector->normalizar($p->nombre));
+        return response()->json($planificador->armar($filas, $formato)->toArray());
+    }
 
-        $importados = 0;
-        $errores = [];
-        /** @var array<string, float> $topes */
-        $topes = [];
+    /**
+     * Paso 2: aplica el archivo. Acepta el export de avance de planta (Proceso,
+     * Ubicacion y QS) o un CSV a mano con GRUPO, QS, PROCESO y opcionalmente
+     * PORCENTAJE. Todos los renglones toman la fecha del formulario.
+     *
+     * Se vuelve a armar el plan en vez de confiar en el que se reviso: entre la
+     * revision y el guardado alguien mas pudo capturar, y el tope tiene que
+     * decidirse contra lo que hay ahora.
+     */
+    public function importCsv(
+        RegistroImportCsvRequest $request,
+        Destajo $destajo,
+        LectorCsvDeProduccion $lector,
+        PlanDeImportacionCsv $planificador,
+    ): RedirectResponse {
+        if ($error = $this->errorDeArchivo($request, $destajo)) {
+            return back()->withErrors(array_map(fn (array $mensajes): string => $mensajes[0], $error));
+        }
 
-        foreach ($filas as $fila) {
-            $ref = $fila['referencia'];
+        ['formato' => $formato, 'filas' => $filas] = $lector->leer($request->file('csv_file')->getRealPath());
 
-            $proceso = $fila['evento'] !== null
-                ? $procesosPorEvento->get($fila['evento'])?->proceso
-                : $procesosPorNombre->get($lector->normalizar((string) $fila['proceso']));
+        if ($filas === []) {
+            return back()->withErrors(['csv_file' => $this->mensajeDeArchivoVacio($formato)]);
+        }
 
-            if ($proceso === null) {
-                // Los eventos que no pagan destajo (corte, inspeccion, embarque)
-                // son la mayoria del export: se saltan sin ruido.
-                if ($fila['evento'] !== null) {
-                    continue;
-                }
+        $plan = $planificador->armar($filas, $formato);
 
-                $errores[] = "{$ref}: proceso \"{$fila['proceso']}\" no encontrado.";
+        // Un archivo lleno de eventos que no pagan destajo se salta entero sin un
+        // solo error. Decir "0 registros correctamente" haria pensar que la
+        // semana ya esta capturada.
+        if ($plan->vacio()) {
+            $motivos = $plan->motivos();
 
-                continue;
-            }
-
-            $grupo = $fila['ubicacion'] !== null
-                ? $this->grupoDeUbicacion($fila['ubicacion'], $lector, $errores, $ref)
-                : GrupoTrabajo::where('descripcion', $fila['grupo'])->first();
-
-            if ($grupo === null) {
-                if ($fila['ubicacion'] === null) {
-                    $errores[] = "{$ref}: grupo \"{$fila['grupo']}\" no encontrado.";
-                }
-
-                continue;
-            }
-
-            // El QR identifica sin ambiguedad; el QS puede repetirse entre lotes,
-            // asi que solo se usa cuando el archivo no trae QR.
-            $porQr = ($fila['qr'] ?? null) !== null;
-            $identificador = $porQr ? "QR {$fila['qr']}" : "QS {$fila['qs']}";
-
-            $piezas = Pieza::with(['marca', 'catalogo'])
-                ->deCatalogoVigente()
-                ->when($porQr, fn ($q) => $q->where('qr', $fila['qr']))
-                ->unless($porQr, fn ($q) => $q->where('qs', $fila['qs']))
-                ->where('activo', true)
-                ->get();
-
-            if ($piezas->isEmpty()) {
-                $errores[] = "{$ref}: la pieza {$identificador} no esta en ningun catalogo vigente.";
-
-                continue;
-            }
-            if ($piezas->count() > 1) {
-                $errores[] = $porQr
-                    ? "{$ref}: el {$identificador} existe en varias obras (ambiguo)."
-                    : "{$ref}: el {$identificador} existe en varias piezas (ambiguo); el archivo tiene que traer el QR.";
-
-                continue;
-            }
-            if ($fila['porcentaje'] <= 0 || $fila['porcentaje'] > 100) {
-                $errores[] = "{$ref}: porcentaje invalido (debe ir de 1 a 100).";
-
-                continue;
-            }
-
-            $pieza = $piezas->first();
-
-            if ($error = $this->errorDeProcesoEnObra(collect([$pieza]), $proceso)) {
-                $errores[] = "{$ref}: {$error}";
-
-                continue;
-            }
-
-            // El tope se descuenta dentro del propio archivo: dos renglones de la
-            // misma pieza y proceso no pueden rebasar juntos lo que falta.
-            $clave = $pieza->id.'|'.$proceso->id;
-            $disponible = $topes[$clave] ??= $avance->disponible($pieza, $proceso->id);
-            $consumo = round($fila['porcentaje'] / 100, 4);
-
-            if ($consumo > $disponible + 0.0001) {
-                $errores[] = "{$ref}: ".$this->mensajeDeTope($pieza, $proceso, $disponible);
-
-                continue;
-            }
-
-            Registro::create([
-                'fecha' => $fecha,
-                'pieza_id' => $pieza->id,
-                'proceso_id' => $proceso->id,
-                'grupo_trabajo_id' => $grupo->id,
-                'porcentaje' => $fila['porcentaje'],
+            return back()->withErrors([
+                'csv_file' => $motivos === []
+                    ? 'El archivo no trae ningun movimiento de los eventos configurados en los procesos.'
+                    : implode(' ', $motivos),
             ]);
-            $topes[$clave] -= $consumo;
-            $importados++;
         }
 
-        if ($errores !== []) {
+        $fecha = $request->date('fecha');
+        $aplicables = $plan->aplicables();
+
+        DB::transaction(function () use ($aplicables, $fecha): void {
+            foreach ($aplicables as $renglon) {
+                Registro::create([
+                    'fecha' => $fecha,
+                    'pieza_id' => $renglon['pieza_id'],
+                    'proceso_id' => $renglon['proceso_id'],
+                    'grupo_trabajo_id' => $renglon['grupo_trabajo_id'],
+                    'porcentaje' => $renglon['porcentaje'],
+                ]);
+            }
+        });
+
+        $importados = count($aplicables);
+        $errores = (int) $plan->resumen()['errores'];
+        $omitidas = (int) $plan->resumen()['omitidas'];
+
+        // Lo omitido (el mismo escaneo repetido) es benigno y ya se vio en la
+        // revision: se cuenta en el mensaje y ya. Lo rechazado si se sigue
+        // reportando como error, porque es algo que alguien tiene que atender.
+        $exito = $omitidas > 0
+            ? "Se importaron {$importados} registros; {$omitidas} renglon(es) se omitieron por repetidos."
+            : "Se importaron {$importados} registros correctamente.";
+
+        if ($errores > 0) {
             return back()
                 ->with('success', "Se importaron {$importados} registros.")
-                ->withErrors(['csv_file' => implode(' ', $errores)]);
+                ->withErrors(['csv_file' => implode(' ', $plan->motivos('error'))]);
         }
 
-        // Un archivo lleno de eventos que no pagan destajo se salta entero sin
-        // un solo error. Decir "0 registros correctamente" haria pensar que la
-        // semana ya esta capturada.
-        if ($importados === 0) {
-            return back()->withErrors([
-                'csv_file' => 'El archivo no trae ningun movimiento de los eventos configurados en los procesos.',
-            ]);
-        }
-
-        return back()->with('success', "Se importaron {$importados} registros correctamente.");
+        return back()->with('success', $exito);
     }
 
     /**
-     * Una obra sólo paga los procesos que tiene configurados: capturar pintura
-     * en una obra que sólo suelda inventaría dinero que nadie presupuestó.
+     * Las dos guardas que comparten analizar y aplicar, en forma de errores por
+     * campo para poder devolverlas como redirect o como JSON.
      *
-     * @param  Collection<int, Pieza>  $piezas
+     * @return array<string, list<string>>|null
      */
-    private function errorDeProcesoEnObra(Collection $piezas, Proceso $proceso): ?string
+    private function errorDeArchivo(RegistroImportCsvRequest $request, Destajo $destajo): ?array
     {
-        $obraIds = $piezas->map(fn (Pieza $p) => (int) $p->catalogo?->obra_id)->filter()->unique();
+        if ($destajo->cerrado) {
+            return ['error' => ['No se puede importar produccion en un destajo cerrado.']];
+        }
 
-        $conElProceso = Obra::query()
-            ->whereIn('id', $obraIds)
-            ->whereHas('procesos', fn ($q) => $q->where('prod_procesos.id', $proceso->id))
-            ->pluck('id');
+        $fecha = $request->date('fecha');
 
-        return $obraIds->diff($conElProceso)->isEmpty()
-            ? null
-            : "La obra no paga el proceso \"{$proceso->nombre}\"; configúralo en la obra antes de capturar.";
+        if ($fecha->lt($destajo->fecha_inicio) || $fecha->gt($destajo->fecha_fin)) {
+            return ['fecha' => ['La fecha debe estar dentro del periodo del destajo.']];
+        }
+
+        return null;
     }
 
-    /**
-     * Traduce la ubicación del export al grupo que trabaja ahí. La ubicación debe
-     * existir en el catálogo y pertenecer a un solo grupo; si no, el renglón se
-     * reporta y se salta.
-     *
-     * @param  list<string>  $errores
-     */
-    private function grupoDeUbicacion(string $ubicacion, LectorCsvDeProduccion $lector, array &$errores, string $ref): ?GrupoTrabajo
+    private function mensajeDeArchivoVacio(string $formato): string
     {
-        $buscada = $lector->normalizar($ubicacion);
-
-        $candidata = Ubicacion::with('gruposTrabajo:id,descripcion')
-            ->get(['id', 'nombre'])
-            ->first(fn (Ubicacion $u) => $lector->normalizar($u->nombre) === $buscada);
-
-        if ($candidata === null) {
-            $errores[] = "{$ref}: la ubicacion \"{$ubicacion}\" no esta en el catalogo de modulos.";
-
-            return null;
-        }
-
-        $grupos = $candidata->gruposTrabajo;
-
-        if ($grupos->isEmpty()) {
-            $errores[] = "{$ref}: la ubicacion \"{$ubicacion}\" no tiene ningun grupo de trabajo asignado.";
-
-            return null;
-        }
-
-        if ($grupos->count() > 1) {
-            $errores[] = "{$ref}: la ubicacion \"{$ubicacion}\" la trabajan varios grupos ({$grupos->pluck('descripcion')->implode(', ')}).";
-
-            return null;
-        }
-
-        return $grupos->first();
-    }
-
-    /**
-     * Explica el tope: una pieza vale 1 en cada proceso, así que lo que queda es
-     * una fracción. Las piezas rehechas se pagan como pago extra.
-     */
-    private function mensajeDeTope(Pieza $pieza, Proceso $proceso, float $disponible): string
-    {
-        $salida = ' Si es una pieza rehecha, regístrala como pago extra.';
-        $etiqueta = $pieza->etiqueta();
-
-        if ($disponible <= 0) {
-            return "La pieza {$etiqueta} ya está pagada al 100% en {$proceso->nombre}.".$salida;
-        }
-
-        $pendiente = rtrim(rtrim(number_format($disponible * 100, 2, '.', ''), '0'), '.');
-
-        return "La pieza {$etiqueta} sólo tiene {$pendiente}% por pagar en {$proceso->nombre}.".$salida;
+        return $formato === LectorCsvDeProduccion::FORMATO_EXPORT
+            ? 'El archivo no trae ningun movimiento con QS de los eventos configurados.'
+            : 'El archivo no trae renglones para importar.';
     }
 }

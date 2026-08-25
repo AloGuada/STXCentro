@@ -75,6 +75,26 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
 
     const formatMoney = (n: number) => fmtMonto(n, ordenCompra.moneda);
 
+    /**
+     * Facturas a las que se puede ligar/re-ligar una recepción: las que aún no
+     * pasan de aprobación, más la que la recepción ya trae. El controlador
+     * revalida, aquí sólo se acota el selector.
+     */
+    const facturasParaRecepcion = (facturaActualId: number | null) =>
+        (ordenCompra.facturas ?? [])
+            .filter(
+                (f) =>
+                    f.id === facturaActualId ||
+                    f.estatus === 'pendiente_recepcion' ||
+                    f.estatus === 'pendiente_aprobacion',
+            )
+            .map((f) => ({
+                id: f.id,
+                folio: f.folio ?? null,
+                total: Number(f.total),
+                estatus: f.estatus ?? null,
+            }));
+
     // Cantidad pendiente por recibir de una partida = ordenado − recibido (solo
     // recepciones vigentes, las canceladas no cuentan).
     const pendientePorRecibir = (detalleId: number, ordenado: number): number => {
@@ -435,6 +455,9 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                                             fecha_entrega: entrega.fecha_entrega,
                                                             recibido_por_id: entrega.recibido_por ?? null,
                                                             observaciones: entrega.observaciones ?? null,
+                                                            factura_id: entrega.factura_id,
+                                                            completa_factura: entrega.completa_factura,
+                                                            facturas_disponibles: facturasParaRecepcion(entrega.factura_id),
                                                         })
                                                     }
                                                 >

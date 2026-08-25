@@ -12,14 +12,18 @@ type Props = {
     obras: Obra[];
     obraRubros: CostosObraRubro[];
     detallesActuales: CostosSolicitudPagoDetalle[];
-    /** En una solicitud pagada el total queda fijo: solo se redistribuye. */
+    /**
+     * En una solicitud pagada el reparto además tiene que cuadrar con lo que
+     * salió del banco, así que la suma se valida antes de mandar.
+     */
     totalBloqueado?: boolean;
-    montoPagado?: number;
+    /** El monto de la solicitud. Reasignar nunca lo cambia. */
+    montoSolicitud?: number;
 };
 
 const fmtMoney = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
-export function ReasignarModal({ open, onClose, url, obras, obraRubros, detallesActuales, totalBloqueado = false, montoPagado }: Props) {
+export function ReasignarModal({ open, onClose, url, obras, obraRubros, detallesActuales, totalBloqueado = false, montoSolicitud }: Props) {
     const [motivo, setMotivo] = useState('');
     const [detalles, setDetalles] = useState<CentroCostoRow[]>([]);
     const [processing, setProcessing] = useState(false);
@@ -48,6 +52,11 @@ export function ReasignarModal({ open, onClose, url, obras, obraRubros, detalles
         return null;
     }
 
+    const suma = detalles
+        .filter(filaCentroCostoTieneDatos)
+        .reduce((acumulado, d) => acumulado + (parseFloat(d.monto) || 0), 0);
+    const descuadre = montoSolicitud != null && Math.abs(suma - montoSolicitud) > 0.01;
+
     const submit = () => {
         if (motivo.trim().length < 10) {
             setError('El motivo debe tener al menos 10 caracteres.');
@@ -70,10 +79,10 @@ export function ReasignarModal({ open, onClose, url, obras, obraRubros, detalles
             return;
         }
 
-        if (totalBloqueado && montoPagado != null) {
+        if (totalBloqueado && montoSolicitud != null) {
             const suma = payload.reduce((s, d) => s + d.monto, 0);
-            if (Math.abs(suma - montoPagado) > 0.01) {
-                setError(`La suma ($${fmtMoney(suma)}) debe igualar el monto pagado ($${fmtMoney(montoPagado)}).`);
+            if (Math.abs(suma - montoSolicitud) > 0.01) {
+                setError(`La suma ($${fmtMoney(suma)}) debe igualar el monto pagado ($${fmtMoney(montoSolicitud)}).`);
                 return;
             }
         }
@@ -96,11 +105,29 @@ export function ReasignarModal({ open, onClose, url, obras, obraRubros, detalles
             <div className="modal-box max-w-3xl">
                 <h3 className="mb-1 text-lg font-bold">Reasignar centros de costos</h3>
                 <p className="mb-4 text-sm text-base-content/60">
-                    Se revertirán los cargos actuales y se aplicarán los nuevos. Queda registro de la operación.
+                    Se revertirán los cargos actuales y se aplicarán los nuevos. Queda registro de la operación. Sólo se
+                    mueve el gasto entre centros de costos: el monto de la solicitud no cambia.
                     {totalBloqueado && ' La solicitud está pagada: la suma debe conservar el monto pagado.'}
                 </p>
 
                 <DetallesCentroCostoGrid obras={obras} obraRubros={obraRubros} detalles={detalles} onChange={setDetalles} disabled={processing} />
+
+                {montoSolicitud != null && (
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <span className="text-base-content/60">
+                            Monto de la solicitud: <span className="font-mono">${fmtMoney(montoSolicitud)}</span>
+                        </span>
+                        {/* El desglose puede sumar distinto (la solicitud que se
+                            comprueba después no cuadra con lo pedido); se avisa,
+                            pero no se bloquea salvo que ya esté pagada. */}
+                        {descuadre && (
+                            <span className="text-warning">
+                                El reparto suma ${fmtMoney(suma)}: se cargará eso al presupuesto y la solicitud seguirá
+                                en ${fmtMoney(montoSolicitud)}.
+                            </span>
+                        )}
+                    </div>
+                )}
 
                 <label className="form-control mt-4 w-full">
                     <div className="label">

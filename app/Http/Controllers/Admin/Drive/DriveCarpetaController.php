@@ -8,8 +8,10 @@ use App\Http\Requests\Admin\Drive\CarpetaUpdateRequest;
 use App\Models\Drive\Archivo;
 use App\Models\Drive\Carpeta;
 use App\Models\Drive\Externo;
+use App\Models\Usuario;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -18,11 +20,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DriveCarpetaController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('viewAny', Carpeta::class);
 
         $carpetas = Carpeta::query()
+            ->visiblesPara($request->user())
             ->withCount(['archivos', 'externos'])
             ->withSum('archivos', 'size')
             ->with('usuario:id,name')
@@ -31,19 +34,21 @@ class DriveCarpetaController extends Controller
 
         return Inertia::render('admin/drive/carpetas/index', [
             'carpetas' => $carpetas,
+            'usuarioId' => $request->user()->getKey(),
+            'esAdmin' => $request->user()->can('drive.gestionar'),
         ]);
     }
 
     public function create(): Response
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('create', Carpeta::class);
 
         return Inertia::render('admin/drive/carpetas/create');
     }
 
     public function store(CarpetaStoreRequest $request): RedirectResponse
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('create', Carpeta::class);
 
         Carpeta::create([
             ...$request->validated(),
@@ -53,34 +58,43 @@ class DriveCarpetaController extends Controller
         return to_route('admin.drive.carpetas.index')->with('success', 'Carpeta creada correctamente.');
     }
 
-    public function show(Carpeta $carpeta): Response
+    public function show(Request $request, Carpeta $carpeta): Response
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('view', $carpeta);
 
-        $carpeta->load('usuario:id,name');
+        $usuario = $request->user();
+        $puedeGestionarAccesos = $usuario->can('gestionarAccesos', $carpeta);
+
+        $carpeta->load(['usuario:id,name', 'usuarios' => fn ($q) => $q->orderBy('name')]);
 
         $archivos = $carpeta->archivos()
             ->latest()
             ->paginate(20);
 
-        $externos = $carpeta->externos()->get();
-
-        $externosDisponibles = Externo::query()
-            ->where('activo', true)
-            ->whereDoesntHave('carpetas', fn ($q) => $q->where('drive_carpetas.id', $carpeta->id))
-            ->get(['id', 'nombre', 'email', 'empresa']);
-
         return Inertia::render('admin/drive/carpetas/show', [
             'carpeta' => $carpeta,
             'archivos' => $archivos,
-            'externos' => $externos,
-            'externosDisponibles' => $externosDisponibles,
+            'externos' => $carpeta->externos()->get(),
+            'externosDisponibles' => $puedeGestionarAccesos ? $this->externosDisponibles($carpeta) : [],
+            'internos' => $carpeta->usuarios->map(fn (Usuario $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+                'puede_escribir' => (bool) $u->pivot->puede_escribir,
+            ])->values(),
+            'internosDisponibles' => $puedeGestionarAccesos ? $this->internosDisponibles($carpeta) : [],
+            'permisos' => [
+                'editar' => $usuario->can('update', $carpeta),
+                'eliminar' => $usuario->can('delete', $carpeta),
+                'subir' => $usuario->can('subirArchivo', $carpeta),
+                'gestionar_accesos' => $puedeGestionarAccesos,
+            ],
         ]);
     }
 
     public function edit(Carpeta $carpeta): Response
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('update', $carpeta);
 
         return Inertia::render('admin/drive/carpetas/edit', [
             'carpeta' => $carpeta,
@@ -89,7 +103,7 @@ class DriveCarpetaController extends Controller
 
     public function update(CarpetaUpdateRequest $request, Carpeta $carpeta): RedirectResponse
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('update', $carpeta);
 
         $carpeta->update($request->validated());
 
@@ -98,7 +112,7 @@ class DriveCarpetaController extends Controller
 
     public function destroy(Carpeta $carpeta): RedirectResponse
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('delete', $carpeta);
 
         foreach ($carpeta->archivos as $archivo) {
             Storage::disk('local')->delete($archivo->path);
@@ -111,7 +125,7 @@ class DriveCarpetaController extends Controller
 
     public function toggleAcceso(Carpeta $carpeta, Externo $externo): RedirectResponse
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('gestionarAccesos', $carpeta);
 
         $carpeta->externos()->toggle($externo->id);
 
@@ -120,7 +134,7 @@ class DriveCarpetaController extends Controller
 
     public function uploadArchivo(Request $request, Carpeta $carpeta): RedirectResponse
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('subirArchivo', $carpeta);
 
         $request->validate([
             'archivo' => ['required', 'file', 'max:51200', 'mimes:pdf,doc,docx,xls,xlsx,zip,rar,jpg,jpeg,png,dwg,dxf'],
@@ -146,14 +160,14 @@ class DriveCarpetaController extends Controller
 
     public function downloadArchivo(Archivo $archivo): StreamedResponse
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('view', $archivo);
 
         return Storage::disk('local')->download($archivo->path, $archivo->nombre_original);
     }
 
     public function destroyArchivo(Archivo $archivo): RedirectResponse
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('delete', $archivo);
 
         Storage::disk('local')->delete($archivo->path);
         $archivo->delete();
@@ -163,7 +177,7 @@ class DriveCarpetaController extends Controller
 
     public function generarLink(Request $request, Archivo $archivo): RedirectResponse
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('compartir', $archivo);
 
         $request->validate([
             'link_expira_en' => ['nullable', 'date', 'after:now'],
@@ -181,7 +195,7 @@ class DriveCarpetaController extends Controller
 
     public function revocarLink(Archivo $archivo): RedirectResponse
     {
-        $this->authorize('drive.gestionar');
+        $this->authorize('compartir', $archivo);
 
         $archivo->update([
             'link_token' => null,
@@ -189,5 +203,26 @@ class DriveCarpetaController extends Controller
         ]);
 
         return back()->with('success', 'Link público revocado correctamente.');
+    }
+
+    /** @return Collection<int, Externo> */
+    private function externosDisponibles(Carpeta $carpeta): Collection
+    {
+        return Externo::query()
+            ->where('activo', true)
+            ->whereDoesntHave('carpetas', fn ($q) => $q->where('drive_carpetas.id', $carpeta->id))
+            ->get(['id', 'nombre', 'email', 'empresa']);
+    }
+
+    /** @return Collection<int, Usuario> */
+    private function internosDisponibles(Carpeta $carpeta): Collection
+    {
+        $yaAsignados = $carpeta->usuarios->pluck('id')->push($carpeta->usuario_id)->filter()->all();
+
+        return Usuario::query()
+            ->activos()
+            ->whereNotIn('id', $yaAsignados)
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
     }
 }

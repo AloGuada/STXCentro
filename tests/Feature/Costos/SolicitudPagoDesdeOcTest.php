@@ -18,6 +18,7 @@ use App\Models\Departamento;
 use App\Models\Proveedor;
 use App\Models\User;
 use App\Services\Costos\SolicitudPagoDesdeOrdenCompra;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 
@@ -160,17 +161,36 @@ test('la solicitud usa el método de pago elegido en la OC', function () {
 });
 
 test('la solicitud usa la fecha de pago indicada en la OC', function () {
+    // Con el reloj quieto: la fecha elegida por compras sólo se respeta si es
+    // de hoy en adelante, así que amarrarla a un día del calendario hacía que
+    // el test caducara al pasar esa fecha.
+    Carbon::setTestNow(Carbon::parse('2026-08-12 10:00')); // miércoles
+
     $rubro = ObraRubro::factory()->create();
     $oc = ocContadoConDetalle($this->depto, $rubro);
     $userId = User::factory()->create()->id;
 
-    // Relativa a hoy: el servicio solo respeta la fecha elegida si no pasó ya,
-    // así que una fecha fija convertiría esta prueba en una bomba de tiempo.
-    $fecha = now()->addWeek()->toDateString();
+    // El viernes de esta misma semana, aunque el corte del miércoles ya pasó.
+    $solicitud = app(SolicitudPagoDesdeOrdenCompra::class)->crear($oc, $userId, 'transferencia', '2026-08-14');
 
-    $solicitud = app(SolicitudPagoDesdeOrdenCompra::class)->crear($oc, $userId, 'transferencia', $fecha);
+    expect((string) $solicitud->fecha_pago_solicitada)->toContain('2026-08-14');
 
-    expect((string) $solicitud->fecha_pago_solicitada)->toContain($fecha);
+    Carbon::setTestNow();
+});
+
+test('si la fecha que trae la OC ya pasó, la solicitud cae al próximo viernes', function () {
+    Carbon::setTestNow(Carbon::parse('2026-08-18 10:00')); // martes
+
+    $rubro = ObraRubro::factory()->create();
+    $oc = ocContadoConDetalle($this->depto, $rubro);
+    $userId = User::factory()->create()->id;
+
+    // El viernes anterior: ya no se puede pagar ahí.
+    $solicitud = app(SolicitudPagoDesdeOrdenCompra::class)->crear($oc, $userId, 'transferencia', '2026-08-14');
+
+    expect((string) $solicitud->fecha_pago_solicitada)->toContain('2026-08-21');
+
+    Carbon::setTestNow();
 });
 
 test('la solicitud usa el próximo viernes si la OC no indica fecha de pago', function () {

@@ -127,6 +127,8 @@ class SalidaController extends Controller
                 'id' => $salida->id,
                 'folio' => $salida->folio,
                 'fecha' => $salida->fecha?->toDateString(),
+                // Cuando se capturo. Es lo que responde "esto se fecho hacia atras?".
+                'registrada_at' => $salida->created_at?->toDateTimeString(),
                 'almacen' => $salida->almacen?->clave,
                 'almacen_nombre' => $salida->almacen?->nombre,
                 'obra_destino' => $salida->obraDestino === null

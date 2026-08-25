@@ -460,3 +460,43 @@ describe('permisos', function () {
             ->and(fn () => route('admin.alm.transferencias.destroy', 1))->toThrow(Exception::class);
     });
 });
+
+/**
+ * Mismo trato que la entrada y la salida: `fecha_envio` es cuando salio el
+ * material y la elige quien captura, pero no puede ser de un dia que no ha
+ * llegado. Cuando se capturo lo sella el servidor en `created_at`.
+ */
+describe('la fecha de envio no puede ser de manana', function () {
+    it('rechaza el envio fechado en el futuro', function () {
+        $origen = Almacen::factory()->create();
+        $destino = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+        sembrarEn($origen, $producto, 50);
+
+        $this->actingAs(usuarioDeTransferencias())
+            ->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
+                ['producto_id' => $producto->id, 'cantidad_enviada' => 5],
+            ], ['fecha_envio' => now()->addDay()->toDateString()]))
+            ->assertSessionHasErrors('fecha_envio');
+
+        expect(Transferencia::count())->toBe(0);
+    });
+
+    it('respeta el envio capturado con retraso y sella aparte la de registro', function () {
+        $origen = Almacen::factory()->create();
+        $destino = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+        sembrarEn($origen, $producto, 50);
+
+        $this->actingAs(usuarioDeTransferencias())
+            ->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
+                ['producto_id' => $producto->id, 'cantidad_enviada' => 5],
+            ], ['fecha_envio' => now()->subWeek()->toDateString()]))
+            ->assertSessionHasNoErrors();
+
+        $transferencia = Transferencia::firstOrFail();
+
+        expect($transferencia->fecha_envio->toDateString())->toBe(now()->subWeek()->toDateString())
+            ->and($transferencia->created_at->toDateString())->toBe(today()->toDateString());
+    });
+});

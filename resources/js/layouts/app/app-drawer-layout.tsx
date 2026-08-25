@@ -45,6 +45,7 @@ import {
     ScanBarcode,
     Settings,
     Shield,
+    ShieldAlert,
     ShoppingCart,
     Tag,
     Ticket,
@@ -617,6 +618,25 @@ const navGroups: NavGroup[] = [
                 permission: 'cob.tipos-retenciones.ver',
             },
             {
+                title: 'ICSOE',
+                href: '/admin/cob/icsoe',
+                icon: ShieldAlert,
+                children: [
+                    {
+                        title: 'Seguimientos',
+                        href: '/admin/cob/icsoe',
+                        icon: ShieldAlert,
+                        permission: 'cob.icsoe.ver',
+                    },
+                    {
+                        title: 'SBC por año',
+                        href: '/admin/cob/icsoe-sbc',
+                        icon: Calculator,
+                        permission: 'cob.icsoe-sbc.ver',
+                    },
+                ],
+            },
+            {
                 title: 'Secciones Doc.',
                 href: '/admin/cob/documento-secciones',
                 icon: FolderTree,
@@ -758,13 +778,13 @@ const navGroups: NavGroup[] = [
                 title: 'Dashboard',
                 href: '/admin/drive',
                 icon: LayoutGrid,
-                permission: 'drive.gestionar',
+                permissionModulo: 'drive',
             },
             {
                 title: 'Carpetas',
                 href: '/admin/drive/carpetas',
                 icon: FolderTree,
-                permission: 'drive.gestionar',
+                permissionModulo: 'drive',
             },
             {
                 title: 'Usuarios Externos',
@@ -874,6 +894,11 @@ function SidebarMenuItem({
 
     if (item.children && item.children.length > 0) {
         const hasActiveChild = item.children.some((c) => isCurrentUrl(c.href));
+        // El contenedor apunta a la pantalla de alguno de sus hijos; si además
+        // pintara el badge, el mismo número saldría dos veces al desplegarlo.
+        const hijoConMismoDestino = item.children.some(
+            (c) => String(c.href) === String(item.href),
+        );
 
         return (
             <li>
@@ -889,7 +914,9 @@ function SidebarMenuItem({
                         >
                             {item.title}
                         </Link>
-                        <SidebarBadge href={String(item.href)} />
+                        {!hijoConMismoDestino && (
+                            <SidebarBadge href={String(item.href)} />
+                        )}
                     </summary>
                     <ul className="ml-2 border-l border-base-300">
                         {item.children.map((child) => (

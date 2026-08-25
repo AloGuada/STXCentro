@@ -102,7 +102,7 @@ test('reasignar queda registrado en el historial con su motivo', function () {
     expect(data_get($actividad->properties, 'motivo'))->toBe('Se capturó el centro de costos equivocado');
 });
 
-test('reasignar permite dividir en varios centros de costos y recalcula el total', function () {
+test('reasignar permite dividir en varios centros de costos y conserva el total', function () {
     $origen = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
     $b = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
     $c = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
@@ -119,6 +119,83 @@ test('reasignar permite dividir en varios centros de costos y recalcula el total
     expect((float) $c->fresh()->acumulado)->toBe(2000.00);
     expect((float) $sp->fresh()->monto_total)->toBe(5000.00);
     expect($sp->detalles()->count())->toBe(2);
+});
+
+test('reasignar no cambia el monto de la solicitud aunque el reparto sume distinto', function () {
+    $origen = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+    $destino = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+
+    // El desglose de una solicitud no siempre suma lo que se pidió pagar: lo
+    // que se corrige aquí es a qué centro de costos se carga, no el dinero.
+    $sp = solicitudAplicada([['rubro' => $origen, 'monto' => 5000]]);
+
+    $this->service->reasignar($sp, [
+        ['obra_rubro_id' => $destino->id, 'monto' => 3000, 'concepto' => 'Sólo esta parte era de este centro'],
+    ], 'Se corrige el centro de costos del comprobante');
+
+    expect((float) $sp->fresh()->monto_total)->toBe(5000.00);
+    expect((float) $origen->fresh()->acumulado)->toBe(0.00);
+    expect((float) $destino->fresh()->acumulado)->toBe(3000.00);
+});
+
+test('reasignar una solicitud en divisa conserva el cargo convertido a mxn', function () {
+    $origen = ObraRubro::factory()->create(['presupuestado' => 1000000, 'acumulado' => 0]);
+    $destino = ObraRubro::factory()->create(['presupuestado' => 1000000, 'acumulado' => 0]);
+
+    // 1,000 USD al tipo de cambio con que se firmó pesan 17,500 MXN en el
+    // presupuesto. Mover el gasto de centro no lo re-cotiza: el destino tiene
+    // que recibir los mismos pesos que soltó el origen.
+    $sp = SolicitudPago::factory()->create([
+        'estatus' => 'aprobada',
+        'monto_total' => 1000,
+        'tipo_moneda' => 'usd',
+        'tipo_cambio' => 17.5,
+        'orden_compra_id' => null,
+    ]);
+
+    SolicitudPagoDetalle::factory()->create([
+        'solicitud_id' => $sp->id,
+        'obra_rubro_id' => $origen->id,
+        'cantidad' => 1,
+        'precio_unitario' => 1000,
+        'subtotal' => 1000,
+    ]);
+
+    $sp->load('detalles');
+    $sp->aplicarImpactoPresupuestal();
+
+    expect((float) $origen->fresh()->acumulado)->toBe(17500.00);
+
+    app(ReasignacionCentroCostos::class)->reasignar($sp, [
+        ['obra_rubro_id' => $destino->id, 'monto' => 1000, 'concepto' => 'Corrección'],
+    ], 'Se corrige el centro de costos capturado');
+
+    expect((float) $origen->fresh()->acumulado)->toBe(0.00);
+    expect((float) $destino->fresh()->acumulado)->toBe(17500.00);
+
+    $nuevo = $sp->rubrosAfectados()->where('obra_rubro_id', $destino->id)->first();
+    expect($nuevo->moneda)->toBe('usd');
+    expect((float) $nuevo->tipo_cambio)->toBe(17.5);
+    expect((float) $nuevo->monto_origen)->toBe(1000.00);
+    expect((float) $sp->fresh()->monto_total)->toBe(1000.00);
+});
+
+test('la bitácora guarda el monto de la solicitud junto a la suma repartida', function () {
+    $origen = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+    $destino = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
+
+    $sp = solicitudAplicada([['rubro' => $origen, 'monto' => 5000]]);
+
+    $this->service->reasignar($sp, [
+        ['obra_rubro_id' => $destino->id, 'monto' => 3000],
+    ], 'Motivo de prueba suficientemente largo');
+
+    $actividad = $sp->activities()
+        ->where('description', 'Centros de costos reasignados')
+        ->first();
+
+    expect((float) data_get($actividad->properties, 'monto_total'))->toBe(5000.00);
+    expect((float) data_get($actividad->properties, 'suma_detalles'))->toBe(3000.00);
 });
 
 test('reasignar permite sobregiro en el destino y marca la bandera', function () {

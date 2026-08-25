@@ -693,8 +693,23 @@ test('onAprobacionRechazada guarda motivo y transiciona a rechazada', function (
     expect($req->motivo_rechazo)->toBe('precio fuera de mercado');
 });
 
-test('el formato comparativo de la requisicion se genera en PDF una vez en aprobación', function () {
+test('el formato comparativo de la requisicion se genera en PDF una vez aprobado por el gerente de compras', function () {
     $req = Requisicion::factory()->pendienteAprobacion()->create([
+        'departamento_id' => $this->depto->id,
+        'control_por' => $this->user->id,
+        'control_at' => now(),
+    ]);
+
+    $response = $this->actingAs($this->user)
+        ->get(route('admin.costos.requisiciones.pdf', $req));
+
+    $response->assertOk();
+    expect($response->headers->get('content-type'))->toContain('application/pdf');
+    expect($response->headers->get('content-disposition'))->not->toContain('BORRADOR');
+});
+
+test('el comparativo si se genera en borrador, pero marcado como no aprobado', function () {
+    $req = Requisicion::factory()->create([
         'departamento_id' => $this->depto->id,
     ]);
 
@@ -703,16 +718,23 @@ test('el formato comparativo de la requisicion se genera en PDF una vez en aprob
 
     $response->assertOk();
     expect($response->headers->get('content-type'))->toContain('application/pdf');
+    expect($response->headers->get('content-disposition'))->toContain('BORRADOR');
 });
 
-test('el comparativo no se genera en borrador', function () {
-    $req = Requisicion::factory()->create([
+test('la requisicion sin aprobacion interna imprime la leyenda de borrador no aprobado', function () {
+    $req = Requisicion::factory()->pendienteAprobacionInterna()->create([
         'departamento_id' => $this->depto->id,
     ]);
 
-    $this->actingAs($this->user)
-        ->get(route('admin.costos.requisiciones.pdf', $req))
-        ->assertForbidden();
+    $vista = view('pdf.costos.formato-requisicion-comparativo', [
+        'requisicion' => $req->load(['detalles.cotizaciones.opcion', 'cotizacionOpciones.proveedor']),
+        'firmas' => collect(),
+        'totales' => app(\App\Services\Costos\ComparativoTotalesBuilder::class)->build($req),
+        'esBorrador' => true,
+    ])->render();
+
+    expect($vista)->toContain('BORRADOR NO APROBADO');
+    expect($vista)->toContain('NO APROBADO POR EL GERENTE DE COMPRAS');
 });
 
 test('el comparativo colorea solo al proveedor elegido y con IDs tipo texto (PostgreSQL)', function () {

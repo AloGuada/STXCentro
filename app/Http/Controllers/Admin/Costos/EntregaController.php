@@ -12,6 +12,7 @@ use App\Http\Requests\Admin\Costos\EntregaUpdateRequest;
 use App\Http\Requests\Admin\Costos\RecepcionesReporteRequest;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
+use App\Models\Costos\Factura;
 use App\Models\Usuario;
 use App\Services\Alm\RegistradorEntradaAlmacen;
 use App\Services\Costos\ApartadoPresupuestal;
@@ -58,9 +59,14 @@ class EntregaController extends Controller
                 'ordenCompra.solicitudesPago',
                 'ordenCompra.solicitudesPago.detalles.obraRubro.presupuesto.presupuestable',
                 'ordenCompra.requisicion.presupuesto.presupuestable',
+                // Candidatas para re-ligar la recepción desde el modal de edición.
+                'ordenCompra.facturas:id,orden_compra_id,folio,total,estatus,aprobada_costos,aceptada_contabilidad',
+                'ordenCompra.facturas.pago:id,pagable_id,pagable_type',
                 'factura:id,folio',
-                'factura.pago:id,factura_id',
-                'recibidoPor:id,name',
+                // `pago` es polimórfica (`pagable`), no tiene `factura_id`: el
+                // select debe traer la llave morph o Eloquent no puede emparejar.
+                'factura.pago:id,pagable_id,pagable_type',
+                'recibidor:id,name',
             ])
             ->filtradas($filtros)
             ->latest('fecha_entrega')
@@ -171,7 +177,7 @@ class EntregaController extends Controller
             'folio' => $entrega->folio,
             'fecha_entrega' => $entrega->fecha_entrega?->toDateString(),
             'tipo' => $entrega->tipo,
-            'recibido_por' => $entrega->recibidoPor?->name,
+            'recibido_por' => $entrega->recibidor?->name,
             'recibido_por_id' => $entrega->recibido_por,
             'observaciones' => $entrega->observaciones,
             'cancelada' => $entrega->estaCancelada(),
@@ -199,25 +205,46 @@ class EntregaController extends Controller
                 'id' => $entrega->factura->id,
                 'folio' => $entrega->factura->folio,
             ] : null,
+            'factura_id' => $entrega->factura_id,
+            'completa_factura' => (bool) $entrega->completa_factura,
+            // Facturas de la OC a las que se puede re-ligar la recepción: las que
+            // aún no avanzan, más la que ya tiene (para no perderla del selector).
+            'facturas_disponibles' => $oc
+                ? $oc->facturas
+                    ->filter(fn (Factura $f) => $f->id === $entrega->factura_id || ! $this->facturaYaAvanzo($f))
+                    ->map(fn (Factura $f) => [
+                        'id' => $f->id,
+                        'folio' => $f->folio,
+                        'total' => (float) $f->total,
+                        'estatus' => $f->estatus?->value,
+                    ])->values()
+                : [],
             'pdf_url' => route('admin.costos.entregas.pdf', $entrega),
         ];
     }
 
     /**
-     * Corrige los datos de captura de una recepción: fecha, quién recibió,
-     * observaciones y evidencia.
+     * Corrige los datos de captura de una recepción: quién recibió,
+     * observaciones, evidencia y la factura a la que se ligó (el dedazo más
+     * común cuando la OC trae varias facturas del proveedor).
      *
-     * Deliberadamente NO toca cantidades, precios ni la factura ligada. Esos
-     * mueven saldo de partidas, presupuesto y el estatus de la factura; para
-     * corregirlos el camino sigue siendo cancelar y volver a capturar, que ya
-     * sabe revertir cada efecto.
+     * Deliberadamente NO toca cantidades, precios ni la fecha. Las dos primeras
+     * mueven saldo de partidas y presupuesto; la fecha quedó fijada el día en
+     * que se capturó la recepción y es la fecha en que entró el material. Para
+     * cualquiera de las tres el camino sigue siendo cancelar y volver a
+     * capturar, que ya sabe revertir cada efecto.
      *
-     * Se bloquea sólo cuando la factura ya está pagada: a partir de ahí el dato
-     * respalda dinero que ya salió.
+     * La factura es opcional: se puede ligar la que faltó, cambiarla o dejar la
+     * recepción sin ninguna.
+     *
+     * Se bloquea cuando la factura ya está pagada: a partir de ahí el dato
+     * respalda dinero que ya salió. Y el cambio de factura se bloquea además si
+     * cualquiera de las dos (la actual o la nueva) ya avanzó, porque re-ligar
+     * mueve el "completamente entregada" y con él el estatus de la factura.
      */
     public function update(EntregaUpdateRequest $request, Entrega $entrega): RedirectResponse
     {
-        $entrega->loadMissing(['factura.pago', 'media']);
+        $entrega->loadMissing(['factura.pago', 'ordenCompra', 'media']);
 
         if ($entrega->estaCancelada()) {
             return back()->withErrors(['error' => 'No se puede editar una recepción cancelada.']);
@@ -227,11 +254,44 @@ class EntregaController extends Controller
             return back()->withErrors(['error' => 'No se puede editar: la factura ligada ya está pagada.']);
         }
 
-        DB::transaction(function () use ($request, $entrega) {
+        $facturaActual = $entrega->factura;
+
+        // Sin factura_id la recepción queda (o se deja) sin factura ligada.
+        $facturaNueva = null;
+        if ($facturaId = $request->integer('factura_id')) {
+            $facturaNueva = $entrega->ordenCompra?->facturas()->find($facturaId);
+
+            if ($facturaNueva === null) {
+                return back()->withErrors(['factura_id' => 'La factura no pertenece a la orden de compra de esta recepción.']);
+            }
+        }
+
+        $cambiaFactura = $facturaNueva?->id !== $facturaActual?->id;
+
+        if ($cambiaFactura) {
+            if ($facturaActual !== null && $this->facturaYaAvanzo($facturaActual)) {
+                return back()->withErrors([
+                    'factura_id' => 'No se puede cambiar la factura: la actual ya fue aprobada o aceptada por contabilidad.',
+                ]);
+            }
+
+            if ($facturaNueva !== null && $this->facturaYaAvanzo($facturaNueva)) {
+                return back()->withErrors([
+                    'factura_id' => 'La factura seleccionada ya avanzó (aprobada, aceptada por contabilidad o pagada) y no admite recepciones nuevas.',
+                ]);
+            }
+        }
+
+        $completabaAntes = (bool) $entrega->completa_factura;
+        $completaFactura = $facturaNueva !== null && $request->boolean('completa_factura');
+
+        DB::transaction(function () use ($request, $entrega, $facturaActual, $facturaNueva, $cambiaFactura, $completabaAntes, $completaFactura) {
             $entrega->update([
-                'fecha_entrega' => $request->input('fecha_entrega'),
+                // La fecha no se toca: quedó fijada el día de la captura.
                 'recibido_por' => $request->input('recibido_por'),
                 'observaciones' => $request->input('observaciones'),
+                'factura_id' => $facturaNueva?->id,
+                'completa_factura' => $completaFactura,
             ]);
 
             // La evidencia se reemplaza, no se acumula: la recepción tiene una.
@@ -247,9 +307,66 @@ class EntregaController extends Controller
                     'size' => $file->getSize(),
                 ]);
             }
+
+            // Si esta recepción dejó de completar a la factura anterior (porque
+            // se desmarcó o porque se relingó a otra), hay que devolverle el
+            // avance que le había dado.
+            if ($facturaActual !== null && $completabaAntes && ($cambiaFactura || ! $completaFactura)) {
+                $this->revertirAvanceDeFactura($facturaActual, $entrega);
+            }
+
+            if ($facturaNueva !== null) {
+                if ($completaFactura) {
+                    $facturaNueva->update(['completamente_entregada' => true]);
+                }
+
+                // Se reevalúa siempre: si la factura ya juntó entrega completa y
+                // comprobante, este es el momento en que le toca avanzar. Si le
+                // falta alguna, no hace nada.
+                $facturaNueva->intentarPasarAAprobacion();
+            }
         });
 
         return back()->with('success', 'Recepción actualizada correctamente.');
+    }
+
+    /**
+     * Una factura que ya fue aprobada, aceptada por contabilidad o pagada no
+     * admite que se le muevan las recepciones por debajo.
+     */
+    private function facturaYaAvanzo(Factura $factura): bool
+    {
+        return $factura->aprobada_costos
+            || $factura->aceptada_contabilidad
+            || $factura->pago !== null;
+    }
+
+    /**
+     * Deshace el "completamente entregada" que esta recepción le había dado a la
+     * factura y, si con eso ya no califica, la regresa a pendiente de recepción.
+     * Si otra recepción vigente también la marca como completa, no se toca.
+     */
+    private function revertirAvanceDeFactura(Factura $factura, Entrega $entrega): void
+    {
+        $otraLaCompleta = $factura->entregasLigadas()
+            ->activa()
+            ->where('completa_factura', true)
+            ->whereKeyNot($entrega->id)
+            ->exists();
+
+        if ($otraLaCompleta) {
+            return;
+        }
+
+        if (! in_array($factura->estatus, [FacturaEstatus::PendienteRecepcion, FacturaEstatus::PendienteAprobacion], true)) {
+            return;
+        }
+
+        $factura->update(['completamente_entregada' => false]);
+
+        if ($factura->estatus === FacturaEstatus::PendienteAprobacion) {
+            $factura->transitionTo(FacturaEstatus::PendienteRecepcion);
+        }
     }
 
     /**
@@ -343,8 +460,10 @@ class EntregaController extends Controller
         $entrega->load([
             'ordenCompra.proveedor',
             'ordenCompra.obra',
-            'factura:id,folio,folio_fiscal,uuid_fiscal,subtotal,iva,total,moneda',
-            'recibidoPor:id,name',
+            // Las retenciones se desglosan en el bloque de totales: sin ellas
+            // subtotal + IVA no cuadra contra el total del CFDI.
+            'factura:id,folio,folio_fiscal,uuid_fiscal,subtotal,iva,iva_retenido,isr_retenido,total,moneda',
+            'recibidor:id,name',
             'detalles.ordenCompraDetalle',
         ]);
 

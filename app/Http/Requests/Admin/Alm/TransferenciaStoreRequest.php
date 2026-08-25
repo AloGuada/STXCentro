@@ -28,7 +28,7 @@ class TransferenciaStoreRequest extends FormRequest
             'almacen_origen_id' => ['required', 'integer', 'exists:alm_almacenes,id'],
             'almacen_destino_id' => ['required', 'integer', 'different:almacen_origen_id', 'exists:alm_almacenes,id'],
             'pedido_id' => ['nullable', 'integer', 'exists:alm_pedidos,id'],
-            'fecha_envio' => ['required', 'date'],
+            'fecha_envio' => ['required', 'date', 'before_or_equal:today'],
             'observaciones' => ['nullable', 'string', 'max:1000'],
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.producto_id' => [
@@ -152,6 +152,7 @@ class TransferenciaStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'fecha_envio.before_or_equal' => 'La transferencia no puede salir un día que no ha llegado: el material sale hoy o ya salió.',
             'almacen_destino_id.different' => 'El origen y el destino no pueden ser el mismo almacén.',
             'detalles.required' => 'Captura al menos un artículo.',
             'detalles.*.cantidad_enviada.gt' => 'Enviar cero no es enviar.',

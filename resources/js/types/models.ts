@@ -589,10 +589,73 @@ export type ProdCategoriaEmpleado = {
     updated_at: string;
 };
 
+/**
+ * La revisión previa del CSV de producción: lo que pasaría si se aplicara, ya
+ * resuelto contra el catálogo pero sin haber escrito nada.
+ */
+export type ProdPlanEstado = 'aplicable' | 'omitida' | 'error';
+
+export type ProdPlanRenglon = {
+    referencia: string;
+    linea: number | null;
+    estado: ProdPlanEstado;
+    codigo: string;
+    motivo: string | null;
+    pieza_id: number | null;
+    /** El QR al que se asignó. Si `por_qs`, lo eligió el sistema. */
+    qr: string | null;
+    qs: string | null;
+    marca: string | null;
+    proceso: string | null;
+    proceso_id: number | null;
+    grupo: string | null;
+    grupo_trabajo_id: number | null;
+    porcentaje: number | null;
+    /** El archivo no traía QR: la pieza la eligió el sistema, del QR más chico al más alto. */
+    por_qs: boolean;
+    /** Con qué precisión venía el renglón: la pieza (`qr`), sus hermanas (`qs`) o el modelo (`marca`). */
+    asignado_por: 'qr' | 'qs' | 'marca';
+    candidatas: number | null;
+};
+
+export type ProdPlanImportacion = {
+    resumen: {
+        formato: 'export' | 'simple';
+        filas_leidas: number;
+        aplicables: number;
+        omitidas: number;
+        errores: number;
+        /** Renglones que no traían QR y cuya pieza eligió el sistema. */
+        asignadas_por_sistema: number;
+        ignorados_por_evento: number;
+    };
+    /** Eventos que no pagan destajo, agregados: son la mayoría del export. */
+    ignorados: { evento: string; muestra: string; renglones: number }[];
+    /** Qué le toca a cada cuadrilla. Sale del archivo completo, no del detalle truncado. */
+    por_grupo: ProdPlanGrupo[];
+    renglones: ProdPlanRenglon[];
+    mostrados: number;
+    truncado: boolean;
+};
+
+/** El corte por cuadrilla de la revisión previa. */
+export type ProdPlanGrupo = {
+    /** `null` cuando el renglón ni siquiera resolvió grupo: son los que hay que corregir. */
+    grupo: string | null;
+    grupo_trabajo_id: number | null;
+    /** Movimientos que van a entrar. */
+    movimientos: number;
+    /** A cuántas piezas equivalen esos movimientos, sumando porcentajes. */
+    piezas: number;
+    /** Los que se quedan fuera, entre omitidos y con problema. */
+    no_entran: number;
+};
+
 /** Pieza pagada a medias que todavía tiene saldo por liquidar. */
 export type ProdPendienteLiquidar = {
     pieza_id: number;
-    qs: string;
+    qr: string;
+    qs: string | null;
     marca: string;
     lote: string | null;
     descripcion: string;
@@ -1654,6 +1717,11 @@ export type PresupuestoRow = {
     sum_presupuestado: number;
     sum_acumulado: number;
     sum_apartado?: number;
+    /**
+     * El PDF autorizado del presupuesto, cuando ya se cargó. Es uno solo: al
+     * subir otro reemplaza al anterior.
+     */
+    documento: { nombre: string | null; path: string } | null;
 };
 
 export type CostosPermiso = {
@@ -1965,6 +2033,8 @@ export type CostosRequisicion = {
         total: number;
     } | null;
     proveedores_cotizadores_count?: number;
+    // Un renglón por OC adjudicada (grupo proveedor+numero_oc); vacío mientras no haya selecciones.
+    ocs_resumen?: CostosRequisicionOcResumen[];
     // Neto a pagar (subtotal + IVA - retenciones); 0 mientras no haya OC definida.
     total_neto?: number;
     tiene_sobregiro?: boolean;
@@ -1972,6 +2042,17 @@ export type CostosRequisicion = {
     activities?: CostosActivity[];
     created_at: string;
     updated_at: string;
+};
+
+export type CostosRequisicionOcResumen = {
+    numero_oc: number;
+    /** Folio de la OC generada; null mientras la requisición no se libera. */
+    folio: string | null;
+    proveedor_id: number;
+    razon_social: string;
+    nombre_comercial: string | null;
+    /** Neto a pagar de esa OC (subtotal + IVA - retenciones). */
+    total: number;
 };
 
 export type CostosRequisicionDetalle = {
@@ -1987,6 +2068,8 @@ export type CostosRequisicionDetalle = {
     cantidad: number;
     /** Partida de referencia (ej. flete variable): se cotiza pero no se adjudica, no entra al comparativo/PDF ni al neto. */
     solo_cotizacion: boolean;
+    /** Partida exenta: suma al subtotal pero no causa IVA ni entra a la base de retenciones. */
+    sin_impuestos: boolean;
     notas: string | null;
     uso_cfdi?: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>;
     obra_rubro?: {
@@ -2385,6 +2468,8 @@ export type CostosOrdenCompraDetalle = {
     requisicion_detalle_id: number | null;
     obra_rubro_id: number;
     tipo_fiscal: CostosTipoFiscalPartida;
+    /** Partida exenta: suma al subtotal pero no causa IVA ni entra a la base de retenciones. */
+    sin_impuestos: boolean;
     descripcion: string;
     unidad: string;
     cantidad: number;
@@ -2688,6 +2773,11 @@ export type CostosRecepcionRow = {
     obras: string[];
     solicitudes_pago: { id: number; folio: string; estatus: string | null; url: string }[];
     factura: { id: number; folio: string | null } | null;
+    factura_id: number | null;
+    /** Si esta recepción es la que marca la factura como completamente entregada. */
+    completa_factura: boolean;
+    /** Facturas de la OC a las que se puede re-ligar: las que aún no avanzan, más la actual. */
+    facturas_disponibles: { id: number; folio: string | null; total: number; estatus: string | null }[];
     pdf_url: string;
 };
 
@@ -2937,6 +3027,80 @@ export type CobDeduccion = {
     monto: number;
     moneda: string;
     fecha: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+// ICSOE / SIROC (IMSS). Los campos decimales llegan como string desde Laravel.
+
+export type CobIcsoeMetodo = 'superficie' | 'porcentaje';
+
+export const COB_ICSOE_METODO_LABELS: Record<CobIcsoeMetodo, string> = {
+    superficie: 'Superficie (Art. 18)',
+    porcentaje: 'Porcentaje del contrato',
+};
+
+export type CobIcsoeEstatus = 'vigente' | 'pendiente_verificacion' | 'cerrado';
+
+export const COB_ICSOE_ESTATUS_LABELS: Record<CobIcsoeEstatus, string> = {
+    vigente: 'Vigente',
+    pendiente_verificacion: 'Pendiente de verificación',
+    cerrado: 'Cerrado',
+};
+
+export type CobIcsoeSbcAnio = {
+    id: number;
+    anio: number;
+    sbc: string;
+    costo_m2: string;
+    prima_riesgo: string;
+    notas: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CobIcsoeMes = {
+    id: number;
+    seguimiento_id: number;
+    anio: number;
+    mes: number;
+    dias_proyecto: number;
+    sbc: string;
+    sbc_aplicado: string;
+    mo_estimada: string;
+    dias_cotizados: string;
+    mo_real: string;
+    fuera_de_rango: boolean;
+};
+
+export type CobIcsoeSeguimiento = {
+    id: number;
+    proyecto_id: number;
+    metodo: CobIcsoeMetodo;
+    estatus: CobIcsoeEstatus;
+    fecha_inicio: string;
+    fecha_fin: string;
+    superficie_m2: string | null;
+    costo_m2: string | null;
+    porcentaje_mo: string;
+    prima_riesgo: string;
+    monto_base: string;
+    monto_base_anterior: string | null;
+    mo_estimada_total: string;
+    mo_estimada_total_anterior: string | null;
+    mo_estimada_diaria: string;
+    total_dias: number;
+    mo_real_total: string;
+    diferencia_mo: string;
+    monto_riesgo: string;
+    motivo_cambio: string | null;
+    recalculado_at: string | null;
+    verificado_at: string | null;
+    verificado_por: string | null;
+    notas: string | null;
+    proyecto?: Proyecto;
+    meses?: CobIcsoeMes[];
+    verificado_por_usuario?: { id: string; name: string } | null;
     created_at: string;
     updated_at: string;
 };
@@ -4023,8 +4187,18 @@ export type DriveCarpeta = {
     externos_count?: number;
     archivos_sum_size?: number | null;
     externos?: DriveExterno[];
+    usuarios?: DriveCarpetaUsuario[];
     created_at: string;
     updated_at: string;
+};
+
+/** Usuario interno con acceso compartido a una carpeta. */
+export type DriveCarpetaUsuario = Usuario & {
+    pivot: {
+        carpeta_id: number;
+        usuario_id: string;
+        puede_escribir: boolean;
+    };
 };
 
 export type DriveArchivo = {
@@ -4036,7 +4210,7 @@ export type DriveArchivo = {
     size: number | null;
     descripcion: string | null;
     subido_por_type: string;
-    subido_por_id: number;
+    subido_por_id: string;
     link_token: string | null;
     link_expira_en: string | null;
     auto_eliminar_en: string | null;
