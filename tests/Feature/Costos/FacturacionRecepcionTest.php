@@ -79,7 +79,9 @@ test('una entrega que completa la factura la marca entregada y la avanza si ya t
     agregarComprobante($factura);
 
     $this->actingAs($user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($user)->id,
             'fecha_entrega' => '2026-05-20',
             'tipo' => 'completa',
             'factura_id' => $factura->id,
@@ -112,7 +114,9 @@ test('una entrega que completa la factura sin comprobante la marca pero no la av
     ]);
 
     $this->actingAs($user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($user)->id,
             'fecha_entrega' => '2026-05-20',
             'tipo' => 'completa',
             'factura_id' => $factura->id,

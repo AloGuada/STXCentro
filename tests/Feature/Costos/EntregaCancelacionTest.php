@@ -31,7 +31,9 @@ function ocParaCancelacion(float $cantidad = 10): array
 function registrarEntregaSimple($test, OrdenCompra $oc, OrdenCompraDetalle $partida, float $cantidad, array $extra = []): Entrega
 {
     $test->actingAs($test->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", array_merge([
+        ->post('/admin/almacen/entradas', array_merge([
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($test->user)->id,
             'fecha_entrega' => '2026-02-17',
             'tipo' => 'completa',
             'detalles' => [['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => $cantidad]],

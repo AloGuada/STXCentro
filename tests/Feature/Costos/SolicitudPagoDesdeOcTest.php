@@ -164,9 +164,13 @@ test('la solicitud usa la fecha de pago indicada en la OC', function () {
     $oc = ocContadoConDetalle($this->depto, $rubro);
     $userId = User::factory()->create()->id;
 
-    $solicitud = app(SolicitudPagoDesdeOrdenCompra::class)->crear($oc, $userId, 'transferencia', '2026-08-15');
+    // Relativa a hoy: el servicio solo respeta la fecha elegida si no pasó ya,
+    // así que una fecha fija convertiría esta prueba en una bomba de tiempo.
+    $fecha = now()->addWeek()->toDateString();
 
-    expect((string) $solicitud->fecha_pago_solicitada)->toContain('2026-08-15');
+    $solicitud = app(SolicitudPagoDesdeOrdenCompra::class)->crear($oc, $userId, 'transferencia', $fecha);
+
+    expect((string) $solicitud->fecha_pago_solicitada)->toContain($fecha);
 });
 
 test('la solicitud usa el próximo viernes si la OC no indica fecha de pago', function () {

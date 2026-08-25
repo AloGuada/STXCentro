@@ -130,6 +130,9 @@ class RolesSeeder extends Seeder
             'costos.ordenes-compra.ver',
             'costos.ordenes-compra.ver-todas',
             'costos.facturas.ver',
+            // La captura de la recepción vive en Almacén; el permiso de Costos
+            // se queda para editar/cancelar desde el listado de recepciones.
+            'alm.entradas.crear',
             'costos.entregas.crear',
             'costos.devoluciones.ver',
             'costos.devoluciones.crear',

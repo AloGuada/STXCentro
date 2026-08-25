@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Alm;
 
+use App\Enums\Costos\FacturaEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\EntradaStoreRequest;
 use App\Models\Alm\Almacen;
@@ -11,6 +12,7 @@ use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\Producto;
 use App\Models\Proveedor;
 use App\Services\Alm\RegistradorEntradaAlmacen;
+use App\Services\Costos\RegistradorRecepcion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -26,14 +28,17 @@ use Inertia\Response;
  * se mudó aquí es la pantalla — una entrada aparte haría que el almacenista
  * recibiera dos veces y que dos tablas contaran lo mismo.
  *
- * Este controlador cubre la entrada **sin orden de compra**: material que llega
- * sin compra de por medio. La recepción contra una orden sigue capturándose
- * desde el flujo de Costos, que es donde vive la validación de lo pedido, lo
- * facturado y el presupuesto.
+ * Es la **única puerta de captura**: toda entrada que sube el valor del
+ * inventario se levanta aquí, venga de una orden de compra (lo normal) o sin
+ * orden. Costos conserva la consulta —listado, PDF, editar y cancelar—, y las
+ * reglas de la recepción contra orden viven en {@see RegistradorRecepcion}.
  */
 class EntradaController extends Controller
 {
-    public function __construct(private readonly RegistradorEntradaAlmacen $registrador) {}
+    public function __construct(
+        private readonly RegistradorEntradaAlmacen $registrador,
+        private readonly RegistradorRecepcion $recepcion,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -41,7 +46,7 @@ class EntradaController extends Controller
 
         $entradas = Entrega::query()
             ->whereIn('almacen_id', $visibles)
-            ->with(['almacen:id,clave', 'ordenCompra:id,folio,proveedor_id', 'ordenCompra.proveedor:id,nombre', 'recibidoPor:id,name'])
+            ->with(['almacen:id,clave', 'ordenCompra:id,folio,proveedor_id', 'ordenCompra.proveedor:id,razon_social,nombre_comercial', 'recibidoPor:id,name'])
             ->withCount('detalles')
             ->when(! $request->boolean('ver_canceladas'), fn ($q) => $q->activa())
             ->when($request->integer('almacen_id') ?: null, fn ($q, int $id) => $q->where('almacen_id', $id))
@@ -57,7 +62,7 @@ class EntradaController extends Controller
                 'almacen' => $e->almacen?->clave,
                 'orden_compra_id' => $e->orden_compra_id,
                 'orden_folio' => $e->ordenCompra?->folio,
-                'proveedor' => $e->ordenCompra?->proveedor?->nombre,
+                'proveedor' => $this->nombreDe($e->ordenCompra?->proveedor),
                 'renglones' => $e->detalles_count,
                 'importe' => $e->importeRecibido(),
                 'recibio' => $e->recibidoPor?->name,
@@ -68,9 +73,8 @@ class EntradaController extends Controller
             'entradas' => $entradas,
             'filters' => $request->only(['almacen_id', 'search', 'ver_canceladas']),
             'almacenes' => $this->almacenes($request),
-            // Lo que el almacén todavía debe recibir. Va aquí porque la
-            // recepción contra orden se captura en el flujo de Costos, y desde
-            // esta pantalla se llega a ella.
+            // Lo que el almacén todavía debe recibir: desde aquí se entra a
+            // capturar la recepción de cada orden.
             'ordenesAbiertas' => $this->ordenesAbiertas(),
         ]);
     }
@@ -79,22 +83,104 @@ class EntradaController extends Controller
     {
         return Inertia::render('admin/almacen/entradas/create', [
             'almacenes' => $this->almacenes($request),
-            'proveedores' => Proveedor::query()->orderBy('nombre')->limit(500)->get(['id', 'nombre', 'rfc']),
+            'proveedores' => Proveedor::query()
+                ->orderBy('razon_social')
+                ->limit(500)
+                ->get(['id', 'razon_social', 'nombre_comercial', 'rfc'])
+                ->map(fn (Proveedor $p): array => [
+                    'id' => $p->id,
+                    'nombre' => $this->nombreDe($p),
+                    'rfc' => $p->rfc,
+                ]),
             'productos' => $this->productos(),
             'ordenesAbiertas' => $this->ordenesAbiertas(),
+            'orden' => $this->ordenParaRecibir($request->integer('orden_compra_id') ?: null),
         ]);
     }
 
     /**
-     * Sólo la entrada sin orden. La que va contra una orden pasa por
-     * `Costos\EntregaController`, que además valida contra lo pedido y lo
-     * facturado y ajusta el presupuesto por diferencia de precio.
+     * La orden que se está recibiendo: sus partidas con lo que todavía falta y
+     * las facturas que esperan recepción. Null cuando la entrada no cuelga de
+     * ninguna orden.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function ordenParaRecibir(?int $ordenCompraId): ?array
+    {
+        if ($ordenCompraId === null) {
+            return null;
+        }
+
+        $orden = OrdenCompra::query()
+            ->with([
+                'proveedor:id,razon_social,nombre_comercial',
+                'detalles.producto:id,codigo,controla_inventario',
+                'facturas:id,orden_compra_id,folio,folio_fiscal,total,estatus',
+            ])
+            ->findOrFail($ordenCompraId);
+
+        $recibido = EntregaDetalle::query()
+            ->whereIn('orden_compra_detalle_id', $orden->detalles->pluck('id'))
+            ->whereHas('entrega', fn ($q) => $q->activa())
+            ->selectRaw('orden_compra_detalle_id, SUM(cantidad_recibida) as total')
+            ->groupBy('orden_compra_detalle_id')
+            ->pluck('total', 'orden_compra_detalle_id');
+
+        return [
+            'id' => $orden->id,
+            'folio' => $orden->folio,
+            'moneda' => $orden->moneda,
+            'proveedor' => $this->nombreDe($orden->proveedor),
+            'partidas' => $orden->detalles->map(fn ($partida): array => [
+                'id' => $partida->id,
+                'descripcion' => $partida->descripcion,
+                'codigo' => $partida->producto?->codigo ?? $partida->codigo_producto,
+                'unidad' => $partida->unidad,
+                'cantidad' => (float) $partida->cantidad,
+                'recibido' => (float) ($recibido[$partida->id] ?? 0),
+                'pendiente' => round((float) $partida->cantidad - (float) ($recibido[$partida->id] ?? 0), 4),
+                'precio_unitario' => (float) $partida->precio_unitario,
+                // Lo que no lleva kardex se recibe igual —destraba la factura—
+                // pero no mueve existencia, y la pantalla lo avisa.
+                'mueve_kardex' => $partida->producto?->controla_inventario ?? false,
+            ])->values()->all(),
+            'facturas' => $orden->facturas
+                ->where('estatus', FacturaEstatus::PendienteRecepcion)
+                ->map(fn ($factura): array => [
+                    'id' => $factura->id,
+                    'folio' => $factura->folio_fiscal ?: $factura->folio,
+                    'total' => (float) $factura->total,
+                ])->values()->all(),
+        ];
+    }
+
+    /**
+     * Toda entrada que sube el valor del inventario pasa por aquí: la que viene
+     * de una orden de compra —el caso normal, material de proveedor— y la que
+     * llega sin compra de por medio.
+     *
+     * La primera se delega a {@see RegistradorRecepcion}, donde viven las
+     * reglas de Costos (tope contra lo pedido, ajuste de presupuesto por
+     * diferencia de precio y avance de la factura); Almacén pone el almacén,
+     * que es lo que mueve el kardex.
      */
     public function store(EntradaStoreRequest $request): RedirectResponse
     {
         $almacen = Almacen::findOrFail($request->integer('almacen_id'));
 
         abort_unless($almacen->esVisiblePara($request->user()), 403);
+
+        if ($request->esConOrden()) {
+            $recepcion = $this->recepcion->registrar(
+                OrdenCompra::findOrFail($request->integer('orden_compra_id')),
+                $almacen,
+                $request->validated(),
+                (string) $request->user()->getAuthIdentifier(),
+                $request->file('archivo'),
+            );
+
+            return to_route('admin.alm.entradas.show', $recepcion);
+        }
 
         $entrada = DB::transaction(function () use ($request, $almacen): Entrega {
             $entrada = Entrega::create([
@@ -140,7 +226,7 @@ class EntradaController extends Controller
         $entrada->load([
             'almacen:id,clave,nombre',
             'ordenCompra:id,folio,proveedor_id',
-            'ordenCompra.proveedor:id,nombre,rfc',
+            'ordenCompra.proveedor:id,razon_social,nombre_comercial,rfc',
             'recibidoPor:id,name',
             'detalles.producto:id,codigo,descripcion,unidad',
             'detalles.ordenCompraDetalle',
@@ -155,7 +241,7 @@ class EntradaController extends Controller
                 'almacen_nombre' => $entrada->almacen?->nombre,
                 'orden_compra_id' => $entrada->orden_compra_id,
                 'orden_folio' => $entrada->ordenCompra?->folio,
-                'proveedor' => $entrada->ordenCompra?->proveedor?->nombre,
+                'proveedor' => $this->nombreDe($entrada->ordenCompra?->proveedor),
                 'sin_orden' => $entrada->esSinOrden(),
                 'observaciones' => $entrada->observaciones,
                 'recibio' => $entrada->recibidoPor?->name,
@@ -189,19 +275,40 @@ class EntradaController extends Controller
     private function ordenesAbiertas(): array
     {
         return OrdenCompra::query()
-            ->whereHas('detalles', fn ($q) => $q->whereColumn('cantidad_recibida', '<', 'cantidad'))
-            ->with('proveedor:id,nombre')
+            // Lo recibido no vive en la partida de la orden sino en las
+            // recepciones, así que el pendiente se compara contra la suma de
+            // sus renglones vigentes (los de recepciones canceladas no cuentan).
+            ->whereHas('detalles', fn ($q) => $q->whereRaw(
+                'costos_ordenes_compra_detalle.cantidad > ('
+                .'select coalesce(sum(ed.cantidad_recibida), 0) '
+                .'from costos_entrega_detalle ed '
+                .'inner join costos_entregas e on e.id = ed.entrega_id '
+                .'where ed.orden_compra_detalle_id = costos_ordenes_compra_detalle.id '
+                .'and e.cancelada_at is null)',
+            ))
+            ->whereNotIn('estatus', ['cancelada', 'pagada'])
+            ->with('proveedor:id,razon_social,nombre_comercial')
             ->latest('id')
             ->limit(50)
-            ->get(['id', 'folio', 'proveedor_id', 'fecha'])
+            ->get(['id', 'folio', 'proveedor_id', 'fecha_entrega_esperada'])
             ->map(fn (OrdenCompra $oc): array => [
                 'id' => $oc->id,
                 'folio' => $oc->folio,
-                'proveedor' => $oc->proveedor?->nombre,
-                'fecha' => $oc->fecha?->toDateString(),
+                'proveedor' => $this->nombreDe($oc->proveedor),
+                'fecha' => $oc->fecha_entrega_esperada?->toDateString(),
             ])
             ->values()
             ->all();
+    }
+
+    /** El proveedor no tiene columna `nombre`: se arma con lo que sí existe. */
+    private function nombreDe(?Proveedor $proveedor): ?string
+    {
+        if ($proveedor === null) {
+            return null;
+        }
+
+        return $proveedor->nombre_comercial ?: $proveedor->razon_social;
     }
 
     /**

@@ -86,7 +86,9 @@ describe('sweep de descripciones canonicas al subir archivos', function () {
             'subtotal' => 1000,
         ]);
 
-        $this->actingAs($user)->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        $this->actingAs($user)->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($user)->id,
             'fecha_entrega' => '2026-04-24',
             'tipo' => 'parcial',
             'archivo' => UploadedFile::fake()->create('evidencia.pdf', 100, 'application/pdf'),

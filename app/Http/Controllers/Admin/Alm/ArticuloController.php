@@ -249,13 +249,13 @@ class ArticuloController extends Controller
     private function preciosDe(Producto $producto): array
     {
         return $producto->precios()
-            ->with('proveedor:id,nombre')
+            ->with('proveedor:id,razon_social,nombre_comercial')
             ->limit(20)
             ->get()
             ->map(fn ($precio): array => [
                 'id' => $precio->id,
                 'fecha' => $precio->fecha?->toDateString(),
-                'proveedor' => $precio->proveedor?->nombre,
+                'proveedor' => $precio->proveedor?->nombre_comercial ?: $precio->proveedor?->razon_social,
                 'precio' => (float) $precio->precio,
                 'moneda' => strtoupper((string) $precio->moneda),
                 'requisicion_id' => $precio->requisicion_id,

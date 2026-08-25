@@ -29,7 +29,9 @@ test('registra entrega con detalle de partida contra la OC', function () {
     [$oc, $partida] = ocConPartida();
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'tipo' => 'parcial',
             'observaciones' => 'Primer lote',
@@ -58,7 +60,9 @@ test('rechaza entrega que supera la cantidad ordenada en la partida', function (
     [$oc, $partida] = ocConPartida(10);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'tipo' => 'completa',
             'detalles' => [
@@ -76,7 +80,9 @@ test('rechaza entrega si acumulado excede cantidad ordenada', function () {
 
     // Primera entrega parcial de 7
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'tipo' => 'parcial',
             'detalles' => [
@@ -87,7 +93,9 @@ test('rechaza entrega si acumulado excede cantidad ordenada', function () {
 
     // Segunda intenta 5 más → 7 + 5 = 12 > 10
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-18',
             'tipo' => 'parcial',
             'detalles' => [
@@ -102,7 +110,9 @@ test('rechaza entrega con partida de otra OC', function () {
     $otraPartida = OrdenCompraDetalle::factory()->create();
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'tipo' => 'parcial',
             'detalles' => [
@@ -123,7 +133,9 @@ test('entrega no crea pago ni cambia estatus de factura', function () {
     ]);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'tipo' => 'completa',
             'detalles' => [
@@ -140,7 +152,9 @@ test('tipo y detalles son requeridos', function () {
     [$oc] = ocConPartida();
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
         ])
         ->assertSessionHasErrors(['tipo', 'detalles']);

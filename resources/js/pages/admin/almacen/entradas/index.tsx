@@ -89,9 +89,8 @@ const columns: Column<EntradaFila>[] = [
  * La recepción vista desde Almacén.
  *
  * Escribe en `costos_entregas`, la misma tabla que destraba la factura: no es un
- * documento paralelo. La recepción contra una orden se captura desde la orden
- * —ahí está el tope contra lo pedido y lo facturado—; aquí se levanta la entrada
- * sin orden.
+ * documento paralelo. Toda entrada que sube el valor del inventario se captura
+ * aquí, venga de una orden de compra o sin ella.
  */
 export default function EntradasIndex({ entradas, filters, almacenes, ordenesAbiertas }: Props) {
     const filtrar = (cambio: Record<string, string | undefined>) =>
@@ -114,11 +113,10 @@ export default function EntradasIndex({ entradas, filters, almacenes, ordenesAbi
                     <div className="alert alert-info mb-4">
                         <PackageCheckIcon className="size-4" />
                         <span>
-                            {ordenesAbiertas.length} orden(es) de compra siguen esperando material. La recepción contra
-                            una orden se captura desde la orden, donde está lo que se pidió y lo que se facturó.
+                            {ordenesAbiertas.length} orden(es) de compra siguen esperando material.
                         </span>
-                        <Link href="/admin/costos/recepciones" className="btn btn-sm">
-                            Ver órdenes por recibir
+                        <Link href="/admin/almacen/entradas/create" className="btn btn-sm">
+                            Recibir contra una orden
                         </Link>
                     </div>
                 )}
@@ -130,7 +128,7 @@ export default function EntradasIndex({ entradas, filters, almacenes, ordenesAbi
                     searchValue={filters.search}
                     searchPlaceholder="Buscar por folio..."
                     createHref="/admin/almacen/entradas/create"
-                    createLabel="Entrada sin orden"
+                    createLabel="Nueva entrada"
                     emptyMessage="No hay entradas con esos filtros."
                     getRowHref={(e) => `/admin/almacen/entradas/${e.id}`}
                 >
