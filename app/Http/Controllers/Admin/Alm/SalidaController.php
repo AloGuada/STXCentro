@@ -14,8 +14,10 @@ use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Prod\GrupoTrabajo;
 use App\Services\Alm\RegistradorSalida;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -52,7 +54,6 @@ class SalidaController extends Controller
                 'recibe' => $s->recibe_nombre,
                 'entrego' => $s->entregador?->name,
                 'renglones' => $s->detalles_count,
-                'motivo' => $s->motivo,
                 'cancelada' => $s->estaCancelada(),
             ]);
 
@@ -69,6 +70,9 @@ class SalidaController extends Controller
 
         return Inertia::render('admin/almacen/salidas/create', [
             ...$this->opciones($request),
+            // Solo la captura los pide, y solo cuando la salida es de planta:
+            // el listado no filtra por area.
+            'departamentos' => Departamento::query()->orderBy('descripcion')->get(['id', 'descripcion']),
             'productos' => $this->productos(),
             // Sólo los de consumo interno: los de obra van por transferencia.
             'pedidosSurtibles' => $this->pedidosSurtibles($request, $almacenId),
@@ -155,6 +159,35 @@ class SalidaController extends Controller
     }
 
     /**
+     * El vale: la hoja que firma quien se lleva el material.
+     *
+     * Va sellada con su folio en código de barras porque el papel regresa
+     * firmado y entonces hay que reencontrarlo en el sistema; escanearlo es un
+     * tiro y teclear `SAL-2608-0007` es un dígito equivocado.
+     *
+     * Una salida cancelada también imprime —su folio existe y alguien puede
+     * traer la hoja de vuelta—, pero el formato lo dice de frente.
+     */
+    public function pdf(Request $request, Salida $salida): HttpResponse
+    {
+        abort_unless($salida->almacen->esVisiblePara($request->user()), 403);
+
+        $salida->load([
+            'almacen:id,clave,nombre',
+            'departamento:id,descripcion',
+            'grupoTrabajo:id,descripcion',
+            'pedido:id,folio',
+            'entregador:id,name',
+            'detalles.producto:id,codigo,descripcion,unidad',
+        ]);
+
+        $pdf = Pdf::loadView('pdf.alm.formato-salida', ['salida' => $salida])
+            ->setPaper('letter', 'portrait');
+
+        return $pdf->stream("vale-{$salida->folio}.pdf");
+    }
+
+    /**
      * Cancelar devuelve el material al kardex con un movimiento espejo y hace
      * que el pedido vuelva a deber lo que esta salida decía haber entregado.
      */
@@ -234,7 +267,6 @@ class SalidaController extends Controller
                 ->orderBy('obra_id')
                 ->orderBy('clave')
                 ->get(['id', 'clave', 'nombre', 'obra_id', 'tipo']),
-            'departamentos' => Departamento::query()->orderBy('descripcion')->get(['id', 'descripcion']),
             'obras' => Obra::query()->orderBy('no')->get(['id', 'no', 'descripcion']),
             'gruposTrabajo' => GrupoTrabajo::query()->orderBy('descripcion')->get(['id', 'descripcion']),
         ];

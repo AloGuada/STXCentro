@@ -116,6 +116,15 @@ class Almacen extends Model
     }
 
     /**
+     * El de planta: no cuelga de una obra, asi que lo que sale de aqui se
+     * consume en el mismo domicilio y no hay obra a la cual cargarselo.
+     */
+    public function esCentral(): bool
+    {
+        return $this->obra_id === null;
+    }
+
+    /**
      * Los almacenes que este usuario puede operar.
      *
      * Con `alm.almacenes.ver-todos` los ve todos; sin él, sólo aquellos donde

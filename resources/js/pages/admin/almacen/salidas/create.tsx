@@ -20,6 +20,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
+/** El almacen captura lo que ya paso: el material sale hoy o ya salio. */
+const HOY = new Date().toISOString().slice(0, 10);
+
 type PedidoSurtible = {
     id: number;
     folio: string | null;
@@ -67,12 +70,11 @@ export default function SalidaCreate({
     const form = useForm({
         almacen_id: '',
         pedido_id: pedidoSeleccionado === null ? '' : String(pedidoSeleccionado),
-        departamento_id: '',
         obra_destino_id: '',
+        departamento_id: '',
         grupo_trabajo_id: '',
         recibe_nombre: '',
-        fecha: new Date().toISOString().slice(0, 10),
-        motivo: '',
+        fecha: HOY,
         observaciones: '',
         detalles: [{ ...RENGLON_VACIO }] as Renglon[],
     });
@@ -101,6 +103,14 @@ export default function SalidaCreate({
     }, [form.data.almacen_id]);
 
     const pedido = pedidosSurtibles.find((p) => String(p.id) === form.data.pedido_id);
+    const almacen = almacenes.find((a) => String(a.id) === form.data.almacen_id);
+
+    /**
+     * En planta el material no se va a otro domicilio: se consume aqui mismo,
+     * asi que hay que decir a que area y con que modulo. Cuando surte un pedido
+     * ya lo dijo el pedido, y en un almacen de obra el destino es la obra.
+     */
+    const consumoDePlanta = almacen !== undefined && almacen.obra_id === null && form.data.pedido_id === '';
 
     /**
      * Al elegir un pedido, la salida arranca con lo que le falta a cada renglón:
@@ -128,6 +138,22 @@ export default function SalidaCreate({
             })),
         );
     };
+
+    // Al dejar de ser consumo de planta los dos campos desaparecen; limpiarlos
+    // evita mandar en el POST algo que la pantalla ya no ensena.
+    useEffect(() => {
+        if (consumoDePlanta) {
+            return;
+        }
+
+        if (form.data.departamento_id !== '') {
+            form.setData('departamento_id', '');
+        }
+
+        if (form.data.grupo_trabajo_id !== '') {
+            form.setData('grupo_trabajo_id', '');
+        }
+    }, [consumoDePlanta]);
 
     const disponibleDe = (productoId: number) => saldos.find((s) => s.producto_id === productoId)?.cantidad ?? 0;
 
@@ -166,6 +192,16 @@ export default function SalidaCreate({
                 <form onSubmit={enviar} className="space-y-6">
                     <div className="rounded-box border-base-300 border p-4">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <FormField label="Fecha" htmlFor="fecha" error={form.errors.fecha} required>
+                                <Input
+                                    id="fecha"
+                                    type="date"
+                                    max={HOY}
+                                    value={form.data.fecha}
+                                    onChange={(e) => form.setData('fecha', e.target.value)}
+                                />
+                            </FormField>
+
                             <FormField label="Almacén" htmlFor="almacen_id" error={form.errors.almacen_id} required>
                                 <Select
                                     id="almacen_id"
@@ -227,61 +263,57 @@ export default function SalidaCreate({
                                 />
                             </FormField>
 
-                            <FormField label="Área" htmlFor="departamento_id" error={form.errors.departamento_id}>
-                                <Select
-                                    id="departamento_id"
-                                    value={form.data.departamento_id}
-                                    onValueChange={(v) => form.setData('departamento_id', v)}
-                                    placeholder="Sin área"
-                                >
-                                    <SelectItem value="">Sin área</SelectItem>
-                                    {departamentos.map((d) => (
-                                        <SelectItem key={d.id} value={String(d.id)}>
-                                            {d.descripcion}
-                                        </SelectItem>
-                                    ))}
-                                </Select>
-                            </FormField>
+                            {consumoDePlanta && (
+                                <>
+                                    <FormField
+                                        label="Área"
+                                        htmlFor="departamento_id"
+                                        error={form.errors.departamento_id}
+                                        description="A quién se le carga el consumo."
+                                        required
+                                    >
+                                        <Select
+                                            id="departamento_id"
+                                            value={form.data.departamento_id}
+                                            onValueChange={(v) => form.setData('departamento_id', v)}
+                                            placeholder="¿A qué área se le carga?"
+                                        >
+                                            {departamentos.map((d) => (
+                                                <SelectItem key={d.id} value={String(d.id)}>
+                                                    {d.descripcion}
+                                                </SelectItem>
+                                            ))}
+                                        </Select>
+                                    </FormField>
 
-                            <FormField label="Cuadrilla" htmlFor="grupo_trabajo_id" error={form.errors.grupo_trabajo_id}>
-                                <Select
-                                    id="grupo_trabajo_id"
-                                    value={form.data.grupo_trabajo_id}
-                                    onValueChange={(v) => form.setData('grupo_trabajo_id', v)}
-                                    placeholder="Sin cuadrilla"
-                                >
-                                    <SelectItem value="">Sin cuadrilla</SelectItem>
-                                    {gruposTrabajo.map((g) => (
-                                        <SelectItem key={g.id} value={String(g.id)}>
-                                            {g.descripcion}
-                                        </SelectItem>
-                                    ))}
-                                </Select>
-                            </FormField>
-
-                            <FormField label="Fecha" htmlFor="fecha" error={form.errors.fecha} required>
-                                <Input
-                                    id="fecha"
-                                    type="date"
-                                    value={form.data.fecha}
-                                    onChange={(e) => form.setData('fecha', e.target.value)}
-                                />
-                            </FormField>
-
-                            <FormField label="Motivo" htmlFor="motivo" error={form.errors.motivo}>
-                                <Input
-                                    id="motivo"
-                                    value={form.data.motivo}
-                                    onChange={(e) => form.setData('motivo', e.target.value)}
-                                    placeholder="Montaje eje 4"
-                                />
-                            </FormField>
+                                    <FormField
+                                        label="Módulo"
+                                        htmlFor="grupo_trabajo_id"
+                                        error={form.errors.grupo_trabajo_id}
+                                        description="El grupo de trabajo que se lleva el material."
+                                    >
+                                        <Select
+                                            id="grupo_trabajo_id"
+                                            value={form.data.grupo_trabajo_id}
+                                            onValueChange={(v) => form.setData('grupo_trabajo_id', v)}
+                                            placeholder="Sin módulo"
+                                        >
+                                            <SelectItem value="">Sin módulo</SelectItem>
+                                            {gruposTrabajo.map((g) => (
+                                                <SelectItem key={g.id} value={String(g.id)}>
+                                                    {g.descripcion}
+                                                </SelectItem>
+                                            ))}
+                                        </Select>
+                                    </FormField>
+                                </>
+                            )}
 
                             <FormField
                                 label="Observaciones"
                                 htmlFor="observaciones"
                                 error={form.errors.observaciones}
-                                className="md:col-span-2"
+                                className="md:col-span-3"
                             >
                                 <Input
                                     id="observaciones"

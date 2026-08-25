@@ -48,9 +48,11 @@ function salidaValida(Almacen $almacen, array $detalles, array $extra = []): arr
 {
     return [
         'almacen_id' => $almacen->id,
+        // El almacen de la factoria es central: una salida directa de planta
+        // tiene que decir a que area se le carga.
+        'departamento_id' => Departamento::factory()->create()->id,
         'recibe_nombre' => 'Cuadrilla 3',
         'fecha' => now()->toDateString(),
-        'motivo' => 'Montaje eje 4',
         'detalles' => $detalles,
         ...$extra,
     ];
@@ -441,5 +443,110 @@ describe('permisos', function () {
         $this->actingAs($usuario)
             ->get(route('admin.alm.salidas.index'))
             ->assertInertia(fn ($page) => $page->has('salidas.data', 1));
+    });
+});
+
+/**
+ * El almacen registra lo que ya paso. Una salida con fecha de manana no es un
+ * plan: es material que todavia esta en el anaquel descontado del kardex, y el
+ * conteo fisico del dia no cuadraria contra el sistema.
+ */
+describe('la fecha no puede ser de manana', function () {
+    it('rechaza la salida fechada en el futuro', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+        sembrar($almacen, $producto, 50);
+
+        $this->actingAs(usuarioDeSalidas())
+            ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
+                ['producto_id' => $producto->id, 'cantidad' => 5],
+            ], ['fecha' => now()->addDay()->toDateString()]))
+            ->assertSessionHasErrors('fecha');
+
+        expect(Salida::count())->toBe(0);
+    });
+
+    it('acepta hoy y acepta lo capturado con retraso', function (string $fecha) {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+        sembrar($almacen, $producto, 50);
+
+        $this->actingAs(usuarioDeSalidas())
+            ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
+                ['producto_id' => $producto->id, 'cantidad' => 5],
+            ], ['fecha' => $fecha]))
+            ->assertSessionHasNoErrors();
+    })->with([
+        'hoy' => fn (): string => now()->toDateString(),
+        'ayer' => fn (): string => now()->subDay()->toDateString(),
+        'la semana pasada' => fn (): string => now()->subWeek()->toDateString(),
+    ]);
+});
+
+/**
+ * En planta el material no se va a otro domicilio: se consume aqui mismo. Si
+ * ademas no hay pedido que diga quien lo pidio, el area es lo unico que dice a
+ * quien cargarle el consumo.
+ */
+describe('la salida directa de planta exige area', function () {
+    it('rechaza la salida directa de un almacen central sin area', function () {
+        $almacen = Almacen::factory()->create(['obra_id' => null]);
+        $producto = Producto::factory()->create();
+        sembrar($almacen, $producto, 50);
+
+        $this->actingAs(usuarioDeSalidas())
+            ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
+                ['producto_id' => $producto->id, 'cantidad' => 5],
+            ], ['departamento_id' => null]))
+            ->assertSessionHasErrors('departamento_id');
+
+        expect(Salida::count())->toBe(0);
+    });
+
+    it('la acepta con area', function () {
+        $almacen = Almacen::factory()->create(['obra_id' => null]);
+        $producto = Producto::factory()->create();
+        sembrar($almacen, $producto, 50);
+        $area = Departamento::factory()->create();
+
+        $this->actingAs(usuarioDeSalidas())
+            ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
+                ['producto_id' => $producto->id, 'cantidad' => 5],
+            ], ['departamento_id' => $area->id]))
+            ->assertSessionHasNoErrors();
+
+        expect(Salida::firstOrFail()->departamento_id)->toBe($area->id);
+    });
+
+    /** El almacen de obra ya dice a donde va el material: es la obra. */
+    it('no la exige en un almacen de obra', function () {
+        $almacen = Almacen::factory()->create(['obra_id' => Obra::factory()]);
+        $producto = Producto::factory()->create();
+        sembrar($almacen, $producto, 50);
+
+        $this->actingAs(usuarioDeSalidas())
+            ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
+                ['producto_id' => $producto->id, 'cantidad' => 5],
+            ], ['departamento_id' => null]))
+            ->assertSessionHasNoErrors();
+    });
+
+    /** Con pedido, quien pide ya quedo asentado ahi. */
+    it('no la exige cuando la salida surte un pedido', function () {
+        $almacen = Almacen::factory()->create(['obra_id' => null]);
+        $producto = Producto::factory()->create();
+        sembrar($almacen, $producto, 50);
+
+        $pedido = Pedido::factory()->de($almacen)->create();
+        $renglon = $pedido->detalles()->create([
+            'producto_id' => $producto->id,
+            'cantidad_solicitada' => 10,
+        ]);
+
+        $this->actingAs(usuarioDeSalidas())
+            ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
+                ['producto_id' => $producto->id, 'cantidad' => 5, 'pedido_detalle_id' => $renglon->id],
+            ], ['pedido_id' => $pedido->id, 'departamento_id' => null]))
+            ->assertSessionHasNoErrors();
     });
 });

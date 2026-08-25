@@ -42,7 +42,7 @@ class EntradaStoreRequest extends FormRequest
         return [
             'almacen_id' => ['required', 'integer', 'exists:alm_almacenes,id'],
             'orden_compra_id' => ['nullable', 'integer', 'exists:costos_ordenes_compra,id'],
-            'fecha_entrega' => ['required', 'date'],
+            'fecha_entrega' => ['required', 'date', 'before_or_equal:today'],
             'observaciones' => ['nullable', 'string', 'max:1000'],
 
             // Solo la recepción contra orden distingue parcial de completa y
@@ -78,6 +78,7 @@ class EntradaStoreRequest extends FormRequest
     {
         return [
             'almacen_id.required' => 'Indica a qué almacén entra el material.',
+            'fecha_entrega.before_or_equal' => 'La entrada no puede ser de un día que no ha llegado: el material entró hoy o ya había entrado.',
             'tipo.required' => 'Indica si la orden se recibe completa o parcial.',
             'detalles.required' => 'Captura al menos un artículo.',
             'detalles.min' => 'Captura al menos un artículo.',

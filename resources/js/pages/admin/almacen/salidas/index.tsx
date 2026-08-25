@@ -1,3 +1,4 @@
+import { BotonFormato } from '@/components/alm/boton-formato';
 import { DataTable, type Column } from '@/components/data-table';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
@@ -22,7 +23,6 @@ type SalidaFila = {
     recibe: string | null;
     entrego: string | null;
     renglones: number;
-    motivo: string | null;
     cancelada: boolean;
 };
 
@@ -67,13 +67,18 @@ const columns: Column<SalidaFila>[] = [
             ),
     },
     { key: 'recibe', label: 'Recibe' },
-    { key: 'motivo', label: 'Motivo', className: 'text-base-content/70 text-sm' },
     { key: 'renglones', label: 'Renglones', className: 'text-right font-mono' },
     { key: 'entrego', label: 'Entregó' },
     {
         key: 'cancelada',
         label: '',
         render: (s) => (s.cancelada ? <span className="badge badge-sm badge-ghost">Cancelada</span> : null),
+    },
+    {
+        key: 'vale',
+        label: '',
+        className: 'w-10',
+        render: (s) => <BotonFormato href={`/admin/almacen/salidas/${s.id}/pdf`} soloIcono />,
     },
 ];
 

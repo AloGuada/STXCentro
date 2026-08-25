@@ -1,3 +1,4 @@
+import { BotonFormato } from '@/components/alm/boton-formato';
 import { ButtonLink } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
@@ -95,6 +96,7 @@ export default function SalidaShow({ salida, detalles }: Props) {
                             <ArrowLeftIcon className="size-4" />
                             Volver
                         </ButtonLink>
+                        <BotonFormato href={`/admin/almacen/salidas/${salida.id}/pdf`} />
                         {!salida.cancelada && (
                             <button type="button" className="btn btn-outline" onClick={() => setCancelando(true)}>
                                 Cancelar salida

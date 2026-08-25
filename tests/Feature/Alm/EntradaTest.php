@@ -225,3 +225,43 @@ describe('permisos', function () {
             ->and(fn () => route('admin.alm.entradas.destroy', 1))->toThrow(Exception::class);
     });
 });
+
+/**
+ * Igual que la salida: el almacen asienta lo que ya llego. Con fecha de manana
+ * el kardex sube por material que nadie ha bajado del camion.
+ */
+describe('la fecha no puede ser de manana', function () {
+    it('rechaza la entrada fechada en el futuro', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        $datos = entradaValida($almacen, [
+            ['producto_id' => $producto->id, 'cantidad_recibida' => 10, 'precio_unitario' => 4.35],
+        ]);
+        $datos['fecha_entrega'] = now()->addDay()->toDateString();
+
+        $this->actingAs(usuarioDeEntradas())
+            ->post(route('admin.alm.entradas.store'), $datos)
+            ->assertSessionHasErrors('fecha_entrega');
+
+        expect(Entrega::count())->toBe(0);
+    });
+
+    it('acepta hoy y acepta lo capturado con retraso', function (string $fecha) {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        $datos = entradaValida($almacen, [
+            ['producto_id' => $producto->id, 'cantidad_recibida' => 10, 'precio_unitario' => 4.35],
+        ]);
+        $datos['fecha_entrega'] = $fecha;
+
+        $this->actingAs(usuarioDeEntradas())
+            ->post(route('admin.alm.entradas.store'), $datos)
+            ->assertSessionHasNoErrors();
+    })->with([
+        'hoy' => fn (): string => now()->toDateString(),
+        'ayer' => fn (): string => now()->subDay()->toDateString(),
+        'la semana pasada' => fn (): string => now()->subWeek()->toDateString(),
+    ]);
+});

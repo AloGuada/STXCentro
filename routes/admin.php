@@ -286,6 +286,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->parameters(['salidas' => 'salida'])
             ->middlewareFor(['index', 'show'], 'permission:alm.salidas.ver')
             ->middlewareFor(['create', 'store'], 'permission:alm.salidas.crear');
+        // El vale impreso: la hoja sellada con el folio en codigo de barras que
+        // firma quien se lleva el material. Es consulta, va con 'ver'.
+        Route::get('salidas/{salida}/pdf', [AlmSalidaController::class, 'pdf'])
+            ->whereNumber('salida')
+            ->middleware('permission:alm.salidas.ver')
+            ->name('salidas.pdf');
         Route::patch('salidas/{salida}/cancelar', [AlmSalidaController::class, 'cancelar'])
             ->whereNumber('salida')
             ->middleware('permission:alm.salidas.crear')

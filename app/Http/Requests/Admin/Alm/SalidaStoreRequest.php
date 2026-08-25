@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\Alm;
 
+use App\Models\Alm\Almacen;
 use App\Models\Alm\Pedido;
 use App\Models\Alm\PedidoDetalle;
 use App\Services\Alm\AlmacenLedger;
@@ -29,7 +30,7 @@ class SalidaStoreRequest extends FormRequest
             'grupo_trabajo_id' => ['nullable', 'integer', 'exists:prod_grupos_trabajo,id'],
             'solicitante_id' => ['nullable', 'uuid', 'exists:usuarios,id'],
             'recibe_nombre' => ['required', 'string', 'max:255'],
-            'fecha' => ['required', 'date'],
+            'fecha' => ['required', 'date', 'before_or_equal:today'],
             'motivo' => ['nullable', 'string', 'max:255'],
             'observaciones' => ['nullable', 'string', 'max:1000'],
             'detalles' => ['required', 'array', 'min:1'],
@@ -57,7 +58,35 @@ class SalidaStoreRequest extends FormRequest
         $validator->after(function (Validator $validator): void {
             $this->validarExistencia($validator);
             $this->validarPedido($validator);
+            $this->validarDepartamento($validator);
         });
+    }
+
+    /**
+     * En planta el material no se va a otro domicilio: se consume aqui mismo.
+     * Si ademas no hay pedido que diga quien lo pidio, el departamento es lo
+     * unico que dice a que area cargarle el consumo, y sin el la salida se
+     * pierde en "almacen central".
+     *
+     * Se resuelve contra el almacen guardado y no contra lo que mande la
+     * pantalla: quien decide si es de planta es el catalogo.
+     */
+    private function validarDepartamento(Validator $validator): void
+    {
+        if ($this->filled('departamento_id') || $this->filled('pedido_id')) {
+            return;
+        }
+
+        $almacen = Almacen::find($this->integer('almacen_id'));
+
+        if ($almacen === null || ! $almacen->esCentral()) {
+            return;
+        }
+
+        $validator->errors()->add(
+            'departamento_id',
+            'Una salida directa de planta tiene que decir a que area se le carga.',
+        );
     }
 
     private function validarExistencia(Validator $validator): void
@@ -165,6 +194,7 @@ class SalidaStoreRequest extends FormRequest
     {
         return [
             'almacen_id.required' => 'Indica de qué almacén sale el material.',
+            'fecha.before_or_equal' => 'La salida no puede ser de un día que no ha llegado: el material sale hoy o ya salió.',
             'recibe_nombre.required' => 'Escribe quién recibe: es quien firma el vale.',
             'detalles.required' => 'Captura al menos un artículo.',
             'detalles.*.cantidad.gt' => 'Entregar cero no es entregar.',
