@@ -80,10 +80,8 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
 
     // Lo cargado al presupuesto es la suma del desglose, no el monto de la
     // solicitud: son dos números distintos y el desglose puede sumar menos (se
-    // comprueba por partes). El pie de la tabla repetía el monto total, y al
-    // reasignar centros de costos parecía que la reasignación lo había movido.
+    // comprueba por partes).
     const cargadoCostos = (solicitud.detalles ?? []).reduce((acumulado, d) => acumulado + Number(d.subtotal ?? 0), 0);
-    const descuadreCargado = Math.abs(cargadoCostos - Number(solicitud.monto_total ?? 0)) > 0.01;
 
     const handleConfirmarCostos = () => {
         if (confirm('¿Confirmar esta solicitud por costos?')) {
@@ -339,20 +337,9 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
                                                 <td className="text-right font-bold">{fmtMonto(cargadoCostos, solicitud.tipo_moneda)}</td>
                                                 <td></td>
                                             </tr>
-                                            <tr>
-                                                <td colSpan={5} className="text-right text-base-content/60">Monto de la solicitud</td>
-                                                <td className="text-right text-base-content/60">{fmtMonto(solicitud.monto_total, solicitud.tipo_moneda)}</td>
-                                                <td></td>
-                                            </tr>
                                         </tfoot>
                                     </table>
                                 </div>
-                                {descuadreCargado && (
-                                    <p className="mt-2 text-sm text-base-content/60">
-                                        El desglose por centro de costos no suma el monto de la solicitud. Al proveedor
-                                        se le paga el monto de la solicitud; al presupuesto se le carga lo desglosado.
-                                    </p>
-                                )}
                             </div>
                         )}
                     </div>
