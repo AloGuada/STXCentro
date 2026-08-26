@@ -47,7 +47,7 @@ class AprobacionController extends Controller
 
         $data = $usuario
             ? $this->construirBandeja($usuario->getKey())
-            : ['pendientes' => collect(), 'aprobadas' => collect(), 'rechazadas' => collect()];
+            : ['pendientes' => collect(), 'conteos' => ['aprobadas' => 0, 'rechazadas' => 0]];
 
         return Inertia::render('admin/costos/aprobaciones/index', [
             ...$data,
@@ -58,11 +58,12 @@ class AprobacionController extends Controller
     }
 
     /**
-     * Construye las tres colecciones (pendientes/aprobadas/rechazadas) ya
-     * formadas para un aprobador. Reutilizado por la bandeja propia y por la
-     * vista supervisora.
+     * Construye la bandeja de un aprobador: los pendientes formados, el
+     * historial como props opcionales —solo se arma si la pantalla lo pide— y
+     * los conteos para rotular las pestanas. Reutilizado por la bandeja propia
+     * y por la vista supervisora.
      *
-     * @return array{pendientes: \Illuminate\Support\Collection, aprobadas: \Illuminate\Support\Collection, rechazadas: \Illuminate\Support\Collection}
+     * @return array{pendientes: \Illuminate\Support\Collection, aprobadas: \Inertia\OptionalProp, rechazadas: \Inertia\OptionalProp, conteos: array{aprobadas: int, rechazadas: int}}
      */
     private function construirBandeja(int|string $userId): array
     {
@@ -106,20 +107,38 @@ class AprobacionController extends Controller
             ->filter(fn (Aprobacion $a) => $this->esTurno($a))
             ->values();
 
-        $aprobadas = $baseQuery()
-            ->where('estatus', AprobacionEstatus::Aprobada->value)
-            ->latest('fecha_respuesta')
-            ->get();
+        // El historial se arma solo si lo piden. `Inertia::optional` no se
+        // evalua en la carga inicial: la pantalla abre con Pendientes —la
+        // unica pestana que se usa para trabajar— y las otras dos llegan por
+        // recarga parcial cuando alguien las activa.
+        //
+        // Importa porque el historial no tiene techo: son todos los documentos
+        // que esa persona haya firmado en su vida, con el arbol de relaciones
+        // que sirve para decidir, y encima `shape()` hace una consulta por
+        // fila. Los pendientes estan acotados por el trabajo en vuelo; esto no.
+        $historial = fn (AprobacionEstatus $estatus) => Inertia::optional(
+            fn () => $baseQuery()
+                ->where('estatus', $estatus->value)
+                ->latest('fecha_respuesta')
+                ->get()
+                ->map(fn (Aprobacion $a) => $this->shape($a))
+        );
 
-        $rechazadas = $baseQuery()
-            ->where('estatus', AprobacionEstatus::Rechazada->value)
-            ->latest('fecha_respuesta')
-            ->get();
+        // Los conteos si viajan siempre: las pestanas los rotulan, y contar no
+        // toca el eager-load ni pasa por `shape()`.
+        $conteo = fn (AprobacionEstatus $estatus) => Aprobacion::where('aprobador_id', $userId)
+            ->whereIn('aprobable_type', [SolicitudPago::class, Requisicion::class])
+            ->where('estatus', $estatus->value)
+            ->count();
 
         return [
             'pendientes' => $pendientes->map(fn (Aprobacion $a) => $this->shape($a)),
-            'aprobadas' => $aprobadas->map(fn (Aprobacion $a) => $this->shape($a)),
-            'rechazadas' => $rechazadas->map(fn (Aprobacion $a) => $this->shape($a)),
+            'aprobadas' => $historial(AprobacionEstatus::Aprobada),
+            'rechazadas' => $historial(AprobacionEstatus::Rechazada),
+            'conteos' => [
+                'aprobadas' => $conteo(AprobacionEstatus::Aprobada),
+                'rechazadas' => $conteo(AprobacionEstatus::Rechazada),
+            ],
         ];
     }
 

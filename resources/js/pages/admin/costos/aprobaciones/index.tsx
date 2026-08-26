@@ -6,7 +6,7 @@ import type { CostosAprobacionSolicitud, CostosRequisicionEstatus, CostosRequisi
 import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, CheckIcon, EyeIcon, FileCheckIcon, FileTextIcon, PaperclipIcon, XIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -16,8 +16,14 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 type Props = {
     pendientes: CostosAprobacionSolicitud[];
-    aprobadas: CostosAprobacionSolicitud[];
-    rechazadas: CostosAprobacionSolicitud[];
+    /**
+     * El historial no viaja en la carga inicial: son props opcionales del
+     * servidor y llegan por recarga parcial cuando alguien activa la pestaña.
+     * `undefined` significa "todavía no se ha pedido".
+     */
+    aprobadas?: CostosAprobacionSolicitud[];
+    rechazadas?: CostosAprobacionSolicitud[];
+    conteos: { aprobadas: number; rechazadas: number };
     soloLectura?: boolean;
     aprobador?: { id: string; name: string } | null;
     aprobadores?: { id: string; name: string }[];
@@ -299,22 +305,6 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
     const [mediaModal, setMediaModal] = useState<{ titulo: string; archivos: { id: number; url: string; nombre: string }[] } | null>(null);
     const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
 
-    // Preserva el scroll de la tabla al ir/volver del detalle (por pestaña).
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const storageKey = `aprobaciones-scroll-${tipo}`;
-    useEffect(() => {
-        const el = scrollRef.current;
-        const saved = el && sessionStorage.getItem(storageKey);
-        if (el && saved) {
-            el.scrollTop = Number(saved) || 0;
-        }
-    }, [storageKey]);
-    const handleScroll = () => {
-        if (scrollRef.current) {
-            sessionStorage.setItem(storageKey, String(scrollRef.current.scrollTop));
-        }
-    };
-
     const toggleSort = (key: SortKey) =>
         setSort((prev) => (prev?.key === key ? (prev.dir === 'asc' ? { key, dir: 'desc' } : null) : { key, dir: 'asc' }));
 
@@ -373,7 +363,7 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
 
     return (
         <>
-            <div ref={scrollRef} onScroll={handleScroll} className="overflow-auto rounded-box border border-base-300" style={{ maxHeight: '70vh' }}>
+            <div className="rounded-box border-base-300 overflow-x-auto border">
                 <table className="table">
                     <thead className="sticky top-0 z-10 bg-base-100">
                         <tr>
@@ -574,8 +564,54 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
     );
 }
 
-export default function AprobacionesIndex({ pendientes, aprobadas, rechazadas, soloLectura = false, aprobador = null, aprobadores = [] }: Props) {
+type Historial = 'aprobadas' | 'rechazadas';
+
+/** Mientras el historial viene en camino, para que la pestana no salte en seco. */
+function HistorialCargando() {
+    return (
+        <div className="rounded-box border-base-300 space-y-2 border p-4" aria-busy="true">
+            {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="bg-base-300 h-8 animate-pulse rounded" />
+            ))}
+            <p className="text-base-content/50 pt-2 text-center text-sm">Cargando el historial…</p>
+        </div>
+    );
+}
+
+export default function AprobacionesIndex({ pendientes, aprobadas, rechazadas, conteos, soloLectura = false, aprobador = null, aprobadores = [] }: Props) {
     const titulo = soloLectura ? 'Bandeja de aprobador' : 'Mis Aprobaciones';
+    const [cargando, setCargando] = useState<Historial | null>(null);
+    const cargados = useRef(new Set<Historial>());
+
+    /**
+     * Se pide el historial la primera vez que se abre su pestaña. Después ya
+     * vive en las props y cambiar de pestaña no vuelve a pegarle al servidor.
+     */
+    const abrirHistorial = (cual: Historial) => {
+        if (cargados.current.has(cual) || cargando !== null) {
+            return;
+        }
+
+        cargados.current.add(cual);
+        setCargando(cual);
+        router.reload({
+            only: [cual],
+            onFinish: () => setCargando(null),
+            onError: () => cargados.current.delete(cual),
+        });
+    };
+
+    const panelDe = (cual: Historial, items: CostosAprobacionSolicitud[] | undefined) => {
+        if (cargando === cual) {
+            return <HistorialCargando />;
+        }
+
+        if (items === undefined) {
+            return <p className="text-base-content/60 py-8 text-center">Abre la pestaña para cargar el historial.</p>;
+        }
+
+        return <AprobacionTable items={items} tipo={cual} soloLectura={soloLectura} />;
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -621,15 +657,25 @@ export default function AprobacionesIndex({ pendientes, aprobadas, rechazadas, s
                             <AprobacionTable items={pendientes} tipo="pendientes" soloLectura={soloLectura} />
                         </div>
 
-                        <input type="radio" name="aprobaciones_tabs" role="tab" className="tab" aria-label={`Aprobadas (${aprobadas.length})`} />
-                        <div role="tabpanel" className="tab-content py-4">
-                            <AprobacionTable items={aprobadas} tipo="aprobadas" soloLectura={soloLectura} />
-                        </div>
+                        <input
+                            type="radio"
+                            name="aprobaciones_tabs"
+                            role="tab"
+                            className="tab"
+                            aria-label={`Aprobadas (${conteos.aprobadas})`}
+                            onChange={() => abrirHistorial('aprobadas')}
+                        />
+                        <div role="tabpanel" className="tab-content py-4">{panelDe('aprobadas', aprobadas)}</div>
 
-                        <input type="radio" name="aprobaciones_tabs" role="tab" className="tab" aria-label={`Rechazadas (${rechazadas.length})`} />
-                        <div role="tabpanel" className="tab-content py-4">
-                            <AprobacionTable items={rechazadas} tipo="rechazadas" soloLectura={soloLectura} />
-                        </div>
+                        <input
+                            type="radio"
+                            name="aprobaciones_tabs"
+                            role="tab"
+                            className="tab"
+                            aria-label={`Rechazadas (${conteos.rechazadas})`}
+                            onChange={() => abrirHistorial('rechazadas')}
+                        />
+                        <div role="tabpanel" className="tab-content py-4">{panelDe('rechazadas', rechazadas)}</div>
                     </div>
                 )}
             </div>

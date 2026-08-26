@@ -30,8 +30,13 @@ describe('admin costos aprobaciones', function () {
         $response->assertInertia(fn ($page) => $page
             ->component('admin/costos/aprobaciones/index')
             ->has('pendientes')
-            ->has('aprobadas')
-            ->has('rechazadas')
+            // El historial no viaja en la carga inicial: la pantalla lo pide
+            // cuando alguien abre su pestana. Lo unico que va son los conteos,
+            // que rotulan las pestanas.
+            ->missing('aprobadas')
+            ->missing('rechazadas')
+            ->has('conteos.aprobadas')
+            ->has('conteos.rechazadas')
         );
     });
 
@@ -661,5 +666,66 @@ describe('flujo completo de solicitud con aprobación multinivel y pago', functi
         expect((float) $pago->monto_pago)->toBe(15000.00);
         expect($pago->tipo_pago)->toBe('contado');
         expect($pago->estatus->value)->toBe('programado');
+    });
+});
+
+/**
+ * El historial no tiene techo —son todos los documentos que esa persona firmo
+ * en su vida, con el arbol de relaciones que sirve para decidir y una consulta
+ * por fila en `shape()`— y la pestana que se usa para trabajar es Pendientes.
+ * Asi que no viaja hasta que alguien lo pide.
+ */
+describe('el historial se carga cuando lo piden', function () {
+    /**
+     * Encabezados de una recarga parcial. La version la calcula el middleware
+     * —no `Inertia::getVersion()`, que fuera del request viene vacia y hace que
+     * Inertia conteste 409 en vez de servir la prop.
+     *
+     * @param  list<string>  $props
+     * @return array<string, string>
+     */
+    $parcial = function (array $props): array {
+        return [
+            'X-Inertia' => 'true',
+            'X-Inertia-Version' => (string) app(App\Http\Middleware\HandleInertiaRequests::class)->version(request()),
+            'X-Inertia-Partial-Component' => 'admin/costos/aprobaciones/index',
+            'X-Inertia-Partial-Data' => implode(',', $props),
+        ];
+    };
+
+    beforeEach(function () {
+        $firmada = SolicitudPago::factory()->create();
+        AprobacionSolicitud::create([
+            'solicitud_id' => $firmada->id,
+            'nivel' => 1,
+            'aprobador_id' => $this->user->id,
+            'estatus' => 'aprobada',
+            'fecha_respuesta' => now(),
+        ]);
+    });
+
+    test('la carga inicial no trae el historial, pero si su conteo', function () {
+        $this->actingAs($this->user)
+            ->get(route('admin.costos.aprobaciones.index'))
+            ->assertInertia(fn ($page) => $page
+                ->missing('aprobadas')
+                ->where('conteos.aprobadas', 1)
+            );
+    });
+
+    test('la recarga parcial si lo trae', function () use ($parcial) {
+        $this->actingAs($this->user)
+            ->get(route('admin.costos.aprobaciones.index'), $parcial(['aprobadas']))
+            ->assertOk()
+            ->assertJsonPath('props.aprobadas.0.estatus', 'aprobada');
+    });
+
+    /** Pedir una pestana no arrastra la otra. */
+    test('pedir aprobadas no trae rechazadas', function () use ($parcial) {
+        $respuesta = $this->actingAs($this->user)
+            ->get(route('admin.costos.aprobaciones.index'), $parcial(['aprobadas']));
+
+        $respuesta->assertOk();
+        expect($respuesta->json('props'))->toHaveKey('aprobadas')->not->toHaveKey('rechazadas');
     });
 });
