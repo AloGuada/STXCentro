@@ -1366,7 +1366,13 @@ export default function RequisicionesShow({
                                         disabled={tcCargando}
                                         onClick={() => sugerirTc(divisaTc)}
                                     >
-                                        {tcCargando ? '...' : 'Sugerir'}
+                                        {/* El texto que cambia va envuelto:
+                                            React reemplaza el <span>, no un
+                                            nodo de texto suelto que un
+                                            traductor pudo haber sustituido. */}
+                                        <span>
+                                            {tcCargando ? '...' : 'Sugerir'}
+                                        </span>
                                     </button>
                                     <button
                                         type="button"
@@ -1377,9 +1383,11 @@ export default function RequisicionesShow({
                                         }
                                         onClick={guardarTc}
                                     >
-                                        {tcGuardando
-                                            ? 'Guardando...'
-                                            : 'Guardar TC'}
+                                        <span>
+                                            {tcGuardando
+                                                ? 'Guardando...'
+                                                : 'Guardar TC'}
+                                        </span>
                                     </button>
                                 </div>
                                 <p className="mt-1 text-[11px] text-base-content/50">
