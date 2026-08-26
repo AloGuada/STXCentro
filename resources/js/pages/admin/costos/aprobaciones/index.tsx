@@ -2,7 +2,7 @@ import { DocumentoUpload } from '@/components/costos/documento-upload';
 import OcsAdjudicadas from '@/components/costos/ocs-adjudicadas';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosAprobacionSolicitud, CostosRequisicionEstatus, CostosRequisicionOcResumen, CostosSolicitudPago } from '@/types/models';
+import type { CostosAprobacionSolicitud, CostosRequisicionEstatus, CostosRequisicionOcResumen, CostosSolicitudPago, PaginatedData } from '@/types/models';
 import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, CheckIcon, EyeIcon, FileCheckIcon, FileTextIcon, PaperclipIcon, XIcon } from 'lucide-react';
@@ -18,11 +18,11 @@ type Props = {
     pendientes: CostosAprobacionSolicitud[];
     /**
      * El historial no viaja en la carga inicial: son props opcionales del
-     * servidor y llegan por recarga parcial cuando alguien activa la pestaña.
-     * `undefined` significa "todavía no se ha pedido".
+     * servidor y llegan paginadas por recarga parcial cuando alguien activa la
+     * pestaña. `undefined` significa "todavía no se ha pedido".
      */
-    aprobadas?: CostosAprobacionSolicitud[];
-    rechazadas?: CostosAprobacionSolicitud[];
+    aprobadas?: PaginatedData<CostosAprobacionSolicitud>;
+    rechazadas?: PaginatedData<CostosAprobacionSolicitud>;
     conteos: { aprobadas: number; rechazadas: number };
     soloLectura?: boolean;
     aprobador?: { id: string; name: string } | null;
@@ -298,7 +298,55 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
 
 type SortKey = 'tipo' | 'nivel' | 'folio' | 'solicitante' | 'proveedor' | 'concepto' | 'monto' | 'fecha' | 'observaciones';
 
-function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAprobacionSolicitud[]; tipo: 'pendientes' | 'aprobadas' | 'rechazadas'; soloLectura?: boolean }) {
+type Paginacion = {
+    pagina: number;
+    ultimaPagina: number;
+    desde: number | null;
+    hasta: number | null;
+    total: number;
+    cargando: boolean;
+    onPagina: (pagina: number) => void;
+};
+
+/**
+ * Pie de la tabla paginada. Navega por número de página —no por las `links`
+ * del paginador— porque el historial viaja como recarga parcial: visitar la
+ * URL del link traería la pantalla entera de vuelta.
+ */
+function Pager({ pagina, ultimaPagina, desde, hasta, total, cargando, onPagina }: Paginacion) {
+    return (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs text-base-content/60">
+                <p>Mostrando {desde ?? 0}–{hasta ?? 0} de {total}</p>
+                <p className="text-base-content/40">Los encabezados ordenan las filas de esta página.</p>
+            </div>
+
+            <div className="join">
+                <button
+                    type="button"
+                    className="join-item btn btn-sm"
+                    disabled={pagina <= 1 || cargando}
+                    onClick={() => onPagina(pagina - 1)}
+                >
+                    «
+                </button>
+                <span className="join-item btn btn-sm btn-ghost pointer-events-none">
+                    Página {pagina} de {ultimaPagina}
+                </span>
+                <button
+                    type="button"
+                    className="join-item btn btn-sm"
+                    disabled={pagina >= ultimaPagina || cargando}
+                    onClick={() => onPagina(pagina + 1)}
+                >
+                    »
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function AprobacionTable({ items, tipo, soloLectura = false, paginacion }: { items: CostosAprobacionSolicitud[]; tipo: 'pendientes' | 'aprobadas' | 'rechazadas'; soloLectura?: boolean; paginacion?: Paginacion }) {
     const [modalState, setModalState] = useState<{ id: number; tipo: 'aprobar' | 'rechazar' } | null>(null);
     const [pdfModal, setPdfModal] = useState<{ url: string; title: string } | null>(null);
     const [archivosModal, setArchivosModal] = useState<CostosSolicitudPago | null>(null);
@@ -541,6 +589,8 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
                 </table>
             </div>
 
+            {paginacion && paginacion.total > 0 && <Pager {...paginacion} />}
+
             {modalState && (
                 <ObservacionesModal
                     aprobacionId={modalState.id}
@@ -581,36 +631,65 @@ function HistorialCargando() {
 export default function AprobacionesIndex({ pendientes, aprobadas, rechazadas, conteos, soloLectura = false, aprobador = null, aprobadores = [] }: Props) {
     const titulo = soloLectura ? 'Bandeja de aprobador' : 'Mis Aprobaciones';
     const [cargando, setCargando] = useState<Historial | null>(null);
-    const cargados = useRef(new Set<Historial>());
+    const pedidos = useRef(new Set<Historial>());
 
     /**
-     * Se pide el historial la primera vez que se abre su pestaña. Después ya
-     * vive en las props y cambiar de pestaña no vuelve a pegarle al servidor.
+     * Cada página del historial es una recarga parcial: solo esa pestaña viaja,
+     * y su número de página va como parámetro propio (`pagina_aprobadas` /
+     * `pagina_rechazadas`) para que moverse en una no arrastre a la otra.
      */
-    const abrirHistorial = (cual: Historial) => {
-        if (cargados.current.has(cual) || cargando !== null) {
+    const pedirHistorial = (cual: Historial, pagina: number) => {
+        if (cargando !== null) {
             return;
         }
 
-        cargados.current.add(cual);
+        pedidos.current.add(cual);
         setCargando(cual);
         router.reload({
             only: [cual],
+            data: { [`pagina_${cual}`]: pagina },
             onFinish: () => setCargando(null),
-            onError: () => cargados.current.delete(cual),
+            onError: () => pedidos.current.delete(cual),
         });
     };
 
-    const panelDe = (cual: Historial, items: CostosAprobacionSolicitud[] | undefined) => {
-        if (cargando === cual) {
-            return <HistorialCargando />;
+    /**
+     * Se pide la primera página la primera vez que se abre la pestaña. Después
+     * ya vive en las props y cambiar de pestaña no vuelve a pegarle al servidor.
+     */
+    const abrirHistorial = (cual: Historial) => {
+        if (pedidos.current.has(cual)) {
+            return;
         }
 
-        if (items === undefined) {
-            return <p className="text-base-content/60 py-8 text-center">Abre la pestaña para cargar el historial.</p>;
+        pedirHistorial(cual, 1);
+    };
+
+    const panelDe = (cual: Historial, pagina: PaginatedData<CostosAprobacionSolicitud> | undefined) => {
+        // El esqueleto es solo para la primera carga; al cambiar de página se
+        // deja la tabla en pantalla y se desactivan los botones del pie.
+        if (pagina === undefined) {
+            return cargando === cual
+                ? <HistorialCargando />
+                : <p className="text-base-content/60 py-8 text-center">Abre la pestaña para cargar el historial.</p>;
         }
 
-        return <AprobacionTable items={items} tipo={cual} soloLectura={soloLectura} />;
+        return (
+            <AprobacionTable
+                items={pagina.data}
+                tipo={cual}
+                soloLectura={soloLectura}
+                paginacion={{
+                    pagina: pagina.current_page,
+                    ultimaPagina: pagina.last_page,
+                    desde: pagina.from,
+                    hasta: pagina.to,
+                    total: pagina.total,
+                    cargando: cargando === cual,
+                    onPagina: (n) => pedirHistorial(cual, n),
+                }}
+            />
+        );
     };
 
     return (

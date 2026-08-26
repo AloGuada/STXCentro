@@ -717,7 +717,61 @@ describe('el historial se carga cuando lo piden', function () {
         $this->actingAs($this->user)
             ->get(route('admin.costos.aprobaciones.index'), $parcial(['aprobadas']))
             ->assertOk()
-            ->assertJsonPath('props.aprobadas.0.estatus', 'aprobada');
+            ->assertJsonPath('props.aprobadas.data.0.estatus', 'aprobada');
+    });
+
+    /**
+     * Aun pedido a proposito, el historial de alguien con anos de firmas llega
+     * en miles de filas. Viaja por paginas.
+     */
+    test('el historial viaja paginado', function () use ($parcial) {
+        // 25 aprobadas en total (1 la puso el beforeEach) contra 20 por pagina.
+        foreach (range(1, 24) as $i) {
+            $solicitud = SolicitudPago::factory()->create();
+            AprobacionSolicitud::create([
+                'solicitud_id' => $solicitud->id,
+                'nivel' => 1,
+                'aprobador_id' => $this->user->id,
+                'estatus' => 'aprobada',
+                'fecha_respuesta' => now()->subDays($i),
+            ]);
+        }
+
+        $primera = $this->actingAs($this->user)
+            ->get(route('admin.costos.aprobaciones.index'), $parcial(['aprobadas']));
+
+        $primera->assertOk()
+            ->assertJsonPath('props.aprobadas.total', 25)
+            ->assertJsonPath('props.aprobadas.current_page', 1)
+            ->assertJsonPath('props.aprobadas.last_page', 2);
+
+        expect($primera->json('props.aprobadas.data'))->toHaveCount(20);
+
+        // El conteo de la pestana sigue siendo el total, no el de la pagina.
+        $segunda = $this->actingAs($this->user)
+            ->get(route('admin.costos.aprobaciones.index', ['pagina_aprobadas' => 2]), $parcial(['aprobadas']));
+
+        $segunda->assertOk()->assertJsonPath('props.aprobadas.current_page', 2);
+        expect($segunda->json('props.aprobadas.data'))->toHaveCount(5);
+    });
+
+    /** Cada pestana lleva su propio parametro: paginar una no mueve a la otra. */
+    test('cada pestana pagina por separado', function () use ($parcial) {
+        $rechazada = SolicitudPago::factory()->create();
+        AprobacionSolicitud::create([
+            'solicitud_id' => $rechazada->id,
+            'nivel' => 1,
+            'aprobador_id' => $this->user->id,
+            'estatus' => 'rechazada',
+            'fecha_respuesta' => now(),
+        ]);
+
+        // Aprobadas en su pagina 2 (vacia); Rechazadas se queda en la 1.
+        $this->actingAs($this->user)
+            ->get(route('admin.costos.aprobaciones.index', ['pagina_aprobadas' => 2]), $parcial(['rechazadas']))
+            ->assertOk()
+            ->assertJsonPath('props.rechazadas.current_page', 1)
+            ->assertJsonPath('props.rechazadas.total', 1);
     });
 
     /** Pedir una pestana no arrastra la otra. */

@@ -21,6 +21,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class AprobacionController extends Controller
 {
+    /** Filas por pagina de las pestanas de historial (Aprobadas / Rechazadas). */
+    private const HISTORIAL_POR_PAGINA = 20;
+
     public function index(): Response|RedirectResponse
     {
         if (! auth()->user()->firma_path) {
@@ -59,9 +62,9 @@ class AprobacionController extends Controller
 
     /**
      * Construye la bandeja de un aprobador: los pendientes formados, el
-     * historial como props opcionales —solo se arma si la pantalla lo pide— y
-     * los conteos para rotular las pestanas. Reutilizado por la bandeja propia
-     * y por la vista supervisora.
+     * historial como props opcionales —solo se arma si la pantalla lo pide, y
+     * paginado— y los conteos para rotular las pestanas. Reutilizado por la
+     * bandeja propia y por la vista supervisora.
      *
      * @return array{pendientes: \Illuminate\Support\Collection, aprobadas: \Inertia\OptionalProp, rechazadas: \Inertia\OptionalProp, conteos: array{aprobadas: int, rechazadas: int}}
      */
@@ -116,12 +119,19 @@ class AprobacionController extends Controller
         // que esa persona haya firmado en su vida, con el arbol de relaciones
         // que sirve para decidir, y encima `shape()` hace una consulta por
         // fila. Los pendientes estan acotados por el trabajo en vuelo; esto no.
-        $historial = fn (AprobacionEstatus $estatus) => Inertia::optional(
+        // Y ademas paginado: aun pedido a proposito, el historial de alguien
+        // con anos de firmas llega en miles de filas, cada una con su arbol de
+        // relaciones y su consulta de sobregiro. Cada pestana lleva su propio
+        // parametro de pagina para que abrir Aprobadas no mueva a Rechazadas.
+        $historial = fn (AprobacionEstatus $estatus, string $pestana) => Inertia::optional(
             fn () => $baseQuery()
                 ->where('estatus', $estatus->value)
                 ->latest('fecha_respuesta')
-                ->get()
-                ->map(fn (Aprobacion $a) => $this->shape($a))
+                // Desempate estable: sin el, dos firmas del mismo instante
+                // pueden repetirse o perderse al cambiar de pagina.
+                ->orderByDesc('id')
+                ->paginate(self::HISTORIAL_POR_PAGINA, ['*'], "pagina_{$pestana}")
+                ->through(fn (Aprobacion $a) => $this->shape($a))
         );
 
         // Los conteos si viajan siempre: las pestanas los rotulan, y contar no
@@ -133,8 +143,8 @@ class AprobacionController extends Controller
 
         return [
             'pendientes' => $pendientes->map(fn (Aprobacion $a) => $this->shape($a)),
-            'aprobadas' => $historial(AprobacionEstatus::Aprobada),
-            'rechazadas' => $historial(AprobacionEstatus::Rechazada),
+            'aprobadas' => $historial(AprobacionEstatus::Aprobada, 'aprobadas'),
+            'rechazadas' => $historial(AprobacionEstatus::Rechazada, 'rechazadas'),
             'conteos' => [
                 'aprobadas' => $conteo(AprobacionEstatus::Aprobada),
                 'rechazadas' => $conteo(AprobacionEstatus::Rechazada),
