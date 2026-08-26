@@ -5,11 +5,11 @@ use App\Enums\Alm\MovimientoTipo;
 use App\Models\Alm\Ajuste;
 use App\Models\Alm\AjusteDetalle;
 use App\Models\Alm\Almacen;
-use App\Models\Alm\Area;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Movimiento;
 use App\Models\Costos\Producto;
 use App\Models\User;
+use Database\Seeders\Alm\CargaInicialSeeder;
 use Database\Seeders\Alm\PinturaSeeder;
 use Database\Seeders\Alm\SoldaduraSeeder;
 use Spatie\Permission\Models\Role;
@@ -26,7 +26,6 @@ function almacenCentral(string $clave): Almacen
 
 test('soldadura abre su almacén con los números que entregó el área', function () {
     almacenCentral('SOL');
-    $area = Area::create(['descripcion' => 'Soldadura', 'activo' => true]);
 
     $this->seed(SoldaduraSeeder::class);
 
@@ -45,7 +44,9 @@ test('soldadura abre su almacén con los números que entregó el área', functi
         // La etiqueta que se imprime es la nuestra: nacen sin código de fábrica.
         ->and($articulo->codigo_barras)->toBe($articulo->codigo)
         ->and($articulo->unidad)->toBe('KG')
-        ->and($articulo->area_id)->toBe($area->id)
+        // Nace sin área: el catálogo de áreas se capturó como el área de quien
+        // recibe, no como la familia del artículo. Se clasifica después.
+        ->and($articulo->area_id)->toBeNull()
         ->and($articulo->tipo->value)->toBe('insumo')
         ->and($articulo->controla_inventario)->toBeTrue()
         ->and($articulo->se_controla_por_pieza)->toBeFalse()
@@ -68,7 +69,6 @@ test('soldadura abre su almacén con los números que entregó el área', functi
 
 test('pintura entra con el costo por litro, no por tambor', function () {
     almacenCentral('PIN');
-    Area::create(['descripcion' => 'Pintura', 'activo' => true]);
 
     $this->seed(PinturaSeeder::class);
 
@@ -96,7 +96,6 @@ test('pintura entra con el costo por litro, no por tambor', function () {
  */
 test('no se vuelve a cargar un almacén que ya abrió', function () {
     almacenCentral('SOL');
-    Area::create(['descripcion' => 'Soldadura', 'activo' => true]);
 
     $this->seed(SoldaduraSeeder::class);
     $this->seed(SoldaduraSeeder::class);
@@ -106,8 +105,6 @@ test('no se vuelve a cargar un almacén que ya abrió', function () {
 });
 
 test('no carga nada si el almacén no está dado de alta', function () {
-    Area::create(['descripcion' => 'Soldadura', 'activo' => true]);
-
     $this->seed(SoldaduraSeeder::class);
 
     expect(Producto::count())->toBe(0)
@@ -115,15 +112,31 @@ test('no carga nada si el almacén no está dado de alta', function () {
 });
 
 /**
- * El área viaja con el artículo y sale del catálogo. Si falta, se cae entera:
- * media carga inicial es peor que ninguna.
+ * Los dos almacenes que abrieron entran sin área, pero la salvaguarda sigue
+ * viva para el que llegue clasificado: si nombra un área que no está en el
+ * catálogo se cae entera, porque media carga inicial es peor que ninguna.
  */
 test('se revierte completa cuando falta el área en el catálogo', function () {
-    almacenCentral('SOL');
+    $almacen = almacenCentral('SOL');
 
-    expect(fn () => $this->seed(SoldaduraSeeder::class))->toThrow(RuntimeException::class);
+    $seeder = new class extends CargaInicialSeeder
+    {
+        protected function almacen(): string
+        {
+            return 'SOL';
+        }
+
+        protected function articulos(): array
+        {
+            return [
+                ['descripcion' => 'TORNILLO A325 3/4', 'unidad' => 'PZA', 'area' => 'Tornillería', 'abc' => 'B', 'stock_minimo' => 100, 'cantidad' => 500, 'costo' => 12.5, 'nota' => null],
+            ];
+        }
+    };
+
+    expect(fn () => $seeder->run())->toThrow(RuntimeException::class);
 
     expect(Producto::count())->toBe(0)
-        ->and(Ajuste::count())->toBe(0)
+        ->and(Ajuste::where('almacen_id', $almacen->id)->count())->toBe(0)
         ->and(Existencia::count())->toBe(0);
 });

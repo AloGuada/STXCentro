@@ -21,8 +21,14 @@ use RuntimeException;
  *
  * Los renglones viven en cada subclase, no en un archivo aparte: así el repo
  * dice con qué números se abrió cada almacén y un diff enseña si alguien los
- * movió. Vienen ya cuadrados —área resuelta, costo por unidad y no por envase—
- * porque cuadrarlos fue trabajo de una vez, contra el layout que mandó el área.
+ * movió. Vienen ya cuadrados —costo por unidad y no por envase— porque
+ * cuadrarlos fue trabajo de una vez, contra el layout que mandó el área.
+ *
+ * El área entra en null a propósito: el catálogo de áreas se capturó como el
+ * área de quien recibe el insumo, no como la familia a la que pertenece, así
+ * que ponerle "Pintura" a los 39 renglones de PIN sólo repetiría el almacén.
+ * Se clasifica desde la UI cuando existan las familias reales; el área no
+ * gobierna ningún flujo, sólo filtra el listado de artículos.
  *
  * El saldo entra por `RegistradorAjuste` con motivo `carga_inicial`: un ajuste
  * con folio y de ahí al kardex por el ledger. Nadie escribe la existencia a
