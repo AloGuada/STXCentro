@@ -10,8 +10,10 @@ use App\Models\Alm\Movimiento;
 use App\Models\Alm\Ubicacion;
 use App\Models\Costos\Producto;
 use App\Models\User;
+use Database\Seeders\Alm\SoldaduraSeeder;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Spatie\Permission\Models\Role;
 
 /**
  * El layout tal como se entrega a las áreas: hoja `Insumos` y los 13
@@ -316,4 +318,19 @@ test('rechaza el archivo cuyo encabezado no es el del layout', function () {
 
     $this->artisan('alm:importar-insumos', ['archivo' => [$ruta]])
         ->assertFailed();
+});
+
+/**
+ * El seeder por almacen es la envoltura: apunta a su layout —el que quedo en el
+ * repo como registro de con que se arranco ese inventario— y delega en el
+ * comando, que es donde vive la validacion.
+ */
+test('el seeder de soldadura carga el layout guardado en el repo', function () {
+    $this->autoriza->assignRole(Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']));
+
+    $this->seed(SoldaduraSeeder::class);
+
+    expect(Producto::count())->toBe(11)
+        ->and(Ajuste::sole()->motivo)->toBe(AjusteMotivo::CargaInicial)
+        ->and(round((float) Existencia::sum('valor'), 2))->toBe(287204.20);
 });
