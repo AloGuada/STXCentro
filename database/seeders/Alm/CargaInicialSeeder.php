@@ -2,72 +2,151 @@
 
 namespace Database\Seeders\Alm;
 
+use App\Enums\Alm\AjusteMotivo;
+use App\Enums\Alm\ProductoTipo;
+use App\Models\Alm\Ajuste;
+use App\Models\Alm\Almacen;
+use App\Models\Alm\Area;
+use App\Models\Costos\Producto;
 use App\Models\Usuario;
+use App\Services\Alm\GeneradorCodigoArticulo;
+use App\Services\Alm\RegistradorAjuste;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 /**
- * Carga inicial de un almacén: el layout que entregó el área, guardado junto al
- * seeder para que quede en el repo con qué se arrancó ese inventario.
+ * Carga inicial de un almacén: el inventario con el que arrancó, tal como lo
+ * entregó el área.
  *
- * Cada almacén tiene su propia subclase —una por archivo— y todas delegan en
- * `alm:importar-insumos`, que es donde vive la validación: unidades y áreas
- * contra el catálogo, descripciones repetidas, y el costo anotado por envase
- * cuando la cantidad se contó a granel. Un seeder que tecleara los renglones
- * dentro sería transcribir a mano lo que ya está en el Excel, y sin nada de eso.
+ * Los renglones viven en cada subclase, no en un archivo aparte: así el repo
+ * dice con qué números se abrió cada almacén y un diff enseña si alguien los
+ * movió. Vienen ya cuadrados —área resuelta, costo por unidad y no por envase—
+ * porque cuadrarlos fue trabajo de una vez, contra el layout que mandó el área.
  *
- * Correrlo dos veces duplica el catálogo y duplica el saldo: son artículos
- * nuevos con código nuevo y un ajuste nuevo, no un `firstOrCreate`. Por eso no
- * está en `DatabaseSeeder` — se llama a mano, una vez, cuando el área entrega.
+ * El saldo entra por `RegistradorAjuste` con motivo `carga_inicial`: un ajuste
+ * con folio y de ahí al kardex por el ledger. Nadie escribe la existencia a
+ * mano, ni siquiera un seeder.
  */
 abstract class CargaInicialSeeder extends Seeder
 {
-    /** Nombre del archivo dentro de `database/seeders/data/almacen`. */
-    abstract protected function archivo(): string;
+    /** Clave del almacén central que se está abriendo. */
+    abstract protected function almacen(): string;
 
     /**
-     * Si el área contó a granel y cotizó por envase. Enciéndelo sólo después de
-     * ver el ensayo: divide el costo entre el envase que declara la descripción.
+     * Un renglón por artículo. `cantidad` en cero da de alta el artículo y le
+     * abre la existencia sin movimiento: contar cero también es información.
+     *
+     * @return list<array{descripcion: string, unidad: string, area: string|null, abc: string, stock_minimo: float|null, cantidad: float, costo: float|null, nota: string|null}>
      */
-    protected function prorratearEnvase(): bool
-    {
-        return false;
-    }
+    abstract protected function articulos(): array;
 
     public function run(): void
     {
-        $ruta = database_path('seeders/data/almacen/'.$this->archivo());
+        $almacen = Almacen::query()
+            ->where('clave', $this->almacen())
+            ->whereNull('obra_id')
+            ->first();
 
-        if (! is_file($ruta)) {
-            $this->command?->error("No encuentro el layout: {$ruta}");
+        if ($almacen === null) {
+            $this->command?->error("No existe el almacén central {$this->almacen()}: dalo de alta antes de cargarle saldo.");
 
             return;
         }
 
-        $autoriza = $this->autorizador();
+        // Correrlo dos veces duplicaría el catálogo y duplicaría el saldo: son
+        // artículos con código nuevo y un ajuste con folio nuevo, no un
+        // `firstOrCreate`. Un ajuste de inventario es un hecho fechado, no un
+        // estado al que se pueda converger.
+        $abierto = Ajuste::query()
+            ->where('almacen_id', $almacen->id)
+            ->where('motivo', AjusteMotivo::CargaInicial->value)
+            ->first();
+
+        if ($abierto !== null) {
+            $this->command?->warn("{$this->almacen()} ya tiene carga inicial ({$abierto->folio}); no se vuelve a cargar.");
+
+            return;
+        }
+
+        $autoriza = Usuario::query()->role('super-admin')->orderBy('created_at')->first();
 
         if ($autoriza === null) {
-            $this->command?->error('No hay ningún usuario que pueda autorizar el ajuste de carga inicial.');
+            $this->command?->error('No hay ningún super-admin que pueda autorizar el ajuste de carga inicial.');
 
             return;
         }
 
-        Artisan::call('alm:importar-insumos', array_filter([
-            'archivo' => [$ruta],
-            '--commit' => true,
-            '--usuario' => $autoriza->email,
-            '--prorratear-envase' => $this->prorratearEnvase(),
-        ]), $this->command?->getOutput());
+        $folio = $this->cargar($almacen, $autoriza);
+
+        $this->command?->info(sprintf(
+            '%s: %d artículos, $%s (ajuste %s).',
+            $this->almacen(),
+            count($this->articulos()),
+            number_format($this->valuacion(), 2),
+            $folio,
+        ));
     }
 
-    /**
-     * Quién firma el ajuste. En un seeder no hay quién lo teclee, así que se
-     * toma al primer super-admin: el ajuste tiene que quedar atribuido a alguien
-     * real porque es lo único que explica un saldo sin documento de material
-     * detrás.
-     */
-    private function autorizador(): ?Usuario
+    private function cargar(Almacen $almacen, Usuario $autoriza): ?string
     {
-        return Usuario::query()->role('super-admin')->orderBy('created_at')->first();
+        return DB::transaction(function () use ($almacen, $autoriza): ?string {
+            $areas = Area::query()->pluck('id', 'descripcion');
+            $generador = app(GeneradorCodigoArticulo::class);
+            $renglones = [];
+
+            foreach ($this->articulos() as $articulo) {
+                if ($articulo['area'] !== null && ! $areas->has($articulo['area'])) {
+                    throw new RuntimeException("El área \"{$articulo['area']}\" no está en el catálogo; corre primero el seeder de áreas.");
+                }
+
+                $codigo = $generador->siguiente();
+
+                $producto = Producto::create([
+                    'codigo' => $codigo,
+                    // La etiqueta que se imprime es la nuestra: estos artículos
+                    // nacen sin código de barras de fábrica.
+                    'codigo_barras' => $codigo,
+                    'descripcion' => $articulo['descripcion'],
+                    'unidad' => $articulo['unidad'],
+                    'area_id' => $articulo['area'] === null ? null : $areas[$articulo['area']],
+                    'clasificacion_abc' => $articulo['abc'],
+                    'stock_minimo' => $articulo['stock_minimo'],
+                    'tipo' => ProductoTipo::Insumo,
+                    'controla_inventario' => true,
+                    'se_controla_por_pieza' => false,
+                    'requiere_verificacion' => false,
+                    'activo' => true,
+                    'creado_por' => $autoriza->getKey(),
+                ]);
+
+                $renglones[] = [
+                    'producto_id' => $producto->id,
+                    'cantidad_contada' => $articulo['cantidad'],
+                    'costo_unitario' => $articulo['costo'],
+                    'observaciones' => $articulo['nota'],
+                ];
+            }
+
+            return app(RegistradorAjuste::class)->registrar(
+                cabecera: [
+                    'almacen_id' => $almacen->id,
+                    'motivo' => AjusteMotivo::CargaInicial->value,
+                    'fecha' => now()->toDateString(),
+                    'observaciones' => 'Carga inicial del almacén.',
+                    'autorizado_por' => $autoriza->getKey(),
+                ],
+                renglones: $renglones,
+                userId: $autoriza->getKey(),
+            )->folio;
+        });
+    }
+
+    private function valuacion(): float
+    {
+        return array_sum(array_map(
+            fn (array $articulo): float => $articulo['cantidad'] * ($articulo['costo'] ?? 0),
+            $this->articulos(),
+        ));
     }
 }

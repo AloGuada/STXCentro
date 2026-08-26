@@ -31,7 +31,3 @@ yarn-error.log
 /.zed
 nul
 *.xlsx
-
-# Los layouts de carga inicial de almacen si se versionan: son el registro
-# de con que inventario arranco cada almacen, y el seeder los lee de ahi.
-!database/seeders/data/almacen/*.xlsx
