@@ -27,6 +27,15 @@ class Producto extends Model
     protected $table = 'costos_productos';
 
     /**
+     * En qué se mide y en qué se compra. Es una lista y no un catálogo con tabla
+     * porque no le cuelga nada: nadie edita una unidad, se agregan de tarde en
+     * tarde y el alta las valida contra esto mismo que valida la carga inicial.
+     *
+     * @var list<string>
+     */
+    public const UNIDADES = ['PZA', 'KG', 'LTS', 'MTS', 'PAR', 'CTO', 'SRV'];
+
+    /**
      * @var list<string>
      */
     protected $fillable = [

@@ -275,7 +275,7 @@ class ArticuloController extends Controller
     {
         return [
             'areas' => Area::query()->activas()->orderBy('descripcion')->get(['id', 'descripcion', 'activo']),
-            'unidades' => ['PZA', 'KG', 'LTS', 'MTS', 'PAR', 'CTO', 'SRV'],
+            'unidades' => Producto::UNIDADES,
             'tipos' => array_map(
                 fn (ProductoTipo $t): array => ['value' => $t->value, 'label' => $t->etiqueta()],
                 ProductoTipo::cases(),
