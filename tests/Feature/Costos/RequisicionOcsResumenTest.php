@@ -20,7 +20,7 @@ beforeEach(function () {
  * Crea una partida con su cotización y la selección que la adjudica a un
  * proveedor dentro de una OC (numero_oc).
  */
-function partidaAdjudicada(Requisicion $req, Proveedor $prov, float $cantidad, float $precio, int $numeroOc): RequisicionSeleccion
+function partidaAdjudicada(Requisicion $req, Proveedor $prov, float $cantidad, float $precio, int $numeroOc, string $moneda = 'mxn'): RequisicionSeleccion
 {
     $detalle = RequisicionDetalle::factory()->create([
         'requisicion_id' => $req->id,
@@ -38,7 +38,7 @@ function partidaAdjudicada(Requisicion $req, Proveedor $prov, float $cantidad, f
         'proveedor_id' => $prov->id,
         'opcion_id' => $opcion->id,
         'precio_unitario' => $precio,
-        'moneda' => 'mxn',
+        'moneda' => $moneda,
     ]);
 
     return RequisicionSeleccion::factory()->create([
@@ -90,6 +90,51 @@ test('el mismo proveedor en dos OCs se reporta por separado', function () {
 
     expect($resumen)->toHaveCount(2);
     expect(array_column($resumen, 'numero_oc'))->toBe([1, 2]);
+});
+
+test('cada OC reporta su moneda y el neto total se convierte a MXN', function () {
+    $req = Requisicion::factory()->create([
+        'departamento_id' => $this->depto->id,
+        'estatus' => 'borrador',
+        'tipo_cambio' => 17.5,
+    ]);
+    $nacional = Proveedor::factory()->create(['razon_social' => 'Aceros Uno', 'nombre_comercial' => null]);
+    $importador = Proveedor::factory()->create(['razon_social' => 'Bolts USA', 'nombre_comercial' => null]);
+
+    partidaAdjudicada($req, $nacional, 10, 100.00, 1);
+    partidaAdjudicada($req, $importador, 5, 40.00, 2, 'usd');
+
+    $resumen = $req->fresh()->ocs_resumen;
+
+    expect($resumen)->toHaveCount(2)
+        ->and($resumen[0]['moneda'])->toBe('mxn')
+        ->and($resumen[1]['moneda'])->toBe('usd');
+
+    // El neto de la OC en dólares se convierte con el TC del documento; sumarlo
+    // crudo daría un número sin unidad (pesos + dólares).
+    $enPesos = round($resumen[0]['total'] + $resumen[1]['total'] * 17.5, 2);
+    $sumaCruda = round($resumen[0]['total'] + $resumen[1]['total'], 2);
+
+    expect($req->fresh()->total_neto)->toBe($enPesos)
+        ->and($req->fresh()->total_neto)->not->toBe($sumaCruda);
+});
+
+test('una OC con partidas en dos monedas se reporta en renglones separados', function () {
+    $req = Requisicion::factory()->create([
+        'departamento_id' => $this->depto->id,
+        'estatus' => 'borrador',
+        'tipo_cambio' => 17.5,
+    ]);
+    $prov = Proveedor::factory()->create(['razon_social' => 'Aceros Uno', 'nombre_comercial' => null]);
+
+    partidaAdjudicada($req, $prov, 2, 100.00, 1);
+    partidaAdjudicada($req, $prov, 3, 50.00, 1, 'usd');
+
+    $resumen = $req->fresh()->ocs_resumen;
+
+    expect($resumen)->toHaveCount(2)
+        ->and(array_column($resumen, 'moneda'))->toBe(['mxn', 'usd'])
+        ->and(array_column($resumen, 'numero_oc'))->toBe([1, 1]);
 });
 
 test('una vez liberada, el resumen trae el folio de la OC generada', function () {

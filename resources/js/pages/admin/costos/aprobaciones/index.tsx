@@ -1,4 +1,5 @@
 import { DocumentoUpload } from '@/components/costos/documento-upload';
+import { formatMoney } from '@/components/costos/monto';
 import OcsAdjudicadas from '@/components/costos/ocs-adjudicadas';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -31,8 +32,6 @@ type Props = {
 
 const fmtDate = (date: string | null) =>
     date ? new Date(date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
-
-const fmtMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
 function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: number; tipo: 'aprobar' | 'rechazar'; onClose: () => void }) {
     const esAprobacion = tipo === 'aprobar';
@@ -212,6 +211,10 @@ type RowDisplay = {
     // Para requisiciones: el monto es el neto a pagar (subtotal + IVA - retenciones)
     // cuando ya hay OC/selecciones; si aún no, es el mejor precio (estimado).
     montoEsNeto: boolean;
+    /** Divisa en la que está expresado `monto`. */
+    moneda: string;
+    /** Hay OCs en divisa pero la requisición no tiene tipo de cambio capturado. */
+    faltaTc: boolean;
     tieneSobregiro: boolean;
     detailHref: string;
     archivosCount: number;
@@ -251,7 +254,14 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
             monto: (a.requisicion_total ?? 0) > 0
                 ? (a.requisicion_total ?? 0)
                 : (mejor ? mejor.total : 0),
-            montoEsNeto: (a.requisicion_total ?? 0) > 0,
+            montoEsNeto: ocs.length > 0,
+            // Una sola cifra en pesos con TODAS las OCs sumadas: `total_neto`
+            // llega ya convertido con el TC del documento. Sin TC capturado la
+            // divisa se sumó en crudo, y eso hay que decirlo.
+            moneda: 'mxn',
+            faltaTc:
+                ocs.some((oc) => (oc.moneda ?? 'mxn').toLowerCase() !== 'mxn') &&
+                !(Number(req.tipo_cambio) > 0),
             tieneSobregiro: Boolean(req.tiene_sobregiro),
             detailHref: `/admin/costos/requisiciones/${req.id}`,
             archivosCount: 0,
@@ -284,6 +294,8 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
         tipoLabel: sol.tipo_solicitud?.titulo ?? '-',
         monto: Number(sol.monto_total ?? 0),
         montoEsNeto: true,
+        moneda: sol.tipo_moneda ?? 'mxn',
+        faltaTc: false,
         tieneSobregiro: Boolean(sol.tiene_sobregiro),
         detailHref: `/admin/costos/aprobaciones/${a.id}`,
         archivosCount: sol.archivos?.length ?? 0,
@@ -489,8 +501,13 @@ function AprobacionTable({ items, tipo, soloLectura = false, paginacion }: { ite
                                                     <AlertTriangleIcon className="size-4 text-error" />
                                                 </span>
                                             )}
-                                            <span className="font-medium">{fmtMoney(d.monto)}</span>
+                                            <span className="font-medium">{formatMoney(d.monto, d.moneda)}</span>
                                         </div>
+                                        {d.faltaTc && (
+                                            <div className="mt-0.5 text-[11px] font-semibold text-warning" title="Hay órdenes de compra en divisa y la requisición no tiene tipo de cambio capturado">
+                                                Falta tipo de cambio
+                                            </div>
+                                        )}
                                         {!d.montoEsNeto && (
                                             <div className="mt-0.5 text-[11px] text-base-content/50" title="El neto a pagar se calcula al definir la OC">
                                                 Mejor precio (estimado)

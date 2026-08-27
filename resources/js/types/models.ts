@@ -2035,7 +2035,8 @@ export type CostosRequisicion = {
     proveedores_cotizadores_count?: number;
     // Un renglón por OC adjudicada (grupo proveedor+numero_oc); vacío mientras no haya selecciones.
     ocs_resumen?: CostosRequisicionOcResumen[];
-    // Neto a pagar (subtotal + IVA - retenciones); 0 mientras no haya OC definida.
+    // Neto a pagar (subtotal + IVA - retenciones) en MXN, con las OCs en divisa
+    // ya convertidas al TC del documento; 0 mientras no haya OC definida.
     total_neto?: number;
     tiene_sobregiro?: boolean;
     media?: Media[];
@@ -2051,7 +2052,9 @@ export type CostosRequisicionOcResumen = {
     proveedor_id: number;
     razon_social: string;
     nombre_comercial: string | null;
-    /** Neto a pagar de esa OC (subtotal + IVA - retenciones). */
+    /** Divisa de esa OC; una OC no mezcla monedas. */
+    moneda: string;
+    /** Neto a pagar de esa OC (subtotal + IVA - retenciones), en `moneda`. */
     total: number;
 };
 

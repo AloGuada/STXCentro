@@ -103,7 +103,12 @@ class Requisicion extends Model implements Aprobable
      * requisición ya se liberó— el folio de la orden de compra generada.
      * Vacío mientras no haya selecciones (antes de definir la OC).
      *
-     * @return list<array{numero_oc: int, folio: string|null, proveedor_id: int, razon_social: string, nombre_comercial: string|null, total: float}>
+     * Un grupo por (proveedor, numero_oc, moneda): una OC no puede mezclar
+     * monedas ({@see \App\Services\Costos\OrdenCompraGenerator}), y sumar
+     * importes de divisas distintas en un mismo `total` daría un número sin
+     * unidad. `total` está expresado en `moneda`.
+     *
+     * @return list<array{numero_oc: int, folio: string|null, proveedor_id: int, razon_social: string, nombre_comercial: string|null, moneda: string, total: float}>
      */
     public function getOcsResumenAttribute(): array
     {
@@ -113,7 +118,7 @@ class Requisicion extends Model implements Aprobable
 
         $calculador = new \App\Services\Costos\RetencionCalculator;
 
-        /** @var array<string, array{numero_oc: int, folio: string|null, proveedor: \App\Models\Proveedor, lineas: list<array{tipo_fiscal: ?string, subtotal: float, sin_impuestos: bool}>}> $grupos */
+        /** @var array<string, array{numero_oc: int, folio: string|null, moneda: string, proveedor: \App\Models\Proveedor, lineas: list<array{tipo_fiscal: ?string, subtotal: float, sin_impuestos: bool}>}> $grupos */
         $grupos = [];
         foreach ($this->detalles as $detalle) {
             if ($detalle->solo_cotizacion) {
@@ -126,10 +131,12 @@ class Requisicion extends Model implements Aprobable
                 }
 
                 $numeroOc = (int) ($seleccion->numero_oc ?? 1);
-                $clave = $seleccion->proveedor_id.'|'.$numeroOc;
+                $moneda = strtolower((string) ($seleccion->cotizacionPrecio?->moneda ?? 'mxn'));
+                $clave = $seleccion->proveedor_id.'|'.$numeroOc.'|'.$moneda;
                 $subtotal = (float) ($seleccion->cotizacionPrecio?->precio_unitario ?? 0) * (float) $seleccion->cantidad;
 
                 $grupos[$clave]['numero_oc'] ??= $numeroOc;
+                $grupos[$clave]['moneda'] ??= $moneda;
                 $grupos[$clave]['proveedor'] ??= $seleccion->proveedor;
                 $grupos[$clave]['folio'] ??= $seleccion->ordenCompraDetalle?->ordenCompra?->folio;
                 $grupos[$clave]['lineas'][] = [
@@ -149,11 +156,12 @@ class Requisicion extends Model implements Aprobable
                 'proveedor_id' => (int) $proveedor->id,
                 'razon_social' => (string) $proveedor->razon_social,
                 'nombre_comercial' => $proveedor->nombre_comercial,
+                'moneda' => $grupo['moneda'],
                 'total' => $calculador->calcular($proveedor, $grupo['lineas'])['total_neto'],
             ];
         }
 
-        usort($resumen, fn (array $a, array $b) => [$a['numero_oc'], $a['razon_social']] <=> [$b['numero_oc'], $b['razon_social']]);
+        usort($resumen, fn (array $a, array $b) => [$a['numero_oc'], $a['razon_social'], $a['moneda']] <=> [$b['numero_oc'], $b['razon_social'], $b['moneda']]);
 
         return $this->ocsResumenCache = $resumen;
     }
@@ -161,10 +169,22 @@ class Requisicion extends Model implements Aprobable
     /**
      * Total neto a pagar (subtotal + IVA - retenciones) sumando el neto de cada
      * OC adjudicada. Es 0 mientras no haya selecciones (antes de definir la OC).
+     *
+     * Siempre en MXN: las OCs en divisa se convierten con el tipo de cambio del
+     * documento, igual que el neto combinado del comparativo. Sin sumarlas en
+     * una sola unidad, una requisición con OCs en monedas distintas devolvía la
+     * suma cruda de pesos con dólares.
      */
     public function getTotalNetoAttribute(): float
     {
-        return round(array_sum(array_column($this->ocs_resumen, 'total')), 2);
+        $tipoCambio = (float) ($this->tipo_cambio ?: 1);
+
+        return round(array_sum(array_map(
+            fn (array $oc): float => $oc['moneda'] === 'mxn'
+                ? (float) $oc['total']
+                : (float) $oc['total'] * $tipoCambio,
+            $this->ocs_resumen,
+        )), 2);
     }
 
     public function controlador(): BelongsTo
