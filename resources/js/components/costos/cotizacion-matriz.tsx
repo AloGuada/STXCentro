@@ -844,8 +844,8 @@ function SinImpuestosToggle({
 
 /**
  * Marca una partida como "solo cotización": se cotiza como referencia (ej. un
- * flete de cantidad variable) y suma al total de captura, pero no se adjudica a
- * proveedor, no entra al comparativo/PDF ni al neto a pagar.
+ * flete de cantidad variable) y suma al total y al neto del comparativo con su
+ * precio de referencia, pero no se adjudica a proveedor ni se surte en la OC.
  */
 function SoloCotizacionToggle({
     detalle,
@@ -865,7 +865,7 @@ function SoloCotizacionToggle({
     return (
         <label
             className="mt-1 flex cursor-pointer items-center gap-1 text-[10px] text-base-content/60"
-            title="Se cotiza como referencia (ej. flete variable); no se adjudica a proveedor, no aparece en el comparativo/PDF ni afecta el neto a pagar."
+            title="Se cotiza como referencia (ej. flete variable); no se adjudica a proveedor ni se surte en la OC, pero su precio de referencia sí suma al total y al neto del comparativo."
         >
             <input
                 type="checkbox"

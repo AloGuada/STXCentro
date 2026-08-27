@@ -455,6 +455,12 @@ class RequisicionController extends Controller
         $requisicion->presupuesto?->append(['nombre_mostrar', 'op_mostrar']);
         $requisicion->detalles->each(fn (RequisicionDetalle $d) => $d->obraRubro?->presupuesto?->append('nombre_mostrar'));
 
+        // El comparativo en pantalla resuelve el importe de referencia con la
+        // misma regla del PDF (precio del mejor proveedor global, y solo si no
+        // cotizó la partida, el menor precio). Sin este append la pantalla se
+        // quedaba siempre con el menor y podía diferir del PDF.
+        $requisicion->append('mejor_proveedor');
+
         // Último precio cotizado por cada proveedor (opción) para el insumo
         // (producto) de cada partida, en OTRAS requisiciones. Permite a compras
         // reutilizar un precio anterior con un clic. Clave: "productoId|proveedorId".
@@ -525,7 +531,7 @@ class RequisicionController extends Controller
 
         // Las partidas "solo cotización" (ej. fletes de cantidad variable) sí se
         // muestran en el comparativo como referencia; el builder de totales las
-        // excluye de la suma y la vista las marca.
+        // suma al total y al neto con ese precio, y la vista las marca.
         $firmas = app(FirmasPdfBuilder::class)->build(
             $requisicion->tipoAprobacion(),
             $requisicion->departamento_id,

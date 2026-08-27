@@ -794,7 +794,9 @@ export default function RequisicionesShow({
 
     // Total neto a pagar cuando ya hay OC(s) definidas: agrupa las selecciones
     // por (proveedor, OC), calcula retenciones por grupo (espeja el OcBuilder) y
-    // suma el neto de todas.
+    // suma el neto de todas. Las partidas "solo cotización" no se adjudican a
+    // ninguna OC, pero su precio de referencia sí entra al neto (espeja
+    // ComparativoTotalesBuilder, que es el que arma el PDF).
     const resumenNeto = useMemo(() => {
         const provMap = new Map(proveedores.map((p) => [p.id, p]));
         const grupos = new Map<
@@ -806,6 +808,9 @@ export default function RequisicionesShow({
             }
         >();
         (requisicion.detalles ?? []).forEach((d) => {
+            // Una partida solo cotización no se adjudica: si arrastra alguna
+            // selección vieja se ignora, su importe entra por referencia abajo.
+            if (d.solo_cotizacion) return;
             (d.selecciones ?? []).forEach((s) => {
                 const moneda = (
                     s.cotizacion_precio?.moneda ?? 'mxn'
@@ -830,13 +835,14 @@ export default function RequisicionesShow({
         if (grupos.size === 0) return null;
         const porMoneda = new Map<
             string,
-            { subtotal: number; baseIva: number; ret: number }
+            { subtotal: number; baseIva: number; ret: number; soloCot: number }
         >();
         grupos.forEach((g) => {
             const acc = porMoneda.get(g.moneda) ?? {
                 subtotal: 0,
                 baseIva: 0,
                 ret: 0,
+                soloCot: 0,
             };
             acc.subtotal += g.lines.reduce((a, l) => a + l.subtotal, 0);
             acc.baseIva += baseImpuestos(g.lines);
@@ -846,16 +852,51 @@ export default function RequisicionesShow({
             ).reduce((a, r) => a + r.monto, 0);
             porMoneda.set(g.moneda, acc);
         });
+        // Precio de referencia de las partidas "solo cotización": el del mejor
+        // proveedor global si cotizó la partida, si no el menor cotizado (misma
+        // regla best-case del comparativo).
+        const mejorId = requisicion.mejor_proveedor?.id ?? null;
+        (requisicion.detalles ?? []).forEach((d) => {
+            if (!d.solo_cotizacion) return;
+            const conPrecio = (d.cotizaciones ?? []).filter(
+                (c) => Number(c.precio_unitario) > 0,
+            );
+            if (conPrecio.length === 0) return;
+            const delMejor = mejorId
+                ? conPrecio.filter((c) => c.proveedor_id === mejorId)
+                : [];
+            const cot = (delMejor.length > 0 ? delMejor : conPrecio).reduce(
+                (a, b) =>
+                    Number(a.precio_unitario) <= Number(b.precio_unitario)
+                        ? a
+                        : b,
+            );
+            const moneda = (cot.moneda ?? 'mxn').toLowerCase();
+            const importe = Number(cot.precio_unitario) * Number(d.cantidad);
+            const acc = porMoneda.get(moneda) ?? {
+                subtotal: 0,
+                baseIva: 0,
+                ret: 0,
+                soloCot: 0,
+            };
+            acc.subtotal += importe;
+            if (!d.sin_impuestos) {
+                acc.baseIva += importe;
+            }
+            acc.soloCot += importe + (d.sin_impuestos ? 0 : importe * IVA_RATE);
+            porMoneda.set(moneda, acc);
+        });
         // Un bloque de totales por divisa (divisas primero, MXN al final); el
         // combinado en MXN se arma en el render con el TC capturado.
         const bloques = Array.from(porMoneda.entries())
-            .map(([moneda, { subtotal, baseIva, ret }]) => {
+            .map(([moneda, { subtotal, baseIva, ret, soloCot }]) => {
                 const iva = baseIva * IVA_RATE;
                 return {
                     moneda,
                     subtotal,
                     iva,
                     ret,
+                    soloCot,
                     total: subtotal + iva,
                     neto: subtotal + iva - ret,
                 };
@@ -873,7 +914,7 @@ export default function RequisicionesShow({
             divisa: divisas.length === 1 ? divisas[0].moneda : null,
             multiDivisa: divisas.length > 1,
         };
-    }, [requisicion.detalles, proveedores]);
+    }, [requisicion.detalles, requisicion.mejor_proveedor, proveedores]);
 
     // Divisa a convertir: la de lo ya seleccionado y, si todavía no hay
     // selección, la que traigan las cotizaciones. Con ella se pide el TC arriba
@@ -1468,6 +1509,15 @@ export default function RequisicionesShow({
                                             >
                                                 {fmtMonto(b.neto, b.moneda)}
                                             </div>
+                                            {b.soloCot > 0 && (
+                                                <div className="col-span-2 text-[10px] leading-tight text-base-content/50">
+                                                    Incluye{' '}
+                                                    {fmtMonto(b.soloCot, b.moneda)}{' '}
+                                                    de partidas solo cotización
+                                                    (referencia, no se surten en
+                                                    OC).
+                                                </div>
+                                            )}
                                         </Fragment>
                                     ))}
                                     {netoMxnCombinado != null && (
@@ -1858,8 +1908,8 @@ function ComparativoCotizaciones({
     tc: number;
 }) {
     // Las partidas "solo cotización" (ej. fletes variables) aparecen y suman al
-    // total del comparativo con su precio de referencia, pero no se surten al
-    // definir la OC (por eso el total del comparativo difiere del neto a pagar).
+    // total del comparativo con su precio de referencia; no se surten al definir
+    // la OC, pero sí cuentan en el neto a pagar.
     const detalles = requisicion.detalles ?? [];
 
     // Columnas = opciones con al menos un precio, agrupadas por proveedor.
@@ -2046,7 +2096,8 @@ function ComparativoCotizaciones({
         contribs: { moneda: string; importe: number }[];
         tieneImporte: boolean;
     } => {
-        const selecciones = d.selecciones ?? [];
+        // La partida solo cotización nunca se adjudica: siempre best-case.
+        const selecciones = d.solo_cotizacion ? [] : (d.selecciones ?? []);
         if (selecciones.length > 0) {
             const porMoneda = new Map<string, number>();
             for (const s of selecciones) {
@@ -2212,7 +2263,7 @@ function ComparativoCotizaciones({
                                     {esSoloCotizacion && (
                                         <span
                                             className="badge badge-ghost badge-xs ml-1 align-middle"
-                                            title="Suma al total del comparativo con su precio de referencia, pero no se surte en la OC (no entra al neto a pagar)"
+                                            title="Suma al total y al neto con su precio de referencia, pero no se surte en la OC (no se adjudica a ningún proveedor)"
                                         >
                                             solo cotización
                                         </span>

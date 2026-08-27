@@ -12,9 +12,10 @@ use Illuminate\Support\Collection;
  * {@see RetencionCalculator} por grupo (las retenciones dependen del
  * proveedor), igual que el resumen neto en pantalla. Las partidas "solo
  * cotización" suman al subtotal/IVA/total con su precio de referencia (mejor
- * proveedor o menor cotizado), pero como no se surten en las OCs se restan del
- * neto a pagar. Cuando hay exactamente una divisa extranjera con tipo de
- * cambio capturado, incluye además el neto combinado en MXN.
+ * proveedor o menor cotizado) y también al neto a pagar, aunque no se surtan
+ * en las OCs; `solo_cotizacion` queda como nota informativa de cuánto del neto
+ * viene de esas partidas. Cuando hay exactamente una divisa extranjera con
+ * tipo de cambio capturado, incluye además el neto combinado en MXN.
  */
 class ComparativoTotalesBuilder
 {
@@ -107,7 +108,7 @@ class ComparativoTotalesBuilder
                 'total_retenciones' => $totalRetenciones,
                 'total' => round($subtotalOc + $refSubtotal + $ivaOc + $refIva, 2),
                 'solo_cotizacion' => round($refSubtotal + $refIva, 2),
-                'neto' => round($subtotalOc + $ivaOc - $totalRetenciones, 2),
+                'neto' => round($subtotalOc + $refSubtotal + $ivaOc + $refIva - $totalRetenciones, 2),
             ];
         }
 
