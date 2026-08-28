@@ -33,12 +33,17 @@ class ConfirmacionController extends Controller
     /**
      * Reporte en Excel de una de las dos bandejas, con las mismas filas que la
      * pantalla: se piden al mismo servicio, así que respeta los permisos del
-     * usuario sin poder divergir de lo que ve.
+     * usuario sin poder divergir de lo que ve. Si la pantalla trae un filtro
+     * activo, llega en `q` y se aplica aquí con el mismo criterio, para que el
+     * archivo siga siendo lo que se ve y no la bandeja completa.
      */
     public function exportar(ConfirmacionesReporteRequest $request): BinaryFileResponse
     {
         $paso = $request->validated('paso');
-        $filas = $this->puntosDeControl->paraUsuario($request->user())[$paso];
+        $filas = $this->puntosDeControl->filtrar(
+            $this->puntosDeControl->paraUsuario($request->user())[$paso],
+            $request->validated('q'),
+        );
 
         return Excel::download(
             new ConfirmacionesExport($filas, $paso),

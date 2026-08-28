@@ -2,8 +2,8 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosPuntoControl } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
-import { BadgeCheckIcon, CheckIcon, DownloadIcon, EyeIcon, FileTextIcon, ReceiptIcon } from 'lucide-react';
-import { useState } from 'react';
+import { BadgeCheckIcon, CheckIcon, DownloadIcon, EyeIcon, FileTextIcon, ReceiptIcon, SearchIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -21,6 +21,40 @@ const fmtDate = (date: string | null) =>
 
 const fmtMoney = (n: number, moneda: string) =>
     `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${moneda.toUpperCase()}`;
+
+/** Minúsculas y sin acentos: "Cañón" y "canon" tienen que encontrarse. */
+const normalizar = (texto: string) =>
+    texto
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .trim()
+        .toLowerCase();
+
+/**
+ * Todo lo que la fila muestra, para buscar contra lo que el usuario ve. El monto
+ * va con y sin separadores de miles para que "1500" encuentre a "$1,500.00".
+ * Espeja `PuntosDeControl::textoBuscable` en PHP, que filtra el reporte.
+ */
+const textoBuscable = (item: CostosPuntoControl) =>
+    normalizar(
+        [
+            item.tipo === 'solicitud_pago' ? 'Solicitud de pago' : 'Factura',
+            item.folio,
+            item.proveedor ?? '',
+            item.proveedor_comercial ?? '',
+            item.concepto ?? '',
+            Number(item.monto).toFixed(2),
+            Number(item.monto).toLocaleString('es-MX', { minimumFractionDigits: 2 }),
+            item.moneda.toUpperCase(),
+            fmtDate(item.fecha),
+        ].join(' '),
+    );
+
+const filtrarPuntosControl = (items: CostosPuntoControl[], busqueda: string) => {
+    const termino = normalizar(busqueda);
+
+    return termino === '' ? items : items.filter((item) => textoBuscable(item).includes(termino));
+};
 
 function ConfirmarModal({ item, onClose }: { item: CostosPuntoControl; onClose: () => void }) {
     const [processing, setProcessing] = useState(false);
@@ -51,7 +85,7 @@ function ConfirmarModal({ item, onClose }: { item: CostosPuntoControl; onClose: 
                 <h2 className="text-xl font-bold">{titulo}</h2>
                 <p className="mt-2 text-sm text-base-content/70">
                     {item.tipo === 'solicitud_pago' ? 'Solicitud de pago' : 'Factura'} <strong>{item.folio}</strong>
-                    {item.proveedor ? ` — ${item.proveedor}` : ''}.
+                    {item.proveedor_comercial || item.proveedor ? ` — ${item.proveedor_comercial || item.proveedor}` : ''}.
                 </p>
                 <p className="mt-1 text-sm text-base-content/60">
                     {esCostos
@@ -80,21 +114,46 @@ function ConfirmarModal({ item, onClose }: { item: CostosPuntoControl; onClose: 
 
 function PuntoControlTable({ items, paso }: { items: CostosPuntoControl[]; paso: 'costos' | 'contabilidad' }) {
     const [confirmar, setConfirmar] = useState<CostosPuntoControl | null>(null);
+    const [busqueda, setBusqueda] = useState('');
+
+    const filtrados = useMemo(() => filtrarPuntosControl(items, busqueda), [items, busqueda]);
 
     if (items.length === 0) {
         return <p className="py-12 text-center text-base-content/60">No hay documentos por confirmar.</p>;
     }
 
+    // El reporte lleva el mismo filtro que la tabla: si no, el archivo diría
+    // algo distinto de lo que se está viendo.
+    const exportUrl = `/admin/costos/confirmaciones/exportar?paso=${paso}${busqueda.trim() ? `&q=${encodeURIComponent(busqueda.trim())}` : ''}`;
+
     return (
         <>
-            <div className="mb-3 flex justify-end">
-                <a
-                    href={`/admin/costos/confirmaciones/exportar?paso=${paso}`}
-                    className="btn btn-outline btn-sm gap-1"
-                    title="Exporta a Excel esta bandeja tal como se ve"
-                >
-                    <DownloadIcon className="size-4" /> Reporte
-                </a>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <label className="input input-bordered input-sm flex w-full max-w-xs items-center gap-2">
+                    <SearchIcon className="size-4 opacity-50" />
+                    <input
+                        type="search"
+                        className="grow"
+                        placeholder="Filtrar por folio, proveedor, concepto..."
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
+                    />
+                </label>
+
+                <div className="flex items-center gap-3">
+                    {busqueda.trim() !== '' && (
+                        <span className="text-xs text-base-content/60">
+                            {filtrados.length} de {items.length}
+                        </span>
+                    )}
+                    <a
+                        href={exportUrl}
+                        className="btn btn-outline btn-sm gap-1"
+                        title="Exporta a Excel esta bandeja tal como se ve"
+                    >
+                        <DownloadIcon className="size-4" /> Reporte
+                    </a>
+                </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -111,7 +170,7 @@ function PuntoControlTable({ items, paso }: { items: CostosPuntoControl[]; paso:
                         </tr>
                     </thead>
                     <tbody>
-                        {items.map((item) => (
+                        {filtrados.map((item) => (
                             <tr key={`${item.tipo}-${item.id}`}>
                                 <td>
                                     <span
@@ -129,7 +188,18 @@ function PuntoControlTable({ items, paso }: { items: CostosPuntoControl[]; paso:
                                     </span>
                                 </td>
                                 <td className="font-medium">{item.folio}</td>
-                                <td>{item.proveedor ?? '-'}</td>
+                                <td>
+                                    {item.proveedor_comercial || item.proveedor ? (
+                                        <div>
+                                            <div className="text-sm">{item.proveedor_comercial || item.proveedor}</div>
+                                            {item.proveedor_comercial && item.proveedor && (
+                                                <div className="mt-0.5 text-[11px] text-base-content/50">{item.proveedor}</div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        '-'
+                                    )}
+                                </td>
                                 <td className="max-w-xs truncate">{item.concepto ?? '-'}</td>
                                 <td className="whitespace-nowrap text-right">{fmtMoney(item.monto, item.moneda)}</td>
                                 <td className="whitespace-nowrap">{fmtDate(item.fecha)}</td>
@@ -152,6 +222,10 @@ function PuntoControlTable({ items, paso }: { items: CostosPuntoControl[]; paso:
                     </tbody>
                 </table>
             </div>
+
+            {filtrados.length === 0 && (
+                <p className="py-12 text-center text-base-content/60">Ningún documento coincide con el filtro.</p>
+            )}
             {confirmar && <ConfirmarModal item={confirmar} onClose={() => setConfirmar(null)} />}
         </>
     );

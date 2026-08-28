@@ -4,6 +4,7 @@ use App\Exports\Costos\ConfirmacionesExport;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\SolicitudPago;
+use App\Models\Proveedor;
 use App\Models\User;
 use App\Services\Costos\PuntosDeControl;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -146,4 +147,73 @@ test('el badge cuenta solo lo que cada usuario puede confirmar', function () {
     expect($servicio->contar($this->costos))->toBe(2);
     expect($servicio->contar($this->contabilidad))->toBe(0);
     expect($servicio->contar($this->sinPermiso))->toBe(0);
+});
+
+test('la fila trae razón social y nombre comercial por separado', function () {
+    $proveedor = Proveedor::factory()->create([
+        'razon_social' => 'ACEROS DEL NORTE SA DE CV',
+        'nombre_comercial' => 'Aceros Norte',
+    ]);
+    SolicitudPago::factory()->aprobada()->create(['proveedor_id' => $proveedor->id]);
+
+    $fila = app(PuntosDeControl::class)->paraUsuario($this->costos)['costos']->first();
+
+    expect($fila['proveedor'])->toBe('ACEROS DEL NORTE SA DE CV');
+    expect($fila['proveedor_comercial'])->toBe('Aceros Norte');
+});
+
+test('el filtro ignora mayúsculas y acentos', function () {
+    $conAcento = Proveedor::factory()->create(['razon_social' => 'CAÑÓN Y ASOCIADOS', 'nombre_comercial' => null]);
+    $otro = Proveedor::factory()->create(['razon_social' => 'TORNILLOS DEL BAJIO', 'nombre_comercial' => null]);
+    SolicitudPago::factory()->aprobada()->create(['proveedor_id' => $conAcento->id]);
+    SolicitudPago::factory()->aprobada()->create(['proveedor_id' => $otro->id]);
+
+    $servicio = app(PuntosDeControl::class);
+    $filas = $servicio->paraUsuario($this->costos)['costos'];
+
+    expect($servicio->filtrar($filas, 'canon')->pluck('proveedor')->all())->toBe(['CAÑÓN Y ASOCIADOS']);
+    expect($servicio->filtrar($filas, 'CAÑÓN')->pluck('proveedor')->all())->toBe(['CAÑÓN Y ASOCIADOS']);
+    expect($servicio->filtrar($filas, 'bajio')->pluck('proveedor')->all())->toBe(['TORNILLOS DEL BAJIO']);
+    expect($servicio->filtrar($filas, '')->all())->toHaveCount(2);
+});
+
+test('el filtro busca por nombre comercial, folio y monto', function () {
+    $proveedor = Proveedor::factory()->create([
+        'razon_social' => 'DISTRIBUIDORA XYZ SA',
+        'nombre_comercial' => 'Ferretera Lopez',
+    ]);
+    $sp = SolicitudPago::factory()->aprobada()->create([
+        'proveedor_id' => $proveedor->id,
+        'monto_total' => 1500,
+        'tipo_moneda' => 'mxn',
+    ]);
+    SolicitudPago::factory()->aprobada()->create(['monto_total' => 99]);
+
+    $servicio = app(PuntosDeControl::class);
+    $filas = $servicio->paraUsuario($this->costos)['costos'];
+
+    expect($servicio->filtrar($filas, 'ferretera')->pluck('folio')->all())->toBe([$sp->folio]);
+    expect($servicio->filtrar($filas, $sp->folio)->pluck('folio')->all())->toBe([$sp->folio]);
+    // El monto se encuentra con y sin separador de miles.
+    expect($servicio->filtrar($filas, '1500')->pluck('folio')->all())->toBe([$sp->folio]);
+    expect($servicio->filtrar($filas, '1,500.00')->pluck('folio')->all())->toBe([$sp->folio]);
+});
+
+test('el reporte respeta el filtro de la pantalla', function () {
+    $proveedor = Proveedor::factory()->create(['razon_social' => 'VIGAS Y PERFILES SA', 'nombre_comercial' => null]);
+    $sp = SolicitudPago::factory()->aprobada()->create(['proveedor_id' => $proveedor->id]);
+    SolicitudPago::factory()->aprobada()->create();
+
+    $this->actingAs($this->costos)
+        ->get(route('admin.costos.confirmaciones.exportar', ['paso' => 'costos', 'q' => 'vigas']))
+        ->assertOk();
+
+    $servicio = app(PuntosDeControl::class);
+    $filas = (new ConfirmacionesExport(
+        $servicio->filtrar($servicio->paraUsuario($this->costos)['costos'], 'vigas'),
+        'costos',
+    ))->collection();
+
+    expect($filas)->toHaveCount(1);
+    expect($filas->first()['folio'])->toBe($sp->folio);
 });

@@ -2213,7 +2213,10 @@ export type CostosPuntoControl = {
     paso: 'costos' | 'contabilidad';
     id: number;
     folio: string;
+    /** Razón social del proveedor. */
     proveedor: string | null;
+    /** Nombre comercial; puede faltar y entonces sólo se muestra la razón social. */
+    proveedor_comercial: string | null;
     concepto: string | null;
     monto: number;
     moneda: string;
