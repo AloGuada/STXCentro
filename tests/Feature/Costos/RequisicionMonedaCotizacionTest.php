@@ -124,3 +124,44 @@ test('liberar bloquea si una OC mezcla monedas', function () {
 
     expect(OrdenCompra::count())->toBe(0);
 });
+
+test('el listado devuelve el neto de una OC en dólares convertido a pesos', function () {
+    foreach (['costos.requisiciones.ver', 'costos.requisiciones.ver-todas'] as $perm) {
+        Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
+    }
+    $this->compras->givePermissionTo(['costos.requisiciones.ver', 'costos.requisiciones.ver-todas']);
+
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'tipo_cambio' => 18]);
+    $detalle = RequisicionDetalle::factory()->create([
+        'requisicion_id' => $req->id,
+        'cantidad' => 2,
+        'sin_impuestos' => true,
+    ]);
+    $proveedor = Proveedor::factory()->create();
+    $precio = RequisicionCotizacionPrecio::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+        'proveedor_id' => $proveedor->id,
+        'precio_unitario' => 100,
+        'moneda' => 'usd',
+    ]);
+    RequisicionSeleccion::factory()->create([
+        'requisicion_detalle_id' => $detalle->id,
+        'cotizacion_precio_id' => $precio->id,
+        'numero_oc' => 1,
+        'proveedor_id' => $proveedor->id,
+        'cantidad' => 2,
+    ]);
+
+    $fila = collect(
+        $this->actingAs($this->compras)
+            ->get(route('admin.costos.requisiciones.index'))
+            ->assertOk()
+            ->viewData('page')['props']['requisiciones']['data']
+    )->firstWhere('id', $req->id);
+
+    // La moneda del precio tiene que llegar al listado (si el eager load la
+    // recorta, la OC pasa por MXN y el neto sale 200 en vez de 3,600).
+    expect($fila['ocs_resumen'][0]['moneda'])->toBe('usd');
+    expect($fila['ocs_resumen'][0]['total'])->toBe(200.0);
+    expect($fila['total_neto'])->toBe(3600.0);
+});

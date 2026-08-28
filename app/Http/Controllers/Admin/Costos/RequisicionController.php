@@ -64,7 +64,9 @@ class RequisicionController extends Controller
                 // Para el neto a pagar (cuando ya hay OC definida) — ver total_neto.
                 'detalles.selecciones:id,requisicion_detalle_id,proveedor_id,numero_oc,cantidad,cotizacion_precio_id,orden_compra_detalle_id',
                 'detalles.selecciones.proveedor.regimenFiscal',
-                'detalles.selecciones.cotizacionPrecio:id,precio_unitario',
+                // `moneda` es indispensable: sin ella ocs_resumen daba todo por
+                // MXN y total_neto no convertía las OCs en divisa.
+                'detalles.selecciones.cotizacionPrecio:id,precio_unitario,moneda',
                 // Folio de la OC ya generada (nulo mientras la requisición no se libera).
                 'detalles.selecciones.ordenCompraDetalle:id,orden_compra_id',
                 'detalles.selecciones.ordenCompraDetalle.ordenCompra:id,folio',

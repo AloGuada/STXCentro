@@ -2030,7 +2030,12 @@ export type CostosRequisicion = {
         id: number;
         razon_social: string;
         nombre_comercial: string | null;
+        /** Siempre 'mxn': el mejor precio se compara y se suma convertido a pesos. */
+        moneda: string;
+        /** Mejor precio en MXN (las cotizaciones en divisa ya van al TC del documento). */
         total: number;
+        /** Hay cotizaciones en divisa y la requisición no tiene tipo de cambio: `total` quedó sin convertir. */
+        falta_tc: boolean;
     } | null;
     proveedores_cotizadores_count?: number;
     // Un renglón por OC adjudicada (grupo proveedor+numero_oc); vacío mientras no haya selecciones.

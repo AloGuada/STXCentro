@@ -260,8 +260,13 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
             // divisa se sumó en crudo, y eso hay que decirlo.
             moneda: 'mxn',
             faltaTc:
-                ocs.some((oc) => (oc.moneda ?? 'mxn').toLowerCase() !== 'mxn') &&
-                !(Number(req.tipo_cambio) > 0),
+                // `tipo_cambio` nace en 1: con divisa de por medio, un 1 es un
+                // TC que nadie capturó.
+                (ocs.some((oc) => (oc.moneda ?? 'mxn').toLowerCase() !== 'mxn') &&
+                    !(Number(req.tipo_cambio) > 1)) ||
+                // Antes de la OC el monto es el mejor precio del comparativo,
+                // que trae su propia bandera de conversión.
+                (ocs.length === 0 && Boolean(mejor?.falta_tc)),
             tieneSobregiro: Boolean(req.tiene_sobregiro),
             detailHref: `/admin/costos/requisiciones/${req.id}`,
             archivosCount: 0,

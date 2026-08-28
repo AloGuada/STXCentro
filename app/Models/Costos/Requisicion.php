@@ -316,12 +316,14 @@ class Requisicion extends Model implements Aprobable
 
     /**
      * Mejor proveedor: aquel que cotizó TODAS las partidas y cuya suma de
-     * (cantidad × precio_unitario) por partida es la menor. La lógica vive en
-     * {@see BuscadorMejorProveedor}.
+     * (cantidad × precio_unitario) por partida es la menor. `total` va siempre
+     * en MXN (las cotizaciones en divisa se convierten con el tipo de cambio del
+     * documento) y `falta_tc` marca que hay divisa sin tipo de cambio capturado.
+     * La lógica vive en {@see BuscadorMejorProveedor}.
      *
-     * @return array{id: int, razon_social: string, nombre_comercial: string|null, total: float}|null
+     * @return array{id: int, razon_social: string, nombre_comercial: string|null, moneda: string, total: float, falta_tc: bool}|null
      */
-    /** @var array{id: int, razon_social: string, nombre_comercial: string|null, total: float}|null */
+    /** @var array{id: int, razon_social: string, nombre_comercial: string|null, moneda: string, total: float, falta_tc: bool}|null */
     private ?array $mejorProveedorPrecargado = null;
 
     private bool $mejorProveedorResuelto = false;
@@ -331,7 +333,7 @@ class Requisicion extends Model implements Aprobable
      * BuscadorMejorProveedor::buscarLote) para que el accessor no dispare
      * queries por fila en listados.
      *
-     * @param  array{id: int, razon_social: string, nombre_comercial: string|null, total: float}|null  $mejor
+     * @param  array{id: int, razon_social: string, nombre_comercial: string|null, moneda: string, total: float, falta_tc: bool}|null  $mejor
      */
     public function precargarMejorProveedor(?array $mejor): void
     {
