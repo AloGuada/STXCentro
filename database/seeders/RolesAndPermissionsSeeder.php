@@ -287,6 +287,13 @@ class RolesAndPermissionsSeeder extends Seeder
             // Salidas
             'alm.salidas.ver',
             'alm.salidas.crear',
+            // Llevarse material comprometido con otra obra. Es la excepcion:
+            // consumir lo propio y lo libre no pide permiso
+            'alm.salidas.tomar-asignado',
+            // Pasar material de una obra a otra (o de libre a una obra) sin
+            // moverlo de bodega. La asignacion nace sola en la recepcion; esto
+            // es lo unico que la corrige
+            'alm.asignaciones.reasignar',
             // Transferencias en dos tiempos: enviar y recibir son actos distintos
             'alm.transferencias.ver',
             'alm.transferencias.enviar',

@@ -3,7 +3,9 @@
 namespace App\Services\Alm;
 
 use App\Enums\Alm\MovimientoTipo;
+use App\Exceptions\Alm\AsignacionAjenaException;
 use App\Exceptions\Alm\ExistenciaInsuficienteException;
+use App\Models\Alm\Asignacion;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Movimiento;
 use App\Models\Costos\Producto;
@@ -38,6 +40,15 @@ class AlmacenLedger
      * @param  Model|null  $documento  entrada, salida, transferencia, ajuste o pieza
      * @param  string|null  $referencia  folio sellado; sobrevive al documento
      * @param  bool  $permitirNegativo  sólo el ajuste y el reverso de una entrada
+     * @param  int|null  $obraId  de quién es el material; `null` = libre
+     * @param  bool  $permitirAjena  deja pasar sobre lo comprometido con otra obra
+     *
+     * **Puede dejar más de un asiento.** Una descarga que cruza orígenes —20 de
+     * su obra y 10 de lo libre— deja un asiento por cada uno, no uno con la
+     * suma: es lo que permite que la cancelación devuelva cada parte a donde
+     * estaba sin adivinar. Devuelve el primero; todos comparten `documento` y
+     * `referencia`, y el `costo_unitario` es el mismo porque la descarga no
+     * mueve el promedio.
      */
     public function registrar(
         Existencia $existencia,
@@ -52,26 +63,75 @@ class AlmacenLedger
         ?string $userId = null,
         bool $permitirNegativo = false,
         bool $esReverso = false,
+        ?int $obraId = null,
+        bool $permitirAjena = false,
     ): Movimiento {
         $this->validarSigno($tipo, $cantidad, $esReverso);
 
         $epsilon = (float) config('costos.epsilon_cantidad');
 
+        if ($cantidad < 0 && (float) $existencia->cantidad + $cantidad < -$epsilon && ! $permitirNegativo) {
+            throw new ExistenciaInsuficienteException(
+                almacenId: (int) $existencia->almacen_id,
+                productoId: (int) $existencia->producto_id,
+                disponible: (float) $existencia->cantidad,
+                solicitado: abs($cantidad),
+                descripcionProducto: (string) ($existencia->producto?->descripcion ?? ''),
+            );
+        }
+
+        $tramos = $cantidad > 0
+            ? [[$obraId, $cantidad]]
+            : $this->repartirDescarga($existencia, abs($cantidad), $obraId, $permitirAjena, $permitirNegativo, $epsilon);
+
+        $asientos = [];
+
+        foreach ($tramos as [$obraDelTramo, $cantidadDelTramo]) {
+            $asientos[] = $this->asentar(
+                existencia: $existencia,
+                tipo: $tipo,
+                cantidad: $cantidad > 0 ? $cantidadDelTramo : -$cantidadDelTramo,
+                obraId: $obraDelTramo,
+                costoUnitario: $costoUnitario,
+                documento: $documento,
+                referencia: $referencia,
+                ubicacionId: $ubicacionId,
+                activoId: $activoId,
+                observaciones: $observaciones,
+                userId: $userId,
+                esReverso: $esReverso,
+                epsilon: $epsilon,
+            );
+        }
+
+        return $asientos[0];
+    }
+
+    /**
+     * Un asiento: mueve el saldo, mueve la partición y deja el renglón del
+     * kardex. Las tres cosas juntas o ninguna — por eso vive dentro de la
+     * transacción que el llamador ya abrió.
+     */
+    private function asentar(
+        Existencia $existencia,
+        MovimientoTipo $tipo,
+        float $cantidad,
+        ?int $obraId,
+        ?float $costoUnitario,
+        ?Model $documento,
+        ?string $referencia,
+        ?int $ubicacionId,
+        ?int $activoId,
+        ?string $observaciones,
+        ?string $userId,
+        bool $esReverso,
+        float $epsilon,
+    ): Movimiento {
         $cantidadAntes = (float) $existencia->cantidad;
         $valorAntes = (float) $existencia->valor;
         $promedioAntes = (float) $existencia->costo_promedio;
 
         $cantidadDespues = $cantidadAntes + $cantidad;
-
-        if ($cantidad < 0 && $cantidadDespues < -$epsilon && ! $permitirNegativo) {
-            throw new ExistenciaInsuficienteException(
-                almacenId: (int) $existencia->almacen_id,
-                productoId: (int) $existencia->producto_id,
-                disponible: $cantidadAntes,
-                solicitado: abs($cantidad),
-                descripcionProducto: (string) ($existencia->producto?->descripcion ?? ''),
-            );
-        }
 
         [$costoAplicado, $valorDespues, $promedioDespues] = $this->costear(
             $cantidad,
@@ -90,10 +150,16 @@ class AlmacenLedger
             'ultimo_movimiento_at' => now(),
         ])->save();
 
+        // Lo libre no tiene renglón que mover: es lo que sobra de repartir.
+        if ($obraId !== null) {
+            $this->ajustarParticion($existencia, $obraId, $cantidad);
+        }
+
         return Movimiento::create([
             'existencia_id' => $existencia->getKey(),
             'almacen_id' => $existencia->almacen_id,
             'producto_id' => $existencia->producto_id,
+            'obra_id' => $obraId,
             'tipo' => $tipo,
             'cantidad' => $cantidad,
             'saldo_antes' => $cantidadAntes,
@@ -134,6 +200,8 @@ class AlmacenLedger
         ?string $userId = null,
         bool $permitirNegativo = false,
         bool $esReverso = false,
+        ?int $obraId = null,
+        bool $permitirAjena = false,
     ): ?Movimiento {
         if (! $this->llevaKardex($productoId)) {
             return null;
@@ -152,7 +220,120 @@ class AlmacenLedger
             $userId,
             $permitirNegativo,
             $esReverso,
+            $obraId,
+            $permitirAjena,
         ));
+    }
+
+    /**
+     * De dónde sale el material de una descarga, en orden: lo que tiene
+     * asignado su propia obra, luego lo que está libre, y sólo con permiso lo
+     * que está comprometido con otras.
+     *
+     * El orden no es arbitrario: gastar primero lo propio es lo que hace que la
+     * asignación sirva de algo, y gastar lo libre antes que lo ajeno es lo que
+     * evita quitarle material a un tercero mientras hay material sin dueño en el
+     * mismo anaquel.
+     *
+     * @return list<array{0: int|null, 1: float}> obra del tramo (`null` = libre) y cuánto sale de ahí
+     */
+    private function repartirDescarga(
+        Existencia $existencia,
+        float $cantidad,
+        ?int $obraId,
+        bool $permitirAjena,
+        bool $permitirNegativo,
+        float $epsilon,
+    ): array {
+        $asignaciones = Asignacion::query()
+            ->where('existencia_id', $existencia->getKey())
+            ->vivas()
+            ->orderBy('id')
+            ->get();
+
+        $asignado = (float) $asignaciones->sum('cantidad');
+        $libre = (float) $existencia->cantidad - $asignado;
+
+        $tramos = [];
+        $resto = $cantidad;
+
+        $propia = $obraId === null
+            ? null
+            : $asignaciones->firstWhere('obra_id', $obraId);
+
+        if ($propia !== null && (float) $propia->cantidad > $epsilon) {
+            $tramo = min($resto, (float) $propia->cantidad);
+            $tramos[] = [$obraId, $tramo];
+            $resto -= $tramo;
+        }
+
+        // Lo libre, y con `permitirNegativo` también lo que falte: un ajuste o
+        // el reverso de una entrada cancelada pueden dejar la existencia bajo
+        // cero, y ese faltante sale de aquí aunque lo libre ya no alcance. Va en
+        // un solo tramo —no uno por lo que había y otro por lo que faltó—
+        // porque los dos vienen del mismo origen y partirlos dejaría dos
+        // asientos donde ocurrió una sola cosa.
+        if ($resto > $epsilon) {
+            $delLibre = $permitirNegativo ? $resto : min($resto, $libre);
+
+            if ($delLibre > $epsilon) {
+                $tramos[] = [null, $delLibre];
+                $resto -= $delLibre;
+            }
+        }
+
+        if ($resto <= $epsilon) {
+            return $tramos === [] ? [[$obraId, $cantidad]] : $tramos;
+        }
+
+        if (! $permitirAjena) {
+            throw new AsignacionAjenaException(
+                almacenId: (int) $existencia->almacen_id,
+                productoId: (int) $existencia->producto_id,
+                libre: max(0.0, $libre),
+                solicitado: $cantidad,
+                asignadoAOtras: $asignado - (float) ($propia->cantidad ?? 0),
+                descripcionProducto: (string) ($existencia->producto?->descripcion ?? ''),
+            );
+        }
+
+        foreach ($asignaciones as $asignacion) {
+            if ($resto <= $epsilon) {
+                break;
+            }
+
+            if ((int) $asignacion->obra_id === $obraId) {
+                continue;
+            }
+
+            $tramo = min($resto, (float) $asignacion->cantidad);
+            $tramos[] = [(int) $asignacion->obra_id, $tramo];
+            $resto -= $tramo;
+        }
+
+        return $tramos;
+    }
+
+    /**
+     * Mueve el renglón de una obra dentro de la partición.
+     *
+     * No borra el renglón que llega a cero: esa obra va a volver a recibir
+     * material y recrearlo sería trabajo para nada. `Asignacion::vivas()` es
+     * quien decide qué cuenta.
+     *
+     * Va sin `lockForUpdate` a propósito: el llamador ya tiene bloqueada la
+     * existencia, y todo lo que toca esta partición pasa por ahí primero.
+     */
+    private function ajustarParticion(Existencia $existencia, int $obraId, float $delta): void
+    {
+        $asignacion = Asignacion::firstOrCreate([
+            'existencia_id' => $existencia->getKey(),
+            'obra_id' => $obraId,
+        ]);
+
+        $asignacion->forceFill([
+            'cantidad' => max(0.0, (float) $asignacion->cantidad + $delta),
+        ])->save();
     }
 
     /**

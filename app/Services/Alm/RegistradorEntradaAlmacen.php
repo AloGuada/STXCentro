@@ -43,6 +43,11 @@ class RegistradorEntradaAlmacen
 
         $aplicados = 0;
 
+        // La partida de la orden y su centro de costos, de una vez: de ahí salen
+        // el artículo y la obra de cada renglón, y sin esto serían dos consultas
+        // por renglón recibido.
+        $entrega->loadMissing('detalles.ordenCompraDetalle.obraRubro');
+
         foreach ($entrega->detalles as $detalle) {
             $productoId = $this->productoDe($detalle);
 
@@ -63,6 +68,7 @@ class RegistradorEntradaAlmacen
                 referencia: $entrega->folio,
                 observaciones: $detalle->observaciones,
                 userId: $userId,
+                obraId: $this->obraDe($detalle),
             );
 
             $aplicados++;
@@ -106,6 +112,7 @@ class RegistradorEntradaAlmacen
                 userId: $userId,
                 permitirNegativo: true,
                 esReverso: true,
+                obraId: $movimiento->obra_id === null ? null : (int) $movimiento->obra_id,
             );
 
             $revertidos++;
@@ -127,6 +134,22 @@ class RegistradorEntradaAlmacen
         $partida = $detalle->ordenCompraDetalle;
 
         return $partida?->producto_id === null ? null : (int) $partida->producto_id;
+    }
+
+    /**
+     * De quién es lo que entra.
+     *
+     * La compra ya sabe contra qué presupuesto se hizo: el renglón apunta a la
+     * partida de la orden, la partida a su centro de costos y ése a su obra. Por
+     * eso la asignación **no se captura** —sería volver a teclear algo que ya
+     * está aprobado y firmado— y por eso una entrada sin orden (recepción libre,
+     * carga inicial) nace sin dueño: no hay presupuesto de dónde deducirlo.
+     */
+    private function obraDe(EntregaDetalle $detalle): ?int
+    {
+        $obraId = $detalle->ordenCompraDetalle?->obraRubro?->obra_id;
+
+        return $obraId === null ? null : (int) $obraId;
     }
 
     /**

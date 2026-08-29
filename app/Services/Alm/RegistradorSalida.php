@@ -3,9 +3,11 @@
 namespace App\Services\Alm;
 
 use App\Enums\Alm\MovimientoTipo;
+use App\Models\Alm\Movimiento;
 use App\Models\Alm\Pedido;
 use App\Models\Alm\Salida;
 use App\Models\Costos\Producto;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -26,9 +28,9 @@ class RegistradorSalida
      * @param  array<string, mixed>  $cabecera
      * @param  list<array<string, mixed>>  $renglones
      */
-    public function registrar(array $cabecera, array $renglones, ?string $userId = null): Salida
+    public function registrar(array $cabecera, array $renglones, ?string $userId = null, bool $permitirAjena = false): Salida
     {
-        return DB::transaction(function () use ($cabecera, $renglones, $userId): Salida {
+        return DB::transaction(function () use ($cabecera, $renglones, $userId, $permitirAjena): Salida {
             $salida = Salida::create($cabecera);
 
             foreach ($renglones as $renglon) {
@@ -48,6 +50,8 @@ class RegistradorSalida
                         referencia: $salida->folio,
                         observaciones: $renglon['observaciones'] ?? null,
                         userId: $userId,
+                        obraId: $salida->obra_destino_id === null ? null : (int) $salida->obra_destino_id,
+                        permitirAjena: $permitirAjena,
                     )
                     : null;
 
@@ -80,18 +84,23 @@ class RegistradorSalida
                 return $salida;
             }
 
-            foreach ($salida->detalles as $detalle) {
+            // Asiento por asiento y no renglón por renglón: una salida que tomó
+            // 20 de su obra y 10 de lo libre dejó dos asientos, y cada parte
+            // tiene que volver a donde estaba. Devolverle los 30 a la obra la
+            // dejaría con material que nunca fue suyo.
+            foreach ($this->asientosDe($salida) as $movimiento) {
                 $this->ledger->registrarPorProducto(
                     almacenId: $salida->almacen_id,
-                    productoId: (int) $detalle->producto_id,
+                    productoId: (int) $movimiento->producto_id,
                     tipo: MovimientoTipo::Salida,
-                    cantidad: (float) $detalle->cantidad,
-                    costoUnitario: $detalle->costo_unitario === null ? null : (float) $detalle->costo_unitario,
+                    cantidad: -(float) $movimiento->cantidad,
+                    costoUnitario: $movimiento->costo_unitario === null ? null : (float) $movimiento->costo_unitario,
                     documento: $salida,
                     referencia: $salida->folio,
                     observaciones: "Cancelación · {$motivo}",
                     userId: $userId,
                     esReverso: true,
+                    obraId: $movimiento->obra_id === null ? null : (int) $movimiento->obra_id,
                 );
             }
 
@@ -106,6 +115,21 @@ class RegistradorSalida
 
             return $salida;
         });
+    }
+
+    /**
+     * Los asientos que dejó esta salida, sin contar reversos previos.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Movimiento>
+     */
+    private function asientosDe(Salida $salida): Collection
+    {
+        return Movimiento::query()
+            ->where('documento_type', $salida->getMorphClass())
+            ->where('documento_id', $salida->getKey())
+            ->where('es_reverso', false)
+            ->cronologico()
+            ->get();
     }
 
     private function recalcularPedido(Salida $salida): void

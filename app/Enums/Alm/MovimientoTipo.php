@@ -21,6 +21,7 @@ enum MovimientoTipo: string
     case TransferenciaSalida = 'transferencia_salida';
     case TransferenciaEntrada = 'transferencia_entrada';
     case Ajuste = 'ajuste';
+    case Reasignacion = 'reasignacion';
 
     public function etiqueta(): string
     {
@@ -30,6 +31,7 @@ enum MovimientoTipo: string
             self::TransferenciaSalida => 'Transferencia (salida)',
             self::TransferenciaEntrada => 'Transferencia (entrada)',
             self::Ajuste => 'Ajuste',
+            self::Reasignacion => 'Reasignación',
         };
     }
 
@@ -45,7 +47,7 @@ enum MovimientoTipo: string
         return match ($this) {
             self::Entrada, self::TransferenciaEntrada => 1,
             self::Salida, self::TransferenciaSalida => -1,
-            self::Ajuste => 0,
+            self::Ajuste, self::Reasignacion => 0,
         };
     }
 
@@ -59,10 +61,26 @@ enum MovimientoTipo: string
         return $this->signo() === -1;
     }
 
-    /** Sólo el ajuste, que lo mismo repone un faltante que baja una merma. */
+    /**
+     * El ajuste, que lo mismo repone un faltante que baja una merma, y la
+     * reasignación, que siempre va en pareja: descarga de una obra y carga a la
+     * otra.
+     */
     public function admiteAmbosSignos(): bool
     {
-        return $this === self::Ajuste;
+        return in_array($this, [self::Ajuste, self::Reasignacion], true);
+    }
+
+    /**
+     * Cambia de dueño, no de bodega: la pareja de asientos suma cero y el saldo
+     * queda igual que antes.
+     *
+     * Los totales del kardex la excluyen a propósito. Sumarla a «entradas» y
+     * «salidas» inflaría los dos lados con material que nunca se movió.
+     */
+    public function esReasignacion(): bool
+    {
+        return $this === self::Reasignacion;
     }
 
     /**

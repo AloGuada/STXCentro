@@ -86,6 +86,40 @@ class Existencia extends Model
     }
 
     /**
+     * La partición del saldo por obra. Lo **libre** no sale aquí: es lo que
+     * sobra después de repartir, y por eso se calcula en vez de guardarse.
+     *
+     * @return HasMany<Asignacion, $this>
+     */
+    public function asignaciones(): HasMany
+    {
+        return $this->hasMany(Asignacion::class);
+    }
+
+    /**
+     * Cuánto de este renglón ya tiene dueño.
+     *
+     * Lee el alias de `withSum('asignaciones as asignado_total', 'cantidad')` si
+     * el llamador lo trajo —que es lo que hace la pantalla de existencias para
+     * no pagar una consulta por fila— y sólo va a la base cuando no está.
+     */
+    public function asignado(): float
+    {
+        return (float) ($this->asignado_total ?? $this->asignaciones()->sum('cantidad'));
+    }
+
+    /**
+     * Lo que cualquiera puede llevarse sin pedirle permiso a nadie.
+     *
+     * Puede quedar negativo si alguien dejó la existencia bajo cero con un
+     * ajuste: es una señal, no un caso que haya que maquillar con un `max(0)`.
+     */
+    public function libre(): float
+    {
+        return (float) $this->cantidad - $this->asignado();
+    }
+
+    /**
      * Lo que hay de verdad. Un renglón en cero no se borra —la ubicación y el
      * costo promedio siguen valiendo para la próxima entrada—, pero tampoco
      * estorba en la pantalla de existencias.

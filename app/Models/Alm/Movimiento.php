@@ -4,6 +4,7 @@ namespace App\Models\Alm;
 
 use App\Enums\Alm\MovimientoTipo;
 use App\Models\Costos\Producto;
+use App\Models\Obra;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -29,6 +30,7 @@ class Movimiento extends Model
         'existencia_id',
         'almacen_id',
         'producto_id',
+        'obra_id',
         'tipo',
         'cantidad',
         'saldo_antes',
@@ -88,6 +90,19 @@ class Movimiento extends Model
     }
 
     /**
+     * De quién es el material que movió este asiento. `null` = libre.
+     *
+     * Es lo que vuelve derivable la partición de `alm_asignaciones`, igual que
+     * el resto del kardex vuelve derivable el saldo de `alm_existencias`.
+     *
+     * @return BelongsTo<Obra, $this>
+     */
+    public function obra(): BelongsTo
+    {
+        return $this->belongsTo(Obra::class);
+    }
+
+    /**
      * @return BelongsTo<Ubicacion, $this>
      */
     public function ubicacion(): BelongsTo
@@ -143,6 +158,9 @@ class Movimiento extends Model
             ->when($filtros['almacen_id'] ?? null, fn (Builder $q, $id) => $q->where('almacen_id', $id))
             ->when($filtros['producto_id'] ?? null, fn (Builder $q, $id) => $q->where('producto_id', $id))
             ->when($filtros['tipo'] ?? null, fn (Builder $q, $tipo) => $q->where('tipo', $tipo))
+            ->when($filtros['obra_id'] ?? null, fn (Builder $q, $id) => $id === 'libre'
+                ? $q->whereNull('obra_id')
+                : $q->where('obra_id', $id))
             ->when($filtros['desde'] ?? null, fn (Builder $q, $d) => $q->whereDate('created_at', '>=', $d))
             ->when($filtros['hasta'] ?? null, fn (Builder $q, $h) => $q->whereDate('created_at', '<=', $h))
             ->when($filtros['referencia'] ?? null, fn (Builder $q, $r) => $q->where('referencia', 'like', "%{$r}%"));
