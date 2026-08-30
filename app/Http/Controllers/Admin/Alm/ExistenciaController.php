@@ -8,6 +8,7 @@ use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Ubicacion;
+use App\Models\Obra;
 use App\Services\Alm\SaldoEnTransito;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -39,11 +40,23 @@ class ExistenciaController extends Controller
                 'almacen.obra:id,no',
                 'producto:id,codigo,descripcion,unidad,stock_minimo,se_controla_por_pieza,clasificacion_abc',
                 'ubicacion.padre',
+                // El desglose por obra viaja con la fila: son pocas por renglón
+                // y pedirlo aparte sería una consulta por existencia.
+                'asignaciones.obra:id,no',
             ])
             ->when($almacenId, fn (Builder $q, int $id) => $q->where('almacen_id', $id))
             ->when(
                 $request->integer('ubicacion_id') ?: null,
                 fn (Builder $q, int $id) => $q->where('ubicacion_id', $id),
+            )
+            ->when(
+                $request->string('obra_id')->value(),
+                // `libre` es un filtro de primera clase: «qué material puedo
+                // repartir» es la pregunta con la que se abre esta pantalla
+                // cuando hay que asignar lo que ya estaba en bodega.
+                fn (Builder $q, string $obra) => $obra === 'libre'
+                    ? $q->whereDoesntHave('asignaciones', fn (Builder $a) => $a->vivas())
+                    : $q->whereHas('asignaciones', fn (Builder $a) => $a->vivas()->where('obra_id', $obra)),
             )
             ->when($request->boolean('sin_acomodar'), fn (Builder $q) => $q->sinAcomodar())
             ->when($request->boolean('solo_con_saldo'), fn (Builder $q) => $q->conSaldo())
@@ -82,6 +95,18 @@ class ExistenciaController extends Controller
                 ? null
                 : (float) $e->producto->stock_minimo,
             'cantidad' => (float) $e->cantidad,
+            // Lo que cualquiera puede llevarse sin pedirle permiso a nadie, y de
+            // quién es el resto. `libre` no se guarda: sobra de repartir.
+            'libre' => $e->libre(),
+            'asignaciones' => $e->asignaciones
+                ->filter(fn ($a): bool => (float) $a->cantidad > 0)
+                ->map(fn ($a): array => [
+                    'obra_id' => (int) $a->obra_id,
+                    'obra' => $a->obra?->no,
+                    'cantidad' => (float) $a->cantidad,
+                ])
+                ->values()
+                ->all(),
             'costo_promedio' => (float) $e->costo_promedio,
             'valor' => (float) $e->valor,
             'ubicacion_id' => $e->ubicacion_id,
@@ -95,12 +120,15 @@ class ExistenciaController extends Controller
 
         return Inertia::render('admin/almacen/existencias/index', [
             'existencias' => $existencias,
-            'filters' => $request->only(['almacen_id', 'ubicacion_id', 'search', 'sin_acomodar', 'solo_con_saldo']),
+            'filters' => $request->only(['almacen_id', 'ubicacion_id', 'obra_id', 'search', 'sin_acomodar', 'solo_con_saldo']),
             'resumen' => $this->resumen($request, $visibles, $almacenId),
             'almacenes' => $this->almacenes($request),
             // Filtrar por lugar sólo tiene sentido dentro de un almacén: el
             // «Rack A-1» de AG no es el de FAK.
             'ubicaciones' => $almacenId === null ? [] : $this->ubicacionesDe($almacenId),
+            // Para el filtro por obra y para el modal de reasignación.
+            'obras' => Obra::query()->orderBy('no')->get(['id', 'no']),
+            'puedeReasignar' => $request->user()?->can('alm.asignaciones.reasignar') ?? false,
         ]);
     }
 

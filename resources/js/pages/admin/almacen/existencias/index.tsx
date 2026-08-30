@@ -4,8 +4,9 @@ import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmAlmacenOpcion, PaginatedData } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
-import { HistoryIcon, MapPinOffIcon, TriangleAlertIcon } from 'lucide-react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { ArrowLeftRightIcon, HistoryIcon, MapPinOffIcon, TriangleAlertIcon } from 'lucide-react';
+import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -45,13 +46,23 @@ type ExistenciaFila = {
      * salió de otra bodega y todavía no es de ésta.
      */
     en_transito: number;
+    /**
+     * Lo que cualquiera puede llevarse sin pedirle permiso a nadie. No se
+     * guarda: es la existencia menos lo repartido.
+     */
+    libre: number;
+    /** De quién es el resto. Vacío = todo el renglón está libre. */
+    asignaciones: { obra_id: number; obra: string | null; cantidad: number }[];
 };
+
+type ObraOpcion = { id: number; no: string };
 
 type Props = {
     existencias: PaginatedData<ExistenciaFila>;
     filters: {
         almacen_id?: string;
         ubicacion_id?: string;
+        obra_id?: string;
         search?: string;
         sin_acomodar?: boolean;
         solo_con_saldo?: boolean;
@@ -60,13 +71,25 @@ type Props = {
     resumen: { renglones: number; valor: number; con_saldo: number; sin_acomodar: number; en_negativo: number };
     almacenes: AlmAlmacenOpcion[];
     ubicaciones: { id: number; ruta: string }[];
+    obras: ObraOpcion[];
+    puedeReasignar: boolean;
 };
 
 /**
  * La pantalla de diario: qué hay y cuánto en cada almacén. Sin filtro de almacén
  * se ve el consolidado de la empresa; con filtro, el inventario de esa bodega.
  */
-export default function ExistenciasIndex({ existencias, filters, resumen, almacenes, ubicaciones }: Props) {
+export default function ExistenciasIndex({
+    existencias,
+    filters,
+    resumen,
+    almacenes,
+    ubicaciones,
+    obras,
+    puedeReasignar,
+}: Props) {
+    const [reasignando, setReasignando] = useState<ExistenciaFila | null>(null);
+
     const filtrar = (cambio: Record<string, string | undefined>) =>
         router.get('/admin/almacen/existencias', { ...filters, ...cambio, page: undefined }, { preserveState: true });
 
@@ -152,6 +175,25 @@ export default function ExistenciasIndex({ existencias, filters, resumen, almace
                             </Select>
                         </div>
                     )}
+
+                    {/* «Qué material puedo repartir» es la pregunta con la que se
+                        abre esta pantalla cuando hay que asignar lo que ya estaba
+                        en bodega, así que lo libre es una opción más. */}
+                    <div className="w-52">
+                        <label className="label label-text text-xs">Obra</label>
+                        <Select
+                            value={filters.obra_id ?? ''}
+                            onValueChange={(v) => filtrar({ obra_id: v || undefined })}
+                            placeholder="Todas"
+                        >
+                            <SelectItem value="libre">Sin asignar</SelectItem>
+                            {obras.map((o) => (
+                                <SelectItem key={o.id} value={String(o.id)}>
+                                    {o.no}
+                                </SelectItem>
+                            ))}
+                        </Select>
+                    </div>
 
                     <div className="max-w-sm flex-1">
                         <label className="label label-text text-xs">Buscar</label>
@@ -274,6 +316,24 @@ export default function ExistenciasIndex({ existencias, filters, resumen, almace
                                                         aria-label={`Por debajo del mínimo (${cantidad(e.stock_minimo ?? 0)})`}
                                                     />
                                                 )}
+                                                {/* De quién es. Un renglón sin
+                                                    asignaciones está todo libre y
+                                                    no necesita explicarse. */}
+                                                {e.asignaciones.length > 0 && (
+                                                    <span
+                                                        className="text-base-content/60 block text-xs"
+                                                        title="Comprometido con una obra: la salida de otra necesita permiso"
+                                                    >
+                                                        {[
+                                                            e.libre > 0 ? `${cantidad(e.libre)} libre` : null,
+                                                            ...e.asignaciones.map(
+                                                                (a) => `${cantidad(a.cantidad)} ${a.obra ?? '—'}`,
+                                                            ),
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(' · ')}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="text-right font-mono">
                                                 {e.en_transito > 0 ? (
@@ -291,7 +351,17 @@ export default function ExistenciasIndex({ existencias, filters, resumen, almace
                                                 {moneda(e.costo_promedio)}
                                             </td>
                                             <td className="text-right font-mono">{moneda(e.valor)}</td>
-                                            <td>
+                                            <td className="whitespace-nowrap">
+                                                {puedeReasignar && e.cantidad > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-ghost btn-xs"
+                                                        title="Repartir entre obras"
+                                                        onClick={() => setReasignando(e)}
+                                                    >
+                                                        <ArrowLeftRightIcon className="size-3.5" />
+                                                    </button>
+                                                )}
                                                 <Link
                                                     href={`/admin/almacen/kardex?almacen_id=${e.almacen_id}&producto_id=${e.producto_id}`}
                                                     className="btn btn-ghost btn-xs"
@@ -328,7 +398,139 @@ export default function ExistenciasIndex({ existencias, filters, resumen, almace
                         )}
                     </div>
                 )}
+
+                {reasignando !== null && (
+                    <ReasignarModal existencia={reasignando} obras={obras} onCerrar={() => setReasignando(null)} />
+                )}
             </div>
         </AppLayout>
+    );
+}
+
+/**
+ * Cambiar de dueño, no de bodega.
+ *
+ * Lo libre es un origen y un destino de primera clase, no el caso borde:
+ * mientras el inventario que ya estaba en bodega no tenga asignación, repartir
+ * desde lo libre es la vía normal por la que la gana.
+ */
+function ReasignarModal({
+    existencia,
+    obras,
+    onCerrar,
+}: {
+    existencia: ExistenciaFila;
+    obras: ObraOpcion[];
+    onCerrar: () => void;
+}) {
+    const form = useForm({
+        existencia_id: existencia.id,
+        de_obra_id: '',
+        a_obra_id: '',
+        cantidad: '',
+        motivo: '',
+    });
+
+    // Lo que hay de verdad en el origen elegido: es el tope de lo que se puede
+    // mover, y verlo evita teclear una cantidad que el servidor va a rebotar.
+    const enOrigen =
+        form.data.de_obra_id === ''
+            ? existencia.libre
+            : (existencia.asignaciones.find((a) => String(a.obra_id) === form.data.de_obra_id)?.cantidad ?? 0);
+
+    return (
+        <dialog className="modal modal-open">
+            <div className="modal-box max-w-lg">
+                <h3 className="text-lg font-semibold">Reasignar material</h3>
+                <p className="text-base-content/60 mb-4 text-sm">
+                    {existencia.codigo} — {existencia.descripcion}. Cambia de obra, no de bodega: el saldo del almacén
+                    queda igual y el gasto no se mueve.
+                </p>
+
+                <form
+                    onSubmit={(ev) => {
+                        ev.preventDefault();
+                        form.transform((datos) => ({
+                            ...datos,
+                            de_obra_id: datos.de_obra_id === '' ? null : datos.de_obra_id,
+                            a_obra_id: datos.a_obra_id === '' ? null : datos.a_obra_id,
+                        }));
+                        form.post('/admin/almacen/asignaciones/reasignar', {
+                            preserveScroll: true,
+                            onSuccess: onCerrar,
+                        });
+                    }}
+                    className="space-y-3"
+                >
+                    <label className="form-control">
+                        <span className="label label-text">De</span>
+                        <Select
+                            value={form.data.de_obra_id}
+                            onValueChange={(v) => form.setData('de_obra_id', v)}
+                            placeholder="Sin asignar (libre)"
+                        >
+                            {existencia.asignaciones.map((a) => (
+                                <SelectItem key={a.obra_id} value={String(a.obra_id)}>
+                                    {a.obra ?? '—'} ({cantidad(a.cantidad)})
+                                </SelectItem>
+                            ))}
+                        </Select>
+                        <span className="text-base-content/50 text-xs">Disponible ahí: {cantidad(enOrigen)}</span>
+                    </label>
+
+                    <label className="form-control">
+                        <span className="label label-text">A</span>
+                        <Select
+                            value={form.data.a_obra_id}
+                            onValueChange={(v) => form.setData('a_obra_id', v)}
+                            placeholder="Soltar a libre"
+                        >
+                            {obras.map((o) => (
+                                <SelectItem key={o.id} value={String(o.id)}>
+                                    {o.no}
+                                </SelectItem>
+                            ))}
+                        </Select>
+                        {form.errors.a_obra_id && <span className="text-error text-xs">{form.errors.a_obra_id}</span>}
+                    </label>
+
+                    <label className="form-control">
+                        <span className="label label-text">Cantidad</span>
+                        <Input
+                            type="number"
+                            step="0.0001"
+                            min="0"
+                            max={enOrigen}
+                            value={form.data.cantidad}
+                            onChange={(ev) => form.setData('cantidad', ev.target.value)}
+                            className="font-mono"
+                        />
+                        {form.errors.cantidad && <span className="text-error text-xs">{form.errors.cantidad}</span>}
+                    </label>
+
+                    <label className="form-control">
+                        <span className="label label-text">Motivo</span>
+                        <Input
+                            value={form.data.motivo}
+                            onChange={(ev) => form.setData('motivo', ev.target.value)}
+                            placeholder="Por qué cambia de obra"
+                        />
+                        {form.errors.motivo && <span className="text-error text-xs">{form.errors.motivo}</span>}
+                    </label>
+
+                    <div className="modal-action">
+                        <button type="button" className="btn btn-ghost" onClick={onCerrar}>
+                            Cancelar
+                        </button>
+                        <button type="submit" className="btn btn-primary" disabled={form.processing}>
+                            Reasignar
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <form method="dialog" className="modal-backdrop">
+                <button onClick={onCerrar}>cerrar</button>
+            </form>
+        </dialog>
     );
 }

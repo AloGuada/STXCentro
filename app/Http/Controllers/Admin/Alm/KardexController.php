@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Movimiento;
 use App\Models\Costos\Producto;
+use App\Models\Obra;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -27,7 +28,7 @@ class KardexController extends Controller
 {
     public function index(Request $request): Response
     {
-        $filtros = $request->only(['almacen_id', 'producto_id', 'tipo', 'desde', 'hasta', 'referencia']);
+        $filtros = $request->only(['almacen_id', 'producto_id', 'obra_id', 'tipo', 'desde', 'hasta', 'referencia']);
 
         $base = Movimiento::query()
             ->whereIn('almacen_id', $this->almacenesVisibles($request))
@@ -37,6 +38,7 @@ class KardexController extends Controller
             ->with([
                 'almacen:id,clave',
                 'producto:id,codigo,descripcion,unidad',
+                'obra:id,no',
                 'usuario:id,name',
             ])
             ->cronologico(descendente: true)
@@ -51,6 +53,9 @@ class KardexController extends Controller
                 'unidad' => $m->producto?->unidad,
                 'tipo' => $m->tipo->value,
                 'tipo_etiqueta' => $m->tipo->etiqueta(),
+                // De quién era el material que movió el asiento. Vacío = libre,
+                // sin dueño. Es lo que explica la partición de Existencias.
+                'obra' => $m->obra?->no,
                 'cantidad' => (float) $m->cantidad,
                 'saldo_despues' => (float) $m->saldo_despues,
                 'costo_unitario' => $m->costo_unitario === null ? null : (float) $m->costo_unitario,
@@ -69,6 +74,9 @@ class KardexController extends Controller
             'totales' => $this->totales(clone $base),
             'almacenes' => $this->almacenes($request),
             'productos' => $this->productos(),
+            // Para el filtro por obra. `libre` se agrega en la pantalla: es una
+            // opción del filtro, no una obra del catálogo.
+            'obras' => Obra::query()->orderBy('no')->get(['id', 'no']),
             'tipos' => array_map(
                 fn (MovimientoTipo $t): array => ['value' => $t->value, 'label' => $t->etiqueta()],
                 MovimientoTipo::cases(),
@@ -83,6 +91,10 @@ class KardexController extends Controller
     private function totales($query): array
     {
         $fila = $query
+            // La reasignación no entra: cambia de dueño, no de bodega, y su
+            // pareja de asientos suma cero. Contarla inflaría los dos lados con
+            // material que nunca se movió.
+            ->where('tipo', '!=', MovimientoTipo::Reasignacion->value)
             ->selectRaw('COUNT(*) as movimientos')
             ->selectRaw('COALESCE(SUM(CASE WHEN cantidad > 0 THEN cantidad ELSE 0 END), 0) as entradas')
             ->selectRaw('COALESCE(SUM(CASE WHEN cantidad < 0 THEN cantidad ELSE 0 END), 0) as salidas')

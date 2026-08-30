@@ -102,6 +102,10 @@ class SalidaController extends Controller
             ],
             renglones: $request->validated('detalles'),
             userId: $request->user()->getAuthIdentifier(),
+            // Llevarse material comprometido con otra obra es la excepción, no
+            // la operación: consumir lo propio y lo libre no pide nada. Sin el
+            // permiso, el ledger frena con `AsignacionAjenaException`.
+            permitirAjena: $request->user()->can('alm.salidas.tomar-asignado'),
         );
 
         return to_route('admin.alm.salidas.show', $salida);

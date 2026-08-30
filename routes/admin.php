@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\Alm\AjusteController as AlmAjusteController;
 use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
 use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
 use App\Http\Controllers\Admin\Alm\ArticuloController as AlmArticuloController;
+use App\Http\Controllers\Admin\Alm\AsignacionController as AlmAsignacionController;
 use App\Http\Controllers\Admin\Alm\EntradaController as AlmEntradaController;
 use App\Http\Controllers\Admin\Alm\ExistenciaController as AlmExistenciaController;
 use App\Http\Controllers\Admin\Alm\KardexController as AlmKardexController;
@@ -283,6 +284,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('kardex', [AlmKardexController::class, 'index'])
             ->middleware('permission:alm.kardex.ver')
             ->name('kardex.index');
+        // Reasignar material entre obras. Sin pantalla propia: es el modal del
+        // desglose de Existencias, porque repartir se decide viendo el saldo.
+        Route::post('asignaciones/reasignar', [AlmAsignacionController::class, 'reasignar'])
+            ->middleware('permission:alm.asignaciones.reasignar')
+            ->name('asignaciones.reasignar');
         // Entradas: la recepcion vista desde Almacen. Escribe en costos_entregas,
         // que es lo que destraba la factura — no es una tabla nueva. Aqui vive
         // la entrada SIN orden; la que va contra una orden se captura en el

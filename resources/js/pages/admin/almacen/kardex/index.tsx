@@ -19,6 +19,9 @@ const CLASE_TIPO: Record<AlmMovimientoTipo, string> = {
     transferencia_entrada: 'badge-info',
     transferencia_salida: 'badge-info badge-outline',
     ajuste: 'badge-warning',
+    // Cambia de dueño, no de bodega: la pareja de asientos suma cero, así que no
+    // se pinta ni como entrada ni como salida.
+    reasignacion: 'badge-neutral',
 };
 
 const cantidad = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
@@ -32,6 +35,8 @@ type MovimientoFila = {
     unidad: string | null;
     tipo: AlmMovimientoTipo;
     tipo_etiqueta: string;
+    /** De quién era el material. Vacío = libre, sin dueño. */
+    obra: string | null;
     cantidad: number;
     /** Se lee del asiento, no se recalcula: es el punto entero del ledger. */
     saldo_despues: number;
@@ -47,6 +52,7 @@ type Props = {
     filters: {
         almacen_id?: string;
         producto_id?: string;
+        obra_id?: string;
         tipo?: string;
         desde?: string;
         hasta?: string;
@@ -56,6 +62,7 @@ type Props = {
     totales: { movimientos: number; entradas: number; salidas: number };
     almacenes: AlmAlmacenOpcion[];
     productos: AlmProductoOpcion[];
+    obras: { id: number; no: string }[];
     tipos: AlmOpcion[];
 };
 
@@ -64,7 +71,7 @@ type Props = {
  * artículo en ese almacén. Es sólo lectura — corregir un error es capturar el
  * movimiento contrario, no borrar el renglón.
  */
-export default function KardexIndex({ movimientos, filters, totales, almacenes, productos, tipos }: Props) {
+export default function KardexIndex({ movimientos, filters, totales, almacenes, productos, obras, tipos }: Props) {
     const filtrar = (cambio: Record<string, string | undefined>) =>
         router.get('/admin/almacen/kardex', { ...filters, ...cambio, page: undefined }, { preserveState: true });
 
@@ -112,6 +119,22 @@ export default function KardexIndex({ movimientos, filters, totales, almacenes, 
                             {productos.map((p) => (
                                 <SelectItem key={p.id} value={String(p.id)}>
                                     {p.codigo} — {p.descripcion}
+                                </SelectItem>
+                            ))}
+                        </Select>
+                    </div>
+
+                    <div className="w-44">
+                        <label className="label label-text text-xs">Obra</label>
+                        <Select
+                            value={filters.obra_id ?? ''}
+                            onValueChange={(v) => filtrar({ obra_id: v || undefined })}
+                            placeholder="Todas"
+                        >
+                            <SelectItem value="libre">Sin asignar</SelectItem>
+                            {obras.map((o) => (
+                                <SelectItem key={o.id} value={String(o.id)}>
+                                    {o.no}
                                 </SelectItem>
                             ))}
                         </Select>
@@ -168,6 +191,7 @@ export default function KardexIndex({ movimientos, filters, totales, almacenes, 
                                 <th>Almacén</th>
                                 <th>Artículo</th>
                                 <th>Tipo</th>
+                                <th>Obra</th>
                                 <th>Referencia</th>
                                 <th className="text-right">Cantidad</th>
                                 <th className="text-right">Saldo</th>
@@ -177,7 +201,7 @@ export default function KardexIndex({ movimientos, filters, totales, almacenes, 
                         <tbody>
                             {movimientos.data.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="text-base-content/50 py-6 text-center">
+                                    <td colSpan={9} className="text-base-content/50 py-6 text-center">
                                         No hay movimientos con esos filtros.
                                     </td>
                                 </tr>
@@ -202,6 +226,9 @@ export default function KardexIndex({ movimientos, filters, totales, almacenes, 
                                                     aria-label="Reverso de un documento cancelado"
                                                 />
                                             )}
+                                        </td>
+                                        <td className="text-xs">
+                                            {m.obra ?? <span className="text-base-content/30">libre</span>}
                                         </td>
                                         <td className="font-mono text-xs" title={m.observaciones ?? undefined}>
                                             {m.referencia ?? <span className="text-base-content/40">—</span>}

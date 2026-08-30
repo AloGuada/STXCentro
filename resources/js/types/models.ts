@@ -3482,7 +3482,9 @@ export type AlmMovimientoTipo =
     | 'salida'
     | 'transferencia_salida'
     | 'transferencia_entrada'
-    | 'ajuste';
+    | 'ajuste'
+    /** Cambia de dueño, no de bodega: su pareja de asientos suma cero. */
+    | 'reasignacion';
 
 /**
  * Un artículo como lo ofrece el capturador de renglones: lo mínimo para
