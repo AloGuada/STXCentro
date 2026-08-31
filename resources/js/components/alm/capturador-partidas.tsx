@@ -1,7 +1,8 @@
 import { Input } from '@/components/ui/input';
-import { Select, SelectItem } from '@/components/ui/select';
+import { SearchSelect } from '@/components/ui/search-select';
 import type { AlmPartidaBorrador, AlmProductoOpcion } from '@/types/models';
 import { PlusIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
+import { useMemo } from 'react';
 
 type Props = {
     partidas: AlmPartidaBorrador[];
@@ -31,6 +32,13 @@ type Props = {
      */
     pedirVerificacionMantenimiento?: boolean;
 };
+
+/**
+ * Cuántos productos se ofrecen a la vez. El catálogo crece rápido y una lista
+ * larga no se lee: con tres, la forma de llegar es teclear el código o la
+ * descripción, no recorrer la lista. El resto se anuncia, no se esconde.
+ */
+const PRODUCTOS_OFRECIDOS = 3;
 
 export const PARTIDA_VACIA: AlmPartidaBorrador = {
     producto_id: '',
@@ -78,6 +86,20 @@ export function CapturadorPartidas({
     const quitar = (indice: number) => onChange(partidas.filter((_, i) => i !== indice));
 
     const productoDe = (id: string) => productos.find((p) => String(p.id) === id);
+
+    /**
+     * El catálogo entero es una lista larga que nadie recorre de memoria: se
+     * teclea el código o un pedazo de la descripción y se elige de lo que queda.
+     * Los dos van en la etiqueta porque el buscador filtra sobre ella.
+     */
+    const opciones = useMemo(
+        () =>
+            productos.map((p) => ({
+                value: String(p.id),
+                label: [p.codigo, p.descripcion].filter(Boolean).join(' — '),
+            })),
+        [productos],
+    );
 
     const importeDe = (p: AlmPartidaBorrador) => Number(p.cantidad || 0) * Number(p.costo_unitario || 0);
 
@@ -138,18 +160,14 @@ export function CapturadorPartidas({
                                 return (
                                     <tr key={i} className={faltaVerificar ? 'bg-warning/10' : 'hover'}>
                                         <td>
-                                            <Select
+                                            <SearchSelect
+                                                options={opciones}
                                                 value={partida.producto_id}
                                                 onValueChange={(v) => editar(i, { producto_id: v })}
-                                                placeholder="Selecciona producto"
-                                                className="select-sm"
-                                            >
-                                                {productos.map((p) => (
-                                                    <SelectItem key={p.id} value={String(p.id)}>
-                                                        {p.codigo} — {p.descripcion}
-                                                    </SelectItem>
-                                                ))}
-                                            </Select>
+                                                placeholder="Teclea código o descripción..."
+                                                inputClassName="input-sm"
+                                                maxOptions={PRODUCTOS_OFRECIDOS}
+                                            />
                                             {!esConteo && disponible !== null && disponible !== undefined && (
                                                 <p
                                                     className={`mt-1 text-xs ${falta ? 'text-error' : 'text-base-content/60'}`}
