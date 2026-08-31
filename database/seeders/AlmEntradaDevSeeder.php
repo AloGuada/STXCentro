@@ -59,7 +59,6 @@ class AlmEntradaDevSeeder extends Seeder
         }
 
         $proveedor = $this->proveedor();
-        $obraRubro = $this->obraRubro();
         $departamento = Departamento::firstOrCreate(['descripcion' => 'Compras']);
         $productos = $this->productos();
         $registrador = app(RegistradorEntradaAlmacen::class);
@@ -71,7 +70,13 @@ class AlmEntradaDevSeeder extends Seeder
                 continue;
             }
 
-            DB::transaction(function () use ($escenario, $proveedor, $obraRubro, $departamento, $almacen, $usuario, $registrador): void {
+            // El centro de costos de la orden es lo que decide de quién será el
+            // material al recibirlo, así que cada escenario trae el suyo.
+            $obraRubro = $this->obraRubro($escenario['obra']);
+            $destino = $this->almacenPorClave($escenario['almacen'] ?? null) ?? $almacen;
+
+            DB::transaction(function () use ($escenario, $proveedor, $obraRubro, $departamento, $destino, $usuario, $registrador): void {
+                $almacen = $destino;
                 $orden = $this->orden($escenario, $proveedor, $obraRubro, $departamento, $usuario);
                 $factura = $this->factura($orden, $escenario);
 
@@ -89,12 +94,14 @@ class AlmEntradaDevSeeder extends Seeder
                 }
 
                 $this->command?->info(sprintf(
-                    '· %s · OC %s · factura %s (%s) · %d recepción(es)',
+                    '· %s · OC %s · factura %s (%s) · %d recepción(es) · %s → %s',
                     $escenario['titulo'],
                     $orden->folio,
                     $factura->folio,
                     $factura->fresh()->estatus->value,
                     count($escenario['recepciones']),
+                    $escenario['obra'],
+                    $almacen->clave,
                 ));
             });
         }
@@ -107,6 +114,20 @@ class AlmEntradaDevSeeder extends Seeder
     {
         return Almacen::query()->whereNull('obra_id')->where('clave', 'AG')->first()
             ?? Almacen::query()->first();
+    }
+
+    /**
+     * El almacén de planta con esa clave. Devuelve `null` —y el llamador cae al
+     * de siempre— cuando el escenario no pide uno o la base no lo tiene: el
+     * catálogo lo siembra otro seeder y no todos los locales corren el mismo.
+     */
+    private function almacenPorClave(?string $clave): ?Almacen
+    {
+        if ($clave === null) {
+            return null;
+        }
+
+        return Almacen::query()->whereNull('obra_id')->where('clave', $clave)->first();
     }
 
     private function proveedor(): Proveedor
@@ -129,14 +150,22 @@ class AlmEntradaDevSeeder extends Seeder
     }
 
     /**
-     * Un centro de costos con presupuesto suficiente para las tres órdenes.
-     * Reutiliza la obra que ya siembra AlmDevSeeder cuando está.
+     * Un centro de costos con presupuesto suficiente para las órdenes de esa
+     * obra. Reutiliza las obras que ya siembra AlmDevSeeder cuando están.
+     *
+     * Cada obra necesita el suyo: el rubro es del catálogo y se comparte, pero
+     * `ObraRubro` es la intersección obra × rubro, y es de ahí de donde
+     * {@see RegistradorEntradaAlmacen} deduce el dueño del material.
      */
-    private function obraRubro(): ObraRubro
+    private function obraRubro(string $obraNo): ObraRubro
     {
         $obra = Obra::firstOrCreate(
-            ['no' => 'T4'],
-            ['descripcion' => 'Torre 4 Corporativo', 'estatus' => 'abierta', 'presupuesto_total' => 12_000_000],
+            ['no' => $obraNo],
+            [
+                'descripcion' => $this->obrasConocidas()[$obraNo] ?? $obraNo,
+                'estatus' => 'abierta',
+                'presupuesto_total' => 12_000_000,
+            ],
         );
 
         $presupuesto = Presupuesto::firstOrCreate(
@@ -163,6 +192,21 @@ class AlmEntradaDevSeeder extends Seeder
     }
 
     /**
+     * Nombre de las obras que este seeder puede tener que dar de alta. Una obra
+     * que ya exista se reutiliza por `no` y su descripción no se toca.
+     *
+     * @return array<string, string>
+     */
+    private function obrasConocidas(): array
+    {
+        return [
+            'T4' => 'Torre 4 Corporativo',
+            'MBP' => 'Mega BodegaParque Industrial',
+            'sp260501' => 'Suministro',
+        ];
+    }
+
+    /**
      * Artículos del catálogo. La maniobra va sin inventario a propósito: se
      * recibe y se factura, pero no mueve kardex — es el caso que la pantalla de
      * la entrada marca como "no mueve existencia".
@@ -178,6 +222,14 @@ class AlmEntradaDevSeeder extends Seeder
             'tornillo' => ['ART-000104', 'Tornillo estructural A325 3/4 x 2', 'pza', true],
             'maniobra' => ['ART-000105', 'Maniobra de descarga con grúa', 'serv', false],
             'solera' => ['ART-000106', 'Solera de acero 1/2 x 2 pulg', 'pza', true],
+            // Los que ya trae la carga inicial del almacen. Se piden por su
+            // codigo real para que el material con dueno caiga sobre la misma
+            // existencia que el que ya estaba libre: es lo que hace que el
+            // desglose de la pantalla tenga algo que desglosar.
+            'tornillo_ci' => ['ART-00001', 'Tornillo A325 3/4" x 2"', 'PZA', true],
+            'electrodo_ci' => ['ART-00002', 'Electrodo 7018 1/8"', 'KG', true],
+            'disco_ci' => ['ART-00006', 'Disco de corte 4 1/2"', 'PZA', true],
+            'guante_ci' => ['ART-00008', 'Guante de carnaza', 'PAR', true],
         ];
 
         $productos = [];
@@ -209,6 +261,7 @@ class AlmEntradaDevSeeder extends Seeder
         return [
             [
                 'referencia' => 'DEMO-ALM-1',
+                'obra' => 'T4',
                 'titulo' => 'Recepción completa que cierra la factura',
                 'notas' => 'Llega todo de una vez y la recepción cierra la factura.',
                 'cierra_factura' => true,
@@ -235,6 +288,7 @@ class AlmEntradaDevSeeder extends Seeder
             ],
             [
                 'referencia' => 'DEMO-ALM-2',
+                'obra' => 'T4',
                 'titulo' => 'Recepción parcial: la factura sigue esperando',
                 'notas' => 'El proveedor factura todo pero surte a medias.',
                 'cierra_factura' => false,
@@ -259,6 +313,7 @@ class AlmEntradaDevSeeder extends Seeder
             ],
             [
                 'referencia' => 'DEMO-ALM-3',
+                'obra' => 'T4',
                 'titulo' => 'Dos recepciones y un precio distinto al de la orden',
                 'notas' => 'La segunda entrega llega a otro precio y cierra la factura.',
                 'cierra_factura' => true,
@@ -285,6 +340,84 @@ class AlmEntradaDevSeeder extends Seeder
                         'observaciones' => 'Segundo envío: el proveedor subió el precio, se captura el real.',
                         'renglones' => [
                             ['cantidad' => 40, 'precio' => 47.25],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'referencia' => 'DEMO-ALM-4',
+                'obra' => 'MBP',
+                'almacen' => 'INS',
+                'titulo' => 'Compra de MBP que cae sobre existencia libre',
+                'notas' => 'Material comprado contra el presupuesto de MBP.',
+                'cierra_factura' => true,
+                'con_comprobante' => true,
+                'partidas' => [
+                    ['producto' => $p['tornillo_ci'], 'cantidad' => 3_000, 'precio' => 4.50],
+                    ['producto' => $p['disco_ci'], 'cantidad' => 120, 'precio' => 28.00],
+                ],
+                'recepciones' => [
+                    [
+                        'dias' => -9,
+                        'tipo' => 'completa',
+                        'liga_factura' => true,
+                        'completa_factura' => true,
+                        'observaciones' => 'Entro completo al almacen de insumos.',
+                        'renglones' => [
+                            ['cantidad' => 3_000],
+                            ['cantidad' => 120],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'referencia' => 'DEMO-ALM-5',
+                'obra' => 'sp260501',
+                'almacen' => 'INS',
+                'titulo' => 'Tercera obra sobre el mismo articulo',
+                'notas' => 'Suministro compra del mismo tornillo que MBP.',
+                'cierra_factura' => false,
+                'con_comprobante' => false,
+                'partidas' => [
+                    ['producto' => $p['tornillo_ci'], 'cantidad' => 2_000, 'precio' => 4.60],
+                    ['producto' => $p['guante_ci'], 'cantidad' => 60, 'precio' => 52.00],
+                ],
+                'recepciones' => [
+                    [
+                        'dias' => -5,
+                        'tipo' => 'parcial',
+                        'liga_factura' => true,
+                        'completa_factura' => false,
+                        'observaciones' => 'Llego el tornillo y la mitad del guante.',
+                        'renglones' => [
+                            ['cantidad' => 1_500],
+                            ['cantidad' => 30],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'referencia' => 'DEMO-ALM-6',
+                'obra' => 'T4',
+                'almacen' => 'INS',
+                'titulo' => 'Cuarto dueno del mismo tornillo',
+                'notas' => 'T4 tambien compro tornillo: tres obras y lo libre en la misma existencia.',
+                'cierra_factura' => true,
+                'con_comprobante' => true,
+                'partidas' => [
+                    ['producto' => $p['tornillo_ci'], 'cantidad' => 2_500, 'precio' => 4.40],
+                    ['producto' => $p['electrodo_ci'], 'cantidad' => 180, 'precio' => 61.00],
+                ],
+                'recepciones' => [
+                    [
+                        'dias' => -4,
+                        'tipo' => 'completa',
+                        'liga_factura' => true,
+                        'completa_factura' => true,
+                        'observaciones' => 'Material de T4 resguardado en planta hasta que lo pidan.',
+                        'renglones' => [
+                            ['cantidad' => 2_500],
+                            ['cantidad' => 180],
                         ],
                     ],
                 ],
