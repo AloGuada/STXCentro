@@ -5,14 +5,24 @@ import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmAlmacenOpcion, PaginatedData } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeftRightIcon, HistoryIcon, MapPinOffIcon, TriangleAlertIcon } from 'lucide-react';
-import { useState } from 'react';
+import {
+    ArrowLeftRightIcon,
+    ChevronDownIcon,
+    HistoryIcon,
+    MapPinOffIcon,
+    SearchIcon,
+    TriangleAlertIcon,
+} from 'lucide-react';
+import { useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Inventarios', href: '/admin/almacen/existencias' },
     { title: 'Existencias', href: '/admin/almacen/existencias' },
 ];
+
+/** Lo que se espera a que la mano se detenga antes de ir al servidor. */
+const BUSQUEDA_MS = 400;
 
 const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 const cantidad = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
@@ -67,8 +77,12 @@ type Props = {
         sin_acomodar?: boolean;
         solo_con_saldo?: boolean;
     };
-    /** Sobre el almacén elegido, no sobre la página. */
-    resumen: { renglones: number; valor: number; con_saldo: number; sin_acomodar: number; en_negativo: number };
+    /**
+     * El pie de la tabla: suma lo filtrado entero, no la página. Viaja en `null`
+     * mientras no se haya filtrado: la pantalla no está vacía, está sin
+     * consultar.
+     */
+    totales: { renglones: number; valor: number } | null;
     almacenes: AlmAlmacenOpcion[];
     ubicaciones: { id: number; ruta: string }[];
     obras: ObraOpcion[];
@@ -76,22 +90,50 @@ type Props = {
 };
 
 /**
- * La pantalla de diario: qué hay y cuánto en cada almacén. Sin filtro de almacén
- * se ve el consolidado de la empresa; con filtro, el inventario de esa bodega.
+ * La pantalla de diario: qué hay y cuánto en cada almacén.
+ *
+ * Se abre en blanco a propósito: el consolidado de la empresa son decenas de
+ * miles de renglones que nadie lee. Primero se pregunta —un almacén, una obra,
+ * o un artículo en el buscador— y hasta entonces hay tabla y totales.
  */
 export default function ExistenciasIndex({
     existencias,
     filters,
-    resumen,
+    totales,
     almacenes,
     ubicaciones,
     obras,
     puedeReasignar,
 }: Props) {
     const [reasignando, setReasignando] = useState<ExistenciaFila | null>(null);
+    const [busqueda, setBusqueda] = useState(filters.search ?? '');
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    /** El servidor sólo consulta cuando ya hay una pregunta que contestar. */
+    const consultado = totales !== null;
 
     const filtrar = (cambio: Record<string, string | undefined>) =>
         router.get('/admin/almacen/existencias', { ...filters, ...cambio, page: undefined }, { preserveState: true });
+
+    /** Teclear no es preguntar: la consulta sale cuando la mano se detiene. */
+    const teclear = (valor: string) => {
+        setBusqueda(valor);
+
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+        }
+
+        debounceRef.current = setTimeout(() => filtrar({ search: valor.trim() || undefined }), BUSQUEDA_MS);
+    };
+
+    const buscarYa = () => {
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+            debounceRef.current = null;
+        }
+
+        filtrar({ search: busqueda.trim() || undefined });
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -106,40 +148,28 @@ export default function ExistenciasIndex({
                     </p>
                 </div>
 
-                <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-                    <div className="rounded-box border-base-300 border p-3">
-                        <p className="text-base-content/60 text-xs">Valor del inventario</p>
-                        <p className="font-mono text-xl">{moneda(resumen.valor)}</p>
-                    </div>
-                    <div className="rounded-box border-base-300 border p-3">
-                        <p className="text-base-content/60 text-xs">Artículos con saldo</p>
-                        <p className="font-mono text-xl">{resumen.con_saldo}</p>
-                        <p className="text-base-content/50 text-xs">de {resumen.renglones} con historia</p>
-                    </div>
-                    <button
-                        type="button"
-                        className="rounded-box border-base-300 hover:bg-base-200 border p-3 text-left"
-                        onClick={() => filtrar({ sin_acomodar: filters.sin_acomodar ? undefined : '1' })}
-                    >
-                        <p className="text-base-content/60 flex items-center gap-1 text-xs">
-                            <MapPinOffIcon className="size-3" />
-                            Sin acomodar
-                        </p>
-                        <p className={`font-mono text-xl ${resumen.sin_acomodar > 0 ? 'text-warning' : ''}`}>
-                            {resumen.sin_acomodar}
-                        </p>
+                <form
+                    className="mb-3 flex max-w-xl gap-2"
+                    onSubmit={(ev) => {
+                        ev.preventDefault();
+                        buscarYa();
+                    }}
+                >
+                    <label className="input input-bordered flex flex-1 items-center gap-2">
+                        <SearchIcon className="text-base-content/40 size-4" />
+                        <input
+                            type="search"
+                            className="grow"
+                            value={busqueda}
+                            placeholder="Buscar por código, descripción o código de barras..."
+                            autoFocus
+                            onChange={(e) => teclear(e.target.value)}
+                        />
+                    </label>
+                    <button type="submit" className="btn btn-neutral">
+                        Buscar
                     </button>
-                    {/* No debería pasar nunca; justo por eso hay que poder verlo. */}
-                    <div className="rounded-box border-base-300 border p-3">
-                        <p className="text-base-content/60 flex items-center gap-1 text-xs">
-                            <TriangleAlertIcon className="size-3" />
-                            En negativo
-                        </p>
-                        <p className={`font-mono text-xl ${resumen.en_negativo > 0 ? 'text-error' : ''}`}>
-                            {resumen.en_negativo}
-                        </p>
-                    </div>
-                </div>
+                </form>
 
                 <div className="mb-4 flex flex-wrap items-end gap-3">
                     <div className="w-52">
@@ -195,15 +225,6 @@ export default function ExistenciasIndex({
                         </Select>
                     </div>
 
-                    <div className="max-w-sm flex-1">
-                        <label className="label label-text text-xs">Buscar</label>
-                        <Input
-                            defaultValue={filters.search ?? ''}
-                            placeholder="Código, descripción o código de barras..."
-                            onChange={(e) => filtrar({ search: e.target.value || undefined })}
-                        />
-                    </div>
-
                     <label className="mb-2 flex cursor-pointer items-center gap-2">
                         <input
                             type="checkbox"
@@ -213,170 +234,224 @@ export default function ExistenciasIndex({
                         />
                         <span className="text-sm">Sólo con saldo</span>
                     </label>
+
+                    {/* Material que nadie acomodó: es la lista de trabajo del
+                        almacenista, y por eso sigue siendo un filtro a la vista. */}
+                    <label className="mb-2 flex cursor-pointer items-center gap-2">
+                        <input
+                            type="checkbox"
+                            className="checkbox checkbox-sm"
+                            checked={Boolean(filters.sin_acomodar)}
+                            onChange={(e) => filtrar({ sin_acomodar: e.target.checked ? '1' : undefined })}
+                        />
+                        <span className="flex items-center gap-1 text-sm">
+                            <MapPinOffIcon className="size-3.5" />
+                            Sin acomodar
+                        </span>
+                    </label>
                 </div>
 
-                <div className="rounded-box border-base-300 overflow-x-auto border">
-                    <table className="table table-sm">
-                        <thead className="bg-base-200">
-                            <tr>
-                                <th>Almacén</th>
-                                <th>Artículo</th>
-                                <th>Unidad</th>
-                                <th>Ubicación</th>
-                                <th className="text-right">Existencia</th>
-                                <th className="text-right">En camino</th>
-                                <th className="text-right">Costo promedio</th>
-                                <th className="text-right">Valor</th>
-                                <th className="w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {existencias.data.length === 0 ? (
+                {consultado ? (
+                    <div className="rounded-box border-base-300 overflow-x-auto border">
+                        <table className="table table-sm">
+                            <thead className="bg-base-200">
                                 <tr>
-                                    <td colSpan={9} className="text-base-content/50 py-6 text-center">
-                                        No hay existencias con esos filtros.
-                                    </td>
+                                    <th>Almacén</th>
+                                    <th>Artículo</th>
+                                    <th>Unidad</th>
+                                    <th>Ubicación</th>
+                                    <th className="text-right">Existencia</th>
+                                    <th className="text-right">En camino</th>
+                                    <th className="text-right">Costo promedio</th>
+                                    <th className="text-right">Valor</th>
+                                    <th className="w-10"></th>
                                 </tr>
-                            ) : (
-                                existencias.data.map((e) => {
-                                    const bajoMinimo = e.stock_minimo !== null && e.cantidad < e.stock_minimo;
+                            </thead>
+                            <tbody>
+                                {existencias.data.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={9} className="text-base-content/50 py-6 text-center">
+                                            No hay existencias con esos filtros.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    existencias.data.map((e) => {
+                                        const bajoMinimo = e.stock_minimo !== null && e.cantidad < e.stock_minimo;
 
-                                    return (
-                                        <tr key={e.id} className="hover">
-                                            <td>
-                                                <span className="badge badge-sm badge-ghost font-mono">
-                                                    {e.almacen}
-                                                </span>
-                                                {e.obra && (
-                                                    <span className="text-base-content/60 ml-1 text-xs">{e.obra}</span>
-                                                )}
-                                            </td>
-                                            <td>
-                                                <Link
-                                                    href={`/admin/almacen/articulos/${e.producto_id}`}
-                                                    className="link link-hover font-mono text-xs"
-                                                >
-                                                    {e.codigo}
-                                                </Link>
-                                                <span className="block">{e.descripcion}</span>
-                                                {e.piezas && (
-                                                    <Link
-                                                        href={`/admin/almacen/activos?producto_id=${e.producto_id}&almacen_id=${e.almacen_id}`}
-                                                        className="badge badge-xs badge-info"
-                                                        title="Ver las piezas de este renglón"
-                                                    >
-                                                        {e.piezas.disponibles} de {cantidad(e.cantidad)} disponible(s)
-                                                    </Link>
-                                                )}
-                                            </td>
-                                            <td className="text-base-content/60 font-mono text-xs">{e.unidad}</td>
-                                            <td className="text-base-content/60 text-sm">
-                                                {e.ubicacion ?? (
-                                                    <span className="text-warning inline-flex items-center gap-1">
-                                                        <MapPinOffIcon className="size-3" />
-                                                        Sin acomodar
+                                        return (
+                                            <tr key={e.id} className="hover">
+                                                <td>
+                                                    <span className="badge badge-sm badge-ghost font-mono">
+                                                        {e.almacen}
                                                     </span>
-                                                )}
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {/* Cinco pulidoras con tres prestadas no son
-                                                    cinco pulidoras que entregar. */}
-                                                {e.piezas &&
-                                                    e.piezas.prestadas + e.piezas.en_reparacion > 0 && (
-                                                        <span
-                                                            className="text-base-content/50 block text-xs"
-                                                            title="Siguen siendo del almacén, pero no se pueden entregar"
+                                                    {e.obra && (
+                                                        <span className="text-base-content/60 ml-1 text-xs">{e.obra}</span>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    <Link
+                                                        href={`/admin/almacen/articulos/${e.producto_id}`}
+                                                        className="link link-hover font-mono text-xs"
+                                                    >
+                                                        {e.codigo}
+                                                    </Link>
+                                                    <span className="block">{e.descripcion}</span>
+                                                    {e.piezas && (
+                                                        <Link
+                                                            href={`/admin/almacen/activos?producto_id=${e.producto_id}&almacen_id=${e.almacen_id}`}
+                                                            className="badge badge-xs badge-info"
+                                                            title="Ver las piezas de este renglón"
                                                         >
-                                                            {[
-                                                                e.piezas.prestadas > 0
-                                                                    ? `${e.piezas.prestadas} afuera`
-                                                                    : null,
-                                                                e.piezas.en_reparacion > 0
-                                                                    ? `${e.piezas.en_reparacion} en reparación`
-                                                                    : null,
-                                                            ]
-                                                                .filter(Boolean)
-                                                                .join(' · ')}
+                                                            {e.piezas.disponibles} de {cantidad(e.cantidad)} disponible(s)
+                                                        </Link>
+                                                    )}
+                                                </td>
+                                                <td className="text-base-content/60 font-mono text-xs">{e.unidad}</td>
+                                                <td className="text-base-content/60 text-sm">
+                                                    {e.ubicacion ?? (
+                                                        <span className="text-warning inline-flex items-center gap-1">
+                                                            <MapPinOffIcon className="size-3" />
+                                                            Sin acomodar
                                                         </span>
                                                     )}
-                                                <span
-                                                    className={
-                                                        e.cantidad < 0
-                                                            ? 'text-error font-semibold'
-                                                            : bajoMinimo
-                                                              ? 'text-warning font-medium'
-                                                              : ''
-                                                    }
-                                                >
-                                                    {cantidad(e.cantidad)}
-                                                </span>
-                                                {bajoMinimo && e.cantidad >= 0 && (
-                                                    <TriangleAlertIcon
-                                                        className="text-warning ml-1 inline size-3"
-                                                        aria-label={`Por debajo del mínimo (${cantidad(e.stock_minimo ?? 0)})`}
-                                                    />
-                                                )}
-                                                {/* De quién es. Un renglón sin
-                                                    asignaciones está todo libre y
-                                                    no necesita explicarse. */}
-                                                {e.asignaciones.length > 0 && (
+                                                </td>
+                                                <td className="text-right font-mono">
+                                                    {/* Cinco pulidoras con tres prestadas no son
+                                                        cinco pulidoras que entregar. */}
+                                                    {e.piezas &&
+                                                        e.piezas.prestadas + e.piezas.en_reparacion > 0 && (
+                                                            <span
+                                                                className="text-base-content/50 block text-xs"
+                                                                title="Siguen siendo del almacén, pero no se pueden entregar"
+                                                            >
+                                                                {[
+                                                                    e.piezas.prestadas > 0
+                                                                        ? `${e.piezas.prestadas} afuera`
+                                                                        : null,
+                                                                    e.piezas.en_reparacion > 0
+                                                                        ? `${e.piezas.en_reparacion} en reparación`
+                                                                        : null,
+                                                                ]
+                                                                    .filter(Boolean)
+                                                                    .join(' · ')}
+                                                            </span>
+                                                        )}
                                                     <span
-                                                        className="text-base-content/60 block text-xs"
-                                                        title="Comprometido con una obra: la salida de otra necesita permiso"
+                                                        className={
+                                                            e.cantidad < 0
+                                                                ? 'text-error font-semibold'
+                                                                : bajoMinimo
+                                                                  ? 'text-warning font-medium'
+                                                                  : ''
+                                                        }
                                                     >
-                                                        {[
-                                                            e.libre > 0 ? `${cantidad(e.libre)} libre` : null,
-                                                            ...e.asignaciones.map(
-                                                                (a) => `${cantidad(a.cantidad)} ${a.obra ?? '—'}`,
-                                                            ),
-                                                        ]
-                                                            .filter(Boolean)
-                                                            .join(' · ')}
+                                                        {cantidad(e.cantidad)}
                                                     </span>
-                                                )}
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {e.en_transito > 0 ? (
-                                                    <span
-                                                        className="text-warning"
-                                                        title="Salió de otro almacén y todavía no llega: no cuenta como existencia"
-                                                    >
-                                                        {cantidad(e.en_transito)}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-base-content/30">—</span>
-                                                )}
-                                            </td>
-                                            <td className="text-base-content/60 text-right font-mono">
-                                                {moneda(e.costo_promedio)}
-                                            </td>
-                                            <td className="text-right font-mono">{moneda(e.valor)}</td>
-                                            <td className="whitespace-nowrap">
-                                                {puedeReasignar && e.cantidad > 0 && (
-                                                    <button
-                                                        type="button"
+                                                    {bajoMinimo && e.cantidad >= 0 && (
+                                                        <TriangleAlertIcon
+                                                            className="text-warning ml-1 inline size-3"
+                                                            aria-label={`Por debajo del mínimo (${cantidad(e.stock_minimo ?? 0)})`}
+                                                        />
+                                                    )}
+                                                    {/* De quién es. */}
+                                                    <DesgloseAsignaciones existencia={e} />
+                                                </td>
+                                                <td className="text-right font-mono">
+                                                    {e.en_transito > 0 ? (
+                                                        <span
+                                                            className="text-warning"
+                                                            title="Salió de otro almacén y todavía no llega: no cuenta como existencia"
+                                                        >
+                                                            {cantidad(e.en_transito)}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-base-content/30">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="text-base-content/60 text-right font-mono">
+                                                    {moneda(e.costo_promedio)}
+                                                </td>
+                                                <td className="text-right font-mono">{moneda(e.valor)}</td>
+                                                <td className="whitespace-nowrap">
+                                                    {puedeReasignar && e.cantidad > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-ghost btn-xs"
+                                                            title="Repartir entre obras"
+                                                            onClick={() => setReasignando(e)}
+                                                        >
+                                                            <ArrowLeftRightIcon className="size-3.5" />
+                                                        </button>
+                                                    )}
+                                                    <Link
+                                                        href={`/admin/almacen/kardex?almacen_id=${e.almacen_id}&producto_id=${e.producto_id}`}
                                                         className="btn btn-ghost btn-xs"
-                                                        title="Repartir entre obras"
-                                                        onClick={() => setReasignando(e)}
+                                                        title="Ver su kardex"
                                                     >
-                                                        <ArrowLeftRightIcon className="size-3.5" />
-                                                    </button>
-                                                )}
-                                                <Link
-                                                    href={`/admin/almacen/kardex?almacen_id=${e.almacen_id}&producto_id=${e.producto_id}`}
-                                                    className="btn btn-ghost btn-xs"
-                                                    title="Ver su kardex"
-                                                >
-                                                    <HistoryIcon className="size-3.5" />
-                                                </Link>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                                        <HistoryIcon className="size-3.5" />
+                                                    </Link>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+
+                            {/* Lo filtrado entero, no la página. Las cantidades no
+                                se suman: cada renglón trae su unidad y sumar kilos
+                                con piezas no daría un número, daría un error. */}
+                            <tfoot className="bg-base-200 text-base-content">
+                                <tr>
+                                    <td colSpan={7} className="text-right font-medium">
+                                        Total de {totales.renglones}{' '}
+                                        {totales.renglones === 1 ? 'renglón' : 'renglones'}
+                                        {existencias.total > existencias.data.length && (
+                                            <span className="text-base-content/50 ml-1 font-normal">
+                                                (no sólo esta página)
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="text-right font-mono font-semibold">{moneda(totales.valor)}</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                ) : (
+                    /* Nada que enseñar todavía. No es un inventario vacío: es un
+                       inventario que nadie ha preguntado, y decirlo evita que el
+                       almacenista crea que se le perdió el material. */
+                    <div className="rounded-box border-base-300 bg-base-100 border border-dashed p-10 text-center">
+                        <SearchIcon className="text-base-content/30 mx-auto size-8" />
+                        <p className="mt-3 font-medium">Elige qué quieres ver</p>
+                        <p className="text-base-content/60 mx-auto mt-1 max-w-md text-sm">
+                            El inventario completo son demasiados renglones para leerlos de corrido. Busca un artículo,
+                            o filtra por almacén, ubicación u obra.
+                        </p>
+                        <div className="mt-4 flex flex-wrap justify-center gap-2">
+                            {almacenes.map((a) => (
+                                <button
+                                    key={a.id}
+                                    type="button"
+                                    className="btn btn-sm btn-outline"
+                                    onClick={() => filtrar({ almacen_id: String(a.id) })}
+                                >
+                                    {etiquetaDeAlmacen(a)}
+                                </button>
+                            ))}
+                        </div>
+                        {/* La lista de trabajo del almacenista sigue estando a un
+                            clic, aunque los totales ya no se calculen de entrada. */}
+                        <button
+                            type="button"
+                            className="btn btn-ghost btn-sm mt-2"
+                            onClick={() => filtrar({ sin_acomodar: '1' })}
+                        >
+                            <MapPinOffIcon className="size-3.5" />
+                            Ver lo que está sin acomodar
+                        </button>
+                    </div>
+                )}
 
                 {existencias.links.length > 3 && (
                     <div className="join mt-4 flex justify-center">
@@ -404,6 +479,53 @@ export default function ExistenciasIndex({
                 )}
             </div>
         </AppLayout>
+    );
+}
+
+/**
+ * De quién es el renglón, renglón por renglón.
+ *
+ * Con dos obras la línea corrida se leía; con seis no. El desglose se abre
+ * dentro de la celda en vez de flotar encima: la tabla vive en un contenedor
+ * con scroll horizontal y ahí cualquier capa absoluta se corta a la mitad.
+ */
+function DesgloseAsignaciones({ existencia }: { existencia: ExistenciaFila }) {
+    const { libre, asignaciones } = existencia;
+
+    // Un renglón sin repartir está todo libre y no necesita explicarse.
+    if (asignaciones.length === 0) {
+        return null;
+    }
+
+    return (
+        <details className="group mt-0.5">
+            <summary
+                className="text-base-content/60 hover:text-base-content flex cursor-pointer list-none items-center justify-end gap-1 text-xs [&::-webkit-details-marker]:hidden"
+                title="Comprometido con una obra: la salida de otra necesita permiso"
+            >
+                <ChevronDownIcon className="size-3 transition-transform group-open:rotate-180" />
+                <span className="font-sans">
+                    {asignaciones.length === 1 ? '1 obra' : `${asignaciones.length} obras`}
+                </span>
+                {libre > 0 && <span className="text-base-content/40">· {cantidad(libre)} libre</span>}
+            </summary>
+
+            <ul className="rounded-box border-base-300 bg-base-200/60 mt-1 min-w-40 border p-1 text-xs font-sans">
+                {asignaciones.map((a) => (
+                    <li key={a.obra_id} className="flex items-baseline justify-between gap-3 px-1.5 py-0.5">
+                        <span className="truncate">{a.obra ?? '—'}</span>
+                        <span className="font-mono">{cantidad(a.cantidad)}</span>
+                    </li>
+                ))}
+                {/* Lo que sobra de repartir. No se guarda: es la existencia
+                    menos lo comprometido, y es lo único que cualquiera puede
+                    llevarse sin pedir permiso. */}
+                <li className="border-base-300 text-base-content/60 flex items-baseline justify-between gap-3 border-t px-1.5 py-0.5">
+                    <span>Libre</span>
+                    <span className="font-mono">{cantidad(libre)}</span>
+                </li>
+            </ul>
+        </details>
     );
 }
 

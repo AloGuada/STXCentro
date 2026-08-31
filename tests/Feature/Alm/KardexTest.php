@@ -4,6 +4,7 @@ use App\Enums\Alm\MovimientoTipo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Ubicacion;
 use App\Models\Costos\Producto;
+use App\Models\Obra;
 use App\Models\User;
 use App\Services\Alm\AlmacenLedger;
 use Spatie\Permission\Models\Permission;
@@ -156,7 +157,7 @@ describe('existencias', function () {
         );
 
         $this->actingAs(usuarioDeKardex())
-            ->get(route('admin.alm.existencias.index'))
+            ->get(route('admin.alm.existencias.index', ['almacen_id' => $almacen->id]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->has('existencias.data', 1)
@@ -167,30 +168,48 @@ describe('existencias', function () {
                 ->where('existencias.data.0.valor', 450));
     });
 
-    it('el resumen suma el inventario completo y señala lo que hay que atender', function () {
+    /**
+     * El pie de la tabla. Suma lo que el usuario pidió ver «completo», que no es
+     * lo mismo que lo que cabe en la página ni que todo el inventario: un total
+     * que no corresponde con el filtro de arriba engaña más de lo que informa.
+     */
+    it('el pie suma lo filtrado, no todo lo visible', function () {
+        $almacen = Almacen::factory()->create();
+        $vecino = Almacen::factory()->create();
+        $ledger = app(AlmacenLedger::class);
+
+        $caro = Producto::factory()->create();
+        $barato = Producto::factory()->create();
+        $ajeno = Producto::factory()->create();
+
+        $ledger->registrarPorProducto($almacen->id, $caro->id, MovimientoTipo::Entrada, 100, 10);
+        $ledger->registrarPorProducto($almacen->id, $barato->id, MovimientoTipo::Entrada, 20, 2.5);
+        $ledger->registrarPorProducto($vecino->id, $ajeno->id, MovimientoTipo::Entrada, 5, 1000);
+
+        $this->actingAs(usuarioDeKardex())
+            ->get(route('admin.alm.existencias.index', ['almacen_id' => $almacen->id]))
+            ->assertInertia(fn ($page) => $page
+                ->has('existencias.data', 2)
+                ->where('totales.renglones', 2)
+                // El almacén de al lado no entra, aunque el usuario lo alcance a ver.
+                ->where('totales.valor', 1050));
+    });
+
+    it('el pie respeta el buscador', function () {
         $almacen = Almacen::factory()->create();
         $ledger = app(AlmacenLedger::class);
 
-        $conSaldo = Producto::factory()->create();
-        $vacio = Producto::factory()->create();
-        $negativo = Producto::factory()->create();
+        $buscado = Producto::factory()->create(['codigo' => 'TOR-0012']);
+        $otro = Producto::factory()->create(['codigo' => 'PIN-0044']);
 
-        $ledger->registrarPorProducto($almacen->id, $conSaldo->id, MovimientoTipo::Entrada, 100, 10);
-        $ledger->registrarPorProducto($almacen->id, $vacio->id, MovimientoTipo::Entrada, 5, 2);
-        $ledger->registrarPorProducto($almacen->id, $vacio->id, MovimientoTipo::Salida, -5);
-        $ledger->registrarPorProducto(
-            $almacen->id, $negativo->id, MovimientoTipo::Ajuste, -3, permitirNegativo: true
-        );
+        $ledger->registrarPorProducto($almacen->id, $buscado->id, MovimientoTipo::Entrada, 10, 7);
+        $ledger->registrarPorProducto($almacen->id, $otro->id, MovimientoTipo::Entrada, 10, 100);
 
         $this->actingAs(usuarioDeKardex())
-            ->get(route('admin.alm.existencias.index'))
+            ->get(route('admin.alm.existencias.index', ['search' => 'TOR-0012']))
             ->assertInertia(fn ($page) => $page
-                ->where('resumen.renglones', 3)
-                ->where('resumen.con_saldo', 2)
-                ->where('resumen.valor', 1000)
-                // Nadie ha acomodado nada todavía: es la lista de trabajo.
-                ->where('resumen.sin_acomodar', 2)
-                ->where('resumen.en_negativo', 1));
+                ->where('totales.renglones', 1)
+                ->where('totales.valor', 70));
     });
 
     it('filtra por ubicacion y por lo que esta sin acomodar', function () {
@@ -236,6 +255,75 @@ describe('existencias', function () {
         $this->actingAs($usuario)
             ->get(route('admin.alm.existencias.index', ['almacen_id' => $almacen->id]))
             ->assertInertia(fn ($page) => $page->has('ubicaciones', 1));
+    });
+
+    /**
+     * El desglose que abre el dropdown de cada renglón: una línea por obra y lo
+     * que sobra de repartir. Viaja con la fila porque pedirlo aparte sería una
+     * consulta por existencia.
+     */
+    it('cada renglon trae de quien es y cuanto queda libre', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create(['controla_inventario' => true]);
+        $unaObra = Obra::factory()->create(['no' => 'OB-100']);
+        $otraObra = Obra::factory()->create(['no' => 'OB-200']);
+        $ledger = app(AlmacenLedger::class);
+
+        $ledger->registrarPorProducto($almacen->id, $producto->id, MovimientoTipo::Entrada, 60, 5, obraId: $unaObra->id);
+        $ledger->registrarPorProducto($almacen->id, $producto->id, MovimientoTipo::Entrada, 30, 5, obraId: $otraObra->id);
+        $ledger->registrarPorProducto($almacen->id, $producto->id, MovimientoTipo::Entrada, 10, 5);
+
+        $this->actingAs(usuarioDeKardex())
+            ->get(route('admin.alm.existencias.index', ['almacen_id' => $almacen->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('existencias.data.0.cantidad', 100)
+                ->has('existencias.data.0.asignaciones', 2)
+                ->where('existencias.data.0.asignaciones.0.obra', 'OB-100')
+                ->where('existencias.data.0.asignaciones.0.cantidad', 60)
+                ->where('existencias.data.0.asignaciones.1.obra', 'OB-200')
+                ->where('existencias.data.0.asignaciones.1.cantidad', 30)
+                // Lo que sobra de repartir no se guarda: se calcula.
+                ->where('existencias.data.0.libre', 10));
+    });
+
+    /**
+     * El consolidado de la empresa son decenas de miles de renglones que nadie
+     * lee: abrir la pantalla no es preguntar por todo el inventario.
+     */
+    it('no consulta nada mientras no se filtre', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        app(AlmacenLedger::class)->registrarPorProducto(
+            $almacen->id, $producto->id, MovimientoTipo::Entrada, 10, 5
+        );
+
+        $this->actingAs(usuarioDeKardex())
+            ->get(route('admin.alm.existencias.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('existencias.data', 0)
+                // `null` distingue el inventario sin consultar del vacío.
+                ->where('totales', null));
+    });
+
+    it('teclear en el buscador ya es una pregunta', function () {
+        $almacen = Almacen::factory()->create();
+        $buscado = Producto::factory()->create(['codigo' => 'TOR-0012', 'descripcion' => 'Tornillo hexagonal']);
+        $otro = Producto::factory()->create(['codigo' => 'PIN-0044', 'descripcion' => 'Pintura vinílica']);
+
+        $ledger = app(AlmacenLedger::class);
+        $ledger->registrarPorProducto($almacen->id, $buscado->id, MovimientoTipo::Entrada, 10, 5);
+        $ledger->registrarPorProducto($almacen->id, $otro->id, MovimientoTipo::Entrada, 10, 5);
+
+        $this->actingAs(usuarioDeKardex())
+            ->get(route('admin.alm.existencias.index', ['search' => 'TOR-0012']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('existencias.data', 1)
+                ->where('existencias.data.0.producto_id', $buscado->id)
+                ->has('totales'));
     });
 
     it('cierra la pantalla a quien no tiene permiso', function () {

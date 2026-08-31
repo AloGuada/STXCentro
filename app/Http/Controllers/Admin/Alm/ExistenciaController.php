@@ -12,6 +12,7 @@ use App\Models\Obra;
 use App\Services\Alm\SaldoEnTransito;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,22 +20,55 @@ use Inertia\Response;
 /**
  * La pantalla de diario: qué hay y cuánto en cada almacén.
  *
- * Sin filtro de almacén es el consolidado de la empresa; con filtro, el
- * inventario de esa bodega. Es sólo lectura — lo único que se corrige desde
- * aquí es dónde está acomodado el material, y eso vive en `UbicacionController`
- * porque es una decisión sobre el lugar, no sobre el saldo.
+ * Se abre en blanco: el consolidado de la empresa son decenas de miles de
+ * renglones que nadie lee, así que hasta que no se elige un almacén, una obra,
+ * una ubicación o se teclea algo en el buscador no se consulta nada. Con filtro
+ * es el inventario de esa bodega. Es sólo lectura — lo único que se corrige
+ * desde aquí es dónde está acomodado el material, y eso vive en
+ * `UbicacionController` porque es una decisión sobre el lugar, no sobre el
+ * saldo.
  */
 class ExistenciaController extends Controller
 {
+    private const POR_PAGINA = 50;
+
     public function __construct(private readonly SaldoEnTransito $transito) {}
 
     public function index(Request $request): Response
     {
-        $visibles = $this->almacenesVisibles($request);
         $almacenId = $request->integer('almacen_id') ?: null;
 
-        $existencias = Existencia::query()
-            ->whereIn('almacen_id', $visibles)
+        $comunes = [
+            'filters' => $request->only(['almacen_id', 'ubicacion_id', 'obra_id', 'search', 'sin_acomodar', 'solo_con_saldo']),
+            'almacenes' => $this->almacenes($request),
+            // Para el filtro por obra y para el modal de reasignación.
+            'obras' => Obra::query()->orderBy('no')->get(['id', 'no']),
+            'puedeReasignar' => $request->user()?->can('alm.asignaciones.reasignar') ?? false,
+        ];
+
+        // Sin pregunta no hay respuesta: ni renglones ni totales. Los totales
+        // viajan en `null` para que la vista sepa que no es un inventario vacío,
+        // es un inventario que todavía no se ha consultado.
+        if (! $this->hayFiltro($request)) {
+            return Inertia::render('admin/almacen/existencias/index', [
+                ...$comunes,
+                'existencias' => new LengthAwarePaginator([], 0, self::POR_PAGINA),
+                'totales' => null,
+                'ubicaciones' => [],
+            ]);
+        }
+
+        $visibles = $this->almacenesVisibles($request);
+        $filtrada = $this->consultaFiltrada($request, $visibles);
+
+        // El pie de la tabla suma lo filtrado entero, no la página: un total que
+        // cambia al pasar de página no significa nada.
+        $totales = [
+            'renglones' => (clone $filtrada)->count(),
+            'valor' => (float) (clone $filtrada)->sum('valor'),
+        ];
+
+        $existencias = $filtrada
             ->with([
                 'almacen:id,clave,nombre,obra_id',
                 'almacen.obra:id,no',
@@ -44,35 +78,10 @@ class ExistenciaController extends Controller
                 // y pedirlo aparte sería una consulta por existencia.
                 'asignaciones.obra:id,no',
             ])
-            ->when($almacenId, fn (Builder $q, int $id) => $q->where('almacen_id', $id))
-            ->when(
-                $request->integer('ubicacion_id') ?: null,
-                fn (Builder $q, int $id) => $q->where('ubicacion_id', $id),
-            )
-            ->when(
-                $request->string('obra_id')->value(),
-                // `libre` es un filtro de primera clase: «qué material puedo
-                // repartir» es la pregunta con la que se abre esta pantalla
-                // cuando hay que asignar lo que ya estaba en bodega.
-                fn (Builder $q, string $obra) => $obra === 'libre'
-                    ? $q->whereDoesntHave('asignaciones', fn (Builder $a) => $a->vivas())
-                    : $q->whereHas('asignaciones', fn (Builder $a) => $a->vivas()->where('obra_id', $obra)),
-            )
-            ->when($request->boolean('sin_acomodar'), fn (Builder $q) => $q->sinAcomodar())
-            ->when($request->boolean('solo_con_saldo'), fn (Builder $q) => $q->conSaldo())
-            ->when(
-                $request->string('search')->trim()->value(),
-                fn (Builder $q, string $s) => $q->whereHas(
-                    'producto',
-                    fn (Builder $p) => $p->where('codigo', 'like', "%{$s}%")
-                        ->orWhere('descripcion', 'like', "%{$s}%")
-                        ->orWhere('codigo_barras', 'like', "%{$s}%"),
-                ),
-            )
             ->join('costos_productos', 'costos_productos.id', '=', 'alm_existencias.producto_id')
             ->orderBy('costos_productos.descripcion')
             ->select('alm_existencias.*')
-            ->paginate(50)
+            ->paginate(self::POR_PAGINA)
             ->withQueryString();
 
         $piezas = $this->desglosePiezas($existencias->getCollection());
@@ -119,17 +128,69 @@ class ExistenciaController extends Controller
         ]);
 
         return Inertia::render('admin/almacen/existencias/index', [
+            ...$comunes,
             'existencias' => $existencias,
-            'filters' => $request->only(['almacen_id', 'ubicacion_id', 'obra_id', 'search', 'sin_acomodar', 'solo_con_saldo']),
-            'resumen' => $this->resumen($request, $visibles, $almacenId),
-            'almacenes' => $this->almacenes($request),
+            'totales' => $totales,
             // Filtrar por lugar sólo tiene sentido dentro de un almacén: el
             // «Rack A-1» de AG no es el de FAK.
             'ubicaciones' => $almacenId === null ? [] : $this->ubicacionesDe($almacenId),
-            // Para el filtro por obra y para el modal de reasignación.
-            'obras' => Obra::query()->orderBy('no')->get(['id', 'no']),
-            'puedeReasignar' => $request->user()?->can('alm.asignaciones.reasignar') ?? false,
         ]);
+    }
+
+    /**
+     * Lo que el usuario pidió ver, sin orden ni join: la misma base para los
+     * renglones de la página y para el total del pie.
+     *
+     * @param  Collection<int, int>  $visibles
+     * @return Builder<Existencia>
+     */
+    private function consultaFiltrada(Request $request, Collection $visibles): Builder
+    {
+        return Existencia::query()
+            ->whereIn('almacen_id', $visibles)
+            ->when(
+                $request->integer('almacen_id') ?: null,
+                fn (Builder $q, int $id) => $q->where('almacen_id', $id),
+            )
+            ->when(
+                $request->integer('ubicacion_id') ?: null,
+                fn (Builder $q, int $id) => $q->where('ubicacion_id', $id),
+            )
+            ->when(
+                $request->string('obra_id')->value(),
+                // `libre` es un filtro de primera clase: «qué material puedo
+                // repartir» es la pregunta con la que se abre esta pantalla
+                // cuando hay que asignar lo que ya estaba en bodega.
+                fn (Builder $q, string $obra) => $obra === 'libre'
+                    ? $q->whereDoesntHave('asignaciones', fn (Builder $a) => $a->vivas())
+                    : $q->whereHas('asignaciones', fn (Builder $a) => $a->vivas()->where('obra_id', $obra)),
+            )
+            ->when($request->boolean('sin_acomodar'), fn (Builder $q) => $q->sinAcomodar())
+            ->when($request->boolean('solo_con_saldo'), fn (Builder $q) => $q->conSaldo())
+            ->when(
+                $request->string('search')->trim()->value(),
+                fn (Builder $q, string $s) => $q->whereHas(
+                    'producto',
+                    fn (Builder $p) => $p->where('codigo', 'like', "%{$s}%")
+                        ->orWhere('descripcion', 'like', "%{$s}%")
+                        ->orWhere('codigo_barras', 'like', "%{$s}%"),
+                ),
+            );
+    }
+
+    /**
+     * Si ya hay una pregunta que contestar.
+     *
+     * «Sólo con saldo» no cuenta: acota tan poco que traería casi el inventario
+     * entero, que es justo lo que esta pantalla no hace de entrada.
+     */
+    private function hayFiltro(Request $request): bool
+    {
+        return $request->integer('almacen_id') !== 0
+            || $request->integer('ubicacion_id') !== 0
+            || $request->string('obra_id')->isNotEmpty()
+            || $request->string('search')->trim()->isNotEmpty()
+            || $request->boolean('sin_acomodar');
     }
 
     /**
@@ -167,37 +228,6 @@ class ExistenciaController extends Controller
                 'en_reparacion' => (int) ($filas->firstWhere('estatus', ActivoEstatus::EnReparacion)?->total ?? 0),
             ])
             ->all();
-    }
-
-    /**
-     * Lo que vale la bodega y lo que hay que ir a atender. Se calcula sobre el
-     * almacén elegido —o sobre todo lo visible—, no sobre la página: un total
-     * que cambia al pasar de página no significa nada.
-     *
-     * @param  Collection<int, int>  $visibles
-     * @return array<string, mixed>
-     */
-    private function resumen(Request $request, Collection $visibles, ?int $almacenId): array
-    {
-        $base = fn (): Builder => Existencia::query()
-            ->whereIn('almacen_id', $visibles)
-            ->when($almacenId, fn (Builder $q, int $id) => $q->where('almacen_id', $id));
-
-        $fila = $base()
-            ->selectRaw('COUNT(*) as renglones')
-            ->selectRaw('COALESCE(SUM(valor), 0) as valor')
-            ->first();
-
-        return [
-            'renglones' => (int) ($fila->renglones ?? 0),
-            'valor' => (float) ($fila->valor ?? 0),
-            'con_saldo' => $base()->conSaldo()->count(),
-            // Material que nadie acomodó: es la lista de trabajo del almacenista,
-            // por eso va a la vista en vez de esconderse tras un filtro.
-            'sin_acomodar' => $base()->conSaldo()->sinAcomodar()->count(),
-            // No debería pasar nunca; justo por eso hay que poder verlo.
-            'en_negativo' => $base()->enNegativo()->count(),
-        ];
     }
 
     /**

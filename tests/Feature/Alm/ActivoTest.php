@@ -227,7 +227,7 @@ describe('el prestamo no toca el kardex', function () {
         $piezas[2]->update(['estatus' => ActivoEstatus::EnReparacion]);
 
         $this->actingAs(usuarioDeActivos())
-            ->get(route('admin.alm.existencias.index'))
+            ->get(route('admin.alm.existencias.index', ['almacen_id' => $almacen->id]))
             ->assertInertia(fn ($page) => $page
                 ->where('existencias.data.0.cantidad', 4)
                 // Cuatro pulidoras con tres comprometidas no son cuatro que entregar.
