@@ -4,9 +4,12 @@ namespace Database\Seeders\Alm;
 
 use App\Enums\Alm\AjusteMotivo;
 use App\Enums\Alm\ProductoTipo;
+use App\Enums\Alm\UbicacionTipo;
 use App\Models\Alm\Ajuste;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Area;
+use App\Models\Alm\Existencia;
+use App\Models\Alm\Ubicacion;
 use App\Models\Costos\Producto;
 use App\Models\Usuario;
 use App\Services\Alm\GeneradorCodigoArticulo;
@@ -36,26 +39,36 @@ use RuntimeException;
  */
 abstract class CargaInicialSeeder extends Seeder
 {
-    /** Clave del almacén central que se está abriendo. */
+    /** Clave del almacén que se está abriendo. */
     abstract protected function almacen(): string;
+
+    /**
+     * Número de obra cuando el almacén es de obra. Null —lo normal— es el
+     * almacén central, que es lo que en la pantalla se marca como "está en la
+     * planta".
+     */
+    protected function obra(): ?string
+    {
+        return null;
+    }
 
     /**
      * Un renglón por artículo. `cantidad` en cero da de alta el artículo y le
      * abre la existencia sin movimiento: contar cero también es información.
      *
-     * @return list<array{descripcion: string, unidad: string, area: string|null, abc: string, stock_minimo: float|null, cantidad: float, costo: float|null, nota: string|null}>
+     * Las llaves opcionales (`ubicacion`, `codigo_barras`, `idsteelex`,
+     * `verifica`) se pueden omitir: los layouts viejos no las traían.
+     *
+     * @return list<array{descripcion: string, unidad: string, area: string|null, abc: string, stock_minimo: float|null, cantidad: float, costo: float|null, nota: string|null, ubicacion?: string|null, codigo_barras?: string|null, idsteelex?: string|null, verifica?: bool}>
      */
     abstract protected function articulos(): array;
 
     public function run(): void
     {
-        $almacen = Almacen::query()
-            ->where('clave', $this->almacen())
-            ->whereNull('obra_id')
-            ->first();
+        $almacen = $this->almacenDestino();
 
         if ($almacen === null) {
-            $this->command?->error("No existe el almacén central {$this->almacen()}: dalo de alta antes de cargarle saldo.");
+            $this->command?->error("No existe el almacén {$this->etiqueta()}: dalo de alta antes de cargarle saldo.");
 
             return;
         }
@@ -70,7 +83,7 @@ abstract class CargaInicialSeeder extends Seeder
             ->first();
 
         if ($abierto !== null) {
-            $this->command?->warn("{$this->almacen()} ya tiene carga inicial ({$abierto->folio}); no se vuelve a cargar.");
+            $this->command?->warn("{$this->etiqueta()} ya tiene carga inicial ({$abierto->folio}); no se vuelve a cargar.");
 
             return;
         }
@@ -87,11 +100,55 @@ abstract class CargaInicialSeeder extends Seeder
 
         $this->command?->info(sprintf(
             '%s: %d artículos, $%s (ajuste %s).',
-            $this->almacen(),
+            $this->etiqueta(),
             count($this->articulos()),
             number_format($this->valuacion(), 2),
             $folio,
         ));
+    }
+
+    /**
+     * El almacén al que entra la carga. Sin obra es el central, y la clave de un
+     * central es única en todo el sistema; con obra, la clave se repite entre
+     * obras y hace falta la pareja para no cargarle a la equivocada.
+     */
+    private function almacenDestino(): ?Almacen
+    {
+        $query = Almacen::query()->where('clave', $this->almacen());
+
+        $obra = $this->obra();
+
+        if ($obra === null) {
+            return $query->whereNull('obra_id')->first();
+        }
+
+        return $query
+            ->whereHas('obra', fn ($q) => $q->where('no', $obra))
+            ->first();
+    }
+
+    private function etiqueta(): string
+    {
+        return $this->obra() === null
+            ? "central {$this->almacen()}"
+            : "{$this->almacen()} de {$this->obra()}";
+    }
+
+    /**
+     * El lugar dentro del almacén, dado de alta al vuelo. El layout trae el
+     * código tal como lo dice el almacenista ("RACK 10", "1.1-1.3") y no una
+     * jerarquía: se guardan planos, que es como se buscan.
+     */
+    private function ubicacion(Almacen $almacen, ?string $codigo): ?int
+    {
+        if ($codigo === null || trim($codigo) === '') {
+            return null;
+        }
+
+        return Ubicacion::firstOrCreate(
+            ['almacen_id' => $almacen->id, 'codigo' => trim($codigo)],
+            ['nombre' => trim($codigo), 'tipo' => UbicacionTipo::Zona, 'activa' => true],
+        )->id;
     }
 
     private function cargar(Almacen $almacen, Usuario $autoriza): ?string
@@ -100,31 +157,60 @@ abstract class CargaInicialSeeder extends Seeder
             $areas = Area::query()->pluck('id', 'descripcion');
             $generador = app(GeneradorCodigoArticulo::class);
             $renglones = [];
+            $ubicaciones = [];
+            $reusados = [];
 
             foreach ($this->articulos() as $articulo) {
                 if ($articulo['area'] !== null && ! $areas->has($articulo['area'])) {
                     throw new RuntimeException("El área \"{$articulo['area']}\" no está en el catálogo; corre primero el seeder de áreas.");
                 }
 
-                $codigo = $generador->siguiente();
+                $areaId = $articulo['area'] === null ? null : $areas[$articulo['area']];
+                $producto = CatalogoCompartido::existente($articulo['descripcion']);
 
-                $producto = Producto::create([
-                    'codigo' => $codigo,
-                    // La etiqueta que se imprime es la nuestra: estos artículos
-                    // nacen sin código de barras de fábrica.
-                    'codigo_barras' => $codigo,
-                    'descripcion' => $articulo['descripcion'],
-                    'unidad' => $articulo['unidad'],
-                    'area_id' => $articulo['area'] === null ? null : $areas[$articulo['area']],
-                    'clasificacion_abc' => $articulo['abc'],
-                    'stock_minimo' => $articulo['stock_minimo'],
-                    'tipo' => ProductoTipo::Insumo,
-                    'controla_inventario' => true,
-                    'se_controla_por_pieza' => false,
-                    'requiere_verificacion' => false,
-                    'activo' => true,
-                    'creado_por' => $autoriza->getKey(),
-                ]);
+                if ($producto !== null) {
+                    // Ya lo tenía Compras: se le abre existencia y se le pone lo
+                    // que Almacén sí sabe, que es justo lo que hace a mano la
+                    // pantalla de Artículos. Su código y su descripción no se
+                    // tocan: son con los que se ha estado cotizando.
+                    $producto->update([
+                        'unidad' => $articulo['unidad'],
+                        'idsteelex' => $producto->idsteelex ?? ($articulo['idsteelex'] ?? null),
+                        'area_id' => $areaId,
+                        'clasificacion_abc' => $articulo['abc'],
+                        'stock_minimo' => $articulo['stock_minimo'],
+                        'tipo' => ProductoTipo::Insumo,
+                        'controla_inventario' => true,
+                        'se_controla_por_pieza' => false,
+                        'requiere_verificacion' => $articulo['verifica'] ?? false,
+                        'codigo_barras' => $producto->codigo_barras ?: $producto->codigo,
+                    ]);
+
+                    $reusados[] = $producto->codigo;
+                } else {
+                    $codigo = $generador->siguiente();
+
+                    $producto = Producto::create([
+                        'codigo' => $codigo,
+                        // La etiqueta que se imprime es la nuestra, salvo que la
+                        // caja ya traiga la del fabricante.
+                        'codigo_barras' => $articulo['codigo_barras'] ?? $codigo,
+                        'descripcion' => $articulo['descripcion'],
+                        'unidad' => $articulo['unidad'],
+                        'idsteelex' => $articulo['idsteelex'] ?? null,
+                        'area_id' => $areaId,
+                        'clasificacion_abc' => $articulo['abc'],
+                        'stock_minimo' => $articulo['stock_minimo'],
+                        'tipo' => ProductoTipo::Insumo,
+                        'controla_inventario' => true,
+                        'se_controla_por_pieza' => false,
+                        'requiere_verificacion' => $articulo['verifica'] ?? false,
+                        'activo' => true,
+                        'creado_por' => $autoriza->getKey(),
+                    ]);
+                }
+
+                $ubicaciones[$producto->id] = $this->ubicacion($almacen, $articulo['ubicacion'] ?? null);
 
                 $renglones[] = [
                     'producto_id' => $producto->id,
@@ -134,7 +220,7 @@ abstract class CargaInicialSeeder extends Seeder
                 ];
             }
 
-            return app(RegistradorAjuste::class)->registrar(
+            $ajuste = app(RegistradorAjuste::class)->registrar(
                 cabecera: [
                     'almacen_id' => $almacen->id,
                     'motivo' => AjusteMotivo::CargaInicial->value,
@@ -144,7 +230,27 @@ abstract class CargaInicialSeeder extends Seeder
                 ],
                 renglones: $renglones,
                 userId: $autoriza->getKey(),
-            )->folio;
+            );
+
+            // El acomodo va después del ajuste porque la existencia la abre el
+            // ledger: la ubicación no es saldo, es dónde quedó guardado.
+            foreach (array_filter($ubicaciones) as $productoId => $ubicacionId) {
+                Existencia::query()
+                    ->where('almacen_id', $almacen->id)
+                    ->where('producto_id', $productoId)
+                    ->update(['ubicacion_id' => $ubicacionId]);
+            }
+
+            if ($reusados !== []) {
+                $this->command?->line(sprintf(
+                    '  %d de sus artículos ya estaban en el catálogo de Compras y se reusaron (%s%s).',
+                    count($reusados),
+                    implode(', ', array_slice($reusados, 0, 6)),
+                    count($reusados) > 6 ? '…' : '',
+                ));
+            }
+
+            return $ajuste->folio;
         });
     }
 
