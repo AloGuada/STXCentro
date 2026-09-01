@@ -34,7 +34,8 @@ type Props = {
     filters: { almacen_id?: string; search?: string; ver_canceladas?: boolean };
     almacenes: AlmAlmacenOpcion[];
     /** Lo que el almacén todavía debe recibir contra una orden. */
-    ordenesAbiertas: { id: number; folio: string | null; proveedor: string | null; fecha: string | null }[];
+    /** Cuántas órdenes siguen esperando material. Elegir una es de la captura. */
+    ordenesAbiertasCount: number;
 };
 
 const columns: Column<EntradaFila>[] = [
@@ -92,7 +93,7 @@ const columns: Column<EntradaFila>[] = [
  * documento paralelo. Toda entrada que sube el valor del inventario se captura
  * aquí, venga de una orden de compra o sin ella.
  */
-export default function EntradasIndex({ entradas, filters, almacenes, ordenesAbiertas }: Props) {
+export default function EntradasIndex({ entradas, filters, almacenes, ordenesAbiertasCount }: Props) {
     const filtrar = (cambio: Record<string, string | undefined>) =>
         router.get('/admin/almacen/entradas', { ...filters, ...cambio, page: undefined }, { preserveState: true });
 
@@ -109,11 +110,11 @@ export default function EntradasIndex({ entradas, filters, almacenes, ordenesAbi
                     </p>
                 </div>
 
-                {ordenesAbiertas.length > 0 && (
+                {ordenesAbiertasCount > 0 && (
                     <div className="alert alert-info mb-4">
                         <PackageCheckIcon className="size-4" />
                         <span>
-                            {ordenesAbiertas.length} orden(es) de compra siguen esperando material.
+                            {ordenesAbiertasCount} orden(es) de compra siguen esperando material.
                         </span>
                         <Link href="/admin/almacen/entradas/create" className="btn btn-sm">
                             Recibir contra una orden

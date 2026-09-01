@@ -2448,6 +2448,8 @@ export type CostosOrdenCompra = {
     pago_vencido?: boolean;
     tiene_devolucion?: boolean;
     pagada_anticipo_contado?: boolean;
+    /** Recibida al total, facturada al total y pagada al total: terminó su vida. */
+    completada?: boolean;
     presupuesto_label?: string;
     detalles_count?: number;
     requisicion_id: number | null;

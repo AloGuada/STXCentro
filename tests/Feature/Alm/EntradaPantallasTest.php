@@ -52,8 +52,9 @@ test('el listado de entradas muestra la recepción con el nombre del proveedor',
         ->assertInertia(fn ($page) => $page
             ->where('entradas.data.0.proveedor', 'Aceros del Bajío')
             ->where('entradas.data.0.orden_folio', $this->orden->folio)
-            // La orden todavía debe 40 piezas, así que sale como abierta.
-            ->where('ordenesAbiertas.0.id', $this->orden->id)
+            // La orden todavía debe 40 piezas, así que cuenta como abierta. El
+            // listado sólo anuncia cuántas hay; elegirlas es de la captura.
+            ->where('ordenesAbiertasCount', 1)
         );
 });
 
@@ -77,5 +78,5 @@ test('la orden totalmente recibida deja de aparecer como abierta', function () {
     $this->actingAs($this->almacenista)
         ->get('/admin/almacen/entradas')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('ordenesAbiertas', []));
+        ->assertInertia(fn ($page) => $page->where('ordenesAbiertasCount', 0));
 });

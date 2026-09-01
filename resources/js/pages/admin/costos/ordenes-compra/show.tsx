@@ -146,6 +146,13 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                             {ordenCompra.pagada_anticipo_contado && (
                                 <span className="badge badge-success">Pagada (anticipo contado)</span>
                             )}
+                            {/* Recibida al total, facturada al total y pagada al total: la orden
+                                terminó su vida y deja de aparecer entre las que esperan material. */}
+                            {ordenCompra.completada && (
+                                <span className="badge badge-success" title="Se recibió todo, se facturó el total y se pagaron todas las facturas.">
+                                    Completada
+                                </span>
+                            )}
                             {ordenCompra.solicitudes_pago?.[0] && (
                                 <Link
                                     href={`/admin/costos/solicitudes-pago/${ordenCompra.solicitudes_pago[0].id}`}

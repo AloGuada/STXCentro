@@ -4,7 +4,6 @@ use App\Enums\Costos\DocumentoTipo;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
-use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Costos\Pago;
 use App\Models\Proveedor;
 use App\Models\User;
@@ -72,36 +71,24 @@ describe('sweep de descripciones canonicas al subir archivos', function () {
         ]);
     });
 
-    test('Entrega::store guarda media con descripcion evidencia_recepcion', function () {
+    /**
+     * La evidencia ya no entra con el alta: la recepción se captura con el CFDI
+     * y su PDF, que cuelgan de la factura. Lo que sigue admitiendo una evidencia
+     * —la remisión firmada, la foto de lo que llegó— es la edición de la
+     * recepción desde Costos.
+     */
+    test('Entrega::update guarda media con descripcion evidencia_recepcion', function () {
         Storage::fake('public');
 
         $user = User::factory()->create();
-        Permission::firstOrCreate(['name' => 'costos.entregas.crear', 'guard_name' => 'web']);
-        $user->givePermissionTo('costos.entregas.crear');
+        Permission::firstOrCreate(['name' => 'costos.entregas.editar', 'guard_name' => 'web']);
+        $user->givePermissionTo('costos.entregas.editar');
 
-        $oc = OrdenCompra::factory()->pendienteFactura()->create(['total' => 1000]);
-        $p = OrdenCompraDetalle::factory()->create([
-            'orden_compra_id' => $oc->id,
-            'cantidad' => 10,
-            'precio_unitario' => 100,
-            'subtotal' => 1000,
-        ]);
+        $entrega = Entrega::factory()->create();
 
-        $factura = Factura::factory()->create([
-            'orden_compra_id' => $oc->id,
-            'estatus' => 'pendiente_recepcion',
-        ]);
-
-        $this->actingAs($user)->post('/admin/almacen/entradas', [
-            'orden_compra_id' => $oc->id,
-            'almacen_id' => almacenParaRecibir($user)->id,
-            'fecha_entrega' => '2026-04-24',
-            'factura_id' => $factura->id,
-            'tipo' => 'parcial',
+        $this->actingAs($user)->post("/admin/costos/entregas/{$entrega->id}", [
+            'recibido_por' => $user->id,
             'archivo' => UploadedFile::fake()->create('evidencia.pdf', 100, 'application/pdf'),
-            'detalles' => [
-                ['orden_compra_detalle_id' => $p->id, 'cantidad_recibida' => 5],
-            ],
         ])->assertRedirect();
 
         $this->assertDatabaseHas('media', [

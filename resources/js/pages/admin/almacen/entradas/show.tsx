@@ -2,7 +2,7 @@ import { ButtonLink } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeftIcon, LockIcon, TriangleAlertIcon } from 'lucide-react';
+import { ArrowLeftIcon, FileCodeIcon, FileTextIcon, LockIcon, TriangleAlertIcon } from 'lucide-react';
 
 const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
@@ -24,6 +24,14 @@ type Props = {
         cancelada: boolean;
         motivo_cancelacion: string | null;
         importe: number;
+        /** El respaldo fiscal: vive colgado de la factura, se consulta desde aquí. */
+        factura: {
+            id: number;
+            folio: string | null;
+            total: number;
+            xml_path: string | null;
+            pdf_path: string | null;
+        } | null;
     };
     detalles: {
         id: number;
@@ -124,6 +132,50 @@ export default function EntradaShow({ entrada, detalles }: Props) {
                             artículos que Compras tecleó sin código y nadie ha clasificado. Mientras estén así, el
                             material entra sin quedar en el kardex.
                         </span>
+                    </div>
+                )}
+
+                {entrada.factura && (
+                    <div className="rounded-box border-base-300 mb-4 border p-4">
+                        <h2 className="mb-1 font-medium">Factura</h2>
+                        <p className="text-base-content/80 text-sm">
+                            <Link
+                                href={`/admin/costos/facturas/${entrada.factura.id}`}
+                                className="link link-hover font-mono"
+                            >
+                                {entrada.factura.folio ?? `#${entrada.factura.id}`}
+                            </Link>
+                            {' · '}
+                            {moneda(entrada.factura.total)}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                            {entrada.factura.xml_path ? (
+                                <a
+                                    href={`/storage/${entrada.factura.xml_path}`}
+                                    className="link link-hover"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    <FileCodeIcon className="mr-1 inline size-4" />
+                                    XML del CFDI
+                                </a>
+                            ) : (
+                                <span className="text-base-content/50">Sin XML adjunto</span>
+                            )}
+                            {entrada.factura.pdf_path ? (
+                                <a
+                                    href={`/storage/${entrada.factura.pdf_path}`}
+                                    className="link link-hover"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    <FileTextIcon className="mr-1 inline size-4" />
+                                    PDF de la factura
+                                </a>
+                            ) : (
+                                <span className="text-base-content/50">Sin PDF adjunto</span>
+                            )}
+                        </div>
                     </div>
                 )}
 

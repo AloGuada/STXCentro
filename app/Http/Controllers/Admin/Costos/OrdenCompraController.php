@@ -322,7 +322,7 @@ class OrdenCompraController extends Controller
             'activities.causer',
         ]);
 
-        $ordenCompra->append(['total_facturado', 'total_pagado', 'saldo_pendiente', 'pagada_anticipo_contado']);
+        $ordenCompra->append(['total_facturado', 'total_pagado', 'saldo_pendiente', 'pagada_anticipo_contado', 'completada']);
 
         $lineas = $ordenCompra->detalles->map(fn ($d) => [
             'tipo_fiscal' => $d->tipo_fiscal?->value ?? 'mercancia',

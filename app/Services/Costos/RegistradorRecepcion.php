@@ -2,7 +2,6 @@
 
 namespace App\Services\Costos;
 
-use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\RubroAfectadoEstatus;
 use App\Models\Alm\Almacen;
 use App\Models\Costos\Entrega;
@@ -11,7 +10,6 @@ use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
 use App\Services\Alm\RegistradorEntradaAlmacen;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,6 +21,10 @@ use Illuminate\Validation\ValidationException;
  * presupuesto cuando el proveedor surtió a otro precio y el avance de la
  * factura. Almacén aporta lo suyo: a qué almacén entra, que es lo que mueve el
  * kardex.
+ *
+ * La factura llega resuelta: quién es —la que subió el proveedor o la que nació
+ * del CFDI que traía el camión— y si su importe cuadra con lo recibido lo
+ * decide {@see FacturaDeLaRecepcion} antes de llamar aquí.
  *
  * Los rechazos salen como ValidationException para que la pantalla los pinte
  * en el renglón que los provocó.
@@ -51,14 +53,11 @@ class RegistradorRecepcion
         Almacen $almacen,
         array $datos,
         string $userId,
-        ?UploadedFile $evidencia = null,
     ): Entrega {
         $factura = $this->facturaDeLaOrden($ordenCompra, $datos['factura_id'] ?? null);
-        $partidas = $this->partidasValidadas($ordenCompra, $datos['detalles']);
+        $partidas = $this->validarCaptura($ordenCompra, $datos['detalles']);
 
-        $this->validarSaldos($datos['detalles'], $partidas);
-
-        return DB::transaction(function () use ($ordenCompra, $almacen, $datos, $userId, $evidencia, $factura, $partidas): Entrega {
+        return DB::transaction(function () use ($ordenCompra, $almacen, $datos, $userId, $factura, $partidas): Entrega {
             $completaFactura = $factura !== null && ($datos['completa_factura'] ?? false);
 
             $entrega = $ordenCompra->entregas()->create([
@@ -70,16 +69,6 @@ class RegistradorRecepcion
                 'observaciones' => $datos['observaciones'] ?? null,
                 'completa_factura' => $completaFactura,
             ]);
-
-            if ($evidencia !== null) {
-                $entrega->media()->create([
-                    'descripcion' => DocumentoTipo::EvidenciaRecepcion->value,
-                    'nombre_original' => $evidencia->getClientOriginalName(),
-                    'path' => $evidencia->store('costos/entregas', 'public'),
-                    'mime' => $evidencia->getMimeType(),
-                    'size' => $evidencia->getSize(),
-                ]);
-            }
 
             foreach ($datos['detalles'] as $renglon) {
                 $partida = $partidas->get((int) $renglon['orden_compra_detalle_id']);
@@ -121,6 +110,28 @@ class RegistradorRecepcion
 
             return $entrega;
         });
+    }
+
+    /**
+     * Que lo capturado sea recibible: que cada renglón sea de esta orden y que
+     * ninguno se pase del saldo pendiente.
+     *
+     * Es público porque la pantalla lo necesita **antes** de resolver la
+     * factura: cuadrar el CFDI contra unos renglones que no van a entrar sería
+     * pedirle al almacenista que corrija el número equivocado.
+     *
+     * @param  list<array<string, mixed>>  $detalles
+     * @return \Illuminate\Support\Collection<int, OrdenCompraDetalle> las partidas indexadas por id
+     *
+     * @throws ValidationException
+     */
+    public function validarCaptura(OrdenCompra $ordenCompra, array $detalles): \Illuminate\Support\Collection
+    {
+        $partidas = $this->partidasValidadas($ordenCompra, $detalles);
+
+        $this->validarSaldos($detalles, $partidas);
+
+        return $partidas;
     }
 
     /**

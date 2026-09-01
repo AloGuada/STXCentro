@@ -11,6 +11,7 @@ use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Costos\Producto;
 use App\Models\Media;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 
 /**
@@ -19,6 +20,8 @@ use Spatie\Permission\Models\Permission;
  * Costos (tope contra lo pedido y avance de la factura) viajan con ella.
  */
 beforeEach(function () {
+    Storage::fake('public');
+
     Permission::firstOrCreate(['name' => 'alm.entradas.crear', 'guard_name' => 'web']);
 
     $this->almacenista = User::factory()->create();
@@ -27,7 +30,13 @@ beforeEach(function () {
     $this->almacen = Almacen::factory()->create(['responsable_id' => $this->almacenista->id]);
 
     $this->producto = Producto::factory()->create(['controla_inventario' => true]);
-    $this->orden = OrdenCompra::factory()->pendienteEntrega()->create(['moneda' => 'mxn']);
+
+    // Total explícito: la recepción compara la factura contra lo que entra, y el
+    // saldo facturable de la orden tiene que dar para ello (100 × 45 + 16%).
+    $this->orden = OrdenCompra::factory()->pendienteEntrega()->create([
+        'moneda' => 'mxn',
+        'total' => 5220,
+    ]);
     $this->partida = OrdenCompraDetalle::factory()->create([
         'orden_compra_id' => $this->orden->id,
         'producto_id' => $this->producto->id,
@@ -39,7 +48,7 @@ beforeEach(function () {
 
 function recibir(array $payload = []): array
 {
-    return array_replace([
+    $payload = array_replace([
         'orden_compra_id' => test()->orden->id,
         'almacen_id' => test()->almacen->id,
         'fecha_entrega' => now()->toDateString(),
@@ -48,6 +57,15 @@ function recibir(array $payload = []): array
             ['orden_compra_detalle_id' => test()->partida->id, 'cantidad_recibida' => 60],
         ],
     ], $payload);
+
+    // Contra orden no se recibe sin factura. Si la prueba no dijo cuál, se le
+    // cuelga un CFDI cuadrado con lo que está entrando, que es el caso normal:
+    // la factura llega con el material.
+    if (! array_key_exists('factura_id', $payload) && ! array_key_exists('xml', $payload)) {
+        $payload += cfdiParaRecibir(test()->orden, $payload['detalles']);
+    }
+
+    return $payload;
 }
 
 test('el almacenista recibe contra la orden y el material entra al kardex', function () {
@@ -122,6 +140,11 @@ test('la entrada que completa la factura la manda a aprobación cuando ya hay co
         'orden_compra_id' => $this->orden->id,
         'proveedor_id' => $this->orden->proveedor_id,
         'estatus' => FacturaEstatus::PendienteRecepcion->value,
+        // Ampara la orden entera: es lo que va a entrar en esta recepción.
+        'subtotal' => 4500,
+        'total' => 5220,
+        'iva_retenido' => 0,
+        'isr_retenido' => 0,
     ]);
 
     // El comprobante de recepción es el otro requisito para que avance.

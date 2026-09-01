@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin\Alm;
 
 use App\Enums\Costos\FacturaEstatus;
+use App\Enums\Costos\OrdenCompraEstatus;
+use App\Enums\Costos\TipoFiscalPartida;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\EntradaStoreRequest;
 use App\Models\Alm\Almacen;
@@ -12,6 +14,7 @@ use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\Producto;
 use App\Models\Proveedor;
 use App\Services\Alm\RegistradorEntradaAlmacen;
+use App\Services\Costos\FacturaDeLaRecepcion;
 use App\Services\Costos\RegistradorRecepcion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,6 +41,7 @@ class EntradaController extends Controller
     public function __construct(
         private readonly RegistradorEntradaAlmacen $registrador,
         private readonly RegistradorRecepcion $recepcion,
+        private readonly FacturaDeLaRecepcion $facturaDeLaRecepcion,
     ) {}
 
     public function index(Request $request): Response
@@ -73,9 +77,10 @@ class EntradaController extends Controller
             'entradas' => $entradas,
             'filters' => $request->only(['almacen_id', 'search', 'ver_canceladas']),
             'almacenes' => $this->almacenes($request),
-            // Lo que el almacén todavía debe recibir: desde aquí se entra a
-            // capturar la recepción de cada orden.
-            'ordenesAbiertas' => $this->ordenesAbiertas(),
+            // El listado sólo anuncia cuántas órdenes esperan material; elegir
+            // una es cosa de la pantalla de captura, así que aquí basta el
+            // número.
+            'ordenesAbiertasCount' => $this->porRecibir()->count(),
         ]);
     }
 
@@ -131,6 +136,11 @@ class EntradaController extends Controller
             'folio' => $orden->folio,
             'moneda' => $orden->moneda,
             'proveedor' => $this->nombreDe($orden->proveedor),
+            // Lo que la orden le carga de impuestos a su propio subtotal, para
+            // que la pantalla pueda anticipar el total contra el que se cuadra
+            // la factura. Es una estimación: quien manda es el cálculo del
+            // servidor, que además pesa partidas exentas y retenciones.
+            'factor_impuestos' => $this->factorImpuestos($orden),
             'partidas' => $orden->detalles->map(fn ($partida): array => [
                 'id' => $partida->id,
                 'descripcion' => $partida->descripcion,
@@ -171,13 +181,33 @@ class EntradaController extends Controller
         abort_unless($almacen->esVisiblePara($request->user()), 403);
 
         if ($request->esConOrden()) {
-            $recepcion = $this->recepcion->registrar(
-                OrdenCompra::findOrFail($request->integer('orden_compra_id')),
-                $almacen,
-                $request->validated(),
-                (string) $request->user()->getAuthIdentifier(),
-                $request->file('archivo'),
-            );
+            $orden = OrdenCompra::findOrFail($request->integer('orden_compra_id'));
+
+            // Primero, que los renglones sean recibibles: cuadrar la factura
+            // contra material que no va a entrar mandaría al almacenista a
+            // corregir el número equivocado.
+            $this->recepcion->validarCaptura($orden, $request->validated('detalles'));
+
+            // La factura y la recepción se escriben juntas o no se escribe
+            // ninguna: cada servicio abre su propia transacción, y sin esta de
+            // afuera una recepción rechazada dejaría viva la factura que
+            // acababa de nacer.
+            $recepcion = DB::transaction(function () use ($request, $orden, $almacen): Entrega {
+                $factura = $this->facturaDeLaRecepcion->resolver(
+                    $orden,
+                    $this->lineasRecibidas($orden, $request->validated('detalles')),
+                    $request->file('xml'),
+                    $request->file('pdf'),
+                    $request->integer('factura_id') ?: null,
+                );
+
+                return $this->recepcion->registrar(
+                    $orden,
+                    $almacen,
+                    [...$request->validated(), 'factura_id' => $factura->id],
+                    (string) $request->user()->getAuthIdentifier(),
+                );
+            });
 
             return to_route('admin.alm.entradas.show', $recepcion);
         }
@@ -216,6 +246,62 @@ class EntradaController extends Controller
         return to_route('admin.alm.entradas.show', $entrada);
     }
 
+    /**
+     * Cuánto crece el subtotal de la orden al llegar a su total: 1.16 en una
+     * orden de mercancía normal, menos si trae retenciones, 1 si todo es exento.
+     * Sirve de anticipo en la pantalla, no de regla.
+     */
+    private function factorImpuestos(OrdenCompra $orden): float
+    {
+        $subtotal = (float) $orden->detalles->sum(
+            fn ($partida): float => (float) $partida->cantidad * (float) $partida->precio_unitario,
+        );
+
+        return $subtotal > 0 ? round((float) $orden->total / $subtotal, 6) : 1.0;
+    }
+
+    /**
+     * Lo que ampara esta captura, en la forma que pide el cálculo de impuestos:
+     * un renglón por partida recibida, con su tratamiento fiscal. Es contra el
+     * total de esto que se contrasta la factura.
+     *
+     * Se arma desde lo capturado porque los renglones todavía no existen, con el
+     * mismo criterio de precio que después usará
+     * {@see \App\Models\Costos\EntregaDetalle::precio_unitario_efectivo}: el
+     * capturado si lo hay, el de la partida si no.
+     *
+     * @param  list<array<string, mixed>>  $detalles
+     * @return list<array{tipo_fiscal: string, subtotal: float, sin_impuestos: bool}>
+     */
+    private function lineasRecibidas(OrdenCompra $orden, array $detalles): array
+    {
+        $partidas = $orden->detalles()->get()->keyBy('id');
+
+        $lineas = [];
+
+        foreach ($detalles as $renglon) {
+            $partida = $partidas->get((int) $renglon['orden_compra_detalle_id']);
+
+            if ($partida === null) {
+                continue;
+            }
+
+            $precio = isset($renglon['precio_unitario']) && $renglon['precio_unitario'] !== ''
+                ? (float) $renglon['precio_unitario']
+                : (float) $partida->precio_unitario;
+
+            $lineas[] = [
+                'tipo_fiscal' => $partida->tipo_fiscal instanceof \BackedEnum
+                    ? (string) $partida->tipo_fiscal->value
+                    : (string) ($partida->tipo_fiscal ?? TipoFiscalPartida::Mercancia->value),
+                'subtotal' => round((float) $renglon['cantidad_recibida'] * $precio, 2),
+                'sin_impuestos' => (bool) $partida->sin_impuestos,
+            ];
+        }
+
+        return $lineas;
+    }
+
     public function show(Request $request, Entrega $entrada): Response
     {
         abort_unless(
@@ -230,6 +316,9 @@ class EntradaController extends Controller
             'recibidor:id,name',
             'detalles.producto:id,codigo,descripcion,unidad',
             'detalles.ordenCompraDetalle',
+            'factura:id,folio,folio_fiscal,uuid_fiscal,total',
+            'factura.mediaXml',
+            'factura.mediaPdf',
         ]);
 
         return Inertia::render('admin/almacen/entradas/show', [
@@ -250,6 +339,16 @@ class EntradaController extends Controller
                 'cancelada' => $entrada->estaCancelada(),
                 'motivo_cancelacion' => $entrada->motivo_cancelacion,
                 'importe' => $entrada->importeRecibido(),
+                // El respaldo fiscal de la recepción. Vive colgado de la
+                // factura, no de la entrada, pero se consulta desde aquí: es
+                // donde el almacenista lo subió.
+                'factura' => $entrada->factura === null ? null : [
+                    'id' => $entrada->factura->id,
+                    'folio' => $entrada->factura->folio_fiscal ?: $entrada->factura->folio,
+                    'total' => (float) $entrada->factura->total,
+                    'xml_path' => $entrada->factura->mediaXml?->path,
+                    'pdf_path' => $entrada->factura->mediaPdf?->path,
+                ],
             ],
             'detalles' => $entrada->detalles->map(fn (EntregaDetalle $d): array => [
                 'id' => $d->id,
@@ -272,26 +371,18 @@ class EntradaController extends Controller
      * Las órdenes que todavía deben material, para llegar desde aquí a la
      * recepción contra orden.
      *
+     * Va sin tope: la pantalla las busca en vez de recorrerlas, y un `limit`
+     * dejaba fuera órdenes sin decirlo ni dar forma de llegar a ellas. Sólo se
+     * excluye la cancelada; una orden pagada por adelantado que no se recibió
+     * completa no está completada y sí se puede recibir.
+     *
      * @return list<array<string, mixed>>
      */
     private function ordenesAbiertas(): array
     {
-        return OrdenCompra::query()
-            // Lo recibido no vive en la partida de la orden sino en las
-            // recepciones, así que el pendiente se compara contra la suma de
-            // sus renglones vigentes (los de recepciones canceladas no cuentan).
-            ->whereHas('detalles', fn ($q) => $q->whereRaw(
-                'costos_ordenes_compra_detalle.cantidad > ('
-                .'select coalesce(sum(ed.cantidad_recibida), 0) '
-                .'from costos_entrega_detalle ed '
-                .'inner join costos_entregas e on e.id = ed.entrega_id '
-                .'where ed.orden_compra_detalle_id = costos_ordenes_compra_detalle.id '
-                .'and e.cancelada_at is null)',
-            ))
-            ->whereNotIn('estatus', ['cancelada', 'pagada'])
+        return $this->porRecibir()
             ->with('proveedor:id,razon_social,nombre_comercial')
-            ->latest('id')
-            ->limit(50)
+            ->orderBy('fecha_entrega_esperada')
             ->get(['id', 'folio', 'proveedor_id', 'fecha_entrega_esperada'])
             ->map(fn (OrdenCompra $oc): array => [
                 'id' => $oc->id,
@@ -301,6 +392,16 @@ class EntradaController extends Controller
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder<OrdenCompra>
+     */
+    private function porRecibir(): \Illuminate\Database\Eloquent\Builder
+    {
+        return OrdenCompra::query()
+            ->pendientesDeRecibir()
+            ->where('estatus', '!=', OrdenCompraEstatus::Cancelada->value);
     }
 
     /** El proveedor no tiene columna `nombre`: se arma con lo que sí existe. */

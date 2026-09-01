@@ -2,6 +2,7 @@ import { CapturadorPartidas, PARTIDA_VACIA } from '@/components/alm/capturador-p
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchSelect } from '@/components/ui/search-select';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
@@ -37,6 +38,8 @@ type OrdenParaRecibir = {
     folio: string | null;
     moneda: string;
     proveedor: string | null;
+    /** Lo que la orden carga de impuestos sobre su subtotal: 1.16 en la normal. */
+    factor_impuestos: number;
     partidas: PartidaOrden[];
     facturas: { id: number; folio: string | null; total: number }[];
 };
@@ -52,6 +55,8 @@ type Props = {
 
 /** Lo que se captura por renglón de la orden: cuánto llegó y a qué precio. */
 type RenglonOrden = { cantidad: string; precio: string; observaciones: string };
+
+type OrigenFactura = 'nueva' | 'existente';
 
 /** Tope de la fecha de transaccion: el material entro hoy o ya habia entrado. */
 const HOY = new Date().toISOString().slice(0, 10);
@@ -126,10 +131,12 @@ function EntradaConOrden({
         orden_compra_id: orden ? String(orden.id) : '',
         almacen_id: '',
         fecha_entrega: HOY,
+        origen_factura: 'nueva' as OrigenFactura,
         factura_id: '',
         completa_factura: false as boolean,
         observaciones: '',
-        archivo: null as File | null,
+        xml: null as File | null,
+        pdf: null as File | null,
         renglones: {} as Record<number, RenglonOrden>,
     });
 
@@ -162,6 +169,30 @@ function EntradaConOrden({
         0,
     );
 
+    // Anticipo con el factor de la orden entera: quien manda es el servidor, que
+    // además pesa las partidas exentas y las retenciones del proveedor.
+    const totalConImpuestos = Math.round(importe * (orden?.factor_impuestos ?? 1) * 100) / 100;
+    const porcentajeImpuestos = `${Math.round(((orden?.factor_impuestos ?? 1) - 1) * 1000) / 10}%`;
+
+    const sinFacturasPrevias = (orden?.facturas.length ?? 0) === 0;
+
+    // Al cambiar de camino se limpia el otro: mandar los dos obligaría a
+    // desempatar entre una factura y un CFDI que pueden no ser el mismo.
+    const elegirOrigenFactura = (origen: OrigenFactura) => {
+        form.setData((datos) => ({
+            ...datos,
+            origen_factura: origen,
+            factura_id: origen === 'existente' ? datos.factura_id : '',
+            xml: origen === 'nueva' ? datos.xml : null,
+            pdf: origen === 'nueva' ? datos.pdf : null,
+        }));
+    };
+
+    const facturaIncompleta =
+        form.data.origen_factura === 'nueva'
+            ? !form.data.xml || !form.data.pdf
+            : !form.data.factura_id;
+
     const errorDe = (campo: string): string | undefined =>
         (form.errors as Record<string, string | undefined>)[campo];
 
@@ -178,10 +209,11 @@ function EntradaConOrden({
             almacen_id: datos.almacen_id,
             fecha_entrega: datos.fecha_entrega,
             tipo,
-            factura_id: datos.factura_id || null,
+            factura_id: datos.origen_factura === 'existente' ? datos.factura_id || null : null,
+            xml: datos.origen_factura === 'nueva' ? datos.xml : null,
+            pdf: datos.origen_factura === 'nueva' ? datos.pdf : null,
             completa_factura: datos.completa_factura,
             observaciones: datos.observaciones || null,
-            archivo: datos.archivo,
             detalles: capturados.map((r) => ({
                 orden_compra_detalle_id: r.partida.id,
                 cantidad_recibida: r.cantidad,
@@ -207,18 +239,16 @@ function EntradaConOrden({
             <div className="rounded-box border-base-300 border p-4">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FormField label="Orden de compra" htmlFor="orden_compra_id" error={errorDe('orden_compra_id')} required>
-                        <Select
-                            id="orden_compra_id"
+                        <SearchSelect
+                            options={ordenesAbiertas.map((o) => ({
+                                value: String(o.id),
+                                label: `${o.folio ?? 'sin folio'} — ${o.proveedor ?? 'sin proveedor'}`,
+                            }))}
                             value={form.data.orden_compra_id}
                             onValueChange={elegirOrden}
                             placeholder="¿De qué orden es el material?"
-                        >
-                            {ordenesAbiertas.map((o) => (
-                                <SelectItem key={o.id} value={String(o.id)}>
-                                    {o.folio} — {o.proveedor ?? 'sin proveedor'}
-                                </SelectItem>
-                            ))}
-                        </Select>
+                            maxOptions={8}
+                        />
                     </FormField>
 
                     {orden && (
@@ -365,11 +395,27 @@ function EntradaConOrden({
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colSpan={5} className="text-right font-semibold">
+                                        <td colSpan={5} className="text-right">
                                             Importe de esta entrada ({tipo})
                                         </td>
-                                        <td colSpan={2} className="text-right font-semibold">
+                                        <td colSpan={2} className="text-right">
                                             {fmt(importe, orden.moneda)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colSpan={5} className="text-right">
+                                            Impuestos ({porcentajeImpuestos})
+                                        </td>
+                                        <td colSpan={2} className="text-right">
+                                            {fmt(totalConImpuestos - importe, orden.moneda)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colSpan={5} className="text-right font-semibold">
+                                            Total que debe decir la factura
+                                        </td>
+                                        <td colSpan={2} className="text-right font-semibold">
+                                            {fmt(totalConImpuestos, orden.moneda)}
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -379,68 +425,92 @@ function EntradaConOrden({
 
                     <div className="rounded-box border-base-300 border p-4">
                         <h2 className="mb-3 text-lg font-semibold">Factura</h2>
+                        <div className="mb-4 flex flex-wrap gap-6 text-sm">
+                            <label className="flex cursor-pointer items-center gap-2">
+                                <input
+                                    type="radio"
+                                    className="radio radio-sm"
+                                    name="origen_factura"
+                                    checked={form.data.origen_factura === 'nueva'}
+                                    onChange={() => elegirOrigenFactura('nueva')}
+                                />
+                                <span>Nueva factura</span>
+                            </label>
+                            <label
+                                className={`flex items-center gap-2 ${sinFacturasPrevias ? 'opacity-50' : 'cursor-pointer'}`}
+                            >
+                                <input
+                                    type="radio"
+                                    className="radio radio-sm"
+                                    name="origen_factura"
+                                    disabled={sinFacturasPrevias}
+                                    checked={form.data.origen_factura === 'existente'}
+                                    onChange={() => elegirOrigenFactura('existente')}
+                                />
+                                <span>Factura existente{sinFacturasPrevias && ' (no hay ninguna)'}</span>
+                            </label>
+                        </div>
 
-                        {orden.facturas.length === 0 ? (
-                            <p className="text-base-content/60 text-sm">
-                                Esta orden no tiene facturas esperando recepción. La entrada se registra igual; cuando
-                                el proveedor facture, se liga en la siguiente recepción.
-                            </p>
-                        ) : (
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            {form.data.origen_factura === 'nueva' ? (
+                                <>
+                                    <FormField label="XML del CFDI" htmlFor="xml" error={errorDe('xml')} required>
+                                        <input
+                                            id="xml"
+                                            type="file"
+                                            accept=".xml,application/xml,text/xml"
+                                            className="file-input file-input-bordered file-input-sm w-full"
+                                            onChange={(e) => form.setData('xml', e.target.files?.[0] ?? null)}
+                                        />
+                                    </FormField>
+
+                                    <FormField label="PDF de la factura" htmlFor="pdf" error={errorDe('pdf')} required>
+                                        <input
+                                            id="pdf"
+                                            type="file"
+                                            accept="application/pdf"
+                                            className="file-input file-input-bordered file-input-sm w-full"
+                                            onChange={(e) => form.setData('pdf', e.target.files?.[0] ?? null)}
+                                        />
+                                    </FormField>
+                                </>
+                            ) : (
                                 <FormField
                                     label="Factura que ampara el material"
                                     htmlFor="factura_id"
                                     error={errorDe('factura_id')}
+                                    className="md:col-span-2"
+                                    required
                                 >
-                                    <Select
-                                        id="factura_id"
+                                    <SearchSelect
+                                        options={orden.facturas.map((f) => ({
+                                            value: String(f.id),
+                                            label: `${f.folio ?? 'sin folio'} — ${fmt(f.total, orden.moneda)}`,
+                                        }))}
                                         value={form.data.factura_id}
                                         onValueChange={(v) => form.setData('factura_id', v)}
-                                        placeholder="Sin factura"
-                                    >
-                                        {orden.facturas.map((f) => (
-                                            <SelectItem key={f.id} value={String(f.id)}>
-                                                {f.folio} — {fmt(f.total, orden.moneda)}
-                                            </SelectItem>
-                                        ))}
-                                    </Select>
+                                        placeholder="Busca el folio fiscal"
+                                        maxOptions={8}
+                                    />
                                 </FormField>
+                            )}
 
-                                <div className="flex flex-col justify-center gap-2">
-                                    <label className="flex cursor-pointer items-start gap-2 text-sm">
-                                        <input
-                                            type="checkbox"
-                                            className="checkbox checkbox-sm mt-0.5"
-                                            disabled={!form.data.factura_id}
-                                            checked={form.data.completa_factura}
-                                            onChange={(e) => form.setData('completa_factura', e.target.checked)}
-                                        />
-                                        <span>
-                                            Con esta entrada llegó <strong>todo</strong> lo que ampara la factura
-                                            <span className="text-base-content/60 block text-xs">
-                                                Es lo que la destraba: con el comprobante de recepción, pasa a
-                                                aprobación.
-                                            </span>
+                            <div className="flex flex-col justify-center">
+                                <label className="flex cursor-pointer items-start gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        className="checkbox checkbox-sm mt-0.5"
+                                        checked={form.data.completa_factura}
+                                        onChange={(e) => form.setData('completa_factura', e.target.checked)}
+                                    />
+                                    <span>
+                                        Con esta entrada llegó <strong>todo</strong> lo que ampara la factura
+                                        <span className="text-base-content/60 block text-xs">
+                                            Es lo que la destraba: con el comprobante de recepción, pasa a aprobación.
                                         </span>
-                                    </label>
-                                </div>
+                                    </span>
+                                </label>
                             </div>
-                        )}
-
-                        <div className="mt-4">
-                            <FormField
-                                label="Evidencia (opcional)"
-                                htmlFor="archivo"
-                                error={errorDe('archivo')}
-                                description="Remisión o foto de lo recibido."
-                            >
-                                <input
-                                    id="archivo"
-                                    type="file"
-                                    className="file-input file-input-bordered file-input-sm w-full max-w-md"
-                                    onChange={(e) => form.setData('archivo', e.target.files?.[0] ?? null)}
-                                />
-                            </FormField>
                         </div>
                     </div>
 
@@ -455,7 +525,10 @@ function EntradaConOrden({
                         <Button variant="outline" asChild>
                             <Link href="/admin/almacen/entradas">Cancelar</Link>
                         </Button>
-                        <Button type="submit" disabled={form.processing || capturados.length === 0}>
+                        <Button
+                            type="submit"
+                            disabled={form.processing || capturados.length === 0 || facturaIncompleta}
+                        >
                             Registrar entrada
                         </Button>
                     </div>

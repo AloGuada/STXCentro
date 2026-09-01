@@ -18,6 +18,12 @@ use Illuminate\Validation\Rule;
  * elige quien captura: el camión llegó el viernes y el almacén lo asienta el
  * lunes. No puede ser futura. Cuándo se capturó lo guarda el servidor aparte,
  * en `created_at`, y es lo que responde "¿esto se fechó hacia atrás?".
+ *
+ * Contra orden, la recepción siempre queda amparada por una factura, y se llega
+ * a ella por uno de dos caminos: eligiendo la que el proveedor ya subió al
+ * portal (`factura_id`), o adjuntando la que llegó con el material (`xml` y
+ * `pdf`). El segundo es el normal, y por eso los archivos son obligatorios en
+ * cuanto no se eligió una factura existente.
  */
 class EntradaStoreRequest extends FormRequest
 {
@@ -44,6 +50,10 @@ class EntradaStoreRequest extends FormRequest
     {
         $conOrden = $this->esConOrden();
 
+        // La factura llega con el material salvo que el proveedor se haya
+        // adelantado por el portal, que es cuando viene `factura_id`.
+        $conFacturaNueva = $conOrden && ! $this->filled('factura_id');
+
         return [
             'almacen_id' => ['required', 'integer', 'exists:alm_almacenes,id'],
             'orden_compra_id' => ['nullable', 'integer', 'exists:costos_ordenes_compra,id'],
@@ -55,7 +65,8 @@ class EntradaStoreRequest extends FormRequest
             'tipo' => [Rule::requiredIf($conOrden), 'in:parcial,completa'],
             'factura_id' => ['nullable', 'integer', 'exists:costos_facturas,id'],
             'completa_factura' => ['nullable', 'boolean'],
-            'archivo' => ['nullable', 'file', 'max:10240'],
+            'xml' => [Rule::requiredIf($conFacturaNueva), 'nullable', 'file', 'mimes:xml,txt', 'max:5120'],
+            'pdf' => [Rule::requiredIf($conFacturaNueva), 'nullable', 'file', 'mimes:pdf', 'max:10240'],
 
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.orden_compra_detalle_id' => [
@@ -85,6 +96,10 @@ class EntradaStoreRequest extends FormRequest
             'almacen_id.required' => 'Indica a qué almacén entra el material.',
             'fecha_entrega.before_or_equal' => 'La entrada no puede ser de un día que no ha llegado: el material entró hoy o ya había entrado.',
             'tipo.required' => 'Indica si la orden se recibe completa o parcial.',
+            'xml.required' => 'Adjunta el XML del CFDI, o elige la factura si el proveedor ya la subió.',
+            'xml.mimes' => 'El archivo debe ser un XML válido.',
+            'pdf.required' => 'Adjunta el PDF de la factura.',
+            'pdf.mimes' => 'La factura debe venir en PDF.',
             'detalles.required' => 'Captura al menos un artículo.',
             'detalles.min' => 'Captura al menos un artículo.',
             'detalles.*.cantidad_recibida.gt' => 'Recibir cero no es recibir.',
