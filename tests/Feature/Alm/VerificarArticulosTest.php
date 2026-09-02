@@ -69,6 +69,34 @@ describe('la puerta entre las dos fases', function () {
         $this->artisan('alm:verificar-articulos')->assertFailed();
     });
 
+    test('un almacén recién abierto pasa, aunque casi todo esté suelto', function () {
+        // El escenario real tras cargar los layouts: cientos de renglones sin
+        // producto y unos pocos con el suyo. Comparar productos contra
+        // artículos sobre TODOS los renglones daba siempre desigual y marcaba
+        // como rota una base que estaba perfecta.
+        $almacen = Almacen::factory()->create();
+
+        foreach (Articulo::factory()->sinLigar()->count(20)->create() as $articulo) {
+            Existencia::factory()->create([
+                'almacen_id' => $almacen->id,
+                'producto_id' => null,
+                'articulo_id' => $articulo->id,
+            ]);
+        }
+
+        // Y uno que sí viene de Compras, como los que ya existían.
+        $producto = Producto::factory()->create();
+        Existencia::factory()->create([
+            'almacen_id' => Almacen::factory()->create()->id,
+            'producto_id' => $producto->id,
+            'articulo_id' => Articulo::factory()->create(['producto_id' => $producto->id])->id,
+        ]);
+
+        $this->artisan('alm:verificar-articulos')
+            ->expectsOutputToContain('Las siete cuadran')
+            ->assertSuccessful();
+    });
+
     test('un artículo sin ligar no es un problema, sólo se informa', function () {
         // Material real que todavía no tiene identidad de compra: es el estado
         // normal de lo que abre un almacén.

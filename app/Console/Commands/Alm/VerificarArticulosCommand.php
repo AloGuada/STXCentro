@@ -42,16 +42,33 @@ class VerificarArticulosCommand extends Command
 
         foreach (self::TABLAS as $tabla) {
             $sinLigar = DB::table($tabla)->whereNotNull('producto_id')->whereNull('articulo_id')->count();
-            $productos = DB::table($tabla)->whereNotNull('producto_id')->distinct()->count('producto_id');
-            $articulos = DB::table($tabla)->whereNotNull('articulo_id')->distinct()->count('articulo_id');
+
+            // El uno a uno se mide **solo entre los renglones que tienen
+            // producto**. Los demas son material sin identidad de compra, y
+            // compararlos contra un producto que no existe daria siempre
+            // desigual: en un almacen recien abierto, todos.
+            $conProducto = DB::table($tabla)->whereNotNull('producto_id');
+            $productos = (clone $conProducto)->distinct()->count('producto_id');
+            $articulos = (clone $conProducto)->whereNotNull('articulo_id')->distinct()->count('articulo_id');
 
             $cuadra = $sinLigar === 0 && $productos === $articulos;
             $problemas += $cuadra ? 0 : 1;
 
-            $filas[] = [$tabla, DB::table($tabla)->count(), $sinLigar, $productos, $articulos, $cuadra ? 'ok' : 'REVISAR'];
+            $filas[] = [
+                $tabla,
+                DB::table($tabla)->count(),
+                DB::table($tabla)->whereNull('producto_id')->count(),
+                $sinLigar,
+                $productos,
+                $articulos,
+                $cuadra ? 'ok' : 'REVISAR',
+            ];
         }
 
-        $this->table(['Tabla', 'Renglones', 'Sin ligar', 'Productos', 'Artículos', ''], $filas);
+        $this->table(
+            ['Tabla', 'Renglones', 'Sueltos', 'Sin ligar', 'Productos', 'Artículos', ''],
+            $filas,
+        );
 
         if ($problemas > 0) {
             $this->error("{$problemas} tabla(s) no cuadran. No se puede quitar producto_id todavía.");
