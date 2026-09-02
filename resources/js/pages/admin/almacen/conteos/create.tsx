@@ -1,13 +1,14 @@
+import { FechasMovimiento } from '@/components/alm/fechas-movimiento';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import {
     ALMACENES_DEMO,
     ARTICULOS_DEMO,
     CLASES_ABC,
-    EXISTENCIAS_DEMO,
+    EXISTENCIAS_CON_ACTIVOS_DEMO,
+    existenciaEnUbicacion,
     REGLAS_ABC,
     rutaUbicacion,
     ubicacionesDe,
@@ -21,7 +22,7 @@ import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Insumos', href: '/admin/almacen/existencias' },
+    { title: 'Inventarios', href: '/admin/almacen/existencias' },
     { title: 'Inventarios cíclicos', href: '/admin/almacen/conteos' },
     { title: 'Nuevo conteo', href: '/admin/almacen/conteos/create' },
 ];
@@ -52,14 +53,15 @@ export default function ConteoCreate() {
             return [];
         }
 
-        return EXISTENCIAS_DEMO.filter((e) => e.almacen === almacen)
+        return EXISTENCIAS_CON_ACTIVOS_DEMO
+            .filter((e) => e.almacen === almacen)
             .map((e) => ({ existencia: e, articulo: ARTICULOS_DEMO.find((a) => a.codigo === e.producto) }))
             .filter(({ existencia, articulo }) => {
                 if (!articulo?.controla_inventario) {
                     return false;
                 }
 
-                if (ubicacion && String(existencia.ubicacion_id) !== ubicacion) {
+                if (ubicacion && !existenciaEnUbicacion(existencia, Number(ubicacion))) {
                     return false;
                 }
 
@@ -73,7 +75,6 @@ export default function ConteoCreate() {
 
     const tipoLegible: Record<AlmProductoTipo, string> = {
         insumo: 'Insumo',
-        herramienta: 'Herramienta',
         activo: 'Activo',
     };
 
@@ -170,14 +171,7 @@ export default function ConteoCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Fecha del conteo" htmlFor="fecha" required>
-                                <Input
-                                    id="fecha"
-                                    type="date"
-                                    value={fecha}
-                                    onChange={(e) => setFecha(e.target.value)}
-                                />
-                            </FormField>
+                            <FechasMovimiento fecha={fecha} onChange={setFecha} label="Fecha del conteo" />
 
                             <div className="md:col-span-2 lg:col-span-3">
                                 <label className="flex cursor-pointer items-start gap-3">

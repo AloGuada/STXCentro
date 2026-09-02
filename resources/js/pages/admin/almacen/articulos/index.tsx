@@ -1,82 +1,215 @@
-import { Button, ButtonLink } from '@/components/ui/button';
+import { MiniaturaArticulo } from '@/components/alm/miniatura-articulo';
+import { DataTable, type Column } from '@/components/data-table';
+import { ButtonLink } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { ARTICULOS_DEMO, CLASES_ABC, REGLAS_ABC, TIPOS_ARTICULO } from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
-import type { AlmArticuloDemo, AlmClasificacionAbc, AlmProductoTipo } from '@/types/models';
-import { Head, Link } from '@inertiajs/react';
-import { BarcodeIcon, ImageIcon, PlusIcon, SearchIcon, TagIcon, TriangleAlertIcon } from 'lucide-react';
-import { useState } from 'react';
+import type { AlmArea, AlmArticulo, AlmOpcion, AlmOpcionClase, AlmProductoTipo, PaginatedData } from '@/types/models';
+import { Head, Link, router } from '@inertiajs/react';
+import { BarcodeIcon, PencilIcon, PlusIcon, TagIcon, TriangleAlertIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Insumos', href: '/admin/almacen/existencias' },
+    { title: 'Inventarios', href: '/admin/almacen/existencias' },
     { title: 'Artículos', href: '/admin/almacen/articulos' },
 ];
 
 const CLASE_TIPO: Record<AlmProductoTipo, string> = {
     insumo: 'badge-ghost',
-    herramienta: 'badge-info',
     activo: 'badge-warning',
+};
+
+const CLASE_ABC: Record<string, string> = {
+    A: 'badge-error',
+    B: 'badge-warning',
+    C: 'badge-ghost',
 };
 
 const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
-/** La foto ayuda a reconocer el artículo; sin ella queda el hueco marcado. */
-function MiniaturaArticulo({ articulo }: { articulo: AlmArticuloDemo }) {
-    if (!articulo.imagen_url) {
-        return (
-            <div
-                className="border-base-300 text-base-content/30 flex size-10 items-center justify-center rounded border border-dashed"
-                title="Sin imagen"
-            >
-                <ImageIcon className="size-4" />
-            </div>
-        );
-    }
+type Props = {
+    articulos: PaginatedData<AlmArticulo>;
+    filters: { search?: string; tipo?: string; area_id?: string; clase?: string; sin_clasificar?: boolean };
+    /** Lo que Compras tecleó al vuelo y todavía no entra al kardex. */
+    sinClasificar: number;
+    areas: AlmArea[];
+    tipos: AlmOpcion[];
+    clases: AlmOpcionClase[];
+};
 
-    return (
-        <img
-            src={articulo.imagen_url}
-            alt={articulo.descripcion}
-            className="border-base-300 size-10 rounded border object-cover"
-        />
-    );
-}
+export default function ArticulosIndex({ articulos, filters, sinClasificar, areas, tipos, clases }: Props) {
+    /** Los filtros se acumulan sobre los que ya estaban, y siempre vuelven a la página 1. */
+    const filtrar = (cambio: Record<string, string | undefined>) =>
+        router.get('/admin/almacen/articulos', { ...filters, ...cambio, page: undefined }, { preserveState: true });
 
-export default function ArticulosIndex() {
-    const [query, setQuery] = useState('');
-    const [filtroTipo, setFiltroTipo] = useState('');
-    // La clasificación se edita en la propia lista: es lo que se viene a hacer
-    // aquí, y obligar a entrar renglón por renglón lo volvería inservible.
-    const [cambios, setCambios] = useState<Record<number, Partial<AlmArticuloDemo>>>({});
+    const columns: Column<AlmArticulo>[] = [
+        {
+            key: 'imagen_url',
+            label: '',
+            className: 'w-14',
+            render: (a) => <MiniaturaArticulo url={a.imagen_url} descripcion={a.descripcion} />,
+        },
+        {
+            key: 'codigo',
+            label: 'Código',
+            render: (a) => (
+                <>
+                    <Link
+                        href={`/admin/almacen/articulos/${a.id}`}
+                        className="link link-hover font-mono font-medium"
+                    >
+                        {a.codigo ?? <span className="text-base-content/40 italic">Sin código</span>}
+                    </Link>
+                    {a.codigo_barras && (
+                        <BarcodeIcon
+                            className="text-base-content/40 ml-1 inline size-3"
+                            aria-label="Tiene código de barras"
+                        />
+                    )}
+                </>
+            ),
+        },
+        { key: 'descripcion', label: 'Descripción' },
+        {
+            key: 'unidad',
+            label: 'Unidad',
+            className: 'text-base-content/60 font-mono text-xs',
+        },
+        {
+            key: 'tipo',
+            label: 'Tipo',
+            className: 'w-28',
+            render: (a) => (
+                <span className={`badge badge-sm ${CLASE_TIPO[a.tipo]}`}>
+                    {tipos.find((t) => t.value === a.tipo)?.label ?? a.tipo}
+                </span>
+            ),
+        },
+        {
+            // De aquí sale cada cuánto lo alcanza el inventario cíclico: es la
+            // única columna que decide trabajo futuro.
+            key: 'clasificacion_abc',
+            label: 'Clase',
+            className: 'w-24',
+            render: (a) => {
+                if (!a.controla_inventario) {
+                    return <span className="text-base-content/30">—</span>;
+                }
 
-    const valorDe = (articulo: AlmArticuloDemo): AlmArticuloDemo => ({ ...articulo, ...cambios[articulo.id] });
+                const regla = clases.find((c) => c.value === a.clasificacion_abc);
 
-    const editar = (id: number, cambio: Partial<AlmArticuloDemo>) =>
-        setCambios((prev) => ({ ...prev, [id]: { ...prev[id], ...cambio } }));
+                return (
+                    <span
+                        className={`badge badge-sm ${CLASE_ABC[a.clasificacion_abc] ?? 'badge-ghost'}`}
+                        title={regla ? `Se cuenta cada ${regla.frecuencia_dias} días` : undefined}
+                    >
+                        Clase {a.clasificacion_abc}
+                    </span>
+                );
+            },
+        },
+        {
+            key: 'se_controla_por_pieza',
+            label: 'Por pieza',
+            className: 'text-center',
+            render: (a) =>
+                // Serializar un insumo no tiene sentido: se gasta.
+                a.tipo === 'insumo' ? (
+                    <span className="text-base-content/30">—</span>
+                ) : a.se_controla_por_pieza ? (
+                    <span className="badge badge-sm badge-info">Sí</span>
+                ) : (
+                    <span className="text-base-content/40 text-sm">No</span>
+                ),
+        },
+        {
+            key: 'requiere_verificacion',
+            label: 'Inspección',
+            className: 'text-center',
+            render: (a) =>
+                a.requiere_verificacion ? (
+                    <span className="badge badge-sm badge-warning">Sí</span>
+                ) : (
+                    <span className="text-base-content/40 text-sm">No</span>
+                ),
+        },
+        {
+            key: 'controla_inventario',
+            label: 'Lleva kardex',
+            className: 'text-center',
+            render: (a) =>
+                a.controla_inventario ? (
+                    <span className="badge badge-sm badge-success">Sí</span>
+                ) : (
+                    <span className="badge badge-sm badge-ghost" title="Se compra pero no se almacena">
+                        No
+                    </span>
+                ),
+        },
+        {
+            key: 'stock_minimo',
+            label: 'Stock mínimo',
+            className: 'text-right',
+            render: (a) =>
+                a.stock_minimo === null ? (
+                    <span className="text-base-content/30">—</span>
+                ) : (
+                    <span className="font-mono">{numero(a.stock_minimo)}</span>
+                ),
+        },
+        {
+            key: 'precio_ultimo',
+            label: 'Último precio',
+            className: 'text-right',
+            render: (a) =>
+                a.precio_ultimo === null ? (
+                    <span className="text-base-content/30" title="Todavía no se ha cotizado ni comprado">
+                        —
+                    </span>
+                ) : (
+                    <span className="font-mono">{moneda(a.precio_ultimo)}</span>
+                ),
+        },
+        {
+            key: 'existencia_total',
+            label: 'Existencia',
+            className: 'text-right',
+            render: (a) => {
+                if (!a.controla_inventario) {
+                    return <span className="text-base-content/30">—</span>;
+                }
 
-    const s = query.trim().toLowerCase();
-    // Se busca también por marca, modelo y código de barras: el almacenista
-    // llega con la caja en la mano y lo que tiene enfrente es el modelo o el
-    // código escaneado, no la descripción con la que se dio de alta. El ID de
-    // Steelex entra por lo mismo: quien viene del sistema anterior trae ese
-    // dato y no el código nuevo.
-    const visibles = ARTICULOS_DEMO.map(valorDe).filter(
-        (i) =>
-            (s === '' ||
-                i.codigo.toLowerCase().includes(s) ||
-                i.descripcion.toLowerCase().includes(s) ||
-                (i.marca ?? '').toLowerCase().includes(s) ||
-                (i.modelo ?? '').toLowerCase().includes(s) ||
-                (i.idsteelex ?? '').toLowerCase().includes(s) ||
-                (i.area ?? '').toLowerCase().includes(s) ||
-                (i.codigo_barras ?? '').toLowerCase().includes(s)) &&
-            (filtroTipo === '' || i.tipo === filtroTipo),
-    );
+                const bajoMinimo = a.stock_minimo !== null && a.existencia_total < a.stock_minimo;
 
-    const pendientes = Object.keys(cambios).length;
+                return (
+                    <span className={`font-mono ${bajoMinimo ? 'text-error font-medium' : ''}`}>
+                        {numero(a.existencia_total)}
+                        {bajoMinimo && (
+                            <TriangleAlertIcon
+                                className="ml-1 inline size-3"
+                                aria-label="Por debajo del stock mínimo"
+                            />
+                        )}
+                    </span>
+                );
+            },
+        },
+        {
+            key: 'acciones',
+            label: '',
+            className: 'w-10',
+            render: (a) => (
+                <Link
+                    href={`/admin/almacen/articulos/${a.id}/edit`}
+                    className="btn btn-ghost btn-xs"
+                    title="Editar"
+                >
+                    <PencilIcon className="size-3.5" />
+                </Link>
+            ),
+        },
+    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -103,226 +236,77 @@ export default function ArticulosIndex() {
                     </div>
                 </div>
 
-                <div className="alert alert-warning mb-4">
-                    <span>Vista de maqueta: los datos son de ejemplo, todavía no hay backend.</span>
-                </div>
+                {sinClasificar > 0 && !filters.sin_clasificar && (
+                    <div className="alert alert-info mb-4">
+                        <span>
+                            {sinClasificar} producto(s) que Compras tecleó sin código siguen fuera del kardex. Mientras
+                            nadie los clasifique, comprarlos no mueve existencia.
+                        </span>
+                        <button className="btn btn-sm" onClick={() => filtrar({ sin_clasificar: '1' })}>
+                            Ver la bandeja
+                        </button>
+                    </div>
+                )}
 
-                <div className="mb-4 flex flex-wrap items-end gap-3">
-                    <label className="input input-bordered flex max-w-sm flex-1 items-center gap-2">
-                        <SearchIcon className="text-base-content/50 size-4" />
-                        <input
-                            className="grow"
-                            placeholder="Buscar por código o descripción..."
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                        />
-                    </label>
+                {filters.sin_clasificar && (
+                    <div className="alert alert-warning mb-4">
+                        <span>Viendo sólo lo que falta clasificar.</span>
+                        <button className="btn btn-sm" onClick={() => filtrar({ sin_clasificar: undefined })}>
+                            Ver todo el catálogo
+                        </button>
+                    </div>
+                )}
 
-                    <div className="w-56">
-                        <Select value={filtroTipo} onValueChange={setFiltroTipo} placeholder="Todos los tipos">
-                            {Object.entries(TIPOS_ARTICULO).map(([valor, etiqueta]) => (
-                                <SelectItem key={valor} value={valor}>
-                                    {etiqueta}
+                <DataTable
+                    columns={columns}
+                    data={articulos}
+                    searchable
+                    searchValue={filters.search}
+                    searchPlaceholder="Buscar por código, descripción, barras o ID Steelex..."
+                    emptyMessage="Ningún artículo coincide con el filtro."
+                >
+                    <div className="w-44">
+                        <Select
+                            value={filters.tipo ?? ''}
+                            onValueChange={(v) => filtrar({ tipo: v || undefined })}
+                            placeholder="Todos los tipos"
+                        >
+                            {tipos.map((t) => (
+                                <SelectItem key={t.value} value={t.value}>
+                                    {t.label}
                                 </SelectItem>
                             ))}
                         </Select>
                     </div>
 
-                    <Button disabled={pendientes === 0} title="La maqueta no guarda todavía">
-                        Guardar cambios {pendientes > 0 ? `(${pendientes})` : ''}
-                    </Button>
-                </div>
+                    <div className="w-44">
+                        <Select
+                            value={filters.area_id ?? ''}
+                            onValueChange={(v) => filtrar({ area_id: v || undefined })}
+                            placeholder="Todas las áreas"
+                        >
+                            {areas.map((a) => (
+                                <SelectItem key={a.id} value={String(a.id)}>
+                                    {a.descripcion}
+                                </SelectItem>
+                            ))}
+                        </Select>
+                    </div>
 
-                <div className="rounded-box border-base-300 overflow-x-auto border">
-                    <table className="table">
-                        <thead className="bg-base-200">
-                            <tr>
-                                <th className="w-14"></th>
-                                <th>Código</th>
-                                <th>Descripción</th>
-                                <th>Unidad</th>
-                                <th className="w-40">Tipo</th>
-                                <th className="w-28">Clase</th>
-                                <th className="text-center">Por pieza</th>
-                                <th className="text-center">Verifica recepción</th>
-                                <th className="text-center">Lleva kardex</th>
-                                <th className="text-right">Stock mínimo</th>
-                                <th className="text-right">Último precio</th>
-                                <th className="text-right">Existencia</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {visibles.length === 0 ? (
-                                <tr>
-                                    <td colSpan={12} className="text-base-content/50 py-6 text-center">
-                                        Ningún artículo coincide con el filtro.
-                                    </td>
-                                </tr>
-                            ) : (
-                                visibles.map((i) => {
-                                    const bajoMinimo =
-                                        i.controla_inventario &&
-                                        i.stock_minimo !== null &&
-                                        i.existencia_total < i.stock_minimo;
-
-                                    return (
-                                        <tr key={i.id} className="hover">
-                                            <td>
-                                                <MiniaturaArticulo articulo={i} />
-                                            </td>
-                                            <td>
-                                                <Link
-                                                    href={`/admin/almacen/articulos/${i.id}`}
-                                                    className="link link-hover font-mono font-medium"
-                                                >
-                                                    {i.codigo}
-                                                </Link>
-                                                {i.codigo_barras && (
-                                                    <BarcodeIcon
-                                                        className="text-base-content/40 ml-1 inline size-3"
-                                                        aria-label="Tiene código de barras"
-                                                    />
-                                                )}
-                                            </td>
-                                            <td>
-                                                {i.descripcion}
-                                                <span className={`badge badge-xs ml-2 ${CLASE_TIPO[i.tipo]}`}>
-                                                    {TIPOS_ARTICULO[i.tipo]}
-                                                </span>
-                                                {(i.marca || i.modelo) && (
-                                                    <span className="text-base-content/50 block text-xs">
-                                                        {[i.marca, i.modelo].filter(Boolean).join(' · ')}
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="text-base-content/60 font-mono text-xs">{i.unidad}</td>
-                                            <td>
-                                                <Select
-                                                    value={i.tipo}
-                                                    onValueChange={(v) => editar(i.id, { tipo: v as AlmProductoTipo })}
-                                                    className="select-sm"
-                                                >
-                                                    {Object.entries(TIPOS_ARTICULO).map(([valor, etiqueta]) => (
-                                                        <SelectItem key={valor} value={valor}>
-                                                            {etiqueta}
-                                                        </SelectItem>
-                                                    ))}
-                                                </Select>
-                                            </td>
-                                            <td>
-                                                {/*
-                                                 * De aquí sale cada cuánto lo alcanza el inventario cíclico:
-                                                 * es la única columna que decide trabajo futuro.
-                                                 */}
-                                                {i.controla_inventario ? (
-                                                    <Select
-                                                        value={i.clasificacion_abc}
-                                                        onValueChange={(v) =>
-                                                            editar(i.id, {
-                                                                clasificacion_abc: v as AlmClasificacionAbc,
-                                                            })
-                                                        }
-                                                        className={`select-sm ${CLASES_ABC[i.clasificacion_abc]}`}
-                                                        aria-label={`Clase de conteo ${i.codigo}`}
-                                                    >
-                                                        {REGLAS_ABC.map((r) => (
-                                                            <SelectItem key={r.clasificacion} value={r.clasificacion}>
-                                                                {r.clasificacion} — {r.etiqueta}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </Select>
-                                                ) : (
-                                                    <span className="text-base-content/30">—</span>
-                                                )}
-                                            </td>
-                                            <td className="text-center">
-                                                {/*
-                                                 * Sólo lo que sale y regresa se puede seguir pieza por pieza.
-                                                 * Serializar un insumo no tiene sentido: se gasta.
-                                                 */}
-                                                {i.tipo === 'insumo' ? (
-                                                    <span className="text-base-content/30">—</span>
-                                                ) : (
-                                                    <input
-                                                        type="checkbox"
-                                                        className="checkbox checkbox-sm"
-                                                        checked={i.se_controla_por_pieza}
-                                                        onChange={(e) =>
-                                                            editar(i.id, { se_controla_por_pieza: e.target.checked })
-                                                        }
-                                                        aria-label={`Se controla por pieza ${i.codigo}`}
-                                                    />
-                                                )}
-                                            </td>
-                                            <td className="text-center">
-                                                <input
-                                                    type="checkbox"
-                                                    className="checkbox checkbox-sm"
-                                                    checked={i.requiere_verificacion}
-                                                    onChange={(e) =>
-                                                        editar(i.id, { requiere_verificacion: e.target.checked })
-                                                    }
-                                                    aria-label={`Verifica recepción ${i.codigo}`}
-                                                />
-                                            </td>
-                                            <td className="text-center">
-                                                <input
-                                                    type="checkbox"
-                                                    className="checkbox checkbox-sm"
-                                                    checked={i.controla_inventario}
-                                                    onChange={(e) =>
-                                                        editar(i.id, { controla_inventario: e.target.checked })
-                                                    }
-                                                    aria-label={`Lleva kardex ${i.codigo}`}
-                                                />
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {i.stock_minimo === null ? (
-                                                    <span className="text-base-content/40">—</span>
-                                                ) : (
-                                                    numero(i.stock_minimo)
-                                                )}
-                                            </td>
-                                            <td className="text-right font-mono text-xs">
-                                                {i.precio_ultimo === null ? (
-                                                    <span className="text-base-content/40">—</span>
-                                                ) : (
-                                                    moneda(i.precio_ultimo)
-                                                )}
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {i.controla_inventario ? (
-                                                    <span className={bajoMinimo ? 'text-error font-semibold' : ''}>
-                                                        {bajoMinimo && (
-                                                            <TriangleAlertIcon className="mr-1 inline size-3" />
-                                                        )}
-                                                        {numero(i.existencia_total)}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-base-content/40">No aplica</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                <p className="text-base-content/60 mt-4 text-sm">
-                    El <strong>insumo</strong> se gasta y sólo se cuenta. La <strong>herramienta</strong> y el{' '}
-                    <strong>activo</strong> salen y regresan. <strong>Por pieza</strong> es lo que además lleva número
-                    de serie y resguardo por persona: sin eso el kardex sabe cuántas pulidoras salieron, pero no quién
-                    tiene cuál — por eso la pulidora va marcada y el módulo de andamio no.{' '}
-                    <strong>Verifica recepción</strong> detiene la entrada hasta que alguien revise el mantenimiento
-                    del equipo, y va aparte porque no todo activo lo necesita. Quitar <strong>lleva kardex</strong> es
-                    para lo que se compra pero no se almacena, como un flete — y por eso también lo deja fuera de los
-                    conteos y las etiquetas. La <strong>clase</strong> decide cada cuánto lo alcanza el inventario
-                    cíclico: A cada mes, B cada trimestre, C cada semestre. El <strong>último precio</strong> no se
-                    teclea aquí, sale de lo que cotizaron los proveedores en Compras; el histórico completo está en la
-                    ficha del artículo.
-                </p>
+                    <div className="w-40">
+                        <Select
+                            value={filters.clase ?? ''}
+                            onValueChange={(v) => filtrar({ clase: v || undefined })}
+                            placeholder="Todas las clases"
+                        >
+                            {clases.map((c) => (
+                                <SelectItem key={c.value} value={c.value}>
+                                    Clase {c.value} — {c.label}
+                                </SelectItem>
+                            ))}
+                        </Select>
+                    </div>
+                </DataTable>
             </div>
         </AppLayout>
     );

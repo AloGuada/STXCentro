@@ -363,6 +363,7 @@ export function CotizacionMatriz({
                                         </td>
                                         <td className={`${COL_FIJA.tipo} z-10 bg-base-100`}>
                                             <TipoFiscalSelect detalle={d} editable={editable && !d.solo_cotizacion} />
+                                            <SinImpuestosToggle detalle={d} editable={editable} />
                                             <SoloCotizacionToggle detalle={d} editable={editable} />
                                         </td>
                                         {columnas.map(({ op }) => {
@@ -798,9 +799,53 @@ function TipoFiscalSelect({
 }
 
 /**
+ * Marca una partida como exenta: suma al subtotal pero no causa IVA ni entra a
+ * la base de las retenciones. Se captura a mano porque la clave genérica del
+ * SAT no distingue qué producto es exento. La marca viaja a la orden de compra.
+ */
+function SinImpuestosToggle({
+    detalle,
+    editable,
+}: {
+    detalle: CostosRequisicionDetalle;
+    editable: boolean;
+}) {
+    const [checked, setChecked] = useState(detalle.sin_impuestos);
+
+    if (!editable) {
+        return checked ? (
+            <span className="badge mt-1 badge-outline badge-xs">Sin impuestos</span>
+        ) : null;
+    }
+
+    return (
+        <label
+            className="mt-1 flex cursor-pointer items-center gap-1 text-[10px] text-base-content/60"
+            title="La partida suma al subtotal pero no causa IVA ni entra a la base de retenciones."
+        >
+            <input
+                type="checkbox"
+                className="checkbox checkbox-xs"
+                checked={checked}
+                onChange={(e) => {
+                    const v = e.target.checked;
+                    setChecked(v);
+                    router.post(
+                        `/admin/costos/requisiciones/detalles/${detalle.id}/sin-impuestos`,
+                        { sin_impuestos: v },
+                        { preserveScroll: true },
+                    );
+                }}
+            />
+            Sin impuestos
+        </label>
+    );
+}
+
+/**
  * Marca una partida como "solo cotización": se cotiza como referencia (ej. un
- * flete de cantidad variable) y suma al total de captura, pero no se adjudica a
- * proveedor, no entra al comparativo/PDF ni al neto a pagar.
+ * flete de cantidad variable) y suma al total y al neto del comparativo con su
+ * precio de referencia, pero no se adjudica a proveedor ni se surte en la OC.
  */
 function SoloCotizacionToggle({
     detalle,
@@ -820,7 +865,7 @@ function SoloCotizacionToggle({
     return (
         <label
             className="mt-1 flex cursor-pointer items-center gap-1 text-[10px] text-base-content/60"
-            title="Se cotiza como referencia (ej. flete variable); no se adjudica a proveedor, no aparece en el comparativo/PDF ni afecta el neto a pagar."
+            title="Se cotiza como referencia (ej. flete variable); no se adjudica a proveedor ni se surte en la OC, pero su precio de referencia sí suma al total y al neto del comparativo."
         >
             <input
                 type="checkbox"

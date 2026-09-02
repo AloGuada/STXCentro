@@ -75,7 +75,16 @@ export default function OcsAdjudicadas({ ocs, alinearDerecha = false }: Props) {
         );
     }
 
-    const total = ocs.reduce((acc, oc) => acc + Number(oc.total ?? 0), 0);
+    // Un renglón de total por divisa: una OC en dólares y otra en pesos no se
+    // suman en un solo número. La conversión a MXN necesita el tipo de cambio
+    // del documento, que este componente no recibe; el total combinado vive en
+    // la columna Monto del renglón.
+    const totalPorMoneda = ocs.reduce<Record<string, number>>((acc, oc) => {
+        const m = (oc.moneda ?? 'mxn').toLowerCase();
+        acc[m] = (acc[m] ?? 0) + Number(oc.total ?? 0);
+        return acc;
+    }, {});
+    const monedas = Object.keys(totalPorMoneda).sort();
 
     return (
         <>
@@ -126,15 +135,21 @@ export default function OcsAdjudicadas({ ocs, alinearDerecha = false }: Props) {
                                         {oc.folio ?? <span className="text-base-content/40">OC {oc.numero_oc} (sin generar)</span>}
                                     </td>
                                     <td className="py-1 pr-2">{nombre(oc)}</td>
-                                    <td className="py-1 text-right font-medium">{formatMoney(oc.total)}</td>
+                                    <td className="py-1 text-right font-medium">{formatMoney(oc.total, oc.moneda)}</td>
                                 </tr>
                             ))}
                         </tbody>
                         <tfoot>
-                            <tr className="border-t border-base-300">
-                                <td colSpan={2} className="pt-1 text-base-content/60">Neto a pagar</td>
-                                <td className="pt-1 text-right font-semibold text-success">{formatMoney(total)}</td>
-                            </tr>
+                            {monedas.map((m, i) => (
+                                <tr key={m} className={i === 0 ? 'border-t border-base-300' : ''}>
+                                    <td colSpan={2} className={`${i === 0 ? 'pt-1' : ''} text-base-content/60`}>
+                                        {i === 0 ? 'Neto a pagar' : ''}
+                                    </td>
+                                    <td className={`${i === 0 ? 'pt-1' : ''} text-right font-semibold text-success`}>
+                                        {formatMoney(totalPorMoneda[m], m)}
+                                    </td>
+                                </tr>
+                            ))}
                         </tfoot>
                     </table>
                 </div>,

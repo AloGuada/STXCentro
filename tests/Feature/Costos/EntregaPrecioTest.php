@@ -43,7 +43,9 @@ test('guarda el precio recibido en el detalle de la entrega', function () {
     [$oc, $partida, , $factura] = ocConRubro(10, 100);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-07-20',
             'factura_id' => $factura->id,
             'tipo' => 'completa',
@@ -64,7 +66,9 @@ test('un precio recibido distinto ajusta el acumulado por la diferencia', functi
     [$oc, $partida, $rubro, $factura] = ocConRubro(10, 100);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-07-20',
             'factura_id' => $factura->id,
             'tipo' => 'completa',
@@ -88,7 +92,9 @@ test('recibir al mismo precio de la OC no genera ajuste presupuestal', function 
     [$oc, $partida, $rubro, $factura] = ocConRubro(10, 100);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-07-20',
             'factura_id' => $factura->id,
             'tipo' => 'completa',
@@ -107,7 +113,9 @@ test('un precio recibido menor reduce el acumulado', function () {
     $rubro->update(['acumulado' => 1000]);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-07-20',
             'factura_id' => $factura->id,
             'tipo' => 'completa',
@@ -125,7 +133,9 @@ test('el monto recibido de la OC usa el precio recibido', function () {
     [$oc, $partida, , $factura] = ocConRubro(10, 100);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-07-20',
             'factura_id' => $factura->id,
             'tipo' => 'completa',

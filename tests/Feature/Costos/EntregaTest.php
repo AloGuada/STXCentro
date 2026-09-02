@@ -32,15 +32,17 @@ function ocConPartida(float $cantidad = 10): array
 }
 
 /**
- * La recepción se fecha con el día en que se captura, y lo pone el servidor:
- * mandar otra fecha no la mueve. Fechar en otro día una entrada que ya movió
- * existencias es justo lo que se cerró.
+ * La fecha del documento es la de la transacción y la elige quien captura: el
+ * camión llegó el viernes y el almacén lo asienta el lunes. Cuándo se capturó
+ * queda aparte, en `created_at`, y ese sí lo pone el servidor.
  */
-test('la recepcion se guarda con la fecha de hoy aunque manden otra', function () {
+test('la recepcion respeta la fecha capturada y sella aparte la de registro', function () {
     [$oc, $partida, $factura] = ocConPartida();
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2020-01-01',
             'factura_id' => $factura->id,
             'tipo' => 'parcial',
@@ -50,14 +52,19 @@ test('la recepcion se guarda con la fecha de hoy aunque manden otra', function (
         ])
         ->assertRedirect();
 
-    expect($oc->entregas()->sole()->fecha_entrega->toDateString())->toBe(today()->toDateString());
+    $entrega = $oc->entregas()->sole();
+
+    expect($entrega->fecha_entrega->toDateString())->toBe('2020-01-01')
+        ->and($entrega->created_at->toDateString())->toBe(today()->toDateString());
 });
 
 test('registra entrega con detalle de partida contra la OC', function () {
     [$oc, $partida, $factura] = ocConPartida();
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'factura_id' => $factura->id,
             'tipo' => 'parcial',
@@ -87,7 +94,9 @@ test('rechaza entrega que supera la cantidad ordenada en la partida', function (
     [$oc, $partida, $factura] = ocConPartida(10);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'factura_id' => $factura->id,
             'tipo' => 'completa',
@@ -106,7 +115,9 @@ test('rechaza entrega si acumulado excede cantidad ordenada', function () {
 
     // Primera entrega parcial de 7
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'factura_id' => $factura->id,
             'tipo' => 'parcial',
@@ -118,7 +129,9 @@ test('rechaza entrega si acumulado excede cantidad ordenada', function () {
 
     // Segunda intenta 5 más → 7 + 5 = 12 > 10
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-18',
             'factura_id' => $factura->id,
             'tipo' => 'parcial',
@@ -134,7 +147,9 @@ test('rechaza entrega con partida de otra OC', function () {
     $otraPartida = OrdenCompraDetalle::factory()->create();
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'factura_id' => $factura->id,
             'tipo' => 'parcial',
@@ -156,7 +171,9 @@ test('entrega no crea pago ni cambia estatus de factura', function () {
     ]);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'factura_id' => $factura->id,
             'tipo' => 'completa',
@@ -174,7 +191,9 @@ test('tipo y detalles son requeridos', function () {
     [$oc] = ocConPartida();
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
         ])
         ->assertSessionHasErrors(['tipo', 'detalles'])
@@ -185,7 +204,9 @@ test('registra la entrega sin factura ligada', function () {
     [$oc, $partida] = ocConPartida();
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'tipo' => 'parcial',
             'detalles' => [
@@ -205,7 +226,9 @@ test('rechaza recepcion contra una factura de otra orden de compra', function ()
     $ajena = Factura::factory()->create(['estatus' => 'pendiente_recepcion']);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-02-17',
             'factura_id' => $ajena->id,
             'tipo' => 'parcial',

@@ -9,13 +9,15 @@ use Illuminate\Support\Collection;
 /**
  * Calcula el desglose de retenciones (ISR/IVA) de una orden de compra a partir
  * del proveedor (tipo de persona + régimen) y el tipo fiscal de cada línea.
+ * Las líneas marcadas `sin_impuestos` suman al subtotal pero quedan fuera de
+ * la base del IVA y de la de cualquier retención.
  * El cálculo es informativo (se corrobora al recibir la factura) y se computa
  * al vuelo, por lo que recalcula si cambia régimen, tipo de partida o monto.
  */
 class RetencionCalculator
 {
     /**
-     * @param  Collection<int, array{tipo_fiscal: string, subtotal: float}>|array<int, array{tipo_fiscal: string, subtotal: float}>  $lineas
+     * @param  Collection<int, array{tipo_fiscal: string, subtotal: float, sin_impuestos?: bool}>|array<int, array{tipo_fiscal: string, subtotal: float, sin_impuestos?: bool}>  $lineas
      * @return array{
      *     subtotal: float,
      *     iva: float,
@@ -33,7 +35,8 @@ class RetencionCalculator
         $esResico = $esPF && $proveedor->esResico();
 
         $subtotal = round((float) $lineas->sum('subtotal'), 2);
-        $iva = round($subtotal * $ivaRate, 2);
+        $baseImpuestos = round((float) $lineas->reject(fn ($linea) => (bool) ($linea['sin_impuestos'] ?? false))->sum('subtotal'), 2);
+        $iva = round($baseImpuestos * $ivaRate, 2);
 
         // Acumula retenciones por clave para presentarlas agrupadas.
         $acumulado = [];
@@ -49,6 +52,10 @@ class RetencionCalculator
         };
 
         foreach ($lineas as $linea) {
+            if ($linea['sin_impuestos'] ?? false) {
+                continue;
+            }
+
             $tipo = $linea['tipo_fiscal'] ?? TipoFiscalPartida::Mercancia->value;
             $base = (float) ($linea['subtotal'] ?? 0);
 

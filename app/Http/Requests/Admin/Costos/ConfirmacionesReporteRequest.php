@@ -18,6 +18,7 @@ class ConfirmacionesReporteRequest extends FormRequest
     {
         return [
             'paso' => ['required', 'in:costos,contabilidad'],
+            'q' => ['nullable', 'string', 'max:100'],
         ];
     }
 

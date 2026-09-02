@@ -11,12 +11,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Almacén virtual: dónde vive el material. Con obra es un almacén de la obra
  * (montaje); sin obra es central y surte a todas.
  *
- * De aquí colgarán las existencias y el kardex; por ahora es sólo el catálogo.
+ * De aquí cuelgan las existencias y el kardex, así que un almacén con
+ * movimientos ya no se borra: se desactiva.
  */
 class Almacen extends Model
 {
@@ -78,6 +80,22 @@ class Almacen extends Model
     }
 
     /**
+     * @return HasMany<Existencia, $this>
+     */
+    public function existencias(): HasMany
+    {
+        return $this->hasMany(Existencia::class);
+    }
+
+    /**
+     * @return HasMany<Movimiento, $this>
+     */
+    public function movimientos(): HasMany
+    {
+        return $this->hasMany(Movimiento::class);
+    }
+
+    /**
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
@@ -95,6 +113,15 @@ class Almacen extends Model
     public function scopeCentrales(Builder $query): Builder
     {
         return $query->whereNull('obra_id');
+    }
+
+    /**
+     * El de planta: no cuelga de una obra, asi que lo que sale de aqui se
+     * consume en el mismo domicilio y no hay obra a la cual cargarselo.
+     */
+    public function esCentral(): bool
+    {
+        return $this->obra_id === null;
     }
 
     /**

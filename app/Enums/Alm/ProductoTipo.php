@@ -4,20 +4,21 @@ namespace App\Enums\Alm;
 
 /**
  * Qué clase de artículo es, para el catálogo que comparten Compras y Almacén.
- * Decide si el material se gasta o si sale y regresa: el insumo se consume, la
- * herramienta se presta bajo resguardo y el activo es un bien de la empresa.
+ * Decide si el material se gasta o si sale y regresa: el insumo se consume y el
+ * activo es un bien de la empresa que se presta bajo resguardo y regresa.
+ *
+ * La herramienta no es un tercer caso: se comporta igual que el activo, y
+ * separarlas sólo obligaba a decidir en el alta de qué lado cae una pulidora.
  */
 enum ProductoTipo: string
 {
     case Insumo = 'insumo';
-    case Herramienta = 'herramienta';
     case Activo = 'activo';
 
     public function etiqueta(): string
     {
         return match ($this) {
             self::Insumo => 'Insumo',
-            self::Herramienta => 'Herramienta',
             self::Activo => 'Activo',
         };
     }

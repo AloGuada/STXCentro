@@ -93,7 +93,7 @@ test('una partida solo cotización no afecta el total neto a pagar', function ()
     expect($req->fresh()->total_neto)->toBe($netoSinFlete);
 });
 
-test('el comparativo suma la partida solo cotización al total pero no al neto a pagar', function () {
+test('el comparativo suma la partida solo cotización al total y al neto a pagar', function () {
     $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
     $prov = Proveedor::factory()->create();
 
@@ -125,13 +125,14 @@ test('el comparativo suma la partida solo cotización al total pero no al neto a
         $req->fresh()->load('detalles.selecciones.cotizacionPrecio', 'detalles.selecciones.proveedor', 'detalles.cotizaciones'),
     );
 
-    // El flete de referencia (999) SÍ suma al subtotal del comparativo:
-    // 4 × 100 + 999 = 1,399. Pero como no se surte en OC, el neto a pagar
-    // solo lleva lo surtible: 400 × 1.16 = 464.
+    // El flete de referencia (999) suma al subtotal del comparativo:
+    // 4 × 100 + 999 = 1,399, y también al neto a pagar: 1,399 × 1.16 =
+    // 1,622.84. `solo_cotizacion` queda solo como nota de cuánto de ese neto
+    // viene del flete (999 × 1.16 = 1,158.84).
     expect($totales['bloques'])->toHaveCount(1)
         ->and($totales['bloques'][0]['subtotal'])->toBe(1399.0)
         ->and($totales['bloques'][0]['solo_cotizacion'])->toBe(round(999 * 1.16, 2))
-        ->and($totales['bloques'][0]['neto'])->toBe(464.0);
+        ->and($totales['bloques'][0]['neto'])->toBe(round(1399 * 1.16, 2));
 });
 
 test('el mejor proveedor ignora las partidas solo cotización', function () {
@@ -246,6 +247,25 @@ test('marcar solo cotización elimina las selecciones existentes de la partida',
 
     expect($detalle->fresh()->solo_cotizacion)->toBeTrue()
         ->and($detalle->selecciones()->count())->toBe(0);
+});
+
+test('la pantalla recibe el mejor proveedor, para calcular la referencia igual que el PDF', function () {
+    foreach (['costos.requisiciones.ver', 'costos.requisiciones.ver-todas'] as $permName) {
+        Permission::firstOrCreate(['name' => $permName, 'guard_name' => 'web']);
+    }
+    $this->compras->givePermissionTo(['costos.requisiciones.ver', 'costos.requisiciones.ver-todas']);
+
+    $req = Requisicion::factory()->create(['departamento_id' => $this->depto->id, 'estatus' => 'borrador']);
+    $barato = Proveedor::factory()->create();
+    $caro = Proveedor::factory()->create();
+
+    $partida = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 2]);
+    precioDe($partida, $barato, 50.00);
+    precioDe($partida, $caro, 80.00);
+
+    $this->actingAs($this->compras)
+        ->get("/admin/costos/requisiciones/{$req->id}")
+        ->assertInertia(fn ($page) => $page->where('requisicion.mejor_proveedor.id', $barato->id));
 });
 
 test('el PDF del comparativo se genera con partidas solo cotización presentes', function () {

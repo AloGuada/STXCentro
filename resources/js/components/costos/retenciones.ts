@@ -6,6 +6,18 @@ export type RetencionLinea = { clave: string; concepto: string; tasa: number; mo
 
 export const IVA_RATE = 0.16;
 
+export type LineaFiscal = {
+    tipo_fiscal: CostosTipoFiscalPartida;
+    subtotal: number;
+    /** Partida exenta: no causa IVA ni entra a la base de retenciones. */
+    sin_impuestos?: boolean;
+};
+
+/** Base gravable: el subtotal sin las partidas marcadas "sin impuestos". */
+export function baseImpuestos(lines: LineaFiscal[]): number {
+    return lines.reduce((acc, l) => (l.sin_impuestos ? acc : acc + l.subtotal), 0);
+}
+
 // Tasas de retención — reflejan config/costos.php (cálculo informativo).
 const RET_TASAS = {
     isr_resico: 0.0125,
@@ -20,7 +32,7 @@ const RET_TASAS = {
  */
 export function calcularRetenciones(
     proveedor: ProveedorRet | undefined,
-    lines: Array<{ tipo_fiscal: CostosTipoFiscalPartida; subtotal: number }>,
+    lines: LineaFiscal[],
 ): RetencionLinea[] {
     const esPF = proveedor?.tipo_persona === 'fisica';
     const esResico = esPF && proveedor?.regimen_fiscal?.clave === '626';
@@ -31,7 +43,8 @@ export function calcularRetenciones(
         prev.monto += base * tasa;
         acc.set(clave, prev);
     };
-    lines.forEach(({ tipo_fiscal, subtotal }) => {
+    lines.forEach(({ tipo_fiscal, subtotal, sin_impuestos }) => {
+        if (sin_impuestos) return;
         if (esResico) add('isr_resico', 'ISR RESICO', RET_TASAS.isr_resico, subtotal);
         if (tipo_fiscal === 'flete') add('isr_fletes', 'ISR Fletes', RET_TASAS.isr_fletes, subtotal);
         if (tipo_fiscal === 'servicio_profesional' && esPF) {

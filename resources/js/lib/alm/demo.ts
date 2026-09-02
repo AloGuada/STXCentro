@@ -18,7 +18,12 @@ import type {
     AlmDocumentoTipo,
     AlmEntradaDemo,
     AlmExistenciaDemo,
+    AlmFacturaDemo,
+    AlmExistenciaPiezas,
+    AlmGrupoTrabajoDemo,
     AlmMovimientoDemo,
+    AlmOcPartidaDemo,
+    AlmOrdenCompraDemo,
     AlmPedidoDemo,
     AlmPedidoEstatus,
     AlmPrecioDemo,
@@ -26,10 +31,13 @@ import type {
     AlmPrestamoEstatus,
     AlmProductoDemo,
     AlmProductoTipo,
+    AlmProveedorDemo,
+    AlmRecepcionEstatus,
     AlmReglaAbc,
     AlmReglaAprobacion,
     AlmSalidaDemo,
     AlmTransferenciaDemo,
+    AlmTransferenciaEstatus,
     AlmUbicacionDemo,
     AlmUbicacionTipo,
     AlmUsuarioDemo,
@@ -37,7 +45,7 @@ import type {
 
 export const ALMACENES_DEMO = [
     { id: 1, clave: 'AG', nombre: 'Almacén general', obra: null, tipo: 'insumos' as const },
-    { id: 6, clave: 'HER', nombre: 'Pañol de herramienta', obra: null, tipo: 'herramienta' as const },
+    { id: 6, clave: 'HER', nombre: 'Almacén de herramienta', obra: null, tipo: 'herramienta' as const },
     { id: 2, clave: 'FAK', nombre: 'Fachadas', obra: 'T4', tipo: 'montaje' as const },
     { id: 3, clave: 'FAD', nombre: 'Fachada domo', obra: 'T4', tipo: 'montaje' as const },
     { id: 4, clave: 'A', nombre: 'Andamios', obra: 'T4', tipo: 'herramienta' as const },
@@ -119,6 +127,11 @@ export function rutaUbicacion(ubicacionId: number | null): string | null {
     return partes.length > 0 ? partes.join(' / ') : null;
 }
 
+/**
+ * Sólo lo que se mide: material a granel con un saldo. Las piezas con serie no
+ * están aquí, se cuentan desde el padrón de activos. Para «qué hay de verdad en
+ * el almacén» usa `EXISTENCIAS_CON_ACTIVOS_DEMO`, no esta lista.
+ */
 export const EXISTENCIAS_DEMO: AlmExistenciaDemo[] = [
     { almacen: 'AG', producto: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', cantidad: 12780, costo_promedio: 4.35, ubicacion_id: 4 },
     { almacen: 'AG', producto: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad: 340.5, costo_promedio: 62.1, ubicacion_id: 3 },
@@ -131,11 +144,12 @@ export const EXISTENCIAS_DEMO: AlmExistenciaDemo[] = [
     { almacen: 'FAK', producto: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', cantidad: 8, costo_promedio: 27.5, ubicacion_id: null },
     { almacen: 'FAD', producto: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', cantidad: 0, costo_promedio: 48.9, ubicacion_id: null },
     { almacen: 'E', producto: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad: 74.25, costo_promedio: 63.8, ubicacion_id: null },
-    { almacen: 'HER', producto: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', cantidad: 14, costo_promedio: 2180.0, ubicacion_id: 13 },
 ];
 
 export const MOVIMIENTOS_DEMO: AlmMovimientoDemo[] = [
-    { id: 10, fecha: '2026-08-05 18:10', almacen: 'AG', producto: 'TOR-0012', tipo: 'devolucion', cantidad: 300, saldo_nuevo: 12780, referencia: 'DEV-2608-0006', usuario: 'M. Rangel', observaciones: 'Sobrante de T4' },
+    // El sobrante de una obra vuelve por transferencia, no por devolución: la
+    // devolución es de piezas con serie y no mueve saldo.
+    { id: 10, fecha: '2026-08-05 18:10', almacen: 'AG', producto: 'TOR-0012', tipo: 'transferencia_entrada', cantidad: 300, saldo_nuevo: 12780, referencia: 'TRA-2608-0006', usuario: 'M. Rangel', observaciones: 'Sobrante de T4, desde FAK' },
     { id: 9, fecha: '2026-08-05 16:40', almacen: 'AG', producto: 'TOR-0012', tipo: 'salida', cantidad: -1500, saldo_nuevo: 12480, referencia: 'SAL-2608-0031', usuario: 'M. Rangel', observaciones: 'Montaje eje 4' },
     { id: 8, fecha: '2026-08-05 11:02', almacen: 'AG', producto: 'TOR-0012', tipo: 'entrada', cantidad: 8000, saldo_nuevo: 13980, referencia: 'ENT-2608-0017', usuario: 'J. Briones', observaciones: null },
     { id: 7, fecha: '2026-08-04 17:15', almacen: 'FAK', producto: 'SIL-EST', tipo: 'transferencia_entrada', cantidad: 12, saldo_nuevo: 42, referencia: 'TRA-2608-0004', usuario: 'M. Rangel', observaciones: 'Desde AG' },
@@ -157,10 +171,132 @@ export const SALIDAS_DEMO: AlmSalidaDemo[] = [
     { id: 28, folio: 'SAL-2608-0028', fecha: '2026-08-02', almacen: 'FAD', obra_destino: 'T4 — Torre 4', solicitante: 'L. Ortega', recibe: 'Cuadrilla 2', renglones: 1, motivo: 'Equipo de protección', pedido_folio: null },
 ];
 
+/**
+ * Cada transferencia es un solo folio con dos firmas. La de arriba va en el
+ * camión: ya salió de AG y todavía no es existencia de E, y ese es justo el
+ * saldo que el kardex tiene que poder mostrar aparte.
+ */
 export const TRANSFERENCIAS_DEMO: AlmTransferenciaDemo[] = [
-    { id: 4, folio: 'TRA-2608-0004', fecha: '2026-08-04', origen: 'AG', destino: 'FAK', renglones: 1, autorizo: 'J. Briones' },
-    { id: 3, folio: 'TRA-2608-0003', fecha: '2026-07-30', origen: 'AG', destino: 'E', renglones: 2, autorizo: 'J. Briones' },
+    {
+        id: 7,
+        folio: 'TRA-2608-0007',
+        fecha_envio: '2026-08-10',
+        fecha_recepcion: null,
+        origen: 'AG',
+        destino: 'E',
+        estatus: 'en_transito',
+        autorizo: 'J. Briones',
+        envio: 'M. Rangel',
+        recibio: null,
+        pedido_folio: 'PED-2608-0021',
+        faltante_responsable: null,
+        observaciones: 'Va en la Ranger con el material de MBP',
+        renglones: [
+            { producto_id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', cantidad_enviada: 20, cantidad_recibida: null },
+            { producto_id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad_enviada: 60, cantidad_recibida: null },
+        ],
+    },
+    // El sobrante de una obra vuelve por aquí, no por devolución: la devolución
+    // es de piezas con serie y no mueve saldo.
+    {
+        id: 6,
+        folio: 'TRA-2608-0006',
+        fecha_envio: '2026-08-05',
+        fecha_recepcion: '2026-08-05',
+        origen: 'FAK',
+        destino: 'AG',
+        estatus: 'recibida',
+        autorizo: 'J. Briones',
+        envio: 'L. Ortega',
+        recibio: 'M. Rangel',
+        pedido_folio: null,
+        faltante_responsable: null,
+        observaciones: 'Sobrante de T4',
+        renglones: [
+            { producto_id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', cantidad_enviada: 300, cantidad_recibida: 300 },
+        ],
+    },
+    {
+        id: 4,
+        folio: 'TRA-2608-0004',
+        fecha_envio: '2026-08-04',
+        fecha_recepcion: '2026-08-04',
+        origen: 'AG',
+        destino: 'FAK',
+        estatus: 'recibida',
+        autorizo: 'J. Briones',
+        envio: 'M. Rangel',
+        recibio: 'L. Ortega',
+        pedido_folio: null,
+        faltante_responsable: null,
+        observaciones: null,
+        renglones: [
+            { producto_id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', cantidad_enviada: 12, cantidad_recibida: 12 },
+        ],
+    },
+    // Llegó menos de lo que salió: se recibió lo que había y la diferencia
+    // quedó con dueño y fecha, que es lo que se pierde cuando el documento se
+    // captura de un solo golpe.
+    {
+        id: 3,
+        folio: 'TRA-2608-0003',
+        fecha_envio: '2026-07-30',
+        fecha_recepcion: '2026-07-31',
+        origen: 'AG',
+        destino: 'E',
+        estatus: 'recibida',
+        autorizo: 'J. Briones',
+        envio: 'M. Rangel',
+        recibio: 'L. Ortega',
+        pedido_folio: null,
+        faltante_responsable: 'M. Rangel',
+        observaciones: 'Un tambo de electrodo llegó abierto',
+        renglones: [
+            { producto_id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad_enviada: 80, cantidad_recibida: 74.25 },
+            { producto_id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', cantidad_enviada: 12, cantidad_recibida: 12 },
+        ],
+    },
 ];
+
+/**
+ * Cómo se lee cada tiempo. «Recibida con faltante» no es un estatus aparte: es
+ * una recepción cerrada en la que lo confirmado no alcanzó lo enviado, y se
+ * distingue en pantalla porque es lo que alguien tiene que ir a explicar.
+ */
+export const ESTATUS_TRANSFERENCIA: Record<AlmTransferenciaEstatus, { etiqueta: string; clase: string }> = {
+    en_transito: { etiqueta: 'En tránsito', clase: 'badge-warning' },
+    recibida: { etiqueta: 'Recibida', clase: 'badge-success' },
+};
+
+/**
+ * Lo enviado, lo confirmado y lo que se quedó en el camino.
+ *
+ * El faltante se suma por renglón y nunca se compensa entre renglones: que
+ * llegara un disco de más no repone el electrodo que faltó.
+ */
+export function resumenTransferencia(transferencia: AlmTransferenciaDemo): {
+    enviado: number;
+    recibido: number;
+    faltante: number;
+    renglonesConFaltante: number;
+} {
+    return transferencia.renglones.reduce(
+        (resumen, renglon) => {
+            // Sin confirmar todavía no hay faltante: lo que va en el camión no
+            // se le debe a nadie, está en tránsito.
+            const confirmado = renglon.cantidad_recibida;
+            const faltante = confirmado === null ? 0 : Math.max(0, renglon.cantidad_enviada - confirmado);
+
+            return {
+                enviado: resumen.enviado + renglon.cantidad_enviada,
+                recibido: resumen.recibido + (confirmado ?? 0),
+                faltante: resumen.faltante + faltante,
+                renglonesConFaltante: resumen.renglonesConFaltante + (faltante > 0 ? 1 : 0),
+            };
+        },
+        { enviado: 0, recibido: 0, faltante: 0, renglonesConFaltante: 0 },
+    );
+}
 
 export const AJUSTES_DEMO: AlmAjusteDemo[] = [
     { id: 12, folio: 'AJU-2608-0012', fecha: '2026-08-01', almacen: 'AG', motivo: 'conteo_fisico', renglones: 1, diferencia_neta: -4, autorizo: 'J. Briones' },
@@ -168,9 +304,11 @@ export const AJUSTES_DEMO: AlmAjusteDemo[] = [
     { id: 10, folio: 'AJU-2607-0010', fecha: '2026-07-21', almacen: 'AG', motivo: 'error_captura', renglones: 1, diferencia_neta: 150, autorizo: 'M. Rangel' },
 ];
 
+// Salen de los préstamos ya cerrados: cada devolución es el otro extremo de un
+// resguardo, por eso las fechas empatan con `fecha_retorno` de PRESTAMOS_DEMO.
 export const DEVOLUCIONES_DEMO: AlmDevolucionDemo[] = [
-    { id: 6, folio: 'DEV-2608-0006', fecha: '2026-08-05', almacen: 'AG', obra_origen: 'T4 — Torre 4', devolvio: 'Cuadrilla 3', renglones: 2, motivo: 'Sobrante de montaje eje 4' },
-    { id: 5, folio: 'DEV-2607-0005', fecha: '2026-07-29', almacen: 'FAK', obra_origen: 'T4 — Torre 4', devolvio: 'A. Pérez', renglones: 1, motivo: 'Material equivocado' },
+    { id: 6, folio: 'DEV-2607-0006', fecha: '2026-07-26', devolvio: 'M. Rangel', recibio: 'J. Briones', piezas: 1, almacenes: ['HER'], con_dano: 0 },
+    { id: 5, folio: 'DEV-2607-0005', fecha: '2026-07-19', devolvio: 'A. Pérez', recibio: 'J. Briones', piezas: 1, almacenes: ['HER'], con_dano: 1 },
 ];
 
 /** Cómo se lee cada motivo de ajuste en pantalla. */
@@ -191,25 +329,167 @@ function imagenDemo(texto: string, color: string): string {
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+/**
+ * Con quién se compra. El almacén no da de alta proveedores —eso es de
+ * Costos—, sólo recibe lo que ellos mandan.
+ */
+export const PROVEEDORES_DEMO: AlmProveedorDemo[] = [
+    { id: 1, nombre: 'Aceros del Norte S.A.', rfc: 'ANO980312QW3' },
+    { id: 2, nombre: 'Soldaduras Industriales', rfc: 'SIN050718HK1' },
+    { id: 3, nombre: 'Selladores del Golfo', rfc: 'SGO110923MN7' },
+];
+
+/**
+ * Las órdenes de compra abiertas, con lo que ya se recibió de cada renglón.
+ *
+ * El almacenista no teclea qué llegó: escoge la orden y coteja. Lo pedido es lo
+ * que acota la recepción —no se puede recibir más de lo comprado— y el
+ * acumulado por renglón es lo que permite surtir en parcialidades sin contar
+ * dos veces el mismo viaje.
+ */
+export const ORDENES_COMPRA_DEMO: AlmOrdenCompraDemo[] = [
+    {
+        id: 42,
+        folio: 'OC-2607-0042',
+        proveedor_id: 1,
+        fecha: '2026-07-28',
+        destino: 'Planta — consumo interno',
+        estatus: 'parcial',
+        partidas: [
+            // Llegó el primer viaje de tornillo; falta el resto y las brocas.
+            { producto_id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', cantidad_pedida: 20000, cantidad_recibida: 8000, costo_unitario: 4.35 },
+            { producto_id: 107, codigo: 'ART-00011', descripcion: 'Broca cobalto 1/4"', unidad: 'PZA', cantidad_pedida: 100, cantidad_recibida: 0, costo_unitario: 89.0 },
+        ],
+    },
+    {
+        id: 51,
+        folio: 'OC-2608-0051',
+        proveedor_id: 1,
+        fecha: '2026-08-10',
+        destino: 'T4 — Torre 4',
+        estatus: 'pendiente',
+        partidas: [
+            { producto_id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', cantidad_pedida: 40, cantidad_recibida: 0, costo_unitario: 1850.0 },
+        ],
+    },
+    {
+        id: 47,
+        folio: 'OC-2608-0047',
+        proveedor_id: 2,
+        fecha: '2026-08-03',
+        destino: 'Planta — consumo interno',
+        estatus: 'parcial',
+        partidas: [
+            { producto_id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', cantidad_pedida: 400, cantidad_recibida: 200, costo_unitario: 62.1 },
+            { producto_id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', cantidad_pedida: 50, cantidad_recibida: 50, costo_unitario: 27.5 },
+        ],
+    },
+    {
+        id: 55,
+        folio: 'OC-2608-0055',
+        proveedor_id: 3,
+        fecha: '2026-08-12',
+        destino: 'MBP — Museo Bellas Artes',
+        estatus: 'pendiente',
+        partidas: [
+            { producto_id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', cantidad_pedida: 60, cantidad_recibida: 0, costo_unitario: 310.0 },
+            // Pide inspección al recibirla: una pulidora se enciende antes de
+            // firmarle al proveedor.
+            { producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', cantidad_pedida: 2, cantidad_recibida: 0, costo_unitario: 2180.0 },
+        ],
+    },
+];
+
+/**
+ * Las facturas de cada orden. Una orden surtida en parcialidades trae varias, y
+ * cada una ampara sólo lo que venía en ese viaje.
+ */
+export const FACTURAS_DEMO: AlmFacturaDemo[] = [
+    // Ya cotejada: es el primer viaje de tornillo que sí llegó.
+    { id: 1, folio: 'A-14520', uuid: '9f2c1d84-5b30-4e77-9a11-c0de00014520', orden_compra_id: 42, fecha: '2026-08-05', importe: 34800.0, estatus: 'recibida', renglones: [{ producto_id: 101, cantidad_facturada: 8000 }] },
+    { id: 2, folio: 'A-14688', uuid: '9f2c1d84-5b30-4e77-9a11-c0de00014688', orden_compra_id: 42, fecha: '2026-08-12', importe: 61100.0, estatus: 'pendiente', renglones: [{ producto_id: 101, cantidad_facturada: 12000 }, { producto_id: 107, cantidad_facturada: 100 }] },
+    { id: 3, folio: 'SI-3021', uuid: '4a7b0e15-88cc-4f21-b6d3-c0de00003021', orden_compra_id: 47, fecha: '2026-08-03', importe: 13795.0, estatus: 'recibida', renglones: [{ producto_id: 102, cantidad_facturada: 200 }, { producto_id: 104, cantidad_facturada: 50 }] },
+    { id: 4, folio: 'SI-3080', uuid: '4a7b0e15-88cc-4f21-b6d3-c0de00003080', orden_compra_id: 47, fecha: '2026-08-14', importe: 12420.0, estatus: 'pendiente', renglones: [{ producto_id: 102, cantidad_facturada: 200 }] },
+    { id: 5, folio: 'SG-778', uuid: '1c55af90-2d64-49ab-8f07-c0de00000778', orden_compra_id: 55, fecha: '2026-08-15', importe: 22960.0, estatus: 'pendiente', renglones: [{ producto_id: 106, cantidad_facturada: 60 }, { producto_id: 201, cantidad_facturada: 2 }] },
+];
+
+/** Cómo se lee el avance de una orden o de una factura. */
+export const ESTATUS_RECEPCION: Record<AlmRecepcionEstatus, { etiqueta: string; clase: string }> = {
+    pendiente: { etiqueta: 'Por recibir', clase: 'badge-warning' },
+    parcial: { etiqueta: 'Parcial', clase: 'badge-info' },
+    recibida: { etiqueta: 'Recibida', clase: 'badge-success' },
+};
+
+/** Las órdenes de un proveedor a las que todavía les falta llegar material. */
+export function ordenesAbiertasDe(proveedorId: number): AlmOrdenCompraDemo[] {
+    return ORDENES_COMPRA_DEMO.filter((oc) => oc.proveedor_id === proveedorId && oc.estatus !== 'recibida');
+}
+
+/** Las facturas colgadas de una orden, la pendiente primero. */
+export function facturasDeOrden(ordenId: number): AlmFacturaDemo[] {
+    return FACTURAS_DEMO.filter((f) => f.orden_compra_id === ordenId).sort((a, b) =>
+        a.estatus === b.estatus ? a.fecha.localeCompare(b.fecha) : a.estatus === 'recibida' ? 1 : -1,
+    );
+}
+
+/** Lo pedido y lo que ya llegó de una orden completa, para el resumen. */
+export function avanceOrden(orden: AlmOrdenCompraDemo): { pedido: number; recibido: number; pendiente: number } {
+    return orden.partidas.reduce(
+        (resumen, p) => ({
+            pedido: resumen.pedido + p.cantidad_pedida,
+            recibido: resumen.recibido + p.cantidad_recibida,
+            // Recibir de más no compensa otro renglón corto: se suma por renglón.
+            pendiente: resumen.pendiente + Math.max(0, p.cantidad_pedida - p.cantidad_recibida),
+        }),
+        { pedido: 0, recibido: 0, pendiente: 0 },
+    );
+}
+
+/**
+ * Cuánto falta por recibir de un renglón.
+ *
+ * Con factura manda el menor de los dos: la factura no puede traer más de lo
+ * que la orden dejó pendiente, y el proveedor no puede entregar más de lo que
+ * facturó. Sin factura, lo que falte de la orden.
+ *
+ * Una factura ya cotejada no vuelve a ofrecer material aunque su orden siga
+ * abierta: lo que falta llegará con la siguiente factura, no con ésta.
+ */
+export function pendientePorRecibir(partida: AlmOcPartidaDemo, factura: AlmFacturaDemo | null): number {
+    const pendienteOrden = Math.max(0, partida.cantidad_pedida - partida.cantidad_recibida);
+
+    if (factura === null) {
+        return pendienteOrden;
+    }
+
+    if (factura.estatus === 'recibida') {
+        return 0;
+    }
+
+    const facturado = factura.renglones.find((r) => r.producto_id === partida.producto_id)?.cantidad_facturada ?? 0;
+
+    return Math.min(facturado, pendienteOrden);
+}
+
 export const ARTICULOS_DEMO: AlmArticuloDemo[] = [
-    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', codigo_barras: 'TOR-0012', marca: null, modelo: null, idsteelex: 'MAT-000412', area: 'Estructura', clasificacion_abc: 'A', precio_ultimo: 4.4, imagen_url: imagenDemo('TOR', '#64748b'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 5000, existencia_total: 12780 },
-    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', codigo_barras: 'ELE-7018', marca: 'Infra', modelo: 'E7018', idsteelex: '7018-125', area: null, clasificacion_abc: 'A', precio_ultimo: 63.8, imagen_url: imagenDemo('ELE', '#0f766e'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 200, existencia_total: 414.75 },
-    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', codigo_barras: 'PIN-PRIM', marca: 'Comex', modelo: 'Epoxiprimer 300', idsteelex: null, area: 'Pintura', clasificacion_abc: 'B', precio_ultimo: 218.4, imagen_url: imagenDemo('PIN', '#b45309'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 50, existencia_total: 96 },
-    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', codigo_barras: 'DIS-0450', marca: 'Austromex', modelo: '742', idsteelex: null, area: null, clasificacion_abc: 'B', precio_ultimo: 27.5, imagen_url: imagenDemo('DIS', '#7c3aed'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 40, existencia_total: 8 },
+    { id: 101, codigo: 'TOR-0012', descripcion: 'Tornillo A325 3/4" x 2"', unidad: 'PZA', codigo_barras: 'TOR-0012', idsteelex: 'MAT-000412', area: 'Estructura', clasificacion_abc: 'A', precio_ultimo: 4.4, imagen_url: imagenDemo('TOR', '#64748b'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 5000, existencia_total: 12780 },
+    { id: 102, codigo: 'ELE-7018', descripcion: 'Electrodo 7018 1/8"', unidad: 'KG', codigo_barras: 'ELE-7018', idsteelex: '7018-125', area: null, clasificacion_abc: 'A', precio_ultimo: 63.8, imagen_url: imagenDemo('ELE', '#0f766e'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 200, existencia_total: 414.75 },
+    { id: 103, codigo: 'PIN-PRIM', descripcion: 'Primario epóxico gris', unidad: 'LTS', codigo_barras: 'PIN-PRIM', idsteelex: null, area: 'Pintura', clasificacion_abc: 'B', precio_ultimo: 218.4, imagen_url: imagenDemo('PIN', '#b45309'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 50, existencia_total: 96 },
+    { id: 104, codigo: 'DIS-0450', descripcion: 'Disco de corte 4 1/2"', unidad: 'PZA', codigo_barras: 'DIS-0450', idsteelex: null, area: null, clasificacion_abc: 'B', precio_ultimo: 27.5, imagen_url: imagenDemo('DIS', '#7c3aed'), tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 40, existencia_total: 8 },
     // El código de barras que ya venía impreso en la caja: se respeta en vez de
     // pegarle encima una etiqueta nuestra.
-    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', codigo_barras: '7501234567890', marca: null, modelo: null, idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 48.9, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 30, existencia_total: 0 },
-    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', codigo_barras: 'SIL-EST', marca: 'Sika', modelo: 'Sikasil SG-20', idsteelex: null, area: null, clasificacion_abc: 'A', precio_ultimo: 318.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 42 },
+    { id: 105, codigo: 'GUA-CARN', descripcion: 'Guante de carnaza', unidad: 'PAR', codigo_barras: '7501234567890', idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 48.9, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 30, existencia_total: 0 },
+    { id: 106, codigo: 'SIL-EST', descripcion: 'Silicón estructural negro', unidad: 'CTO', codigo_barras: 'SIL-EST', idsteelex: null, area: null, clasificacion_abc: 'A', precio_ultimo: 318.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 42 },
     // Los dos últimos que se dieron de alta ya nacieron con el consecutivo.
-    { id: 107, codigo: 'ART-00011', descripcion: 'Broca cobalto 1/4"', unidad: 'PZA', codigo_barras: 'ART-00011', marca: 'DeWalt', modelo: 'DW1207', idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 89.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 64 },
-    { id: 108, codigo: 'ART-00012', descripcion: 'Extensión eléctrica 25 m calibre 12', unidad: 'PZA', codigo_barras: 'ART-00012', marca: 'Voltech', modelo: '48042', idsteelex: null, area: null, clasificacion_abc: 'B', precio_ultimo: 1240.0, imagen_url: null, tipo: 'herramienta', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 4, existencia_total: 9 },
+    { id: 107, codigo: 'ART-00011', descripcion: 'Broca cobalto 1/4"', unidad: 'PZA', codigo_barras: 'ART-00011', idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 89.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 20, existencia_total: 64 },
+    { id: 108, codigo: 'ART-00012', descripcion: 'Extensión eléctrica 25 m calibre 12', unidad: 'PZA', codigo_barras: 'ART-00012', idsteelex: null, area: null, clasificacion_abc: 'B', precio_ultimo: 1240.0, imagen_url: null, tipo: 'activo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: 4, existencia_total: 9 },
     // La pulidora se presta bajo resguardo: cada pieza lleva serie y dueño.
-    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', codigo_barras: 'PUL-4120', marca: 'DeWalt', modelo: 'DWE4120', idsteelex: 'HERR-0098', area: 'Herramienta', clasificacion_abc: 'A', precio_ultimo: 2180.0, imagen_url: imagenDemo('PUL', '#be123c'), tipo: 'herramienta', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 14 },
+    { id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', codigo_barras: 'PUL-4120', idsteelex: 'HERR-0098', area: 'Herramienta', clasificacion_abc: 'A', precio_ultimo: 2180.0, imagen_url: imagenDemo('PUL', '#be123c'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 14 },
     // El andamio también se presta, pero por bulto: serializarlo no aporta.
-    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', codigo_barras: 'AND-MOD', marca: null, modelo: null, idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 1850.0, imagen_url: null, tipo: 'herramienta', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 320 },
-    { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', codigo_barras: 'VEH-0007', marca: 'Ford', modelo: 'Ranger XL 2024', idsteelex: null, area: null, clasificacion_abc: 'A', precio_ultimo: 612000.0, imagen_url: imagenDemo('VEH', '#1d4ed8'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 1 },
+    { id: 202, codigo: 'AND-MOD', descripcion: 'Módulo de andamio 1.90 m', unidad: 'PZA', codigo_barras: 'AND-MOD', idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 1850.0, imagen_url: null, tipo: 'activo', requiere_verificacion: false, controla_inventario: true, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 320 },
+    { id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', unidad: 'PZA', codigo_barras: 'VEH-0007', idsteelex: null, area: null, clasificacion_abc: 'A', precio_ultimo: 612000.0, imagen_url: imagenDemo('VEH', '#1d4ed8'), tipo: 'activo', requiere_verificacion: true, controla_inventario: true, se_controla_por_pieza: true, stock_minimo: null, existencia_total: 1 },
     // Sin kardex no hay nada que contar ni que etiquetar: un flete no se guarda.
-    { id: 302, codigo: 'SRV-FLET', descripcion: 'Flete foráneo', unidad: 'SRV', codigo_barras: null, marca: null, modelo: null, idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 8500.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: false, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 0 },
+    { id: 302, codigo: 'SRV-FLET', descripcion: 'Flete foráneo', unidad: 'SRV', codigo_barras: null, idsteelex: null, area: null, clasificacion_abc: 'C', precio_ultimo: 8500.0, imagen_url: null, tipo: 'insumo', requiere_verificacion: false, controla_inventario: false, se_controla_por_pieza: false, stock_minimo: null, existencia_total: 0 },
 ];
 
 /**
@@ -264,15 +544,129 @@ export function preciosDe(articuloId: number): AlmPrecioDemo[] {
  * una suma 1 a la existencia de su producto; el kardex por cantidad no cambia.
  */
 export const ACTIVOS_DEMO: AlmActivoDemo[] = [
-    { id: 1, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-07', codigo_barras: 'PUL-4120-07', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'prestado', condicion: 'Buena' },
-    { id: 2, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-08', codigo_barras: 'PUL-4120-08', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'prestado', condicion: 'Buena' },
-    { id: 3, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-11', codigo_barras: 'PUL-4120-11', almacen: 'HER', ubicacion: 'Canastilla de préstamo', estatus: 'disponible', condicion: 'Buena' },
-    { id: 4, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-12', codigo_barras: 'PUL-4120-12', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'en_reparacion', condicion: 'Carbones gastados' },
-    { id: 5, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-14', codigo_barras: 'PUL-4120-14', almacen: 'HER', ubicacion: 'Estantería de herramienta', estatus: 'prestado', condicion: 'Regular' },
+    { id: 1, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-07', marca: 'DeWalt', modelo: 'DWE4120', id_mantenimiento: 'MTO-0071', codigo_barras: 'PUL-4120-07', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'prestado', condicion: 'Buena' },
+    { id: 2, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-08', marca: 'DeWalt', modelo: 'DWE4120', id_mantenimiento: 'MTO-0072', codigo_barras: 'PUL-4120-08', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'prestado', condicion: 'Buena' },
+    { id: 3, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-11', marca: 'Makita', modelo: 'GA4530', id_mantenimiento: 'MTO-0088', codigo_barras: 'PUL-4120-11', almacen: 'HER', ubicacion_id: 14, costo: 2340.0, estatus: 'disponible', condicion: 'Buena' },
+    { id: 4, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-12', marca: 'DeWalt', modelo: 'DWE4120', id_mantenimiento: 'MTO-0073', codigo_barras: 'PUL-4120-12', almacen: 'HER', ubicacion_id: 13, costo: 2180.0, estatus: 'en_reparacion', condicion: 'Carbones gastados' },
+    { id: 5, producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', no_serie: 'PUL-4120-14', marca: 'DeWalt', modelo: 'DWE4120', id_mantenimiento: null, codigo_barras: 'PUL-4120-14', almacen: 'HER', ubicacion_id: 13, costo: 2020.0, estatus: 'prestado', condicion: 'Regular' },
     // El VIN trae letras y números pero no guiones: se etiqueta con el nuestro
     // para que el lector no dependa de lo que traiga grabado el fabricante.
-    { id: 6, producto_id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', no_serie: '3FTTW8E9XRA12345', codigo_barras: 'VEH-0007-01', almacen: 'AG', ubicacion: null, estatus: 'prestado', condicion: 'Buena' },
+    // Sin ubicación: una camioneta no se guarda en un rack, y así se ve que el
+    // renglón «sin acomodar» no siempre es un descuido.
+    { id: 6, producto_id: 301, codigo: 'VEH-0007', descripcion: 'Camioneta Ford Ranger 2024', no_serie: '3FTTW8E9XRA12345', marca: 'Ford', modelo: 'Ranger XL 2024', id_mantenimiento: 'VEH-07', codigo_barras: 'VEH-0007-01', almacen: 'AG', ubicacion_id: null, costo: 789400.0, estatus: 'prestado', condicion: 'Buena' },
 ];
+
+/**
+ * Los activos vistos como existencia: una fila por almacén y artículo, no por
+ * número de serie.
+ *
+ * La pieza y el saldo no son dos inventarios: cada pieza suma 1 a la existencia
+ * de su artículo. Lo que cambia es el detalle con el que se puede responder
+ * —cuáles son y en qué anda cada una— y por eso el renglón carga su desglose.
+ *
+ * `baja` no cuenta: es una pieza que ya no existe para el almacén aunque su
+ * historia se conserve. Prestada y en reparación sí cuentan, porque siguen
+ * siendo de la empresa; lo que no son es *disponibles*.
+ */
+function existenciasDeActivos(): AlmExistenciaDemo[] {
+    type Grupo = {
+        activo: AlmActivoDemo;
+        cantidad: number;
+        costoTotal: number;
+        piezas: AlmExistenciaPiezas;
+    };
+
+    const grupos = new Map<string, Grupo>();
+
+    ACTIVOS_DEMO.filter((a) => a.estatus !== 'baja').forEach((a) => {
+        // Almacén y artículo, nada más: las 5 pulidoras de HER son un renglón
+        // aunque estén repartidas en dos estantes. El lugar no parte la fila,
+        // se guarda aparte para que el filtro por ubicación siga sirviendo.
+        const clave = `${a.almacen}|${a.codigo}`;
+        const grupo = grupos.get(clave) ?? {
+            activo: a,
+            cantidad: 0,
+            costoTotal: 0,
+            piezas: { disponibles: 0, prestadas: 0, en_reparacion: 0, ubicaciones: [] },
+        };
+
+        grupo.cantidad += 1;
+        grupo.costoTotal += a.costo;
+
+        if (!grupo.piezas.ubicaciones.includes(a.ubicacion_id)) {
+            grupo.piezas.ubicaciones.push(a.ubicacion_id);
+        }
+
+        if (a.estatus === 'disponible') {
+            grupo.piezas.disponibles += 1;
+        } else if (a.estatus === 'prestado') {
+            grupo.piezas.prestadas += 1;
+        } else if (a.estatus === 'en_reparacion') {
+            grupo.piezas.en_reparacion += 1;
+        }
+
+        grupos.set(clave, grupo);
+    });
+
+    return [...grupos.values()].map((g) => ({
+        almacen: g.activo.almacen,
+        producto: g.activo.codigo,
+        descripcion: g.activo.descripcion,
+        unidad: 'PZA',
+        cantidad: g.cantidad,
+        // Promedio de verdad, no el costo de la última que entró.
+        costo_promedio: g.costoTotal / g.cantidad,
+        // Un solo lugar se muestra como cualquier otro renglón; repartido queda
+        // en null y la pantalla lo dice con `piezas.ubicaciones`.
+        ubicacion_id: g.piezas.ubicaciones.length === 1 ? g.piezas.ubicaciones[0] : null,
+        piezas: g.piezas,
+    }));
+}
+
+/**
+ * Todo lo que hay, medido y contado en la misma tabla.
+ *
+ * Existencias es la pantalla de «qué tengo», y un almacenista al que le
+ * preguntan por una pulidora no debería tener que saber que las pulidoras se
+ * llevan en otro lado. Los activos entran agrupados por almacén y artículo
+ * —igual que el material—, y el renglón dice cuántas de esas piezas están
+ * realmente disponibles.
+ */
+export const EXISTENCIAS_CON_ACTIVOS_DEMO: AlmExistenciaDemo[] = [...EXISTENCIAS_DEMO, ...existenciasDeActivos()];
+
+/**
+ * Lo que hay en un almacén, medido y contado junto: es lo que se responde
+ * cuando preguntan cuánto vale esa bodega.
+ *
+ * Los datos de ejemplo sólo conocen la clave, así que dos almacenes que la
+ * comparten entre obras —el `A` de T4 y el de MBP— se ven el mismo renglón.
+ * Con el kardex real la existencia cuelga del id del almacén y el empate
+ * desaparece solo.
+ */
+export function existenciasDe(claveAlmacen: string): AlmExistenciaDemo[] {
+    return EXISTENCIAS_CON_ACTIVOS_DEMO.filter((e) => e.almacen === claveAlmacen);
+}
+
+/** Lo que vale un puño de renglones: cantidad por costo promedio. */
+export function valorDeExistencias(existencias: AlmExistenciaDemo[]): number {
+    return existencias.reduce((suma, e) => suma + e.cantidad * e.costo_promedio, 0);
+}
+
+/**
+ * Si el renglón toca ese lugar.
+ *
+ * Un renglón medido está en un solo lado; uno por pieza puede estar repartido,
+ * y filtrar por «Estantería de herramienta» tiene que traerlo aunque una de sus
+ * pulidoras esté en la canastilla.
+ */
+export function existenciaEnUbicacion(existencia: AlmExistenciaDemo, ubicacionId: number): boolean {
+    return existencia.ubicacion_id === ubicacionId || (existencia.piezas?.ubicaciones.includes(ubicacionId) ?? false);
+}
+
+/** Si algo de ese renglón está sin acomodar. En los repartidos, basta una pieza. */
+export function existenciaSinAcomodar(existencia: AlmExistenciaDemo): boolean {
+    return existencia.piezas ? existencia.piezas.ubicaciones.includes(null) : existencia.ubicacion_id === null;
+}
 
 export const PRESTAMOS_DEMO: AlmPrestamoDemo[] = [
     // Vencido: debía volver el 2026-08-04 y sigue afuera.
@@ -323,6 +717,20 @@ export function activosPrestables(claveAlmacen: string | undefined): AlmActivoDe
     return ACTIVOS_DEMO.filter((a) => a.almacen === claveAlmacen && a.estatus === 'disponible');
 }
 
+/** Lo que trae afuera una persona, para no tener que ir a buscarlo a Préstamos. */
+export function prestamosAbiertosDe(responsable: string): AlmPrestamoDemo[] {
+    return PRESTAMOS_DEMO.filter((p) => p.responsable === responsable && p.estatus === 'abierto');
+}
+
+/** Quién trae herramienta sin devolver, ordenado por quién trae más. */
+export function responsablesConPrestamos(): string[] {
+    const abiertos = PRESTAMOS_DEMO.filter((p) => p.estatus === 'abierto');
+
+    return [...new Set(abiertos.map((p) => p.responsable))].sort(
+        (a, b) => prestamosAbiertosDe(b).length - prestamosAbiertosDe(a).length || a.localeCompare(b),
+    );
+}
+
 export const USUARIOS_DEMO: AlmUsuarioDemo[] = [
     { id: 1, nombre: 'J. Briones', puesto: 'Jefe de almacén' },
     { id: 2, nombre: 'M. Rangel', puesto: 'Almacenista AG' },
@@ -343,36 +751,36 @@ export const APROBACIONES_DEMO: AlmReglaAprobacion[] = [
 ];
 
 export const PEDIDOS_DEMO: AlmPedidoDemo[] = [
-    { id: 23, folio: 'PED-2608-0023', fecha: '2026-08-06', solicitante: 'M. Rangel', departamento: 'Montaje', obra: 'T4 — Torre 4', almacen: 'AG', fecha_requerida: '2026-08-08', estatus: 'aprobado', detalle: [
+    { id: 23, folio: 'PED-2608-0023', fecha: '2026-08-06', solicitante: 'M. Rangel', departamento: 'Montaje', obra: 'T4 — Torre 4', recibe: null, grupo_trabajo: null, almacen: 'AG', fecha_requerida: '2026-08-08', estatus: 'aprobado', detalle: [
         // Surtido a medias: la salida nueva debe traer sólo lo que falta.
         { producto_id: 101, cantidad_solicitada: 2000, cantidad_surtida: 800 },
         { producto_id: 102, cantidad_solicitada: 50, cantidad_surtida: 50 },
         { producto_id: 104, cantidad_solicitada: 30, cantidad_surtida: 0 },
     ] },
-    { id: 22, folio: 'PED-2608-0022', fecha: '2026-08-06', solicitante: 'L. Ortega', departamento: 'Montaje', obra: 'T4 — Torre 4', almacen: 'AG', fecha_requerida: '2026-08-08', estatus: 'pendiente', detalle: [
+    { id: 22, folio: 'PED-2608-0022', fecha: '2026-08-06', solicitante: 'L. Ortega', departamento: 'Montaje', obra: 'T4 — Torre 4', recibe: null, grupo_trabajo: null, almacen: 'AG', fecha_requerida: '2026-08-08', estatus: 'pendiente', detalle: [
         { producto_id: 101, cantidad_solicitada: 500, cantidad_surtida: 0 },
         { producto_id: 103, cantidad_solicitada: 12, cantidad_surtida: 0 },
         { producto_id: 105, cantidad_solicitada: 24, cantidad_surtida: 0 },
         { producto_id: 201, cantidad_solicitada: 2, cantidad_surtida: 0 },
     ] },
     // Consumo interno: la nave de fabricación pide para sí misma, sin obra.
-    { id: 24, folio: 'PED-2608-0024', fecha: '2026-08-06', solicitante: 'J. Briones', departamento: 'Fabricación Nave K', obra: null, almacen: 'AG', fecha_requerida: '2026-08-07', estatus: 'aprobado', detalle: [
+    { id: 24, folio: 'PED-2608-0024', fecha: '2026-08-06', solicitante: 'J. Briones', departamento: 'Fabricación Nave K', obra: null, recibe: 'A. Pérez', grupo_trabajo: 'Cuadrilla B · Soldadura', almacen: 'AG', fecha_requerida: '2026-08-07', estatus: 'aprobado', detalle: [
         { producto_id: 102, cantidad_solicitada: 120, cantidad_surtida: 0 },
         { producto_id: 104, cantidad_solicitada: 60, cantidad_surtida: 0 },
     ] },
-    { id: 25, folio: 'PED-2608-0025', fecha: '2026-08-05', solicitante: 'M. Rangel', departamento: 'Pintura', obra: null, almacen: 'AG', fecha_requerida: '2026-08-06', estatus: 'surtido', detalle: [
+    { id: 25, folio: 'PED-2608-0025', fecha: '2026-08-05', solicitante: 'M. Rangel', departamento: 'Pintura', obra: null, recibe: null, grupo_trabajo: null, almacen: 'AG', fecha_requerida: '2026-08-06', estatus: 'surtido', detalle: [
         { producto_id: 103, cantidad_solicitada: 40, cantidad_surtida: 40 },
     ] },
-    { id: 21, folio: 'PED-2608-0021', fecha: '2026-08-05', solicitante: 'M. Rangel', departamento: 'Montaje', obra: 'MBP — Museo Bellas Artes', almacen: 'AG', fecha_requerida: '2026-08-07', estatus: 'aprobado', detalle: [
+    { id: 21, folio: 'PED-2608-0021', fecha: '2026-08-05', solicitante: 'M. Rangel', departamento: 'Montaje', obra: 'MBP — Museo Bellas Artes', recibe: null, grupo_trabajo: null, almacen: 'AG', fecha_requerida: '2026-08-07', estatus: 'aprobado', detalle: [
         { producto_id: 106, cantidad_solicitada: 8, cantidad_surtida: 0 },
         { producto_id: 103, cantidad_solicitada: 20, cantidad_surtida: 0 },
     ] },
-    { id: 20, folio: 'PED-2608-0020', fecha: '2026-08-04', solicitante: 'L. Ortega', departamento: 'Montaje', obra: 'T4 — Torre 4', almacen: 'AG', fecha_requerida: '2026-08-05', estatus: 'surtido', detalle: [
+    { id: 20, folio: 'PED-2608-0020', fecha: '2026-08-04', solicitante: 'L. Ortega', departamento: 'Montaje', obra: 'T4 — Torre 4', recibe: null, grupo_trabajo: null, almacen: 'AG', fecha_requerida: '2026-08-05', estatus: 'surtido', detalle: [
         { producto_id: 101, cantidad_solicitada: 1200, cantidad_surtida: 1200 },
         { producto_id: 102, cantidad_solicitada: 40, cantidad_surtida: 40 },
         { producto_id: 104, cantidad_solicitada: 15, cantidad_surtida: 15 },
     ] },
-    { id: 19, folio: 'PED-2607-0019', fecha: '2026-07-31', solicitante: 'R. Salas', departamento: 'Fachadas', obra: 'T4 — Torre 4', almacen: 'FAK', fecha_requerida: '2026-08-01', estatus: 'rechazado', detalle: [
+    { id: 19, folio: 'PED-2607-0019', fecha: '2026-07-31', solicitante: 'R. Salas', departamento: 'Fachadas', obra: 'T4 — Torre 4', recibe: null, grupo_trabajo: null, almacen: 'FAK', fecha_requerida: '2026-08-01', estatus: 'rechazado', detalle: [
         { producto_id: 106, cantidad_solicitada: 6, cantidad_surtida: 0 },
     ] },
 ];
@@ -385,6 +793,18 @@ export const DEPARTAMENTOS_DEMO = [
     { id: 4, nombre: 'Montaje' },
     { id: 5, nombre: 'Fachadas' },
     { id: 6, nombre: 'Mantenimiento' },
+];
+
+/**
+ * Las cuadrillas de planta, que en firme salen de `prod_grupos_trabajo`. Aquí
+ * se copian a mano nada más para la maqueta: el almacén no las da de alta ni
+ * las edita, sólo las nombra al prestar herramienta que se queda en planta.
+ */
+export const GRUPOS_TRABAJO_DEMO: AlmGrupoTrabajoDemo[] = [
+    { id: 1, descripcion: 'Cuadrilla A · Armado', ubicaciones: ['Línea 1 · Módulo 1', 'Línea 1 · Módulo 2'], empleados: 4 },
+    { id: 2, descripcion: 'Cuadrilla B · Soldadura', ubicaciones: ['Línea 2 · Módulo 1'], empleados: 3 },
+    { id: 3, descripcion: 'Cuadrilla C · Habilitado', ubicaciones: ['Patio de habilitado'], empleados: 2 },
+    { id: 4, descripcion: 'Cuadrilla D · Pintura', ubicaciones: ['Nave de pintura', 'Patio de habilitado'], empleados: 2 },
 ];
 
 /**
@@ -423,10 +843,40 @@ export function pedidosSurtibles(claveAlmacen: string | undefined): AlmPedidoDem
     );
 }
 
+/**
+ * Pedidos que una transferencia puede surtir: los que le pidieron al almacén
+ * origen y van a una obra.
+ *
+ * Los de consumo interno no salen por aquí. Es la misma regla que dibuja
+ * `comoSeSurte`: si el material se queda en la planta no hay a dónde
+ * transferirlo, se entrega con una salida.
+ */
+export function pedidosTransferibles(claveAlmacen: string | undefined): AlmPedidoDemo[] {
+    return pedidosSurtibles(claveAlmacen).filter((p) => p.obra !== null);
+}
+
+/**
+ * Los almacenes de una obra, que son los destinos válidos de su pedido.
+ *
+ * La obra viene etiquetada como `T4 — Torre 4` y el almacén sólo guarda la
+ * clave, así que se compara contra lo que va antes del guión.
+ */
+export function almacenesDeObra(obra: string): typeof ALMACENES_DEMO {
+    const clave = obra.split(' — ')[0];
+
+    return ALMACENES_DEMO.filter((a) => a.obra === clave);
+}
+
+/**
+ * En qué se puede medir un artículo. Lo comparten el alta y la edición: si cada
+ * pantalla trajera su propia lista, un artículo dado de alta en MTS podría
+ * quedarse sin esa opción al corregirlo.
+ */
+export const UNIDADES_ARTICULO = ['PZA', 'KG', 'LTS', 'MTS', 'PAR', 'CTO', 'SRV'];
+
 /** Cómo se lee cada tipo de producto en pantalla. */
 export const TIPOS_ARTICULO: Record<AlmProductoTipo, string> = {
     insumo: 'Insumo',
-    herramienta: 'Herramienta',
     activo: 'Activo',
 };
 
@@ -448,7 +898,8 @@ export const DOCUMENTOS_ALM: Record<AlmDocumentoTipo, string> = {
  */
 export const AYUDA_DOCUMENTO: Partial<Record<AlmDocumentoTipo, string>> = {
     ajuste: 'El único movimiento que cambia la existencia sin un documento que lo respalde.',
-    prestamo: 'Aparte del resguardo que firma quien se la lleva: esto es quién autoriza que salga del pañol.',
+    prestamo: 'Aparte del resguardo que firma quien se la lleva: esto es quién autoriza que salga del almacén.',
+    devolucion: 'Cierra el resguardo de una pieza. No mueve existencia, pero deja constancia de cómo volvió.',
 };
 
 /** Color del badge de estatus de pedido. */
@@ -466,6 +917,13 @@ export function disponibleDemo(almacen: string, codigoProducto: string): number 
     const fila = EXISTENCIAS_DEMO.find((e) => e.almacen === almacen && e.producto === codigoProducto);
 
     return fila ? fila.cantidad : null;
+}
+
+/** El mismo dato, buscado por id: es como lo pide el capturador de renglones. */
+export function disponiblePorProductoDemo(almacen: string, productoId: number): number | null {
+    const producto = PRODUCTOS_DEMO.find((p) => p.id === productoId);
+
+    return producto ? disponibleDemo(almacen, producto.codigo) : null;
 }
 
 /**
@@ -551,7 +1009,10 @@ export const CONTEOS_DEMO: AlmConteoDemo[] = [
         folio: 'CIC-2608-0010',
         origen: 'manual',
         almacen: 'HER',
-        ubicacion: 'Estantería de herramienta',
+        // Todo el almacén y no un estante: la existencia de un artículo por
+        // pieza es del almacén completo, así que contar sólo la estantería
+        // dejaría fuera la que está en la canastilla.
+        ubicacion: null,
         clasificacion: null,
         fecha_programada: '2026-08-10',
         fecha_cierre: null,
@@ -559,7 +1020,7 @@ export const CONTEOS_DEMO: AlmConteoDemo[] = [
         estatus: 'pendiente',
         ajuste_folio: null,
         renglones: [
-            { producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', ubicacion: 'Estantería', cantidad_sistema: 14, cantidad_contada: null },
+            { producto_id: 201, codigo: 'PUL-4120', descripcion: 'Pulidora 4 1/2" 850W', unidad: 'PZA', ubicacion: null, cantidad_sistema: 5, cantidad_contada: null },
         ],
     },
     // Vencido: tocaba el 4 y sigue sin contarse.

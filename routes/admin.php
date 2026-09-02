@@ -1,7 +1,17 @@
 <?php
 
+use App\Http\Controllers\Admin\Alm\ActivoController as AlmActivoController;
+use App\Http\Controllers\Admin\Alm\AjusteController as AlmAjusteController;
 use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
 use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
+use App\Http\Controllers\Admin\Alm\ArticuloController as AlmArticuloController;
+use App\Http\Controllers\Admin\Alm\EntradaController as AlmEntradaController;
+use App\Http\Controllers\Admin\Alm\ExistenciaController as AlmExistenciaController;
+use App\Http\Controllers\Admin\Alm\KardexController as AlmKardexController;
+use App\Http\Controllers\Admin\Alm\PedidoController as AlmPedidoController;
+use App\Http\Controllers\Admin\Alm\SalidaController as AlmSalidaController;
+use App\Http\Controllers\Admin\Alm\TransferenciaController as AlmTransferenciaController;
+use App\Http\Controllers\Admin\Alm\UbicacionController as AlmUbicacionController;
 use App\Http\Controllers\Admin\Alm\VistasController as AlmVistasController;
 use App\Http\Controllers\Admin\BadgeConfigController;
 use App\Http\Controllers\Admin\BancoController;
@@ -265,74 +275,149 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // controlador real conforme cada una se construya. Cada una ya va
         // detras de su permiso definitivo: el modulo mueve existencias de
         // forma irreversible, asi que reciclar un solo permiso no alcanza.
-        Route::get('existencias', [AlmVistasController::class, 'existencias'])
+        // Existencias y kardex: solo lectura. Corregir un movimiento es capturar
+        // el contrario, no borrar el renglon.
+        Route::get('existencias', [AlmExistenciaController::class, 'index'])
             ->middleware('permission:alm.existencias.ver')
             ->name('existencias.index');
-        Route::get('kardex', [AlmVistasController::class, 'kardex'])
+        Route::get('kardex', [AlmKardexController::class, 'index'])
             ->middleware('permission:alm.kardex.ver')
             ->name('kardex.index');
-        Route::get('entradas', [AlmVistasController::class, 'entradas'])
-            ->middleware('permission:alm.entradas.ver')
-            ->name('entradas.index');
-        Route::get('entradas/create', [AlmVistasController::class, 'entradaCreate'])
-            ->middleware('permission:alm.entradas.crear')
-            ->name('entradas.create');
-        Route::get('salidas', [AlmVistasController::class, 'salidas'])
+        // Entradas: la recepcion vista desde Almacen. Escribe en costos_entregas,
+        // que es lo que destraba la factura — no es una tabla nueva. Aqui vive
+        // la entrada SIN orden; la que va contra una orden se captura en el
+        // flujo de Costos, donde esta el tope contra lo pedido y lo facturado.
+        Route::resource('entradas', AlmEntradaController::class)
+            ->only(['index', 'create', 'store', 'show'])
+            ->parameters(['entradas' => 'entrada'])
+            ->middlewareFor(['index', 'show'], 'permission:alm.entradas.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.entradas.crear');
+        // Salidas: entrega de material que se queda en el mismo domicilio. Sin
+        // edit ni update, se corrige cancelando y volviendo a capturar.
+        Route::resource('salidas', AlmSalidaController::class)
+            ->only(['index', 'create', 'store', 'show'])
+            ->parameters(['salidas' => 'salida'])
+            ->middlewareFor(['index', 'show'], 'permission:alm.salidas.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.salidas.crear');
+        // El vale impreso: la hoja sellada con el folio en codigo de barras que
+        // firma quien se lleva el material. Es consulta, va con 'ver'.
+        Route::get('salidas/{salida}/pdf', [AlmSalidaController::class, 'pdf'])
+            ->whereNumber('salida')
             ->middleware('permission:alm.salidas.ver')
-            ->name('salidas.index');
-        Route::get('salidas/create', [AlmVistasController::class, 'salidaCreate'])
+            ->name('salidas.pdf');
+        Route::patch('salidas/{salida}/cancelar', [AlmSalidaController::class, 'cancelar'])
+            ->whereNumber('salida')
             ->middleware('permission:alm.salidas.crear')
-            ->name('salidas.create');
-        Route::get('transferencias', [AlmVistasController::class, 'transferencias'])
+            ->name('salidas.cancelar');
+        // Transferencias: un folio y dos firmas. `create` es el envio y `show`
+        // es la recepcion del destino, no una ficha de consulta — por eso va
+        // con 'recibir' y no con 'ver'. Declarada despues de 'create' o esa
+        // ruta se la comeria.
+        Route::get('transferencias', [AlmTransferenciaController::class, 'index'])
             ->middleware('permission:alm.transferencias.ver')
             ->name('transferencias.index');
-        Route::get('transferencias/create', [AlmVistasController::class, 'transferenciaCreate'])
+        Route::get('transferencias/create', [AlmTransferenciaController::class, 'create'])
             ->middleware('permission:alm.transferencias.enviar')
             ->name('transferencias.create');
+        Route::post('transferencias', [AlmTransferenciaController::class, 'store'])
+            ->middleware('permission:alm.transferencias.enviar')
+            ->name('transferencias.store');
+        Route::get('transferencias/{transferencia}', [AlmTransferenciaController::class, 'show'])
+            ->whereNumber('transferencia')
+            ->middleware('permission:alm.transferencias.recibir')
+            ->name('transferencias.show');
+        Route::patch('transferencias/{transferencia}/recibir', [AlmTransferenciaController::class, 'recibir'])
+            ->whereNumber('transferencia')
+            ->middleware('permission:alm.transferencias.recibir')
+            ->name('transferencias.recibir');
+        Route::patch('transferencias/{transferencia}/cancelar', [AlmTransferenciaController::class, 'cancelar'])
+            ->whereNumber('transferencia')
+            ->middleware('permission:alm.transferencias.enviar')
+            ->name('transferencias.cancelar');
         Route::get('devoluciones', [AlmVistasController::class, 'devoluciones'])
             ->middleware('permission:alm.devoluciones.ver')
             ->name('devoluciones.index');
         Route::get('devoluciones/create', [AlmVistasController::class, 'devolucionCreate'])
             ->middleware('permission:alm.devoluciones.crear')
             ->name('devoluciones.create');
-        Route::get('ajustes', [AlmVistasController::class, 'ajustes'])
-            ->middleware('permission:alm.ajustes.ver')
-            ->name('ajustes.index');
-        Route::get('ajustes/create', [AlmVistasController::class, 'ajusteCreate'])
+        // Ajustes: el unico documento que cambia la existencia sin material de
+        // por medio. Sin edit/update/destroy, como todos los de almacen: un
+        // ajuste equivocado se corrige con otro y los dos quedan en el kardex.
+        Route::resource('ajustes', AlmAjusteController::class)
+            ->only(['index', 'create', 'store', 'show'])
+            ->parameters(['ajustes' => 'ajuste'])
+            ->middlewareFor(['index', 'show'], 'permission:alm.ajustes.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.ajustes.crear');
+
+        // Lo que hay ahora en el almacen, para arrancar la hoja del ajuste con
+        // el saldo registrado en vez de a mano.
+        Route::get('almacenes/{almacen}/existencias', [AlmAjusteController::class, 'existencias'])
+            ->whereNumber('almacen')
             ->middleware('permission:alm.ajustes.crear')
-            ->name('ajustes.create');
-        Route::get('pedidos', [AlmVistasController::class, 'pedidos'])
-            ->middleware('permission:alm.pedidos.ver')
-            ->name('pedidos.index');
-        Route::get('pedidos/create', [AlmVistasController::class, 'pedidoCreate'])
-            ->middleware('permission:alm.pedidos.crear')
-            ->name('pedidos.create');
+            ->name('almacenes.existencias');
+        // Pedidos: lo que un area le pide al almacen. Nace aprobado mientras la
+        // matriz de aprobadores no exista.
+        Route::resource('pedidos', AlmPedidoController::class)
+            ->only(['index', 'create', 'store', 'show'])
+            ->parameters(['pedidos' => 'pedido'])
+            ->middlewareFor(['index', 'show'], 'permission:alm.pedidos.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.pedidos.crear');
+        Route::patch('pedidos/{pedido}/cancelar', [AlmPedidoController::class, 'cancelar'])
+            ->whereNumber('pedido')
+            ->middleware('permission:alm.pedidos.cancelar')
+            ->name('pedidos.cancelar');
         Route::get('prestamos', [AlmVistasController::class, 'prestamos'])
             ->middleware('permission:alm.prestamos.ver')
             ->name('prestamos.index');
         Route::get('prestamos/create', [AlmVistasController::class, 'prestamoCreate'])
             ->middleware('permission:alm.prestamos.crear')
             ->name('prestamos.create');
-        Route::get('activos', [AlmVistasController::class, 'activos'])
-            ->middleware('permission:alm.activos.ver')
-            ->name('activos.index');
-        Route::get('activos/create', [AlmVistasController::class, 'activoCreate'])
-            ->middleware('permission:alm.activos.crear')
-            ->name('activos.create');
-        Route::get('articulos', [AlmVistasController::class, 'articulos'])
-            ->middleware('permission:alm.articulos.ver')
-            ->name('articulos.index');
-        Route::get('articulos/create', [AlmVistasController::class, 'articuloCreate'])
-            ->middleware('permission:alm.articulos.crear')
-            ->name('articulos.create');
-        // Despues de 'create' o la ficha se comeria esa ruta
-        Route::get('articulos/{articulo}', [AlmVistasController::class, 'articuloShow'])
-            ->whereNumber('articulo')
-            ->middleware('permission:alm.articulos.ver')
-            ->name('articulos.show');
-        Route::get('ubicaciones', [AlmVistasController::class, 'ubicaciones'])
+        // Activos: el padron de piezas con numero de serie. Sin show, la pieza
+        // se corrige desde el modal de lapiz de su renglon. La baja va aparte
+        // de la edicion porque descarga existencia.
+        Route::resource('activos', AlmActivoController::class)
+            ->only(['index', 'create', 'store', 'update'])
+            ->parameters(['activos' => 'activo'])
+            ->middlewareFor(['index'], 'permission:alm.activos.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.activos.crear')
+            ->middlewareFor(['update'], 'permission:alm.activos.editar');
+        Route::patch('activos/{activo}/baja', [AlmActivoController::class, 'baja'])
+            ->whereNumber('activo')
+            ->middleware('permission:alm.activos.editar')
+            ->name('activos.baja');
+        // Catalogo de articulos: es costos_productos visto desde Almacen, no una
+        // tabla nueva. Sin destroy: un articulo con movimientos es parte del
+        // historico del kardex, y se desactiva.
+        Route::resource('articulos', AlmArticuloController::class)
+            ->parameters(['articulos' => 'articulo'])
+            ->except(['destroy'])
+            ->middlewareFor(['index', 'show'], 'permission:alm.articulos.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.articulos.crear')
+            ->middlewareFor(['edit', 'update'], 'permission:alm.articulos.editar');
+
+        // Ubicaciones: una sola pantalla con el arbol y el alta. Sin destroy,
+        // el kardex viejo menciona el lugar y borrarlo dejaria movimientos
+        // apuntando a un anaquel que ya no existe.
+        Route::get('ubicaciones', [AlmUbicacionController::class, 'index'])
             ->middleware('permission:alm.ubicaciones.ver')
             ->name('ubicaciones.index');
+        Route::post('ubicaciones', [AlmUbicacionController::class, 'store'])
+            ->middleware('permission:alm.ubicaciones.crear')
+            ->name('ubicaciones.store');
+        Route::put('ubicaciones/{ubicacion}', [AlmUbicacionController::class, 'update'])
+            ->whereNumber('ubicacion')
+            ->middleware('permission:alm.ubicaciones.editar')
+            ->name('ubicaciones.update');
+        Route::patch('ubicaciones/{ubicacion}/toggle', [AlmUbicacionController::class, 'toggle'])
+            ->whereNumber('ubicacion')
+            ->middleware('permission:alm.ubicaciones.editar')
+            ->name('ubicaciones.toggle');
+        // Acomodar material: la unica columna de alm_existencias que se escribe
+        // fuera del ledger, porque donde esta guardado no cambia el saldo.
+        Route::patch('existencias/{existencia}/ubicacion', [AlmUbicacionController::class, 'asignar'])
+            ->whereNumber('existencia')
+            ->middleware('permission:alm.ubicaciones.editar')
+            ->name('existencias.ubicacion');
         Route::get('conteos', [AlmVistasController::class, 'conteos'])
             ->middleware('permission:alm.conteos.ver')
             ->name('conteos.index');
@@ -413,6 +498,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('requisiciones/{requisicion}/re-apartar', [CostosRequisicionController::class, 'reApartar'])->name('requisiciones.re-apartar');
         Route::post('requisiciones/detalles/{detalle}/clasificacion', [CostosRequisicionCotizacionController::class, 'clasificar'])->name('requisiciones.detalles.clasificar');
         Route::post('requisiciones/detalles/{detalle}/solo-cotizacion', [CostosRequisicionCotizacionController::class, 'soloCotizacion'])->name('requisiciones.detalles.solo-cotizacion');
+        Route::post('requisiciones/detalles/{detalle}/sin-impuestos', [CostosRequisicionCotizacionController::class, 'sinImpuestos'])->name('requisiciones.detalles.sin-impuestos');
         Route::patch('requisiciones/detalles/{detalle}/producto', [CostosRequisicionCotizacionController::class, 'actualizarProducto'])->name('requisiciones.detalles.producto');
         Route::post('requisiciones/{requisicion}/detalles', [CostosRequisicionCotizacionController::class, 'detalleStore'])->name('requisiciones.detalles.store');
         Route::delete('requisiciones/detalles/{detalle}', [CostosRequisicionCotizacionController::class, 'detalleDestroy'])->name('requisiciones.detalles.destroy');
@@ -466,7 +552,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('recepciones', [CostosEntregaController::class, 'index'])
             ->middleware('can:costos.ordenes-compra.ver')
             ->name('recepciones.index');
-        Route::post('ordenes-compra/{ordenCompra}/entregas', [CostosEntregaController::class, 'store'])->name('ordenes-compra.entregas.store');
         Route::post('entregas/{entrega}', [CostosEntregaController::class, 'update'])->name('entregas.update');
         Route::post('entregas/{entrega}/cancelar', [CostosEntregaController::class, 'cancelar'])->name('entregas.cancelar');
         Route::get('entregas/{entrega}/pdf', [CostosEntregaController::class, 'pdf'])->name('entregas.pdf');

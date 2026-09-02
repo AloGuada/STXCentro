@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Models\Alm\Almacen;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -39,6 +40,7 @@ class Entrega extends Model
     protected $fillable = [
         'folio',
         'orden_compra_id',
+        'almacen_id',
         'factura_id',
         'recibido_por',
         'fecha_entrega',
@@ -128,6 +130,23 @@ class Entrega extends Model
     public function media(): MorphOne
     {
         return $this->morphOne(\App\Models\Media::class, 'mediable');
+    }
+
+    /**
+     * Dónde se recibió el material. Nulo en las recepciones que no pasan por un
+     * almacén: ésas no mueven existencia.
+     *
+     * @return BelongsTo<Almacen, $this>
+     */
+    public function almacen(): BelongsTo
+    {
+        return $this->belongsTo(Almacen::class);
+    }
+
+    /** Material que llegó sin compra de por medio. */
+    public function esSinOrden(): bool
+    {
+        return $this->orden_compra_id === null;
     }
 
     public function ordenCompra(): BelongsTo

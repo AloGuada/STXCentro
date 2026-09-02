@@ -8,7 +8,7 @@ import {
     ALMACENES_DEMO,
     ARTICULOS_DEMO,
     CLASES_ABC,
-    EXISTENCIAS_DEMO,
+    EXISTENCIAS_CON_ACTIVOS_DEMO,
     REGLAS_ABC,
     rutaUbicacion,
 } from '@/lib/alm/demo';
@@ -19,7 +19,7 @@ import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Insumos', href: '/admin/almacen/existencias' },
+    { title: 'Inventarios', href: '/admin/almacen/existencias' },
     { title: 'Códigos de barras', href: '/admin/almacen/etiquetas' },
 ];
 
@@ -43,7 +43,7 @@ type Etiqueta = {
     codigo: string;
     descripcion: string;
     barras: string;
-    /** Línea chica de abajo: marca/modelo, o el pañol y la serie de la pieza. */
+    /** Línea chica de abajo: el lugar del artículo, o la marca y el almacén de la pieza. */
     detalle: string | null;
 };
 
@@ -79,14 +79,16 @@ export default function EtiquetasIndex() {
                     (!texto ||
                         p.no_serie.toLowerCase().includes(texto) ||
                         p.codigo.toLowerCase().includes(texto) ||
-                        p.descripcion.toLowerCase().includes(texto))
+                        p.descripcion.toLowerCase().includes(texto) ||
+                        (p.marca ?? '').toLowerCase().includes(texto) ||
+                        (p.modelo ?? '').toLowerCase().includes(texto))
                 );
             }).map((p) => ({
                 clave: `pieza-${p.id}`,
                 codigo: p.no_serie,
                 descripcion: p.descripcion,
                 barras: p.codigo_barras ?? p.no_serie,
-                detalle: `${p.almacen}${p.ubicacion ? ` · ${p.ubicacion}` : ''}`,
+                detalle: [p.marca, p.modelo, p.almacen, rutaUbicacion(p.ubicacion_id)].filter(Boolean).join(' · '),
             }));
         }
 
@@ -96,7 +98,7 @@ export default function EtiquetasIndex() {
                 return false;
             }
 
-            if (almacen && !EXISTENCIAS_DEMO.some((e) => e.almacen === almacen && e.producto === a.codigo)) {
+            if (almacen && !EXISTENCIAS_CON_ACTIVOS_DEMO.some((e) => e.almacen === almacen && e.producto === a.codigo)) {
                 return false;
             }
 
@@ -104,15 +106,9 @@ export default function EtiquetasIndex() {
                 return false;
             }
 
-            return (
-                !texto ||
-                a.codigo.toLowerCase().includes(texto) ||
-                a.descripcion.toLowerCase().includes(texto) ||
-                (a.marca ?? '').toLowerCase().includes(texto) ||
-                (a.modelo ?? '').toLowerCase().includes(texto)
-            );
+            return !texto || a.codigo.toLowerCase().includes(texto) || a.descripcion.toLowerCase().includes(texto);
         }).map((a) => {
-            const existencia = EXISTENCIAS_DEMO.find(
+            const existencia = EXISTENCIAS_CON_ACTIVOS_DEMO.find(
                 (e) => e.producto === a.codigo && (!almacen || e.almacen === almacen),
             );
             const lugar = existencia ? rutaUbicacion(existencia.ubicacion_id) : null;
@@ -122,7 +118,7 @@ export default function EtiquetasIndex() {
                 codigo: a.codigo,
                 descripcion: a.descripcion,
                 barras: a.codigo_barras ?? a.codigo,
-                detalle: [a.marca, a.modelo].filter(Boolean).join(' · ') || lugar,
+                detalle: lugar,
             };
         });
     }, [modo, almacen, clase, texto]);
@@ -232,7 +228,9 @@ export default function EtiquetasIndex() {
                         <SearchIcon className="text-base-content/50 size-4" />
                         <input
                             className="grow"
-                            placeholder={modo === 'pieza' ? 'Buscar por serie...' : 'Buscar por código o marca...'}
+                            placeholder={
+                                modo === 'pieza' ? 'Buscar por serie o marca...' : 'Buscar por código o descripción...'
+                            }
                             value={busqueda}
                             onChange={(e) => setBusqueda(e.target.value)}
                         />

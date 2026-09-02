@@ -231,3 +231,33 @@ function darPermisoVerTodasSolicitudes(\App\Models\User $user): \App\Models\User
 
     return $user;
 }
+
+/**
+ * El almacén al que recibe un usuario en las pruebas de recepción. La captura
+ * vive en Almacén desde que se unificó la entrada, así que quien recibe
+ * necesita el permiso y un almacén visible; se memoriza uno por usuario para no
+ * sembrar un almacén por cada POST.
+ */
+function almacenParaRecibir(\App\Models\User $usuario): \App\Models\Alm\Almacen
+{
+    static $almacenes = [];
+
+    \Spatie\Permission\Models\Permission::firstOrCreate([
+        'name' => 'alm.entradas.crear',
+        'guard_name' => 'web',
+    ]);
+
+    if (! $usuario->hasPermissionTo('alm.entradas.crear')) {
+        $usuario->givePermissionTo('alm.entradas.crear');
+    }
+
+    $clave = (string) $usuario->getKey();
+
+    if (! isset($almacenes[$clave]) || ! \App\Models\Alm\Almacen::whereKey($almacenes[$clave])->exists()) {
+        $almacenes[$clave] = \App\Models\Alm\Almacen::factory()
+            ->create(['responsable_id' => $usuario->getKey()])
+            ->getKey();
+    }
+
+    return \App\Models\Alm\Almacen::findOrFail($almacenes[$clave]);
+}

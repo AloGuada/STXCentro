@@ -71,7 +71,19 @@ class OrdenCompraGenerator
             return $acc + $precio * (float) $s->cantidad;
         }, 0.0);
 
-        $total = $subtotalLineas + $subtotalLineas * (float) config('costos.iva_rate');
+        // Las partidas marcadas "sin impuestos" suman al subtotal pero no a la
+        // base del IVA (la clave genérica del SAT no distingue las exentas).
+        $baseIva = $selecciones->reduce(function ($acc, RequisicionSeleccion $s) {
+            $detalle = $s->detalle ?? RequisicionDetalle::find($s->requisicion_detalle_id);
+            if ($detalle?->sin_impuestos) {
+                return $acc;
+            }
+            $precio = (float) ($s->cotizacionPrecio?->precio_unitario ?? 0);
+
+            return $acc + $precio * (float) $s->cantidad;
+        }, 0.0);
+
+        $total = $subtotalLineas + $baseIva * (float) config('costos.iva_rate');
 
         $diasCredito = ($modoPago === 'credito' && $proveedor?->maneja_credito)
             ? (int) ($proveedor->dias_credito_default ?? 0)
@@ -105,6 +117,7 @@ class OrdenCompraGenerator
                 'obra_rubro_id' => $detalle->obra_rubro_id,
                 'uso_cfdi_id' => $detalle->uso_cfdi_id,
                 'tipo_fiscal' => $detalle->tipo_fiscal,
+                'sin_impuestos' => $detalle->sin_impuestos,
                 'descripcion' => $detalle->descripcion,
                 'codigo_producto' => $sel->cotizacionPrecio?->codigo_producto ?? $detalle->codigo_producto,
                 'unidad' => $detalle->unidad,

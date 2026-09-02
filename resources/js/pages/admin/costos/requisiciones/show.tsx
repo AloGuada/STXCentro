@@ -7,7 +7,12 @@ import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
 import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { OcBuilder } from '@/components/costos/oc-builder';
-import { calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
+import {
+    baseImpuestos,
+    calcularRetenciones,
+    IVA_RATE,
+    type LineaFiscal,
+} from '@/components/costos/retenciones';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -81,6 +86,13 @@ type Props = {
 };
 
 type Tab = 'datos' | 'cotizacion' | 'definir-oc' | 'aprobacion' | 'ocs';
+
+/**
+ * El bloque "Total de las órdenes de compra" del resumen queda oculto de
+ * momento: se confunde con el total del comparativo, que sí incluye las
+ * partidas "solo cotización". El cálculo se conserva para volver a mostrarlo.
+ */
+const MOSTRAR_TOTAL_OCS = false;
 
 const fmtDate = (date: string | null) =>
     date
@@ -782,7 +794,9 @@ export default function RequisicionesShow({
 
     // Total neto a pagar cuando ya hay OC(s) definidas: agrupa las selecciones
     // por (proveedor, OC), calcula retenciones por grupo (espeja el OcBuilder) y
-    // suma el neto de todas.
+    // suma el neto de todas. Las partidas "solo cotización" no se adjudican a
+    // ninguna OC, pero su precio de referencia sí entra al neto (espeja
+    // ComparativoTotalesBuilder, que es el que arma el PDF).
     const resumenNeto = useMemo(() => {
         const provMap = new Map(proveedores.map((p) => [p.id, p]));
         const grupos = new Map<
@@ -790,13 +804,13 @@ export default function RequisicionesShow({
             {
                 proveedorId: number;
                 moneda: string;
-                lines: {
-                    tipo_fiscal: CostosTipoFiscalPartida;
-                    subtotal: number;
-                }[];
+                lines: LineaFiscal[];
             }
         >();
         (requisicion.detalles ?? []).forEach((d) => {
+            // Una partida solo cotización no se adjudica: si arrastra alguna
+            // selección vieja se ignora, su importe entra por referencia abajo.
+            if (d.solo_cotizacion) return;
             (d.selecciones ?? []).forEach((s) => {
                 const moneda = (
                     s.cotizacion_precio?.moneda ?? 'mxn'
@@ -810,31 +824,79 @@ export default function RequisicionesShow({
                     moneda,
                     lines: [],
                 };
-                g.lines.push({ tipo_fiscal: d.tipo_fiscal, subtotal: sub });
+                g.lines.push({
+                    tipo_fiscal: d.tipo_fiscal,
+                    subtotal: sub,
+                    sin_impuestos: d.sin_impuestos,
+                });
                 grupos.set(key, g);
             });
         });
         if (grupos.size === 0) return null;
-        const porMoneda = new Map<string, { subtotal: number; ret: number }>();
+        const porMoneda = new Map<
+            string,
+            { subtotal: number; baseIva: number; ret: number; soloCot: number }
+        >();
         grupos.forEach((g) => {
-            const acc = porMoneda.get(g.moneda) ?? { subtotal: 0, ret: 0 };
+            const acc = porMoneda.get(g.moneda) ?? {
+                subtotal: 0,
+                baseIva: 0,
+                ret: 0,
+                soloCot: 0,
+            };
             acc.subtotal += g.lines.reduce((a, l) => a + l.subtotal, 0);
+            acc.baseIva += baseImpuestos(g.lines);
             acc.ret += calcularRetenciones(
                 provMap.get(g.proveedorId),
                 g.lines,
             ).reduce((a, r) => a + r.monto, 0);
             porMoneda.set(g.moneda, acc);
         });
+        // Precio de referencia de las partidas "solo cotización": el del mejor
+        // proveedor global si cotizó la partida, si no el menor cotizado (misma
+        // regla best-case del comparativo).
+        const mejorId = requisicion.mejor_proveedor?.id ?? null;
+        (requisicion.detalles ?? []).forEach((d) => {
+            if (!d.solo_cotizacion) return;
+            const conPrecio = (d.cotizaciones ?? []).filter(
+                (c) => Number(c.precio_unitario) > 0,
+            );
+            if (conPrecio.length === 0) return;
+            const delMejor = mejorId
+                ? conPrecio.filter((c) => c.proveedor_id === mejorId)
+                : [];
+            const cot = (delMejor.length > 0 ? delMejor : conPrecio).reduce(
+                (a, b) =>
+                    Number(a.precio_unitario) <= Number(b.precio_unitario)
+                        ? a
+                        : b,
+            );
+            const moneda = (cot.moneda ?? 'mxn').toLowerCase();
+            const importe = Number(cot.precio_unitario) * Number(d.cantidad);
+            const acc = porMoneda.get(moneda) ?? {
+                subtotal: 0,
+                baseIva: 0,
+                ret: 0,
+                soloCot: 0,
+            };
+            acc.subtotal += importe;
+            if (!d.sin_impuestos) {
+                acc.baseIva += importe;
+            }
+            acc.soloCot += importe + (d.sin_impuestos ? 0 : importe * IVA_RATE);
+            porMoneda.set(moneda, acc);
+        });
         // Un bloque de totales por divisa (divisas primero, MXN al final); el
         // combinado en MXN se arma en el render con el TC capturado.
         const bloques = Array.from(porMoneda.entries())
-            .map(([moneda, { subtotal, ret }]) => {
-                const iva = subtotal * IVA_RATE;
+            .map(([moneda, { subtotal, baseIva, ret, soloCot }]) => {
+                const iva = baseIva * IVA_RATE;
                 return {
                     moneda,
                     subtotal,
                     iva,
                     ret,
+                    soloCot,
                     total: subtotal + iva,
                     neto: subtotal + iva - ret,
                 };
@@ -852,7 +914,7 @@ export default function RequisicionesShow({
             divisa: divisas.length === 1 ? divisas[0].moneda : null,
             multiDivisa: divisas.length > 1,
         };
-    }, [requisicion.detalles, proveedores]);
+    }, [requisicion.detalles, requisicion.mejor_proveedor, proveedores]);
 
     // Divisa a convertir: la de lo ya seleccionado y, si todavía no hay
     // selección, la que traigan las cotizaciones. Con ella se pide el TC arriba
@@ -1345,7 +1407,13 @@ export default function RequisicionesShow({
                                         disabled={tcCargando}
                                         onClick={() => sugerirTc(divisaTc)}
                                     >
-                                        {tcCargando ? '...' : 'Sugerir'}
+                                        {/* El texto que cambia va envuelto:
+                                            React reemplaza el <span>, no un
+                                            nodo de texto suelto que un
+                                            traductor pudo haber sustituido. */}
+                                        <span>
+                                            {tcCargando ? '...' : 'Sugerir'}
+                                        </span>
                                     </button>
                                     <button
                                         type="button"
@@ -1356,9 +1424,11 @@ export default function RequisicionesShow({
                                         }
                                         onClick={guardarTc}
                                     >
-                                        {tcGuardando
-                                            ? 'Guardando...'
-                                            : 'Guardar TC'}
+                                        <span>
+                                            {tcGuardando
+                                                ? 'Guardando...'
+                                                : 'Guardar TC'}
+                                        </span>
                                     </button>
                                 </div>
                                 <p className="mt-1 text-[11px] text-base-content/50">
@@ -1381,7 +1451,7 @@ export default function RequisicionesShow({
                             tc={Number(tcRequis) || 0}
                         />
 
-                        {resumenNeto && (
+                        {MOSTRAR_TOTAL_OCS && resumenNeto && (
                             <div className="mt-4 rounded-lg border border-base-300 bg-base-200/40 p-4">
                                 <h3 className="mb-2 text-xs tracking-wider text-base-content/60 uppercase">
                                     Total de las órdenes de compra
@@ -1439,6 +1509,15 @@ export default function RequisicionesShow({
                                             >
                                                 {fmtMonto(b.neto, b.moneda)}
                                             </div>
+                                            {b.soloCot > 0 && (
+                                                <div className="col-span-2 text-[10px] leading-tight text-base-content/50">
+                                                    Incluye{' '}
+                                                    {fmtMonto(b.soloCot, b.moneda)}{' '}
+                                                    de partidas solo cotización
+                                                    (referencia, no se surten en
+                                                    OC).
+                                                </div>
+                                            )}
                                         </Fragment>
                                     ))}
                                     {netoMxnCombinado != null && (
@@ -1829,8 +1908,8 @@ function ComparativoCotizaciones({
     tc: number;
 }) {
     // Las partidas "solo cotización" (ej. fletes variables) aparecen y suman al
-    // total del comparativo con su precio de referencia, pero no se surten al
-    // definir la OC (por eso el total del comparativo difiere del neto a pagar).
+    // total del comparativo con su precio de referencia; no se surten al definir
+    // la OC, pero sí cuentan en el neto a pagar.
     const detalles = requisicion.detalles ?? [];
 
     // Columnas = opciones con al menos un precio, agrupadas por proveedor.
@@ -2017,7 +2096,8 @@ function ComparativoCotizaciones({
         contribs: { moneda: string; importe: number }[];
         tieneImporte: boolean;
     } => {
-        const selecciones = d.selecciones ?? [];
+        // La partida solo cotización nunca se adjudica: siempre best-case.
+        const selecciones = d.solo_cotizacion ? [] : (d.selecciones ?? []);
         if (selecciones.length > 0) {
             const porMoneda = new Map<string, number>();
             for (const s of selecciones) {
@@ -2067,23 +2147,33 @@ function ComparativoCotizaciones({
     const filas = detalles.map((d) => ({
         d,
         esSoloCotizacion: !!d.solo_cotizacion,
+        esSinImpuestos: !!d.sin_impuestos,
         ...importeDetalle(d),
     }));
 
     // Totales del pie por divisa (divisas primero, MXN al final) + combinado
     // en MXN con el TC del documento cuando hay exactamente una divisa.
-    const porMoneda = new Map<string, number>();
+    // Las partidas "sin impuestos" suman al subtotal pero no a la base del IVA.
+    const porMoneda = new Map<string, { subtotal: number; baseIva: number }>();
     filas.forEach((f) =>
-        f.contribs.forEach((c) =>
-            porMoneda.set(c.moneda, (porMoneda.get(c.moneda) ?? 0) + c.importe),
-        ),
+        f.contribs.forEach((c) => {
+            const acc = porMoneda.get(c.moneda) ?? { subtotal: 0, baseIva: 0 };
+            acc.subtotal += c.importe;
+            if (!f.esSinImpuestos) {
+                acc.baseIva += c.importe;
+            }
+            porMoneda.set(c.moneda, acc);
+        }),
     );
-    const bloquesTotales = Array.from(porMoneda, ([moneda, sub]) => ({
-        moneda,
-        subtotal: sub,
-        iva: sub * 0.16,
-        total: sub * 1.16,
-    })).sort((a, b) =>
+    const bloquesTotales = Array.from(
+        porMoneda,
+        ([moneda, { subtotal, baseIva }]) => ({
+            moneda,
+            subtotal,
+            iva: baseIva * IVA_RATE,
+            total: subtotal + baseIva * IVA_RATE,
+        }),
+    ).sort((a, b) =>
         a.moneda === 'mxn'
             ? 1
             : b.moneda === 'mxn'
@@ -2156,7 +2246,13 @@ function ComparativoCotizaciones({
                         </tr>
                     </thead>
                     <tbody>
-                        {filas.map(({ d, tieneImporte, contribs, esSoloCotizacion }) => (
+                        {filas.map(({
+                            d,
+                            tieneImporte,
+                            contribs,
+                            esSoloCotizacion,
+                            esSinImpuestos,
+                        }) => (
                             <tr key={d.id}>
                                 <td className="text-right">
                                     {Number(d.cantidad).toLocaleString('es-MX')}{' '}
@@ -2167,9 +2263,17 @@ function ComparativoCotizaciones({
                                     {esSoloCotizacion && (
                                         <span
                                             className="badge badge-ghost badge-xs ml-1 align-middle"
-                                            title="Suma al total del comparativo con su precio de referencia, pero no se surte en la OC (no entra al neto a pagar)"
+                                            title="Suma al total y al neto con su precio de referencia, pero no se surte en la OC (no se adjudica a ningún proveedor)"
                                         >
                                             solo cotización
+                                        </span>
+                                    )}
+                                    {esSinImpuestos && (
+                                        <span
+                                            className="badge badge-ghost badge-xs ml-1 align-middle"
+                                            title="Suma al subtotal pero no causa IVA ni entra a la base de retenciones"
+                                        >
+                                            sin impuestos
                                         </span>
                                     )}
                                 </td>

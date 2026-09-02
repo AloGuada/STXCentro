@@ -138,6 +138,48 @@ test('reasignar no cambia el monto de la solicitud aunque el reparto sume distin
     expect((float) $destino->fresh()->acumulado)->toBe(3000.00);
 });
 
+test('reasignar una solicitud en divisa conserva el cargo convertido a mxn', function () {
+    $origen = ObraRubro::factory()->create(['presupuestado' => 1000000, 'acumulado' => 0]);
+    $destino = ObraRubro::factory()->create(['presupuestado' => 1000000, 'acumulado' => 0]);
+
+    // 1,000 USD al tipo de cambio con que se firmó pesan 17,500 MXN en el
+    // presupuesto. Mover el gasto de centro no lo re-cotiza: el destino tiene
+    // que recibir los mismos pesos que soltó el origen.
+    $sp = SolicitudPago::factory()->create([
+        'estatus' => 'aprobada',
+        'monto_total' => 1000,
+        'tipo_moneda' => 'usd',
+        'tipo_cambio' => 17.5,
+        'orden_compra_id' => null,
+    ]);
+
+    SolicitudPagoDetalle::factory()->create([
+        'solicitud_id' => $sp->id,
+        'obra_rubro_id' => $origen->id,
+        'cantidad' => 1,
+        'precio_unitario' => 1000,
+        'subtotal' => 1000,
+    ]);
+
+    $sp->load('detalles');
+    $sp->aplicarImpactoPresupuestal();
+
+    expect((float) $origen->fresh()->acumulado)->toBe(17500.00);
+
+    app(ReasignacionCentroCostos::class)->reasignar($sp, [
+        ['obra_rubro_id' => $destino->id, 'monto' => 1000, 'concepto' => 'Corrección'],
+    ], 'Se corrige el centro de costos capturado');
+
+    expect((float) $origen->fresh()->acumulado)->toBe(0.00);
+    expect((float) $destino->fresh()->acumulado)->toBe(17500.00);
+
+    $nuevo = $sp->rubrosAfectados()->where('obra_rubro_id', $destino->id)->first();
+    expect($nuevo->moneda)->toBe('usd');
+    expect((float) $nuevo->tipo_cambio)->toBe(17.5);
+    expect((float) $nuevo->monto_origen)->toBe(1000.00);
+    expect((float) $sp->fresh()->monto_total)->toBe(1000.00);
+});
+
 test('la bitácora guarda el monto de la solicitud junto a la suma repartida', function () {
     $origen = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);
     $destino = ObraRubro::factory()->create(['presupuestado' => 100000, 'acumulado' => 0]);

@@ -223,7 +223,7 @@ const navGroups: NavGroup[] = [
         ],
     },
     {
-        title: 'Insumos',
+        title: 'Inventarios',
         icon: Warehouse,
         items: [
             {
@@ -231,12 +231,6 @@ const navGroups: NavGroup[] = [
                 href: '/admin/almacen/existencias',
                 icon: Package,
                 permission: 'alm.existencias.ver',
-            },
-            {
-                title: 'Activos',
-                href: '/admin/almacen/activos',
-                icon: ScanBarcode,
-                permission: 'alm.activos.ver',
             },
             {
                 title: 'Pedidos',
@@ -261,18 +255,6 @@ const navGroups: NavGroup[] = [
                 href: '/admin/almacen/transferencias',
                 icon: Network,
                 permission: 'alm.transferencias.ver',
-            },
-            {
-                title: 'Devoluciones',
-                href: '/admin/almacen/devoluciones',
-                icon: Undo2,
-                permission: 'alm.devoluciones.ver',
-            },
-            {
-                title: 'Préstamos',
-                href: '/admin/almacen/prestamos',
-                icon: Wrench,
-                permission: 'alm.prestamos.ver',
             },
             {
                 title: 'Ajustes',
@@ -327,6 +309,36 @@ const navGroups: NavGroup[] = [
                 href: '/admin/almacen/aprobaciones',
                 icon: UserCheck,
                 permission: 'alm.aprobaciones.ver',
+            },
+        ],
+    },
+    /**
+     * Lo que se presta y se devuelve, no lo que se consume. Un activo tiene
+     * número de serie y siempre es de alguien: sale con un resguardo y sólo
+     * deja de pesar cuando vuelve. Por eso vive aparte de Inventarios, donde
+     * el material se descarga y se acabó.
+     */
+    {
+        title: 'Activos',
+        icon: ScanBarcode,
+        items: [
+            {
+                title: 'Activos',
+                href: '/admin/almacen/activos',
+                icon: ScanBarcode,
+                permission: 'alm.activos.ver',
+            },
+            {
+                title: 'Préstamos',
+                href: '/admin/almacen/prestamos',
+                icon: Wrench,
+                permission: 'alm.prestamos.ver',
+            },
+            {
+                title: 'Devoluciones',
+                href: '/admin/almacen/devoluciones',
+                icon: Undo2,
+                permission: 'alm.devoluciones.ver',
             },
         ],
     },

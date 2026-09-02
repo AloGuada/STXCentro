@@ -58,13 +58,15 @@ class RequisicionController extends Controller
             ->with([
                 'solicitante:id,name',
                 'departamento:id,descripcion',
-                'detalles:id,requisicion_id,cantidad,tipo_fiscal,solo_cotizacion',
+                'detalles:id,requisicion_id,cantidad,tipo_fiscal,solo_cotizacion,sin_impuestos',
                 'detalles.cotizaciones:id,requisicion_detalle_id,proveedor_id,precio_unitario',
                 'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
                 // Para el neto a pagar (cuando ya hay OC definida) — ver total_neto.
                 'detalles.selecciones:id,requisicion_detalle_id,proveedor_id,numero_oc,cantidad,cotizacion_precio_id,orden_compra_detalle_id',
                 'detalles.selecciones.proveedor.regimenFiscal',
-                'detalles.selecciones.cotizacionPrecio:id,precio_unitario',
+                // `moneda` es indispensable: sin ella ocs_resumen daba todo por
+                // MXN y total_neto no convertía las OCs en divisa.
+                'detalles.selecciones.cotizacionPrecio:id,precio_unitario,moneda',
                 // Folio de la OC ya generada (nulo mientras la requisición no se libera).
                 'detalles.selecciones.ordenCompraDetalle:id,orden_compra_id',
                 'detalles.selecciones.ordenCompraDetalle.ordenCompra:id,folio',
@@ -287,6 +289,7 @@ class RequisicionController extends Controller
                     'obra_rubro_id' => $detalle->obra_rubro_id,
                     'uso_cfdi_id' => $detalle->uso_cfdi_id,
                     'tipo_fiscal' => $detalle->tipo_fiscal,
+                    'sin_impuestos' => $detalle->sin_impuestos,
                     'notas' => $detalle->notas,
                 ]);
 
@@ -454,6 +457,12 @@ class RequisicionController extends Controller
         $requisicion->presupuesto?->append(['nombre_mostrar', 'op_mostrar']);
         $requisicion->detalles->each(fn (RequisicionDetalle $d) => $d->obraRubro?->presupuesto?->append('nombre_mostrar'));
 
+        // El comparativo en pantalla resuelve el importe de referencia con la
+        // misma regla del PDF (precio del mejor proveedor global, y solo si no
+        // cotizó la partida, el menor precio). Sin este append la pantalla se
+        // quedaba siempre con el menor y podía diferir del PDF.
+        $requisicion->append('mejor_proveedor');
+
         // Último precio cotizado por cada proveedor (opción) para el insumo
         // (producto) de cada partida, en OTRAS requisiciones. Permite a compras
         // reutilizar un precio anterior con un clic. Clave: "productoId|proveedorId".
@@ -524,7 +533,7 @@ class RequisicionController extends Controller
 
         // Las partidas "solo cotización" (ej. fletes de cantidad variable) sí se
         // muestran en el comparativo como referencia; el builder de totales las
-        // excluye de la suma y la vista las marca.
+        // suma al total y al neto con ese precio, y la vista las marca.
         $firmas = app(FirmasPdfBuilder::class)->build(
             $requisicion->tipoAprobacion(),
             $requisicion->departamento_id,

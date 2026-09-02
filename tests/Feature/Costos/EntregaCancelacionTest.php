@@ -38,7 +38,9 @@ function registrarEntregaSimple($test, OrdenCompra $oc, OrdenCompraDetalle $part
     ]);
 
     $test->actingAs($test->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", array_merge([
+        ->post('/admin/almacen/entradas', array_merge([
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($test->user)->id,
             'fecha_entrega' => '2026-02-17',
             'factura_id' => $factura->id,
             'tipo' => 'completa',

@@ -9,7 +9,7 @@ import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Insumos', href: '/admin/almacen/existencias' },
+    { title: 'Activos', href: '/admin/almacen/activos' },
     { title: 'Préstamos', href: '/admin/almacen/prestamos' },
 ];
 
@@ -103,7 +103,7 @@ export default function PrestamosIndex() {
                                 <th>Folio</th>
                                 <th>Artículo</th>
                                 <th>Serie</th>
-                                <th>Pañol</th>
+                                <th>Almacén</th>
                                 <th>Quién la tiene</th>
                                 <th>Dónde</th>
                                 <th>Salió</th>

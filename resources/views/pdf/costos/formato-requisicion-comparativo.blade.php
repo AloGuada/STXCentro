@@ -190,6 +190,9 @@
                     @if($d->solo_cotizacion)
                         <span style="font-size: 8px; color: #666; font-style: italic;">(solo cotización — no se surte en OC)</span>
                     @endif
+                    @if($d->sin_impuestos)
+                        <span style="font-size: 8px; color: #666; font-style: italic;">(sin impuestos)</span>
+                    @endif
                 </td>
                 <td>
                     @if($d->obraRubro?->obra)
@@ -266,16 +269,17 @@
                 <td class="text-right">-${{ number_format($ret['monto'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
             </tr>
             @endforeach
-            @if($b['solo_cotizacion'] > 0)
-            <tr class="total-row">
-                <td colspan="{{ 3 + $numCols }}" class="text-right">(−) SOLO COTIZACIÓN (NO SE SURTE EN OC)</td>
-                <td class="text-right">-${{ number_format($b['solo_cotizacion'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
-            </tr>
-            @endif
             <tr class="total-row">
                 <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL NETO A PAGAR{{ $sufijoEtiqueta($b['moneda']) }}</td>
                 <td class="text-right">${{ number_format($b['neto'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
             </tr>
+            @if($b['solo_cotizacion'] > 0)
+            <tr>
+                <td colspan="{{ 4 + $numCols }}" class="text-right" style="font-size: 8px; color: #666; font-style: italic;">
+                    Incluye ${{ number_format($b['solo_cotizacion'], 2) }}{{ $sufijoMonto($b['moneda']) }} de partidas solo cotización (referencia, no se surten en OC).
+                </td>
+            </tr>
+            @endif
             @endforeach
             @php $muestraCombinado = $totales['neto_mxn'] !== null && ($multiMoneda || abs($totales['tc'] - 1) > 1e-9); @endphp
             @if($muestraCombinado)

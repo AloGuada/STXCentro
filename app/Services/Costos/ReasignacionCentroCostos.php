@@ -101,6 +101,10 @@ class ReasignacionCentroCostos
             }
 
             // 3. Aplicar el impacto sobre los rubros nuevos (Aplicado, con sobregiro).
+            // El desglose viene en la divisa de la solicitud y el presupuesto
+            // pesa en MXN: hay que reaplicar con la misma moneda y el mismo tipo
+            // de cambio con que se firmó, o el cargo se encogería al valor
+            // nominal en divisa (mover el gasto de centro no lo re-cotiza).
             $solicitud->load('detalles');
             foreach ($solicitud->detalles as $detalle) {
                 $this->apartado->aplicarCargo(
@@ -111,6 +115,8 @@ class ReasignacionCentroCostos
                     descripcion: $detalle->concepto,
                     userId: $userId,
                     allowSobregiro: true,
+                    moneda: $solicitud->tipo_moneda ?? 'mxn',
+                    tc: $solicitud->tipo_cambio ? (float) $solicitud->tipo_cambio : null,
                 );
             }
 

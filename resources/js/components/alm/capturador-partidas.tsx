@@ -1,16 +1,17 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
-import { PRODUCTOS_DEMO } from '@/lib/alm/demo';
-import type { AlmPartidaBorrador } from '@/types/models';
+import type { AlmPartidaBorrador, AlmProductoOpcion } from '@/types/models';
 import { PlusIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 
 type Props = {
     partidas: AlmPartidaBorrador[];
     onChange: (partidas: AlmPartidaBorrador[]) => void;
+    /** Lo que se puede capturar. Lo manda la pantalla, que sabe qué acota su documento. */
+    productos: AlmProductoOpcion[];
     /** Las entradas capturan costo; salidas y transferencias no. */
     conCosto?: boolean;
     /** Existencia del producto en el almacén elegido, para avisar de faltantes. */
-    disponibleDe?: (codigoProducto: string) => number | null;
+    disponibleDe?: (productoId: number) => number | null;
     /**
      * `cantidad` captura cuánto entra o sale. `conteo` es para el ajuste: se
      * captura lo que se contó y el sistema calcula la diferencia contra el
@@ -24,9 +25,9 @@ type Props = {
      */
     avisarFaltante?: boolean;
     /**
-     * Sólo la entrada la pide: los productos marcados con "verifica recepción"
-     * no se reciben sin revisar su mantenimiento. Los demás documentos no
-     * preguntan nada.
+     * Sólo la entrada la pide: los productos marcados con "inspección de
+     * mantenimiento" no se reciben sin revisar en qué estado llegan. Los demás
+     * documentos no preguntan nada.
      */
     pedirVerificacionMantenimiento?: boolean;
 };
@@ -40,9 +41,12 @@ export const PARTIDA_VACIA: AlmPartidaBorrador = {
 };
 
 /** Renglones que piden verificación de mantenimiento y todavía no la tienen. */
-export function partidasSinVerificar(partidas: AlmPartidaBorrador[]): AlmPartidaBorrador[] {
+export function partidasSinVerificar(
+    partidas: AlmPartidaBorrador[],
+    productos: AlmProductoOpcion[],
+): AlmPartidaBorrador[] {
     return partidas.filter((partida) => {
-        const producto = PRODUCTOS_DEMO.find((p) => String(p.id) === partida.producto_id);
+        const producto = productos.find((p) => String(p.id) === partida.producto_id);
 
         return producto?.requiere_verificacion === true && !partida.mantenimiento_verificado;
     });
@@ -58,6 +62,7 @@ const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', cur
 export function CapturadorPartidas({
     partidas,
     onChange,
+    productos,
     conCosto = false,
     disponibleDe,
     modo = 'cantidad',
@@ -72,7 +77,7 @@ export function CapturadorPartidas({
 
     const quitar = (indice: number) => onChange(partidas.filter((_, i) => i !== indice));
 
-    const productoDe = (id: string) => PRODUCTOS_DEMO.find((p) => String(p.id) === id);
+    const productoDe = (id: string) => productos.find((p) => String(p.id) === id);
 
     const importeDe = (p: AlmPartidaBorrador) => Number(p.cantidad || 0) * Number(p.costo_unitario || 0);
 
@@ -110,7 +115,7 @@ export function CapturadorPartidas({
                         ) : (
                             partidas.map((partida, i) => {
                                 const producto = productoDe(partida.producto_id);
-                                const disponible = producto && disponibleDe ? disponibleDe(producto.codigo) : null;
+                                const disponible = producto && disponibleDe ? disponibleDe(producto.id) : null;
                                 // Contar menos de lo que dice el sistema no es un
                                 // error: es justo el faltante que el ajuste corrige.
                                 const falta =
@@ -139,7 +144,7 @@ export function CapturadorPartidas({
                                                 placeholder="Selecciona producto"
                                                 className="select-sm"
                                             >
-                                                {PRODUCTOS_DEMO.map((p) => (
+                                                {productos.map((p) => (
                                                     <SelectItem key={p.id} value={String(p.id)}>
                                                         {p.codigo} — {p.descripcion}
                                                     </SelectItem>

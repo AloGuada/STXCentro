@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Costos\AprobacionDepartamento;
+use App\Models\Costos\AprobacionSolicitud;
 use App\Models\Costos\Permiso;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\SolicitudPago;
@@ -8,6 +9,7 @@ use App\Models\Departamento;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     foreach ([
@@ -114,4 +116,37 @@ test('sin el permiso, el aprobador NO ve las solicitudes ajenas de su departamen
         ->get(route('admin.costos.solicitudes-pago.index'))
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page->has('solicitudes.data', 0));
+});
+
+/**
+ * La vista supervisora renderiza la misma pantalla con el mismo builder, asi
+ * que hereda la carga diferida. Se prueba aparte porque su ruta lleva el
+ * aprobador en la URL: la recarga parcial tiene que seguir apuntando a ese
+ * usuario y no al que esta mirando.
+ */
+describe('la bandeja supervisora tambien difiere el historial', function () {
+    test('la carga inicial no trae el historial del aprobador observado', function () {
+        $observado = User::factory()->create();
+        $solicitud = SolicitudPago::factory()->create();
+        AprobacionSolicitud::create([
+            'solicitud_id' => $solicitud->id,
+            'nivel' => 1,
+            'aprobador_id' => $observado->id,
+            'estatus' => 'aprobada',
+            'fecha_respuesta' => now(),
+        ]);
+
+        // La ruta va con `role:super-admin`, no con un permiso suelto.
+        $supervisor = User::factory()->create(['firma_path' => 'firmas/test.png']);
+        $supervisor->assignRole(Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']));
+
+        $this->actingAs($supervisor)
+            ->get(route('admin.costos.aprobaciones.bandeja', $observado))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('soloLectura', true)
+                ->missing('aprobadas')
+                ->where('conteos.aprobadas', 1)
+            );
+    });
 });

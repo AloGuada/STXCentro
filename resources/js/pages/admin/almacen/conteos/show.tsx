@@ -41,7 +41,7 @@ export default function ConteoShow({ conteoId }: Props) {
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Insumos', href: '/admin/almacen/existencias' },
+        { title: 'Inventarios', href: '/admin/almacen/existencias' },
         { title: 'Inventarios cíclicos', href: '/admin/almacen/conteos' },
         { title: conteo.folio, href: `/admin/almacen/conteos/${conteo.id}` },
     ];

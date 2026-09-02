@@ -25,6 +25,8 @@ class AlmacenController extends Controller
         $almacenes = Almacen::query()
             ->visiblesPara($request->user())
             ->with(['obra:id,no,descripcion', 'responsable:id,name'])
+            ->withSum('existencias as valor_inventario', 'valor')
+            ->withCount(['existencias as articulos_con_saldo' => fn ($q) => $q->where('cantidad', '!=', 0)])
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('clave', 'like', "%{$s}%")
                 ->orWhere('nombre', 'like', "%{$s}%")
                 ->orWhereHas('obra', fn ($o) => $o->where('no', 'like', "%{$s}%")
@@ -78,6 +80,15 @@ class AlmacenController extends Controller
     public function destroy(Request $request, Almacen $almacen): RedirectResponse
     {
         abort_unless($almacen->esVisiblePara($request->user()), 403);
+
+        // Se comprueba contra los movimientos y no contra las existencias: una
+        // bodega que se vació sigue teniendo historia, y borrarla dejaría el
+        // kardex hablando de un lugar que ya no existe.
+        if ($almacen->movimientos()->exists()) {
+            return back()->withErrors([
+                'almacen' => 'Este almacén ya tiene movimientos en el kardex: desactívalo en vez de borrarlo.',
+            ]);
+        }
 
         $almacen->delete();
 

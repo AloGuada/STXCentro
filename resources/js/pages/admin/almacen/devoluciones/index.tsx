@@ -8,7 +8,7 @@ import { PlusIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Insumos', href: '/admin/almacen/existencias' },
+    { title: 'Activos', href: '/admin/almacen/activos' },
     { title: 'Devoluciones', href: '/admin/almacen/devoluciones' },
 ];
 
@@ -22,8 +22,8 @@ export default function DevolucionesIndex() {
                     <div>
                         <h1 className="text-2xl font-semibold">Devoluciones</h1>
                         <p className="text-base-content/60 mt-1 text-sm">
-                            Material que regresa de la obra al almacén. Entra igual que una entrada, pero se registra
-                            aparte para saber cuánto de lo que salió no se usó.
+                            Piezas que vuelven al almacén y cierran su resguardo. No mueven existencia: la pieza
+                            siempre fue del almacén, lo que cambia es que deja de estar en custodia de alguien.
                         </p>
                     </div>
                     <ButtonLink href="/admin/almacen/devoluciones/create" variant="primary">
@@ -38,8 +38,10 @@ export default function DevolucionesIndex() {
 
                 <div className="alert alert-info mb-4">
                     <span>
-                        Esto es material que <strong>vuelve de obra</strong>. La devolución a proveedor es otra cosa y
-                        vive en Costos, dentro de la orden de compra.
+                        Sólo vuelve por aquí lo que tiene <strong>número de serie</strong>. El material por cantidad
+                        que sobró en una obra regresa con una <strong>transferencia</strong> al almacén general — así
+                        se mueve el saldo entre almacenes. La devolución a proveedor es otra cosa y vive en Costos,
+                        dentro de la orden de compra.
                     </span>
                 </div>
 
@@ -49,11 +51,11 @@ export default function DevolucionesIndex() {
                             <tr>
                                 <th>Folio</th>
                                 <th>Fecha</th>
-                                <th>Almacén que recibe</th>
-                                <th>Obra de origen</th>
                                 <th>Devolvió</th>
-                                <th className="text-right">Renglones</th>
-                                <th>Motivo</th>
+                                <th>Recibió</th>
+                                <th>Almacén</th>
+                                <th className="text-right">Piezas</th>
+                                <th>Cómo volvieron</th>
                                 <th className="w-20"></th>
                             </tr>
                         </thead>
@@ -62,13 +64,29 @@ export default function DevolucionesIndex() {
                                 <tr key={d.id} className="hover">
                                     <td className="font-mono font-medium">{d.folio}</td>
                                     <td className="font-mono text-sm">{d.fecha}</td>
-                                    <td>
-                                        <span className="badge badge-sm badge-ghost font-mono">{d.almacen}</span>
-                                    </td>
-                                    <td>{d.obra_origen}</td>
                                     <td className="text-sm">{d.devolvio}</td>
-                                    <td className="text-right font-mono">{d.renglones}</td>
-                                    <td className="text-base-content/70 text-sm">{d.motivo}</td>
+                                    <td className="text-sm">{d.recibio}</td>
+                                    <td className="flex flex-wrap gap-1">
+                                        {d.almacenes.map((clave) => (
+                                            <span key={clave} className="badge badge-sm badge-ghost font-mono">
+                                                {clave}
+                                            </span>
+                                        ))}
+                                    </td>
+                                    <td className="text-right font-mono">{d.piezas}</td>
+                                    <td className="text-sm">
+                                        {/*
+                                         * Lo que importa de una devolución es si algo volvió
+                                         * peor de como salió: eso es lo que se reclama.
+                                         */}
+                                        {d.con_dano === 0 ? (
+                                            <span className="text-base-content/60">Sin novedad</span>
+                                        ) : (
+                                            <span className="badge badge-sm badge-warning">
+                                                {d.con_dano} con daño
+                                            </span>
+                                        )}
+                                    </td>
                                     <td>
                                         <BotonPdf folio={d.folio} etiqueta="PDF" />
                                     </td>

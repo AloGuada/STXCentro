@@ -1,62 +1,63 @@
 import { CodigoBarras } from '@/components/alm/codigo-barras';
+import { MiniaturaArticulo } from '@/components/alm/miniatura-articulo';
 import { ButtonLink } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import {
-    ACTIVOS_DEMO,
-    ARTICULOS_DEMO,
-    CLASES_ABC,
-    ESTATUS_ACTIVO,
-    EXISTENCIAS_DEMO,
-    preciosDe,
-    REGLAS_ABC,
-    rutaUbicacion,
-    TIPOS_ARTICULO,
-    ubicacionesDe,
-} from '@/lib/alm/demo';
 import type { BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
-import { ArrowLeftIcon, ImageIcon, TagIcon, TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
-import { useState } from 'react';
+import type { AlmArticulo, AlmArticuloExistencia, AlmArticuloPrecio } from '@/types/models';
+import { Head, router } from '@inertiajs/react';
+import { ArrowLeftIcon, PencilIcon, TagIcon, TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
 
 const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
+const CLASE_ABC: Record<string, string> = {
+    A: 'badge-error',
+    B: 'badge-warning',
+    C: 'badge-ghost',
+};
+
+const FRECUENCIA_ABC: Record<string, string> = {
+    A: 'cada 30 días',
+    B: 'cada 90 días',
+    C: 'cada 180 días',
+};
+
 type Props = {
-    /** Id del artículo. La maqueta lo lee de la URL y busca en los datos demo. */
-    articuloId?: number;
+    articulo: AlmArticulo;
+    existencias: AlmArticuloExistencia[];
+    precios: AlmArticuloPrecio[];
+    /** Los lugares activos de cada almacén donde hay saldo, por `almacen_id`. */
+    ubicaciones: Record<number, { id: number; ruta: string }[]>;
 };
 
 /**
- * Ficha del artículo: todo lo que hoy está repartido entre Compras y Almacén
- * junto en una pantalla — qué es, cuánto ha costado, dónde está y, si se
- * controla por pieza, cuáles piezas existen.
+ * Ficha del artículo: lo que hoy está repartido entre Compras y Almacén junto en
+ * una pantalla — qué es, cuánto ha costado y dónde está.
  */
-export default function ArticuloShow({ articuloId }: Props) {
-    const articulo = ARTICULOS_DEMO.find((a) => a.id === articuloId) ?? ARTICULOS_DEMO[0];
-
-    const precios = preciosDe(articulo.id);
-    const existencias = EXISTENCIAS_DEMO.filter((e) => e.producto === articulo.codigo);
-    const piezas = ACTIVOS_DEMO.filter((p) => p.producto_id === articulo.id);
-    const regla = REGLAS_ABC.find((r) => r.clasificacion === articulo.clasificacion_abc);
-
-    // La ubicación es lo único que se corrige desde aquí: es por almacén, y
-    // quien acomoda el material no debería tener que entrar a otra pantalla.
-    const [ubicaciones, setUbicaciones] = useState<Record<string, string>>({});
-
+export default function ArticuloShow({ articulo, existencias, precios, ubicaciones }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Insumos', href: '/admin/almacen/existencias' },
+        { title: 'Inventarios', href: '/admin/almacen/existencias' },
         { title: 'Artículos', href: '/admin/almacen/articulos' },
         { title: articulo.codigo, href: `/admin/almacen/articulos/${articulo.id}` },
     ];
 
-    // Cuánto se movió el precio contra la compra anterior. Es la pregunta que
-    // se hace quien autoriza: "¿por qué ahora cuesta esto?".
+    // Cuánto se movió el precio contra la compra anterior. Es la pregunta que se
+    // hace quien autoriza: «¿por qué ahora cuesta esto?».
     const variacion =
-        precios.length >= 2 ? ((precios[0].precio - precios[1].precio) / precios[1].precio) * 100 : null;
+        precios.length >= 2 && precios[1].precio !== 0
+            ? ((precios[0].precio - precios[1].precio) / precios[1].precio) * 100
+            : null;
 
     const barras = articulo.codigo_barras ?? articulo.codigo;
+
+    const acomodar = (existenciaId: number, ubicacionId: string) =>
+        router.patch(
+            `/admin/almacen/existencias/${existenciaId}/ubicacion`,
+            { ubicacion_id: ubicacionId === '' ? null : Number(ubicacionId) },
+            { preserveScroll: true },
+        );
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -65,41 +66,32 @@ export default function ArticuloShow({ articuloId }: Props) {
             <div className="p-6">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-start gap-4">
-                        {articulo.imagen_url ? (
-                            <img
-                                src={articulo.imagen_url}
-                                alt={articulo.descripcion}
-                                className="border-base-300 size-16 rounded border object-cover"
-                            />
-                        ) : (
-                            <div className="border-base-300 text-base-content/30 flex size-16 items-center justify-center rounded border border-dashed">
-                                <ImageIcon className="size-6" />
-                            </div>
-                        )}
+                        <MiniaturaArticulo
+                            url={articulo.imagen_url}
+                            descripcion={articulo.descripcion}
+                            className="size-16"
+                            iconClassName="size-6"
+                        />
                         <div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <h1 className="font-mono text-2xl font-semibold">{articulo.codigo}</h1>
-                                <span className="badge badge-sm">{TIPOS_ARTICULO[articulo.tipo]}</span>
+                                <span className="badge badge-sm">
+                                    {articulo.tipo === 'activo' ? 'Activo' : 'Insumo'}
+                                </span>
                                 {articulo.controla_inventario && (
                                     <span
-                                        className={`badge badge-sm ${CLASES_ABC[articulo.clasificacion_abc]}`}
-                                        title={regla ? `Se cuenta cada ${regla.frecuencia_dias} días` : undefined}
+                                        className={`badge badge-sm ${CLASE_ABC[articulo.clasificacion_abc] ?? 'badge-ghost'}`}
+                                        title={`Se cuenta ${FRECUENCIA_ABC[articulo.clasificacion_abc] ?? ''}`}
                                     >
                                         Clase {articulo.clasificacion_abc}
                                     </span>
                                 )}
-                                {articulo.area && (
-                                    <span className="badge badge-sm badge-ghost">{articulo.area}</span>
-                                )}
+                                {articulo.area && <span className="badge badge-sm badge-ghost">{articulo.area}</span>}
                             </div>
                             <p className="mt-1 text-lg">{articulo.descripcion}</p>
-                            <p className="text-base-content/60 text-sm">
-                                {[articulo.marca, articulo.modelo].filter(Boolean).join(' · ') || 'Sin marca ni modelo'}
-                                {' · se mide en '}
-                                {articulo.unidad}
-                            </p>
-                            {/* Sólo si está anotado: es dato de conciliación con el sistema
-                                anterior, no algo que el almacenista necesite a diario. */}
+                            <p className="text-base-content/60 text-sm">Se mide en {articulo.unidad}</p>
+                            {/* Sólo si está anotado: es dato de conciliación con el
+                                sistema anterior, no algo que se necesite a diario. */}
                             {articulo.idsteelex && (
                                 <p className="text-base-content/60 mt-1 text-sm">
                                     En Steelex: <span className="font-mono">{articulo.idsteelex}</span>
@@ -113,6 +105,10 @@ export default function ArticuloShow({ articuloId }: Props) {
                             <ArrowLeftIcon className="size-4" />
                             Volver
                         </ButtonLink>
+                        <ButtonLink href={`/admin/almacen/articulos/${articulo.id}/edit`} variant="outline">
+                            <PencilIcon className="size-4" />
+                            Editar
+                        </ButtonLink>
                         {articulo.controla_inventario && (
                             <ButtonLink href={`/admin/almacen/etiquetas?articulo=${articulo.id}`} variant="primary">
                                 <TagIcon className="size-4" />
@@ -120,10 +116,6 @@ export default function ArticuloShow({ articuloId }: Props) {
                             </ButtonLink>
                         )}
                     </div>
-                </div>
-
-                <div className="alert alert-warning mb-4">
-                    <span>Vista de maqueta: los datos son de ejemplo, todavía no hay backend.</span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -150,7 +142,7 @@ export default function ArticuloShow({ articuloId }: Props) {
                             <>
                                 <p className="font-mono text-3xl">{moneda(precios[0].precio)}</p>
                                 <p className="text-base-content/60 mt-1 text-sm">
-                                    {precios[0].proveedor} · {precios[0].fecha}
+                                    {precios[0].proveedor ?? 'Sin proveedor'} · {precios[0].fecha}
                                 </p>
                                 {variacion !== null && (
                                     <p
@@ -183,11 +175,9 @@ export default function ArticuloShow({ articuloId }: Props) {
                                     Repartida en {existencias.length} almacén(es)
                                     {articulo.stock_minimo !== null && ` · mínimo ${numero(articulo.stock_minimo)}`}
                                 </p>
-                                {regla && (
-                                    <p className="text-base-content/60 mt-2 text-sm">
-                                        Se cuenta cada {regla.frecuencia_dias} días ({regla.etiqueta.toLowerCase()}).
-                                    </p>
-                                )}
+                                <p className="text-base-content/60 mt-2 text-sm">
+                                    Se cuenta {FRECUENCIA_ABC[articulo.clasificacion_abc] ?? ''}.
+                                </p>
                             </>
                         ) : (
                             <p className="text-base-content/50 text-sm">
@@ -223,37 +213,43 @@ export default function ArticuloShow({ articuloId }: Props) {
                                     </tr>
                                 ) : (
                                     existencias.map((e) => {
-                                        const clave = `${e.almacen}-${e.producto}`;
-                                        const valor = ubicaciones[clave] ?? String(e.ubicacion_id ?? '');
+                                        const lugares = ubicaciones[e.almacen_id] ?? [];
 
                                         return (
-                                            <tr key={clave} className="hover">
+                                            <tr key={e.id} className="hover">
                                                 <td>
                                                     <span className="badge badge-sm badge-ghost font-mono">
                                                         {e.almacen}
                                                     </span>
+                                                    {e.obra && (
+                                                        <span className="text-base-content/60 ml-2 text-xs">
+                                                            {e.obra}
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="text-right font-mono">
                                                     {numero(e.cantidad)}
-                                                    <span className="text-base-content/40"> {e.unidad}</span>
+                                                    <span className="text-base-content/40"> {articulo.unidad}</span>
                                                 </td>
                                                 <td>
-                                                    <Select
-                                                        value={valor}
-                                                        onValueChange={(v) =>
-                                                            setUbicaciones((prev) => ({ ...prev, [clave]: v }))
-                                                        }
-                                                        className="select-sm"
-                                                    >
-                                                        <SelectItem value="">Sin acomodar</SelectItem>
-                                                        {ubicacionesDe(e.almacen)
-                                                            .filter((u) => u.activa)
-                                                            .map((u) => (
+                                                    {lugares.length === 0 ? (
+                                                        <span className="text-base-content/50 text-sm">
+                                                            Este almacén todavía no tiene ubicaciones dadas de alta.
+                                                        </span>
+                                                    ) : (
+                                                        <Select
+                                                            value={String(e.ubicacion_id ?? '')}
+                                                            onValueChange={(v) => acomodar(e.id, v)}
+                                                            className="select-sm"
+                                                        >
+                                                            <SelectItem value="">Sin acomodar</SelectItem>
+                                                            {lugares.map((u) => (
                                                                 <SelectItem key={u.id} value={String(u.id)}>
-                                                                    {rutaUbicacion(u.id)}
+                                                                    {u.ruta}
                                                                 </SelectItem>
                                                             ))}
-                                                    </Select>
+                                                        </Select>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );
@@ -291,13 +287,18 @@ export default function ArticuloShow({ articuloId }: Props) {
                             ) : (
                                 precios.map((p, indice) => {
                                     const anterior = precios[indice + 1];
-                                    const delta = anterior ? ((p.precio - anterior.precio) / anterior.precio) * 100 : null;
+                                    const delta =
+                                        anterior && anterior.precio !== 0
+                                            ? ((p.precio - anterior.precio) / anterior.precio) * 100
+                                            : null;
 
                                     return (
                                         <tr key={p.id} className="hover">
                                             <td className="font-mono text-xs">{p.fecha}</td>
-                                            <td>{p.proveedor}</td>
-                                            <td className="text-base-content/60 font-mono text-xs">{p.origen}</td>
+                                            <td>{p.proveedor ?? <span className="text-base-content/40">—</span>}</td>
+                                            <td className="text-base-content/60 font-mono text-xs">
+                                                {p.requisicion_id ? `Requisición #${p.requisicion_id}` : 'Captura'}
+                                            </td>
                                             <td className="text-right font-mono">{moneda(p.precio)}</td>
                                             <td className="text-right font-mono text-xs">
                                                 {delta === null ? (
@@ -318,61 +319,11 @@ export default function ArticuloShow({ articuloId }: Props) {
                 </div>
 
                 {articulo.se_controla_por_pieza && (
-                    <div className="rounded-box border-base-300 mt-4 border">
-                        <div className="border-base-300 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-                            <div>
-                                <h2 className="font-medium">Piezas</h2>
-                                <p className="text-base-content/60 text-sm">
-                                    Cada una suma 1 a la existencia y lleva su propio número de serie y su etiqueta. El
-                                    kardex por cantidad no cambia.
-                                </p>
-                            </div>
-                            <Link href="/admin/almacen/activos" className="btn btn-ghost btn-sm">
-                                Ver en Activos
-                            </Link>
-                        </div>
-                        <table className="table table-sm">
-                            <thead className="bg-base-200">
-                                <tr>
-                                    <th>No. de serie</th>
-                                    <th>Código de barras</th>
-                                    <th>Pañol</th>
-                                    <th>Ubicación</th>
-                                    <th>Estado</th>
-                                    <th>Condición</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {piezas.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={6} className="text-base-content/50 py-6 text-center">
-                                            Está marcado por pieza pero no se ha dado de alta ninguna.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    piezas.map((p) => (
-                                        <tr key={p.id} className="hover">
-                                            <td className="font-mono">{p.no_serie}</td>
-                                            <td className="text-base-content/60 font-mono text-xs">
-                                                {p.codigo_barras ?? '—'}
-                                            </td>
-                                            <td>
-                                                <span className="badge badge-sm badge-ghost font-mono">{p.almacen}</span>
-                                            </td>
-                                            <td className="text-base-content/60 text-sm">
-                                                {p.ubicacion ?? <span className="text-base-content/40">—</span>}
-                                            </td>
-                                            <td>
-                                                <span className={`badge badge-sm ${ESTATUS_ACTIVO[p.estatus].clase}`}>
-                                                    {ESTATUS_ACTIVO[p.estatus].etiqueta}
-                                                </span>
-                                            </td>
-                                            <td className="text-base-content/60 text-sm">{p.condicion}</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                    <div className="alert alert-info mt-4">
+                        <span>
+                            Este artículo se controla por pieza. El padrón de piezas —número de serie, marca, modelo y
+                            quién trae cuál— vive en Activos, que todavía no tiene backend.
+                        </span>
                     </div>
                 )}
             </div>

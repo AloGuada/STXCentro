@@ -105,7 +105,9 @@
 
     @php
         $subtotal = $oc->detalles->sum(fn($d) => (float) $d->cantidad * (float) $d->precio_unitario);
-        $iva = $subtotal * 0.16;
+        // Las partidas "sin impuestos" suman al subtotal pero no causan IVA.
+        $baseIva = $oc->detalles->reject->sin_impuestos->sum(fn($d) => (float) $d->cantidad * (float) $d->precio_unitario);
+        $iva = $baseIva * config('costos.iva_rate');
         $codMon = strtolower($oc->moneda ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($oc->moneda);
     @endphp
 
@@ -126,7 +128,12 @@
             @foreach($oc->detalles as $i => $d)
             <tr>
                 <td class="text-right">{{ $i + 1 }}</td>
-                <td>{{ $d->descripcion }}</td>
+                <td>
+                    {{ $d->descripcion }}
+                    @if($d->sin_impuestos)
+                        <span style="font-size: 8px; color: #666; font-style: italic;">(sin impuestos)</span>
+                    @endif
+                </td>
                 <td>{{ $d->obraRubro?->obra?->no ? 'OP-'.$d->obraRubro->obra->no : '-' }}</td>
                 <td>{{ optional($d->usoCfdi)->clave ?? '-' }}</td>
                 <td>{{ $d->unidad }}</td>

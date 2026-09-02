@@ -4,8 +4,10 @@ use App\Models\User;
 use Spatie\Permission\Models\Permission;
 
 /**
- * Las pantallas del módulo todavía no tienen backend: sólo se comprueba que la
- * ruta abre su maqueta y que sigue detrás de su propio permiso.
+ * Las pantallas del módulo que todavía no tienen backend: sólo se comprueba que
+ * la ruta abre su maqueta y que sigue detrás de su propio permiso. Conforme cada
+ * una se construye sale de aquí y se prueba de verdad en su propio archivo
+ * —de las 24 originales sólo quedan las de conteos, etiquetas, préstamos, devoluciones y aprobaciones—, hasta que este archivo desaparezca.
  *
  * Cada pantalla tiene el suyo a propósito. Mientras todas reciclaban
  * `alm.almacenes.ver`, quien podía consultar el catálogo podía capturar
@@ -13,27 +15,10 @@ use Spatie\Permission\Models\Permission;
  * irreversible.
  */
 $pantallas = [
-    'existencias' => ['admin.alm.existencias.index', 'admin/almacen/existencias/index', 'alm.existencias.ver'],
-    'kardex' => ['admin.alm.kardex.index', 'admin/almacen/kardex/index', 'alm.kardex.ver'],
-    'entradas' => ['admin.alm.entradas.index', 'admin/almacen/entradas/index', 'alm.entradas.ver'],
-    'alta de entrada' => ['admin.alm.entradas.create', 'admin/almacen/entradas/create', 'alm.entradas.crear'],
-    'salidas' => ['admin.alm.salidas.index', 'admin/almacen/salidas/index', 'alm.salidas.ver'],
-    'alta de salida' => ['admin.alm.salidas.create', 'admin/almacen/salidas/create', 'alm.salidas.crear'],
-    'transferencias' => ['admin.alm.transferencias.index', 'admin/almacen/transferencias/index', 'alm.transferencias.ver'],
-    'alta de transferencia' => ['admin.alm.transferencias.create', 'admin/almacen/transferencias/create', 'alm.transferencias.enviar'],
     'devoluciones' => ['admin.alm.devoluciones.index', 'admin/almacen/devoluciones/index', 'alm.devoluciones.ver'],
     'alta de devolucion' => ['admin.alm.devoluciones.create', 'admin/almacen/devoluciones/create', 'alm.devoluciones.crear'],
-    'ajustes' => ['admin.alm.ajustes.index', 'admin/almacen/ajustes/index', 'alm.ajustes.ver'],
-    'alta de ajuste' => ['admin.alm.ajustes.create', 'admin/almacen/ajustes/create', 'alm.ajustes.crear'],
-    'pedidos' => ['admin.alm.pedidos.index', 'admin/almacen/pedidos/index', 'alm.pedidos.ver'],
-    'alta de pedido' => ['admin.alm.pedidos.create', 'admin/almacen/pedidos/create', 'alm.pedidos.crear'],
     'prestamos' => ['admin.alm.prestamos.index', 'admin/almacen/prestamos/index', 'alm.prestamos.ver'],
     'alta de prestamo' => ['admin.alm.prestamos.create', 'admin/almacen/prestamos/create', 'alm.prestamos.crear'],
-    'activos' => ['admin.alm.activos.index', 'admin/almacen/activos/index', 'alm.activos.ver'],
-    'alta de activo' => ['admin.alm.activos.create', 'admin/almacen/activos/create', 'alm.activos.crear'],
-    'articulos' => ['admin.alm.articulos.index', 'admin/almacen/articulos/index', 'alm.articulos.ver'],
-    'alta de articulo' => ['admin.alm.articulos.create', 'admin/almacen/articulos/create', 'alm.articulos.crear'],
-    'ubicaciones' => ['admin.alm.ubicaciones.index', 'admin/almacen/ubicaciones/index', 'alm.ubicaciones.ver'],
     'conteos' => ['admin.alm.conteos.index', 'admin/almacen/conteos/index', 'alm.conteos.ver'],
     'alta de conteo' => ['admin.alm.conteos.create', 'admin/almacen/conteos/create', 'alm.conteos.crear'],
     'etiquetas' => ['admin.alm.etiquetas.index', 'admin/almacen/etiquetas/index', 'alm.etiquetas.ver'],
@@ -45,7 +30,6 @@ $pantallas = [
  * parámetro; la maqueta no consulta nada, sólo se lo pasa a la vista.
  */
 $pantallasConId = [
-    'ficha de articulo' => ['admin.alm.articulos.show', 'admin/almacen/articulos/show', 'alm.articulos.ver', 101],
     'captura de conteo' => ['admin.alm.conteos.show', 'admin/almacen/conteos/show', 'alm.conteos.capturar', 8],
 ];
 
