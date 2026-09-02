@@ -165,8 +165,6 @@ export function CapturarProduccion({
     // quien captura. Si viene vacía se cae al número, que siempre existe.
     const nombreDeObra = (obra: Obra): string => obra.descripcion?.trim() || obra.no;
 
-    const obraOptions = obras.map((o) => ({ value: String(o.id), label: nombreDeObra(o) }));
-
     // El catálogo baja en tres tiempos: la obra viene en la pantalla, y marcas y
     // QR se piden al elegir el escalón de arriba. Una obra son decenas de miles
     // de piezas: mandarlas todas tumbaba la pantalla por memoria para acabar
@@ -180,8 +178,6 @@ export function CapturarProduccion({
     // marcas de la misma obra pueden pagarse distinto.
     const [pagaPorSubproceso, setPagaPorSubproceso] = useState(false);
     const [subprocesos, setSubprocesos] = useState<SubprocesoDisponible[]>([]);
-    // Tras capturar hay que volver a preguntar: lo recién guardado consume cupo.
-    const [refresco, setRefresco] = useState(0);
     const marcaId = registroForm.data.marca_id;
 
     /** Trae un escalón del catálogo y avisa si la petición ya se abandonó. */
@@ -232,7 +228,7 @@ export function CapturarProduccion({
             },
             setCargandoPiezas,
         );
-    }, [destajo.id, marcaId, refresco]);
+    }, [destajo.id, marcaId]);
 
     const marcaOptions = marcas.map((m) => ({
         value: String(m.id),
@@ -241,16 +237,19 @@ export function CapturarProduccion({
 
     const marcaElegida = marcas.find((m) => String(m.id) === marcaId);
 
-    // Sólo los procesos que paga la obra: capturar pintura donde nadie la
-    // presupuestó inventaría dinero.
-    const procesosDisponibles = useMemo(() => {
-        if (!obraId) return [];
-        const permitidos = procesosPorObra[Number(obraId)] ?? [];
-        return procesos.filter((p) => permitidos.includes(p.id));
-    }, [obraId, procesos, procesosPorObra]);
-
     const procesoId = Number(registroForm.data.proceso_id);
     const subprocesoId = Number(registroForm.data.subproceso_id);
+
+    // El proceso encabeza la captura, así que la acotada es la obra: sólo salen
+    // las que pagan ese proceso. Es el mismo guardarraíl de antes leído al
+    // revés —capturar pintura donde nadie la presupuestó inventaría dinero—,
+    // pero ahora una obra sin procesos configurados no llega ni a ofrecerse.
+    const obrasDelProceso = useMemo(
+        () => (procesoId ? obras.filter((o) => (procesosPorObra[o.id] ?? []).includes(procesoId)) : []),
+        [obras, procesoId, procesosPorObra],
+    );
+
+    const obraOptions = obrasDelProceso.map((o) => ({ value: String(o.id), label: nombreDeObra(o) }));
 
     // Los pasos cuelgan del proceso: cambiar de proceso deja fuera los del anterior.
     const subprocesosDelProceso = useMemo(
@@ -290,14 +289,29 @@ export function CapturarProduccion({
         );
     };
 
+    /**
+     * Guardado el renglón, la captura vuelve a cero. Dejarla llena invita a
+     * darle Agregar otra vez y pagar dos veces las mismas piezas; la fecha se
+     * queda porque la semana se captura día por día.
+     */
+    const limpiarCaptura = () => {
+        setObraId('');
+        registroForm.setData((datos) => ({
+            ...datos,
+            marca_id: '',
+            proceso_id: '',
+            subproceso_id: '',
+            grupo_trabajo_id: '',
+            piezas: [],
+            porcentaje: 100,
+        }));
+    };
+
     const submitRegistro = (e: FormEvent) => {
         e.preventDefault();
         registroForm.post(`/admin/prod/destajos/${destajo.id}/registros`, {
             preserveScroll: true,
-            onSuccess: () => {
-                registroForm.setData('piezas', []);
-                setRefresco((n) => n + 1);
-            },
+            onSuccess: limpiarCaptura,
         });
     };
 
@@ -308,20 +322,80 @@ export function CapturarProduccion({
                     <PlusIcon className="size-4" /> Capturar producción
                 </h3>
                 <form onSubmit={submitRegistro} className="space-y-3">
-                    <FormField label="Obra" htmlFor="obra_id" required>
+                    {/* El proceso encabeza la captura: se elige una vez y de
+                        él cuelga qué obras se pueden capturar. */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <FormField
+                            label="Proceso"
+                            htmlFor="proceso_id"
+                            error={registroForm.errors.proceso_id}
+                            required
+                        >
+                            <Select
+                                value={registroForm.data.proceso_id}
+                                onValueChange={(v) => {
+                                    registroForm.setData('proceso_id', v);
+                                    // Obra, marca y paso cuelgan del proceso: al
+                                    // cambiarlo dejan de tener sentido.
+                                    setObraId('');
+                                    registroForm.setData('marca_id', '');
+                                    registroForm.setData('subproceso_id', '');
+                                    registroForm.setData('piezas', []);
+                                }}
+                                placeholder="Selecciona proceso"
+                                error={!!registroForm.errors.proceso_id}
+                            >
+                                {procesos.map((p) => (
+                                    <SelectItem key={p.id} value={String(p.id)}>
+                                        {p.nombre}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+                        </FormField>
+
+                        <FormField
+                            label="Grupo"
+                            htmlFor="grupo_trabajo_id"
+                            error={registroForm.errors.grupo_trabajo_id}
+                            required
+                        >
+                            <Select
+                                value={registroForm.data.grupo_trabajo_id}
+                                onValueChange={(v) => registroForm.setData('grupo_trabajo_id', v)}
+                                placeholder="Selecciona grupo"
+                                error={!!registroForm.errors.grupo_trabajo_id}
+                            >
+                                {gruposTrabajo.map((g) => (
+                                    <SelectItem key={g.id} value={String(g.id)}>
+                                        {g.descripcion}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+                        </FormField>
+                    </div>
+
+                    <FormField
+                        label="Obra"
+                        htmlFor="obra_id"
+                        description={
+                            procesoId && obraOptions.length === 0
+                                ? 'Ninguna obra con catálogo vigente paga este proceso.'
+                                : undefined
+                        }
+                        required
+                    >
                         <SearchSelect
                             options={obraOptions}
                             value={obraId}
                             onValueChange={(v) => {
                                 setObraId(v);
-                                // La marca y el proceso cuelgan de la obra: al
-                                // cambiarla dejan de tener sentido.
+                                // La marca cuelga de la obra: al cambiarla deja
+                                // de tener sentido.
                                 registroForm.setData('marca_id', '');
-                                registroForm.setData('proceso_id', '');
                                 registroForm.setData('subproceso_id', '');
                                 registroForm.setData('piezas', []);
                             }}
-                            placeholder="Buscar obra..."
+                            placeholder={procesoId ? 'Buscar obra...' : 'Elige primero un proceso'}
                         />
                     </FormField>
 
@@ -355,57 +429,6 @@ export function CapturarProduccion({
                             }
                         />
                     </FormField>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <FormField
-                            label="Proceso"
-                            htmlFor="proceso_id"
-                            error={registroForm.errors.proceso_id}
-                            description={
-                                marcaElegida && procesosDisponibles.length === 0
-                                    ? 'La obra no tiene procesos configurados.'
-                                    : undefined
-                            }
-                            required
-                        >
-                            <Select
-                                value={registroForm.data.proceso_id}
-                                onValueChange={(v) => {
-                                    registroForm.setData('proceso_id', v);
-                                    registroForm.setData('subproceso_id', '');
-                                    registroForm.setData('piezas', []);
-                                }}
-                                placeholder="Selecciona proceso"
-                                error={!!registroForm.errors.proceso_id}
-                            >
-                                {procesosDisponibles.map((p) => (
-                                    <SelectItem key={p.id} value={String(p.id)}>
-                                        {p.nombre}
-                                    </SelectItem>
-                                ))}
-                            </Select>
-                        </FormField>
-
-                        <FormField
-                            label="Grupo"
-                            htmlFor="grupo_trabajo_id"
-                            error={registroForm.errors.grupo_trabajo_id}
-                            required
-                        >
-                            <Select
-                                value={registroForm.data.grupo_trabajo_id}
-                                onValueChange={(v) => registroForm.setData('grupo_trabajo_id', v)}
-                                placeholder="Selecciona grupo"
-                                error={!!registroForm.errors.grupo_trabajo_id}
-                            >
-                                {gruposTrabajo.map((g) => (
-                                    <SelectItem key={g.id} value={String(g.id)}>
-                                        {g.descripcion}
-                                    </SelectItem>
-                                ))}
-                            </Select>
-                        </FormField>
-                    </div>
 
                     {pagaPorSubproceso && (
                         <FormField
