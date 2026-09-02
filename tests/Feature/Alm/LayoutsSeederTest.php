@@ -105,7 +105,12 @@ test('cada pieza suma uno a la existencia de su artículo', function () {
     // El invariante que sostiene Existencias: la cantidad de un artículo por
     // pieza es exactamente el número de sus piezas vigentes.
     foreach (Articulo::all() as $articulo) {
-        $piezas = Activo::where('articulo_id', $articulo->id)->where('almacen_id', $almacen->id)->count();
+        // Vigentes, no todas: una pieza dada de baja ya no esta en el almacen,
+        // y descargarla del kardex es justo lo que la carga inicial hace.
+        $piezas = Activo::where('articulo_id', $articulo->id)
+            ->where('almacen_id', $almacen->id)
+            ->vigentes()
+            ->count();
         $existencia = Existencia::where('articulo_id', $articulo->id)->sole();
 
         expect((float) $existencia->cantidad)->toBe((float) $piezas)
