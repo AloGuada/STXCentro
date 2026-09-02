@@ -100,7 +100,7 @@ describe('admin grupo precios', function () {
             ->post(route('admin.prod.grupo-precios.store'), [
                 'obra_id' => $obra->id,
                 'descripcion' => 'Precio Normal',
-                'precio_kilo' => 15.5000,
+                'tipo_pago' => 'kilo',
             ]);
 
         $response->assertRedirect(route('admin.prod.grupo-precios.show-by-obra', $obra));
@@ -118,7 +118,7 @@ describe('admin grupo precios', function () {
             ->put(route('admin.prod.grupo-precios.update', $gp), [
                 'obra_id' => $gp->obra_id,
                 'descripcion' => 'Updated',
-                'precio_kilo' => 20.0000,
+                'tipo_pago' => 'kilo',
             ]);
 
         $response->assertRedirect(route('admin.prod.grupo-precios.show-by-obra', $gp->obra_id));

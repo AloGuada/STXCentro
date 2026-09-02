@@ -110,7 +110,7 @@
                 <th style="width: 8%;">Largo (mm)</th>
                 <th style="width: 9%;">Peso u. (kg)</th>
                 <th style="width: 9%;">Kilos</th>
-                <th style="width: 8%;">$/kg</th>
+                <th style="width: 8%;">Precio u.</th>
                 <th style="width: 11%;">Importe</th>
             </tr>
         </thead>
@@ -118,8 +118,8 @@
             @forelse($g['piezas'] as $p)
             <tr>
                 <td>{{ $p['marca'] }}</td>
-                <td>{{ $p['etapa'] ?? '-' }}</td>
-                <td>{{ $p['proceso'] ?? '-' }}</td>
+                <td>{{ $p['lote'] ?? '-' }}</td>
+                <td>{{ $p['proceso'] ?? '-' }}{{ $p['subproceso'] ? ' / '.$p['subproceso'] : '' }}</td>
                 <td>{{ $p['descripcion'] }}</td>
                 <td>{{ $p['obra'] }}</td>
                 <td class="text-right">{{ number_format($p['pzs']) }}</td>
@@ -127,7 +127,8 @@
                 <td class="text-right">{{ $p['largo'] !== null ? number_format($p['largo']) : '-' }}</td>
                 <td class="text-right">{{ $p['peso_unitario'] !== null ? number_format($p['peso_unitario'], 3) : '-' }}</td>
                 <td class="text-right">{{ number_format($p['kilos'], 3) }}</td>
-                <td class="text-right">{{ number_format($p['precio_kilo'], 4) }}</td>
+                {{-- El renglon por subproceso cobra un precio fijo por pieza, no $/kg --}}
+                <td class="text-right">{{ number_format($p['precio_unitario'], ($p['unidad'] ?? 'kg') === 'kg' ? 4 : 2) }}</td>
                 <td class="text-right">{{ $mon($p['importe']) }}</td>
             </tr>
             @empty

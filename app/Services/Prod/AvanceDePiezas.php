@@ -3,6 +3,7 @@
 namespace App\Services\Prod;
 
 use App\Models\Prod\Catalogo;
+use App\Models\Prod\GrupoPrecioSubproceso;
 use App\Models\Prod\LiquidacionDetalle;
 use App\Models\Prod\Pieza;
 use App\Models\Prod\Proceso;
@@ -10,12 +11,17 @@ use App\Models\Prod\Registro;
 use Illuminate\Support\Collection;
 
 /**
- * Cuánto se ha pagado de cada pieza en cada proceso.
+ * Cuánto se ha pagado de cada pieza en cada proceso, y en cada subproceso
+ * cuando el grupo de precios paga por pasos.
  *
  * La unidad es la **pieza equivalente**: una pieza vale 1 en cada proceso por el
  * que pasa, y pagarla al 60% consume 0.6 dejando 0.4 para una semana posterior.
  * Así el mismo QS se puede pagar en parcialidades sin rebasar nunca su tope, y
  * soldarlo no consume nada de lo que le toca por pintarlo.
+ *
+ * El subproceso abre un tope propio dentro del proceso: armar una pieza al 100%
+ * no consume nada de lo que le toca por puntearla. Sin esa dimensión en la
+ * llave, el primer paso agotaría el tope y los demás se rechazarían.
  *
  * El acumulado se cuenta **por linaje de pieza dentro de la obra, sumando todas
  * las versiones del catálogo**: al versionar, las piezas copiadas son filas
@@ -54,7 +60,8 @@ class AvanceDePiezas
     private array $obraPorCatalogo = [];
 
     /**
-     * Avance ya comprometido en la obra, agrupado por (linaje de pieza, proceso).
+     * Avance ya comprometido en la obra, agrupado por (linaje de pieza, proceso,
+     * subproceso).
      *
      * Se suman dos fuentes que no se solapan:
      *  - lo **pagado**, leído del snapshot inmutable de las liquidaciones, que
@@ -79,15 +86,15 @@ class AvanceDePiezas
 
         $detalles = LiquidacionDetalle::query()
             ->where('obra_id', $obraId)
-            ->get(['pieza_id', 'qr', 'proceso_id', 'porcentaje']);
+            ->get(['pieza_id', 'qr', 'proceso_id', 'subproceso_id', 'porcentaje']);
 
         foreach ($detalles as $detalle) {
-            $clave = $this->clave($raices, $detalle->pieza_id, $detalle->qr, $detalle->proceso_id);
+            $clave = $this->clave($raices, $detalle->pieza_id, $detalle->qr, $detalle->proceso_id, $detalle->subproceso_id);
             $totales[$clave] = ($totales[$clave] ?? 0) + (float) $detalle->porcentaje / 100;
         }
 
         foreach ($this->registrosNoLiquidados($obraId) as $registro) {
-            $clave = $this->clave($raices, $registro->pieza_id, $registro->pieza?->qr, $registro->proceso_id);
+            $clave = $this->clave($raices, $registro->pieza_id, $registro->pieza?->qr, $registro->proceso_id, $registro->subproceso_id);
             $totales[$clave] = ($totales[$clave] ?? 0) + $registro->piezasEquivalentes();
         }
 
@@ -127,13 +134,13 @@ class AvanceDePiezas
     /**
      * @param  array<int, int>  $raices
      */
-    private function clave(array $raices, ?int $piezaId, ?string $qr, ?int $procesoId): string
+    private function clave(array $raices, ?int $piezaId, ?string $qr, ?int $procesoId, ?int $subprocesoId = null): string
     {
         $pieza = isset($raices[$piezaId])
             ? 'raiz:'.$raices[$piezaId]
             : 'qr:'.($qr ?? '');
 
-        return $pieza.'|proceso:'.($procesoId ?? 0);
+        return $pieza.'|proceso:'.($procesoId ?? 0).'|sub:'.($subprocesoId ?? 0);
     }
 
     /**
@@ -153,28 +160,28 @@ class AvanceDePiezas
                 ->where('prod_destajos.cerrado', true)
                 ->whereColumn('prod_destajos.fecha_inicio', '<=', 'prod_registros.fecha')
                 ->whereColumn('prod_destajos.fecha_fin', '>=', 'prod_registros.fecha'))
-            ->get(['id', 'pieza_id', 'proceso_id', 'porcentaje']);
+            ->get(['id', 'pieza_id', 'proceso_id', 'subproceso_id', 'porcentaje']);
     }
 
     /**
-     * Fracción de pieza que todavía se puede pagar de este QS en este proceso.
-     * Nunca negativo.
+     * Fracción de pieza que todavía se puede pagar de este QS en este proceso, o
+     * en este subproceso si el grupo paga por pasos. Nunca negativo.
      */
-    public function disponible(Pieza $pieza, int $procesoId): float
+    public function disponible(Pieza $pieza, int $procesoId, ?int $subprocesoId = null): float
     {
-        return round(max(0, self::TOPE_POR_PIEZA - $this->capturado($pieza, $procesoId)), 4);
+        return round(max(0, self::TOPE_POR_PIEZA - $this->capturado($pieza, $procesoId, $subprocesoId)), 4);
     }
 
     /** Fracción ya pagada o comprometida de esta pieza en este proceso. */
-    public function capturado(Pieza $pieza, int $procesoId): float
+    public function capturado(Pieza $pieza, int $procesoId, ?int $subprocesoId = null): float
     {
-        return $this->mapaDeObra($this->obraDe($pieza))->capturadoDe($pieza, $procesoId);
+        return $this->mapaDeObra($this->obraDe($pieza))->capturadoDe($pieza, $procesoId, $subprocesoId);
     }
 
     /** ¿Cabe pagar esta pieza a este porcentaje sin rebasar su tope? */
-    public function cabe(Pieza $pieza, int $procesoId, float $porcentaje): bool
+    public function cabe(Pieza $pieza, int $procesoId, float $porcentaje, ?int $subprocesoId = null): bool
     {
-        return round($porcentaje / 100, 4) <= $this->disponible($pieza, $procesoId) + self::EPSILON;
+        return round($porcentaje / 100, 4) <= $this->disponible($pieza, $procesoId, $subprocesoId) + self::EPSILON;
     }
 
     /**
@@ -184,29 +191,40 @@ class AvanceDePiezas
      * Vive aquí y no en quien captura para que la captura manual y la revisión
      * del CSV digan exactamente lo mismo.
      */
-    public function mensajeDeTope(Pieza $pieza, Proceso $proceso, float $disponible): string
+    public function mensajeDeTope(Pieza $pieza, Proceso $proceso, float $disponible, ?GrupoPrecioSubproceso $subproceso = null): string
     {
         $salida = ' Si es una pieza rehecha, regístrala como pago extra.';
         $etiqueta = $pieza->etiqueta();
+        // El tope es del paso, no del proceso: decir "en Soldadura" cuando lo
+        // que se agotó fue "Armado" manda a revisar la pieza equivocada.
+        $donde = $subproceso !== null
+            ? "{$proceso->nombre} / {$subproceso->nombre}"
+            : $proceso->nombre;
 
         if ($disponible <= 0) {
-            return "La pieza {$etiqueta} ya está pagada al 100% en {$proceso->nombre}.".$salida;
+            return "La pieza {$etiqueta} ya está pagada al 100% en {$donde}.".$salida;
         }
 
         $pendiente = rtrim(rtrim(number_format($disponible * 100, 2, '.', ''), '0'), '.');
 
-        return "La pieza {$etiqueta} sólo tiene {$pendiente}% por pagar en {$proceso->nombre}.".$salida;
+        return "La pieza {$etiqueta} sólo tiene {$pendiente}% por pagar en {$donde}.".$salida;
     }
 
     /**
      * Decora una colección de piezas con su avance por proceso, sin consultar la
      * base una vez por pieza. Cada pieza recibe `avance`: procesoId => capturado.
      *
+     * Si se pasan subprocesos, la pieza recibe además `avance_subprocesos`:
+     * subprocesoId => capturado. Se piden aparte y no se derivan del proceso
+     * porque cada paso lleva su propio tope, y sólo el grupo de precios de la
+     * marca sabe cuáles de ellos aplican.
+     *
      * @param  Collection<int, Pieza>  $piezas
      * @param  list<int>  $procesoIds
+     * @param  iterable<GrupoPrecioSubproceso>  $subprocesos
      * @return Collection<int, Pieza>
      */
-    public function decorar(Collection $piezas, array $procesoIds): Collection
+    public function decorar(Collection $piezas, array $procesoIds, iterable $subprocesos = []): Collection
     {
         $this->precargarObras($piezas->pluck('catalogo_id'));
 
@@ -215,21 +233,34 @@ class AvanceDePiezas
             ->unique()
             ->mapWithKeys(fn (int $obraId) => [$obraId => $this->mapaDeObra($obraId)]);
 
-        return $piezas->each(function (Pieza $pieza) use ($porObra, $procesoIds): void {
+        return $piezas->each(function (Pieza $pieza) use ($porObra, $procesoIds, $subprocesos): void {
             $mapa = $porObra->get($this->obraDe($pieza));
 
             $avance = [];
             foreach ($procesoIds as $procesoId) {
-                $capturado = $mapa?->capturadoDe($pieza, $procesoId) ?? 0.0;
+                $avance[$procesoId] = $this->celdaDeAvance($mapa?->capturadoDe($pieza, $procesoId) ?? 0.0);
+            }
 
-                $avance[$procesoId] = [
-                    'capturado' => $capturado,
-                    'disponible' => round(max(0, self::TOPE_POR_PIEZA - $capturado), 4),
-                ];
+            $porSubproceso = [];
+            foreach ($subprocesos as $subproceso) {
+                $capturado = $mapa?->capturadoDe($pieza, (int) $subproceso->proceso_id, (int) $subproceso->id) ?? 0.0;
+                $porSubproceso[$subproceso->id] = $this->celdaDeAvance($capturado);
             }
 
             $pieza->setAttribute('avance', $avance);
+            $pieza->setAttribute('avance_subprocesos', $porSubproceso);
         });
+    }
+
+    /**
+     * @return array{capturado: float, disponible: float}
+     */
+    private function celdaDeAvance(float $capturado): array
+    {
+        return [
+            'capturado' => $capturado,
+            'disponible' => round(max(0, self::TOPE_POR_PIEZA - $capturado), 4),
+        ];
     }
 
     /**

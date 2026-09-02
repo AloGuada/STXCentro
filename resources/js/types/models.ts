@@ -661,6 +661,9 @@ export type ProdPendienteLiquidar = {
     descripcion: string;
     proceso_id: number;
     proceso: string;
+    /** Sólo en grupos que pagan por subproceso: el saldo es del paso, no del proceso. */
+    subproceso_id: number | null;
+    subproceso: string | null;
     obra: string;
     grupo_trabajo_id: number | null;
     grupo_trabajo: string | null;
@@ -772,12 +775,36 @@ export type ProdCategoria = {
     updated_at: string;
 };
 
+/** Con qué regla paga un grupo de precios. Las dos son excluyentes. */
+export type ProdTipoPago = 'kilo' | 'subproceso';
+
+/**
+ * Un paso de un proceso dentro de un grupo de precios, con precio fijo por
+ * pieza: armar, puntear y soldar no valen lo mismo aunque los tres sean
+ * soldadura.
+ */
+export type ProdGrupoPrecioSubproceso = {
+    id: number;
+    grupo_precio_id: number;
+    proceso_id: number;
+    nombre: string;
+    orden: number;
+    precio: number;
+    activo: boolean;
+    proceso?: ProdProceso;
+    created_at: string;
+    updated_at: string;
+};
+
 export type ProdGrupoPrecio = {
     id: number;
     obra_id: number;
     descripcion: string;
+    tipo_pago: ProdTipoPago;
     /** Una tarifa por proceso: soldar y pintar la misma pieza no valen igual. */
     precios?: ProdGrupoPrecioProceso[];
+    /** Sólo cuando `tipo_pago` es 'subproceso'. */
+    subprocesos?: ProdGrupoPrecioSubproceso[];
     obra?: Obra;
     grupo_precio_conceptos_count?: number;
     conceptos?: Concepto[];
@@ -856,6 +883,8 @@ export type ProdPiezaSinPrecio = {
     marca: string;
     lote: string | null;
     proceso: string;
+    /** Sólo en grupos que pagan por subproceso: el paso al que le falta precio. */
+    subproceso: string | null;
     piezas: number;
 };
 
@@ -892,14 +921,20 @@ export type ProdLiquidacionDetalle = {
     lote: string | null;
     proceso_id: number | null;
     proceso_nombre: string | null;
+    /** Snapshot del paso, sólo en los grupos que pagan por subproceso. */
+    subproceso_id: number | null;
+    subproceso_nombre: string | null;
     descripcion: string | null;
     peso_unitario: number | null;
     longitud: number | null;
     grupo_precio_id: number;
     /** Avance pagado de esa pieza; los kilos ya vienen prorrateados por este %. */
     porcentaje: number;
+    /** Cero en los renglones por subproceso: el peso no se acumula ahí. */
     kilos: number;
-    precio_kilo_aplicado: number;
+    /** Nulo en los renglones por subproceso, que cobran precio fijo por pieza. */
+    precio_kilo_aplicado: number | null;
+    precio_subproceso_aplicado: number | null;
     total: number;
     created_at: string;
     updated_at: string;

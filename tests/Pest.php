@@ -161,6 +161,7 @@ function capturarPiezas(
     string $fecha,
     float $porcentaje = 100,
     ?\App\Models\Prod\Proceso $proceso = null,
+    ?\App\Models\Prod\GrupoPrecioSubproceso $subproceso = null,
 ): void {
     $proceso ??= proceso();
 
@@ -169,10 +170,54 @@ function capturarPiezas(
             'fecha' => $fecha,
             'pieza_id' => $pieza->id,
             'proceso_id' => $proceso->id,
+            'subproceso_id' => $subproceso?->id,
             'grupo_trabajo_id' => $grupo->id,
             'porcentaje' => $porcentaje,
         ]);
     }
+}
+
+/**
+ * Grupo de precios que paga por subproceso, con sus pasos ya capturados y la
+ * marca asignada. El espejo de `tarifaDeMarca` para la otra modalidad.
+ *
+ * @param  array<string, float>  $pasos  nombre del paso => precio fijo por pieza
+ */
+function grupoPorSubprocesos(
+    \App\Models\Concepto $marca,
+    array $pasos,
+    ?\App\Models\Prod\Proceso $proceso = null,
+    ?\App\Models\Prod\GrupoPrecio $grupoPrecio = null,
+): \App\Models\Prod\GrupoPrecio {
+    $proceso ??= proceso();
+    $grupoPrecio ??= \App\Models\Prod\GrupoPrecio::factory()->create([
+        'obra_id' => $marca->obra_id,
+        'tipo_pago' => \App\Enums\Prod\TipoPago::Subproceso,
+    ]);
+
+    $orden = 0;
+
+    foreach ($pasos as $nombre => $precio) {
+        \App\Models\Prod\GrupoPrecioSubproceso::updateOrCreate(
+            ['grupo_precio_id' => $grupoPrecio->id, 'proceso_id' => $proceso->id, 'nombre' => $nombre],
+            ['precio' => $precio, 'orden' => $orden++, 'activo' => true],
+        );
+    }
+
+    \App\Models\Prod\GrupoPrecioConcepto::firstOrCreate([
+        'grupo_precio_id' => $grupoPrecio->id,
+        'concepto_id' => $marca->id,
+    ]);
+
+    return $grupoPrecio->load('subprocesos');
+}
+
+/** El paso de un grupo de precios, por su nombre. */
+function subproceso(
+    \App\Models\Prod\GrupoPrecio $grupoPrecio,
+    string $nombre,
+): \App\Models\Prod\GrupoPrecioSubproceso {
+    return $grupoPrecio->subprocesos()->where('nombre', $nombre)->firstOrFail();
 }
 
 function darPermisoVerTodasSolicitudes(\App\Models\User $user): \App\Models\User

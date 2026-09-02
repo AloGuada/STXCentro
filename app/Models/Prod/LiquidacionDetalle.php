@@ -28,6 +28,8 @@ class LiquidacionDetalle extends Model
         'lote',
         'proceso_id',
         'proceso_nombre',
+        'subproceso_id',
+        'subproceso_nombre',
         'descripcion',
         'peso_unitario',
         'longitud',
@@ -35,6 +37,7 @@ class LiquidacionDetalle extends Model
         'porcentaje',
         'kilos',
         'precio_kilo_aplicado',
+        'precio_subproceso_aplicado',
         'total',
     ];
 
@@ -49,6 +52,7 @@ class LiquidacionDetalle extends Model
             'porcentaje' => 'decimal:2',
             'kilos' => 'decimal:3',
             'precio_kilo_aplicado' => 'decimal:4',
+            'precio_subproceso_aplicado' => 'decimal:2',
             'total' => 'decimal:2',
         ];
     }

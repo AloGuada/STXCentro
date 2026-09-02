@@ -33,6 +33,7 @@ class PlanDeImportacionCsv
         private readonly LectorCsvDeProduccion $lector,
         private readonly AvanceDePiezas $avance,
         private readonly ProcesosPagadosPorObra $procesos,
+        private readonly ModalidadDePago $modalidad,
     ) {}
 
     /**
@@ -149,6 +150,14 @@ class PlanDeImportacionCsv
 
         if (! $this->procesos->paga($obraId, $proceso->id)) {
             return $this->renglon($fila, 'error', 'obra_no_paga_proceso', "La obra no paga el proceso \"{$proceso->nombre}\"; configúralo en la obra antes de capturar.", $proceso, $grupo, $candidatas->count());
+        }
+
+        // El export de planta trae eventos, y un evento resuelve el proceso, no
+        // el paso: no hay forma de adivinar si ese movimiento fue armado o
+        // punteado. Se rechaza el renglón en vez de inventar un subproceso,
+        // porque cada paso tiene un precio distinto.
+        if ($candidatas->contains(fn (Pieza $pieza): bool => $this->modalidad->piezaPagaPorSubproceso($pieza))) {
+            return $this->renglon($fila, 'error', 'grupo_paga_por_subproceso', "El grupo de precios de {$identificador} paga por subproceso; captúralo a mano para elegir el paso.", $proceso, $grupo, $candidatas->count());
         }
 
         $consumo = round($fila['porcentaje'] / 100, 4);
@@ -367,7 +376,7 @@ class PlanDeImportacionCsv
     private function consultarPiezas(string $columna, array $valores): Collection
     {
         return Pieza::query()
-            ->with(['marca:id,marca,lote', 'catalogo:id,obra_id,vigente'])
+            ->with(['marca:id,marca,lote,obra_id', 'catalogo:id,obra_id,vigente'])
             ->deCatalogoVigente()
             ->where('activo', true)
             ->whereIn($columna, $valores)
@@ -384,7 +393,7 @@ class PlanDeImportacionCsv
     private function piezasDeMarcas(array $marcas): Collection
     {
         return Pieza::query()
-            ->with(['marca:id,marca,lote', 'catalogo:id,obra_id,vigente'])
+            ->with(['marca:id,marca,lote,obra_id', 'catalogo:id,obra_id,vigente'])
             ->deCatalogoVigente()
             ->where('activo', true)
             ->whereHas('marca', fn (Builder $query) => $query->whereIn('marca', $marcas))
