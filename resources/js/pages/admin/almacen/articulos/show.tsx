@@ -78,7 +78,7 @@ export default function ArticuloShow({ articulo, existencias, precios, ubicacion
                                 <span className="badge badge-sm">
                                     {articulo.tipo === 'activo' ? 'Activo' : 'Insumo'}
                                 </span>
-                                {articulo.controla_inventario && (
+                                {(
                                     <span
                                         className={`badge badge-sm ${CLASE_ABC[articulo.clasificacion_abc] ?? 'badge-ghost'}`}
                                         title={`Se cuenta ${FRECUENCIA_ABC[articulo.clasificacion_abc] ?? ''}`}
@@ -109,12 +109,10 @@ export default function ArticuloShow({ articulo, existencias, precios, ubicacion
                             <PencilIcon className="size-4" />
                             Editar
                         </ButtonLink>
-                        {articulo.controla_inventario && (
-                            <ButtonLink href={`/admin/almacen/etiquetas?articulo=${articulo.id}`} variant="primary">
-                                <TagIcon className="size-4" />
-                                Imprimir etiquetas
-                            </ButtonLink>
-                        )}
+                        <ButtonLink href={`/admin/almacen/etiquetas?articulo=${articulo.id}`} variant="primary">
+                            <TagIcon className="size-4" />
+                            Imprimir etiquetas
+                        </ButtonLink>
                     </div>
                 </div>
 
@@ -165,29 +163,21 @@ export default function ArticuloShow({ articulo, existencias, precios, ubicacion
 
                     <div className="rounded-box border-base-300 border p-4">
                         <h2 className="mb-3 font-medium">Existencia total</h2>
-                        {articulo.controla_inventario ? (
-                            <>
-                                <p className="font-mono text-3xl">
-                                    {numero(articulo.existencia_total)}
-                                    <span className="text-base-content/40 ml-1 text-base">{articulo.unidad}</span>
-                                </p>
-                                <p className="text-base-content/60 mt-1 text-sm">
-                                    Repartida en {existencias.length} almacén(es)
-                                    {articulo.stock_minimo !== null && ` · mínimo ${numero(articulo.stock_minimo)}`}
-                                </p>
-                                <p className="text-base-content/60 mt-2 text-sm">
-                                    Se cuenta {FRECUENCIA_ABC[articulo.clasificacion_abc] ?? ''}.
-                                </p>
-                            </>
-                        ) : (
-                            <p className="text-base-content/50 text-sm">
-                                No lleva kardex: se compra pero no se almacena, así que no hay existencia que mostrar.
-                            </p>
-                        )}
+                        <p className="font-mono text-3xl">
+                            {numero(articulo.existencia_total)}
+                            <span className="text-base-content/40 ml-1 text-base">{articulo.unidad}</span>
+                        </p>
+                        <p className="text-base-content/60 mt-1 text-sm">
+                            Repartida en {existencias.length} almacén(es)
+                            {articulo.stock_minimo !== null && ` · mínimo ${numero(articulo.stock_minimo)}`}
+                        </p>
+                        <p className="text-base-content/60 mt-2 text-sm">
+                            Se cuenta {FRECUENCIA_ABC[articulo.clasificacion_abc] ?? ''}.
+                        </p>
                     </div>
                 </div>
 
-                {articulo.controla_inventario && (
+                {(
                     <div className="rounded-box border-base-300 mt-4 border">
                         <div className="border-base-300 border-b px-4 py-3">
                             <h2 className="font-medium">Dónde está</h2>

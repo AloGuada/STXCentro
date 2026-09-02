@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Lo que Almacén guarda: un artículo con su área, su clasificación y su lugar
@@ -96,6 +97,27 @@ class Articulo extends Model
     public function creador(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'creado_por');
+    }
+
+    /**
+     * El saldo de este artículo en cada almacén. Sumarla da la existencia
+     * total, que es lo que el catálogo enseña para no tener que abrir la ficha.
+     *
+     * @return HasMany<Existencia, $this>
+     */
+    public function existencias(): HasMany
+    {
+        return $this->hasMany(Existencia::class, 'articulo_id');
+    }
+
+    /**
+     * Las piezas con serie, cuando el artículo se sigue una por una.
+     *
+     * @return HasMany<Activo, $this>
+     */
+    public function piezas(): HasMany
+    {
+        return $this->hasMany(Activo::class, 'articulo_id');
     }
 
     /**

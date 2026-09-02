@@ -31,7 +31,6 @@ class ArticuloStoreRequest extends FormRequest
             'codigo_barras' => ['nullable', 'string', 'max:255'],
             'tipo' => ['required', Rule::in(ProductoTipo::valores())],
             'clasificacion_abc' => ['required', Rule::in(ClasificacionAbc::valores())],
-            'controla_inventario' => ['boolean'],
             'se_controla_por_pieza' => ['boolean'],
             'requiere_verificacion' => ['boolean'],
             'stock_minimo' => ['nullable', 'numeric', 'min:0'],
@@ -40,9 +39,11 @@ class ArticuloStoreRequest extends FormRequest
     }
 
     /**
-     * Un insumo se gasta: seguirlo pieza por pieza no significa nada. Y lo que
-     * no lleva kardex no tiene existencia que vigilar, así que el stock mínimo
-     * sobra.
+     * Un insumo se gasta: seguirlo pieza por pieza no significa nada.
+     *
+     * Ya no se valida contra `controla_inventario`: esa bandera desapareció
+     * cuando el catálogo se mudó a `alm_articulos`. Tener renglón aquí es
+     * llevar kardex, así que todo lo que pase por esta pantalla lo lleva.
      */
     public function withValidator(\Illuminate\Validation\Validator $validator): void
     {
@@ -53,20 +54,6 @@ class ArticuloStoreRequest extends FormRequest
                 $validator->errors()->add(
                     'se_controla_por_pieza',
                     'Un insumo se consume: no tiene sentido seguirlo pieza por pieza.',
-                );
-            }
-
-            if ($this->boolean('se_controla_por_pieza') && ! $this->boolean('controla_inventario')) {
-                $validator->errors()->add(
-                    'se_controla_por_pieza',
-                    'Para llevar las piezas una por una, el artículo tiene que llevar kardex.',
-                );
-            }
-
-            if (! $this->boolean('controla_inventario') && $this->filled('stock_minimo')) {
-                $validator->errors()->add(
-                    'stock_minimo',
-                    'Un artículo sin kardex no tiene existencia que vigilar.',
                 );
             }
         });

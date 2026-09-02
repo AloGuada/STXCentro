@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\ArticuloStoreRequest;
 use App\Http\Requests\Admin\Alm\ArticuloUpdateRequest;
 use App\Models\Alm\Area;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Ubicacion;
 use App\Models\Costos\Producto;
@@ -21,13 +22,23 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * El catálogo de artículos, que es `costos_productos` visto desde Almacén.
+ * El catálogo de Almacén: qué guarda la bodega y cómo se comporta.
  *
- * No es una tabla nueva: el mismo código sirve para cotizar y para llevar
- * existencias, y duplicarlo sería garantizar que los dos catálogos dejen de
- * empatar. Lo que Almacén administra aquí es cómo se comporta cada artículo —si
- * lleva kardex, si se sigue pieza por pieza, cada cuánto se cuenta— y su
- * identificación física: código de barras, área e imagen.
+ * Vive en `alm_articulos`, su propia tabla, y se liga a `costos_productos` por
+ * una referencia anulable. Cada lado manda sobre lo suyo — Compras sobre el
+ * código y la descripción con los que cotiza, Almacén sobre el área, la
+ * clasificación, el stock mínimo y la etiqueta que se imprime.
+ *
+ * **El alta crea las dos.** Quien da de alta un artículo aquí sabe que la
+ * empresa compra eso, así que nace con su producto en Compras ya ligado. Los
+ * artículos sueltos vienen por el otro camino: la carga inicial de un almacén,
+ * que vuelca material que nadie revisó renglón por renglón y que se empareja
+ * después.
+ *
+ * **La edición no toca a Compras.** Corregir aquí una descripción cambia la del
+ * artículo, no la del producto: el día que difieran, eso es información para
+ * quien empareja, y no un seeder cambiándole la unidad a algo que se está
+ * cotizando.
  */
 class ArticuloController extends Controller
 {
@@ -35,14 +46,14 @@ class ArticuloController extends Controller
 
     public function index(Request $request): Response
     {
-        $articulos = Producto::query()
+        $articulos = Articulo::query()
             ->with('area:id,descripcion')
             ->withSum('existencias as existencia_total', 'cantidad')
             ->when($request->string('search')->trim()->value(), $this->buscador(...))
             ->when($request->string('tipo')->value(), fn (Builder $q, string $t) => $q->where('tipo', $t))
             ->when($request->string('area_id')->value(), fn (Builder $q, string $a) => $q->where('area_id', $a))
             ->when($request->string('clase')->value(), fn (Builder $q, string $c) => $q->where('clasificacion_abc', $c))
-            ->when($request->boolean('sin_clasificar'), fn (Builder $q) => $q->sinClasificar())
+            ->when($request->boolean('sin_ligar'), fn (Builder $q) => $q->sinLigar())
             ->orderBy('descripcion')
             ->paginate(25)
             ->withQueryString()
@@ -50,11 +61,12 @@ class ArticuloController extends Controller
 
         return Inertia::render('admin/almacen/articulos/index', [
             'articulos' => $articulos,
-            'filters' => $request->only(['search', 'tipo', 'area_id', 'clase', 'sin_clasificar']),
-            // La bandeja de entrada: lo que Compras tecleó al vuelo y todavía no
-            // entra al kardex. Va como cuenta y no como filtro por default
-            // porque no es un error, es trabajo pendiente.
-            'sinClasificar' => Producto::query()->sinClasificar()->count(),
+            'filters' => $request->only(['search', 'tipo', 'area_id', 'clase', 'sin_ligar']),
+            // La bandeja de entrada, ahora al revés: artículos que la bodega
+            // guarda y que todavía no se emparejan con nada de Compras. Salen de
+            // la carga inicial de un almacén. Va como cuenta y no como filtro por
+            // default porque no es un error, es trabajo pendiente.
+            'sinLigar' => Articulo::query()->sinLigar()->count(),
             ...$this->opciones(),
         ]);
     }
@@ -70,31 +82,52 @@ class ArticuloController extends Controller
         ]);
     }
 
+    /**
+     * Da de alta las dos mitades: el producto con el que Compras va a poder
+     * cotizarlo y el artículo con el que Almacén lo va a guardar, ligados.
+     *
+     * Van en una transacción porque un artículo sin su producto sería material
+     * que nadie puede comprar, y un producto sin su artículo, algo que se compra
+     * y no se puede recibir.
+     */
     public function store(ArticuloStoreRequest $request): RedirectResponse
     {
         $datos = $request->safe()->except('imagen');
+        $usuarioId = $request->user()?->getAuthIdentifier();
+        $imagen = $this->guardarImagen($request);
 
-        $producto = DB::transaction(function () use ($request, $datos): Producto {
+        $articulo = DB::transaction(function () use ($datos, $usuarioId, $imagen): Articulo {
             $codigo = $this->generador->siguiente();
 
-            return Producto::create([
+            // Compras se lleva lo que necesita para cotizar, y nada más.
+            $producto = Producto::create([
+                'codigo' => $codigo,
+                'descripcion' => $datos['descripcion'],
+                'unidad' => $datos['unidad'],
+                'idsteelex' => $datos['idsteelex'] ?? null,
+                'activo' => true,
+                'creado_por' => $usuarioId,
+            ]);
+
+            return Articulo::create([
                 ...$datos,
+                'producto_id' => $producto->id,
                 'codigo' => $codigo,
                 // Nace igual al código: la etiqueta que se imprime es la nuestra
                 // salvo que la caja ya traiga una de fábrica.
                 'codigo_barras' => $datos['codigo_barras'] ?? $codigo,
-                'imagen' => $this->guardarImagen($request),
+                'imagen' => $imagen,
                 'activo' => true,
-                'creado_por' => $request->user()?->getAuthIdentifier(),
+                'creado_por' => $usuarioId,
             ]);
         });
 
-        return to_route('admin.alm.articulos.show', $producto);
+        return to_route('admin.alm.articulos.show', $articulo);
     }
 
-    public function show(Producto $articulo): Response
+    public function show(Articulo $articulo): Response
     {
-        $articulo->load('area:id,descripcion');
+        $articulo->load(['area:id,descripcion', 'producto:id,codigo']);
 
         return Inertia::render('admin/almacen/articulos/show', [
             'articulo' => $this->fila($articulo->loadSum('existencias as existencia_total', 'cantidad')),
@@ -107,7 +140,7 @@ class ArticuloController extends Controller
         ]);
     }
 
-    public function edit(Producto $articulo): Response
+    public function edit(Articulo $articulo): Response
     {
         return Inertia::render('admin/almacen/articulos/edit', [
             'articulo' => $this->fila($articulo->loadSum('existencias as existencia_total', 'cantidad')),
@@ -115,7 +148,13 @@ class ArticuloController extends Controller
         ]);
     }
 
-    public function update(ArticuloUpdateRequest $request, Producto $articulo): RedirectResponse
+    /**
+     * Sólo el artículo. Compras se queda como está aunque aquí se corrija la
+     * descripción: si acaban diciendo cosas distintas, eso se ve y se resuelve
+     * emparejando, que es mejor que Almacén reescribiendo en silencio el
+     * renglón con el que se está cotizando.
+     */
+    public function update(ArticuloUpdateRequest $request, Articulo $articulo): RedirectResponse
     {
         $datos = $request->safe()->except('imagen');
 
@@ -144,8 +183,8 @@ class ArticuloController extends Controller
      *
      * La marca y el modelo no entran: son de la pieza, y de eso sabe Activos.
      *
-     * @param  Builder<Producto>  $query
-     * @return Builder<Producto>
+     * @param  Builder<Articulo>  $query
+     * @return Builder<Articulo>
      */
     private function buscador(Builder $query, string $termino): Builder
     {
@@ -160,26 +199,28 @@ class ArticuloController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function fila(Producto $producto): array
+    private function fila(Articulo $articulo): array
     {
         return [
-            'id' => $producto->id,
-            'codigo' => $producto->codigo,
-            'codigo_barras' => $producto->codigo_barras,
-            'descripcion' => $producto->descripcion,
-            'idsteelex' => $producto->idsteelex,
-            'area_id' => $producto->area_id,
-            'area' => $producto->area?->descripcion,
-            'unidad' => $producto->unidad,
-            'tipo' => $producto->tipo?->value,
-            'clasificacion_abc' => $producto->clasificacion_abc?->value,
-            'controla_inventario' => $producto->controla_inventario,
-            'se_controla_por_pieza' => $producto->se_controla_por_pieza,
-            'requiere_verificacion' => $producto->requiere_verificacion,
-            'stock_minimo' => $producto->stock_minimo === null ? null : (float) $producto->stock_minimo,
-            'imagen_url' => $producto->imagen === null ? null : Storage::disk('public')->url($producto->imagen),
-            'precio_ultimo' => $producto->precios()->value('precio'),
-            'existencia_total' => (float) ($producto->existencia_total ?? 0),
+            'id' => $articulo->id,
+            'codigo' => $articulo->codigo,
+            'codigo_barras' => $articulo->codigo_barras,
+            'descripcion' => $articulo->descripcion,
+            'idsteelex' => $articulo->idsteelex,
+            'area_id' => $articulo->area_id,
+            'area' => $articulo->area?->descripcion,
+            'unidad' => $articulo->unidad,
+            'tipo' => $articulo->tipo?->value,
+            'clasificacion_abc' => $articulo->clasificacion_abc?->value,
+            // Con qué lo compra Compras. Null es material sin identidad de
+            // compra todavía, y la pantalla lo marca como pendiente de ligar.
+            'producto_id' => $articulo->producto_id,
+            'se_controla_por_pieza' => $articulo->se_controla_por_pieza,
+            'requiere_verificacion' => $articulo->requiere_verificacion,
+            'stock_minimo' => $articulo->stock_minimo === null ? null : (float) $articulo->stock_minimo,
+            'imagen_url' => $articulo->imagen === null ? null : Storage::disk('public')->url($articulo->imagen),
+            'precio_ultimo' => $articulo->producto?->precios()->value('precio'),
+            'existencia_total' => (float) ($articulo->existencia_total ?? 0),
         ];
     }
 
@@ -189,10 +230,10 @@ class ArticuloController extends Controller
      *
      * @return list<array<string, mixed>>
      */
-    private function existenciasDe(Producto $producto): array
+    private function existenciasDe(Articulo $articulo): array
     {
         return Existencia::query()
-            ->where('producto_id', $producto->id)
+            ->where('articulo_id', $articulo->id)
             ->with(['almacen:id,clave,nombre,obra_id', 'almacen.obra:id,no', 'ubicacion'])
             ->conSaldo()
             ->get()
@@ -217,10 +258,10 @@ class ArticuloController extends Controller
      *
      * @return array<int, list<array{id: int, ruta: string}>>
      */
-    private function ubicacionesDe(Producto $producto): array
+    private function ubicacionesDe(Articulo $articulo): array
     {
         $almacenes = Existencia::query()
-            ->where('producto_id', $producto->id)
+            ->where('articulo_id', $articulo->id)
             ->conSaldo()
             ->pluck('almacen_id')
             ->unique();
@@ -244,11 +285,18 @@ class ArticuloController extends Controller
      * consulta. Capturar un precio en Almacén sería inventar un segundo lugar
      * donde vive el mismo dato.
      *
+     * Un artículo sin ligar no tiene precios que enseñar, y eso no es un vacío:
+     * es material que todavía no se ha comprado por su nombre.
+     *
      * @return list<array<string, mixed>>
      */
-    private function preciosDe(Producto $producto): array
+    private function preciosDe(Articulo $articulo): array
     {
-        return $producto->precios()
+        if ($articulo->producto_id === null) {
+            return [];
+        }
+
+        return $articulo->producto->precios()
             ->with('proveedor:id,razon_social,nombre_comercial')
             ->limit(20)
             ->get()

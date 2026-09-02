@@ -30,15 +30,16 @@ const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', cur
 
 type Props = {
     articulos: PaginatedData<AlmArticulo>;
-    filters: { search?: string; tipo?: string; area_id?: string; clase?: string; sin_clasificar?: boolean };
+    filters: { search?: string; tipo?: string; area_id?: string; clase?: string; sin_ligar?: boolean };
     /** Lo que Compras tecleó al vuelo y todavía no entra al kardex. */
-    sinClasificar: number;
+    /** Material que la bodega guarda y que nadie ha emparejado con Compras. */
+    sinLigar: number;
     areas: AlmArea[];
     tipos: AlmOpcion[];
     clases: AlmOpcionClase[];
 };
 
-export default function ArticulosIndex({ articulos, filters, sinClasificar, areas, tipos, clases }: Props) {
+export default function ArticulosIndex({ articulos, filters, sinLigar, areas, tipos, clases }: Props) {
     /** Los filtros se acumulan sobre los que ya estaban, y siempre vuelven a la página 1. */
     const filtrar = (cambio: Record<string, string | undefined>) =>
         router.get('/admin/almacen/articulos', { ...filters, ...cambio, page: undefined }, { preserveState: true });
@@ -93,10 +94,6 @@ export default function ArticulosIndex({ articulos, filters, sinClasificar, area
             label: 'Clase',
             className: 'w-24',
             render: (a) => {
-                if (!a.controla_inventario) {
-                    return <span className="text-base-content/30">—</span>;
-                }
-
                 const regla = clases.find((c) => c.value === a.clasificacion_abc);
 
                 return (
@@ -135,15 +132,17 @@ export default function ArticulosIndex({ articulos, filters, sinClasificar, area
                 ),
         },
         {
-            key: 'controla_inventario',
-            label: 'Lleva kardex',
+            // Ya no se pregunta si lleva kardex: estar en este catálogo es
+            // llevarlo. Lo que sí varía es si Compras ya sabe comprarlo.
+            key: 'producto_id',
+            label: 'En Compras',
             className: 'text-center',
             render: (a) =>
-                a.controla_inventario ? (
+                a.producto_id !== null ? (
                     <span className="badge badge-sm badge-success">Sí</span>
                 ) : (
-                    <span className="badge badge-sm badge-ghost" title="Se compra pero no se almacena">
-                        No
+                    <span className="badge badge-sm badge-warning" title="Todavía no se empareja con un producto de Compras">
+                        Pendiente
                     </span>
                 ),
         },
@@ -176,10 +175,6 @@ export default function ArticulosIndex({ articulos, filters, sinClasificar, area
             label: 'Existencia',
             className: 'text-right',
             render: (a) => {
-                if (!a.controla_inventario) {
-                    return <span className="text-base-content/30">—</span>;
-                }
-
                 const bajoMinimo = a.stock_minimo !== null && a.existencia_total < a.stock_minimo;
 
                 return (
@@ -236,22 +231,22 @@ export default function ArticulosIndex({ articulos, filters, sinClasificar, area
                     </div>
                 </div>
 
-                {sinClasificar > 0 && !filters.sin_clasificar && (
+                {sinLigar > 0 && !filters.sin_ligar && (
                     <div className="alert alert-info mb-4">
                         <span>
-                            {sinClasificar} producto(s) que Compras tecleó sin código siguen fuera del kardex. Mientras
+                            {sinLigar} artículo(s) que la bodega guarda todavía no se emparejan con un producto de Compras. Mientras
                             nadie los clasifique, comprarlos no mueve existencia.
                         </span>
-                        <button className="btn btn-sm" onClick={() => filtrar({ sin_clasificar: '1' })}>
+                        <button className="btn btn-sm" onClick={() => filtrar({ sin_ligar: '1' })}>
                             Ver la bandeja
                         </button>
                     </div>
                 )}
 
-                {filters.sin_clasificar && (
+                {filters.sin_ligar && (
                     <div className="alert alert-warning mb-4">
                         <span>Viendo sólo lo que falta clasificar.</span>
-                        <button className="btn btn-sm" onClick={() => filtrar({ sin_clasificar: undefined })}>
+                        <button className="btn btn-sm" onClick={() => filtrar({ sin_ligar: undefined })}>
                             Ver todo el catálogo
                         </button>
                     </div>

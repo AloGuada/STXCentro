@@ -37,7 +37,6 @@ export function ArticuloForm({ articulo, codigoSugerido, areas, unidades, tipos,
         codigo_barras: articulo?.codigo_barras === articulo?.codigo ? '' : (articulo?.codigo_barras ?? ''),
         tipo: (articulo?.tipo ?? 'insumo') as AlmProductoTipo,
         clasificacion_abc: (articulo?.clasificacion_abc ?? 'C') as AlmClasificacionAbc,
-        controla_inventario: articulo?.controla_inventario ?? true,
         se_controla_por_pieza: articulo?.se_controla_por_pieza ?? false,
         requiere_verificacion: articulo?.requiere_verificacion ?? false,
         stock_minimo: articulo?.stock_minimo === null || articulo?.stock_minimo === undefined ? '' : String(articulo.stock_minimo),
@@ -228,21 +227,14 @@ export function ArticuloForm({ articulo, codigoSugerido, areas, unidades, tipos,
                             onChange={(e) => form.setData('codigo_barras', e.target.value.toUpperCase())}
                             placeholder={codigo}
                             className="font-mono"
-                            disabled={!form.data.controla_inventario}
                         />
                     </FormField>
 
                     <div>
                         <span className="label label-text text-xs">Así se va a imprimir</span>
-                        {form.data.controla_inventario ? (
-                            <div className="rounded-box border-base-300 border bg-white p-3">
-                                <CodigoBarras valor={barrasEfectivo} altura={44} />
-                            </div>
-                        ) : (
-                            <p className="text-base-content/50 text-sm">
-                                Sin kardex no hay nada que escanear: un flete no se guarda en un anaquel.
-                            </p>
-                        )}
+                        <div className="rounded-box border-base-300 border bg-white p-3">
+                            <CodigoBarras valor={barrasEfectivo} altura={44} />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -290,7 +282,6 @@ export function ArticuloForm({ articulo, codigoSugerido, areas, unidades, tipos,
                             id="clasificacion_abc"
                             value={form.data.clasificacion_abc}
                             onValueChange={(v) => form.setData('clasificacion_abc', v as AlmClasificacionAbc)}
-                            disabled={!form.data.controla_inventario}
                         >
                             {clases.map((c) => (
                                 <SelectItem key={c.value} value={c.value}>
@@ -314,7 +305,6 @@ export function ArticuloForm({ articulo, codigoSugerido, areas, unidades, tipos,
                             value={form.data.stock_minimo}
                             onChange={(e) => form.setData('stock_minimo', e.target.value)}
                             placeholder="0"
-                            disabled={!form.data.controla_inventario}
                         />
                     </FormField>
 
@@ -361,24 +351,6 @@ export function ArticuloForm({ articulo, codigoSugerido, areas, unidades, tipos,
                         </label>
                     </div>
 
-                    <div className="md:col-span-2">
-                        <label className="flex cursor-pointer items-start gap-3">
-                            <input
-                                type="checkbox"
-                                className="checkbox checkbox-sm mt-0.5"
-                                checked={form.data.controla_inventario}
-                                onChange={(e) => form.setData('controla_inventario', e.target.checked)}
-                            />
-                            <span>
-                                <span className="font-medium">Lleva kardex</span>
-                                <span className="text-base-content/60 block text-sm">
-                                    Desmárcalo para lo que se compra pero no se almacena (fletes, servicios, maniobras).
-                                    Sin kardex no aparece en existencias ni en los movimientos, y tampoco entra a los
-                                    conteos ni a las etiquetas.
-                                </span>
-                            </span>
-                        </label>
-                    </div>
                 </div>
             </div>
 

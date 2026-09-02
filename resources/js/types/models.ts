@@ -4045,8 +4045,14 @@ export type AlmArticulo = {
     unidad: string;
     tipo: AlmProductoTipo;
     clasificacion_abc: AlmClasificacionAbc;
-    /** Un servicio o un gasto se compra pero no se almacena: no lleva kardex. */
-    controla_inventario: boolean;
+    /**
+     * Con qué producto de Compras se cotiza y se compra. `null` es material que
+     * la bodega guarda y que todavía no se empareja con nada: sale de la carga
+     * inicial de un almacén y espera a que alguien lo ligue.
+     *
+     * Ya no hay bandera de «lleva kardex»: estar en este catálogo es llevarlo.
+     */
+    producto_id: number | null;
     /** Además del saldo, cada pieza con su número de serie y su resguardo. */
     se_controla_por_pieza: boolean;
     requiere_verificacion: boolean;

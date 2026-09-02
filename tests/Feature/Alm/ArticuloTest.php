@@ -3,6 +3,7 @@
 use App\Enums\Alm\MovimientoTipo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Area;
+use App\Models\Alm\Articulo;
 use App\Models\Costos\Producto;
 use App\Models\User;
 use App\Services\Alm\AlmacenLedger;
@@ -37,7 +38,6 @@ function articuloValido(array $extra = []): array
         'unidad' => 'PZA',
         'tipo' => 'insumo',
         'clasificacion_abc' => 'A',
-        'controla_inventario' => true,
         'se_controla_por_pieza' => false,
         'requiere_verificacion' => false,
         ...$extra,
@@ -50,7 +50,7 @@ describe('codigo consecutivo', function () {
             ->post(route('admin.alm.articulos.store'), articuloValido(['codigo' => 'YO-LO-PUSE']))
             ->assertRedirect();
 
-        expect(Producto::firstOrFail()->codigo)->toBe('ART-00001');
+        expect(Articulo::firstOrFail()->codigo)->toBe('ART-00001');
     });
 
     it('sigue contando desde el mayor que exista', function () {
@@ -79,7 +79,9 @@ describe('codigo consecutivo', function () {
     it('el codigo de barras nace igual al codigo', function () {
         $this->actingAs(usuarioDeArticulos())->post(route('admin.alm.articulos.store'), articuloValido());
 
-        $articulo = Producto::firstOrFail();
+        // La etiqueta que se imprime es del articulo: Compras no la necesita
+        // para cotizar, y por eso su renglon no la lleva.
+        $articulo = Articulo::firstOrFail();
 
         expect($articulo->codigo_barras)->toBe($articulo->codigo);
     });
@@ -90,11 +92,11 @@ describe('codigo consecutivo', function () {
             articuloValido(['codigo_barras' => '7501234567890']),
         );
 
-        expect(Producto::firstOrFail()->codigo_barras)->toBe('7501234567890');
+        expect(Articulo::firstOrFail()->codigo_barras)->toBe('7501234567890');
     });
 
     it('devolver el codigo de barras vacio lo regresa al del articulo', function () {
-        $articulo = Producto::factory()->create([
+        $articulo = Articulo::factory()->create([
             'codigo' => 'ART-00042',
             'codigo_barras' => '7501234567890',
         ]);
@@ -117,7 +119,7 @@ describe('clasificacion', function () {
             ]))
             ->assertSessionHasErrors('se_controla_por_pieza');
 
-        expect(Producto::count())->toBe(0);
+        expect(Articulo::count())->toBe(0);
     });
 
     it('acepta seguir un activo pieza por pieza', function () {
@@ -130,28 +132,48 @@ describe('clasificacion', function () {
             ]))
             ->assertRedirect();
 
-        expect(Producto::firstOrFail()->se_controla_por_pieza)->toBeTrue();
+        expect(Articulo::firstOrFail()->se_controla_por_pieza)->toBeTrue();
     });
 
-    it('no deja pedir piezas de algo que no lleva kardex', function () {
+    it('el alta crea tambien el producto con el que Compras lo va a cotizar', function () {
+        // Quien da de alta aqui sabe que la empresa compra eso, asi que nace
+        // con su identidad de compra puesta. Los articulos sueltos vienen por
+        // el otro camino: la carga inicial de un almacen.
         $this->actingAs(usuarioDeArticulos())
             ->post(route('admin.alm.articulos.store'), articuloValido([
-                'tipo' => 'activo',
-                'controla_inventario' => false,
-                'se_controla_por_pieza' => true,
+                'descripcion' => 'Disco de corte 4 1/2"',
+                'unidad' => 'PZA',
             ]))
-            ->assertSessionHasErrors('se_controla_por_pieza');
+            ->assertRedirect();
+
+        $articulo = Articulo::firstOrFail();
+        $producto = Producto::firstOrFail();
+
+        expect($articulo->producto_id)->toBe($producto->id)
+            ->and($producto->codigo)->toBe($articulo->codigo)
+            ->and($producto->descripcion)->toBe('Disco de corte 4 1/2"')
+            ->and($producto->unidad)->toBe('PZA');
     });
 
-    it('no deja ponerle stock minimo a un servicio', function () {
-        $this->actingAs(usuarioDeArticulos())
-            ->post(route('admin.alm.articulos.store'), articuloValido([
-                'descripcion' => 'Flete foráneo',
-                'unidad' => 'SRV',
-                'controla_inventario' => false,
-                'stock_minimo' => 10,
-            ]))
-            ->assertSessionHasErrors('stock_minimo');
+    it('editar el articulo no le cambia nada al producto de Compras', function () {
+        // Es la regla que se rompio con el seeder: Almacen no reescribe en
+        // silencio el renglon con el que se esta cotizando. Si acaban diciendo
+        // cosas distintas, eso es informacion para quien empareja.
+        $producto = Producto::factory()->create(['descripcion' => 'DISCO CORTE', 'unidad' => 'PZA']);
+        $articulo = Articulo::factory()->create([
+            'producto_id' => $producto->id,
+            'descripcion' => 'DISCO CORTE',
+            'unidad' => 'PZA',
+        ]);
+
+        $this->actingAs(usuarioDeArticulos())->put(
+            route('admin.alm.articulos.update', $articulo),
+            articuloValido(['descripcion' => 'Disco de corte 4 1/2 ultra fino', 'unidad' => 'CTO']),
+        );
+
+        expect($articulo->refresh()->descripcion)->toBe('Disco de corte 4 1/2 ultra fino')
+            ->and($producto->refresh()->descripcion)->toBe('DISCO CORTE')
+            ->and($producto->unidad)->toBe('PZA');
     });
 
     it('guarda el area del catalogo', function () {
@@ -162,7 +184,7 @@ describe('clasificacion', function () {
             articuloValido(['area_id' => $area->id, 'idsteelex' => 'MAT-000412']),
         );
 
-        $articulo = Producto::firstOrFail();
+        $articulo = Articulo::firstOrFail();
 
         expect($articulo->area_id)->toBe($area->id)
             ->and($articulo->idsteelex)->toBe('MAT-000412');
@@ -172,7 +194,7 @@ describe('clasificacion', function () {
 describe('listado y ficha', function () {
     it('trae la existencia total sumando todos los almacenes', function () {
         $ledger = app(AlmacenLedger::class);
-        $articulo = Producto::factory()->create();
+        $articulo = Articulo::factory()->create();
 
         $ledger->registrarPorProducto(
             Almacen::factory()->create()->id, $articulo->id, MovimientoTipo::Entrada, 100, 10
@@ -190,7 +212,7 @@ describe('listado y ficha', function () {
 
     it('la ficha desglosa el saldo por almacen', function () {
         $ag = Almacen::factory()->create(['clave' => 'AG']);
-        $articulo = Producto::factory()->create();
+        $articulo = Articulo::factory()->create();
 
         app(AlmacenLedger::class)->registrarPorProducto(
             $ag->id, $articulo->id, MovimientoTipo::Entrada, 100, 4.35
@@ -207,9 +229,9 @@ describe('listado y ficha', function () {
     });
 
     it('busca por codigo de barras y por el id de Steelex', function () {
-        Producto::factory()->create(['descripcion' => 'Guante de carnaza', 'codigo_barras' => '7501234567890']);
-        Producto::factory()->create(['descripcion' => 'Electrodo 7018', 'idsteelex' => '7018-125']);
-        Producto::factory()->create(['descripcion' => 'Nada que ver']);
+        Articulo::factory()->create(['descripcion' => 'Guante de carnaza', 'codigo_barras' => '7501234567890']);
+        Articulo::factory()->create(['descripcion' => 'Electrodo 7018', 'idsteelex' => '7018-125']);
+        Articulo::factory()->create(['descripcion' => 'Nada que ver']);
 
         $usuario = usuarioDeArticulos(['ver']);
 
@@ -224,13 +246,15 @@ describe('listado y ficha', function () {
                 ->where('articulos.data.0.descripcion', 'Electrodo 7018'));
     });
 
-    it('cuenta la bandeja de lo que Compras tecleo sin clasificar', function () {
-        Producto::factory()->count(3)->sinClasificar()->create();
-        Producto::factory()->create();
+    it('cuenta la bandeja de lo que la bodega guarda y nadie ha emparejado', function () {
+        // Sale de la carga inicial de un almacen: material real que todavia no
+        // tiene identidad de compra. No es un error, es trabajo pendiente.
+        Articulo::factory()->count(3)->sinLigar()->create();
+        Articulo::factory()->create();
 
         $this->actingAs(usuarioDeArticulos(['ver']))
             ->get(route('admin.alm.articulos.index'))
-            ->assertInertia(fn ($page) => $page->where('sinClasificar', 3));
+            ->assertInertia(fn ($page) => $page->where('sinLigar', 3));
     });
 
     it('el alta sugiere el codigo con el que va a quedar etiquetado', function () {
@@ -251,7 +275,7 @@ describe('permisos', function () {
     });
 
     it('ver un articulo no alcanza para editarlo', function () {
-        $articulo = Producto::factory()->create();
+        $articulo = Articulo::factory()->create();
         $usuario = usuarioDeArticulos(['ver']);
 
         $this->actingAs($usuario)->get(route('admin.alm.articulos.show', $articulo))->assertOk();
