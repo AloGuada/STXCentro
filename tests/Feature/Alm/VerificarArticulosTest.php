@@ -23,14 +23,22 @@ describe('la puerta entre las dos fases', function () {
     });
 
     test('falla si un renglón se quedó sin artículo', function () {
-        // Es el escenario que se quiere cazar: un flujo que sigue escribiendo
-        // producto_id y se olvidó de la columna nueva.
+        // Es el escenario que se quiere cazar. Se escribe en crudo porque por
+        // Eloquent ya no se puede llegar a él: el trait llena la columna sola.
+        // Así llegaría de verdad —un insert masivo, una consulta a mano, un
+        // flujo que no pasa por el modelo—, que es contra lo que sirve la
+        // puerta: contra lo que el trait no alcanza a cubrir.
         $producto = Producto::factory()->create();
 
-        Existencia::factory()->create([
-            'almacen_id' => Almacen::factory(),
+        DB::table('alm_existencias')->insert([
+            'almacen_id' => Almacen::factory()->create()->id,
             'producto_id' => $producto->id,
             'articulo_id' => null,
+            'cantidad' => 0,
+            'costo_promedio' => 0,
+            'valor' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         $this->artisan('alm:verificar-articulos')->assertFailed();

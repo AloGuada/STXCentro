@@ -3,6 +3,7 @@
 namespace App\Models\Alm;
 
 use App\Enums\Alm\MovimientoTipo;
+use App\Models\Alm\Concerns\LlenaArticuloId;
 use App\Models\Costos\Producto;
 use App\Models\Obra;
 use App\Models\Usuario;
@@ -21,6 +22,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  */
 class Movimiento extends Model
 {
+    use LlenaArticuloId;
+
     protected $table = 'alm_movimientos';
 
     /**
@@ -30,6 +33,7 @@ class Movimiento extends Model
         'existencia_id',
         'almacen_id',
         'producto_id',
+        'articulo_id',
         'obra_id',
         'tipo',
         'cantidad',

@@ -2,6 +2,7 @@
 
 namespace App\Models\Alm;
 
+use App\Models\Alm\Concerns\LlenaArticuloId;
 use App\Models\Costos\Producto;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class AjusteDetalle extends Model
 {
+    use LlenaArticuloId;
+
     protected $table = 'alm_ajuste_detalle';
 
     /**
@@ -23,6 +26,7 @@ class AjusteDetalle extends Model
     protected $fillable = [
         'ajuste_id',
         'producto_id',
+        'articulo_id',
         'cantidad_contada',
         'cantidad_sistema',
         'diferencia',

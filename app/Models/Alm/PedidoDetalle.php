@@ -2,6 +2,7 @@
 
 namespace App\Models\Alm;
 
+use App\Models\Alm\Concerns\LlenaArticuloId;
 use App\Models\Costos\Producto;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class PedidoDetalle extends Model
 {
+    use LlenaArticuloId;
+
     protected $table = 'alm_pedido_detalle';
 
     /**
@@ -24,6 +27,7 @@ class PedidoDetalle extends Model
     protected $fillable = [
         'pedido_id',
         'producto_id',
+        'articulo_id',
         'cantidad_solicitada',
         'cantidad_surtida',
         'observaciones',
