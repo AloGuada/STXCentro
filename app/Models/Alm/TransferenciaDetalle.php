@@ -55,6 +55,23 @@ class TransferenciaDetalle extends Model
     }
 
     /**
+     * Con qué guarda Almacén este renglón.
+     *
+     * Es la relación buena: `articulo_id` es la columna que queda cuando se
+     * cierre la mudanza del catálogo. `producto()` sigue aquí sólo mientras
+     * conviven las dos columnas.
+     *
+     * @return BelongsTo<Articulo, $this>
+     */
+    public function articulo(): BelongsTo
+    {
+        return $this->belongsTo(Articulo::class);
+    }
+
+    /**
+     * El producto de Compras. **Andamio**: se va con la columna en la fase B.
+     * Lo que hoy se lea de aquí debe pasar a `articulo()`.
+     *
      * @return BelongsTo<Producto, $this>
      */
     public function producto(): BelongsTo
