@@ -29,14 +29,22 @@ class GeneradorCodigoArticulo
      * de texto: comparado como cadena, `ART-00099` gana a `ART-00100` y el
      * consecutivo se atasca repitiendo el mismo número — el mismo bug que ya
      * cobró el folio mensual al pasar de 99 en un mes.
+     *
+     * Se pregunta a **las dos tablas**. Desde que el catálogo de Almacén vive
+     * aparte, un artículo puede nacer sin producto —el que abre un almacén— y
+     * otro producto puede nacer sin artículo. La serie es una sola para que el
+     * código siga siendo único entre los dos módulos y para que emparejarlos a
+     * ojo siga funcionando; mirar sólo una tabla repetiría números.
      */
     public function siguiente(): string
     {
         return DB::transaction(function (): string {
-            $max = DB::table('costos_productos')
-                ->where('codigo', 'like', self::PREFIJO.'%')
-                ->lockForUpdate()
-                ->pluck('codigo')
+            $max = collect(['costos_productos', 'alm_articulos'])
+                ->flatMap(fn (string $tabla): array => DB::table($tabla)
+                    ->where('codigo', 'like', self::PREFIJO.'%')
+                    ->lockForUpdate()
+                    ->pluck('codigo')
+                    ->all())
                 ->map(fn (string $codigo): int => (int) substr($codigo, strlen(self::PREFIJO)))
                 ->max();
 

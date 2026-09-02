@@ -72,14 +72,14 @@ class ExistenciaController extends Controller
             ->with([
                 'almacen:id,clave,nombre,obra_id',
                 'almacen.obra:id,no',
-                'producto:id,codigo,descripcion,unidad,stock_minimo,se_controla_por_pieza,clasificacion_abc',
+                'articulo:id,codigo,descripcion,unidad,stock_minimo,se_controla_por_pieza,clasificacion_abc',
                 'ubicacion.padre',
                 // El desglose por obra viaja con la fila: son pocas por renglón
                 // y pedirlo aparte sería una consulta por existencia.
                 'asignaciones.obra:id,no',
             ])
-            ->join('costos_productos', 'costos_productos.id', '=', 'alm_existencias.producto_id')
-            ->orderBy('costos_productos.descripcion')
+            ->join('alm_articulos', 'alm_articulos.id', '=', 'alm_existencias.articulo_id')
+            ->orderBy('alm_articulos.descripcion')
             ->select('alm_existencias.*')
             ->paginate(self::POR_PAGINA)
             ->withQueryString();
@@ -94,15 +94,15 @@ class ExistenciaController extends Controller
             'almacen_id' => $e->almacen_id,
             'almacen' => $e->almacen?->clave,
             'obra' => $e->almacen?->obra?->no,
-            'producto_id' => $e->producto_id,
-            'codigo' => $e->producto?->codigo,
-            'descripcion' => $e->producto?->descripcion,
-            'unidad' => $e->producto?->unidad,
-            'clasificacion_abc' => $e->producto?->clasificacion_abc?->value,
-            'se_controla_por_pieza' => (bool) $e->producto?->se_controla_por_pieza,
-            'stock_minimo' => $e->producto?->stock_minimo === null
+            'producto_id' => $e->articulo_id,
+            'codigo' => $e->articulo?->codigo,
+            'descripcion' => $e->articulo?->descripcion,
+            'unidad' => $e->articulo?->unidad,
+            'clasificacion_abc' => $e->articulo?->clasificacion_abc?->value,
+            'se_controla_por_pieza' => (bool) $e->articulo?->se_controla_por_pieza,
+            'stock_minimo' => $e->articulo?->stock_minimo === null
                 ? null
-                : (float) $e->producto->stock_minimo,
+                : (float) $e->articulo->stock_minimo,
             'cantidad' => (float) $e->cantidad,
             // Lo que cualquiera puede llevarse sin pedirle permiso a nadie, y de
             // quién es el resto. `libre` no se guarda: sobra de repartir.
@@ -124,7 +124,7 @@ class ExistenciaController extends Controller
             // Sólo en los renglones por pieza: el mismo saldo, pero sabiendo
             // en qué anda cada una. Cinco pulidoras con tres prestadas no
             // son cinco pulidoras que entregar.
-            'piezas' => $piezas[$e->almacen_id.'|'.$e->producto_id] ?? null,
+            'piezas' => $piezas[$e->almacen_id.'|'.$e->articulo_id] ?? null,
         ]);
 
         return Inertia::render('admin/almacen/existencias/index', [
@@ -170,7 +170,7 @@ class ExistenciaController extends Controller
             ->when(
                 $request->string('search')->trim()->value(),
                 fn (Builder $q, string $s) => $q->whereHas(
-                    'producto',
+                    'articulo',
                     fn (Builder $p) => $p->where('codigo', 'like', "%{$s}%")
                         ->orWhere('descripcion', 'like', "%{$s}%")
                         ->orWhere('codigo_barras', 'like', "%{$s}%"),
@@ -206,8 +206,9 @@ class ExistenciaController extends Controller
     private function desglosePiezas(\Illuminate\Support\Collection $enPantalla): array
     {
         $serializados = $enPantalla
-            ->filter(fn (Existencia $e): bool => (bool) $e->producto?->se_controla_por_pieza)
-            ->pluck('producto_id')
+            ->filter(fn (Existencia $e): bool => (bool) $e->articulo?->se_controla_por_pieza)
+            ->pluck('articulo_id')
+            ->filter()
             ->unique();
 
         if ($serializados->isEmpty()) {
@@ -216,12 +217,12 @@ class ExistenciaController extends Controller
 
         return Activo::query()
             ->vigentes()
-            ->whereIn('producto_id', $serializados)
+            ->whereIn('articulo_id', $serializados)
             ->whereIn('almacen_id', $enPantalla->pluck('almacen_id')->unique())
-            ->selectRaw('almacen_id, producto_id, estatus, COUNT(*) as total')
-            ->groupBy('almacen_id', 'producto_id', 'estatus')
+            ->selectRaw('almacen_id, articulo_id, estatus, COUNT(*) as total')
+            ->groupBy('almacen_id', 'articulo_id', 'estatus')
             ->get()
-            ->groupBy(fn ($fila): string => $fila->almacen_id.'|'.$fila->producto_id)
+            ->groupBy(fn ($fila): string => $fila->almacen_id.'|'.$fila->articulo_id)
             ->map(fn ($filas): array => [
                 'disponibles' => (int) ($filas->firstWhere('estatus', ActivoEstatus::Disponible)?->total ?? 0),
                 'prestadas' => (int) ($filas->firstWhere('estatus', ActivoEstatus::Prestado)?->total ?? 0),

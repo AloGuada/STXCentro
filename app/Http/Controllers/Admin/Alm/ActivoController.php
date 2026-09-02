@@ -8,9 +8,11 @@ use App\Http\Requests\Admin\Alm\ActivoStoreRequest;
 use App\Http\Requests\Admin\Alm\ActivoUpdateRequest;
 use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Ubicacion;
 use App\Models\Costos\Producto;
 use App\Services\Alm\RegistradorPiezas;
+use App\Services\Alm\ResolvedorArticulo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -92,8 +94,12 @@ class ActivoController extends Controller
 
         abort_unless($almacen->esVisiblePara($request->user()), 403);
 
+        // El formulario todavia manda el producto; el articulo se resuelve
+        // aqui y se crea si es la primera vez que ese producto pisa la bodega.
+        $articuloId = app(ResolvedorArticulo::class)->paraProducto($request->integer('producto_id'));
+
         $this->registrador->alta(
-            producto: Producto::findOrFail($request->integer('producto_id')),
+            articulo: Articulo::findOrFail($articuloId),
             almacen: $almacen,
             piezas: $request->validated('piezas'),
             ubicacionId: $request->integer('ubicacion_id') ?: null,

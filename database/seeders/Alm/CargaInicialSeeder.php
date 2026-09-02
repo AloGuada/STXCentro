@@ -8,9 +8,9 @@ use App\Enums\Alm\UbicacionTipo;
 use App\Models\Alm\Ajuste;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Area;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Ubicacion;
-use App\Models\Costos\Producto;
 use App\Models\Usuario;
 use App\Services\Alm\GeneradorCodigoArticulo;
 use App\Services\Alm\RegistradorAjuste;
@@ -21,6 +21,18 @@ use RuntimeException;
 /**
  * Carga inicial de un almacén: el inventario con el que arrancó, tal como lo
  * entregó el área.
+ *
+ * **Entra a `alm_articulos` y no toca `costos_productos`.** Un layout es un
+ * volcado que nadie revisó renglón por renglón, así que sus artículos nacen
+ * *sueltos*: material real que existe en la bodega y que todavía no se empareja
+ * con nada de Compras. Emparejar es después, a mano y sobre una columna que se
+ * puede volver a vaciar.
+ *
+ * Eso es lo que hace que abrir un almacén ya no pueda lastimar a Compras. Antes
+ * había que darle identidad de compra a cada renglón, y reusar los que ya
+ * existían obligaba a mantener una lista congelada de códigos y a pisarles
+ * campos —entre ellos la unidad, que es de cotización— para ponerles lo que
+ * Almacén sabía. Nada de eso hace falta ya.
  *
  * Los renglones viven en cada subclase, no en un archivo aparte: así el repo
  * dice con qué números se abrió cada almacén y un diff enseña si alguien los
@@ -158,7 +170,6 @@ abstract class CargaInicialSeeder extends Seeder
             $generador = app(GeneradorCodigoArticulo::class);
             $renglones = [];
             $ubicaciones = [];
-            $reusados = [];
 
             foreach ($this->articulos() as $articulo) {
                 if ($articulo['area'] !== null && ! $areas->has($articulo['area'])) {
@@ -166,54 +177,32 @@ abstract class CargaInicialSeeder extends Seeder
                 }
 
                 $areaId = $articulo['area'] === null ? null : $areas[$articulo['area']];
-                $producto = CatalogoCompartido::existente($articulo['descripcion']);
+                $codigo = $generador->siguiente();
 
-                if ($producto !== null) {
-                    // Ya lo tenía Compras: se le abre existencia y se le pone lo
-                    // que Almacén sí sabe, que es justo lo que hace a mano la
-                    // pantalla de Artículos. Su código y su descripción no se
-                    // tocan: son con los que se ha estado cotizando.
-                    $producto->update([
-                        'unidad' => $articulo['unidad'],
-                        'idsteelex' => $producto->idsteelex ?? ($articulo['idsteelex'] ?? null),
-                        'area_id' => $areaId,
-                        'clasificacion_abc' => $articulo['abc'],
-                        'stock_minimo' => $articulo['stock_minimo'],
-                        'tipo' => ProductoTipo::Insumo,
-                        'controla_inventario' => true,
-                        'se_controla_por_pieza' => false,
-                        'requiere_verificacion' => $articulo['verifica'] ?? false,
-                        'codigo_barras' => $producto->codigo_barras ?: $producto->codigo,
-                    ]);
+                $nuevo = Articulo::create([
+                    // Sin `producto_id`: nace suelto. Cuando alguien lo empareje
+                    // con lo que Compras compra, se llena esa columna y ya.
+                    'codigo' => $codigo,
+                    // La etiqueta que se imprime es la nuestra, salvo que la
+                    // caja ya traiga la del fabricante.
+                    'codigo_barras' => $articulo['codigo_barras'] ?? $codigo,
+                    'descripcion' => $articulo['descripcion'],
+                    'unidad' => $articulo['unidad'],
+                    'idsteelex' => $articulo['idsteelex'] ?? null,
+                    'area_id' => $areaId,
+                    'clasificacion_abc' => $articulo['abc'],
+                    'stock_minimo' => $articulo['stock_minimo'],
+                    'tipo' => ProductoTipo::Insumo,
+                    'se_controla_por_pieza' => false,
+                    'requiere_verificacion' => $articulo['verifica'] ?? false,
+                    'activo' => true,
+                    'creado_por' => $autoriza->getKey(),
+                ]);
 
-                    $reusados[] = $producto->codigo;
-                } else {
-                    $codigo = $generador->siguiente();
-
-                    $producto = Producto::create([
-                        'codigo' => $codigo,
-                        // La etiqueta que se imprime es la nuestra, salvo que la
-                        // caja ya traiga la del fabricante.
-                        'codigo_barras' => $articulo['codigo_barras'] ?? $codigo,
-                        'descripcion' => $articulo['descripcion'],
-                        'unidad' => $articulo['unidad'],
-                        'idsteelex' => $articulo['idsteelex'] ?? null,
-                        'area_id' => $areaId,
-                        'clasificacion_abc' => $articulo['abc'],
-                        'stock_minimo' => $articulo['stock_minimo'],
-                        'tipo' => ProductoTipo::Insumo,
-                        'controla_inventario' => true,
-                        'se_controla_por_pieza' => false,
-                        'requiere_verificacion' => $articulo['verifica'] ?? false,
-                        'activo' => true,
-                        'creado_por' => $autoriza->getKey(),
-                    ]);
-                }
-
-                $ubicaciones[$producto->id] = $this->ubicacion($almacen, $articulo['ubicacion'] ?? null);
+                $ubicaciones[$nuevo->id] = $this->ubicacion($almacen, $articulo['ubicacion'] ?? null);
 
                 $renglones[] = [
-                    'producto_id' => $producto->id,
+                    'articulo_id' => $nuevo->id,
                     'cantidad_contada' => $articulo['cantidad'],
                     'costo_unitario' => $articulo['costo'],
                     'observaciones' => $articulo['nota'],
@@ -234,21 +223,14 @@ abstract class CargaInicialSeeder extends Seeder
 
             // El acomodo va después del ajuste porque la existencia la abre el
             // ledger: la ubicación no es saldo, es dónde quedó guardado.
-            foreach (array_filter($ubicaciones) as $productoId => $ubicacionId) {
+            foreach (array_filter($ubicaciones) as $articuloId => $ubicacionId) {
                 Existencia::query()
                     ->where('almacen_id', $almacen->id)
-                    ->where('producto_id', $productoId)
+                    ->where('articulo_id', $articuloId)
                     ->update(['ubicacion_id' => $ubicacionId]);
             }
 
-            if ($reusados !== []) {
-                $this->command?->line(sprintf(
-                    '  %d de sus artículos ya estaban en el catálogo de Compras y se reusaron (%s%s).',
-                    count($reusados),
-                    implode(', ', array_slice($reusados, 0, 6)),
-                    count($reusados) > 6 ? '…' : '',
-                ));
-            }
+            $this->command?->line('  Sus artículos entran sin ligar a Compras: se emparejan después, a mano.');
 
             return $ajuste->folio;
         });

@@ -6,7 +6,7 @@ use App\Enums\Alm\ActivoEstatus;
 use App\Enums\Alm\MovimientoTipo;
 use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
-use App\Models\Costos\Producto;
+use App\Models\Alm\Articulo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -34,24 +34,27 @@ class RegistradorPiezas
      * @return list<Activo>
      */
     public function alta(
-        Producto $producto,
+        Articulo $articulo,
         Almacen $almacen,
         array $piezas,
         ?int $ubicacionId = null,
         ?string $userId = null,
     ): array {
-        return DB::transaction(function () use ($producto, $almacen, $piezas, $ubicacionId, $userId): array {
+        return DB::transaction(function () use ($articulo, $almacen, $piezas, $ubicacionId, $userId): array {
             $creadas = [];
 
             foreach ($piezas as $datos) {
                 $costo = (float) ($datos['costo'] ?? 0);
 
                 $activo = Activo::create([
-                    'producto_id' => $producto->id,
+                    'articulo_id' => $articulo->id,
+                    // Mientras conviven las dos columnas. Un artículo suelto la
+                    // deja en null, que es lo que abre un almacén nuevo.
+                    'producto_id' => $articulo->producto_id,
                     'no_serie' => trim((string) $datos['no_serie']),
                     // El de la pieza, no el del artículo: es lo que permite
                     // saber cuál de las catorce pulidoras volvió del préstamo.
-                    'codigo_barras' => $this->codigoDeBarras($producto, $datos),
+                    'codigo_barras' => $this->codigoDeBarras($articulo, $datos),
                     'marca' => $datos['marca'] ?? null,
                     'modelo' => $datos['modelo'] ?? null,
                     'id_mantenimiento' => $datos['id_mantenimiento'] ?? null,
@@ -63,9 +66,9 @@ class RegistradorPiezas
                     'observaciones' => $datos['observaciones'] ?? null,
                 ]);
 
-                $this->ledger->registrarPorProducto(
+                $this->ledger->registrarPorArticulo(
                     almacenId: $almacen->id,
-                    productoId: $producto->id,
+                    articuloId: $articulo->id,
                     tipo: MovimientoTipo::Entrada,
                     cantidad: 1,
                     // Al costo de *esta* pieza: es lo que hace que el promedio
@@ -97,9 +100,9 @@ class RegistradorPiezas
                 return $activo;
             }
 
-            $this->ledger->registrarPorProducto(
+            $this->ledger->registrarPorArticulo(
                 almacenId: $activo->almacen_id,
-                productoId: $activo->producto_id,
+                articuloId: $activo->articulo_id,
                 tipo: MovimientoTipo::Salida,
                 cantidad: -1,
                 costoUnitario: (float) $activo->costo ?: null,
@@ -141,9 +144,9 @@ class RegistradorPiezas
 
             $costo = (float) $activo->costo ?: null;
 
-            $this->ledger->registrarPorProducto(
+            $this->ledger->registrarPorArticulo(
                 almacenId: $origen,
-                productoId: $activo->producto_id,
+                articuloId: $activo->articulo_id,
                 tipo: MovimientoTipo::TransferenciaSalida,
                 cantidad: -1,
                 costoUnitario: $costo,
@@ -157,9 +160,9 @@ class RegistradorPiezas
             // destino, así que la pieza llega sin acomodar.
             $activo->update(['almacen_id' => $destino->id, 'ubicacion_id' => null]);
 
-            $this->ledger->registrarPorProducto(
+            $this->ledger->registrarPorArticulo(
                 almacenId: $destino->id,
-                productoId: $activo->producto_id,
+                articuloId: $activo->articulo_id,
                 tipo: MovimientoTipo::TransferenciaEntrada,
                 cantidad: 1,
                 costoUnitario: $costo,
@@ -180,7 +183,7 @@ class RegistradorPiezas
      *
      * @param  array<string, mixed>  $datos
      */
-    private function codigoDeBarras(Producto $producto, array $datos): ?string
+    private function codigoDeBarras(Articulo $articulo, array $datos): ?string
     {
         $capturado = trim((string) ($datos['codigo_barras'] ?? ''));
 
@@ -194,8 +197,8 @@ class RegistradorPiezas
             return $serie;
         }
 
-        $consecutivo = Activo::where('producto_id', $producto->id)->count() + 1;
+        $consecutivo = Activo::where('articulo_id', $articulo->id)->count() + 1;
 
-        return sprintf('%s-%02d', $producto->codigo ?? 'PZA', $consecutivo);
+        return sprintf('%s-%02d', $articulo->codigo ?? 'PZA', $consecutivo);
     }
 }

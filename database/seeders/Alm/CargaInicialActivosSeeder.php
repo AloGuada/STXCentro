@@ -8,8 +8,8 @@ use App\Enums\Alm\UbicacionTipo;
 use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Area;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Ubicacion;
-use App\Models\Costos\Producto;
 use App\Models\Usuario;
 use App\Services\Alm\GeneradorCodigoArticulo;
 use App\Services\Alm\RegistradorPiezas;
@@ -117,7 +117,9 @@ abstract class CargaInicialActivosSeeder extends Seeder
 
                 $codigo = $generador->siguiente();
 
-                $producto = Producto::create([
+                // Sin `producto_id`: el padron de un almacen nace suelto,
+                // igual que su inventario. Emparejar es despues.
+                $nuevo = Articulo::create([
                     'codigo' => $codigo,
                     'codigo_barras' => $codigo,
                     'descripcion' => $articulo['descripcion'],
@@ -126,7 +128,6 @@ abstract class CargaInicialActivosSeeder extends Seeder
                     'clasificacion_abc' => $articulo['abc'],
                     'stock_minimo' => null,
                     'tipo' => ProductoTipo::Activo,
-                    'controla_inventario' => true,
                     'se_controla_por_pieza' => true,
                     'requiere_verificacion' => false,
                     'activo' => true,
@@ -134,7 +135,7 @@ abstract class CargaInicialActivosSeeder extends Seeder
                 ]);
 
                 $creadas = $registrador->alta(
-                    producto: $producto,
+                    articulo: $nuevo,
                     almacen: $almacen,
                     piezas: $articulo['piezas'],
                     ubicacionId: $this->ubicacion($almacen, $articulo['ubicacion']),
@@ -180,8 +181,8 @@ abstract class CargaInicialActivosSeeder extends Seeder
         return Activo::query()
             ->where('almacen_id', $almacen->id)
             ->whereIn(
-                'producto_id',
-                Producto::query()->whereIn('descripcion', $descripciones)->select('id'),
+                'articulo_id',
+                Articulo::query()->whereIn('descripcion', $descripciones)->select('id'),
             )
             ->exists();
     }

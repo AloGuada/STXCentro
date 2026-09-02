@@ -9,6 +9,7 @@ use App\Enums\Alm\PedidoEstatus;
 use App\Models\Alm\Activo;
 use App\Models\Alm\Ajuste;
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Asignacion;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Movimiento;
@@ -531,12 +532,25 @@ class AlmMovimientosDevSeeder extends Seeder
      */
     private function piezas(): void
     {
+        // Datos de prueba: se dan de alta las dos mitades, como lo hace la
+        // pantalla de artículos.
         $producto = Producto::firstOrCreate(
             ['codigo' => 'ART-000201'],
             [
                 'descripcion' => 'Pulidora angular 4 1/2 pulg',
                 'unidad' => 'PZA',
-                'controla_inventario' => true,
+                'activo' => true,
+            ],
+        );
+
+        $articulo = Articulo::firstOrCreate(
+            ['producto_id' => $producto->id],
+            [
+                'codigo' => $producto->codigo,
+                'descripcion' => $producto->descripcion,
+                'unidad' => $producto->unidad,
+                'tipo' => \App\Enums\Alm\ProductoTipo::Activo,
+                'se_controla_por_pieza' => true,
                 'activo' => true,
             ],
         );
@@ -555,7 +569,7 @@ class AlmMovimientosDevSeeder extends Seeder
         }
 
         app(RegistradorPiezas::class)->alta(
-            producto: $producto,
+            articulo: $articulo,
             almacen: $this->herramienta,
             piezas: array_map(fn (string $serie): array => [
                 'no_serie' => $serie,

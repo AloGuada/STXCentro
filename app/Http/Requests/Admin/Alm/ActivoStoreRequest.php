@@ -26,8 +26,10 @@ class ActivoStoreRequest extends FormRequest
             'producto_id' => [
                 'required', 'integer',
                 // Sólo lo marcado «por pieza» se serializa: darle número de
-                // serie a un tornillo no significa nada.
-                Rule::exists('costos_productos', 'id')->where('se_controla_por_pieza', true),
+                // serie a un tornillo no significa nada. La bandera se lee del
+                // artículo, que es donde vive desde que el catálogo de Almacén
+                // se mudó a su propia tabla.
+                Rule::exists('alm_articulos', 'producto_id')->where('se_controla_por_pieza', true),
             ],
             'almacen_id' => ['required', 'integer', 'exists:alm_almacenes,id'],
             'ubicacion_id' => ['nullable', 'integer', 'exists:alm_ubicaciones,id'],

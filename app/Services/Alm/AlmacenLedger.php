@@ -5,6 +5,7 @@ namespace App\Services\Alm;
 use App\Enums\Alm\MovimientoTipo;
 use App\Exceptions\Alm\AsignacionAjenaException;
 use App\Exceptions\Alm\ExistenciaInsuficienteException;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Asignacion;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Movimiento;
@@ -73,10 +74,10 @@ class AlmacenLedger
         if ($cantidad < 0 && (float) $existencia->cantidad + $cantidad < -$epsilon && ! $permitirNegativo) {
             throw new ExistenciaInsuficienteException(
                 almacenId: (int) $existencia->almacen_id,
-                productoId: (int) $existencia->producto_id,
+                productoId: (int) ($existencia->producto_id ?? 0),
                 disponible: (float) $existencia->cantidad,
                 solicitado: abs($cantidad),
-                descripcionProducto: (string) ($existencia->producto?->descripcion ?? ''),
+                descripcionProducto: (string) ($existencia->articulo?->descripcion ?? $existencia->producto?->descripcion ?? ''),
             );
         }
 
@@ -159,6 +160,7 @@ class AlmacenLedger
             'existencia_id' => $existencia->getKey(),
             'almacen_id' => $existencia->almacen_id,
             'producto_id' => $existencia->producto_id,
+            'articulo_id' => $existencia->articulo_id,
             'obra_id' => $obraId,
             'tipo' => $tipo,
             'cantidad' => $cantidad,
@@ -289,11 +291,11 @@ class AlmacenLedger
         if (! $permitirAjena) {
             throw new AsignacionAjenaException(
                 almacenId: (int) $existencia->almacen_id,
-                productoId: (int) $existencia->producto_id,
+                productoId: (int) ($existencia->producto_id ?? 0),
                 libre: max(0.0, $libre),
                 solicitado: $cantidad,
                 asignadoAOtras: $asignado - (float) ($propia->cantidad ?? 0),
-                descripcionProducto: (string) ($existencia->producto?->descripcion ?? ''),
+                descripcionProducto: (string) ($existencia->articulo?->descripcion ?? $existencia->producto?->descripcion ?? ''),
             );
         }
 
@@ -367,6 +369,92 @@ class AlmacenLedger
         return Existencia::query()
             ->where('almacen_id', $almacenId)
             ->where('producto_id', $productoId)
+            ->lockForUpdate()
+            ->firstOrFail();
+    }
+
+    /**
+     * Un asiento pedido por artículo, abriendo la existencia si hace falta.
+     *
+     * Gemelo de `registrarPorProducto` sin su única diferencia: aquí no hay que
+     * preguntar si lleva kardex, así que nunca devuelve null. Es el camino del
+     * material que abre un almacén, que todavía no tiene identidad de compra.
+     */
+    public function registrarPorArticulo(
+        int $almacenId,
+        int $articuloId,
+        MovimientoTipo $tipo,
+        float $cantidad,
+        ?float $costoUnitario = null,
+        ?Model $documento = null,
+        ?string $referencia = null,
+        ?int $ubicacionId = null,
+        ?int $activoId = null,
+        ?string $observaciones = null,
+        ?string $userId = null,
+        bool $permitirNegativo = false,
+        bool $esReverso = false,
+        ?int $obraId = null,
+        bool $permitirAjena = false,
+    ): Movimiento {
+        return DB::transaction(fn (): Movimiento => $this->registrar(
+            $this->bloquearPorArticulo($almacenId, $articuloId),
+            $tipo,
+            $cantidad,
+            $costoUnitario,
+            $documento,
+            $referencia,
+            $ubicacionId,
+            $activoId,
+            $observaciones,
+            $userId,
+            $permitirNegativo,
+            $esReverso,
+            $obraId,
+            $permitirAjena,
+        ));
+    }
+
+    /**
+     * La misma fila del saldo, pero pedida por artículo.
+     *
+     * Es la puerta para el material que todavía no tiene identidad de compra:
+     * el que abre un almacén. Aquí no se pregunta si lleva kardex —tener
+     * renglón en `alm_articulos` es llevarlo—, y por eso este camino no puede
+     * devolver null como el de producto.
+     */
+    public function bloquearPorArticulo(int $almacenId, int $articuloId): Existencia
+    {
+        $existencia = Existencia::query()
+            ->where('almacen_id', $almacenId)
+            ->where('articulo_id', $articuloId)
+            ->lockForUpdate()
+            ->first();
+
+        if ($existencia !== null) {
+            return $existencia;
+        }
+
+        try {
+            $articulo = Articulo::findOrFail($articuloId);
+
+            Existencia::create([
+                'almacen_id' => $almacenId,
+                'articulo_id' => $articuloId,
+                // Mientras conviven las dos columnas, la vieja se llena con lo
+                // que el artículo tenga. Un artículo suelto la deja en null, que
+                // es lo que la migración de nullable acaba de permitir.
+                'producto_id' => $articulo->producto_id,
+            ]);
+        } catch (QueryException $e) {
+            if (! $this->esChoqueDeUnique($e)) {
+                throw $e;
+            }
+        }
+
+        return Existencia::query()
+            ->where('almacen_id', $almacenId)
+            ->where('articulo_id', $articuloId)
             ->lockForUpdate()
             ->firstOrFail();
     }

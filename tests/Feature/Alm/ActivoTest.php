@@ -4,10 +4,10 @@ use App\Enums\Alm\ActivoEstatus;
 use App\Enums\Alm\MovimientoTipo;
 use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Movimiento;
 use App\Models\Alm\Ubicacion;
-use App\Models\Costos\Producto;
 use App\Models\User;
 use App\Services\Alm\RegistradorPiezas;
 use Spatie\Permission\Models\Permission;
@@ -36,17 +36,17 @@ function usuarioDeActivos(array $permisos = ['ver', 'crear', 'editar']): User
  * El invariante que hace confiable a Existencias: para un artículo por pieza, el
  * saldo es exactamente el número de piezas vigentes en ese almacén.
  */
-function invarianteDePiezas(Almacen $almacen, Producto $producto): void
+function invarianteDePiezas(Almacen $almacen, Articulo $articulo): void
 {
     $piezas = Activo::query()
         ->where('almacen_id', $almacen->id)
-        ->where('producto_id', $producto->id)
+        ->where('articulo_id', $articulo->id)
         ->vigentes()
         ->count();
 
     $saldo = (float) Existencia::query()
         ->where('almacen_id', $almacen->id)
-        ->where('producto_id', $producto->id)
+        ->where('articulo_id', $articulo->id)
         ->value('cantidad');
 
     expect($saldo)->toBe((float) $piezas);
@@ -55,11 +55,11 @@ function invarianteDePiezas(Almacen $almacen, Producto $producto): void
 describe('el alta emite al kardex', function () {
     it('da de alta varias series de un golpe y cada una suma 1', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create(['descripcion' => 'Pulidora 4 1/2"']);
+        $pulidora = Articulo::factory()->porPieza()->create(['descripcion' => 'Pulidora 4 1/2"']);
 
         $this->actingAs(usuarioDeActivos())
             ->post(route('admin.alm.activos.store'), [
-                'producto_id' => $pulidora->id,
+                'producto_id' => $pulidora->producto_id,
                 'almacen_id' => $almacen->id,
                 'piezas' => [
                     ['no_serie' => 'PUL-07', 'marca' => 'DeWalt', 'modelo' => 'DWE4120', 'costo' => 2180],
@@ -78,7 +78,7 @@ describe('el alta emite al kardex', function () {
 
     it('el promedio del renglon es el promedio real de sus piezas', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
 
         app(RegistradorPiezas::class)->alta($pulidora, $almacen, [
             ['no_serie' => 'A', 'costo' => 2000],
@@ -93,7 +93,7 @@ describe('el alta emite al kardex', function () {
 
     it('la marca y el modelo son de la pieza, no del articulo', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
 
         // La reposición se compró Makita aunque las primeras eran DeWalt.
         app(RegistradorPiezas::class)->alta($pulidora, $almacen, [
@@ -107,7 +107,7 @@ describe('el alta emite al kardex', function () {
 
     it('el codigo de barras nace de la serie cuando es escaneable', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create(['codigo' => 'PUL-4120']);
+        $pulidora = Articulo::factory()->porPieza()->create(['codigo' => 'PUL-4120']);
 
         app(RegistradorPiezas::class)->alta($pulidora, $almacen, [
             ['no_serie' => 'PUL-4120-07'],
@@ -124,7 +124,7 @@ describe('el alta emite al kardex', function () {
 describe('la baja descarga', function () {
     it('resta 1 al saldo y al costo de esa pieza, no al promedio', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
 
         [$barata, $cara] = app(RegistradorPiezas::class)->alta($pulidora, $almacen, [
             ['no_serie' => 'A', 'costo' => 2000],
@@ -148,7 +148,7 @@ describe('la baja descarga', function () {
 
     it('exige decir por que se retira', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
         [$pieza] = app(RegistradorPiezas::class)->alta($pulidora, $almacen, [['no_serie' => 'A']]);
 
         $this->actingAs(usuarioDeActivos())
@@ -158,7 +158,7 @@ describe('la baja descarga', function () {
 
     it('dar de baja dos veces no descarga dos veces', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
         [$pieza] = app(RegistradorPiezas::class)->alta($pulidora, $almacen, [['no_serie' => 'A', 'costo' => 100]]);
 
         $registrador = app(RegistradorPiezas::class);
@@ -175,7 +175,7 @@ describe('mover cambia de almacen sin perder el uno a uno', function () {
         $origen = Almacen::factory()->create();
         $destino = Almacen::factory()->create();
         $rack = Ubicacion::factory()->de($origen)->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
 
         [$pieza] = app(RegistradorPiezas::class)->alta(
             $pulidora, $origen, [['no_serie' => 'A', 'costo' => 1500]], ubicacionId: $rack->id
@@ -197,7 +197,7 @@ describe('mover cambia de almacen sin perder el uno a uno', function () {
 describe('el prestamo no toca el kardex', function () {
     it('prestada y en reparacion siguen pesando en la existencia', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
 
         $piezas = app(RegistradorPiezas::class)->alta($pulidora, $almacen, [
             ['no_serie' => 'A'], ['no_serie' => 'B'], ['no_serie' => 'C'],
@@ -216,7 +216,7 @@ describe('el prestamo no toca el kardex', function () {
 
     it('existencias desglosa en que anda cada pieza', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
 
         $piezas = app(RegistradorPiezas::class)->alta($pulidora, $almacen, [
             ['no_serie' => 'A'], ['no_serie' => 'B'], ['no_serie' => 'C'], ['no_serie' => 'D'],
@@ -240,11 +240,11 @@ describe('el prestamo no toca el kardex', function () {
 describe('validacion y permisos', function () {
     it('no deja serializar un articulo que no se controla por pieza', function () {
         $almacen = Almacen::factory()->create();
-        $tornillo = Producto::factory()->create();
+        $tornillo = Articulo::factory()->create();
 
         $this->actingAs(usuarioDeActivos())
             ->post(route('admin.alm.activos.store'), [
-                'producto_id' => $tornillo->id,
+                'producto_id' => $tornillo->producto_id,
                 'almacen_id' => $almacen->id,
                 'piezas' => [['no_serie' => 'X-1']],
             ])
@@ -255,12 +255,12 @@ describe('validacion y permisos', function () {
 
     it('no acepta la misma serie dos veces en el mismo alta', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
 
         // Pegar una lista de series repite la misma más seguido de lo que parece.
         $this->actingAs(usuarioDeActivos())
             ->post(route('admin.alm.activos.store'), [
-                'producto_id' => $pulidora->id,
+                'producto_id' => $pulidora->producto_id,
                 'almacen_id' => $almacen->id,
                 'piezas' => [['no_serie' => 'PUL-07'], ['no_serie' => 'PUL-07']],
             ])
@@ -269,13 +269,13 @@ describe('validacion y permisos', function () {
 
     it('no acepta una serie que ya existe del mismo articulo', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
 
         app(RegistradorPiezas::class)->alta($pulidora, $almacen, [['no_serie' => 'PUL-07']]);
 
         $this->actingAs(usuarioDeActivos())
             ->post(route('admin.alm.activos.store'), [
-                'producto_id' => $pulidora->id,
+                'producto_id' => $pulidora->producto_id,
                 'almacen_id' => $almacen->id,
                 'piezas' => [['no_serie' => 'PUL-07']],
             ])
@@ -287,15 +287,15 @@ describe('validacion y permisos', function () {
         $registrador = app(RegistradorPiezas::class);
 
         // Dos fabricantes distintos pueden repetir un número.
-        $registrador->alta(Producto::factory()->porPieza()->create(), $almacen, [['no_serie' => '001']]);
-        $registrador->alta(Producto::factory()->porPieza()->create(), $almacen, [['no_serie' => '001']]);
+        $registrador->alta(Articulo::factory()->porPieza()->create(), $almacen, [['no_serie' => '001']]);
+        $registrador->alta(Articulo::factory()->porPieza()->create(), $almacen, [['no_serie' => '001']]);
 
         expect(Activo::where('no_serie', '001')->count())->toBe(2);
     });
 
     it('la edicion no cambia de almacen ni da de baja', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
         [$pieza] = app(RegistradorPiezas::class)->alta($pulidora, $almacen, [['no_serie' => 'A']]);
 
         $this->actingAs(usuarioDeActivos())
@@ -320,7 +320,7 @@ describe('validacion y permisos', function () {
 
     it('ver el padron no alcanza para dar de alta ni corregir', function () {
         $almacen = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
         [$pieza] = app(RegistradorPiezas::class)->alta($pulidora, $almacen, [['no_serie' => 'A']]);
 
         $usuario = usuarioDeActivos(['ver']);
@@ -338,7 +338,7 @@ describe('validacion y permisos', function () {
     it('el padron solo muestra los almacenes que el usuario ve', function () {
         $suyo = Almacen::factory()->create();
         $ajeno = Almacen::factory()->create();
-        $pulidora = Producto::factory()->porPieza()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
         $registrador = app(RegistradorPiezas::class);
 
         $registrador->alta($pulidora, $suyo, [['no_serie' => 'A']]);
