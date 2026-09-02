@@ -5,6 +5,7 @@ namespace App\Models\Costos;
 use App\Enums\Alm\ClasificacionAbc;
 use App\Enums\Alm\ProductoTipo;
 use App\Models\Alm\Area;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Producto del catálogo de Costos (código + descripción + unidad). Lo
@@ -121,6 +123,21 @@ class Producto extends Model
     public function existencias(): HasMany
     {
         return $this->hasMany(Existencia::class, 'producto_id');
+    }
+
+    /**
+     * El artículo con el que Almacén guarda este producto, si es que lo guarda.
+     * Null quiere decir que no lleva kardex: un servicio, un flete, o algo que
+     * nadie ha clasificado todavía.
+     *
+     * Es uno a lo más, garantizado por un índice único parcial: dos artículos
+     * sobre el mismo producto partirían su existencia en dos renglones.
+     *
+     * @return HasOne<Articulo, $this>
+     */
+    public function articulo(): HasOne
+    {
+        return $this->hasOne(Articulo::class, 'producto_id');
     }
 
     public function precios(): HasMany
