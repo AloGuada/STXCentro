@@ -142,7 +142,7 @@ abstract class CargaInicialActivosSeeder extends Seeder
                     userId: $autoriza->getKey(),
                 );
 
-                $this->aplicarEstatus($creadas, $articulo['piezas']);
+                $this->aplicarEstatus($creadas, $articulo['piezas'], $autoriza->getKey());
                 $piezas += count($creadas);
             }
 
@@ -158,14 +158,34 @@ abstract class CargaInicialActivosSeeder extends Seeder
      * @param  list<Activo>  $creadas
      * @param  list<array<string, mixed>>  $piezas
      */
-    private function aplicarEstatus(array $creadas, array $piezas): void
+    /**
+     * `alta()` las nace todas `disponible` a propósito —el préstamo no es un
+     * alta— y aquí se les pone el estatus con el que venían en el layout.
+     *
+     * La baja es el único que **no** se puede poner con un `update`: prestado y
+     * en reparación siguen contando en existencia porque la pieza sigue siendo
+     * del almacén, pero una pieza dada de baja ya no está, y dejarla contada
+     * rompería el invariante de que la existencia es el número de piezas
+     * vigentes. Se descarga por el registrador, que emite su salida al kardex.
+     */
+    private function aplicarEstatus(array $creadas, array $piezas, ?string $userId): void
     {
+        $registrador = app(RegistradorPiezas::class);
+
         foreach ($creadas as $i => $activo) {
             $estatus = ActivoEstatus::tryFrom($piezas[$i]['estatus'] ?? '');
 
-            if ($estatus !== null && $estatus !== ActivoEstatus::Disponible) {
-                $activo->update(['estatus' => $estatus]);
+            if ($estatus === null || $estatus === ActivoEstatus::Disponible) {
+                continue;
             }
+
+            if ($estatus === ActivoEstatus::Baja) {
+                $registrador->baja($activo, $piezas[$i]['observaciones'] ?? 'Dada de baja en la carga inicial.', $userId);
+
+                continue;
+            }
+
+            $activo->update(['estatus' => $estatus]);
         }
     }
 
