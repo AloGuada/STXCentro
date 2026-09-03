@@ -6,6 +6,7 @@ use App\Enums\Alm\ActivoEstatus;
 use App\Http\Controllers\Controller;
 use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Area;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Ubicacion;
 use App\Models\Obra;
@@ -39,8 +40,11 @@ class ExistenciaController extends Controller
         $almacenId = $request->integer('almacen_id') ?: null;
 
         $comunes = [
-            'filters' => $request->only(['almacen_id', 'ubicacion_id', 'obra_id', 'search', 'sin_acomodar', 'solo_con_saldo']),
+            'filters' => $request->only(['almacen_id', 'ubicacion_id', 'obra_id', 'area_id', 'search', 'sin_acomodar', 'solo_con_saldo']),
             'almacenes' => $this->almacenes($request),
+            // Sólo las activas: filtrar por un área muerta no devuelve nada y
+            // ensucia la lista de la que hay que elegir.
+            'areas' => Area::query()->activas()->orderBy('descripcion')->get(['id', 'descripcion']),
             // Para el filtro por obra y para el modal de reasignación.
             'obras' => Obra::query()->orderBy('no')->get(['id', 'no']),
             'puedeReasignar' => $request->user()?->can('alm.asignaciones.reasignar') ?? false,
@@ -72,7 +76,8 @@ class ExistenciaController extends Controller
             ->with([
                 'almacen:id,clave,nombre,obra_id',
                 'almacen.obra:id,no',
-                'articulo:id,codigo,descripcion,unidad,stock_minimo,se_controla_por_pieza,clasificacion_abc',
+                'articulo:id,codigo,descripcion,unidad,stock_minimo,se_controla_por_pieza,clasificacion_abc,area_id',
+                'articulo.area:id,descripcion',
                 'ubicacion.padre',
                 // El desglose por obra viaja con la fila: son pocas por renglón
                 // y pedirlo aparte sería una consulta por existencia.
@@ -99,6 +104,9 @@ class ExistenciaController extends Controller
             'descripcion' => $e->articulo?->descripcion,
             'unidad' => $e->articulo?->unidad,
             'clasificacion_abc' => $e->articulo?->clasificacion_abc?->value,
+            // Null es legítimo: la carga inicial de los dos primeros almacenes
+            // entró sin área, y clasificarla es trabajo pendiente.
+            'area' => $e->articulo?->area?->descripcion,
             'se_controla_por_pieza' => (bool) $e->articulo?->se_controla_por_pieza,
             'stock_minimo' => $e->articulo?->stock_minimo === null
                 ? null
@@ -165,6 +173,12 @@ class ExistenciaController extends Controller
                     ? $q->whereDoesntHave('asignaciones', fn (Builder $a) => $a->vivas())
                     : $q->whereHas('asignaciones', fn (Builder $a) => $a->vivas()->where('obra_id', $obra)),
             )
+            ->when(
+                $request->integer('area_id') ?: null,
+                // El área vive en el artículo, no en la existencia: el mismo
+                // insumo es de la misma familia esté en la bodega que esté.
+                fn (Builder $q, int $id) => $q->whereHas('articulo', fn (Builder $a) => $a->where('area_id', $id)),
+            )
             ->when($request->boolean('sin_acomodar'), fn (Builder $q) => $q->sinAcomodar())
             ->when($request->boolean('solo_con_saldo'), fn (Builder $q) => $q->conSaldo())
             ->when(
@@ -188,6 +202,7 @@ class ExistenciaController extends Controller
     {
         return $request->integer('almacen_id') !== 0
             || $request->integer('ubicacion_id') !== 0
+            || $request->integer('area_id') !== 0
             || $request->string('obra_id')->isNotEmpty()
             || $request->string('search')->trim()->isNotEmpty()
             || $request->boolean('sin_acomodar');

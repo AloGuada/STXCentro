@@ -37,6 +37,8 @@ type ExistenciaFila = {
     descripcion: string | null;
     unidad: string | null;
     clasificacion_abc: string | null;
+    /** La familia del insumo. Null es legítimo: hay artículos sin clasificar. */
+    area: string | null;
     se_controla_por_pieza: boolean;
     stock_minimo: number | null;
     cantidad: number;
@@ -67,12 +69,15 @@ type ExistenciaFila = {
 
 type ObraOpcion = { id: number; no: string };
 
+type AreaOpcion = { id: number; descripcion: string };
+
 type Props = {
     existencias: PaginatedData<ExistenciaFila>;
     filters: {
         almacen_id?: string;
         ubicacion_id?: string;
         obra_id?: string;
+        area_id?: string;
         search?: string;
         sin_acomodar?: boolean;
         solo_con_saldo?: boolean;
@@ -86,6 +91,7 @@ type Props = {
     almacenes: AlmAlmacenOpcion[];
     ubicaciones: { id: number; ruta: string }[];
     obras: ObraOpcion[];
+    areas: AreaOpcion[];
     puedeReasignar: boolean;
 };
 
@@ -103,6 +109,7 @@ export default function ExistenciasIndex({
     almacenes,
     ubicaciones,
     obras,
+    areas,
     puedeReasignar,
 }: Props) {
     const [reasignando, setReasignando] = useState<ExistenciaFila | null>(null);
@@ -206,6 +213,24 @@ export default function ExistenciasIndex({
                         </div>
                     )}
 
+                    {/* Filtrar por familia es la forma de mirar el inventario sin
+                        elegir bodega: «qué tenemos de tornillería» no es una
+                        pregunta sobre un almacén. */}
+                    <div className="w-52">
+                        <label className="label label-text text-xs">Área</label>
+                        <Select
+                            value={filters.area_id ?? ''}
+                            onValueChange={(v) => filtrar({ area_id: v || undefined })}
+                            placeholder="Todas"
+                        >
+                            {areas.map((a) => (
+                                <SelectItem key={a.id} value={String(a.id)}>
+                                    {a.descripcion}
+                                </SelectItem>
+                            ))}
+                        </Select>
+                    </div>
+
                     {/* «Qué material puedo repartir» es la pregunta con la que se
                         abre esta pantalla cuando hay que asignar lo que ya estaba
                         en bodega, así que lo libre es una opción más. */}
@@ -258,6 +283,7 @@ export default function ExistenciasIndex({
                                 <tr>
                                     <th>Almacén</th>
                                     <th>Artículo</th>
+                                    <th>Área</th>
                                     <th>Unidad</th>
                                     <th>Ubicación</th>
                                     <th className="text-right">Existencia</th>
@@ -270,7 +296,7 @@ export default function ExistenciasIndex({
                             <tbody>
                                 {existencias.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9} className="text-base-content/50 py-6 text-center">
+                                        <td colSpan={10} className="text-base-content/50 py-6 text-center">
                                             No hay existencias con esos filtros.
                                         </td>
                                     </tr>
@@ -304,6 +330,16 @@ export default function ExistenciasIndex({
                                                         >
                                                             {e.piezas.disponibles} de {cantidad(e.cantidad)} disponible(s)
                                                         </Link>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    {e.area ?? (
+                                                        <span
+                                                            className="text-base-content/30"
+                                                            title="Sin clasificar todavía"
+                                                        >
+                                                            —
+                                                        </span>
                                                     )}
                                                 </td>
                                                 <td className="text-base-content/60 font-mono text-xs">{e.unidad}</td>
