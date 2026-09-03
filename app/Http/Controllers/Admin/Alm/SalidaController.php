@@ -184,7 +184,7 @@ class SalidaController extends Controller
             'grupoTrabajo:id,descripcion',
             'pedido:id,folio',
             'entregador:id,name',
-            'detalles.producto:id,codigo,descripcion,unidad',
+            'detalles.articulo:id,codigo,descripcion,unidad',
         ]);
 
         $pdf = Pdf::loadView('pdf.alm.formato-salida', ['salida' => $salida])

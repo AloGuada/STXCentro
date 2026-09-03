@@ -98,6 +98,18 @@ class Pedido extends Model
     }
 
     /**
+     * Quien autorizó el pedido. Hoy siempre es null: el pedido nace aprobado y
+     * la autorización se resuelve firmando el formato impreso. La columna y esta
+     * relación existen para el día que eso deje de bastar.
+     *
+     * @return BelongsTo<Usuario, $this>
+     */
+    public function aprobador(): BelongsTo
+    {
+        return $this->belongsTo(Usuario::class, 'aprobado_por');
+    }
+
+    /**
      * @return BelongsTo<GrupoTrabajo, $this>
      */
     public function grupoTrabajo(): BelongsTo

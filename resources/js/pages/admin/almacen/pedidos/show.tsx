@@ -1,3 +1,4 @@
+import { BotonFormato } from '@/components/alm/boton-formato';
 import { ButtonLink } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
@@ -95,6 +96,7 @@ export default function PedidoShow({ pedido, detalles }: Props) {
                             <ArrowLeftIcon className="size-4" />
                             Volver
                         </ButtonLink>
+                            <BotonFormato href={`/admin/almacen/pedidos/${pedido.id}/pdf`} />
 
                         {puedeSurtirse &&
                             (pedido.se_surte_con === 'salida' ? (

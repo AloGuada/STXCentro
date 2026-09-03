@@ -1,3 +1,4 @@
+import { BotonFormato } from '@/components/alm/boton-formato';
 import { ButtonLink } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -69,6 +70,7 @@ export default function AjusteShow({ ajuste, detalles }: Props) {
                         <ArrowLeftIcon className="size-4" />
                         Volver
                     </ButtonLink>
+                        <BotonFormato href={`/admin/almacen/ajustes/${ajuste.id}/pdf`} />
                 </div>
 
                 {/* Los documentos de almacén no se editan: es lo que hace que el

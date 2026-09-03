@@ -11,9 +11,11 @@ use App\Models\Alm\Almacen;
 use App\Models\Alm\Existencia;
 use App\Models\Costos\Producto;
 use App\Services\Alm\RegistradorAjuste;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -196,5 +198,25 @@ class AjusteController extends Controller
             ->where('activo', true)
             ->orderBy('descripcion')
             ->get(['id', 'codigo', 'descripcion', 'unidad', 'requiere_verificacion']);
+    }
+
+    /**
+     * El acta del conteo. Un ajuste mueve saldo sin que entre ni salga nada,
+     * así que la hoja firmada es el respaldo de quién respondió por él.
+     */
+    public function pdf(Request $request, Ajuste $ajuste): HttpResponse
+    {
+        abort_unless($ajuste->almacen->esVisiblePara($request->user()), 403);
+
+        $ajuste->load([
+            'almacen:id,clave,nombre',
+            'autorizador:id,name',
+            'detalles.articulo:id,codigo,descripcion,unidad',
+        ]);
+
+        $pdf = Pdf::loadView('pdf.alm.formato-ajuste', ['ajuste' => $ajuste])
+            ->setPaper('letter', 'portrait');
+
+        return $pdf->stream("ajuste-{$ajuste->folio}.pdf");
     }
 }

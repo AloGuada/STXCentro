@@ -87,6 +87,16 @@ class Transferencia extends Model
     }
 
     /**
+     * Quien autorizó el traslado. Como en el pedido, hoy se firma en la hoja.
+     *
+     * @return BelongsTo<Usuario, $this>
+     */
+    public function autorizador(): BelongsTo
+    {
+        return $this->belongsTo(Usuario::class, 'autorizado_por');
+    }
+
+    /**
      * @return BelongsTo<Usuario, $this>
      */
     public function enviador(): BelongsTo

@@ -12,8 +12,10 @@ use App\Models\Alm\TransferenciaDetalle;
 use App\Models\Costos\Producto;
 use App\Models\Usuario;
 use App\Services\Alm\RegistradorTransferencia;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -321,5 +323,33 @@ class TransferenciaController extends Controller
             ->where('activo', true)
             ->orderBy('descripcion')
             ->get(['id', 'codigo', 'descripcion', 'unidad', 'requiere_verificacion']);
+    }
+
+    /**
+     * La hoja viaja con el material y vuelve firmada por el destino: es el
+     * comprobante de que llegó, y de cuánto llegó.
+     */
+    public function pdf(Request $request, Transferencia $transferencia): HttpResponse
+    {
+        abort_unless(
+            $transferencia->origen->esVisiblePara($request->user())
+                || $transferencia->destino->esVisiblePara($request->user()),
+            403,
+        );
+
+        $transferencia->load([
+            'origen:id,clave,nombre',
+            'destino:id,clave,nombre',
+            'pedido:id,folio',
+            'autorizador:id,name',
+            'enviador:id,name',
+            'receptor:id,name',
+            'detalles.articulo:id,codigo,descripcion,unidad',
+        ]);
+
+        $pdf = Pdf::loadView('pdf.alm.formato-transferencia', ['transferencia' => $transferencia])
+            ->setPaper('letter', 'portrait');
+
+        return $pdf->stream("transferencia-{$transferencia->folio}.pdf");
     }
 }

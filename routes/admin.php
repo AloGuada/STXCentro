@@ -336,6 +336,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereNumber('transferencia')
             ->middleware('permission:alm.transferencias.recibir')
             ->name('transferencias.recibir');
+        // La hoja que viaja con el material y vuelve firmada por el destino.
+        // Es consulta, asi que basta con poder verla desde cualquiera de los
+        // dos extremos.
+        Route::get('transferencias/{transferencia}/pdf', [AlmTransferenciaController::class, 'pdf'])
+            ->whereNumber('transferencia')
+            ->middleware('permission:alm.transferencias.recibir')
+            ->name('transferencias.pdf');
         Route::patch('transferencias/{transferencia}/cancelar', [AlmTransferenciaController::class, 'cancelar'])
             ->whereNumber('transferencia')
             ->middleware('permission:alm.transferencias.enviar')
@@ -349,6 +356,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // Ajustes: el unico documento que cambia la existencia sin material de
         // por medio. Sin edit/update/destroy, como todos los de almacen: un
         // ajuste equivocado se corrige con otro y los dos quedan en el kardex.
+        // El acta del conteo, firmada. Va antes del resource para que el
+        // segmento /pdf no lo capture {ajuste}.
+        Route::get('ajustes/{ajuste}/pdf', [AlmAjusteController::class, 'pdf'])
+            ->whereNumber('ajuste')
+            ->middleware('permission:alm.ajustes.ver')
+            ->name('ajustes.pdf');
         Route::resource('ajustes', AlmAjusteController::class)
             ->only(['index', 'create', 'store', 'show'])
             ->parameters(['ajustes' => 'ajuste'])
@@ -363,6 +376,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->name('almacenes.existencias');
         // Pedidos: lo que un area le pide al almacen. Nace aprobado mientras la
         // matriz de aprobadores no exista.
+        // El formato impreso del pedido, que es donde se autoriza: el modulo
+        // no tiene flujo de aprobacion y la firma va en la hoja.
+        Route::get('pedidos/{pedido}/pdf', [AlmPedidoController::class, 'pdf'])
+            ->whereNumber('pedido')
+            ->middleware('permission:alm.pedidos.ver')
+            ->name('pedidos.pdf');
         Route::resource('pedidos', AlmPedidoController::class)
             ->only(['index', 'create', 'store', 'show'])
             ->parameters(['pedidos' => 'pedido'])

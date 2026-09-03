@@ -1,3 +1,4 @@
+import { BotonFormato } from '@/components/alm/boton-formato';
 import { ButtonLink } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
@@ -134,6 +135,7 @@ export default function TransferenciaShow({ transferencia, detalles, usuarios }:
                             <ArrowLeftIcon className="size-4" />
                             Volver
                         </ButtonLink>
+                            <BotonFormato href={`/admin/almacen/transferencias/${transferencia.id}/pdf`} />
                         {transferencia.estatus === 'en_transito' && !transferencia.cancelada && (
                             <button type="button" className="btn btn-outline" onClick={() => setCancelando(true)}>
                                 Cancelar envío

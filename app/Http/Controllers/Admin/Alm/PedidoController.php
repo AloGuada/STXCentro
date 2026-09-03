@@ -12,8 +12,10 @@ use App\Models\Costos\Producto;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Prod\GrupoTrabajo;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -235,5 +237,29 @@ class PedidoController extends Controller
             ->where('activo', true)
             ->orderBy('descripcion')
             ->get(['id', 'codigo', 'descripcion', 'unidad', 'requiere_verificacion']);
+    }
+
+    /**
+     * El formato impreso, que es donde el pedido se autoriza: el módulo no
+     * tiene flujo de aprobación y la firma va en la hoja.
+     */
+    public function pdf(Request $request, Pedido $pedido): HttpResponse
+    {
+        abort_unless($pedido->almacen->esVisiblePara($request->user()), 403);
+
+        $pedido->load([
+            'almacen:id,clave,nombre',
+            'departamento:id,descripcion',
+            'obra:id,no,descripcion',
+            'grupoTrabajo:id,descripcion',
+            'solicitante:id,name',
+            'aprobador:id,name',
+            'detalles.articulo:id,codigo,descripcion,unidad',
+        ]);
+
+        $pdf = Pdf::loadView('pdf.alm.formato-pedido', ['pedido' => $pedido])
+            ->setPaper('letter', 'portrait');
+
+        return $pdf->stream("pedido-{$pedido->folio}.pdf");
     }
 }
