@@ -69,6 +69,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Zona horaria de operación
+    |--------------------------------------------------------------------------
+    |
+    | La aplicación guarda todo en UTC, pero la empresa opera en Mérida. Esta
+    | zona es la que se usa para PINTAR un sello de tiempo como fecha del día:
+    | sin ella, lo capturado después de las 18:00 se imprime con la fecha del
+    | día siguiente. No cambia cómo se guarda, solo cómo se muestra.
+    |
+    */
+
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'America/Merida'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

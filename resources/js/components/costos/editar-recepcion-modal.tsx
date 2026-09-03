@@ -19,6 +19,9 @@ export type FacturaOpcion = { id: number; folio: string | null; total: number; e
 export type RecepcionEditable = {
     id: number;
     folio: string | null;
+    /** Sello del sistema: cuándo se elaboró el documento. */
+    fecha_recepcion: string | null;
+    /** Fecha operativa de la entrega, capturada al recibir. */
     fecha_entrega: string | null;
     recibido_por_id: string | null;
     observaciones: string | null;
@@ -110,12 +113,26 @@ export function EditarRecepcionModal({ recepcion, usuarios, onClose }: Props) {
                 <form onSubmit={submit} className="space-y-4">
                     {errorGeneral && <div className="alert alert-error text-sm">{errorGeneral}</div>}
 
-                    {/* Se muestra la que quedó al capturar, no la de hoy: es la fecha
-                        en que entró el material. Ya no se corrige desde aquí. */}
+                    {/* Las dos fechas van de solo lectura: la de recepción la sella el
+                        sistema y la de entrega quedó capturada al recibir el material. */}
                     <FormField
-                        label="Fecha de entrega"
+                        label="Fecha de recepción"
+                        htmlFor="fecha_recepcion"
+                        description="La pone el sistema cuando se elabora el documento. No se captura ni se corrige."
+                    >
+                        <Input
+                            id="fecha_recepcion"
+                            type="date"
+                            value={recepcion?.fecha_recepcion?.slice(0, 10) ?? ''}
+                            readOnly
+                            disabled
+                        />
+                    </FormField>
+
+                    <FormField
+                        label="Fecha de Entrega"
                         htmlFor="fecha_entrega"
-                        description="Quedó fijada el día en que se capturó la recepción y no se puede cambiar. Si está mal, hay que cancelarla y volver a registrarla."
+                        description="La fecha operativa en que llegó el material a planta u obra. Se captura al recibir y desde aquí ya no se cambia: si está mal, hay que cancelar la recepción y volver a registrarla."
                     >
                         <Input id="fecha_entrega" type="date" value={data.fecha_entrega} readOnly disabled />
                     </FormField>

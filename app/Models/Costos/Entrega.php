@@ -5,11 +5,13 @@ namespace App\Models\Costos;
 use App\Models\Alm\Almacen;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Usuario;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Support\Facades\Date;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -92,14 +94,48 @@ class Entrega extends Model
                 });
             })
             ->when($filtros['tipo'] ?? null, fn ($q, $tipo) => $q->where('tipo', $tipo))
-            ->when($filtros['fecha_inicio'] ?? null, fn ($q, $desde) => $q->whereDate('fecha_entrega', '>=', $desde))
-            ->when($filtros['fecha_fin'] ?? null, fn ($q, $hasta) => $q->whereDate('fecha_entrega', '<=', $hasta))
+            // El rango recorta por la fecha de recepción —el sello del sistema,
+            // que nadie puede mover— y no por la fecha de entrega, que el
+            // almacenista captura y puede caer en otro mes.
+            //
+            // Los extremos se traducen a UTC desde la zona de operación en vez
+            // de comparar el día crudo: si no, lo capturado después de las 18:00
+            // del último día del rango se sale del reporte aunque la columna lo
+            // imprima dentro. Se traduce el filtro y no la columna para que el
+            // índice de `created_at` siga sirviendo.
+            ->when(
+                $filtros['fecha_inicio'] ?? null,
+                fn ($q, $desde) => $q->where('created_at', '>=', self::inicioDelDiaLocal($desde)),
+            )
+            ->when(
+                $filtros['fecha_fin'] ?? null,
+                fn ($q, $hasta) => $q->where('created_at', '<=', self::finDelDiaLocal($hasta)),
+            )
             // Quien no puede ver todas las OC solo ve las recepciones de sus
             // propias requisiciones.
             ->when(
                 $filtros['solicitante_id'] ?? null,
                 fn ($q, $id) => $q->whereHas('ordenCompra.requisicion', fn ($r) => $r->where('solicitante_id', $id)),
             );
+    }
+
+    /**
+     * Arranque de un día de operación (00:00 en Mérida), ya en UTC, que es como
+     * se guarda `created_at`.
+     */
+    private static function inicioDelDiaLocal(string $fecha): CarbonInterface
+    {
+        return Date::parse($fecha, config('app.display_timezone'))
+            ->startOfDay()
+            ->utc();
+    }
+
+    /** Cierre de un día de operación (23:59:59 en Mérida), ya en UTC. */
+    private static function finDelDiaLocal(string $fecha): CarbonInterface
+    {
+        return Date::parse($fecha, config('app.display_timezone'))
+            ->endOfDay()
+            ->utc();
     }
 
     /**
@@ -115,6 +151,17 @@ class Entrega extends Model
             ),
             2,
         );
+    }
+
+    /**
+     * Fecha en que se elaboró el documento, ya en la zona horaria de operación.
+     * El sello se guarda en UTC, así que una recepción capturada después de las
+     * 18:00 en Mérida se imprimiría con la fecha del día siguiente si se leyera
+     * crudo. Es la fecha que ve el usuario en la pantalla y en el PDF.
+     */
+    public function fechaRecepcionLocal(): ?CarbonInterface
+    {
+        return $this->created_at?->setTimezone(config('app.display_timezone'));
     }
 
     public function estaCancelada(): bool

@@ -96,7 +96,7 @@
                 <div class="code-title">RECEPCIÓN</div>
                 <div class="code-box">
                     <span class="label">F O L I O:</span> {{ $folio }}<br>
-                    <span class="label">Fecha:</span> {{ $entrega->fecha_entrega?->format('d/m/Y') ?? '-' }}<br>
+                    <span class="label">Fecha:</span> {{ $entrega->fechaRecepcionLocal()?->format('d/m/Y') ?? '-' }}<br>
                     <span class="label">Orden de compra:</span> {{ $oc?->folio ?? '-' }}
                 </div>
             </td>
@@ -132,8 +132,15 @@
         </tr>
         <tr>
             <td class="label">Recibió</td>
-            <td>{{ $entrega->recibidor?->name ?? '-' }}</td>
+            <td colspan="3">{{ $entrega->recibidor?->name ?? '-' }}</td>
+        </tr>
+        {{-- Dos fechas distintas: la de recepción la pone el sistema al elaborar
+             el documento y no se edita; la de entrega es la operativa, cuándo
+             llegó el material a planta u obra. --}}
+        <tr>
             <td class="label">Fecha de recepción</td>
+            <td>{{ $entrega->fechaRecepcionLocal()?->format('d/m/Y') ?? '-' }}</td>
+            <td class="label">Fecha de Entrega</td>
             <td>{{ $entrega->fecha_entrega?->format('d/m/Y') ?? '-' }}</td>
         </tr>
         @if($entrega->observaciones)

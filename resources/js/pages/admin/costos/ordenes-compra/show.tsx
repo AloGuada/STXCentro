@@ -433,7 +433,10 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                             {entrega.cancelada_at && (
                                                 <span className="ml-2 badge badge-sm badge-error">Cancelada</span>
                                             )}
+                                            {/* Recepción: cuándo se elaboró el documento.
+                                                Entrega: cuándo llegó el material. */}
                                             <span className="ml-2 text-sm text-base-content/60">
+                                                Recepción <FormattedDate value={entrega.created_at} /> · Entrega{' '}
                                                 <FormattedDate value={entrega.fecha_entrega} />
                                             </span>
                                         </div>
@@ -459,6 +462,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                                         setEditandoEntrega({
                                                             id: entrega.id,
                                                             folio: entrega.folio ?? null,
+                                                            fecha_recepcion: entrega.created_at ?? null,
                                                             fecha_entrega: entrega.fecha_entrega,
                                                             recibido_por_id: entrega.recibido_por ?? null,
                                                             observaciones: entrega.observaciones ?? null,

@@ -2805,6 +2805,9 @@ export type CostosEntregaDetalle = {
 export type CostosRecepcionRow = {
     id: number;
     folio: string | null;
+    /** Cuándo se elaboró el documento en el sistema. No se captura ni se edita. */
+    fecha_recepcion: string | null;
+    /** Fecha operativa de la entrega en planta u obra; la captura quien recibe. */
     fecha_entrega: string | null;
     tipo: CostosEntregaTipo;
     recibido_por: string | null;

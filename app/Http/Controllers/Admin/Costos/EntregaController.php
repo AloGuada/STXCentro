@@ -175,6 +175,10 @@ class EntregaController extends Controller
         return [
             'id' => $entrega->id,
             'folio' => $entrega->folio,
+            // Dos fechas distintas y ambas se muestran: la de recepción es el
+            // sello del sistema (cuándo se elaboró el documento, no editable) y
+            // la de entrega es la operativa, la que captura quien recibe.
+            'fecha_recepcion' => $entrega->fechaRecepcionLocal()?->toDateString(),
             'fecha_entrega' => $entrega->fecha_entrega?->toDateString(),
             'tipo' => $entrega->tipo,
             'recibido_por' => $entrega->recibidor?->name,
@@ -228,9 +232,9 @@ class EntregaController extends Controller
      * observaciones, evidencia y la factura a la que se ligó (el dedazo más
      * común cuando la OC trae varias facturas del proveedor).
      *
-     * Deliberadamente NO toca cantidades, precios ni la fecha. Las dos primeras
-     * mueven saldo de partidas y presupuesto; la fecha quedó fijada el día en
-     * que se capturó la recepción y es la fecha en que entró el material. Para
+     * Deliberadamente NO toca cantidades, precios ni las fechas. Las dos
+     * primeras mueven saldo de partidas y presupuesto; la fecha de recepción es
+     * el sello del sistema y la de entrega quedó capturada al recibir. Para
      * cualquiera de las tres el camino sigue siendo cancelar y volver a
      * capturar, que ya sabe revertir cada efecto.
      *
@@ -287,7 +291,7 @@ class EntregaController extends Controller
 
         DB::transaction(function () use ($request, $entrega, $facturaActual, $facturaNueva, $cambiaFactura, $completabaAntes, $completaFactura) {
             $entrega->update([
-                // La fecha no se toca: quedó fijada el día de la captura.
+                // Ninguna de las dos fechas se toca aquí.
                 'recibido_por' => $request->input('recibido_por'),
                 'observaciones' => $request->input('observaciones'),
                 'factura_id' => $facturaNueva?->id,

@@ -131,7 +131,8 @@ export default function RecepcionesIndex({ recepciones, filters, totales_recibid
                         <DialogHeader>
                             <DialogTitle>Reporte de recepciones</DialogTitle>
                             <p className="mt-1 text-sm text-base-content/60">
-                                Se exporta a Excel lo recibido entre las dos fechas.
+                                Se exporta a Excel lo recibido entre las dos fechas, contadas por fecha de
+                                recepción: la del documento, no la de entrega.
                                 {(search || tipo) && ' Se respetan los filtros activos de la pantalla.'}
                             </p>
                         </DialogHeader>
@@ -233,7 +234,10 @@ export default function RecepcionesIndex({ recepciones, filters, totales_recibid
                         <thead>
                             <tr>
                                 <th>Folio</th>
-                                <th>Fecha</th>
+                                {/* La de recepción la sella el sistema al elaborar el
+                                    documento; la de entrega la captura quien recibe. */}
+                                <th>Fecha de recepción</th>
+                                <th>Fecha de Entrega</th>
                                 <th>OC</th>
                                 <th>Solicitud de Pago</th>
                                 <th>Proveedor</th>
@@ -248,7 +252,7 @@ export default function RecepcionesIndex({ recepciones, filters, totales_recibid
                         <tbody>
                             {recepciones.data.length === 0 ? (
                                 <tr>
-                                    <td colSpan={11} className="py-12 text-center text-base-content/60">
+                                    <td colSpan={12} className="py-12 text-center text-base-content/60">
                                         No hay recepciones.
                                     </td>
                                 </tr>
@@ -256,6 +260,9 @@ export default function RecepcionesIndex({ recepciones, filters, totales_recibid
                                 recepciones.data.map((r) => (
                                     <tr key={r.id}>
                                         <td className="font-medium">{r.folio ?? '-'}</td>
+                                        <td className="whitespace-nowrap">
+                                            <FormattedDate value={r.fecha_recepcion} />
+                                        </td>
                                         <td className="whitespace-nowrap">
                                             <FormattedDate value={r.fecha_entrega} />
                                         </td>
@@ -321,7 +328,7 @@ export default function RecepcionesIndex({ recepciones, filters, totales_recibid
                         {recepciones.data.length > 0 && (
                             <tfoot>
                                 <tr>
-                                    <td colSpan={8} className="text-right text-base-content/60">
+                                    <td colSpan={9} className="text-right text-base-content/60">
                                         Total en esta página
                                     </td>
                                     <td className="whitespace-nowrap text-right font-semibold">
