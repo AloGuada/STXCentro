@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Movimiento;
 use App\Models\Costos\Entrega;
@@ -41,6 +42,16 @@ function entradaValida(Almacen $almacen, array $detalles): array
     ];
 }
 
+/**
+ * El artículo con el que se captura un producto. La entrada se captura por
+ * artículo —como todo Almacén— y se guarda por producto, porque el documento
+ * es de compra.
+ */
+function articuloDe(\App\Models\Costos\Producto $producto): int
+{
+    return (int) app(\App\Services\Alm\ResolvedorArticulo::class)->paraProducto($producto->id);
+}
+
 describe('la entrada carga el kardex', function () {
     it('escribe en costos_entregas, no en una tabla nueva', function () {
         $almacen = Almacen::factory()->create();
@@ -48,7 +59,7 @@ describe('la entrada carga el kardex', function () {
 
         $this->actingAs(usuarioDeEntradas())
             ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_recibida' => 100, 'precio_unitario' => 4.35],
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 100, 'precio_unitario' => 4.35],
             ]))
             ->assertRedirect();
 
@@ -71,7 +82,7 @@ describe('la entrada carga el kardex', function () {
 
         $this->actingAs(usuarioDeEntradas())
             ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_recibida' => 10, 'precio_unitario' => 5],
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 10, 'precio_unitario' => 5],
             ]));
 
         $detalle = Entrega::firstOrFail()->detalles()->firstOrFail();
@@ -90,22 +101,28 @@ describe('la entrada carga el kardex', function () {
 
         $this->actingAs(usuarioDeEntradas())
             ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_recibida' => 10],
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 10],
             ]))
             ->assertSessionHasErrors('detalles.0.precio_unitario');
 
         expect(Entrega::count())->toBe(0);
     });
 
-    it('no deja recibir lo que no lleva kardex', function () {
+    it('no deja recibir lo que Almacen no guarda', function () {
+        // Un flete se compra pero no se almacena, asi que nadie le abrio
+        // articulo. Antes se sabia por una bandera; ahora se sabe porque no
+        // esta en el catalogo de Almacen, que es donde vive lo que si se
+        // guarda. La bandera se podia desincronizar del hecho; el renglon no.
         $almacen = Almacen::factory()->create();
-        $flete = Producto::factory()->sinInventario()->create();
+        $flete = Producto::factory()->create(['descripcion' => 'Flete foraneo']);
+
+        expect(Articulo::where('producto_id', $flete->id)->exists())->toBeFalse();
 
         $this->actingAs(usuarioDeEntradas())
             ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
-                ['producto_id' => $flete->id, 'cantidad_recibida' => 1, 'precio_unitario' => 8500],
+                ['articulo_id' => 999999, 'cantidad_recibida' => 1, 'precio_unitario' => 8500],
             ]))
-            ->assertSessionHasErrors('detalles.0.producto_id');
+            ->assertSessionHasErrors('detalles.0.articulo_id');
     });
 });
 
@@ -126,7 +143,7 @@ describe('el registrador sobre una recepcion de orden', function () {
 
         $this->actingAs(usuarioDeEntradas())
             ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_recibida' => 50, 'precio_unitario' => 10],
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 50, 'precio_unitario' => 10],
             ]));
 
         $entrada = Entrega::with('detalles')->firstOrFail();
@@ -143,7 +160,7 @@ describe('el registrador sobre una recepcion de orden', function () {
 
         $this->actingAs(usuarioDeEntradas())
             ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_recibida' => 100, 'precio_unitario' => 10],
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 100, 'precio_unitario' => 10],
             ]));
 
         $entrada = Entrega::with('detalles')->firstOrFail();
@@ -168,7 +185,7 @@ describe('el registrador sobre una recepcion de orden', function () {
 
         $this->actingAs(usuarioDeEntradas())
             ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_recibida' => 100, 'precio_unitario' => 10],
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 100, 'precio_unitario' => 10],
             ]));
 
         $entrada = Entrega::with('detalles')->firstOrFail();
@@ -192,7 +209,7 @@ describe('permisos', function () {
         $this->actingAs($usuario)->get(route('admin.alm.entradas.create'))->assertForbidden();
         $this->actingAs($usuario)
             ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_recibida' => 1, 'precio_unitario' => 1],
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 1, 'precio_unitario' => 1],
             ]))
             ->assertForbidden();
     });
@@ -204,10 +221,10 @@ describe('permisos', function () {
 
         $capturista = usuarioDeEntradas();
         $this->actingAs($capturista)->post(route('admin.alm.entradas.store'), entradaValida($suyo, [
-            ['producto_id' => $producto->id, 'cantidad_recibida' => 1, 'precio_unitario' => 1],
+            ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 1, 'precio_unitario' => 1],
         ]));
         $this->actingAs($capturista)->post(route('admin.alm.entradas.store'), entradaValida($ajeno, [
-            ['producto_id' => $producto->id, 'cantidad_recibida' => 1, 'precio_unitario' => 1],
+            ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 1, 'precio_unitario' => 1],
         ]));
 
         $usuario = User::factory()->create();
@@ -238,7 +255,7 @@ describe('la fecha de transaccion se elige, la de registro la pone el servidor',
         $producto = Producto::factory()->create();
 
         $datos = entradaValida($almacen, [
-            ['producto_id' => $producto->id, 'cantidad_recibida' => 10, 'precio_unitario' => 4.35],
+            ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 10, 'precio_unitario' => 4.35],
         ]);
         $datos['fecha_entrega'] = now()->addDay()->toDateString();
 
@@ -254,7 +271,7 @@ describe('la fecha de transaccion se elige, la de registro la pone el servidor',
         $producto = Producto::factory()->create();
 
         $datos = entradaValida($almacen, [
-            ['producto_id' => $producto->id, 'cantidad_recibida' => 10, 'precio_unitario' => 4.35],
+            ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 10, 'precio_unitario' => 4.35],
         ]);
         $datos['fecha_entrega'] = now()->subWeek()->toDateString();
 

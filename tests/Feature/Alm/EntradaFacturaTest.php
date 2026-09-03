@@ -230,7 +230,7 @@ test('la entrada sin orden sigue sin pedir factura', function () {
             'almacen_id' => $this->almacen->id,
             'fecha_entrega' => now()->toDateString(),
             'detalles' => [
-                ['producto_id' => $this->producto->id, 'cantidad_recibida' => 5, 'precio_unitario' => 30],
+                ['articulo_id' => (int) app(\App\Services\Alm\ResolvedorArticulo::class)->paraProducto($this->producto->id), 'cantidad_recibida' => 5, 'precio_unitario' => 30],
             ],
         ])
         ->assertRedirect()

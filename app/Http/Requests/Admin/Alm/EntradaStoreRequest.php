@@ -75,11 +75,13 @@ class EntradaStoreRequest extends FormRequest
                 'integer',
                 'exists:costos_ordenes_compra_detalle,id',
             ],
-            'detalles.*.producto_id' => [
+            'detalles.*.articulo_id' => [
                 Rule::requiredIf(! $conOrden),
                 'nullable',
                 'integer',
-                Rule::exists('costos_productos', 'id')->where('controla_inventario', true),
+                // Con producto: la entrada documenta una compra, y algo que
+                // nadie compró no tiene con qué documentarse.
+                Rule::exists('alm_articulos', 'id')->whereNotNull('producto_id'),
             ],
             'detalles.*.cantidad_recibida' => ['required', 'numeric', 'gt:0'],
             'detalles.*.precio_unitario' => [Rule::requiredIf(! $conOrden), 'nullable', 'numeric', 'min:0'],
@@ -105,8 +107,8 @@ class EntradaStoreRequest extends FormRequest
             'detalles.*.cantidad_recibida.gt' => 'Recibir cero no es recibir.',
             'detalles.*.orden_compra_detalle_id.required' => 'Indica de qué partida de la orden es este renglón.',
             'detalles.*.precio_unitario.required' => 'Sin orden de compra no hay de dónde sacar el costo: captúralo.',
-            'detalles.*.producto_id.required' => 'Elige el artículo que entra.',
-            'detalles.*.producto_id.exists' => 'Ese artículo no lleva kardex: el almacén no lo guarda.',
+            'detalles.*.articulo_id.required' => 'Elige el artículo que entra.',
+            'detalles.*.articulo_id.exists' => 'Ese artículo no lleva kardex: el almacén no lo guarda.',
         ];
     }
 }

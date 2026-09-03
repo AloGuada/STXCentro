@@ -141,19 +141,28 @@ class AjusteController extends Controller
     {
         abort_unless($almacen->esVisiblePara($request->user()), 403);
 
+        // Los articulos de ESTE almacen, no el catalogo entero. Es tambien la
+        // lista con la que se captura: ofrecer lo que otra bodega guarda seria
+        // ofrecer material que aqui no hay.
+        //
+        // Entran los que estan en cero: la carga inicial les abre existencia
+        // igual, y contar cero tambien es informacion.
         return response()->json(
             Existencia::query()
                 ->where('almacen_id', $almacen->id)
-                ->whereHas('producto', fn ($q) => $q->where('controla_inventario', true))
-                ->with('producto:id,codigo,descripcion,unidad')
+                ->whereNotNull('articulo_id')
+                ->with('articulo:id,codigo,descripcion,unidad,requiere_verificacion')
                 ->get()
                 ->map(fn (Existencia $e): array => [
-                    'producto_id' => $e->producto_id,
-                    'codigo' => $e->producto?->codigo,
-                    'descripcion' => $e->producto?->descripcion,
-                    'unidad' => $e->producto?->unidad,
+                    'id' => $e->articulo_id,
+                    'articulo_id' => $e->articulo_id,
+                    'codigo' => $e->articulo?->codigo,
+                    'descripcion' => $e->articulo?->descripcion,
+                    'unidad' => $e->articulo?->unidad,
+                    'requiere_verificacion' => (bool) $e->articulo?->requiere_verificacion,
                     'cantidad' => (float) $e->cantidad,
                 ])
+                ->sortBy('descripcion')
                 ->values()
         );
     }

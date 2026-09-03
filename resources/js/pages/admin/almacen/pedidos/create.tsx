@@ -6,9 +6,10 @@ import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
-import type { AlmAlmacenOpcion, AlmPartidaBorrador, AlmProductoOpcion } from '@/types/models';
+import type { AlmAlmacenOpcion, AlmPartidaBorrador } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { InfoIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -17,16 +18,31 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Nuevo', href: '/admin/almacen/pedidos/create' },
 ];
 
+/**
+ * Lo que el almacén elegido guarda. Es la lista con la que se captura: pedirle
+ * a una bodega algo que otra guarda no tiene sentido, y el catálogo entero
+ * ofrecía justamente eso.
+ */
+type Saldo = {
+    id: number;
+    articulo_id: number;
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+    requiere_verificacion: boolean;
+    cantidad: number;
+};
+
 type Props = {
     almacenes: AlmAlmacenOpcion[];
     departamentos: { id: number; descripcion: string }[];
     obras: { id: number; no: string; descripcion: string }[];
     gruposTrabajo: { id: number; descripcion: string }[];
-    productos: AlmProductoOpcion[];
 };
 
-export default function PedidoCreate({ almacenes, departamentos, obras, gruposTrabajo, productos }: Props) {
+export default function PedidoCreate({ almacenes, departamentos, obras, gruposTrabajo }: Props) {
     const hoy = new Date().toISOString().slice(0, 10);
+    const [saldos, setSaldos] = useState<Saldo[]>([]);
 
     const form = useForm({
         almacen_id: '',
@@ -41,6 +57,27 @@ export default function PedidoCreate({ almacenes, departamentos, obras, gruposTr
         detalles: [{ ...PARTIDA_VACIA }] as AlmPartidaBorrador[],
     });
 
+    useEffect(() => {
+        if (form.data.almacen_id === '') {
+            setSaldos([]);
+
+            return;
+        }
+
+        let vigente = true;
+
+        fetch(`/admin/almacen/almacenes/${form.data.almacen_id}/existencias`, {
+            headers: { Accept: 'application/json' },
+        })
+            .then((r) => (r.ok ? r.json() : []))
+            .then((datos: Saldo[]) => vigente && setSaldos(datos))
+            .catch(() => setSaldos([]));
+
+        return () => {
+            vigente = false;
+        };
+    }, [form.data.almacen_id]);
+
     // Con obra hay que llevar el material a otro domicilio, así que lo surte una
     // transferencia y la obra confirma. Sin obra se queda aquí y sale directo.
     const esDeObra = form.data.obra_id !== '';
@@ -51,7 +88,7 @@ export default function PedidoCreate({ almacenes, departamentos, obras, gruposTr
         form.transform((datos) => ({
             ...datos,
             detalles: datos.detalles.map((d) => ({
-                producto_id: d.producto_id,
+                articulo_id: d.articulo_id,
                 cantidad_solicitada: d.cantidad,
                 observaciones: d.observaciones || null,
             })),
@@ -243,7 +280,7 @@ export default function PedidoCreate({ almacenes, departamentos, obras, gruposTr
                         <CapturadorPartidas
                             partidas={form.data.detalles}
                             onChange={(detalles) => form.setData('detalles', detalles)}
-                            productos={productos}
+                            articulos={saldos}
                             // Pedir de más no es un error aquí: el material
                             // todavía no sale, y el almacén decide qué hacer.
                             avisarFaltante={false}

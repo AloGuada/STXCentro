@@ -24,7 +24,20 @@ type Props = {
 };
 
 /** El saldo registrado de un artículo en el almacén elegido. */
-type Saldo = { producto_id: number; cantidad: number };
+/**
+ * Lo que el almacén elegido guarda. Es a la vez la lista con la que se captura
+ * y el saldo contra el que se avisa de faltantes: ofrecer el catálogo entero
+ * sería ofrecer material que en esta bodega no hay.
+ */
+type Saldo = {
+    id: number;
+    articulo_id: number;
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+    requiere_verificacion: boolean;
+    cantidad: number;
+};
 
 export default function AjusteCreate({ almacenes, motivos, productos }: Props) {
     const form = useForm({
@@ -67,7 +80,7 @@ export default function AjusteCreate({ almacenes, motivos, productos }: Props) {
     }, [form.data.almacen_id]);
 
     const disponibleDe = (productoId: number) =>
-        saldos.find((s) => s.producto_id === productoId)?.cantidad ?? 0;
+        saldos.find((s) => s.articulo_id === productoId)?.cantidad ?? 0;
 
     const enviar = (e: React.FormEvent) => {
         e.preventDefault();
@@ -78,7 +91,7 @@ export default function AjusteCreate({ almacenes, motivos, productos }: Props) {
         form.transform((datos) => ({
             ...datos,
             detalles: datos.detalles.map((d) => ({
-                producto_id: d.producto_id,
+                articulo_id: d.articulo_id,
                 cantidad_contada: d.cantidad,
                 costo_unitario: d.costo_unitario === '' ? null : d.costo_unitario,
                 observaciones: d.observaciones || null,
@@ -179,7 +192,7 @@ export default function AjusteCreate({ almacenes, motivos, productos }: Props) {
                         <CapturadorPartidas
                             partidas={form.data.detalles}
                             onChange={(detalles) => form.setData('detalles', detalles)}
-                            productos={productos}
+                            articulos={saldos}
                             modo="conteo"
                             disponibleDe={form.data.almacen_id === '' ? undefined : disponibleDe}
                         />

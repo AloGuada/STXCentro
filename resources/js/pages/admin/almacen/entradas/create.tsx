@@ -111,7 +111,7 @@ export default function EntradaCreate({ almacenes, productos, ordenesAbiertas, o
                 {conOrden ? (
                     <EntradaConOrden almacenes={almacenes} ordenesAbiertas={ordenesAbiertas} orden={orden} />
                 ) : (
-                    <EntradaSinOrden almacenes={almacenes} productos={productos} />
+                    <EntradaSinOrden almacenes={almacenes} articulos={productos} />
                 )}
             </div>
         </AppLayout>
@@ -540,10 +540,10 @@ function EntradaConOrden({
 
 function EntradaSinOrden({
     almacenes,
-    productos,
+    articulos,
 }: {
     almacenes: AlmAlmacenOpcion[];
-    productos: AlmProductoOpcion[];
+    articulos: AlmProductoOpcion[];
 }) {
     const form = useForm({
         almacen_id: '',
@@ -561,7 +561,7 @@ function EntradaSinOrden({
         form.transform((datos) => ({
             ...datos,
             detalles: datos.detalles.map((d) => ({
-                producto_id: d.producto_id,
+                articulo_id: d.articulo_id,
                 cantidad_recibida: d.cantidad,
                 precio_unitario: d.costo_unitario,
                 observaciones: d.observaciones || null,
@@ -626,7 +626,7 @@ function EntradaSinOrden({
                     <p className="text-error mb-2 text-sm">{form.errors.detalles}</p>
                 )}
                 {form.data.detalles.map((_, i) => {
-                    const error = errorDe(i, 'precio_unitario') ?? errorDe(i, 'producto_id');
+                    const error = errorDe(i, 'precio_unitario') ?? errorDe(i, 'articulo_id');
 
                     return error ? (
                         <p key={i} className="text-error mb-1 text-sm">
@@ -637,7 +637,7 @@ function EntradaSinOrden({
                 <CapturadorPartidas
                     partidas={form.data.detalles}
                     onChange={(detalles) => form.setData('detalles', detalles)}
-                    productos={productos}
+                    articulos={articulos}
                     conCosto
                     avisarFaltante={false}
                     pedirVerificacionMantenimiento

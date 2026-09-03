@@ -31,7 +31,7 @@ type PedidoTransferible = {
     fecha_requerida: string | null;
     detalles: {
         id: number;
-        producto_id: number;
+        articulo_id: number;
         codigo: string | null;
         descripcion: string | null;
         unidad: string | null;
@@ -50,7 +50,20 @@ type Props = {
     pedidoSeleccionado: number | null;
 };
 
-type Saldo = { producto_id: number; cantidad: number };
+/**
+ * Lo que el almacén elegido guarda. Es a la vez la lista con la que se captura
+ * y el saldo contra el que se avisa de faltantes: ofrecer el catálogo entero
+ * sería ofrecer material que en esta bodega no hay.
+ */
+type Saldo = {
+    id: number;
+    articulo_id: number;
+    codigo: string;
+    descripcion: string;
+    unidad: string;
+    requiere_verificacion: boolean;
+    cantidad: number;
+};
 
 /**
  * El primer tiempo de la transferencia: el envío.
@@ -115,14 +128,14 @@ export default function TransferenciaCreate({
             'detalles',
             elegido.detalles.map((d) => ({
                 ...RENGLON_VACIO,
-                producto_id: String(d.producto_id),
+                articulo_id: String(d.articulo_id),
                 pedido_detalle_id: String(d.id),
                 cantidad: String(d.pendiente),
             })),
         );
     };
 
-    const disponibleDe = (productoId: number) => saldos.find((s) => s.producto_id === productoId)?.cantidad ?? 0;
+    const disponibleDe = (productoId: number) => saldos.find((s) => s.articulo_id === productoId)?.cantidad ?? 0;
 
     const errorDe = (indice: number): string | undefined =>
         (form.errors as Record<string, string | undefined>)[`detalles.${indice}.cantidad_enviada`];
@@ -133,7 +146,7 @@ export default function TransferenciaCreate({
         form.transform((datos) => ({
             ...datos,
             detalles: datos.detalles.map((d) => ({
-                producto_id: d.producto_id,
+                articulo_id: d.articulo_id,
                 pedido_detalle_id: d.pedido_detalle_id || null,
                 cantidad_enviada: d.cantidad,
                 observaciones: d.observaciones || null,
@@ -310,7 +323,7 @@ export default function TransferenciaCreate({
                                     })),
                                 )
                             }
-                            productos={productos}
+                            articulos={saldos}
                             disponibleDe={form.data.almacen_origen_id === '' ? undefined : disponibleDe}
                         />
                     </div>

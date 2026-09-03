@@ -4193,7 +4193,7 @@ export type AlmReglaAbc = {
 
 /** Un renglón del capturador de partidas, compartido por los tres documentos. */
 export type AlmPartidaBorrador = {
-    producto_id: string;
+    articulo_id: string;
     cantidad: string;
     costo_unitario: string;
     observaciones: string;

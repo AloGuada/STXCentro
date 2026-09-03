@@ -7,12 +7,15 @@ import { useMemo } from 'react';
 type Props = {
     partidas: AlmPartidaBorrador[];
     onChange: (partidas: AlmPartidaBorrador[]) => void;
-    /** Lo que se puede capturar. Lo manda la pantalla, que sabe qué acota su documento. */
-    productos: AlmProductoOpcion[];
+    /**
+     * Lo que se puede capturar. Lo manda la pantalla, que sabe qué acota su
+     * documento: para casi todas, los artículos del almacén elegido.
+     */
+    articulos: AlmProductoOpcion[];
     /** Las entradas capturan costo; salidas y transferencias no. */
     conCosto?: boolean;
-    /** Existencia del producto en el almacén elegido, para avisar de faltantes. */
-    disponibleDe?: (productoId: number) => number | null;
+    /** Existencia del artículo en el almacén elegido, para avisar de faltantes. */
+    disponibleDe?: (articuloId: number) => number | null;
     /**
      * `cantidad` captura cuánto entra o sale. `conteo` es para el ajuste: se
      * captura lo que se contó y el sistema calcula la diferencia contra el
@@ -26,7 +29,7 @@ type Props = {
      */
     avisarFaltante?: boolean;
     /**
-     * Sólo la entrada la pide: los productos marcados con "inspección de
+     * Sólo la entrada la pide: los artículos marcados con "inspección de
      * mantenimiento" no se reciben sin revisar en qué estado llegan. Los demás
      * documentos no preguntan nada.
      */
@@ -34,14 +37,14 @@ type Props = {
 };
 
 /**
- * Cuántos productos se ofrecen a la vez. El catálogo crece rápido y una lista
+ * Cuántos artículos se ofrecen a la vez. El catálogo crece rápido y una lista
  * larga no se lee: con tres, la forma de llegar es teclear el código o la
  * descripción, no recorrer la lista. El resto se anuncia, no se esconde.
  */
 const PRODUCTOS_OFRECIDOS = 3;
 
 export const PARTIDA_VACIA: AlmPartidaBorrador = {
-    producto_id: '',
+    articulo_id: '',
     cantidad: '',
     costo_unitario: '',
     observaciones: '',
@@ -51,12 +54,12 @@ export const PARTIDA_VACIA: AlmPartidaBorrador = {
 /** Renglones que piden verificación de mantenimiento y todavía no la tienen. */
 export function partidasSinVerificar(
     partidas: AlmPartidaBorrador[],
-    productos: AlmProductoOpcion[],
+    articulos: AlmProductoOpcion[],
 ): AlmPartidaBorrador[] {
     return partidas.filter((partida) => {
-        const producto = productos.find((p) => String(p.id) === partida.producto_id);
+        const articulo = articulos.find((p) => String(p.id) === partida.articulo_id);
 
-        return producto?.requiere_verificacion === true && !partida.mantenimiento_verificado;
+        return articulo?.requiere_verificacion === true && !partida.mantenimiento_verificado;
     });
 }
 
@@ -64,13 +67,13 @@ const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', cur
 
 /**
  * Tabla editable de renglones, compartida por entrada, salida y transferencia.
- * Los tres documentos capturan lo mismo —qué producto y cuánto— y sólo cambian
+ * Los tres documentos capturan lo mismo —qué artículo y cuánto— y sólo cambian
  * en si llevan costo y en si hay que cuidar la existencia.
  */
 export function CapturadorPartidas({
     partidas,
     onChange,
-    productos,
+    articulos,
     conCosto = false,
     disponibleDe,
     modo = 'cantidad',
@@ -85,7 +88,7 @@ export function CapturadorPartidas({
 
     const quitar = (indice: number) => onChange(partidas.filter((_, i) => i !== indice));
 
-    const productoDe = (id: string) => productos.find((p) => String(p.id) === id);
+    const articuloDe = (id: string) => articulos.find((p) => String(p.id) === id);
 
     /**
      * El catálogo entero es una lista larga que nadie recorre de memoria: se
@@ -94,11 +97,11 @@ export function CapturadorPartidas({
      */
     const opciones = useMemo(
         () =>
-            productos.map((p) => ({
+            articulos.map((p) => ({
                 value: String(p.id),
                 label: [p.codigo, p.descripcion].filter(Boolean).join(' — '),
             })),
-        [productos],
+        [articulos],
     );
 
     const importeDe = (p: AlmPartidaBorrador) => Number(p.cantidad || 0) * Number(p.costo_unitario || 0);
@@ -136,8 +139,8 @@ export function CapturadorPartidas({
                             </tr>
                         ) : (
                             partidas.map((partida, i) => {
-                                const producto = productoDe(partida.producto_id);
-                                const disponible = producto && disponibleDe ? disponibleDe(producto.id) : null;
+                                const articulo = articuloDe(partida.articulo_id);
+                                const disponible = articulo && disponibleDe ? disponibleDe(articulo.id) : null;
                                 // Contar menos de lo que dice el sistema no es un
                                 // error: es justo el faltante que el ajuste corrige.
                                 const falta =
@@ -154,7 +157,7 @@ export function CapturadorPartidas({
                                 // el palomeo el renglón queda detenido.
                                 const faltaVerificar =
                                     pedirVerificacionMantenimiento &&
-                                    producto?.requiere_verificacion === true &&
+                                    articulo?.requiere_verificacion === true &&
                                     !partida.mantenimiento_verificado;
 
                                 return (
@@ -162,8 +165,8 @@ export function CapturadorPartidas({
                                         <td>
                                             <SearchSelect
                                                 options={opciones}
-                                                value={partida.producto_id}
-                                                onValueChange={(v) => editar(i, { producto_id: v })}
+                                                value={partida.articulo_id}
+                                                onValueChange={(v) => editar(i, { articulo_id: v })}
                                                 placeholder="Teclea código o descripción..."
                                                 inputClassName="input-sm"
                                                 maxOptions={PRODUCTOS_OFRECIDOS}
@@ -173,12 +176,12 @@ export function CapturadorPartidas({
                                                     className={`mt-1 text-xs ${falta ? 'text-error' : 'text-base-content/60'}`}
                                                 >
                                                     {falta && <TriangleAlertIcon className="mr-1 inline size-3" />}
-                                                    Disponible: {disponible.toLocaleString('es-MX')} {producto?.unidad}
+                                                    Disponible: {disponible.toLocaleString('es-MX')} {articulo?.unidad}
                                                 </p>
                                             )}
                                         </td>
                                         <td className="text-base-content/60 font-mono text-xs">
-                                            {producto?.unidad ?? '—'}
+                                            {articulo?.unidad ?? '—'}
                                         </td>
                                         {esConteo && (
                                             <td className="text-base-content/60 text-right font-mono">
@@ -237,7 +240,7 @@ export function CapturadorPartidas({
                                         )}
                                         {pedirVerificacionMantenimiento && (
                                             <td className="text-center">
-                                                {producto?.requiere_verificacion ? (
+                                                {articulo?.requiere_verificacion ? (
                                                     <input
                                                         type="checkbox"
                                                         className={`checkbox checkbox-sm ${faltaVerificar ? 'checkbox-warning' : ''}`}
@@ -245,7 +248,7 @@ export function CapturadorPartidas({
                                                         onChange={(e) =>
                                                             editar(i, { mantenimiento_verificado: e.target.checked })
                                                         }
-                                                        aria-label={`Mantenimiento verificado de ${producto.codigo}`}
+                                                        aria-label={`Mantenimiento verificado de ${articulo.codigo}`}
                                                     />
                                                 ) : (
                                                     <span className="text-base-content/30">—</span>

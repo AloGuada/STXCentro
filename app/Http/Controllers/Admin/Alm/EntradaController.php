@@ -8,6 +8,7 @@ use App\Enums\Costos\TipoFiscalPartida;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\EntradaStoreRequest;
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Articulo;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
 use App\Models\Costos\OrdenCompra;
@@ -223,15 +224,18 @@ class EntradaController extends Controller
             ]);
 
             foreach ($request->validated('detalles') as $renglon) {
-                $producto = Producto::find($renglon['producto_id']);
+                // El renglón se captura por artículo y se guarda por producto:
+                // el documento es de compra. La descripción sale del artículo,
+                // que es lo que el almacenista tenía enfrente al recibir.
+                $articulo = Articulo::find($renglon['articulo_id']);
 
                 $entrada->detalles()->create([
                     'orden_compra_detalle_id' => null,
-                    'producto_id' => $producto?->id,
+                    'producto_id' => $articulo?->producto_id,
                     // Sin orden no hay de dónde heredarlas, y el renglón tiene
                     // que poder imprimirse solo.
-                    'descripcion' => $producto?->descripcion,
-                    'unidad' => $producto?->unidad,
+                    'descripcion' => $articulo?->descripcion,
+                    'unidad' => $articulo?->unidad,
                     'cantidad_recibida' => $renglon['cantidad_recibida'],
                     'precio_unitario' => $renglon['precio_unitario'],
                     'observaciones' => $renglon['observaciones'] ?? null,
