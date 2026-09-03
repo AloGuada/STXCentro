@@ -66,7 +66,7 @@ describe('kardex', function () {
         $this->actingAs(usuarioDeKardex())
             ->get(route('admin.alm.kardex.index', [
                 'almacen_id' => $almacen->id,
-                'producto_id' => $producto->id,
+                'articulo_id' => articuloDe($producto),
             ]))
             ->assertInertia(fn ($page) => $page
                 ->where('movimientos.data.0.saldo_despues', 50)
@@ -111,7 +111,7 @@ describe('kardex', function () {
             ->assertInertia(fn ($page) => $page->has('movimientos.data', 3));
 
         $this->actingAs($usuario)
-            ->get(route('admin.alm.kardex.index', ['producto_id' => $tornillo->id]))
+            ->get(route('admin.alm.kardex.index', ['articulo_id' => articuloDe($tornillo)]))
             ->assertInertia(fn ($page) => $page->has('movimientos.data', 3));
 
         $this->actingAs($usuario)
@@ -232,12 +232,12 @@ describe('existencias', function () {
                 'ubicacion_id' => $rack->id,
             ]))
             ->assertInertia(fn ($page) => $page->has('existencias.data', 1)
-                ->where('existencias.data.0.producto_id', $acomodado->id));
+                ->where('existencias.data.0.articulo_id', $acomodado->id));
 
         $this->actingAs($usuario)
             ->get(route('admin.alm.existencias.index', ['sin_acomodar' => 1]))
             ->assertInertia(fn ($page) => $page->has('existencias.data', 1)
-                ->where('existencias.data.0.producto_id', $suelto->id));
+                ->where('existencias.data.0.articulo_id', $suelto->id));
     });
 
     it('solo ofrece ubicaciones cuando hay un almacen elegido', function () {
@@ -322,7 +322,7 @@ describe('existencias', function () {
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->has('existencias.data', 1)
-                ->where('existencias.data.0.producto_id', $buscado->id)
+                ->where('existencias.data.0.articulo_id', $buscado->id)
                 ->has('totales'));
     });
 

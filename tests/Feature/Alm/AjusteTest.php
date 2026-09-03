@@ -51,7 +51,7 @@ describe('siembra el kardex', function () {
 
         $this->actingAs(usuarioDeAjustes())
             ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_contada' => 100, 'costo_unitario' => 4.35],
+                ['articulo_id' => articuloDe($producto), 'cantidad_contada' => 100, 'costo_unitario' => 4.35],
             ]))
             ->assertRedirect();
 
@@ -76,7 +76,7 @@ describe('siembra el kardex', function () {
 
         $this->actingAs(usuarioDeAjustes())
             ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_contada' => 96],
+                ['articulo_id' => articuloDe($producto), 'cantidad_contada' => 96],
             ], 'merma'));
 
         $detalle = Ajuste::firstOrFail()->detalles()->firstOrFail();
@@ -106,7 +106,7 @@ describe('siembra el kardex', function () {
 
         $this->actingAs(usuarioDeAjustes())
             ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_contada' => 0],
+                ['articulo_id' => articuloDe($producto), 'cantidad_contada' => 0],
             ]))
             ->assertRedirect();
 
@@ -123,7 +123,7 @@ describe('siembra el kardex', function () {
 
         $this->actingAs(usuarioDeAjustes())
             ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_contada' => 50],
+                ['articulo_id' => articuloDe($producto), 'cantidad_contada' => 50],
             ]));
 
         expect(Ajuste::firstOrFail()->detalles()->count())->toBe(1)
@@ -132,17 +132,18 @@ describe('siembra el kardex', function () {
             ->and(Movimiento::where('tipo', MovimientoTipo::Ajuste)->count())->toBe(0);
     });
 
-    it('no deja contar lo que no lleva kardex', function () {
+    it('no deja contar lo que Almacen no guarda', function () {
         $almacen = Almacen::factory()->create();
-        $flete = Producto::factory()->sinInventario()->create();
 
-        // Un flete se compra pero no se guarda: no hay nada que contar. Y sobre
-        // todo, no debe estrenar una existencia sólo por aparecer en la hoja.
+        // Un flete se compra pero no se guarda, asi que nadie le abrio
+        // articulo. Antes se sabia por una bandera; ahora se sabe porque no
+        // esta en el catalogo de Almacen. Y sobre todo, no debe estrenar una
+        // existencia solo por aparecer en la hoja.
         $this->actingAs(usuarioDeAjustes())
             ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
-                ['producto_id' => $flete->id, 'cantidad_contada' => 3],
+                ['articulo_id' => 999999, 'cantidad_contada' => 3],
             ]))
-            ->assertSessionHasErrors('detalles.0.producto_id');
+            ->assertSessionHasErrors('detalles.0.articulo_id');
 
         expect(Ajuste::count())->toBe(0)
             ->and(Movimiento::count())->toBe(0)
@@ -162,7 +163,7 @@ describe('siembra el kardex', function () {
 
         $this->actingAs(usuarioDeAjustes())
             ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_contada' => 40],
+                ['articulo_id' => articuloDe($producto), 'cantidad_contada' => 40],
             ]));
 
         expect((float) Ajuste::firstOrFail()->detalles()->firstOrFail()->cantidad_sistema)->toBe(40.0);
@@ -184,7 +185,7 @@ describe('validacion', function () {
 
         $this->actingAs(usuarioDeAjustes())
             ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_contada' => -5],
+                ['articulo_id' => articuloDe($producto), 'cantidad_contada' => -5],
             ]))
             ->assertSessionHasErrors('detalles.0.cantidad_contada');
     });
@@ -196,8 +197,8 @@ describe('validacion', function () {
         // El segundo renglón se mediría contra el saldo que dejó el primero.
         $this->actingAs(usuarioDeAjustes())
             ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_contada' => 10],
-                ['producto_id' => $producto->id, 'cantidad_contada' => 20],
+                ['articulo_id' => articuloDe($producto), 'cantidad_contada' => 10],
+                ['articulo_id' => articuloDe($producto), 'cantidad_contada' => 20],
             ]))
             ->assertSessionHasErrors('detalles');
     });
@@ -208,7 +209,7 @@ describe('validacion', function () {
 
         $this->actingAs(usuarioDeAjustes())
             ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_contada' => 10],
+                ['articulo_id' => articuloDe($producto), 'cantidad_contada' => 10],
             ], 'conteo_fisico'))
             ->assertSessionHasErrors('motivo');
     });
@@ -230,7 +231,7 @@ describe('inmutabilidad y permisos', function () {
         $this->actingAs($usuario)->get(route('admin.alm.ajustes.create'))->assertForbidden();
         $this->actingAs($usuario)
             ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
-                ['producto_id' => $producto->id, 'cantidad_contada' => 10],
+                ['articulo_id' => articuloDe($producto), 'cantidad_contada' => 10],
             ]))
             ->assertForbidden();
     });

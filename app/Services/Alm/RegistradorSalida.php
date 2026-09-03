@@ -34,29 +34,27 @@ class RegistradorSalida
             $salida = Salida::create($cabecera);
 
             foreach ($renglones as $renglon) {
-                $productoId = (int) $renglon['producto_id'];
+                $articuloId = (int) $renglon['articulo_id'];
                 $cantidad = (float) $renglon['cantidad'];
 
                 // La descarga sale al costo promedio vigente; el ledger lo
                 // devuelve ya resuelto y aquí se sella, para no tener que
                 // reconstruirlo desde el kardex al reimprimir el vale.
-                $movimiento = $this->llevaKardex($productoId)
-                    ? $this->ledger->registrarPorProducto(
-                        almacenId: $salida->almacen_id,
-                        productoId: $productoId,
-                        tipo: MovimientoTipo::Salida,
-                        cantidad: -$cantidad,
-                        documento: $salida,
-                        referencia: $salida->folio,
-                        observaciones: $renglon['observaciones'] ?? null,
-                        userId: $userId,
-                        obraId: $salida->obra_destino_id === null ? null : (int) $salida->obra_destino_id,
-                        permitirAjena: $permitirAjena,
-                    )
-                    : null;
+                $movimiento = $this->ledger->registrarPorArticulo(
+                    almacenId: $salida->almacen_id,
+                    articuloId: $articuloId,
+                    tipo: MovimientoTipo::Salida,
+                    cantidad: -$cantidad,
+                    documento: $salida,
+                    referencia: $salida->folio,
+                    observaciones: $renglon['observaciones'] ?? null,
+                    userId: $userId,
+                    obraId: $salida->obra_destino_id === null ? null : (int) $salida->obra_destino_id,
+                    permitirAjena: $permitirAjena,
+                );
 
                 $salida->detalles()->create([
-                    'producto_id' => $productoId,
+                    'articulo_id' => $articuloId,
                     'pedido_detalle_id' => $renglon['pedido_detalle_id'] ?? null,
                     'cantidad' => $cantidad,
                     'costo_unitario' => $movimiento?->costo_unitario,
@@ -89,9 +87,9 @@ class RegistradorSalida
             // tiene que volver a donde estaba. Devolverle los 30 a la obra la
             // dejaría con material que nunca fue suyo.
             foreach ($this->asientosDe($salida) as $movimiento) {
-                $this->ledger->registrarPorProducto(
+                $this->ledger->registrarPorArticulo(
                     almacenId: $salida->almacen_id,
-                    productoId: (int) $movimiento->producto_id,
+                    articuloId: (int) $movimiento->articulo_id,
                     tipo: MovimientoTipo::Salida,
                     cantidad: -(float) $movimiento->cantidad,
                     costoUnitario: $movimiento->costo_unitario === null ? null : (float) $movimiento->costo_unitario,
@@ -145,10 +143,10 @@ class RegistradorSalida
         }
     }
 
-    private function llevaKardex(int $productoId): bool
+    private function llevaKardex(int $articuloId): bool
     {
         return Producto::query()
-            ->whereKey($productoId)
+            ->whereKey($articuloId)
             ->where('controla_inventario', true)
             ->exists();
     }

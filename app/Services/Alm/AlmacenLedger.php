@@ -464,11 +464,11 @@ class AlmacenLedger
      * transacción y poder devolver los errores de todos los renglones juntos,
      * en vez de rebotar el formulario de uno en uno.
      */
-    public function disponible(int $almacenId, int $productoId): float
+    public function disponible(int $almacenId, int $articuloId): float
     {
         return (float) Existencia::query()
             ->where('almacen_id', $almacenId)
-            ->where('producto_id', $productoId)
+            ->where('articulo_id', $articuloId)
             ->value('cantidad') ?? 0.0;
     }
 

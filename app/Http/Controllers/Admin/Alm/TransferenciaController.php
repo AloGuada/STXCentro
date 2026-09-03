@@ -104,7 +104,7 @@ class TransferenciaController extends Controller
             'enviador:id,name',
             'receptor:id,name',
             'responsableFaltante:id,name',
-            'detalles.producto:id,codigo,descripcion,unidad',
+            'detalles.articulo:id,codigo,descripcion,unidad',
         ]);
 
         $this->autorizarVer($request, $transferencia);
@@ -121,9 +121,9 @@ class TransferenciaController extends Controller
             ],
             'detalles' => $transferencia->detalles->map(fn (TransferenciaDetalle $d): array => [
                 'id' => $d->id,
-                'codigo' => $d->producto?->codigo,
-                'descripcion' => $d->producto?->descripcion,
-                'unidad' => $d->producto?->unidad,
+                'codigo' => $d->articulo?->codigo,
+                'descripcion' => $d->articulo?->descripcion,
+                'unidad' => $d->articulo?->unidad,
                 'cantidad_enviada' => (float) $d->cantidad_enviada,
                 'cantidad_recibida' => $d->cantidad_recibida === null ? null : (float) $d->cantidad_recibida,
                 'faltante' => $d->faltante(),
@@ -262,7 +262,7 @@ class TransferenciaController extends Controller
         return Pedido::query()
             ->transferibles($origenId)
             ->whereIn('almacen_id', $this->almacenesVisibles($request))
-            ->with(['obra:id,no,descripcion', 'detalles.producto:id,codigo,descripcion,unidad'])
+            ->with(['obra:id,no,descripcion', 'detalles.articulo:id,codigo,descripcion,unidad'])
             ->orderBy('fecha_requerida')
             ->get()
             ->map(fn (Pedido $p): array => [
@@ -276,9 +276,9 @@ class TransferenciaController extends Controller
                     ->map(fn (PedidoDetalle $d): array => [
                         'id' => $d->id,
                         'producto_id' => $d->producto_id,
-                        'codigo' => $d->producto?->codigo,
-                        'descripcion' => $d->producto?->descripcion,
-                        'unidad' => $d->producto?->unidad,
+                        'codigo' => $d->articulo?->codigo,
+                        'descripcion' => $d->articulo?->descripcion,
+                        'unidad' => $d->articulo?->unidad,
                         'pendiente' => $d->pendiente(),
                     ])
                     ->values()

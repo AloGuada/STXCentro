@@ -34,9 +34,11 @@ class SalidaStoreRequest extends FormRequest
             'motivo' => ['nullable', 'string', 'max:255'],
             'observaciones' => ['nullable', 'string', 'max:1000'],
             'detalles' => ['required', 'array', 'min:1'],
-            'detalles.*.producto_id' => [
+            'detalles.*.articulo_id' => [
                 'required', 'integer',
-                Rule::exists('costos_productos', 'id')->where('controla_inventario', true),
+                // Del catalogo de Almacen. Ya no se pregunta si lleva kardex:
+                // tener renglon ahi es llevarlo.
+                Rule::exists('alm_articulos', 'id'),
             ],
             'detalles.*.pedido_detalle_id' => ['nullable', 'integer', 'exists:alm_pedido_detalle,id'],
             'detalles.*.cantidad' => ['required', 'numeric', 'gt:0'],
@@ -93,21 +95,21 @@ class SalidaStoreRequest extends FormRequest
     {
         $ledger = app(AlmacenLedger::class);
         $almacenId = $this->integer('almacen_id');
-        $porProducto = [];
+        $porArticulo = [];
 
         // Se acumula por artículo: dos renglones del mismo tornillo se llevan
         // del mismo saldo, y validarlos por separado dejaría pasar el doble.
         foreach ((array) $this->input('detalles', []) as $i => $detalle) {
-            $productoId = (int) ($detalle['producto_id'] ?? 0);
-            $porProducto[$productoId]['cantidad'] = ($porProducto[$productoId]['cantidad'] ?? 0)
+            $articuloId = (int) ($detalle['articulo_id'] ?? 0);
+            $porArticulo[$articuloId]['cantidad'] = ($porArticulo[$articuloId]['cantidad'] ?? 0)
                 + (float) ($detalle['cantidad'] ?? 0);
-            $porProducto[$productoId]['renglones'][] = $i;
+            $porArticulo[$articuloId]['renglones'][] = $i;
         }
 
         $epsilon = (float) config('costos.epsilon_cantidad');
 
-        foreach ($porProducto as $productoId => $datos) {
-            $disponible = $ledger->disponible($almacenId, $productoId);
+        foreach ($porArticulo as $articuloId => $datos) {
+            $disponible = $ledger->disponible($almacenId, $articuloId);
 
             if ($datos['cantidad'] <= $disponible + $epsilon) {
                 continue;
@@ -198,7 +200,7 @@ class SalidaStoreRequest extends FormRequest
             'recibe_nombre.required' => 'Escribe quién recibe: es quien firma el vale.',
             'detalles.required' => 'Captura al menos un artículo.',
             'detalles.*.cantidad.gt' => 'Entregar cero no es entregar.',
-            'detalles.*.producto_id.exists' => 'Ese artículo no lleva kardex: el almacén no lo guarda.',
+            'detalles.*.articulo_id.exists' => 'Ese artículo no está en el catálogo del almacén.',
         ];
     }
 }

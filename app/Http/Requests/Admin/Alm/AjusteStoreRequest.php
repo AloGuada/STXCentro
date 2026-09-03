@@ -34,7 +34,7 @@ class AjusteStoreRequest extends FormRequest
             'fecha' => ['required', 'date'],
             'observaciones' => ['nullable', 'string', 'max:1000'],
             'detalles' => ['required', 'array', 'min:1'],
-            'detalles.*.producto_id' => [
+            'detalles.*.articulo_id' => [
                 'required', 'integer',
                 // Sólo lo que lleva kardex: un flete se compra pero no se
                 // guarda, así que no hay nada que contar ni saldo que corregir.
@@ -53,9 +53,9 @@ class AjusteStoreRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            $productos = array_column((array) $this->input('detalles', []), 'producto_id');
+            $articulos = array_column((array) $this->input('detalles', []), 'articulo_id');
 
-            if (count($productos) !== count(array_unique($productos))) {
+            if (count($articulos) !== count(array_unique($articulos))) {
                 $validator->errors()->add('detalles', 'Hay un artículo repetido: cada uno se cuenta una sola vez.');
             }
         });
@@ -73,7 +73,7 @@ class AjusteStoreRequest extends FormRequest
             'detalles.required' => 'Captura al menos un renglón contado.',
             'detalles.*.cantidad_contada.required' => 'Escribe cuánto contaste, aunque sea cero.',
             'detalles.*.cantidad_contada.min' => 'Lo contado no puede ser negativo: no se cuenta menos que nada.',
-            'detalles.*.producto_id.exists' => 'Ese artículo no lleva kardex, así que no hay existencia que ajustar.',
+            'detalles.*.articulo_id.exists' => 'Ese artículo no está en el catálogo del almacén.',
         ];
     }
 }

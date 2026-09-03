@@ -465,3 +465,14 @@ function facturaQueAmpara(
 
     return $factura;
 }
+
+/**
+ * El artículo con el que Almacén guarda un producto, creándolo si es la primera
+ * vez. Es lo mismo que hace la pantalla al capturar: los formularios mandan
+ * `articulo_id`, no `producto_id`, desde que el catálogo de Almacén vive en su
+ * propia tabla.
+ */
+function articuloDe(\App\Models\Costos\Producto $producto): int
+{
+    return (int) app(\App\Services\Alm\ResolvedorArticulo::class)->paraProducto($producto->id);
+}

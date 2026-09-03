@@ -25,7 +25,7 @@ const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', cur
 
 type ActivoFila = {
     id: number;
-    producto_id: number;
+    articulo_id: number;
     codigo: string | null;
     descripcion: string | null;
     no_serie: string;
@@ -46,7 +46,7 @@ type ActivoFila = {
 
 type Props = {
     activos: PaginatedData<ActivoFila>;
-    filters: { almacen_id?: string; producto_id?: string; estatus?: string; search?: string };
+    filters: { almacen_id?: string; articulo_id?: string; estatus?: string; search?: string };
     resumen: { vigentes: number; disponibles: number; prestadas: number; en_reparacion: number; baja: number };
     ubicacionesPorAlmacen: Record<number, { id: number; ruta: string }[]>;
     almacenes: AlmAlmacenOpcion[];
@@ -133,8 +133,8 @@ export default function ActivosIndex({
                     <div className="w-60">
                         <label className="label label-text text-xs">Artículo</label>
                         <Select
-                            value={filters.producto_id ?? ''}
-                            onValueChange={(v) => filtrar({ producto_id: v || undefined })}
+                            value={filters.articulo_id ?? ''}
+                            onValueChange={(v) => filtrar({ articulo_id: v || undefined })}
                             placeholder="Todos"
                         >
                             {articulos.map((a) => (
@@ -199,7 +199,7 @@ export default function ActivosIndex({
                                         <td className="font-mono font-medium">{a.no_serie}</td>
                                         <td>
                                             <Link
-                                                href={`/admin/almacen/articulos/${a.producto_id}`}
+                                                href={`/admin/almacen/articulos/${a.articulo_id}`}
                                                 className="link link-hover font-mono text-xs"
                                             >
                                                 {a.codigo}

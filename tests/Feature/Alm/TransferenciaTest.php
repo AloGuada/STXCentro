@@ -66,7 +66,7 @@ describe('el primer tiempo', function () {
 
         $this->actingAs(usuarioDeTransferencias())
             ->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-                ['producto_id' => $producto->id, 'cantidad_enviada' => 60],
+                ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 60],
             ]))
             ->assertRedirect();
 
@@ -93,11 +93,11 @@ describe('el primer tiempo', function () {
 
         $this->actingAs(usuarioDeTransferencias())
             ->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-                ['producto_id' => $producto->id, 'cantidad_enviada' => 60],
+                ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 60],
             ]));
 
         $enExistencias = (float) Existencia::sum('cantidad');
-        $enTransito = app(SaldoEnTransito::class)->porProducto($producto->id);
+        $enTransito = app(SaldoEnTransito::class)->porArticulo(articuloDe($producto));
 
         expect($enExistencias)->toBe(40.0)
             ->and($enTransito)->toBe(60.0)
@@ -115,13 +115,13 @@ describe('el primer tiempo', function () {
 
         $this->actingAs($usuario)
             ->post(route('admin.alm.transferencias.store'), envioValido($origen, $origen, [
-                ['producto_id' => $producto->id, 'cantidad_enviada' => 5],
+                ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 5],
             ]))
             ->assertSessionHasErrors('almacen_destino_id');
 
         $this->actingAs($usuario)
             ->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-                ['producto_id' => $producto->id, 'cantidad_enviada' => 11],
+                ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 11],
             ]))
             ->assertSessionHasErrors('detalles.0.cantidad_enviada');
 
@@ -139,7 +139,7 @@ describe('el segundo tiempo', function () {
         $usuario = usuarioDeTransferencias();
 
         $this->actingAs($usuario)->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-            ['producto_id' => $producto->id, 'cantidad_enviada' => 60],
+            ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 60],
         ]));
 
         $transferencia = Transferencia::with('detalles')->firstOrFail();
@@ -155,7 +155,7 @@ describe('el segundo tiempo', function () {
             ->and((float) Existencia::where('almacen_id', $destino->id)->value('cantidad'))->toBe(60.0)
             // Cerrado el documento, el tránsito baja a cero solo: la consulta
             // sólo mira las abiertas.
-            ->and(app(SaldoEnTransito::class)->porProducto($producto->id))->toBe(0.0)
+            ->and(app(SaldoEnTransito::class)->porArticulo(articuloDe($producto)))->toBe(0.0)
             ->and((float) Existencia::sum('cantidad'))->toBe(100.0);
     });
 
@@ -171,7 +171,7 @@ describe('el segundo tiempo', function () {
         $usuario = usuarioDeTransferencias();
 
         $this->actingAs($usuario)->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-            ['producto_id' => $producto->id, 'cantidad_enviada' => 100],
+            ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 100],
         ]));
 
         $transferencia = Transferencia::with('detalles')->firstOrFail();
@@ -197,7 +197,7 @@ describe('el segundo tiempo', function () {
         $culpable = Usuario::factory()->create();
 
         $this->actingAs($usuario)->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-            ['producto_id' => $producto->id, 'cantidad_enviada' => 80],
+            ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 80],
         ]));
 
         $transferencia = Transferencia::with('detalles')->firstOrFail();
@@ -229,7 +229,7 @@ describe('el segundo tiempo', function () {
         $usuario = usuarioDeTransferencias();
 
         $this->actingAs($usuario)->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-            ['producto_id' => $producto->id, 'cantidad_enviada' => 80],
+            ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 80],
         ]));
 
         $transferencia = Transferencia::with('detalles')->firstOrFail();
@@ -254,7 +254,7 @@ describe('el segundo tiempo', function () {
         $usuario = usuarioDeTransferencias();
 
         $this->actingAs($usuario)->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-            ['producto_id' => $producto->id, 'cantidad_enviada' => 50],
+            ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 50],
         ]));
 
         $transferencia = Transferencia::with('detalles')->firstOrFail();
@@ -277,7 +277,7 @@ describe('el segundo tiempo', function () {
         $usuario = usuarioDeTransferencias();
 
         $this->actingAs($usuario)->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-            ['producto_id' => $producto->id, 'cantidad_enviada' => 50],
+            ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 50],
         ]));
 
         $transferencia = Transferencia::with('detalles')->firstOrFail();
@@ -307,7 +307,7 @@ describe('cancelacion', function () {
         $usuario = usuarioDeTransferencias();
 
         $this->actingAs($usuario)->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-            ['producto_id' => $producto->id, 'cantidad_enviada' => 60],
+            ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 60],
         ]));
 
         $transferencia = Transferencia::firstOrFail();
@@ -317,7 +317,7 @@ describe('cancelacion', function () {
             ->assertRedirect();
 
         expect((float) Existencia::where('almacen_id', $origen->id)->value('cantidad'))->toBe(100.0)
-            ->and(app(SaldoEnTransito::class)->porProducto($producto->id))->toBe(0.0)
+            ->and(app(SaldoEnTransito::class)->porArticulo(articuloDe($producto)))->toBe(0.0)
             ->and($transferencia->refresh()->estaCancelada())->toBeTrue();
     });
 
@@ -330,7 +330,7 @@ describe('cancelacion', function () {
         $usuario = usuarioDeTransferencias();
 
         $this->actingAs($usuario)->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-            ['producto_id' => $producto->id, 'cantidad_enviada' => 60],
+            ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 60],
         ]));
 
         $transferencia = Transferencia::with('detalles')->firstOrFail();
@@ -362,7 +362,7 @@ describe('surtir un pedido de obra', function () {
         $usuario = usuarioDeTransferencias();
 
         $this->actingAs($usuario)->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-            ['producto_id' => $producto->id, 'pedido_detalle_id' => $renglon->id, 'cantidad_enviada' => 100],
+            ['articulo_id' => articuloDe($producto), 'pedido_detalle_id' => $renglon->id, 'cantidad_enviada' => 100],
         ], ['pedido_id' => $pedido->id]));
 
         // El origen ya cumplió: si contara lo confirmado, el pedido seguiría
@@ -398,7 +398,7 @@ describe('surtir un pedido de obra', function () {
 
         $this->actingAs(usuarioDeTransferencias())
             ->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-                ['producto_id' => $producto->id, 'pedido_detalle_id' => $renglon->id, 'cantidad_enviada' => 100],
+                ['articulo_id' => articuloDe($producto), 'pedido_detalle_id' => $renglon->id, 'cantidad_enviada' => 100],
             ], ['pedido_id' => $pedido->id]))
             ->assertSessionHasErrors('pedido_id');
     });
@@ -413,7 +413,7 @@ describe('permisos', function () {
 
         $this->actingAs(usuarioDeTransferencias())
             ->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-                ['producto_id' => $producto->id, 'cantidad_enviada' => 10],
+                ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 10],
             ]));
 
         $transferencia = Transferencia::firstOrFail();
@@ -438,7 +438,7 @@ describe('permisos', function () {
 
         $this->actingAs(usuarioDeTransferencias())
             ->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-                ['producto_id' => $producto->id, 'cantidad_enviada' => 10],
+                ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 10],
             ]));
 
         $transferencia = Transferencia::firstOrFail();
@@ -475,7 +475,7 @@ describe('la fecha de envio no puede ser de manana', function () {
 
         $this->actingAs(usuarioDeTransferencias())
             ->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-                ['producto_id' => $producto->id, 'cantidad_enviada' => 5],
+                ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 5],
             ], ['fecha_envio' => now()->addDay()->toDateString()]))
             ->assertSessionHasErrors('fecha_envio');
 
@@ -490,7 +490,7 @@ describe('la fecha de envio no puede ser de manana', function () {
 
         $this->actingAs(usuarioDeTransferencias())
             ->post(route('admin.alm.transferencias.store'), envioValido($origen, $destino, [
-                ['producto_id' => $producto->id, 'cantidad_enviada' => 5],
+                ['articulo_id' => articuloDe($producto), 'cantidad_enviada' => 5],
             ], ['fecha_envio' => now()->subWeek()->toDateString()]))
             ->assertSessionHasNoErrors();
 

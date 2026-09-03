@@ -270,7 +270,7 @@ class AlmMovimientosDevSeeder extends Seeder
 
             foreach ($articulos->take(2)->values() as $indice => $existencia) {
                 $pedido->detalles()->create([
-                    'producto_id' => $existencia->producto_id,
+                    'articulo_id' => $existencia->articulo_id,
                     'cantidad_solicitada' => $indice === 0 ? 40 : 10,
                     'cantidad_surtida' => 0,
                 ]);
@@ -313,7 +313,7 @@ class AlmMovimientosDevSeeder extends Seeder
                     'observaciones' => 'Sale contra la asignacion de la obra '.self::MARCA,
                 ],
                 renglones: [[
-                    'producto_id' => $asignacion->existencia->producto_id,
+                    'articulo_id' => $asignacion->existencia->articulo_id,
                     'cantidad' => max(1, floor((float) $asignacion->cantidad / 2)),
                 ]],
                 userId: $this->usuarioId,
@@ -338,7 +338,7 @@ class AlmMovimientosDevSeeder extends Seeder
                     'observaciones' => 'Sale de lo libre, sin obra destino '.self::MARCA,
                 ],
                 renglones: [[
-                    'producto_id' => $existencia->producto_id,
+                    'articulo_id' => $existencia->articulo_id,
                     'cantidad' => max(1, floor(min(12, $disponible / 2))),
                 ]],
                 userId: $this->usuarioId,
@@ -363,7 +363,7 @@ class AlmMovimientosDevSeeder extends Seeder
                     'observaciones' => 'Se cancela para dejar el reverso en el kardex '.self::MARCA,
                 ],
                 renglones: [[
-                    'producto_id' => $existencia->producto_id,
+                    'articulo_id' => $existencia->articulo_id,
                     'cantidad' => max(1, floor(min(8, $disponible / 2))),
                 ]],
                 userId: $this->usuarioId,
@@ -422,7 +422,7 @@ class AlmMovimientosDevSeeder extends Seeder
             $servicio->enviar(
                 cabecera: $cabecera(1, 'Va en el camion, el destino todavia no confirma'),
                 renglones: [[
-                    'producto_id' => $existencia->producto_id,
+                    'articulo_id' => $existencia->articulo_id,
                     'cantidad_enviada' => max(1, floor(min(200, $disponible / 2))),
                 ]],
                 userId: $this->usuarioId,
@@ -438,7 +438,7 @@ class AlmMovimientosDevSeeder extends Seeder
             $conFaltante = $servicio->enviar(
                 cabecera: $cabecera(4, 'Llego con faltante y tiene responsable'),
                 renglones: [[
-                    'producto_id' => $existencia->producto_id,
+                    'articulo_id' => $existencia->articulo_id,
                     'cantidad_enviada' => $cantidad,
                 ]],
                 userId: $this->usuarioId,
@@ -492,19 +492,19 @@ class AlmMovimientosDevSeeder extends Seeder
 
         $renglones = [
             [
-                'producto_id' => $otros[0]->producto_id,
+                'articulo_id' => $otros[0]->articulo_id,
                 'cantidad_contada' => (float) $otros[0]->cantidad + 15,
                 'costo_unitario' => (float) $otros[0]->costo_promedio,
                 'observaciones' => 'Aparecieron piezas que estaban en otro anaquel.',
             ],
             [
-                'producto_id' => $menos->producto_id,
+                'articulo_id' => $menos->articulo_id,
                 'cantidad_contada' => (float) $menos->cantidad - max(1, floor(min(7, $libreDelMenos))),
                 'costo_unitario' => null,
                 'observaciones' => 'Faltante sin explicacion, se ajusta al conteo.',
             ],
             [
-                'producto_id' => $otros[1]->producto_id,
+                'articulo_id' => $otros[1]->articulo_id,
                 'cantidad_contada' => (float) $otros[1]->cantidad,
                 'costo_unitario' => null,
                 'observaciones' => 'Conteo exacto: queda el renglon, no el movimiento.',

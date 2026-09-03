@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Admin\Alm;
 use App\Enums\Alm\MovimientoTipo;
 use App\Http\Controllers\Controller;
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Movimiento;
-use App\Models\Costos\Producto;
 use App\Models\Obra;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -28,7 +28,7 @@ class KardexController extends Controller
 {
     public function index(Request $request): Response
     {
-        $filtros = $request->only(['almacen_id', 'producto_id', 'obra_id', 'tipo', 'desde', 'hasta', 'referencia']);
+        $filtros = $request->only(['almacen_id', 'articulo_id', 'obra_id', 'tipo', 'desde', 'hasta', 'referencia']);
 
         $base = Movimiento::query()
             ->whereIn('almacen_id', $this->almacenesVisibles($request))
@@ -37,7 +37,7 @@ class KardexController extends Controller
         $movimientos = (clone $base)
             ->with([
                 'almacen:id,clave',
-                'producto:id,codigo,descripcion,unidad',
+                'articulo:id,codigo,descripcion,unidad',
                 'obra:id,no',
                 'usuario:id,name',
             ])
@@ -48,9 +48,9 @@ class KardexController extends Controller
                 'id' => $m->id,
                 'fecha' => $m->created_at?->toDateTimeString(),
                 'almacen' => $m->almacen?->clave,
-                'codigo' => $m->producto?->codigo,
-                'descripcion' => $m->producto?->descripcion,
-                'unidad' => $m->producto?->unidad,
+                'codigo' => $m->articulo?->codigo,
+                'descripcion' => $m->articulo?->descripcion,
+                'unidad' => $m->articulo?->unidad,
                 'tipo' => $m->tipo->value,
                 'tipo_etiqueta' => $m->tipo->etiqueta(),
                 // De quién era el material que movió el asiento. Vacío = libre,
@@ -132,11 +132,11 @@ class KardexController extends Controller
      * Sólo los que tienen algo que contar: el desplegable con el catálogo
      * completo obliga a buscar entre artículos que nunca han movido nada.
      *
-     * @return Collection<int, Producto>
+     * @return Collection<int, Articulo>
      */
     private function productos(): Collection
     {
-        return Producto::query()
+        return Articulo::query()
             ->whereHas('existencias')
             ->orderBy('descripcion')
             ->get(['id', 'codigo', 'descripcion', 'unidad', 'requiere_verificacion']);

@@ -36,9 +36,11 @@ class PedidoStoreRequest extends FormRequest
             'motivo' => ['nullable', 'string', 'max:255'],
             'observaciones' => ['nullable', 'string', 'max:1000'],
             'detalles' => ['required', 'array', 'min:1'],
-            'detalles.*.producto_id' => [
+            'detalles.*.articulo_id' => [
                 'required', 'integer',
-                Rule::exists('costos_productos', 'id')->where('controla_inventario', true),
+                // Del catalogo de Almacen. Ya no se pregunta si lleva kardex:
+                // tener renglon ahi es llevarlo.
+                Rule::exists('alm_articulos', 'id'),
             ],
             'detalles.*.cantidad_solicitada' => ['required', 'numeric', 'gt:0'],
             'detalles.*.observaciones' => ['nullable', 'string', 'max:500'],
@@ -79,7 +81,7 @@ class PedidoStoreRequest extends FormRequest
             'fecha_requerida.after_or_equal' => 'No se puede necesitar el material antes de haberlo pedido.',
             'detalles.required' => 'Captura al menos un artículo.',
             'detalles.*.cantidad_solicitada.gt' => 'Pedir cero no es pedir.',
-            'detalles.*.producto_id.exists' => 'Ese artículo no lleva kardex: el almacén no lo guarda.',
+            'detalles.*.articulo_id.exists' => 'Ese artículo no está en el catálogo del almacén.',
         ];
     }
 }

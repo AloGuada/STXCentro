@@ -41,7 +41,7 @@ type Props = {
 
 export default function ActivoCreate({ almacenes, articulos, ubicacionesPorAlmacen }: Props) {
     const form = useForm({
-        producto_id: '',
+        articulo_id: '',
         almacen_id: '',
         ubicacion_id: '',
         piezas: [{ ...PIEZA_VACIA }] as Pieza[],
@@ -135,14 +135,14 @@ export default function ActivoCreate({ almacenes, articulos, ubicacionesPorAlmac
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                 <FormField
                                     label="Artículo"
-                                    htmlFor="producto_id"
-                                    error={form.errors.producto_id}
+                                    htmlFor="articulo_id"
+                                    error={form.errors.articulo_id}
                                     required
                                 >
                                     <Select
-                                        id="producto_id"
-                                        value={form.data.producto_id}
-                                        onValueChange={(v) => form.setData('producto_id', v)}
+                                        id="articulo_id"
+                                        value={form.data.articulo_id}
+                                        onValueChange={(v) => form.setData('articulo_id', v)}
                                         placeholder="¿De qué son las piezas?"
                                     >
                                         {articulos.map((a) => (

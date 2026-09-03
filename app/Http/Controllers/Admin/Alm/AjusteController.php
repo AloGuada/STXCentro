@@ -99,7 +99,7 @@ class AjusteController extends Controller
             'almacen:id,clave,nombre,obra_id',
             'almacen.obra:id,no',
             'autorizador:id,name',
-            'detalles.producto:id,codigo,descripcion,unidad',
+            'detalles.articulo:id,codigo,descripcion,unidad',
         ]);
 
         return Inertia::render('admin/almacen/ajustes/show', [
@@ -118,9 +118,9 @@ class AjusteController extends Controller
             ],
             'detalles' => $ajuste->detalles->map(fn (AjusteDetalle $d): array => [
                 'id' => $d->id,
-                'codigo' => $d->producto?->codigo,
-                'descripcion' => $d->producto?->descripcion,
-                'unidad' => $d->producto?->unidad,
+                'codigo' => $d->articulo?->codigo,
+                'descripcion' => $d->articulo?->descripcion,
+                'unidad' => $d->articulo?->unidad,
                 'cantidad_sistema' => (float) $d->cantidad_sistema,
                 'cantidad_contada' => (float) $d->cantidad_contada,
                 'diferencia' => (float) $d->diferencia,

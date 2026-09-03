@@ -10,9 +10,7 @@ use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Articulo;
 use App\Models\Alm\Ubicacion;
-use App\Models\Costos\Producto;
 use App\Services\Alm\RegistradorPiezas;
-use App\Services\Alm\ResolvedorArticulo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -39,22 +37,22 @@ class ActivoController extends Controller
 
         $activos = Activo::query()
             ->whereIn('almacen_id', $visibles)
-            ->filtrados($request->only(['almacen_id', 'producto_id', 'estatus', 'search']))
+            ->filtrados($request->only(['almacen_id', 'articulo_id', 'estatus', 'search']))
             ->with([
                 'producto:id,codigo,descripcion,unidad',
                 'almacen:id,clave,nombre,obra_id',
                 'almacen.obra:id,no',
                 'ubicacion.padre',
             ])
-            ->orderBy('producto_id')
+            ->orderBy('articulo_id')
             ->orderBy('no_serie')
             ->paginate(50)
             ->withQueryString()
             ->through(fn (Activo $a): array => [
                 'id' => $a->id,
-                'producto_id' => $a->producto_id,
-                'codigo' => $a->producto?->codigo,
-                'descripcion' => $a->producto?->descripcion,
+                'articulo_id' => $a->articulo_id,
+                'codigo' => $a->articulo?->codigo,
+                'descripcion' => $a->articulo?->descripcion,
                 'no_serie' => $a->no_serie,
                 'codigo_barras' => $a->codigo_barras,
                 'marca' => $a->marca,
@@ -73,7 +71,7 @@ class ActivoController extends Controller
 
         return Inertia::render('admin/almacen/activos/index', [
             'activos' => $activos,
-            'filters' => $request->only(['almacen_id', 'producto_id', 'estatus', 'search']),
+            'filters' => $request->only(['almacen_id', 'articulo_id', 'estatus', 'search']),
             'resumen' => $this->resumen($request, $visibles),
             'ubicacionesPorAlmacen' => $this->ubicacionesPorAlmacen($visibles),
             ...$this->opciones($request),
@@ -94,12 +92,8 @@ class ActivoController extends Controller
 
         abort_unless($almacen->esVisiblePara($request->user()), 403);
 
-        // El formulario todavia manda el producto; el articulo se resuelve
-        // aqui y se crea si es la primera vez que ese producto pisa la bodega.
-        $articuloId = app(ResolvedorArticulo::class)->paraProducto($request->integer('producto_id'));
-
         $this->registrador->alta(
-            articulo: Articulo::findOrFail($articuloId),
+            articulo: Articulo::findOrFail($request->integer('articulo_id')),
             almacen: $almacen,
             piezas: $request->validated('piezas'),
             ubicacionId: $request->integer('ubicacion_id') ?: null,
@@ -203,8 +197,9 @@ class ActivoController extends Controller
                 ->orderBy('clave')
                 ->get(['id', 'clave', 'nombre', 'obra_id', 'tipo']),
             // Sólo lo marcado «por pieza»: darle número de serie a un tornillo
-            // no significa nada.
-            'articulos' => Producto::query()
+            // no significa nada. Del catálogo de Almacén, que es donde vive esa
+            // bandera desde que el catálogo se mudó.
+            'articulos' => Articulo::query()
                 ->porPieza()
                 ->where('activo', true)
                 ->orderBy('descripcion')

@@ -22,10 +22,10 @@ use Illuminate\Support\Collection;
 class SaldoEnTransito
 {
     /** Cuánto de un artículo va en el camino, opcionalmente acotado por par. */
-    public function porProducto(int $productoId, ?int $origenId = null, ?int $destinoId = null): float
+    public function porArticulo(int $articuloId, ?int $origenId = null, ?int $destinoId = null): float
     {
         return (float) TransferenciaDetalle::query()
-            ->where('producto_id', $productoId)
+            ->where('articulo_id', $articuloId)
             ->whereHas('transferencia', fn ($q) => $q->enTransito()
                 ->when($origenId, fn ($t, int $id) => $t->where('almacen_origen_id', $id))
                 ->when($destinoId, fn ($t, int $id) => $t->where('almacen_destino_id', $id)))
@@ -43,11 +43,11 @@ class SaldoEnTransito
     {
         return TransferenciaDetalle::query()
             ->whereHas('transferencia', fn ($q) => $q->enTransito()->where('almacen_destino_id', $almacenId))
-            ->groupBy('producto_id')
-            ->select('producto_id')
+            ->groupBy('articulo_id')
+            ->select('articulo_id')
             ->selectRaw('SUM(cantidad_enviada) as cantidad')
             ->get()
-            ->mapWithKeys(fn ($fila): array => [(int) $fila->producto_id => (float) $fila->cantidad])
+            ->mapWithKeys(fn ($fila): array => [(int) $fila->articulo_id => (float) $fila->cantidad])
             ->all();
     }
 
@@ -63,7 +63,7 @@ class SaldoEnTransito
             ->when($almacenId, fn ($q, int $id) => $q->where(
                 fn ($b) => $b->where('almacen_origen_id', $id)->orWhere('almacen_destino_id', $id),
             ))
-            ->with(['origen:id,clave', 'destino:id,clave', 'detalles.producto:id,codigo,descripcion,unidad'])
+            ->with(['origen:id,clave', 'destino:id,clave', 'detalles.articulo:id,codigo,descripcion,unidad'])
             ->orderBy('fecha_envio')
             ->get();
     }

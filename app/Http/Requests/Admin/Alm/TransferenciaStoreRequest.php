@@ -31,9 +31,11 @@ class TransferenciaStoreRequest extends FormRequest
             'fecha_envio' => ['required', 'date', 'before_or_equal:today'],
             'observaciones' => ['nullable', 'string', 'max:1000'],
             'detalles' => ['required', 'array', 'min:1'],
-            'detalles.*.producto_id' => [
+            'detalles.*.articulo_id' => [
                 'required', 'integer',
-                Rule::exists('costos_productos', 'id')->where('controla_inventario', true),
+                // Del catalogo de Almacen. Ya no se pregunta si lleva kardex:
+                // tener renglon ahi es llevarlo.
+                Rule::exists('alm_articulos', 'id'),
             ],
             'detalles.*.pedido_detalle_id' => ['nullable', 'integer', 'exists:alm_pedido_detalle,id'],
             'detalles.*.cantidad_enviada' => ['required', 'numeric', 'gt:0'],
@@ -57,19 +59,19 @@ class TransferenciaStoreRequest extends FormRequest
     {
         $ledger = app(AlmacenLedger::class);
         $origenId = $this->integer('almacen_origen_id');
-        $porProducto = [];
+        $porArticulo = [];
 
         foreach ((array) $this->input('detalles', []) as $i => $detalle) {
-            $productoId = (int) ($detalle['producto_id'] ?? 0);
-            $porProducto[$productoId]['cantidad'] = ($porProducto[$productoId]['cantidad'] ?? 0)
+            $articuloId = (int) ($detalle['articulo_id'] ?? 0);
+            $porArticulo[$articuloId]['cantidad'] = ($porArticulo[$articuloId]['cantidad'] ?? 0)
                 + (float) ($detalle['cantidad_enviada'] ?? 0);
-            $porProducto[$productoId]['renglones'][] = $i;
+            $porArticulo[$articuloId]['renglones'][] = $i;
         }
 
         $epsilon = (float) config('costos.epsilon_cantidad');
 
-        foreach ($porProducto as $productoId => $datos) {
-            $disponible = $ledger->disponible($origenId, $productoId);
+        foreach ($porArticulo as $articuloId => $datos) {
+            $disponible = $ledger->disponible($origenId, $articuloId);
 
             if ($datos['cantidad'] <= $disponible + $epsilon) {
                 continue;

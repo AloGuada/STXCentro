@@ -177,7 +177,7 @@ class Movimiento extends Model
     {
         return $query
             ->when($filtros['almacen_id'] ?? null, fn (Builder $q, $id) => $q->where('almacen_id', $id))
-            ->when($filtros['producto_id'] ?? null, fn (Builder $q, $id) => $q->where('producto_id', $id))
+            ->when($filtros['articulo_id'] ?? null, fn (Builder $q, $id) => $q->where('articulo_id', $id))
             ->when($filtros['tipo'] ?? null, fn (Builder $q, $tipo) => $q->where('tipo', $tipo))
             ->when($filtros['obra_id'] ?? null, fn (Builder $q, $id) => $id === 'libre'
                 ? $q->whereNull('obra_id')

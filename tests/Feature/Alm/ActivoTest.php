@@ -59,7 +59,7 @@ describe('el alta emite al kardex', function () {
 
         $this->actingAs(usuarioDeActivos())
             ->post(route('admin.alm.activos.store'), [
-                'producto_id' => $pulidora->producto_id,
+                'articulo_id' => $pulidora->id,
                 'almacen_id' => $almacen->id,
                 'piezas' => [
                     ['no_serie' => 'PUL-07', 'marca' => 'DeWalt', 'modelo' => 'DWE4120', 'costo' => 2180],
@@ -244,11 +244,11 @@ describe('validacion y permisos', function () {
 
         $this->actingAs(usuarioDeActivos())
             ->post(route('admin.alm.activos.store'), [
-                'producto_id' => $tornillo->producto_id,
+                'articulo_id' => $tornillo->id,
                 'almacen_id' => $almacen->id,
                 'piezas' => [['no_serie' => 'X-1']],
             ])
-            ->assertSessionHasErrors('producto_id');
+            ->assertSessionHasErrors('articulo_id');
 
         expect(Activo::count())->toBe(0);
     });
@@ -260,7 +260,7 @@ describe('validacion y permisos', function () {
         // Pegar una lista de series repite la misma más seguido de lo que parece.
         $this->actingAs(usuarioDeActivos())
             ->post(route('admin.alm.activos.store'), [
-                'producto_id' => $pulidora->producto_id,
+                'articulo_id' => $pulidora->id,
                 'almacen_id' => $almacen->id,
                 'piezas' => [['no_serie' => 'PUL-07'], ['no_serie' => 'PUL-07']],
             ])
@@ -275,7 +275,7 @@ describe('validacion y permisos', function () {
 
         $this->actingAs(usuarioDeActivos())
             ->post(route('admin.alm.activos.store'), [
-                'producto_id' => $pulidora->producto_id,
+                'articulo_id' => $pulidora->id,
                 'almacen_id' => $almacen->id,
                 'piezas' => [['no_serie' => 'PUL-07']],
             ])

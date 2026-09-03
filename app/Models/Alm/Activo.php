@@ -133,7 +133,7 @@ class Activo extends Model
     {
         return $query
             ->when($filtros['almacen_id'] ?? null, fn (Builder $q, $id) => $q->where('almacen_id', $id))
-            ->when($filtros['producto_id'] ?? null, fn (Builder $q, $id) => $q->where('producto_id', $id))
+            ->when($filtros['articulo_id'] ?? null, fn (Builder $q, $id) => $q->where('articulo_id', $id))
             ->when($filtros['estatus'] ?? null, fn (Builder $q, $e) => $q->where('estatus', $e))
             // Se busca por lo que trae grabado la pieza —serie, marca, modelo—,
             // que es lo que tiene enfrente quien la está buscando. La
@@ -145,7 +145,7 @@ class Activo extends Model
                     ->orWhere('modelo', 'like', "%{$s}%")
                     ->orWhere('id_mantenimiento', 'like', "%{$s}%")
                     ->orWhere('codigo_barras', 'like', "%{$s}%")
-                    ->orWhereHas('producto', fn (Builder $p) => $p
+                    ->orWhereHas('articulo', fn (Builder $p) => $p
                         ->where('codigo', 'like', "%{$s}%")
                         ->orWhere('descripcion', 'like', "%{$s}%"))
             ));

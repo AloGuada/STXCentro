@@ -123,7 +123,7 @@ class SalidaController extends Controller
             'pedido:id,folio',
             'solicitante:id,name',
             'entregador:id,name',
-            'detalles.producto:id,codigo,descripcion,unidad',
+            'detalles.articulo:id,codigo,descripcion,unidad',
         ]);
 
         return Inertia::render('admin/almacen/salidas/show', [
@@ -153,9 +153,9 @@ class SalidaController extends Controller
             ],
             'detalles' => $salida->detalles->map(fn (SalidaDetalle $d): array => [
                 'id' => $d->id,
-                'codigo' => $d->producto?->codigo,
-                'descripcion' => $d->producto?->descripcion,
-                'unidad' => $d->producto?->unidad,
+                'codigo' => $d->articulo?->codigo,
+                'descripcion' => $d->articulo?->descripcion,
+                'unidad' => $d->articulo?->unidad,
                 'cantidad' => (float) $d->cantidad,
                 'costo_unitario' => $d->costo_unitario === null ? null : (float) $d->costo_unitario,
                 'importe' => $d->importe(),
@@ -226,7 +226,7 @@ class SalidaController extends Controller
         return Pedido::query()
             ->surtiblesConSalida($almacenId)
             ->whereIn('almacen_id', $this->almacenesVisibles($request))
-            ->with(['departamento:id,descripcion', 'detalles.producto:id,codigo,descripcion,unidad'])
+            ->with(['departamento:id,descripcion', 'detalles.articulo:id,codigo,descripcion,unidad'])
             ->orderBy('fecha_requerida')
             ->get()
             ->map(fn (Pedido $p): array => [
@@ -244,9 +244,9 @@ class SalidaController extends Controller
                     ->map(fn (PedidoDetalle $d): array => [
                         'id' => $d->id,
                         'producto_id' => $d->producto_id,
-                        'codigo' => $d->producto?->codigo,
-                        'descripcion' => $d->producto?->descripcion,
-                        'unidad' => $d->producto?->unidad,
+                        'codigo' => $d->articulo?->codigo,
+                        'descripcion' => $d->articulo?->descripcion,
+                        'unidad' => $d->articulo?->unidad,
                         'pendiente' => $d->pendiente(),
                     ])
                     ->values()

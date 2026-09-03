@@ -51,7 +51,7 @@ type Props = {
     movimientos: PaginatedData<MovimientoFila>;
     filters: {
         almacen_id?: string;
-        producto_id?: string;
+        articulo_id?: string;
         obra_id?: string;
         tipo?: string;
         desde?: string;
@@ -78,7 +78,7 @@ export default function KardexIndex({ movimientos, filters, totales, almacenes, 
     // El saldo corriente sólo se puede leer de arriba abajo cuando la columna
     // habla de un solo artículo en un solo almacén; si no, cada renglón trae el
     // saldo de otra cosa y la columna parece contradecirse.
-    const saldoLegible = Boolean(filters.almacen_id) && Boolean(filters.producto_id);
+    const saldoLegible = Boolean(filters.almacen_id) && Boolean(filters.articulo_id);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -112,8 +112,8 @@ export default function KardexIndex({ movimientos, filters, totales, almacenes, 
                     <div className="w-64">
                         <label className="label label-text text-xs">Artículo</label>
                         <Select
-                            value={filters.producto_id ?? ''}
-                            onValueChange={(v) => filtrar({ producto_id: v || undefined })}
+                            value={filters.articulo_id ?? ''}
+                            onValueChange={(v) => filtrar({ articulo_id: v || undefined })}
                             placeholder="Todos"
                         >
                             {productos.map((p) => (

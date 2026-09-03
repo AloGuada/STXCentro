@@ -67,7 +67,7 @@ describe('la salida descuenta', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 30],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 30],
             ]))
             ->assertRedirect();
 
@@ -85,7 +85,7 @@ describe('la salida descuenta', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 11],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 11],
             ]))
             ->assertSessionHasErrors('detalles.0.cantidad');
 
@@ -101,8 +101,8 @@ describe('la salida descuenta', function () {
         // Cada renglón cabe por separado, pero juntos se llevan el doble.
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 6],
-                ['producto_id' => $producto->id, 'cantidad' => 6],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 6],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 6],
             ]))
             ->assertSessionHasErrors('detalles.0.cantidad');
 
@@ -117,7 +117,7 @@ describe('la salida descuenta', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 30],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 30],
             ]));
 
         expect(DB::table('costos_rubro_movimientos')->count())->toBe(0);
@@ -133,7 +133,7 @@ describe('la cancelacion devuelve', function () {
         $usuario = usuarioDeSalidas();
 
         $this->actingAs($usuario)->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-            ['producto_id' => $producto->id, 'cantidad' => 40],
+            ['articulo_id' => articuloDe($producto), 'cantidad' => 40],
         ]));
 
         $salida = Salida::firstOrFail();
@@ -157,7 +157,7 @@ describe('la cancelacion devuelve', function () {
 
         $usuario = usuarioDeSalidas();
         $this->actingAs($usuario)->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-            ['producto_id' => $producto->id, 'cantidad' => 40],
+            ['articulo_id' => articuloDe($producto), 'cantidad' => 40],
         ]));
 
         $salida = Salida::firstOrFail();
@@ -186,7 +186,7 @@ describe('surtir un pedido', function () {
         $usuario = usuarioDeSalidas();
 
         $this->actingAs($usuario)->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-            ['producto_id' => $producto->id, 'pedido_detalle_id' => $renglon->id, 'cantidad' => 800],
+            ['articulo_id' => articuloDe($producto), 'pedido_detalle_id' => $renglon->id, 'cantidad' => 800],
         ], ['pedido_id' => $pedido->id]));
 
         expect((float) $renglon->refresh()->cantidad_surtida)->toBe(800.0)
@@ -195,7 +195,7 @@ describe('surtir un pedido', function () {
             ->and(Pedido::surtibles($almacen->id)->count())->toBe(1);
 
         $this->actingAs($usuario)->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-            ['producto_id' => $producto->id, 'pedido_detalle_id' => $renglon->id, 'cantidad' => 1200],
+            ['articulo_id' => articuloDe($producto), 'pedido_detalle_id' => $renglon->id, 'cantidad' => 1200],
         ], ['pedido_id' => $pedido->id]));
 
         expect((float) $renglon->refresh()->cantidad_surtida)->toBe(2000.0)
@@ -217,7 +217,7 @@ describe('surtir un pedido', function () {
         $usuario = usuarioDeSalidas();
 
         $this->actingAs($usuario)->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-            ['producto_id' => $producto->id, 'pedido_detalle_id' => $renglon->id, 'cantidad' => 100],
+            ['articulo_id' => articuloDe($producto), 'pedido_detalle_id' => $renglon->id, 'cantidad' => 100],
         ], ['pedido_id' => $pedido->id]));
 
         expect($pedido->refresh()->estatus)->toBe(PedidoEstatus::Surtido);
@@ -247,7 +247,7 @@ describe('surtir un pedido', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'pedido_detalle_id' => $renglon->id, 'cantidad' => 30],
+                ['articulo_id' => articuloDe($producto), 'pedido_detalle_id' => $renglon->id, 'cantidad' => 30],
             ], ['pedido_id' => $pedido->id]))
             ->assertSessionHasErrors('detalles.0.cantidad');
     });
@@ -266,7 +266,7 @@ describe('surtir un pedido', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'pedido_detalle_id' => $renglon->id, 'cantidad' => 10],
+                ['articulo_id' => articuloDe($producto), 'pedido_detalle_id' => $renglon->id, 'cantidad' => 10],
             ], ['pedido_id' => $pedido->id]))
             ->assertSessionHasErrors('pedido_id');
     });
@@ -281,7 +281,7 @@ describe('surtir un pedido', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 10],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 10],
             ], ['pedido_id' => $pedido->id]))
             ->assertSessionHasErrors('pedido_id');
     });
@@ -293,7 +293,7 @@ describe('surtir un pedido', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 10],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 10],
             ]))
             ->assertRedirect();
 
@@ -312,7 +312,7 @@ describe('el pedido', function () {
                 'departamento_id' => Departamento::factory()->create()->id,
                 'fecha' => now()->toDateString(),
                 'fecha_requerida' => now()->addDay()->toDateString(),
-                'detalles' => [['producto_id' => $producto->id, 'cantidad_solicitada' => 50]],
+                'detalles' => [['articulo_id' => articuloDe($producto), 'cantidad_solicitada' => 50]],
             ])
             ->assertRedirect();
 
@@ -333,7 +333,7 @@ describe('el pedido', function () {
                 'recibe_nombre' => 'A. Pérez',
                 'fecha' => now()->toDateString(),
                 'fecha_requerida' => now()->addDay()->toDateString(),
-                'detalles' => [['producto_id' => $producto->id, 'cantidad_solicitada' => 120]],
+                'detalles' => [['articulo_id' => articuloDe($producto), 'cantidad_solicitada' => 120]],
             ])
             ->assertSessionHasNoErrors();
 
@@ -354,7 +354,7 @@ describe('el pedido', function () {
                 'recibe_nombre' => 'A. Pérez',
                 'fecha' => now()->toDateString(),
                 'fecha_requerida' => now()->addDay()->toDateString(),
-                'detalles' => [['producto_id' => $producto->id, 'cantidad_solicitada' => 10]],
+                'detalles' => [['articulo_id' => articuloDe($producto), 'cantidad_solicitada' => 10]],
             ])
             ->assertSessionHasErrors('recibe_nombre');
     });
@@ -371,7 +371,7 @@ describe('el pedido', function () {
                 'departamento_id' => Departamento::factory()->create()->id,
                 'fecha' => now()->toDateString(),
                 'fecha_requerida' => now()->addDay()->toDateString(),
-                'detalles' => [['producto_id' => $producto->id, 'cantidad_solicitada' => 500]],
+                'detalles' => [['articulo_id' => articuloDe($producto), 'cantidad_solicitada' => 500]],
             ])
             ->assertSessionHasNoErrors();
     });
@@ -386,7 +386,7 @@ describe('el pedido', function () {
                 'departamento_id' => Departamento::factory()->create()->id,
                 'fecha' => now()->toDateString(),
                 'fecha_requerida' => now()->subDay()->toDateString(),
-                'detalles' => [['producto_id' => $producto->id, 'cantidad_solicitada' => 10]],
+                'detalles' => [['articulo_id' => articuloDe($producto), 'cantidad_solicitada' => 10]],
             ])
             ->assertSessionHasErrors('fecha_requerida');
     });
@@ -396,7 +396,7 @@ describe('el pedido', function () {
         $producto = Producto::factory()->create();
 
         $pedido = Pedido::factory()->de($almacen)->create();
-        $pedido->detalles()->create(['producto_id' => $producto->id, 'cantidad_solicitada' => 10]);
+        $pedido->detalles()->create(['articulo_id' => articuloDe($producto), 'cantidad_solicitada' => 10]);
 
         $this->actingAs(usuarioDeSalidas())
             ->patch(route('admin.alm.pedidos.cancelar', $pedido), ['motivo' => 'Ya no se necesita'])
@@ -419,7 +419,7 @@ describe('permisos', function () {
         $this->actingAs($usuario)->get(route('admin.alm.salidas.create'))->assertForbidden();
         $this->actingAs($usuario)
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 1],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 1],
             ]))
             ->assertForbidden();
     });
@@ -460,7 +460,7 @@ describe('la fecha no puede ser de manana', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 5],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 5],
             ], ['fecha' => now()->addDay()->toDateString()]))
             ->assertSessionHasErrors('fecha');
 
@@ -474,7 +474,7 @@ describe('la fecha no puede ser de manana', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 5],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 5],
             ], ['fecha' => $fecha]))
             ->assertSessionHasNoErrors();
     })->with([
@@ -497,7 +497,7 @@ describe('la salida directa de planta exige departamento', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 5],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 5],
             ], ['departamento_id' => null]))
             ->assertSessionHasErrors('departamento_id');
 
@@ -512,7 +512,7 @@ describe('la salida directa de planta exige departamento', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 5],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 5],
             ], ['departamento_id' => $departamento->id]))
             ->assertSessionHasNoErrors();
 
@@ -527,7 +527,7 @@ describe('la salida directa de planta exige departamento', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 5],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 5],
             ], ['departamento_id' => null]))
             ->assertSessionHasNoErrors();
     });
@@ -546,7 +546,7 @@ describe('la salida directa de planta exige departamento', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 5, 'pedido_detalle_id' => $renglon->id],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 5, 'pedido_detalle_id' => $renglon->id],
             ], ['pedido_id' => $pedido->id, 'departamento_id' => null]))
             ->assertSessionHasNoErrors();
     });
@@ -578,7 +578,7 @@ describe('la salida hereda el destino del pedido', function () {
 
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.salidas.store'), salidaValida($almacen, [
-                ['producto_id' => $producto->id, 'cantidad' => 5, 'pedido_detalle_id' => $renglon->id],
+                ['articulo_id' => articuloDe($producto), 'cantidad' => 5, 'pedido_detalle_id' => $renglon->id],
             ], [
                 'pedido_id' => $pedido->id,
                 'departamento_id' => $departamento->id,
@@ -607,7 +607,7 @@ describe('la salida hereda el destino del pedido', function () {
             'departamento_id' => $departamento->id,
             'grupo_trabajo_id' => $modulo->id,
         ]);
-        $pedido->detalles()->create(['producto_id' => $producto->id, 'cantidad_solicitada' => 10]);
+        $pedido->detalles()->create(['articulo_id' => articuloDe($producto), 'cantidad_solicitada' => 10]);
 
         $this->actingAs(usuarioDeSalidas())
             ->get(route('admin.alm.salidas.create', ['almacen_id' => $almacen->id]))

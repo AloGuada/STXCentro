@@ -91,7 +91,7 @@ class PedidoController extends Controller
 
             foreach ($request->validated('detalles') as $renglon) {
                 $pedido->detalles()->create([
-                    'producto_id' => $renglon['producto_id'],
+                    'articulo_id' => $renglon['articulo_id'],
                     'cantidad_solicitada' => $renglon['cantidad_solicitada'],
                     'observaciones' => $renglon['observaciones'] ?? null,
                 ]);
@@ -113,7 +113,7 @@ class PedidoController extends Controller
             'departamento:id,descripcion',
             'solicitante:id,name',
             'grupoTrabajo:id,descripcion',
-            'detalles.producto:id,codigo,descripcion,unidad',
+            'detalles.articulo:id,codigo,descripcion,unidad',
         ]);
 
         return Inertia::render('admin/almacen/pedidos/show', [
@@ -127,9 +127,9 @@ class PedidoController extends Controller
             'detalles' => $pedido->detalles->map(fn (PedidoDetalle $d): array => [
                 'id' => $d->id,
                 'producto_id' => $d->producto_id,
-                'codigo' => $d->producto?->codigo,
-                'descripcion' => $d->producto?->descripcion,
-                'unidad' => $d->producto?->unidad,
+                'codigo' => $d->articulo?->codigo,
+                'descripcion' => $d->articulo?->descripcion,
+                'unidad' => $d->articulo?->unidad,
                 'cantidad_solicitada' => (float) $d->cantidad_solicitada,
                 'cantidad_surtida' => (float) $d->cantidad_surtida,
                 'pendiente' => $d->pendiente(),

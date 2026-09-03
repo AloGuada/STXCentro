@@ -23,13 +23,11 @@ class ActivoStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'producto_id' => [
+            'articulo_id' => [
                 'required', 'integer',
                 // Sólo lo marcado «por pieza» se serializa: darle número de
-                // serie a un tornillo no significa nada. La bandera se lee del
-                // artículo, que es donde vive desde que el catálogo de Almacén
-                // se mudó a su propia tabla.
-                Rule::exists('alm_articulos', 'producto_id')->where('se_controla_por_pieza', true),
+                // serie a un tornillo no significa nada.
+                Rule::exists('alm_articulos', 'id')->where('se_controla_por_pieza', true),
             ],
             'almacen_id' => ['required', 'integer', 'exists:alm_almacenes,id'],
             'ubicacion_id' => ['nullable', 'integer', 'exists:alm_ubicaciones,id'],
@@ -52,7 +50,7 @@ class ActivoStoreRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            $productoId = $this->integer('producto_id');
+            $productoId = $this->integer('articulo_id');
             $piezas = (array) $this->input('piezas', []);
 
             $vistas = [];
@@ -78,7 +76,7 @@ class ActivoStoreRequest extends FormRequest
                 $vistas[$clave] = true;
 
                 $existe = Activo::query()
-                    ->where('producto_id', $productoId)
+                    ->where('articulo_id', $productoId)
                     ->where('no_serie', $serie)
                     ->exists();
 
@@ -121,8 +119,8 @@ class ActivoStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'producto_id.required' => 'Indica de qué artículo son las piezas.',
-            'producto_id.exists' => 'Ese artículo no se controla por pieza: márcalo primero en el catálogo.',
+            'articulo_id.required' => 'Indica de qué artículo son las piezas.',
+            'articulo_id.exists' => 'Ese artículo no se controla por pieza: márcalo primero en el catálogo.',
             'almacen_id.required' => 'Indica en qué almacén quedan.',
             'piezas.required' => 'Captura al menos una pieza con su número de serie.',
             'piezas.*.no_serie.required' => 'Cada pieza necesita su número de serie: es lo que la identifica.',

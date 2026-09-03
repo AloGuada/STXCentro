@@ -42,16 +42,6 @@ function entradaValida(Almacen $almacen, array $detalles): array
     ];
 }
 
-/**
- * El artículo con el que se captura un producto. La entrada se captura por
- * artículo —como todo Almacén— y se guarda por producto, porque el documento
- * es de compra.
- */
-function articuloDe(\App\Models\Costos\Producto $producto): int
-{
-    return (int) app(\App\Services\Alm\ResolvedorArticulo::class)->paraProducto($producto->id);
-}
-
 describe('la entrada carga el kardex', function () {
     it('escribe en costos_entregas, no en una tabla nueva', function () {
         $almacen = Almacen::factory()->create();

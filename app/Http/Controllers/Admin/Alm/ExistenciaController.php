@@ -99,7 +99,7 @@ class ExistenciaController extends Controller
             'almacen_id' => $e->almacen_id,
             'almacen' => $e->almacen?->clave,
             'obra' => $e->almacen?->obra?->no,
-            'producto_id' => $e->articulo_id,
+            'articulo_id' => $e->articulo_id,
             'codigo' => $e->articulo?->codigo,
             'descripcion' => $e->articulo?->descripcion,
             'unidad' => $e->articulo?->unidad,

@@ -32,7 +32,7 @@ type ExistenciaFila = {
     almacen_id: number;
     almacen: string | null;
     obra: string | null;
-    producto_id: number;
+    articulo_id: number;
     codigo: string | null;
     descripcion: string | null;
     unidad: string | null;
@@ -316,7 +316,7 @@ export default function ExistenciasIndex({
                                                 </td>
                                                 <td>
                                                     <Link
-                                                        href={`/admin/almacen/articulos/${e.producto_id}`}
+                                                        href={`/admin/almacen/articulos/${e.articulo_id}`}
                                                         className="link link-hover font-mono text-xs"
                                                     >
                                                         {e.codigo}
@@ -324,7 +324,7 @@ export default function ExistenciasIndex({
                                                     <span className="block">{e.descripcion}</span>
                                                     {e.piezas && (
                                                         <Link
-                                                            href={`/admin/almacen/activos?producto_id=${e.producto_id}&almacen_id=${e.almacen_id}`}
+                                                            href={`/admin/almacen/activos?articulo_id=${e.articulo_id}&almacen_id=${e.almacen_id}`}
                                                             className="badge badge-xs badge-info"
                                                             title="Ver las piezas de este renglón"
                                                         >
@@ -420,7 +420,7 @@ export default function ExistenciasIndex({
                                                         </button>
                                                     )}
                                                     <Link
-                                                        href={`/admin/almacen/kardex?almacen_id=${e.almacen_id}&producto_id=${e.producto_id}`}
+                                                        href={`/admin/almacen/kardex?almacen_id=${e.almacen_id}&articulo_id=${e.articulo_id}`}
                                                         className="btn btn-ghost btn-xs"
                                                         title="Ver su kardex"
                                                     >

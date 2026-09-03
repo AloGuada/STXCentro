@@ -45,24 +45,22 @@ class RegistradorTransferencia
             ]);
 
             foreach ($renglones as $renglon) {
-                $productoId = (int) $renglon['producto_id'];
+                $articuloId = (int) $renglon['articulo_id'];
                 $cantidad = (float) $renglon['cantidad_enviada'];
 
-                $movimiento = $this->llevaKardex($productoId)
-                    ? $this->ledger->registrarPorProducto(
-                        almacenId: $transferencia->almacen_origen_id,
-                        productoId: $productoId,
-                        tipo: MovimientoTipo::TransferenciaSalida,
-                        cantidad: -$cantidad,
-                        documento: $transferencia,
-                        referencia: $transferencia->folio,
-                        observaciones: $renglon['observaciones'] ?? null,
-                        userId: $userId,
-                    )
-                    : null;
+                $movimiento = $this->ledger->registrarPorArticulo(
+                    almacenId: $transferencia->almacen_origen_id,
+                    articuloId: $articuloId,
+                    tipo: MovimientoTipo::TransferenciaSalida,
+                    cantidad: -$cantidad,
+                    documento: $transferencia,
+                    referencia: $transferencia->folio,
+                    observaciones: $renglon['observaciones'] ?? null,
+                    userId: $userId,
+                );
 
                 $transferencia->detalles()->create([
-                    'producto_id' => $productoId,
+                    'articulo_id' => $articuloId,
                     'pedido_detalle_id' => $renglon['pedido_detalle_id'] ?? null,
                     'cantidad_enviada' => $cantidad,
                     'cantidad_recibida' => null,
@@ -104,13 +102,13 @@ class RegistradorTransferencia
 
                 $detalle->update(['cantidad_recibida' => $recibida]);
 
-                if ($recibida <= 0 || ! $this->llevaKardex((int) $detalle->producto_id)) {
+                if ($recibida <= 0) {
                     continue;
                 }
 
-                $this->ledger->registrarPorProducto(
+                $this->ledger->registrarPorArticulo(
                     almacenId: $transferencia->almacen_destino_id,
-                    productoId: (int) $detalle->producto_id,
+                    articuloId: (int) $detalle->articulo_id,
                     tipo: MovimientoTipo::TransferenciaEntrada,
                     cantidad: $recibida,
                     // El mismo costo con el que salió del origen.
@@ -151,9 +149,9 @@ class RegistradorTransferencia
             }
 
             foreach ($transferencia->detalles as $detalle) {
-                $this->ledger->registrarPorProducto(
+                $this->ledger->registrarPorArticulo(
                     almacenId: $transferencia->almacen_origen_id,
-                    productoId: (int) $detalle->producto_id,
+                    articuloId: (int) $detalle->articulo_id,
                     tipo: MovimientoTipo::TransferenciaSalida,
                     cantidad: (float) $detalle->cantidad_enviada,
                     costoUnitario: $detalle->costo_unitario === null ? null : (float) $detalle->costo_unitario,
@@ -202,10 +200,10 @@ class RegistradorTransferencia
         }
     }
 
-    private function llevaKardex(int $productoId): bool
+    private function llevaKardex(int $articuloId): bool
     {
         return Producto::query()
-            ->whereKey($productoId)
+            ->whereKey($articuloId)
             ->where('controla_inventario', true)
             ->exists();
     }
