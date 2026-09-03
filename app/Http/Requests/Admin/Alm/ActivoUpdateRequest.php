@@ -58,8 +58,15 @@ class ActivoUpdateRequest extends FormRequest
 
             $serie = trim((string) $this->input('no_serie'));
 
+            // Por artículo, que es donde vive el unique de la tabla.
+            //
+            // Comparar por producto metía en el mismo saco a todo lo que no
+            // tiene ninguno: Laravel convierte `where('producto_id', null)` en
+            // `IS NULL`, así que los cientos de artículos que abren un almacén
+            // se comparaban entre sí y rechazaban series que sí pueden
+            // repetirse. Dos fabricantes distintos pueden usar el mismo número.
             $repetida = Activo::query()
-                ->where('producto_id', $activo->producto_id)
+                ->where('articulo_id', $activo->articulo_id)
                 ->where('no_serie', $serie)
                 ->whereKeyNot($activo->id)
                 ->exists();

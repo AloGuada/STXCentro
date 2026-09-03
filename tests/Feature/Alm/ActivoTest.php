@@ -282,6 +282,55 @@ describe('validacion y permisos', function () {
             ->assertSessionHasErrors('piezas.0.no_serie');
     });
 
+    it('editar una pieza tampoco acepta una serie que ya usa otra del mismo articulo', function () {
+        // Este caso ya funcionaba, pero por accidente: la comprobacion iba por
+        // producto y Laravel traduce el null a `IS NULL`, asi que acertaba
+        // cuando el choque era del mismo articulo suelto. Se queda porque
+        // documenta el comportamiento correcto; el que de verdad protege es el
+        // siguiente.
+        $almacen = Almacen::factory()->create();
+        $pulidora = Articulo::factory()->porPieza()->sinLigar()->create();
+
+        expect($pulidora->producto_id)->toBeNull();
+
+        [$primera, $segunda] = app(RegistradorPiezas::class)->alta($pulidora, $almacen, [
+            ['no_serie' => 'PUL-07'],
+            ['no_serie' => 'PUL-08'],
+        ]);
+
+        $this->actingAs(usuarioDeActivos())
+            ->put(route('admin.alm.activos.update', $segunda), [
+                'no_serie' => 'PUL-07',
+                'estatus' => 'disponible',
+            ])
+            ->assertSessionHasErrors('no_serie');
+
+        expect($segunda->fresh()->no_serie)->toBe('PUL-08');
+    });
+
+    it('editar una pieza si acepta la serie que usa otra de un articulo distinto', function () {
+        $almacen = Almacen::factory()->create();
+        $registrador = app(RegistradorPiezas::class);
+
+        // Dos articulos sin producto: comparando por producto caian en el mismo
+        // saco -ambos `IS NULL`- y esta serie se rechazaba sin razon.
+        $registrador->alta(Articulo::factory()->porPieza()->sinLigar()->create(), $almacen, [['no_serie' => '001']]);
+        [$pieza] = $registrador->alta(
+            Articulo::factory()->porPieza()->sinLigar()->create(),
+            $almacen,
+            [['no_serie' => '002']],
+        );
+
+        $this->actingAs(usuarioDeActivos())
+            ->put(route('admin.alm.activos.update', $pieza), [
+                'no_serie' => '001',
+                'estatus' => 'disponible',
+            ])
+            ->assertSessionHasNoErrors();
+
+        expect($pieza->fresh()->no_serie)->toBe('001');
+    });
+
     it('la misma serie si puede existir en dos articulos distintos', function () {
         $almacen = Almacen::factory()->create();
         $registrador = app(RegistradorPiezas::class);
