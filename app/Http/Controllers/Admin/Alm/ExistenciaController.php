@@ -183,11 +183,15 @@ class ExistenciaController extends Controller
             ->when($request->boolean('solo_con_saldo'), fn (Builder $q) => $q->conSaldo())
             ->when(
                 $request->string('search')->trim()->value(),
+                // `whereLike` sin distinguir mayusculas: en SQLite el LIKE ya
+                // las ignora y en PostgreSQL no, asi que buscar "tornillo" no
+                // encontraba "TORNILLO" y el buscador se portaba distinto en
+                // desarrollo que en produccion. Laravel emite ILIKE donde toca.
                 fn (Builder $q, string $s) => $q->whereHas(
                     'articulo',
-                    fn (Builder $p) => $p->where('codigo', 'like', "%{$s}%")
-                        ->orWhere('descripcion', 'like', "%{$s}%")
-                        ->orWhere('codigo_barras', 'like', "%{$s}%"),
+                    fn (Builder $p) => $p->whereLike('codigo', "%{$s}%")
+                        ->orWhereLike('descripcion', "%{$s}%")
+                        ->orWhereLike('codigo_barras', "%{$s}%"),
                 ),
             );
     }

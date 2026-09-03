@@ -184,6 +184,11 @@ class Movimiento extends Model
                 : $q->where('obra_id', $id))
             ->when($filtros['desde'] ?? null, fn (Builder $q, $d) => $q->whereDate('created_at', '>=', $d))
             ->when($filtros['hasta'] ?? null, fn (Builder $q, $h) => $q->whereDate('created_at', '<=', $h))
-            ->when($filtros['referencia'] ?? null, fn (Builder $q, $r) => $q->where('referencia', 'like', "%{$r}%"));
+            ->when(
+                $filtros['referencia'] ?? null,
+                // Sin distinguir mayusculas: los folios se teclean como salga
+                // -sal-0012, SAL-0012- y en PostgreSQL el LIKE si distingue.
+                fn (Builder $q, $r) => $q->whereLike('referencia', "%{$r}%"),
+            );
     }
 }
