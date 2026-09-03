@@ -1,3 +1,4 @@
+import { BotonFormato } from '@/components/alm/boton-formato';
 import { ButtonLink } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -99,10 +100,23 @@ export default function EntradaShow({ entrada, detalles }: Props) {
                         )}
                     </div>
 
-                    <ButtonLink href="/admin/almacen/entradas" variant="outline">
-                        <ArrowLeftIcon className="size-4" />
-                        Volver
-                    </ButtonLink>
+                    <div className="flex gap-2">
+                        <ButtonLink href="/admin/almacen/entradas" variant="outline">
+                            <ArrowLeftIcon className="size-4" />
+                            Volver
+                        </ButtonLink>
+                        {/* El comprobante de recepcion: el mismo documento que
+                            antes se sacaba desde la pestaña de recepciones de
+                            Costos. Sale de la orden -proveedor, partidas,
+                            retenciones de la factura-, asi que una entrada sin
+                            orden no tiene con que armarlo. */}
+                        {!entrada.sin_orden && (
+                            <BotonFormato
+                                href={`/admin/costos/entregas/${entrada.id}/pdf`}
+                                etiqueta="Comprobante"
+                            />
+                        )}
+                    </div>
                 </div>
 
                 {entrada.cancelada ? (

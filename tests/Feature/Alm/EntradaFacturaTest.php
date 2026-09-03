@@ -239,3 +239,25 @@ test('la entrada sin orden sigue sin pedir factura', function () {
     expect(Entrega::sole()->orden_compra_id)->toBeNull()
         ->and(Factura::count())->toBe(0);
 });
+
+/**
+ * El comprobante de recepción: el mismo documento que antes se sacaba desde la
+ * pestaña de recepciones de Costos, ahora alcanzable desde la entrada.
+ *
+ * Se arma con lo de la orden —proveedor, partidas, retenciones de la factura—
+ * así que una entrada sin orden no tiene con qué armarlo y no lo ofrece.
+ */
+test('la recepción con orden puede imprimir su comprobante', function () {
+    $archivos = cfdiParaRecibir($this->orden, $this->recibe60);
+
+    $this->actingAs($this->almacenista)
+        ->post('/admin/almacen/entradas', ($this->capturar)($archivos))
+        ->assertRedirect();
+
+    $entrada = Entrega::sole();
+
+    $this->actingAs($this->almacenista)
+        ->get(route('admin.costos.entregas.pdf', $entrada))
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+});
