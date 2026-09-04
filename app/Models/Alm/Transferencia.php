@@ -224,6 +224,6 @@ class Transferencia extends Model
             ->when($filtros['desde'] ?? null, fn (Builder $q, $d) => $q->whereDate('fecha_envio', '>=', $d))
             ->when($filtros['hasta'] ?? null, fn (Builder $q, $h) => $q->whereDate('fecha_envio', '<=', $h))
             ->when(! ($filtros['ver_canceladas'] ?? false), fn (Builder $q) => $q->activa())
-            ->when($filtros['search'] ?? null, fn (Builder $q, $s) => $q->where('folio', 'like', "%{$s}%"));
+            ->when($filtros['search'] ?? null, fn (Builder $q, $s) => $q->whereLike('folio', "%{$s}%"));
     }
 }

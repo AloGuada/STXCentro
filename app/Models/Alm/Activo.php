@@ -140,14 +140,14 @@ class Activo extends Model
             // descripción del artículo entra por si llegan por ahí.
             ->when($filtros['search'] ?? null, fn (Builder $q, string $s) => $q->where(
                 fn (Builder $b) => $b
-                    ->where('no_serie', 'like', "%{$s}%")
-                    ->orWhere('marca', 'like', "%{$s}%")
-                    ->orWhere('modelo', 'like', "%{$s}%")
-                    ->orWhere('id_mantenimiento', 'like', "%{$s}%")
-                    ->orWhere('codigo_barras', 'like', "%{$s}%")
+                    ->whereLike('no_serie', "%{$s}%")
+                    ->orWhereLike('marca', "%{$s}%")
+                    ->orWhereLike('modelo', "%{$s}%")
+                    ->orWhereLike('id_mantenimiento', "%{$s}%")
+                    ->orWhereLike('codigo_barras', "%{$s}%")
                     ->orWhereHas('articulo', fn (Builder $p) => $p
-                        ->where('codigo', 'like', "%{$s}%")
-                        ->orWhere('descripcion', 'like', "%{$s}%"))
+                        ->whereLike('codigo', "%{$s}%")
+                        ->orWhereLike('descripcion', "%{$s}%"))
             ));
     }
 }

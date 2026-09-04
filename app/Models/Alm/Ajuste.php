@@ -111,6 +111,6 @@ class Ajuste extends Model
             ->when($filtros['motivo'] ?? null, fn (Builder $q, $m) => $q->where('motivo', $m))
             ->when($filtros['desde'] ?? null, fn (Builder $q, $d) => $q->whereDate('fecha', '>=', $d))
             ->when($filtros['hasta'] ?? null, fn (Builder $q, $h) => $q->whereDate('fecha', '<=', $h))
-            ->when($filtros['search'] ?? null, fn (Builder $q, $s) => $q->where('folio', 'like', "%{$s}%"));
+            ->when($filtros['search'] ?? null, fn (Builder $q, $s) => $q->whereLike('folio', "%{$s}%"));
     }
 }

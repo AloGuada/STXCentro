@@ -188,12 +188,16 @@ class ArticuloController extends Controller
      */
     private function buscador(Builder $query, string $termino): Builder
     {
+        // `whereLike` sin distinguir mayusculas: en SQLite el LIKE ya las
+        // ignora y en PostgreSQL no, asi que buscar "tornillo" no encontraba
+        // "TORNILLO" y el catalogo se portaba distinto en produccion que en
+        // desarrollo. Laravel emite ILIKE donde toca.
         return $query->where(fn (Builder $q) => $q
-            ->where('codigo', 'like', "%{$termino}%")
-            ->orWhere('descripcion', 'like', "%{$termino}%")
-            ->orWhere('codigo_barras', 'like', "%{$termino}%")
-            ->orWhere('idsteelex', 'like', "%{$termino}%")
-            ->orWhereHas('area', fn (Builder $a) => $a->where('descripcion', 'like', "%{$termino}%")));
+            ->whereLike('codigo', "%{$termino}%")
+            ->orWhereLike('descripcion', "%{$termino}%")
+            ->orWhereLike('codigo_barras', "%{$termino}%")
+            ->orWhereLike('idsteelex', "%{$termino}%")
+            ->orWhereHas('area', fn (Builder $a) => $a->whereLike('descripcion', "%{$termino}%")));
     }
 
     /**

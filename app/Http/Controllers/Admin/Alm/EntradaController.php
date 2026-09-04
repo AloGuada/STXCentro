@@ -55,7 +55,7 @@ class EntradaController extends Controller
             ->withCount('detalles')
             ->when(! $request->boolean('ver_canceladas'), fn ($q) => $q->activa())
             ->when($request->integer('almacen_id') ?: null, fn ($q, int $id) => $q->where('almacen_id', $id))
-            ->when($request->string('search')->trim()->value(), fn ($q, string $s) => $q->where('folio', 'like', "%{$s}%"))
+            ->when($request->string('search')->trim()->value(), fn ($q, string $s) => $q->whereLike('folio', "%{$s}%"))
             ->latest('fecha_entrega')
             ->latest('id')
             ->paginate(20)

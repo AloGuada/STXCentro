@@ -168,8 +168,8 @@ class Salida extends Model
             ->when($filtros['hasta'] ?? null, fn (Builder $q, $h) => $q->whereDate('fecha', '<=', $h))
             ->when(! ($filtros['ver_canceladas'] ?? false), fn (Builder $q) => $q->activa())
             ->when($filtros['search'] ?? null, fn (Builder $q, $s) => $q->where(
-                fn (Builder $b) => $b->where('folio', 'like', "%{$s}%")
-                    ->orWhere('recibe_nombre', 'like', "%{$s}%")
+                fn (Builder $b) => $b->whereLike('folio', "%{$s}%")
+                    ->orWhereLike('recibe_nombre', "%{$s}%")
             ));
     }
 }

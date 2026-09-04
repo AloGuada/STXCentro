@@ -199,6 +199,6 @@ class Pedido extends Model
                 ($filtros['destino'] ?? null) === 'obra',
                 fn (Builder $q) => $q->whereNotNull('obra_id'),
             )
-            ->when($filtros['search'] ?? null, fn (Builder $q, $s) => $q->where('folio', 'like', "%{$s}%"));
+            ->when($filtros['search'] ?? null, fn (Builder $q, $s) => $q->whereLike('folio', "%{$s}%"));
     }
 }
