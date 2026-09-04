@@ -369,8 +369,16 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->middlewareFor(['index', 'show'], 'permission:alm.ajustes.ver')
             ->middlewareFor(['create', 'store'], 'permission:alm.ajustes.crear');
 
-        // Lo que hay ahora en el almacen, para arrancar la hoja del ajuste con
-        // el saldo registrado en vez de a mano.
+        // El catalogo con el saldo de ese almacen, para la hoja del conteo. Va
+        // el catalogo entero: el ajuste es el documento que abre existencia
+        // donde no habia, asi que acotarlo a lo que ya tiene renglon dejaba un
+        // almacen recien abierto sin nada que contar.
+        Route::get('almacenes/{almacen}/catalogo-conteo', [AlmAjusteController::class, 'catalogoDeConteo'])
+            ->whereNumber('almacen')
+            ->middleware('permission:alm.ajustes.crear')
+            ->name('almacenes.catalogo-conteo');
+        // Lo que hay ahora en el almacen. La usan la salida, el pedido y la
+        // transferencia, que solo pueden mover lo que existe.
         Route::get('almacenes/{almacen}/existencias', [AlmAjusteController::class, 'existencias'])
             ->whereNumber('almacen')
             ->middleware('permission:alm.ajustes.crear')

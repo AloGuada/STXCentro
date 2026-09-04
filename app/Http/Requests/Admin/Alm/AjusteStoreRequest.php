@@ -36,9 +36,16 @@ class AjusteStoreRequest extends FormRequest
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.articulo_id' => [
                 'required', 'integer',
-                // Sólo lo que lleva kardex: un flete se compra pero no se
-                // guarda, así que no hay nada que contar ni saldo que corregir.
-                Rule::exists('costos_productos', 'id')->where('controla_inventario', true),
+                // Del catálogo de Almacén, como el resto de los documentos. Ya
+                // no se pregunta si lleva kardex: tener renglón ahí es llevarlo.
+                //
+                // Validaba contra `costos_productos` —herencia de cuando el
+                // renglón viajaba con `producto_id`—, y los dos catálogos tienen
+                // numeración propia: el id de un artículo caía sobre un producto
+                // ajeno. Casi siempre pasaba de casualidad y no comprobaba nada;
+                // cuando el producto de enfrente no controlaba inventario,
+                // rechazaba un artículo que sí existe.
+                Rule::exists('alm_articulos', 'id'),
             ],
             'detalles.*.cantidad_contada' => ['required', 'numeric', 'min:0'],
             'detalles.*.costo_unitario' => ['nullable', 'numeric', 'min:0'],

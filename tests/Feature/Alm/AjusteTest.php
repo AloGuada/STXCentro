@@ -3,6 +3,7 @@
 use App\Enums\Alm\MovimientoTipo;
 use App\Models\Alm\Ajuste;
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Movimiento;
 use App\Models\Costos\Producto;
@@ -212,6 +213,136 @@ describe('validacion', function () {
                 ['articulo_id' => articuloDe($producto), 'cantidad_contada' => 10],
             ], 'conteo_fisico'))
             ->assertSessionHasErrors('motivo');
+    });
+});
+
+describe('la hoja del conteo ofrece el catalogo, no solo lo que ya hay', function () {
+    it('un almacen sin un solo movimiento igual tiene que ofrecer que contar', function () {
+        $almacen = Almacen::factory()->create();
+        $articulo = Articulo::factory()->create(['activo' => true]);
+
+        // Antes salia vacio —se ofrecian solo los renglones de `alm_existencias`—
+        // y un almacen recien abierto no tenia ni un articulo en la lista, asi
+        // que su carga inicial no se podia capturar por ningun lado.
+        $this->actingAs(usuarioDeAjustes())
+            ->getJson(route('admin.alm.almacenes.catalogo-conteo', $almacen))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.articulo_id', $articulo->id)
+            ->assertJsonPath('0.cantidad', 0)
+            ->assertJsonPath('0.en_el_almacen', false);
+    });
+
+    it('trae el saldo del almacen que se pregunta, no el de otro', function () {
+        $aqui = Almacen::factory()->create();
+        $alla = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        app(AlmacenLedger::class)->registrarPorProducto(
+            $alla->id, $producto->id, MovimientoTipo::Entrada, 40, 3
+        );
+
+        $this->actingAs(usuarioDeAjustes())
+            ->getJson(route('admin.alm.almacenes.catalogo-conteo', $aqui))
+            ->assertOk()
+            ->assertJsonPath('0.cantidad', 0)
+            ->assertJsonPath('0.en_el_almacen', false);
+
+        $this->actingAs(usuarioDeAjustes())
+            ->getJson(route('admin.alm.almacenes.catalogo-conteo', $alla))
+            ->assertOk()
+            ->assertJsonPath('0.cantidad', 40)
+            ->assertJsonPath('0.en_el_almacen', true);
+    });
+
+    it('deja fuera el articulo dado de baja', function () {
+        $almacen = Almacen::factory()->create();
+        Articulo::factory()->create(['activo' => false]);
+
+        $this->actingAs(usuarioDeAjustes())
+            ->getJson(route('admin.alm.almacenes.catalogo-conteo', $almacen))
+            ->assertOk()
+            ->assertJsonCount(0);
+    });
+
+    it('contar un articulo que el almacen no tenia le abre la existencia', function () {
+        $almacen = Almacen::factory()->create();
+        $articulo = Articulo::factory()->create();
+
+        $this->actingAs(usuarioDeAjustes())
+            ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
+                ['articulo_id' => $articulo->id, 'cantidad_contada' => 12, 'costo_unitario' => 8.5],
+            ]))
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $existencia = Existencia::firstOrFail();
+
+        expect((int) $existencia->almacen_id)->toBe($almacen->id)
+            ->and((int) $existencia->articulo_id)->toBe($articulo->id)
+            ->and((float) $existencia->cantidad)->toBe(12.0)
+            ->and((float) $existencia->costo_promedio)->toBe(8.5);
+    });
+
+    it('la hoja del conteo se cierra para un almacen que no le toca', function () {
+        $ajeno = Almacen::factory()->create();
+
+        $usuario = User::factory()->create();
+        Permission::firstOrCreate(['name' => 'alm.ajustes.crear', 'guard_name' => 'web']);
+        $usuario->givePermissionTo('alm.ajustes.crear');
+
+        $this->actingAs($usuario)
+            ->getJson(route('admin.alm.almacenes.catalogo-conteo', $ajeno))
+            ->assertForbidden();
+    });
+});
+
+describe('el articulo se valida contra el catalogo de Almacen', function () {
+    it('acepta un articulo que no tiene producto de Compras detras', function () {
+        $almacen = Almacen::factory()->create();
+
+        // La carga inicial de un almacen abre articulos sin `producto_id`: es
+        // material que existe en la bodega y todavia no se empareja con nada de
+        // Compras. Contarlo tiene que poder hacerse.
+        $articulo = Articulo::factory()->create(['producto_id' => null]);
+
+        $this->actingAs(usuarioDeAjustes())
+            ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
+                ['articulo_id' => $articulo->id, 'cantidad_contada' => 7],
+            ]))
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        expect((float) Existencia::firstOrFail()->cantidad)->toBe(7.0);
+    });
+
+    it('no le pregunta al producto que comparte el id del articulo', function () {
+        $almacen = Almacen::factory()->create();
+        $articulo = Articulo::factory()->create(['producto_id' => null]);
+
+        // Los dos catalogos numeran por su cuenta, asi que el id de un articulo
+        // cae sobre un producto ajeno. Cuando ese vecino no controlaba
+        // inventario, la validacion rechazaba un articulo que si existe.
+        Producto::factory()->create([
+            'id' => $articulo->id,
+            'controla_inventario' => false,
+        ]);
+
+        $this->actingAs(usuarioDeAjustes())
+            ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
+                ['articulo_id' => $articulo->id, 'cantidad_contada' => 3],
+            ]))
+            ->assertSessionHasNoErrors();
+    });
+
+    it('rechaza un id que no es de ningun articulo', function () {
+        $almacen = Almacen::factory()->create();
+
+        $this->actingAs(usuarioDeAjustes())
+            ->post(route('admin.alm.ajustes.store'), ajusteValido($almacen, [
+                ['articulo_id' => 999999, 'cantidad_contada' => 1],
+            ]))
+            ->assertSessionHasErrors('detalles.0.articulo_id');
     });
 });
 

@@ -12,7 +12,13 @@ type Props = {
      * documento: para casi todas, los artículos del almacén elegido.
      */
     articulos: AlmProductoOpcion[];
-    /** Las entradas capturan costo; salidas y transferencias no. */
+    /**
+     * Las entradas capturan costo; salidas y transferencias no.
+     *
+     * En modo `conteo` se pide el costo pero no se calcula importe: lo que
+     * mueve dinero es la diferencia, no lo contado, y sólo cuando sobra —lo
+     * que falta sale al promedio con el que había entrado.
+     */
     conCosto?: boolean;
     /** Existencia del artículo en el almacén elegido, para avisar de faltantes. */
     disponibleDe?: (articuloId: number) => number | null;
@@ -108,7 +114,11 @@ export function CapturadorPartidas({
 
     const total = partidas.reduce((suma, p) => suma + importeDe(p), 0);
 
-    const columnas = 5 + (conCosto ? 2 : 0) + (esConteo ? 2 : 0) + (pedirVerificacionMantenimiento ? 1 : 0);
+    // El importe sólo existe fuera del conteo, así que ahí el costo agrega una
+    // columna en vez de dos.
+    const conImporte = conCosto && ! esConteo;
+    const columnas =
+        5 + (conCosto ? 1 : 0) + (conImporte ? 1 : 0) + (esConteo ? 2 : 0) + (pedirVerificacionMantenimiento ? 1 : 0);
 
     const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
@@ -124,7 +134,7 @@ export function CapturadorPartidas({
                             <th className="text-right">{esConteo ? 'Contado' : 'Cantidad'}</th>
                             {esConteo && <th className="text-right">Diferencia</th>}
                             {conCosto && <th className="text-right">Costo unitario</th>}
-                            {conCosto && <th className="text-right">Importe</th>}
+                            {conImporte && <th className="text-right">Importe</th>}
                             {pedirVerificacionMantenimiento && <th className="text-center">Mtto. verificado</th>}
                             <th>Observaciones</th>
                             <th className="w-10"></th>
@@ -235,7 +245,7 @@ export function CapturadorPartidas({
                                                 />
                                             </td>
                                         )}
-                                        {conCosto && (
+                                        {conImporte && (
                                             <td className="text-right font-mono">{moneda(importeDe(partida))}</td>
                                         )}
                                         {pedirVerificacionMantenimiento && (
@@ -278,7 +288,7 @@ export function CapturadorPartidas({
                             })
                         )}
                     </tbody>
-                    {conCosto && partidas.length > 0 && (
+                    {conImporte && partidas.length > 0 && (
                         <tfoot className="bg-base-200">
                             <tr>
                                 <td colSpan={4} className="text-right font-medium">

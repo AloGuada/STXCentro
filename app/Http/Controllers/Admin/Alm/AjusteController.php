@@ -8,8 +8,8 @@ use App\Http\Requests\Admin\Alm\AjusteStoreRequest;
 use App\Models\Alm\Ajuste;
 use App\Models\Alm\AjusteDetalle;
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
-use App\Models\Costos\Producto;
 use App\Services\Alm\RegistradorAjuste;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -64,9 +64,10 @@ class AjusteController extends Controller
 
     public function create(Request $request): Response
     {
+        // Sin catálogo: lo que se cuenta son los artículos de ESE almacén, y
+        // ésos los pide la pantalla a `existencias()` cuando ya sabe cuál es.
         return Inertia::render('admin/almacen/ajustes/create', [
             ...$this->opciones($request),
-            'productos' => $this->productos(),
         ]);
     }
 
@@ -131,11 +132,58 @@ class AjusteController extends Controller
     }
 
     /**
-     * Qué hay ahora mismo en ese almacén, para arrancar la hoja con lo que ya
-     * está registrado en vez de tecleado a mano.
+     * El catálogo con el saldo de **este** almacén al lado, para la hoja del
+     * conteo.
      *
-     * Va aparte de los productos porque el saldo cambia por almacén, y la
-     * pantalla no sabe cuál eligieron hasta que lo eligen.
+     * Sale el catálogo entero, no sólo lo que el almacén ya guarda. Un ajuste
+     * es justo el documento que abre existencia donde no había: `carga_inicial`
+     * es uno de sus motivos, y ofrecer nada más lo que ya tiene renglón dejaba
+     * un almacén recién abierto sin un solo artículo que contar —y a los demás,
+     * sin poder dar de alta el material que apareció en la bodega y el sistema
+     * todavía no conoce.
+     *
+     * Los otros documentos sí se acotan a lo que hay: {@see existencias()}. De
+     * una bodega vacía no sale material, pero contarla sí se puede.
+     *
+     * Va aparte de la pantalla porque el saldo cambia por almacén, y no se sabe
+     * cuál eligieron hasta que lo eligen.
+     */
+    public function catalogoDeConteo(Request $request, Almacen $almacen): JsonResponse
+    {
+        abort_unless($almacen->esVisiblePara($request->user()), 403);
+
+        $saldos = Existencia::query()
+            ->where('almacen_id', $almacen->id)
+            ->whereNotNull('articulo_id')
+            ->pluck('cantidad', 'articulo_id');
+
+        return response()->json(
+            Articulo::query()
+                ->where('activo', true)
+                ->orderBy('descripcion')
+                ->get(['id', 'codigo', 'descripcion', 'unidad', 'requiere_verificacion'])
+                ->map(fn (Articulo $a): array => [
+                    'id' => $a->id,
+                    'articulo_id' => $a->id,
+                    'codigo' => $a->codigo,
+                    'descripcion' => $a->descripcion,
+                    'unidad' => $a->unidad,
+                    'requiere_verificacion' => (bool) $a->requiere_verificacion,
+                    // Sin renglón el saldo es cero, y eso es un hecho, no un
+                    // dato faltante: el sistema dice que aquí no hay nada.
+                    'cantidad' => (float) ($saldos[$a->id] ?? 0),
+                    'en_el_almacen' => $saldos->has($a->id),
+                ])
+                ->values()
+        );
+    }
+
+    /**
+     * Qué hay ahora mismo en ese almacén.
+     *
+     * La usan la salida, el pedido y la transferencia: los tres sacan material,
+     * y ofrecer lo que otra bodega guarda sería ofrecer lo que aquí no hay. El
+     * ajuste no la usa —cuenta contra el catálogo entero, {@see catalogoDeConteo()}.
      */
     public function existencias(Request $request, Almacen $almacen): JsonResponse
     {
@@ -193,20 +241,6 @@ class AjusteController extends Controller
                 AjusteMotivo::capturables(),
             ),
         ];
-    }
-
-    /**
-     * Sólo lo que mueve existencia: un flete no se cuenta.
-     *
-     * @return Collection<int, Producto>
-     */
-    private function productos(): Collection
-    {
-        return Producto::query()
-            ->deInventario()
-            ->where('activo', true)
-            ->orderBy('descripcion')
-            ->get(['id', 'codigo', 'descripcion', 'unidad', 'requiere_verificacion']);
     }
 
     /**

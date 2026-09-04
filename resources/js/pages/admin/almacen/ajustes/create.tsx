@@ -6,7 +6,7 @@ import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
-import type { AlmAlmacenOpcion, AlmOpcion, AlmPartidaBorrador, AlmProductoOpcion } from '@/types/models';
+import type { AlmAlmacenOpcion, AlmOpcion, AlmPartidaBorrador } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
@@ -20,14 +20,16 @@ const breadcrumbs: BreadcrumbItem[] = [
 type Props = {
     almacenes: AlmAlmacenOpcion[];
     motivos: AlmOpcion[];
-    productos: AlmProductoOpcion[];
 };
 
-/** El saldo registrado de un artículo en el almacén elegido. */
 /**
- * Lo que el almacén elegido guarda. Es a la vez la lista con la que se captura
- * y el saldo contra el que se avisa de faltantes: ofrecer el catálogo entero
- * sería ofrecer material que en esta bodega no hay.
+ * El catálogo con el saldo que el almacén elegido tiene de cada artículo. Es a
+ * la vez la lista con la que se captura y el «Sistema» contra el que se calcula
+ * la diferencia.
+ *
+ * Aquí sí va el catálogo entero —a diferencia de la salida o la transferencia,
+ * que sólo pueden mover lo que existe—: contar es justamente cómo se da de alta
+ * el material que está en la bodega y el sistema todavía no conoce.
  */
 type Saldo = {
     id: number;
@@ -37,9 +39,11 @@ type Saldo = {
     unidad: string;
     requiere_verificacion: boolean;
     cantidad: number;
+    /** Falso = el almacén no tiene renglón todavía; contarlo se lo abre. */
+    en_el_almacen: boolean;
 };
 
-export default function AjusteCreate({ almacenes, motivos, productos }: Props) {
+export default function AjusteCreate({ almacenes, motivos }: Props) {
     const form = useForm({
         almacen_id: '',
         motivo: '',
@@ -61,7 +65,7 @@ export default function AjusteCreate({ almacenes, motivos, productos }: Props) {
 
         let vigente = true;
 
-        fetch(`/admin/almacen/almacenes/${form.data.almacen_id}/existencias`, {
+        fetch(`/admin/almacen/almacenes/${form.data.almacen_id}/catalogo-conteo`, {
             headers: { Accept: 'application/json' },
         })
             .then((r) => (r.ok ? r.json() : []))
@@ -79,8 +83,14 @@ export default function AjusteCreate({ almacenes, motivos, productos }: Props) {
         };
     }, [form.data.almacen_id]);
 
-    const disponibleDe = (productoId: number) =>
-        saldos.find((s) => s.articulo_id === productoId)?.cantidad ?? 0;
+    const disponibleDe = (articuloId: number) => saldos.find((s) => s.articulo_id === articuloId)?.cantidad ?? 0;
+
+    /** Cuántos de los capturados el almacén no tenía registrados: los abre este ajuste. */
+    const nuevosEnElAlmacen = form.data.detalles.filter((d) => {
+        const saldo = saldos.find((s) => String(s.articulo_id) === d.articulo_id);
+
+        return saldo !== undefined && !saldo.en_el_almacen;
+    }).length;
 
     const enviar = (e: React.FormEvent) => {
         e.preventDefault();
@@ -189,11 +199,23 @@ export default function AjusteCreate({ almacenes, motivos, productos }: Props) {
                         {form.errors.detalles && (
                             <p className="text-error mb-2 text-sm">{form.errors.detalles}</p>
                         )}
+                        <p className="text-base-content/60 mb-2 text-sm">
+                            El costo unitario sólo se usa cuando <strong>sobra</strong> material: eso entra al almacén y
+                            hay que decir cuánto vale. Lo que falta sale al costo promedio con el que había entrado.
+                        </p>
+                        {nuevosEnElAlmacen > 0 && (
+                            <p className="text-info mb-2 text-sm">
+                                {nuevosEnElAlmacen === 1
+                                    ? 'Un artículo capturado no estaba registrado en este almacén: el ajuste le abre existencia.'
+                                    : `${nuevosEnElAlmacen} artículos capturados no estaban registrados en este almacén: el ajuste les abre existencia.`}
+                            </p>
+                        )}
                         <CapturadorPartidas
                             partidas={form.data.detalles}
                             onChange={(detalles) => form.setData('detalles', detalles)}
                             articulos={saldos}
                             modo="conteo"
+                            conCosto
                             disponibleDe={form.data.almacen_id === '' ? undefined : disponibleDe}
                         />
                     </div>
