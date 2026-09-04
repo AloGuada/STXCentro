@@ -853,11 +853,14 @@ export type ProdRegistro = {
     fecha: string;
     pieza_id: number;
     proceso_id: number;
+    /** Sólo cuando el grupo de precios de la marca paga por pasos. */
+    subproceso_id: number | null;
     grupo_trabajo_id: number;
     /** Avance pagado de esa pieza; menos de 100 deja saldo por liquidar después. */
     porcentaje: number;
     pieza?: ProdPieza;
     proceso?: ProdProceso;
+    subproceso?: ProdGrupoPrecioSubproceso;
     grupo_trabajo?: ProdGrupoTrabajo;
     created_at: string;
     updated_at: string;

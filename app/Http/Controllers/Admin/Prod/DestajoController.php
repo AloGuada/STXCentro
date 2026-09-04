@@ -74,7 +74,9 @@ class DestajoController extends Controller
         }
 
         $data['registrosPreview'] = Registro::query()
-            ->with(['pieza.marca.obra', 'proceso', 'grupoTrabajo'])
+            // El paso viaja porque la vista junta los QR de la misma marca en un
+            // renglon: dos pasos distintos no son el mismo pago.
+            ->with(['pieza.marca.obra', 'proceso', 'subproceso', 'grupoTrabajo'])
             ->whereBetween('fecha', [$destajo->fecha_inicio, $destajo->fecha_fin])
             ->orderByDesc('fecha')
             ->get()

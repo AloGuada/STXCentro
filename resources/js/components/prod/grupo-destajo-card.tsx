@@ -1,9 +1,9 @@
-import { FormattedDate } from '@/components/ui/formatted-date';
-import { etiquetaDePieza, etiquetaDeUnidad } from '@/lib/prod/piezas';
+import { RegistrosPorMarca } from '@/components/prod/registros-por-marca';
 import type {
     Concepto,
     Obra,
     ProdGrupoTrabajo,
+    ProdGrupoPrecioSubproceso,
     ProdPagoExtra,
     ProdPieza,
     ProdProceso,
@@ -16,6 +16,7 @@ import { Trash2Icon } from 'lucide-react';
 export type RegistroPreview = ProdRegistro & {
     pieza?: ProdPieza & { marca?: Concepto & { obra?: Obra } };
     proceso?: ProdProceso;
+    subproceso?: ProdGrupoPrecioSubproceso;
     grupo_trabajo?: ProdGrupoTrabajo;
 };
 
@@ -66,70 +67,7 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                         <span className="text-sm font-medium">Producción</span>
                         <span className="badge badge-sm badge-info">{registros.length}</span>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Pieza</th>
-                                    <th>Proceso</th>
-                                    <th>Fecha</th>
-                                    <th className="text-right">%</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {registros.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={5} className="text-base-content/50 py-4 text-center">
-                                            Sin producción capturada
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    registros.map((r) => (
-                                        <tr key={r.id} className="hover">
-                                            <td>
-                                                <span className="font-medium">
-                                                    {etiquetaDePieza(r.pieza?.marca?.marca, r.pieza?.marca?.lote)}
-                                                </span>{' '}
-                                                <span className="font-mono text-xs">
-                                                    {etiquetaDeUnidad(r.pieza ?? {})}
-                                                </span>{' '}
-                                                <span className="text-base-content/60">
-                                                    {r.pieza?.marca?.descripcion}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span className="badge badge-sm badge-ghost">
-                                                    {r.proceso?.nombre ?? '—'}
-                                                </span>
-                                            </td>
-                                            <td className="font-mono text-xs">
-                                                <FormattedDate value={r.fecha} />
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {Number(r.porcentaje ?? 100) < 100 ? (
-                                                    <span className="badge badge-sm badge-warning">
-                                                        {Number(r.porcentaje)}%
-                                                    </span>
-                                                ) : (
-                                                    '100%'
-                                                )}
-                                            </td>
-                                            <td className="text-right">
-                                                <button
-                                                    className="btn btn-ghost btn-xs text-error"
-                                                    onClick={() => eliminarRegistro(r.id)}
-                                                    aria-label="Eliminar registro"
-                                                >
-                                                    <Trash2Icon className="size-3.5" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                    <RegistrosPorMarca registros={registros} onEliminar={eliminarRegistro} />
                 </div>
 
                 <div>
@@ -163,7 +101,7 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                                             <td>{pe.tipo?.descripcion}</td>
                                             <td>{pe.descripcion}</td>
                                             <td className="text-right font-mono">${money(pe.precio)}</td>
-                                            <td className="text-right font-mono">{pe.dias}</td>
+                                            <td className="text-right font-mono">{Number(pe.dias)}</td>
                                             <td className="text-right font-mono">{pe.personas}</td>
                                             <td className="text-right font-mono">
                                                 ${money(Number(pe.monto ?? pe.precio * pe.dias * pe.personas))}

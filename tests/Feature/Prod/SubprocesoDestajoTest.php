@@ -392,3 +392,22 @@ describe('modalidad del grupo', function () {
             ->and((float) subproceso($this->grupoPrecio->fresh(), 'Punteado')->precio)->toBe(35.0);
     });
 });
+
+describe('pantalla del destajo', function () {
+    test('el renglon de produccion viaja con su paso para no juntar pagos distintos', function () {
+        // La vista junta los QR de la misma marca en un solo renglon. Armado y
+        // punteado se pagan distinto, asi que no pueden caer en el mismo.
+        $piezas = $this->marca->piezas->take(2);
+        capturarPiezas($piezas, $this->grupo, '2026-03-04', subproceso: $this->armado);
+        capturarPiezas($piezas, $this->grupo, '2026-03-04', subproceso: $this->punteado);
+
+        $this->get(route('admin.prod.destajos.show', $this->destajo))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has("registrosPreview.{$this->grupo->id}", 4)
+                ->where(
+                    "registrosPreview.{$this->grupo->id}.0.subproceso.nombre",
+                    fn (string $nombre) => in_array($nombre, ['Armado', 'Punteado'], true),
+                ));
+    });
+});

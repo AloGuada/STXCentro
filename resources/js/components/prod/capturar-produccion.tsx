@@ -16,7 +16,7 @@ import type {
     ProdProceso,
 } from '@/types/models';
 import { useForm, usePage } from '@inertiajs/react';
-import { ListChecksIcon, Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
+import { CheckIcon, ListChecksIcon, Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 type MarcaDelCatalogo = Concepto & { obra?: Obra };
@@ -178,6 +178,7 @@ export function CapturarProduccion({
     // marcas de la misma obra pueden pagarse distinto.
     const [pagaPorSubproceso, setPagaPorSubproceso] = useState(false);
     const [subprocesos, setSubprocesos] = useState<SubprocesoDisponible[]>([]);
+    const [mostrarPagadas, setMostrarPagadas] = useState(false);
     const marcaId = registroForm.data.marca_id;
 
     /** Trae un escalón del catálogo y avisa si la petición ya se abandonó. */
@@ -212,6 +213,8 @@ export function CapturarProduccion({
     }, [destajo.id, obraId]);
 
     useEffect(() => {
+        setMostrarPagadas(false);
+
         if (!marcaId) {
             setPiezasDeLaMarca([]);
             setPagaPorSubproceso(false);
@@ -270,8 +273,27 @@ export function CapturarProduccion({
     const consumo = registroForm.data.porcentaje / 100;
     const seleccionadas = registroForm.data.piezas;
 
-    // Las que ya no admiten lo que se quiere pagar: se marcan y no se pueden elegir.
-    const sinCupo = (pieza: PiezaConAvance) => listoParaElegirPiezas && consumo > disponibleDe(pieza) + 0.0001;
+    /**
+     * En qué anda cada pieza. «Pagada» y «no cabe» se veían igual de grises y
+     * no había forma de saber cuál era cuál sin pasar el mouse encima, que es
+     * justo lo que uno necesita saber al capturar.
+     */
+    const estadoDe = (pieza: PiezaConAvance): 'libre' | 'no_cabe' | 'pagada' => {
+        if (!listoParaElegirPiezas) {
+            return 'libre';
+        }
+
+        const falta = disponibleDe(pieza);
+
+        if (falta <= 0.0001) {
+            return 'pagada';
+        }
+
+        return consumo > falta + 0.0001 ? 'no_cabe' : 'libre';
+    };
+
+    // Las que ya no admiten lo que se quiere pagar: se enseñan, pero no se eligen.
+    const sinCupo = (pieza: PiezaConAvance) => estadoDe(pieza) !== 'libre';
 
     const alternarPieza = (piezaId: number) => {
         registroForm.setData(
@@ -282,10 +304,34 @@ export function CapturarProduccion({
         );
     };
 
+    /** Las que todavía admiten lo que se quiere pagar, en el orden del listado. */
+    const conCupo = piezasDeLaMarca.filter((p) => !sinCupo(p));
+
+    // Lo ya pagado al 100% no se puede capturar y una marca de 80 piezas casi
+    // liquidada deja la caja llena de basura tachada. Se esconde, pero se puede
+    // sacar: sirve para confirmar que una pieza sí quedó pagada.
+    const pagadas = piezasDeLaMarca.filter((p) => estadoDe(p) === 'pagada');
+    const visibles = mostrarPagadas ? piezasDeLaMarca : piezasDeLaMarca.filter((p) => estadoDe(p) !== 'pagada');
+
     const seleccionarTodasConCupo = () => {
         registroForm.setData(
             'piezas',
-            piezasDeLaMarca.filter((p) => !sinCupo(p)).map((p) => p.id),
+            conCupo.map((p) => p.id),
+        );
+    };
+
+    /**
+     * Marcar 50 QR uno por uno no es trabajo, es castigo. Se teclea cuántas y se
+     * toman las primeras con cupo en el orden en que se ven, que es el del QR.
+     * El campo enseña siempre cuántas hay marcadas, así que sigue cuadrando
+     * aunque después se destilden a mano.
+     */
+    const seleccionarPrimeras = (cuantas: number) => {
+        const tope = Math.max(0, Math.min(Math.floor(cuantas), conCupo.length));
+
+        registroForm.setData(
+            'piezas',
+            conCupo.slice(0, tope).map((p) => p.id),
         );
     };
 
@@ -488,6 +534,30 @@ export function CapturarProduccion({
                         label="Piezas (QR)"
                         htmlFor="piezas"
                         error={registroForm.errors.piezas}
+                        accion={
+                            <span className="flex items-center gap-1.5">
+                                <label
+                                    className="label-text-alt text-base-content/60"
+                                    htmlFor="piezas_cuantas"
+                                >
+                                    Marcar
+                                </label>
+                                <Input
+                                    id="piezas_cuantas"
+                                    type="number"
+                                    className="input-xs w-20 text-right"
+                                    min={0}
+                                    max={conCupo.length}
+                                    step={1}
+                                    disabled={!listoParaElegirPiezas || conCupo.length === 0}
+                                    value={seleccionadas.length}
+                                    onChange={(e) => seleccionarPrimeras(Number(e.target.value))}
+                                />
+                                <span className="label-text-alt text-base-content/60">
+                                    de {conCupo.length}
+                                </span>
+                            </span>
+                        }
                         description={
                             marcaElegida
                                 ? `${seleccionadas.length} de ${piezasDeLaMarca.length} seleccionadas · el catálogo pide ${marcaElegida.cantidad}`
@@ -502,60 +572,75 @@ export function CapturarProduccion({
                                 <p className="text-base-content/50 flex items-center justify-center gap-2 py-4 text-center text-sm">
                                     <Loader2Icon className="size-4 animate-spin" /> Cargando piezas...
                                 </p>
-                            ) : piezasDeLaMarca.length === 0 ? (
+                            ) : visibles.length === 0 ? (
                                 <p className="text-base-content/50 py-4 text-center text-sm">
-                                    {marcaElegida ? 'Esta marca no tiene piezas cargadas.' : 'Sin marca seleccionada'}
+                                    {!marcaElegida
+                                        ? 'Sin marca seleccionada'
+                                        : piezasDeLaMarca.length === 0
+                                          ? 'Esta marca no tiene piezas cargadas.'
+                                          : 'Todas las piezas de esta marca ya están pagadas aquí.'}
                                 </p>
                             ) : (
-                                <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-                                    {piezasDeLaMarca.map((pieza) => {
+                                <div className="flex flex-wrap gap-1">
+                                    {visibles.map((pieza) => {
+                                        const estado = estadoDe(pieza);
                                         const falta = listoParaElegirPiezas ? disponibleDe(pieza) : 1;
-                                        const bloqueada = sinCupo(pieza);
+                                        const marcada = seleccionadas.includes(pieza.id);
 
                                         return (
-                                            <label
+                                            <button
                                                 key={pieza.id}
-                                                className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm ${
-                                                    bloqueada ? 'text-base-content/40' : 'hover:bg-base-200'
+                                                type="button"
+                                                aria-pressed={marcada}
+                                                disabled={estado !== 'libre'}
+                                                onClick={() => alternarPieza(pieza.id)}
+                                                className={`btn btn-xs font-mono ${
+                                                    estado === 'pagada'
+                                                        ? 'btn-ghost text-base-content/40 line-through'
+                                                        : estado === 'no_cabe'
+                                                          ? 'btn-outline btn-warning'
+                                                          : marcada
+                                                            ? 'btn-primary'
+                                                            : 'btn-outline'
                                                 }`}
                                                 title={[
                                                     etiquetaDeUnidad(pieza),
-                                                    bloqueada
-                                                        ? falta <= 0
-                                                            ? pagaPorSubproceso
-                                                                ? 'Ya está pagada al 100% en este subproceso'
-                                                                : 'Ya está pagada al 100% en este proceso'
-                                                            : `Sólo le falta ${(falta * 100).toFixed(0)}%`
-                                                        : null,
+                                                    estado === 'pagada'
+                                                        ? pagaPorSubproceso
+                                                            ? 'Ya está pagada al 100% en este subproceso'
+                                                            : 'Ya está pagada al 100% en este proceso'
+                                                        : estado === 'no_cabe'
+                                                          ? `Sólo le falta ${(falta * 100).toFixed(0)}%`
+                                                          : null,
                                                 ]
                                                     .filter(Boolean)
                                                     .join(' · ')}
                                             >
-                                                <input
-                                                    type="checkbox"
-                                                    className="checkbox checkbox-xs shrink-0"
-                                                    checked={seleccionadas.includes(pieza.id)}
-                                                    disabled={bloqueada}
-                                                    onChange={() => alternarPieza(pieza.id)}
-                                                />
+                                                {marcada && <CheckIcon className="size-3" />}
                                                 {/* El QR identifica; el QS sólo acompaña y puede venir vacío. */}
-                                                <span className="truncate font-mono">{pieza.qr}</span>
-                                                {pieza.qs && (
-                                                    <span className="text-base-content/50 shrink-0 font-mono text-xs">
-                                                        QS {pieza.qs}
-                                                    </span>
-                                                )}
-                                                {listoParaElegirPiezas && falta > 0 && falta < 1 && (
+                                                {pieza.qr}
+                                                {estado === 'no_cabe' && (
                                                     <span className="badge badge-xs badge-warning">
                                                         {(falta * 100).toFixed(0)}%
                                                     </span>
                                                 )}
-                                            </label>
+                                            </button>
                                         );
                                     })}
                                 </div>
                             )}
                         </div>
+                        {pagadas.length > 0 && (
+                            <button
+                                type="button"
+                                className="btn btn-ghost btn-xs mt-1 self-start"
+                                onClick={() => setMostrarPagadas((v) => !v)}
+                            >
+                                {mostrarPagadas
+                                    ? `ocultar ${pagadas.length} pagadas`
+                                    : `ver ${pagadas.length} pagadas`}
+                            </button>
+                        )}
                     </FormField>
 
                     <div className="flex items-end justify-between gap-3">
