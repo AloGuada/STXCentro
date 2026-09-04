@@ -53,6 +53,17 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias, pers
         );
     };
 
+    // La pantalla edita un dato a la vez: se manda solo el que cambio y el
+    // backend deja el resto como esta.
+    const handleEditEmpleado = (
+        empleadoId: number,
+        cambios: Record<string, string | number | null | { nombre: string; apellido: string }>,
+    ) => {
+        router.patch(`/admin/prod/grupos-trabajo/${grupo.id}/empleados/${empleadoId}`, cambios, {
+            preserveScroll: true,
+        });
+    };
+
     const handleRemoveEmpleado = (empleadoId: number) => {
         router.delete(`/admin/prod/grupos-trabajo/${grupo.id}/empleados/${empleadoId}`, { preserveScroll: true });
     };
@@ -117,7 +128,11 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias, pers
                     </form>
 
                     <div className="mt-8">
-                        <h2 className="mb-2 text-lg font-semibold">Empleados</h2>
+                        <h2 className="text-lg font-semibold">Empleados</h2>
+                        <p className="mb-2 text-sm text-base-content/60">
+                            La categoría y el enlace con RH se guardan solos al cambiarlos; el botón Guardar de arriba
+                            es para el grupo.
+                        </p>
 
                         <div className="rounded-box border border-base-300 overflow-hidden">
                             <table className="table table-sm">
@@ -125,7 +140,7 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias, pers
                                     <tr>
                                         <th>Nombre</th>
                                         <th className="w-36">No. Empleado</th>
-                                        <th className="w-40">RH</th>
+                                        <th className="w-56">RH</th>
                                         <th className="w-48">Categoria</th>
                                         <th className="w-12"></th>
                                     </tr>
@@ -144,7 +159,24 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias, pers
                                                 <td>{emp.no_empleado || '-'}</td>
                                                 <td>
                                                     {!emp.persona_id ? (
-                                                        <span className="badge badge-sm badge-error badge-outline">Sin vincular</span>
+                                                        <div className="space-y-1">
+                                                            <span className="badge badge-sm badge-error badge-outline">
+                                                                Sin vincular
+                                                            </span>
+                                                            <PersonaPicker
+                                                            personas={personas}
+                                                            excluir={grupo.empleados.flatMap((e) =>
+                                                                e.persona_id ? [e.persona_id] : [],
+                                                            )}
+                                                            className="select-sm"
+                                                            onSelect={(seleccion) =>
+                                                                handleEditEmpleado(emp.id, {
+                                                                    persona_id: seleccion.persona_id,
+                                                                    persona_nueva: seleccion.persona_nueva,
+                                                                })
+                                                            }
+                                                            />
+                                                        </div>
                                                     ) : emp.persona?.periodo_vigente ? (
                                                         <span className="badge badge-sm badge-success badge-outline">Contratado</span>
                                                     ) : (
@@ -152,13 +184,26 @@ export default function GruposTrabajoEdit({ grupo, ubicaciones, categorias, pers
                                                     )}
                                                 </td>
                                                 <td>
-                                                    {emp.categoria ? (
-                                                        <span className="badge badge-sm badge-ghost">
-                                                            {emp.categoria.nombre} ({emp.categoria.valor})
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-warning text-xs">Sin categoria</span>
-                                                    )}
+                                                    <Select
+                                                        value={
+                                                            emp.categoria_empleado_id
+                                                                ? String(emp.categoria_empleado_id)
+                                                                : ''
+                                                        }
+                                                        onValueChange={(v) =>
+                                                            handleEditEmpleado(emp.id, {
+                                                                categoria_empleado_id: v || null,
+                                                            })
+                                                        }
+                                                        className={`select-sm ${emp.categoria_empleado_id ? '' : 'select-warning'}`}
+                                                    >
+                                                        <SelectItem value="">Sin categoria</SelectItem>
+                                                        {categorias.map((c) => (
+                                                            <SelectItem key={c.id} value={String(c.id)}>
+                                                                {c.nombre} ({c.valor})
+                                                            </SelectItem>
+                                                        ))}
+                                                    </Select>
                                                 </td>
                                                 <td>
                                                     <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveEmpleado(emp.id)}>

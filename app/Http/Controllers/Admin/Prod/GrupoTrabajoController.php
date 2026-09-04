@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Prod;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Prod\GrupoEmpleadoStoreRequest;
+use App\Http\Requests\Admin\Prod\GrupoEmpleadoUpdateRequest;
 use App\Http\Requests\Admin\Prod\GrupoTrabajoStoreRequest;
 use App\Http\Requests\Admin\Prod\GrupoTrabajoUpdateRequest;
 use App\Models\Prod\CategoriaEmpleado;
@@ -94,12 +95,7 @@ class GrupoTrabajoController extends Controller
      */
     private function datosDelEmpleado(array $datos): array
     {
-        $persona = isset($datos['persona_id'])
-            ? Persona::findOrFail($datos['persona_id'])
-            : Persona::create([
-                'nombre' => $datos['persona_nueva']['nombre'],
-                'apellido' => $datos['persona_nueva']['apellido'],
-            ]);
+        $persona = $this->personaDeLaSeleccion($datos);
 
         return [
             'persona_id' => $persona->id,
@@ -107,6 +103,22 @@ class GrupoTrabajoController extends Controller
             'no_empleado' => $persona->periodoVigente?->numero_empleado,
             'categoria_empleado_id' => $datos['categoria_empleado_id'] ?? null,
         ];
+    }
+
+    /**
+     * La persona que eligio el formulario: una ya existente en RH o una nueva
+     * que se da de alta ahi mismo con lo minimo (nombre y apellido).
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function personaDeLaSeleccion(array $datos): Persona
+    {
+        return isset($datos['persona_id'])
+            ? Persona::findOrFail($datos['persona_id'])
+            : Persona::create([
+                'nombre' => $datos['persona_nueva']['nombre'],
+                'apellido' => $datos['persona_nueva']['apellido'],
+            ]);
     }
 
     public function store(GrupoTrabajoStoreRequest $request): RedirectResponse
@@ -169,6 +181,46 @@ class GrupoTrabajoController extends Controller
     {
         DB::transaction(function () use ($request, $grupoTrabajo) {
             $grupoTrabajo->empleados()->create($this->datosDelEmpleado($request->validated()));
+        });
+
+        return back();
+    }
+
+    /**
+     * Edita a un integrante sin sacarlo del grupo: le cambia la categoría con la
+     * que participa en el reparto y, si es un renglón viejo sin enlace, le amarra
+     * su persona de RH.
+     *
+     * El nombre y el número de empleado son copia de RH, así que se vuelven a
+     * traer en cada edición: si RH lo contrató después de darlo de alta aquí, su
+     * número aparecía vacío para siempre.
+     */
+    public function updateEmpleado(GrupoEmpleadoUpdateRequest $request, GrupoTrabajo $grupoTrabajo, GrupoEmpleado $empleado): RedirectResponse
+    {
+        if ($empleado->grupo_trabajo_id !== $grupoTrabajo->id) {
+            abort(404);
+        }
+
+        DB::transaction(function () use ($request, $empleado) {
+            // La pantalla edita un dato a la vez: lo que no venga en la peticion
+            // se queda como esta, que mandarlo en blanco lo borraria.
+            $datos = [
+                'categoria_empleado_id' => $request->has('categoria_empleado_id')
+                    ? $request->categoria_empleado_id
+                    : $empleado->categoria_empleado_id,
+            ];
+
+            $persona = $request->filled('persona_id') || $request->filled('persona_nueva')
+                ? $this->personaDeLaSeleccion($request->validated())
+                : $empleado->persona;
+
+            if ($persona !== null) {
+                $datos['persona_id'] = $persona->id;
+                $datos['nombre'] = $persona->nombre_completo;
+                $datos['no_empleado'] = $persona->periodoVigente?->numero_empleado;
+            }
+
+            $empleado->update($datos);
         });
 
         return back();
