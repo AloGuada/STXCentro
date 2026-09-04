@@ -33,7 +33,9 @@ class PagoExtra extends Model
     {
         return [
             'precio' => 'decimal:2',
-            'dias' => 'integer',
+            // Fraccionable: media jornada de horas extra es medio dia, y
+            // redondearla a uno le regala al grupo el doble de lo que hizo.
+            'dias' => 'float',
             'personas' => 'integer',
         ];
     }

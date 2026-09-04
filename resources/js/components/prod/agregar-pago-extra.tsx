@@ -98,11 +98,15 @@ export function AgregarPagoExtra({ destajo, tipos, gruposTrabajo }: Props) {
                             error={!!form.errors.precio}
                         />
                     </FormField>
+                    {/* Fraccionable: media jornada de horas extra es medio día,
+                        y redondearla a uno le regala al grupo el doble. Con
+                        `any` las flechas siguen subiendo de uno en uno. */}
                     <FormField label="Días" htmlFor="pe_dias" error={form.errors.dias} required>
                         <Input
                             id="pe_dias"
                             type="number"
-                            min={1}
+                            step="any"
+                            min={0}
                             value={form.data.dias}
                             onChange={(e) => form.setData('dias', Number(e.target.value))}
                             error={!!form.errors.dias}

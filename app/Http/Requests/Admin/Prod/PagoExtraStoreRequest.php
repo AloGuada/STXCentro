@@ -21,7 +21,7 @@ class PagoExtraStoreRequest extends FormRequest
             'tipo_id' => ['required', 'exists:prod_tipos,id'],
             'grupo_trabajo_id' => ['required', 'exists:prod_grupos_trabajo,id'],
             'precio' => ['required', 'numeric', 'min:0'],
-            'dias' => ['required', 'integer', 'min:1'],
+            'dias' => ['required', 'numeric', 'min:0.01', 'decimal:0,2'],
             'personas' => ['required', 'integer', 'min:1'],
         ];
     }
@@ -38,7 +38,8 @@ class PagoExtraStoreRequest extends FormRequest
             'precio.required' => 'El precio es obligatorio.',
             'precio.min' => 'El precio no puede ser negativo.',
             'dias.required' => 'Los dias son obligatorios.',
-            'dias.min' => 'Minimo 1 dia.',
+            'dias.min' => 'Los dias deben ser mayores a cero.',
+            'dias.decimal' => 'Los dias admiten cuando mucho dos decimales.',
             'personas.required' => 'Las personas son obligatorias.',
             'personas.min' => 'Minimo 1 persona.',
         ];

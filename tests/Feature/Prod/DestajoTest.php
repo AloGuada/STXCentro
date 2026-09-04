@@ -544,6 +544,52 @@ describe('destajo pagos extra', function () {
         ]);
     });
 
+    test('los dias del pago extra admiten fracciones y el monto las respeta', function () {
+        // Media jornada del sabado es medio dia. Redondearla a uno le regala al
+        // grupo el doble de lo que trabajo.
+        $grupo = GrupoTrabajo::factory()->create();
+        $tipo = TipoPagoExtra::create(['descripcion' => 'Horas Extra', 'orden' => 1, 'desgloce' => true]);
+        $destajo = Destajo::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.pagos-extra.store', $destajo), [
+                'descripcion' => 'Sabado medio dia',
+                'tipo_id' => $tipo->id,
+                'grupo_trabajo_id' => $grupo->id,
+                'precio' => 300,
+                'dias' => 1.5,
+                'personas' => 2,
+            ])
+            ->assertRedirect(route('admin.prod.destajos.show', $destajo));
+
+        $pago = PagoExtra::query()->latest('id')->first();
+
+        expect((float) $pago->dias)->toBe(1.5)
+            ->and($pago->monto)->toBe(900.0);
+    });
+
+    test('los dias no aceptan cero ni mas de dos decimales', function () {
+        $grupo = GrupoTrabajo::factory()->create();
+        $tipo = TipoPagoExtra::create(['descripcion' => 'Horas Extra', 'orden' => 1, 'desgloce' => true]);
+        $destajo = Destajo::factory()->create();
+
+        $base = [
+            'descripcion' => 'Sabado medio dia',
+            'tipo_id' => $tipo->id,
+            'grupo_trabajo_id' => $grupo->id,
+            'precio' => 300,
+            'personas' => 2,
+        ];
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.pagos-extra.store', $destajo), [...$base, 'dias' => 0])
+            ->assertSessionHasErrors(['dias']);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.pagos-extra.store', $destajo), [...$base, 'dias' => 1.234])
+            ->assertSessionHasErrors(['dias']);
+    });
+
     test('pago extra cannot be added to cerrado destajo', function () {
         $grupo = GrupoTrabajo::factory()->create();
         $tipo = TipoPagoExtra::create(['descripcion' => 'Bono', 'orden' => 1, 'desgloce' => false]);

@@ -455,7 +455,7 @@ class GeneradorLiquidaciones
                 'pagos' => $pagos->map(fn (PagoExtra $p) => [
                     'descripcion' => $p->descripcion,
                     'precio' => (float) $p->precio,
-                    'dias' => (int) $p->dias,
+                    'dias' => (float) $p->dias,
                     'personas' => (int) $p->personas,
                     'importe' => (float) $p->monto,
                 ])->all(),
