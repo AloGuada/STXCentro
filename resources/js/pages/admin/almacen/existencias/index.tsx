@@ -80,7 +80,8 @@ type Props = {
         area_id?: string;
         search?: string;
         sin_acomodar?: boolean;
-        solo_con_saldo?: boolean;
+        /** '' | 'con_saldo' | 'cero'. */
+        saldo?: string;
     };
     /**
      * El pie de la tabla: suma lo filtrado entero, no la página. Viaja en `null`
@@ -184,8 +185,8 @@ export default function ExistenciasIndex({
                         <Select
                             value={filters.almacen_id ?? ''}
                             onValueChange={(v) => filtrar({ almacen_id: v || undefined, ubicacion_id: undefined })}
-                            placeholder="Todos"
                         >
+                            <SelectItem value="">Todos</SelectItem>
                             {almacenes.map((a) => (
                                 <SelectItem key={a.id} value={String(a.id)}>
                                     {etiquetaDeAlmacen(a)} — {a.nombre}
@@ -202,8 +203,8 @@ export default function ExistenciasIndex({
                             <Select
                                 value={filters.ubicacion_id ?? ''}
                                 onValueChange={(v) => filtrar({ ubicacion_id: v || undefined })}
-                                placeholder="Todas"
                             >
+                                <SelectItem value="">Todas</SelectItem>
                                 {ubicaciones.map((u) => (
                                     <SelectItem key={u.id} value={String(u.id)}>
                                         {u.ruta}
@@ -221,8 +222,8 @@ export default function ExistenciasIndex({
                         <Select
                             value={filters.area_id ?? ''}
                             onValueChange={(v) => filtrar({ area_id: v || undefined })}
-                            placeholder="Todas"
                         >
+                            <SelectItem value="">Todas</SelectItem>
                             {areas.map((a) => (
                                 <SelectItem key={a.id} value={String(a.id)}>
                                     {a.descripcion}
@@ -239,8 +240,8 @@ export default function ExistenciasIndex({
                         <Select
                             value={filters.obra_id ?? ''}
                             onValueChange={(v) => filtrar({ obra_id: v || undefined })}
-                            placeholder="Todas"
                         >
+                            <SelectItem value="">Todas</SelectItem>
                             <SelectItem value="libre">Sin asignar</SelectItem>
                             {obras.map((o) => (
                                 <SelectItem key={o.id} value={String(o.id)}>
@@ -250,15 +251,21 @@ export default function ExistenciasIndex({
                         </Select>
                     </div>
 
-                    <label className="mb-2 flex cursor-pointer items-center gap-2">
-                        <input
-                            type="checkbox"
-                            className="checkbox checkbox-sm"
-                            checked={Boolean(filters.solo_con_saldo)}
-                            onChange={(e) => filtrar({ solo_con_saldo: e.target.checked ? '1' : undefined })}
-                        />
-                        <span className="text-sm">Sólo con saldo</span>
-                    </label>
+                    {/* «Sin existencia» es la pregunta de compras —qué se
+                        acabó—, y es la contraria de «con existencia», así que
+                        las dos comparten control en vez de ser dos casillas que
+                        se pueden marcar juntas y no devolver nada. */}
+                    <div className="w-52">
+                        <label className="label label-text text-xs">Existencia</label>
+                        <Select
+                            value={filters.saldo ?? ''}
+                            onValueChange={(v) => filtrar({ saldo: v || undefined })}
+                        >
+                            <SelectItem value="">Todas</SelectItem>
+                            <SelectItem value="con_saldo">Con existencia</SelectItem>
+                            <SelectItem value="cero">Sin existencia</SelectItem>
+                        </Select>
+                    </div>
 
                     {/* Material que nadie acomodó: es la lista de trabajo del
                         almacenista, y por eso sigue siendo un filtro a la vista. */}

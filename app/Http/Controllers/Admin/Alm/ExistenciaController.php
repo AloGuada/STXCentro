@@ -40,7 +40,7 @@ class ExistenciaController extends Controller
         $almacenId = $request->integer('almacen_id') ?: null;
 
         $comunes = [
-            'filters' => $request->only(['almacen_id', 'ubicacion_id', 'obra_id', 'area_id', 'search', 'sin_acomodar', 'solo_con_saldo']),
+            'filters' => $request->only(['almacen_id', 'ubicacion_id', 'obra_id', 'area_id', 'search', 'sin_acomodar', 'saldo']),
             'almacenes' => $this->almacenes($request),
             // Sólo las activas: filtrar por un área muerta no devuelve nada y
             // ensucia la lista de la que hay que elegir.
@@ -180,7 +180,15 @@ class ExistenciaController extends Controller
                 fn (Builder $q, int $id) => $q->whereHas('articulo', fn (Builder $a) => $a->where('area_id', $id)),
             )
             ->when($request->boolean('sin_acomodar'), fn (Builder $q) => $q->sinAcomodar())
-            ->when($request->boolean('solo_con_saldo'), fn (Builder $q) => $q->conSaldo())
+            ->when(
+                $request->string('saldo')->value(),
+                // «Sin existencia» es una pregunta de compras —qué se acabó—,
+                // no un inventario recortado, y por eso comparte control con
+                // «con existencia» en vez de ser otra casilla.
+                fn (Builder $q, string $saldo) => $saldo === 'cero'
+                    ? $q->sinSaldo()
+                    : $q->conSaldo(),
+            )
             ->when(
                 $request->string('search')->trim()->value(),
                 // `whereLike` sin distinguir mayusculas: en SQLite el LIKE ya
@@ -199,8 +207,10 @@ class ExistenciaController extends Controller
     /**
      * Si ya hay una pregunta que contestar.
      *
-     * «Sólo con saldo» no cuenta: acota tan poco que traería casi el inventario
-     * entero, que es justo lo que esta pantalla no hace de entrada.
+     * «Con existencia» no cuenta: acota tan poco que traería casi el inventario
+     * entero, que es justo lo que esta pantalla no hace de entrada. «Sin
+     * existencia» sí, porque los renglones en cero son unos cuantos y son
+     * justamente lo que se viene a ver.
      */
     private function hayFiltro(Request $request): bool
     {
@@ -209,7 +219,8 @@ class ExistenciaController extends Controller
             || $request->integer('area_id') !== 0
             || $request->string('obra_id')->isNotEmpty()
             || $request->string('search')->trim()->isNotEmpty()
-            || $request->boolean('sin_acomodar');
+            || $request->boolean('sin_acomodar')
+            || $request->string('saldo')->value() === 'cero';
     }
 
     /**

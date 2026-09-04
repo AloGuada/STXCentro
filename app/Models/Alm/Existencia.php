@@ -152,6 +152,19 @@ class Existencia extends Model
     }
 
     /**
+     * Los renglones en cero. No se borran —la ubicación y el costo promedio
+     * siguen valiendo para la próxima entrada—, así que preguntar «qué se me
+     * acabó» es preguntar por ellos.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeSinSaldo(Builder $query): Builder
+    {
+        return $query->where('cantidad', 0);
+    }
+
+    /**
      * Lo que nadie ha acomodado. Es la lista de trabajo del almacenista, y por
      * eso la pantalla la deja a la vista en vez de esconderla.
      *
