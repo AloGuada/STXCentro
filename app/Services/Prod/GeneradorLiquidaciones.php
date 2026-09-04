@@ -28,7 +28,8 @@ class GeneradorLiquidaciones
      * Por grupo: agrupa la produccion por pieza, proceso y subproceso, valora
      * cada renglon segun la modalidad de su grupo de precios (por kilo: peso x
      * porcentaje x $/kg; por subproceso: precio fijo x porcentaje), suma los
-     * pagos extra y reparte el total entre los empleados con RepartoDelGrupo.
+     * pagos extra —los de tipo descuento restan— y reparte el total entre los
+     * empleados con RepartoDelGrupo.
      */
     public function generar(Destajo $destajo): void
     {
@@ -36,6 +37,9 @@ class GeneradorLiquidaciones
             $registrosPorGrupo = $this->registrosDelDestajo($destajo)->groupBy('grupo_trabajo_id');
 
             $pagosExtraPorGrupo = PagoExtra::query()
+                // El tipo viaja porque el monto lleva su signo: los tipos
+                // marcados como descuento restan del total del grupo.
+                ->with('tipo')
                 ->where('destajo_id', $destajo->id)
                 ->get()
                 ->groupBy('grupo_trabajo_id');
@@ -161,7 +165,7 @@ class GeneradorLiquidaciones
             ];
         }
 
-        $totalExtras = (float) $pagosExtraGrupo->sum(fn (PagoExtra $pe) => $pe->precio * $pe->dias * $pe->personas);
+        $totalExtras = (float) $pagosExtraGrupo->sum(fn (PagoExtra $pe) => $pe->monto);
         $totalFinal = $totalProduccion + $totalExtras;
 
         $liquidacion = Liquidacion::create([
@@ -204,6 +208,7 @@ class GeneradorLiquidaciones
         $tipos = TipoPagoExtra::orderBy('orden')->get();
 
         $pagosPorGrupo = PagoExtra::query()
+            ->with('tipo')
             ->where('destajo_id', $destajo->id)
             ->get()
             ->groupBy('grupo_trabajo_id');
@@ -441,6 +446,9 @@ class GeneradorLiquidaciones
      * Una seccion por cada tipo del catalogo (aunque no tenga pagos), con sus
      * lineas descripcion/precio/dias/personas y el subtotal del tipo.
      *
+     * El importe ya viene con signo: un tipo marcado como descuento se imprime
+     * en negativo y su subtotal resta.
+     *
      * @param  Collection<int, TipoPagoExtra>  $tipos
      * @param  Collection<int, PagoExtra>  $pagosGrupo
      * @return array<int, array<string, mixed>>
@@ -452,6 +460,7 @@ class GeneradorLiquidaciones
 
             return [
                 'tipo' => $tipo->descripcion,
+                'es_descuento' => (bool) $tipo->es_descuento,
                 'pagos' => $pagos->map(fn (PagoExtra $p) => [
                     'descripcion' => $p->descripcion,
                     'precio' => (float) $p->precio,

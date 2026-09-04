@@ -53,7 +53,7 @@
 <body>
 @php
     $periodo = trim(optional($destajo->fecha_inicio)->format('d/m/Y').' — '.optional($destajo->fecha_fin)->format('d/m/Y'), ' —');
-    $mon = fn ($n) => '$'.number_format((float) $n, 2);
+    $mon = fn ($n) => ((float) $n < 0 ? '-$' : '$').number_format(abs((float) $n), 2);
 @endphp
 
 @forelse($grupos as $g)
@@ -151,7 +151,10 @@
             <td class="col-left">
                 @php
                     $pagosPlanos = collect($g['secciones'])
-                        ->flatMap(fn ($sec) => collect($sec['pagos'])->map(fn ($p) => $p + ['tipo' => $sec['tipo']]))
+                        ->flatMap(fn ($sec) => collect($sec['pagos'])->map(fn ($p) => $p + [
+                            'tipo' => $sec['tipo'],
+                            'es_descuento' => $sec['es_descuento'],
+                        ]))
                         ->all();
                 @endphp
                 <div class="section-title">Pagos extra</div>
@@ -169,7 +172,7 @@
                     <tbody>
                         @forelse($pagosPlanos as $pago)
                         <tr>
-                            <td>{{ $pago['tipo'] }}</td>
+                            <td>{{ $pago['tipo'] }}{{ $pago['es_descuento'] ? ' (desc.)' : '' }}</td>
                             <td>{{ $pago['descripcion'] ?: '-' }}</td>
                             <td class="text-right">{{ $mon($pago['precio']) }}</td>
                             <td class="text-center">{{ $pago['dias'] }}</td>

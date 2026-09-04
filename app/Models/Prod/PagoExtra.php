@@ -42,9 +42,23 @@ class PagoExtra extends Model
 
     protected $appends = ['monto'];
 
+    /**
+     * Importe con signo: los tipos marcados como descuento restan.
+     *
+     * El precio siempre se captura en positivo; quien decide el signo es el
+     * catalogo de tipos, no quien captura. Asi un mismo concepto no se puede
+     * cobrar en una semana y descontar en otra por un teclazo.
+     */
     public function getMontoAttribute(): float
     {
-        return round($this->precio * $this->dias * $this->personas, 2);
+        $monto = round($this->precio * $this->dias * $this->personas, 2);
+
+        return $this->esDescuento() ? -$monto : $monto;
+    }
+
+    public function esDescuento(): bool
+    {
+        return (bool) $this->tipo?->es_descuento;
     }
 
     public function tipo(): BelongsTo

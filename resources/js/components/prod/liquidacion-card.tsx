@@ -111,7 +111,11 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                         </div>
                         <div className="flex justify-between">
                             <span className="text-base-content/70">Extras</span>
-                            <span className="font-mono">${num(liquidacion.total_extras)}</span>
+                            {/* Neto: los tipos marcados como descuento restan. */}
+                            <span className={`font-mono ${Number(liquidacion.total_extras) < 0 ? 'text-error' : ''}`}>
+                                {Number(liquidacion.total_extras) < 0 ? '-' : ''}$
+                                {num(Math.abs(Number(liquidacion.total_extras)))}
+                            </span>
                         </div>
                         <div className="flex justify-between border-t border-base-300 pt-1 font-semibold">
                             <span>Total final</span>

@@ -21,6 +21,7 @@ class TipoPagoExtraFactory extends Factory
             'descripcion' => fake()->unique()->word(),
             'orden' => fake()->numberBetween(1, 20),
             'desgloce' => fake()->boolean(),
+            'es_descuento' => false,
         ];
     }
 }

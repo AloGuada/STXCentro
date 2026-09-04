@@ -30,7 +30,11 @@ export function AgregarPagoExtra({ destajo, tipos, gruposTrabajo }: Props) {
         personas: 1,
     });
 
-    const monto = Number(form.data.precio) * form.data.dias * form.data.personas;
+    // El signo lo pone el catalogo de tipos, no quien captura: el precio se
+    // teclea siempre en positivo y el descuento se ve aqui antes de guardar.
+    const tipo = tipos.find((t) => String(t.id) === form.data.tipo_id);
+    const esDescuento = !!tipo?.es_descuento;
+    const bruto = Number(form.data.precio) * form.data.dias * form.data.personas;
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -57,6 +61,7 @@ export function AgregarPagoExtra({ destajo, tipos, gruposTrabajo }: Props) {
                             {tipos.map((t) => (
                                 <SelectItem key={t.id} value={String(t.id)}>
                                     {t.descripcion}
+                                    {t.es_descuento ? ' (descuento)' : ''}
                                 </SelectItem>
                             ))}
                         </Select>
@@ -126,9 +131,10 @@ export function AgregarPagoExtra({ destajo, tipos, gruposTrabajo }: Props) {
 
                 <div className="flex items-center justify-between">
                     <span className="text-base-content/70 text-sm">
-                        Monto:{' '}
-                        <span className="font-mono font-semibold">
-                            ${monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {esDescuento ? 'Descuento:' : 'Monto:'}{' '}
+                        <span className={`font-mono font-semibold ${esDescuento ? 'text-error' : ''}`}>
+                            {esDescuento ? '-' : ''}$
+                            {bruto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                     </span>
                     <Button type="submit" size="sm" disabled={form.processing}>

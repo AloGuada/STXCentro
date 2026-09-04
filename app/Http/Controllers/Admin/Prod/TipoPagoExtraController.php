@@ -38,6 +38,7 @@ class TipoPagoExtraController extends Controller
             'descripcion' => $request->descripcion,
             'orden' => $request->orden,
             'desgloce' => $request->desgloce,
+            'es_descuento' => $request->es_descuento,
         ]);
 
         return to_route('admin.prod.tipos-pago-extra.index');
@@ -56,6 +57,7 @@ class TipoPagoExtraController extends Controller
             'descripcion' => $request->descripcion,
             'orden' => $request->orden,
             'desgloce' => $request->desgloce,
+            'es_descuento' => $request->es_descuento,
         ]);
 
         return to_route('admin.prod.tipos-pago-extra.index');

@@ -27,6 +27,23 @@ export type PagoExtraPreview = ProdPagoExtra & {
 
 const money = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** Importe con el signo por delante: `-$1,200.00` se lee mejor que `$-1,200.00`. */
+const importeFirmado = (n: number) => `${n < 0 ? '-' : ''}$${money(Math.abs(n))}`;
+
+/**
+ * El monto viaja con signo desde el backend —los tipos marcados como descuento
+ * restan—; el respaldo lo recalcula por si la relacion del tipo no viajo.
+ */
+const montoDe = (pe: PagoExtraPreview) => {
+    if (pe.monto !== undefined && pe.monto !== null) {
+        return Number(pe.monto);
+    }
+
+    const bruto = Number(pe.precio) * Number(pe.dias) * pe.personas;
+
+    return pe.tipo?.es_descuento ? -bruto : bruto;
+};
+
 type Props = {
     destajoId: number;
     grupoNombre: string;
@@ -35,7 +52,7 @@ type Props = {
 };
 
 export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra }: Props) {
-    const totalExtras = pagosExtra.reduce((acc, pe) => acc + Number(pe.monto ?? pe.precio * pe.dias * pe.personas), 0);
+    const totalExtras = pagosExtra.reduce((acc, pe) => acc + montoDe(pe), 0);
     // Un renglon es una pieza; los equivalentes son lo que realmente se gasta
     // del catalogo cuando hay parcialidades.
     const totalPiezas = registros.length;
@@ -98,13 +115,20 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                                 ) : (
                                     pagosExtra.map((pe) => (
                                         <tr key={pe.id} className="hover">
-                                            <td>{pe.tipo?.descripcion}</td>
+                                            <td>
+                                                {pe.tipo?.descripcion}
+                                                {pe.tipo?.es_descuento && (
+                                                    <span className="badge badge-xs badge-error ml-1">descuento</span>
+                                                )}
+                                            </td>
                                             <td>{pe.descripcion}</td>
                                             <td className="text-right font-mono">${money(pe.precio)}</td>
                                             <td className="text-right font-mono">{Number(pe.dias)}</td>
                                             <td className="text-right font-mono">{pe.personas}</td>
-                                            <td className="text-right font-mono">
-                                                ${money(Number(pe.monto ?? pe.precio * pe.dias * pe.personas))}
+                                            <td
+                                                className={`text-right font-mono ${montoDe(pe) < 0 ? 'text-error' : ''}`}
+                                            >
+                                                {importeFirmado(montoDe(pe))}
                                             </td>
                                             <td className="text-right">
                                                 <button
@@ -125,7 +149,9 @@ export function GrupoDestajoCard({ destajoId, grupoNombre, registros, pagosExtra
                                         <td colSpan={5} className="text-right">
                                             Subtotal extras
                                         </td>
-                                        <td className="text-right font-mono">${money(totalExtras)}</td>
+                                        <td className={`text-right font-mono ${totalExtras < 0 ? 'text-error' : ''}`}>
+                                            {importeFirmado(totalExtras)}
+                                        </td>
                                         <td></td>
                                     </tr>
                                 </tfoot>

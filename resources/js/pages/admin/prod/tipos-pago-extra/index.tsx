@@ -19,6 +19,15 @@ const columns: Column<ProdTipoPagoExtra>[] = [
         render: (t) => <span className="font-mono text-sm">{t.orden}</span>,
     },
     {
+        key: 'es_descuento',
+        label: 'Efecto',
+        render: (t) => (
+            <span className={`badge badge-sm ${t.es_descuento ? 'badge-error' : 'badge-ghost'}`}>
+                {t.es_descuento ? 'Descuento' : 'Pago'}
+            </span>
+        ),
+    },
+    {
         key: 'desgloce',
         label: 'Desgloce',
         render: (t) => (
@@ -42,7 +51,10 @@ export default function TiposPagoExtraIndex({ tipos, filters }: Props) {
             <div className="p-6">
                 <div className="mb-6">
                     <h1 className="text-2xl font-semibold">Tipos de pago extra</h1>
-                    <p className="mt-1 text-sm text-base-content/60">Catálogo de conceptos de pago adicional.</p>
+                    <p className="mt-1 text-sm text-base-content/60">
+                        Catálogo de conceptos de pago adicional. Los marcados como descuento restan del total del
+                        grupo.
+                    </p>
                 </div>
 
                 <DataTable

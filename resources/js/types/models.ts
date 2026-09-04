@@ -948,6 +948,8 @@ export type ProdTipoPagoExtra = {
     descripcion: string;
     orden: number;
     desgloce: boolean;
+    /** El importe de los pagos de este tipo resta en vez de sumar. */
+    es_descuento: boolean;
     created_at: string;
     updated_at: string;
 };
@@ -961,6 +963,7 @@ export type ProdPagoExtra = {
     precio: number;
     dias: number;
     personas: number;
+    /** Ya viene con signo: negativo si el tipo es descuento. */
     monto?: number;
     tipo?: ProdTipoPagoExtra;
     destajo?: ProdDestajo;
