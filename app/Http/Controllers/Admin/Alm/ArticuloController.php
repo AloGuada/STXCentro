@@ -47,7 +47,7 @@ class ArticuloController extends Controller
     public function index(Request $request): Response
     {
         $articulos = Articulo::query()
-            ->with('area:id,descripcion')
+            ->with(['area:id,descripcion', 'producto:id,codigo,descripcion'])
             ->withSum('existencias as existencia_total', 'cantidad')
             ->when($request->string('search')->trim()->value(), $this->buscador(...))
             ->when($request->string('tipo')->value(), fn (Builder $q, string $t) => $q->where('tipo', $t))
@@ -127,7 +127,7 @@ class ArticuloController extends Controller
 
     public function show(Articulo $articulo): Response
     {
-        $articulo->load(['area:id,descripcion', 'producto:id,codigo']);
+        $articulo->load(['area:id,descripcion', 'producto:id,codigo,descripcion']);
 
         return Inertia::render('admin/almacen/articulos/show', [
             'articulo' => $this->fila($articulo->loadSum('existencias as existencia_total', 'cantidad')),
@@ -142,6 +142,8 @@ class ArticuloController extends Controller
 
     public function edit(Articulo $articulo): Response
     {
+        $articulo->load('producto:id,codigo,descripcion');
+
         return Inertia::render('admin/almacen/articulos/edit', [
             'articulo' => $this->fila($articulo->loadSum('existencias as existencia_total', 'cantidad')),
             ...$this->opciones(),
@@ -219,6 +221,14 @@ class ArticuloController extends Controller
             // Con qué lo compra Compras. Null es material sin identidad de
             // compra todavía, y la pantalla lo marca como pendiente de ligar.
             'producto_id' => $articulo->producto_id,
+            // Con qué renglón de Compras es el mismo material. Se enseña
+            // completo —código y descripción— porque el ligado se revisa
+            // comparando las dos descripciones, y un id no dice nada.
+            'producto' => $articulo->producto === null ? null : [
+                'id' => $articulo->producto->id,
+                'codigo' => $articulo->producto->codigo,
+                'descripcion' => $articulo->producto->descripcion,
+            ],
             'se_controla_por_pieza' => $articulo->se_controla_por_pieza,
             'requiere_verificacion' => $articulo->requiere_verificacion,
             'stock_minimo' => $articulo->stock_minimo === null ? null : (float) $articulo->stock_minimo,

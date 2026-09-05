@@ -98,6 +98,28 @@ export function ArticuloForm({ articulo, codigoSugerido, areas, unidades, tipos,
                         </label>
                     </FormField>
 
+                    {/* Sólo en la corrección: en el alta el producto se crea
+                        junto con el artículo, así que no hay nada que enseñar
+                        todavía. Es una etiqueta, no un campo: el emparejado no
+                        se corrige desde aquí. */}
+                    {!esAlta && (
+                        <div className="form-control w-full">
+                            <span className="label-text">Producto en Compras</span>
+                            <p className="mt-2 text-sm">
+                                {articulo.producto ? (
+                                    <>
+                                        <span className="font-mono">{articulo.producto.codigo ?? 'Sin código'}</span>
+                                        <span className="text-base-content/60"> — {articulo.producto.descripcion}</span>
+                                    </>
+                                ) : (
+                                    <span className="text-base-content/50">
+                                        Sin ligar: todavía no se empareja con ningún producto de Compras.
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                    )}
+
                     <FormField label="Unidad" htmlFor="unidad" error={form.errors.unidad} required>
                         <Select
                             id="unidad"

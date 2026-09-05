@@ -88,7 +88,9 @@ class ProductoController extends Controller
     {
         Gate::authorize('costos.productos.ver');
 
-        $producto->load(['precios.proveedor:id,razon_social', 'creador:id,name']);
+        // El articulo con el que Almacen lo guarda. Null es que no lleva kardex:
+        // un servicio, un flete, o algo que nadie ha clasificado todavia.
+        $producto->load(['precios.proveedor:id,razon_social', 'creador:id,name', 'articulo:id,producto_id,codigo,descripcion']);
 
         return Inertia::render('admin/costos/productos/edit', [
             'producto' => $producto,

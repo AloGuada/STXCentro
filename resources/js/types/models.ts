@@ -1798,6 +1798,11 @@ export type CostosProducto = {
     precios?: CostosProductoPrecio[];
     precios_count?: number;
     creador?: Pick<Usuario, 'id' | 'name'>;
+    /**
+     * El artículo con el que Almacén lo guarda. `null` es que no lleva kardex:
+     * un servicio, un flete, o algo que nadie ha clasificado todavía.
+     */
+    articulo?: { id: number; codigo: string | null; descripcion: string } | null;
     created_at: string;
     updated_at: string;
 };
@@ -4097,6 +4102,12 @@ export type AlmArticulo = {
      * Ya no hay bandera de «lleva kardex»: estar en este catálogo es llevarlo.
      */
     producto_id: number | null;
+    /**
+     * El renglón de Compras con el que es el mismo material, ya resuelto. `null`
+     * es material sin identidad de compra: la ficha lo marca como pendiente de
+     * ligar.
+     */
+    producto: { id: number; codigo: string | null; descripcion: string } | null;
     /** Además del saldo, cada pieza con su número de serie y su resguardo. */
     se_controla_por_pieza: boolean;
     requiere_verificacion: boolean;
