@@ -276,3 +276,94 @@ describe('la fecha de transaccion se elige, la de registro la pone el servidor',
             ->and($entrada->created_at->toDateString())->toBe(today()->toDateString());
     });
 });
+
+describe('el selector de la captura sin orden', function () {
+    /**
+     * El bug: la pantalla servia `costos_productos` a un campo que se valida
+     * contra `alm_articulos`. Como los dos catalogos tienen numeracion propia y
+     * sus rangos se traslapan casi por completo, la validacion lo dejaba pasar y
+     * la entrada abonaba el saldo al articulo vecino, sin fallar en ningun lado.
+     *
+     * Por eso estas pruebas adelantan los ids de Compras a proposito: cuando
+     * producto y articulo coinciden, el bug es invisible.
+     */
+    it('sirve ids del catalogo de Almacen, no de Compras', function () {
+        Producto::factory()->count(5)->create();
+
+        $producto = Producto::factory()->create(['descripcion' => 'Tornillo A325']);
+        $articulo = Articulo::factory()->create([
+            'producto_id' => $producto->id,
+            'descripcion' => 'Tornillo A325',
+        ]);
+
+        expect($articulo->id)->not->toBe($producto->id);
+
+        $this->actingAs(usuarioDeEntradas())
+            ->get(route('admin.alm.entradas.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('articulos', 1)
+                ->where('articulos.0.id', $articulo->id));
+    });
+
+    it('no ofrece el articulo suelto, que no tiene compra que documentar', function () {
+        // El de la carga inicial de un almacen. La entrada documenta una compra,
+        // y algo que nadie compro no tiene con que documentarse.
+        Articulo::factory()->sinLigar()->create();
+
+        $this->actingAs(usuarioDeEntradas())
+            ->get(route('admin.alm.entradas.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('articulos', 0));
+    });
+
+    it('no ofrece el articulo cancelado', function () {
+        Articulo::factory()->create(['activo' => false]);
+
+        $this->actingAs(usuarioDeEntradas())
+            ->get(route('admin.alm.entradas.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('articulos', 0));
+    });
+
+    it('el id que ofrece la pantalla carga el saldo del articulo elegido', function () {
+        // La prueba de punta a punta: se toma el id tal como sale de la pantalla
+        // y se captura con el. Antes caia en otro articulo.
+        Producto::factory()->count(5)->create();
+
+        $producto = Producto::factory()->create(['descripcion' => 'Tornillo A325', 'unidad' => 'PZA']);
+        $articulo = Articulo::factory()->create([
+            'producto_id' => $producto->id,
+            'descripcion' => 'Tornillo A325',
+            'unidad' => 'PZA',
+        ]);
+        $vecino = Articulo::factory()->create(['descripcion' => 'Tuerca A563']);
+
+        $almacen = Almacen::factory()->create();
+        $usuario = usuarioDeEntradas();
+
+        $ofrecido = null;
+        $this->actingAs($usuario)
+            ->get(route('admin.alm.entradas.create'))
+            ->assertOk()
+            ->assertInertia(function ($page) use (&$ofrecido, $articulo) {
+                $ofrecido = collect($page->toArray()['props']['articulos'])
+                    ->firstWhere('descripcion', 'Tornillo A325')['id'];
+
+                return $page->where('articulos.0.id', $articulo->id);
+            });
+
+        $this->actingAs($usuario)
+            ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
+                ['articulo_id' => $ofrecido, 'cantidad_recibida' => 10, 'precio_unitario' => 5],
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $existencia = Existencia::firstOrFail();
+
+        expect($ofrecido)->toBe($articulo->id)
+            ->and($existencia->articulo_id)->toBe($articulo->id)
+            ->and($existencia->articulo_id)->not->toBe($vecino->id)
+            ->and(Entrega::firstOrFail()->detalles()->firstOrFail()->descripcion)->toBe('Tornillo A325');
+    });
+});

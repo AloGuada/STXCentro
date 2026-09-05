@@ -12,7 +12,6 @@ use App\Models\Alm\Articulo;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
 use App\Models\Costos\OrdenCompra;
-use App\Models\Costos\Producto;
 use App\Models\Proveedor;
 use App\Services\Alm\RegistradorEntradaAlmacen;
 use App\Services\Costos\FacturaDeLaRecepcion;
@@ -98,7 +97,7 @@ class EntradaController extends Controller
                     'nombre' => $this->nombreDe($p),
                     'rfc' => $p->rfc,
                 ]),
-            'productos' => $this->productos(),
+            'articulos' => $this->articulos(),
             'ordenesAbiertas' => $this->ordenesAbiertas(),
             'orden' => $this->ordenParaRecibir($request->integer('orden_compra_id') ?: null),
         ]);
@@ -441,12 +440,24 @@ class EntradaController extends Controller
     }
 
     /**
-     * @return Collection<int, Producto>
+     * Lo que se puede recibir sin orden.
+     *
+     * Va contra `alm_articulos` porque el formulario captura `articulo_id`.
+     * Servía productos, que es otro catálogo con su propia numeración, y como
+     * los dos espacios de id se traslapan casi por completo, la validación lo
+     * dejaba pasar: la entrada abonaba el saldo al artículo vecino y sellaba su
+     * descripción en el renglón de la recepción, sin fallar en ningún lado.
+     *
+     * `whereNotNull('producto_id')` espeja lo que ya exige EntradaStoreRequest:
+     * la entrada documenta una compra, y algo que nadie compró no tiene con qué
+     * documentarse.
+     *
+     * @return Collection<int, Articulo>
      */
-    private function productos(): Collection
+    private function articulos(): Collection
     {
-        return Producto::query()
-            ->deInventario()
+        return Articulo::query()
+            ->whereNotNull('producto_id')
             ->where('activo', true)
             ->orderBy('descripcion')
             ->get(['id', 'codigo', 'descripcion', 'unidad', 'requiere_verificacion']);

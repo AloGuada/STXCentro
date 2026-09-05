@@ -47,7 +47,8 @@ type OrdenParaRecibir = {
 type Props = {
     almacenes: AlmAlmacenOpcion[];
     proveedores: { id: number; nombre: string; rfc: string | null }[];
-    productos: AlmProductoOpcion[];
+    /** Del catálogo de Almacén: el formulario captura `articulo_id`. */
+    articulos: AlmProductoOpcion[];
     ordenesAbiertas: OrdenAbierta[];
     /** La orden que se está recibiendo, cuando la entrada cuelga de una. */
     orden: OrdenParaRecibir | null;
@@ -70,7 +71,7 @@ const fmt = (n: number, moneda: string) =>
  * puerta: aquí se dice a qué almacén entra el material, que es lo que mueve el
  * kardex.
  */
-export default function EntradaCreate({ almacenes, productos, ordenesAbiertas, orden }: Props) {
+export default function EntradaCreate({ almacenes, articulos, ordenesAbiertas, orden }: Props) {
     const [conOrden, setConOrden] = useState(orden !== null);
 
     return (
@@ -111,7 +112,7 @@ export default function EntradaCreate({ almacenes, productos, ordenesAbiertas, o
                 {conOrden ? (
                     <EntradaConOrden almacenes={almacenes} ordenesAbiertas={ordenesAbiertas} orden={orden} />
                 ) : (
-                    <EntradaSinOrden almacenes={almacenes} articulos={productos} />
+                    <EntradaSinOrden almacenes={almacenes} articulos={articulos} />
                 )}
             </div>
         </AppLayout>
