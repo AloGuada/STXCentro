@@ -389,7 +389,7 @@ class PresupuestoController extends Controller
         Gate::authorize('costos.obra-rubros.editar');
 
         $request->validate([
-            'documento' => ['required', 'file', 'mimes:'.DocumentoTipo::PresupuestoDocumento->mimes(), 'max:10240'],
+            'documento' => ['required', 'file', 'mimes:'.DocumentoTipo::PresupuestoDocumento->mimes(), 'max:15360'],
         ]);
 
         $file = $request->file('documento');

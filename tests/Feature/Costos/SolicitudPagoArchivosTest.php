@@ -71,7 +71,14 @@ describe('admin costos solicitud archivos', function () {
         $this->assertDatabaseMissing('costos_solicitud_archivos', ['id' => $archivo->id]);
     });
 
-    test('archivo mayor a 10 MB es rechazado', function () {
+    /**
+     * El limite vive en dos lugares que tienen que decir lo mismo: la regla del
+     * Form Request y `MAX_FILE_SIZE_MB` de `resources/js/lib/uploads.ts`, que es
+     * lo que el navegador enseña y valida antes de mandar. Si se separan, el
+     * usuario elige un archivo que la pantalla acepta y el servidor rechaza.
+     * Al mover el numero, mover tambien php.ini `upload_max_filesize`.
+     */
+    test('archivo mayor a 15 MB es rechazado', function () {
         $tipoSolicitud = TipoSolicitud::factory()->create();
         $documento = Documento::create([
             'tipo_solicitud_id' => $tipoSolicitud->id,
@@ -82,7 +89,7 @@ describe('admin costos solicitud archivos', function () {
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.solicitudes-pago.archivos.store', $solicitud), [
-                'archivo' => UploadedFile::fake()->create('grande.pdf', 11000, 'application/pdf'),
+                'archivo' => UploadedFile::fake()->create('grande.pdf', 15361, 'application/pdf'),
                 'archivo_id' => $documento->id,
             ]);
 
@@ -93,7 +100,7 @@ describe('admin costos solicitud archivos', function () {
         ]);
     });
 
-    test('archivo de hasta 10 MB es aceptado', function () {
+    test('archivo de hasta 15 MB es aceptado', function () {
         $tipoSolicitud = TipoSolicitud::factory()->create();
         $documento = Documento::create([
             'tipo_solicitud_id' => $tipoSolicitud->id,
@@ -104,7 +111,7 @@ describe('admin costos solicitud archivos', function () {
 
         $response = $this->actingAs($this->user)
             ->post(route('admin.costos.solicitudes-pago.archivos.store', $solicitud), [
-                'archivo' => UploadedFile::fake()->create('grande.pdf', 10000, 'application/pdf'),
+                'archivo' => UploadedFile::fake()->create('grande.pdf', 15360, 'application/pdf'),
                 'archivo_id' => $documento->id,
             ]);
 

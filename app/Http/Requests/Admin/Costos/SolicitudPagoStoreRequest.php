@@ -35,7 +35,7 @@ class SolicitudPagoStoreRequest extends FormRequest
             'monto_total' => ['nullable', 'numeric', 'min:0.01'],
             'archivos' => ['nullable', 'array'],
             'archivos.*' => ['nullable', 'array'],
-            'archivos.*.*' => ['file', 'max:10240'],
+            'archivos.*.*' => ['file', 'max:15360'],
         ];
     }
 
