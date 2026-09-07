@@ -154,6 +154,7 @@ class GeneradorLiquidaciones
                 'subproceso_id' => $primero->subproceso_id,
                 'subproceso_nombre' => $primero->subproceso?->nombre,
                 'descripcion' => $marca->descripcion,
+                'categoria_nombre' => $marca->categoria?->nombre,
                 'peso_unitario' => $marca->peso_unitario,
                 'longitud' => $marca->longitud,
                 'grupo_precio_id' => $valor['grupo_precio_id'],
@@ -228,6 +229,9 @@ class GeneradorLiquidaciones
         $destajo->loadMissing([
             'liquidaciones.grupoTrabajo.ubicaciones',
             'liquidaciones.detalles',
+            // Solo para las liquidaciones anteriores a `categoria_nombre`: el
+            // puente al catalogo vivo es lo unico que dice de que tipo era.
+            'liquidaciones.detalles.concepto.categoria',
             'liquidaciones.empleados',
         ]);
 
@@ -254,6 +258,8 @@ class GeneradorLiquidaciones
                     'unidad' => $d->subproceso_nombre !== null ? 'pza' : 'kg',
                     'importe' => (float) $d->total,
                     'descripcion' => $d->descripcion ?? '',
+                    'categoria' => $d->categoria_nombre ?? $d->concepto?->categoria?->nombre,
+                    'pieza_id' => $d->pieza_id,
                 ])
             );
 
@@ -335,6 +341,8 @@ class GeneradorLiquidaciones
                     'unidad' => $valor['precio_subproceso'] !== null ? 'pza' : 'kg',
                     'importe' => $valor['total'],
                     'descripcion' => $marca->descripcion,
+                    'categoria' => $marca->categoria?->nombre,
+                    'pieza_id' => $pieza->id,
                 ];
             }
 
@@ -376,40 +384,93 @@ class GeneradorLiquidaciones
 
     /**
      * La orden de pago se imprime por marca, no pieza por pieza: un renglon por
-     * (marca, lote, proceso, subproceso, porcentaje) con el conteo de QS y sus
-     * totales sumados. El detalle por QS sigue guardado en la liquidacion para
-     * poder auditar exactamente que se pago.
+     * marca dentro de su obra, con el conteo de piezas y sus totales sumados.
+     * El detalle por QS —y por proceso y subproceso, cada uno con su tarifa—
+     * sigue guardado en la liquidacion para poder auditar exactamente que se
+     * pago; aqui se junta porque en la hoja lo que se lee es "cuantas de esta
+     * marca y cuanto valieron".
      *
-     * El subproceso entra en la clave porque cada paso lleva su propio precio:
-     * juntarlos sumaria importes de tarifas distintas bajo un solo $/pza.
+     * Cuando una misma marca paso por varios procesos o porcentajes en la
+     * semana, el renglon lo dice (los procesos separados por coma) y deja en
+     * blanco el precio unitario y el porcentaje, porque ya no hay uno solo.
      *
      * @param  Collection<int, array<string, mixed>>  $renglones
      * @return array<int, array<string, mixed>>
      */
     private function agruparParaImprimir(Collection $renglones): array
     {
+        $unico = fn (Collection $grupo, string $campo): mixed => $grupo->pluck($campo)->unique()->count() === 1
+            ? $grupo->first()[$campo]
+            : null;
+
         return $renglones
-            ->groupBy(fn (array $r) => implode('|', [$r['marca'], $r['lote'] ?? '', $r['proceso'], $r['subproceso'] ?? '', $r['porcentaje'], $r['obra']]))
-            ->map(function (Collection $grupo) {
+            ->groupBy(fn (array $r) => implode('|', [$r['obra'], $r['categoria'] ?? '', $r['marca']]))
+            ->map(function (Collection $grupo) use ($unico) {
                 $primero = $grupo->first();
+                $procesos = $grupo
+                    ->map(fn (array $r) => $r['proceso'].(($r['subproceso'] ?? null) !== null ? ' / '.$r['subproceso'] : ''))
+                    ->unique()
+                    ->values();
+                $porcentaje = $unico($grupo, 'porcentaje');
 
                 return [
                     'marca' => $primero['marca'],
-                    'lote' => $primero['lote'],
-                    'proceso' => $primero['proceso'],
-                    'subproceso' => $primero['subproceso'] ?? null,
+                    'lote' => $grupo->pluck('lote')->filter()->unique()->implode(', ') ?: null,
+                    'proceso' => $procesos->implode(', '),
+                    'subproceso' => null,
                     'descripcion' => $primero['descripcion'],
                     'obra' => $primero['obra'],
-                    'pzs' => $grupo->count(),
-                    'qs' => $grupo->pluck('qs')->filter()->values()->all(),
-                    'porcentaje' => (float) $primero['porcentaje'],
+                    'categoria' => $primero['categoria'] ?? null,
+                    // Piezas fisicas: la misma pieza soldada y pintada es una,
+                    // no dos. Sin pieza_id (renglones viejos) se cuenta el renglon.
+                    'pzs' => $grupo->pluck('pieza_id')->filter()->unique()->count() ?: $grupo->count(),
+                    'qs' => $grupo->pluck('qs')->filter()->unique()->values()->all(),
+                    'porcentaje' => $porcentaje === null ? null : (float) $porcentaje,
                     'largo' => $primero['largo'],
                     'peso_unitario' => $primero['peso_unitario'],
                     'kilos' => round((float) $grupo->sum('kilos'), 3),
-                    'precio_unitario' => (float) $primero['precio_unitario'],
+                    'precio_unitario' => $procesos->count() === 1 ? (float) $primero['precio_unitario'] : null,
                     'unidad' => $primero['unidad'],
                     'importe' => round((float) $grupo->sum('importe'), 2),
                 ];
+            })
+            ->sortBy([['obra', 'asc'], ['categoria', 'asc'], ['marca', 'asc']])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * La tabla de piezas como se imprime: por obra, y dentro de cada obra por
+     * tipo de pieza (Columna, Viga, Placa...), con el subtotal de cada tipo y
+     * el de la obra. Lo que no tiene tipo va al final de su obra como "Sin
+     * tipo", que es mejor que esconderlo.
+     *
+     * @param  array<int, array<string, mixed>>  $piezas
+     * @return list<array{obra: string, pzs: int, kilos: float, importe: float, tipos: list<array{tipo: string, piezas: list<array<string, mixed>>, pzs: int, kilos: float, importe: float}>}>
+     */
+    private function agruparPorObraYTipo(array $piezas): array
+    {
+        $subtotal = fn (Collection $filas): array => [
+            'pzs' => (int) $filas->sum('pzs'),
+            'kilos' => round((float) $filas->sum('kilos'), 3),
+            'importe' => round((float) $filas->sum('importe'), 2),
+        ];
+
+        return collect($piezas)
+            ->groupBy('obra')
+            ->map(function (Collection $deObra, string $obra) use ($subtotal) {
+                $tipos = $deObra
+                    ->groupBy(fn (array $p) => $p['categoria'] ?? '')
+                    ->sortKeys()
+                    ->map(fn (Collection $deTipo, string $tipo) => [
+                        'tipo' => $tipo !== '' ? $tipo : 'Sin tipo',
+                        'piezas' => $deTipo->values()->all(),
+                        ...$subtotal($deTipo),
+                    ])
+                    ->values()
+                    ->all();
+
+                return ['obra' => $obra, 'tipos' => $tipos, ...$subtotal($deObra)];
             })
             ->values()
             ->all();
@@ -433,6 +494,7 @@ class GeneradorLiquidaciones
             'total_bases' => round((float) collect($empleados)->sum('sueldo_base'), 2),
             'total_destajo_repartido' => round((float) collect($empleados)->sum('monto_destajo'), 2),
             'piezas' => $piezas,
+            'grupos_piezas' => $this->agruparPorObraYTipo($piezas),
             'total_kilos' => $totalKilos,
             'total_produccion' => $totalProduccion,
             'total_extras' => $totalExtras,
