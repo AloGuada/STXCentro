@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\Catalogo\ItemDuplicadoException;
 use App\Models\Alm\Articulo;
 use App\Models\Costos\Producto;
 use Illuminate\Database\QueryException;
@@ -32,12 +33,13 @@ describe('el catálogo propio de Almacén', function () {
 
     test('dos artículos no pueden apuntar al mismo producto', function () {
         // Partirían la existencia de un mismo insumo en dos renglones y el
-        // kardex dejaría de cuadrar contra Compras.
+        // kardex dejaría de cuadrar contra Compras. Lo detiene el maestro
+        // antes que la base: el item del producto ya tiene su artículo.
         $producto = Producto::factory()->create();
         Articulo::factory()->create(['producto_id' => $producto->id]);
 
         expect(fn () => Articulo::factory()->create(['producto_id' => $producto->id]))
-            ->toThrow(QueryException::class);
+            ->toThrow(ItemDuplicadoException::class);
     });
 
     test('varios artículos sí pueden estar sin ligar a la vez', function () {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\Costos;
 
+use App\Rules\DescripcionUnicaEnCatalogo;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ProductoStoreRequest extends FormRequest
@@ -12,13 +13,13 @@ class ProductoStoreRequest extends FormRequest
     }
 
     /**
-     * @return array<string, array<int, string>>
+     * @return array<string, array<int, mixed>>
      */
     public function rules(): array
     {
         return [
             'codigo' => ['nullable', 'string', 'max:100', 'unique:costos_productos,codigo'],
-            'descripcion' => ['required', 'string', 'max:255'],
+            'descripcion' => ['required', 'string', 'max:255', DescripcionUnicaEnCatalogo::paraAlta('producto')],
             'unidad' => ['required', 'string', 'max:30'],
             'activo' => ['boolean'],
         ];

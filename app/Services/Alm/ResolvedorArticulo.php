@@ -9,17 +9,17 @@ use App\Models\Costos\Producto;
  * El artículo con el que Almacén guarda un producto de Compras, creándolo si es
  * la primera vez que ese producto pisa una bodega.
  *
+ * Se busca por el item, no por `producto_id`: el artículo que abrió la carga
+ * inicial de un almacén nació sin producto, y cuando Compras compra ese mismo
+ * insumo el maestro ya los tiene bajo la misma identidad. Antes esa búsqueda
+ * fallaba y se creaba un segundo artículo; ésa era la fábrica de duplicados.
+ * Si el artículo existe y todavía no apunta al producto, aquí se le pone.
+ *
  * Crear al vuelo es correcto y no es una concesión: se invoca cuando algo *ya*
  * está moviendo kardex, y tener renglón en `alm_articulos` es justamente llevar
- * kardex. El artículo nace **ligado**, porque el producto viene conocido —de una
- * orden de compra, de un ajuste, de lo que sea que provocó el movimiento—, así
- * que por esta vía nunca aparece uno suelto. Los sueltos salen de la carga
- * inicial de un almacén, que es otro camino.
- *
- * Es el único lugar donde se copian los datos del producto al artículo. A
- * partir de ahí cada tabla manda sobre lo suyo: Compras edita descripción y
- * unidad para cotizar, Almacén edita área, ABC y ubicación, y que difieran es
- * información, no desincronización.
+ * kardex. Es el único lugar donde se copian al artículo los datos que Almacén
+ * administra (área, tipo, ABC...) desde el producto; código, descripción y
+ * unidad los pone el maestro.
  */
 class ResolvedorArticulo
 {
@@ -38,36 +38,32 @@ class ResolvedorArticulo
             return $this->resueltos[$productoId];
         }
 
-        $articuloId = Articulo::query()->where('producto_id', $productoId)->value('id');
-
-        if ($articuloId === null) {
-            $articuloId = $this->crearDesde($productoId)?->id;
-        }
-
-        if ($articuloId !== null) {
-            $this->resueltos[$productoId] = $articuloId;
-        }
-
-        return $articuloId;
-    }
-
-    /**
-     * Null cuando el producto no existe: no es asunto de este servicio
-     * inventarlo, y la llave foránea del renglón que lo pidió va a quejarse
-     * mucho más claro que un artículo huérfano.
-     */
-    private function crearDesde(int $productoId): ?Articulo
-    {
-        $producto = Producto::find($productoId);
+        $producto = Producto::query()->find($productoId);
 
         if ($producto === null) {
             return null;
         }
 
+        $articulo = Articulo::query()->where('item_id', $producto->item_id)->first();
+
+        if ($articulo !== null && $articulo->producto_id === null) {
+            $articulo->forceFill(['producto_id' => $producto->id])->saveQuietly();
+        }
+
+        $articuloId = $articulo?->id ?? $this->crearDesde($producto)->id;
+
+        $this->resueltos[$productoId] = $articuloId;
+
+        return $articuloId;
+    }
+
+    private function crearDesde(Producto $producto): Articulo
+    {
         return Articulo::create([
+            'item_id' => $producto->item_id,
             'producto_id' => $producto->id,
             'codigo' => $producto->codigo,
-            'codigo_barras' => $producto->codigo_barras,
+            'codigo_barras' => $producto->codigo_barras ?? $producto->codigo,
             'descripcion' => $producto->descripcion,
             'unidad' => $producto->unidad,
             'idsteelex' => $producto->idsteelex,

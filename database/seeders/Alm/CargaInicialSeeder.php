@@ -14,6 +14,7 @@ use App\Models\Alm\Ubicacion;
 use App\Models\Usuario;
 use App\Services\Alm\GeneradorCodigoArticulo;
 use App\Services\Alm\RegistradorAjuste;
+use App\Services\Catalogo\CatalogoMaestro;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -22,17 +23,17 @@ use RuntimeException;
  * Carga inicial de un almacén: el inventario con el que arrancó, tal como lo
  * entregó el área.
  *
- * **Entra a `alm_articulos` y no toca `costos_productos`.** Un layout es un
- * volcado que nadie revisó renglón por renglón, así que sus artículos nacen
- * *sueltos*: material real que existe en la bodega y que todavía no se empareja
- * con nada de Compras. Emparejar es después, a mano y sobre una columna que se
- * puede volver a vaciar.
+ * **Entra por el catálogo maestro y no toca `costos_productos`.** Cada renglón
+ * se busca por descripción en `items`: si el insumo ya existe —porque Compras
+ * lo compra o porque otro almacén ya lo cargó— se reutiliza su identidad y su
+ * código, y si ya tiene artículo se reutiliza el artículo y sólo entra el
+ * saldo. Si no existe, nace un item y un artículo sin producto, que Compras
+ * encontrará el día que lo compre.
  *
- * Eso es lo que hace que abrir un almacén ya no pueda lastimar a Compras. Antes
- * había que darle identidad de compra a cada renglón, y reusar los que ya
- * existían obligaba a mantener una lista congelada de códigos y a pisarles
- * campos —entre ellos la unidad, que es de cotización— para ponerles lo que
- * Almacén sabía. Nada de eso hace falta ya.
+ * Eso es lo que hace que abrir un almacén no pueda lastimar a Compras ni
+ * duplicar el catálogo. Antes cada almacén estrenaba un artículo por renglón
+ * —seis "MINI ESMERIL" para seis almacenes— y emparejarlos era trabajo manual
+ * que nadie hacía.
  *
  * Los renglones viven en cada subclase, no en un archivo aparte: así el repo
  * dice con qué números se abrió cada almacén y un diff enseña si alguien los
@@ -168,6 +169,7 @@ abstract class CargaInicialSeeder extends Seeder
         return DB::transaction(function () use ($almacen, $autoriza): ?string {
             $areas = Area::query()->pluck('id', 'descripcion');
             $generador = app(GeneradorCodigoArticulo::class);
+            $maestro = app(CatalogoMaestro::class);
             $renglones = [];
             $ubicaciones = [];
 
@@ -177,17 +179,43 @@ abstract class CargaInicialSeeder extends Seeder
                 }
 
                 $areaId = $articulo['area'] === null ? null : $areas[$articulo['area']];
-                $codigo = $generador->siguiente();
+
+                // El maestro decide si esto es nuevo. Un segundo almacén con
+                // "TALADRO MAGNETICO" reutiliza el artículo del primero en vez
+                // de estrenar otro código: la existencia se parte por almacén,
+                // no la identidad.
+                $item = $maestro->buscarOCrear($articulo['descripcion'], $articulo['unidad'], null, $autoriza->getKey());
+                $existente = $item->articulo()->first();
+
+                if ($existente !== null) {
+                    $ubicaciones[$existente->id] = $this->ubicacion($almacen, $articulo['ubicacion'] ?? null);
+                    $renglones[] = [
+                        'articulo_id' => $existente->id,
+                        'cantidad_contada' => $articulo['cantidad'],
+                        'costo_unitario' => $articulo['costo'],
+                        'observaciones' => $articulo['nota'],
+                    ];
+
+                    continue;
+                }
+
+                if ($item->codigo === null) {
+                    $item->update(['codigo' => $generador->siguiente()]);
+                }
+
+                $codigo = $item->codigo;
 
                 $nuevo = Articulo::create([
-                    // Sin `producto_id`: nace suelto. Cuando alguien lo empareje
-                    // con lo que Compras compra, se llena esa columna y ya.
+                    'item_id' => $item->id,
+                    // Sin `producto_id` salvo que Compras ya lo compre: el
+                    // modelo lo liga al producto del item si existe.
+                    'producto_id' => $item->producto()->value('id'),
                     'codigo' => $codigo,
                     // La etiqueta que se imprime es la nuestra, salvo que la
                     // caja ya traiga la del fabricante.
                     'codigo_barras' => $articulo['codigo_barras'] ?? $codigo,
-                    'descripcion' => $articulo['descripcion'],
-                    'unidad' => $articulo['unidad'],
+                    'descripcion' => $item->descripcion,
+                    'unidad' => $item->unidad,
                     'idsteelex' => $articulo['idsteelex'] ?? null,
                     'area_id' => $areaId,
                     'clasificacion_abc' => $articulo['abc'],

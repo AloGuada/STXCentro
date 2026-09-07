@@ -13,6 +13,7 @@ use App\Models\Alm\Existencia;
 use App\Models\Alm\Ubicacion;
 use App\Models\Costos\Producto;
 use App\Services\Alm\GeneradorCodigoArticulo;
+use App\Services\Catalogo\CatalogoMaestro;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,25 +25,27 @@ use Inertia\Response;
 /**
  * El catálogo de Almacén: qué guarda la bodega y cómo se comporta.
  *
- * Vive en `alm_articulos`, su propia tabla, y se liga a `costos_productos` por
- * una referencia anulable. Cada lado manda sobre lo suyo — Compras sobre el
- * código y la descripción con los que cotiza, Almacén sobre el área, la
- * clasificación, el stock mínimo y la etiqueta que se imprime.
+ * Vive en `alm_articulos`, su propia tabla, y es la cara de Almacén del
+ * catálogo maestro (`Item`): la identidad —código, descripción, unidad— vive
+ * en el item y aquí lo que sólo le importa a la bodega: área, clasificación,
+ * stock mínimo y la etiqueta que se imprime.
  *
- * **El alta crea las dos.** Quien da de alta un artículo aquí sabe que la
- * empresa compra eso, así que nace con su producto en Compras ya ligado. Los
- * artículos sueltos vienen por el otro camino: la carga inicial de un almacén,
- * que vuelca material que nadie revisó renglón por renglón y que se empareja
- * después.
+ * **El alta crea las dos caras, o completa la que falta.** Quien da de alta un
+ * artículo aquí sabe que la empresa compra eso, así que nace con su producto en
+ * Compras. Si Compras ya lo compraba —el maestro ya tiene ese nombre con
+ * producto y sin artículo— el alta es su cara de Almacén y se liga sola, con el
+ * código que ya tenía. Dos artículos con el mismo nombre no pueden nacer: lo
+ * detiene el Form Request antes de llegar aquí.
  *
- * **La edición no toca a Compras.** Corregir aquí una descripción cambia la del
- * artículo, no la del producto: el día que difieran, eso es información para
- * quien empareja, y no un seeder cambiándole la unidad a algo que se está
- * cotizando.
+ * **La edición sube al maestro.** Corregir aquí una descripción la cambia en el
+ * item y de ahí baja a Compras: es un solo insumo con un solo nombre.
  */
 class ArticuloController extends Controller
 {
-    public function __construct(private readonly GeneradorCodigoArticulo $generador) {}
+    public function __construct(
+        private readonly GeneradorCodigoArticulo $generador,
+        private readonly CatalogoMaestro $maestro,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -83,8 +86,10 @@ class ArticuloController extends Controller
     }
 
     /**
-     * Da de alta las dos mitades: el producto con el que Compras va a poder
-     * cotizarlo y el artículo con el que Almacén lo va a guardar, ligados.
+     * Da de alta las dos caras: el producto con el que Compras va a poder
+     * cotizarlo y el artículo con el que Almacén lo va a guardar, bajo el mismo
+     * item. Si el maestro ya tenía ese nombre con su producto, se reutilizan
+     * item, producto y código, y sólo nace el artículo.
      *
      * Van en una transacción porque un artículo sin su producto sería material
      * que nadie puede comprar, y un producto sin su artículo, algo que se compra
@@ -97,13 +102,20 @@ class ArticuloController extends Controller
         $imagen = $this->guardarImagen($request);
 
         $articulo = DB::transaction(function () use ($datos, $usuarioId, $imagen): Articulo {
-            $codigo = $this->generador->siguiente();
+            $item = $this->maestro->buscarOCrear($datos['descripcion'], $datos['unidad'], null, $usuarioId);
+
+            if ($item->codigo === null) {
+                $item->update(['codigo' => $this->generador->siguiente()]);
+            }
+
+            $codigo = $item->codigo;
 
             // Compras se lleva lo que necesita para cotizar, y nada más.
-            $producto = Producto::create([
+            $producto = $item->producto()->first() ?? Producto::create([
+                'item_id' => $item->id,
                 'codigo' => $codigo,
-                'descripcion' => $datos['descripcion'],
-                'unidad' => $datos['unidad'],
+                'descripcion' => $item->descripcion,
+                'unidad' => $item->unidad,
                 'idsteelex' => $datos['idsteelex'] ?? null,
                 'activo' => true,
                 'creado_por' => $usuarioId,
@@ -111,7 +123,10 @@ class ArticuloController extends Controller
 
             return Articulo::create([
                 ...$datos,
+                'item_id' => $item->id,
                 'producto_id' => $producto->id,
+                'descripcion' => $item->descripcion,
+                'unidad' => $item->unidad,
                 'codigo' => $codigo,
                 // Nace igual al código: la etiqueta que se imprime es la nuestra
                 // salvo que la caja ya traiga una de fábrica.

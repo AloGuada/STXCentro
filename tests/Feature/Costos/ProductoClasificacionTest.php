@@ -3,6 +3,7 @@
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Producto;
+use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\UsoCfdi;
 use App\Models\Departamento;
 use App\Models\User;
@@ -102,22 +103,27 @@ test('el tipo por defecto es insumo y no se controla por pieza', function () {
 });
 
 /**
- * Capturar el mismo insumo nuevo en dos partidas sigue creando dos productos: no
- * se deduplica al crear (decisión 2026-07-28), se limpia después con
- * `costos:limpiar-productos`. Este test fija esa decisión para que un refactor
- * no la revierta por descuido.
+ * Capturar el mismo insumo nuevo en dos partidas crea UN producto y las dos
+ * partidas lo comparten. Revierte la decisión de 2026-07-28 de no deduplicar:
+ * con el catálogo maestro (2026-09-07) la requisición reutiliza por descripción
+ * normalizada, igual que ya hacía el combobox de la pantalla con la coincidencia
+ * exacta. Este test fija la regla nueva para que un refactor no la revierta.
  */
-test('no se deduplica al crear', function () {
+test('se reutiliza el producto que ya se llama igual', function () {
     test()->actingAs(test()->user)
         ->post('/admin/costos/requisiciones', [
             'departamento_id' => test()->depto->id,
             'presupuesto_id' => test()->presupuesto->id,
             'detalles' => [
                 ['descripcion' => 'Mismo insumo', 'unidad' => 'pza', 'cantidad' => 5, 'obra_rubro_id' => test()->rubro->id, 'uso_cfdi_id' => test()->uso->id],
-                ['descripcion' => 'Mismo insumo', 'unidad' => 'pza', 'cantidad' => 3, 'obra_rubro_id' => test()->rubro->id, 'uso_cfdi_id' => test()->uso->id],
+                ['descripcion' => 'mismo  INSUMO ', 'unidad' => 'kg', 'cantidad' => 3, 'obra_rubro_id' => test()->rubro->id, 'uso_cfdi_id' => test()->uso->id],
             ],
         ])
         ->assertRedirect();
 
-    expect(Producto::where('descripcion', 'Mismo insumo')->count())->toBe(2);
+    $producto = Producto::where('descripcion', 'Mismo insumo')->sole();
+
+    expect(Producto::count())->toBe(1)
+        ->and($producto->unidad)->toBe('pza')
+        ->and(RequisicionDetalle::where('producto_id', $producto->id)->count())->toBe(2);
 });

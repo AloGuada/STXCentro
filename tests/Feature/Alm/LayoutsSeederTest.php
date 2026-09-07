@@ -204,7 +204,9 @@ test('cargar no toca las órdenes de compra ni sus renglones', function () {
  * Antes, abrir un almacén obligaba a emparejar cada renglón contra Compras y a
  * pisarle campos a los que ya existían —entre ellos la unidad, que es de
  * cotización— para ponerles lo que Almacén sabía. Ahora la carga entra a su
- * propia tabla y Compras no se entera.
+ * propia tabla y a Compras no le mueve nada: si el insumo ya existía allá, el
+ * artículo nace como su cara de Almacén, ligado y con su código; si no, nace
+ * suelto y Compras lo encontrará el día que lo compre.
  */
 test('cargar un almacén no toca el catálogo de Compras', function () {
     Obra::factory()->create(['no' => 'MBP']);
@@ -231,9 +233,12 @@ test('cargar un almacén no toca el catálogo de Compras', function () {
         ->unidad->toBe('pza')
         ->area_id->toBeNull();
 
-    // Y la careta del layout entró como artículo suelto, con su existencia.
+    // Y la careta del layout entró como la cara de Almacén del producto que
+    // Compras ya tenía: mismo item, mismo código, ligada desde que nace.
     $careta = Articulo::whereRaw('upper(descripcion) = ?', ['CARETA DE SOLDADOR'])->sole();
 
-    expect($careta->producto_id)->toBeNull()
+    expect($careta->producto_id)->toBe($deCompras->id)
+        ->and($careta->item_id)->toBe($deCompras->item_id)
+        ->and($careta->codigo)->toBe('ART-00321')
         ->and(Existencia::where('articulo_id', $careta->id)->exists())->toBeTrue();
 });
