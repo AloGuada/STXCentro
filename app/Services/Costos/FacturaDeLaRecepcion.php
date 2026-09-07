@@ -4,6 +4,7 @@ namespace App\Services\Costos;
 
 use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\FacturaEstatus;
+use App\Models\Costos\ConfiguracionCostos;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use Illuminate\Http\UploadedFile;
@@ -176,20 +177,33 @@ class FacturaDeLaRecepcion
     }
 
     /**
+     * La tolerancia es una sola, en pesos, y vive en Configuración de Costos
+     * (`tolerancia_recepcion`). Lo que quede dentro pasa sin más: la recepción
+     * dice qué entró y la factura cuánto cobran, y un redondeo del proveedor no
+     * es motivo para cambiar cantidades ni precios. Nunca baja del centavo de
+     * `epsilon_monto`, que absorbe el redondeo propio del cálculo.
+     *
      * @throws ValidationException
      */
     private function exigirQueCuadre(float $total, float $esperado, string $campo): void
     {
-        if (abs($total - $esperado) <= (float) config('costos.epsilon_monto')) {
+        $tolerancia = max(
+            (float) config('costos.epsilon_monto'),
+            (float) ConfiguracionCostos::actual()->tolerancia_recepcion,
+        );
+
+        if (abs($total - $esperado) <= $tolerancia) {
             return;
         }
 
         throw ValidationException::withMessages([
             $campo => sprintf(
-                'El total de la factura ($%s) no cuadra con lo que estás recibiendo ($%s con IVA). '
-                .'Ajusta las cantidades o los precios de los renglones, o revisa que sea la factura de esta entrega.',
+                'El total de la factura ($%s) no cuadra con lo que estás recibiendo ($%s con IVA): la diferencia es de $%s '
+                .'y la tolerancia configurada es de $%s. Revisa cantidades y precios, o que sea la factura de esta entrega.',
                 number_format($total, 2),
                 number_format($esperado, 2),
+                number_format(abs($total - $esperado), 2),
+                number_format($tolerancia, 2),
             ),
         ]);
     }

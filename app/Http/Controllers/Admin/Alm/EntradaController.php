@@ -297,7 +297,9 @@ class EntradaController extends Controller
                 'tipo_fiscal' => $partida->tipo_fiscal instanceof \BackedEnum
                     ? (string) $partida->tipo_fiscal->value
                     : (string) ($partida->tipo_fiscal ?? TipoFiscalPartida::Mercancia->value),
-                'subtotal' => round((float) $renglon['cantidad_recibida'] * $precio, 2),
+                // A cuatro decimales: el redondeo a centavos lo hace el
+                // calculador sobre la suma, no renglón por renglón.
+                'subtotal' => round((float) $renglon['cantidad_recibida'] * $precio, 4),
                 'sin_impuestos' => (bool) $partida->sin_impuestos,
             ];
         }
