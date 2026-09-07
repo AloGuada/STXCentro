@@ -31,6 +31,7 @@ class LiquidacionDetalle extends Model
         'subproceso_id',
         'subproceso_nombre',
         'descripcion',
+        'categoria_nombre',
         'peso_unitario',
         'longitud',
         'grupo_precio_id',
