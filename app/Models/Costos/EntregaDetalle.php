@@ -37,8 +37,8 @@ class EntregaDetalle extends Model
     protected function casts(): array
     {
         return [
-            'cantidad_recibida' => 'decimal:2',
-            'precio_unitario' => 'decimal:2',
+            'cantidad_recibida' => 'decimal:4',
+            'precio_unitario' => 'decimal:4',
         ];
     }
 

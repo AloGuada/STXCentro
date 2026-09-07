@@ -34,6 +34,7 @@ test('el endpoint actualiza la configuración', function () {
             'corte_activo' => false,
             'corte_dia' => 4,
             'corte_hora' => '09:30',
+            'tolerancia_recepcion' => 0.05,
         ])
         ->assertRedirect();
 
@@ -43,7 +44,24 @@ test('el endpoint actualiza la configuración', function () {
         ->and($c->dias_cancelar_solicitud)->toBe(20)
         ->and($c->corte_activo)->toBeFalse()
         ->and($c->corte_dia)->toBe(4)
-        ->and($c->corte_hora)->toBe('09:30');
+        ->and($c->corte_hora)->toBe('09:30')
+        ->and($c->tolerancia_recepcion)->toBe(0.05);
+});
+
+test('la tolerancia de recepción nace en un centavo y no admite más de dos decimales', function () {
+    expect(ConfiguracionCostos::actual()->tolerancia_recepcion)->toBe(0.01);
+
+    $this->actingAs(User::factory()->create())
+        ->put('/admin/costos/configuracion', [
+            'dias_apartado' => 5,
+            'dias_cancelar_requisicion' => 10,
+            'dias_cancelar_solicitud' => 10,
+            'corte_activo' => true,
+            'corte_dia' => 3,
+            'corte_hora' => '13:00',
+            'tolerancia_recepcion' => 0.005,
+        ])
+        ->assertSessionHasErrors('tolerancia_recepcion');
 });
 
 test('con corte activo el viernes de la semana se bloquea tras el corte', function () {

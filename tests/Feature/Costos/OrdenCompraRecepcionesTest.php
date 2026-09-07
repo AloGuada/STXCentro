@@ -48,7 +48,7 @@ test('OC show carga entregas con detalles y devoluciones para tab Recepciones', 
             ->has('ordenCompra.entregas', 1)
             ->has('ordenCompra.entregas.0.detalles', 1)
             ->has('ordenCompra.entregas.0.detalles.0.devoluciones', 1)
-            ->where('ordenCompra.entregas.0.detalles.0.cantidad_recibida', '10.00')
+            ->where('ordenCompra.entregas.0.detalles.0.cantidad_recibida', '10.0000')
         );
 });
 

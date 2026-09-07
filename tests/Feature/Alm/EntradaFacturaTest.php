@@ -2,6 +2,7 @@
 
 use App\Enums\Costos\FacturaEstatus;
 use App\Models\Alm\Almacen;
+use App\Models\Costos\ConfiguracionCostos;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
@@ -112,6 +113,67 @@ test('un CFDI que no cuadra con lo recibido se rechaza y no deja factura a media
 
     expect(Entrega::count())->toBe(0)
         ->and(Factura::count())->toBe(0);
+});
+
+test('una diferencia dentro de la tolerancia configurada pasa y la recepción no se toca', function () {
+    // Entran 60 x 45 = 2,700 + IVA = 3,132.00 y el proveedor redondeó: cobra
+    // 3 centavos de mas.
+    ConfiguracionCostos::actual()->update(['tolerancia_recepcion' => 0.05]);
+
+    $archivos = cfdiParaRecibir($this->orden, $this->recibe60, null, [
+        'SubTotal' => '2700.03',
+        'Total' => '3132.03',
+        'IvaTrasladado' => '432.00',
+    ]);
+
+    $this->actingAs($this->almacenista)
+        ->post('/admin/almacen/entradas', ($this->capturar)($archivos))
+        ->assertRedirect();
+
+    // La factura guarda lo que cobran y la entrega lo que entro: nadie ajusto
+    // cantidades ni precios para cuadrar los centavos.
+    expect((float) Factura::sole()->total)->toBe(3132.03)
+        ->and((float) Entrega::sole()->detalles()->sole()->cantidad_recibida)->toBe(60.0)
+        ->and(Entrega::sole()->detalles()->sole()->precio_unitario)->toBeNull();
+});
+
+test('la misma diferencia se rechaza si la tolerancia sigue en un centavo', function () {
+    $archivos = cfdiParaRecibir($this->orden, $this->recibe60, null, [
+        'SubTotal' => '2700.03',
+        'Total' => '3132.03',
+        'IvaTrasladado' => '432.00',
+    ]);
+
+    $this->actingAs($this->almacenista)
+        ->post('/admin/almacen/entradas', ($this->capturar)($archivos))
+        ->assertSessionHasErrors('xml');
+
+    expect(Entrega::count())->toBe(0);
+});
+
+test('cantidad y precio se guardan con cuatro decimales', function () {
+    // 12.3456 m a $45.1234: el CFDI viene con lo que eso vale, a centavos.
+    $detalles = [['orden_compra_detalle_id' => $this->partida->id, 'cantidad_recibida' => 12.3456, 'precio_unitario' => 45.1234]];
+
+    $this->actingAs($this->almacenista)
+        ->post('/admin/almacen/entradas', ($this->capturar)([
+            'detalles' => $detalles,
+            ...cfdiParaRecibir($this->orden, $detalles),
+        ]))
+        ->assertRedirect();
+
+    $renglon = Entrega::sole()->detalles()->sole();
+
+    expect((float) $renglon->cantidad_recibida)->toBe(12.3456)
+        ->and((float) $renglon->precio_unitario)->toBe(45.1234);
+});
+
+test('un quinto decimal se rechaza en la captura', function () {
+    $this->actingAs($this->almacenista)
+        ->post('/admin/almacen/entradas', ($this->capturar)([
+            'detalles' => [['orden_compra_detalle_id' => $this->partida->id, 'cantidad_recibida' => 1.00001]],
+        ]))
+        ->assertSessionHasErrors('detalles.0.cantidad_recibida');
 });
 
 test('un CFDI con retención cuadra aunque su total venga reducido', function () {
