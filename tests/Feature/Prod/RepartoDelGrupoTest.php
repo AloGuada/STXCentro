@@ -215,13 +215,53 @@ describe('reparto del excedente', function () {
 
         $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 6000);
 
-        // Mismo peso: el excedente se parte igual, pero la base del faltista es
-        // menor (3 dias cubiertos x 7/6 = 3.5 -> 1050).
+        // Misma categoria, pero el excedente (6000 - 2100 - 1050 = 2850) se
+        // prorratea por dias trabajados: 7 contra 3.5, dos tercios y un tercio.
         expect($reparto['empleados'][0]['sueldo_base'])->toBe(2100.0)
             ->and($reparto['empleados'][1]['sueldo_base'])->toBe(1050.0)
-            ->and($reparto['empleados'][0]['monto_asignado'])
-            ->toBeGreaterThan($reparto['empleados'][1]['monto_asignado'])
+            ->and($reparto['empleados'][0]['monto_destajo'])->toBe(1900.0)
+            ->and($reparto['empleados'][1]['monto_destajo'])->toBe(950.0)
             ->and($completo->fresh())->not->toBeNull();
+    });
+
+    test('el excedente se prorratea por categoria y dias trabajados', function () {
+        // La nomina real de la semana 36: dos oficiales B con 7 y 5.83 dias.
+        empleadoCon($this->oficial, 6, 'Alonzo');
+        empleadoCon($this->oficial, 5, 'Cetzal');
+
+        // Bases 2100 + 1750 = 3850. Total 7700 -> excedente 3850.
+        $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 7700);
+        $porNombre = collect($reparto['empleados'])->keyBy('nombre');
+
+        // 7 / (7 + 5.8333) = 54.55% y 45.45%.
+        expect($porNombre['Alonzo']['monto_destajo'])->toEqualWithDelta(2100.0, 0.01)
+            ->and($porNombre['Cetzal']['monto_destajo'])->toEqualWithDelta(1750.0, 0.01)
+            ->and($porNombre['Alonzo']['porcentaje'])->toEqualWithDelta(54.55, 0.01);
+    });
+
+    test('quien tiene no aplica no cobra base pero si pesa por sus dias en el reparto', function () {
+        empleadoCon($this->oficial, 6, 'Normal');
+        $sinBase = GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => $this->grupo->id,
+            'nombre' => 'Sin base',
+            'categoria_empleado_id' => $this->oficial->id,
+        ]);
+        marcarSemana($sinBase, [
+            EstadoAsistencia::Asistencia,
+            EstadoAsistencia::Asistencia,
+            EstadoAsistencia::Asistencia,
+            EstadoAsistencia::Asistencia,
+            EstadoAsistencia::Asistencia,
+            EstadoAsistencia::NoAplica,
+        ]);
+
+        // Base solo del normal (2100). Total 6100 -> excedente 4000, 7 vs 5.83 dias.
+        $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 6100);
+        $porNombre = collect($reparto['empleados'])->keyBy('nombre');
+
+        expect($porNombre['Sin base']['sueldo_base'])->toBe(0.0)
+            ->and($porNombre['Sin base']['monto_destajo'])->toEqualWithDelta(1818.18, 0.01)
+            ->and($porNombre['Normal']['monto_destajo'])->toEqualWithDelta(2181.82, 0.01);
     });
 });
 

@@ -16,7 +16,10 @@ use Illuminate\Support\Collection;
  *     asistencia es obligatoria para cerrar). Los días vienen con el séptimo
  *     día ya prorrateado, y valen cero si la semana trae algún "no aplica".
  *  2. **Excedente del destajo** = total del grupo − suma de las bases. Sólo si
- *     es positivo, se prorratea según el `valor` de la categoría de cada quien.
+ *     es positivo, se prorratea por `valor` de la categoría × días trabajados
+ *     (corrección 2026-09-08 contra la nómina real: dos oficiales iguales con
+ *     7 y 5.83 días no se llevan lo mismo). Quien no pisó la línea en toda la
+ *     semana —falta o incapacidad de lunes a sábado— pesa cero.
  *
  * Si el excedente sale negativo cada trabajador se queda con su base y no hay
  * reparto: la diferencia la absorbe la empresa.
@@ -48,25 +51,32 @@ class RepartoDelGrupo
     {
         $salarioDiario = (float) ConfiguracionProd::actual()->salario_minimo_diario;
         $diasPagados = $this->asistencia->diasPagadosPorEmpleado($destajo);
+        $diasTrabajados = $this->asistencia->diasTrabajadosPorEmpleado($destajo);
         $ausentes = $this->asistencia->ausentesTodaLaSemana($destajo);
 
         $empleados = ($grupo?->empleados ?? collect())
-            ->map(function ($empleado) use ($diasPagados, $ausentes, $salarioDiario) {
+            ->map(function ($empleado) use ($diasPagados, $diasTrabajados, $ausentes, $salarioDiario) {
                 $dias = (float) ($diasPagados[$empleado->id] ?? 0);
+                $valor = (int) ($empleado->categoria?->valor ?? 0);
+
+                // Sin asistencia capturada se asume la semana completa, igual
+                // que la cuadricula (celda no tocada = asistencia).
+                $trabajados = (float) ($diasTrabajados[$empleado->id] ?? AsistenciaDelDestajo::FACTOR_SEPTIMO_DIA * 6);
 
                 return [
                     'empleado' => $empleado,
                     'dias' => $dias,
                     'base' => round($dias * $salarioDiario, 2),
-                    // Quien faltó o estuvo incapacitado toda la semana no
-                    // produjo nada: su peso en el reparto es cero.
-                    'peso' => ($ausentes[$empleado->id] ?? false) ? 0 : (int) ($empleado->categoria?->valor ?? 0),
+                    'valor' => $valor,
+                    // Peso en el reparto: categoria x dias trabajados. Quien
+                    // falto o estuvo incapacitado toda la semana pesa cero.
+                    'peso' => ($ausentes[$empleado->id] ?? false) ? 0.0 : $valor * $trabajados,
                 ];
             });
 
         $totalBases = round((float) $empleados->sum('base'), 2);
         $excedente = round(max(0, $totalGrupo - $totalBases), 2);
-        $sumaPesos = (int) $empleados->sum('peso');
+        $sumaPesos = (float) $empleados->sum('peso');
 
         return [
             'salario_diario' => $salarioDiario,
@@ -77,10 +87,10 @@ class RepartoDelGrupo
     }
 
     /**
-     * @param  Collection<int, array{empleado: mixed, dias: float, base: float, peso: int}>  $empleados
+     * @param  Collection<int, array{empleado: mixed, dias: float, base: float, valor: int, peso: float}>  $empleados
      * @return list<array<string, mixed>>
      */
-    private function repartirExcedente(Collection $empleados, float $excedente, int $sumaPesos, float $salarioDiario): array
+    private function repartirExcedente(Collection $empleados, float $excedente, float $sumaPesos, float $salarioDiario): array
     {
         return $empleados->map(function (array $fila) use ($excedente, $sumaPesos, $salarioDiario) {
             $empleado = $fila['empleado'];
@@ -93,7 +103,7 @@ class RepartoDelGrupo
                 'no_empleado' => $empleado->no_empleado,
                 'dias_pagados' => $fila['dias'],
                 'categoria_nombre' => $empleado->categoria?->nombre,
-                'categoria_valor' => $fila['peso'],
+                'categoria_valor' => $fila['valor'],
                 'salario_diario' => $salarioDiario,
                 'sueldo_base' => $fila['base'],
                 'monto_destajo' => $montoDestajo,

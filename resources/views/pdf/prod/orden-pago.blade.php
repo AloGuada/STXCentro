@@ -294,9 +294,9 @@
     </div>
 
     <p style="font-size: 9px; color: #555; margin: 0 0 8px;">
-        Cada trabajador cobra su sueldo base (días pagados × salario mínimo diario). El excedente del destajo
-        &mdash;lo que sobra después de cubrir todas las bases&mdash; se reparte según el valor de su categoría.
-        Si no hay excedente, cada quien conserva su base.
+        Cada trabajador cobra su nómina (días trabajados × salario mínimo diario). El saldo en efectivo
+        &mdash;lo que sobra del destajo después de cubrir todas las nóminas&mdash; se reparte según el valor de su
+        categoría prorrateado por los días trabajados. Si no hay excedente, cada quien conserva su nómina.
     </p>
 
     <table class="grid">
