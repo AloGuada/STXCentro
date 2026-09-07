@@ -269,6 +269,22 @@ class FusionadorArticulos
             $consulta->update(['articulo_id' => $sobreviviente->id, 'producto_id' => $productoId]);
         }
 
+        // Lo que ya era del sobreviviente también tiene que decir el producto
+        // que acaba de adoptar. El ledger sigue abriendo la existencia por
+        // producto cuando la recepción viene de una orden (`bloquear()`), y
+        // un renglón del sobreviviente con `producto_id` nulo no lo encontraría:
+        // intentaría crear otro y chocaría con el unique por artículo. Va
+        // después de las existencias porque, mientras convivían con las del
+        // sobrante en el mismo almacén, ese producto ya estaba ocupado ahí.
+        if ($productoId !== null) {
+            foreach ([...self::TABLAS_ALMACEN, 'alm_existencias'] as $tabla) {
+                DB::table($tabla)
+                    ->where('articulo_id', $sobreviviente->id)
+                    ->whereNull('producto_id')
+                    ->update(['producto_id' => $productoId]);
+            }
+        }
+
         Articulo::query()->whereIn('id', $idsSobrantes)->update([
             'activo' => false,
             'fusionado_en_id' => $sobreviviente->id,
@@ -376,6 +392,9 @@ class FusionadorArticulos
                 'valor' => $valor,
                 'costo_promedio' => abs($cantidad) < self::EPSILON ? 0 : $valor / $cantidad,
                 'ultimo_movimiento_at' => max($existenciaS->ultimo_movimiento_at, $existenciaSobrante->ultimo_movimiento_at),
+                // Dónde está guardado no es saldo, pero tampoco se tira: si el
+                // renglón que se queda no tenía acomodo, hereda el del que se va.
+                'ubicacion_id' => $existenciaS->ubicacion_id ?? $existenciaSobrante->ubicacion_id,
             ])->save();
 
             foreach ($existenciaSobrante->asignaciones()->get() as $asignacion) {

@@ -211,6 +211,47 @@ describe('la fusión', function () {
             ->and(Item::query()->where('activo', true)->count())->toBe(1);
     });
 
+    it('lo que ya era del sobreviviente aprende el producto adoptado, y el ledger lo encuentra por producto', function () {
+        $almacenA = Almacen::factory()->create();
+        $almacenB = Almacen::factory()->create();
+        // El sobreviviente nació suelto y ya tenía saldo en A; el sobrante trae
+        // el producto y saldo en B.
+        $s = Articulo::factory()->sinLigar()->create(['codigo' => 'ART-00001']);
+        $x = Articulo::factory()->create(['codigo' => 'ART-00002']);
+        $productoX = $x->producto;
+        $existenciaS = existenciaDe($s, $almacenA, 5, 10);
+        $movimientoS = movimientoDe($existenciaS, 5);
+        existenciaDe($x, $almacenB, 2, 10);
+
+        $csv = csvFusion([['g', 'ART-00001', 'SI'], ['g', 'ART-00002', '']]);
+
+        $this->artisan('alm:fusionar-articulos', ['csv' => $csv, '--force' => true])->assertSuccessful();
+
+        // Sin esto, la siguiente recepción por orden (que abre existencia por
+        // producto) no encontraría el renglón de A y trataría de crear otro.
+        expect($existenciaS->fresh()->producto_id)->toBe($productoX->id)
+            ->and(DB::table('alm_movimientos')->where('id', $movimientoS)->value('producto_id'))->toBe($productoX->id)
+            ->and(app(App\Services\Alm\AlmacenLedger::class)->bloquear($almacenA->id, $productoX->id)->id)->toBe($existenciaS->id)
+            ->and(Existencia::query()->where('almacen_id', $almacenA->id)->count())->toBe(1);
+    });
+
+    it('al sumar existencias conserva el acomodo del que se va si el que se queda no tenía', function () {
+        $almacen = Almacen::factory()->create();
+        $ubicacion = App\Models\Alm\Ubicacion::factory()->create(['almacen_id' => $almacen->id]);
+        $s = Articulo::factory()->create(['codigo' => 'ART-00001']);
+        $x = Articulo::factory()->create(['codigo' => 'ART-00002']);
+        $existenciaS = existenciaDe($s, $almacen, 1, 10);
+        $existenciaX = existenciaDe($x, $almacen, 1, 10);
+        $existenciaX->forceFill(['ubicacion_id' => $ubicacion->id])->save();
+
+        $csv = csvFusion([['g', 'ART-00001', 'SI'], ['g', 'ART-00002', '']]);
+
+        $this->artisan('alm:fusionar-articulos', ['csv' => $csv, '--force' => true])->assertSuccessful();
+
+        expect($existenciaS->fresh()->ubicacion_id)->toBe($ubicacion->id)
+            ->and((float) $existenciaS->fresh()->cantidad)->toBe(2.0);
+    });
+
     it('aborta sin escribir cuando dos piezas del grupo comparten serie', function () {
         $almacen = Almacen::factory()->create();
         $s = Articulo::factory()->porPieza()->create(['codigo' => 'ART-00001']);
