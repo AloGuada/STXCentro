@@ -305,11 +305,12 @@
                 <th style="text-align: left;">Empleado</th>
                 <th style="width: 13%;">Categoría</th>
                 <th style="width: 7%;">Valor</th>
-                <th style="width: 7%;">Días</th>
-                <th style="width: 10%;">$/día</th>
-                <th style="width: 12%;">Sueldo base</th>
-                <th style="width: 12%;">Destajo</th>
-                <th style="width: 13%;">Total</th>
+                {{-- Mismos nombres que la nómina en Excel, para cotejar de un vistazo. --}}
+                <th style="width: 8%;">Días trabajados</th>
+                <th style="width: 9%;">$/día</th>
+                <th style="width: 12%;">Total nómina</th>
+                <th style="width: 12%;">Saldo en efectivo</th>
+                <th style="width: 13%;">Importe total</th>
             </tr>
         </thead>
         <tbody>
@@ -330,7 +331,9 @@
         </tbody>
         <tfoot>
             <tr class="total-row">
-                <td colspan="5" class="text-right">TOTALES</td>
+                <td colspan="3" class="text-right">TOTALES</td>
+                <td class="text-right">{{ rtrim(rtrim(number_format((float) collect($g['empleados'])->sum('dias_pagados'), 2, '.', ''), '0'), '.') }}</td>
+                <td></td>
                 <td class="text-right">{{ $mon($g['total_bases'] ?? 0) }}</td>
                 <td class="text-right">{{ $mon($g['total_destajo_repartido'] ?? 0) }}</td>
                 <td class="text-right">{{ $mon($g['total_final']) }}</td>

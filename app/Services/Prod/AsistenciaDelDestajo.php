@@ -190,4 +190,23 @@ class AsistenciaDelDestajo
             })
             ->all();
     }
+
+    /**
+     * Empleados que esa semana no pisaron la línea: todos sus días marcados
+     * son falta o incapacidad. No aportaron al destajo del grupo y por eso no
+     * les toca parte del excedente; el sueldo base ya les salió en cero por
+     * los días. Quien tiene "no aplica" sí participa: cobra sólo destajo.
+     *
+     * @return array<int, bool>
+     */
+    public function ausentesTodaLaSemana(Destajo $destajo): array
+    {
+        return Asistencia::query()
+            ->where('destajo_id', $destajo->id)
+            ->get(['grupo_empleado_id', 'fecha', 'estado'])
+            ->reject(fn (Asistencia $a) => $a->fecha->dayOfWeekIso === 7)
+            ->groupBy('grupo_empleado_id')
+            ->map(fn (Collection $marcas): bool => $marcas->every(fn (Asistencia $a) => $a->estado->esAusencia()))
+            ->all();
+    }
 }

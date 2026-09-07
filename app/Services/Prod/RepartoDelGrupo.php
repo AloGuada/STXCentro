@@ -48,16 +48,19 @@ class RepartoDelGrupo
     {
         $salarioDiario = (float) ConfiguracionProd::actual()->salario_minimo_diario;
         $diasPagados = $this->asistencia->diasPagadosPorEmpleado($destajo);
+        $ausentes = $this->asistencia->ausentesTodaLaSemana($destajo);
 
         $empleados = ($grupo?->empleados ?? collect())
-            ->map(function ($empleado) use ($diasPagados, $salarioDiario) {
+            ->map(function ($empleado) use ($diasPagados, $ausentes, $salarioDiario) {
                 $dias = (float) ($diasPagados[$empleado->id] ?? 0);
 
                 return [
                     'empleado' => $empleado,
                     'dias' => $dias,
                     'base' => round($dias * $salarioDiario, 2),
-                    'peso' => (int) ($empleado->categoria?->valor ?? 0),
+                    // Quien faltó o estuvo incapacitado toda la semana no
+                    // produjo nada: su peso en el reparto es cero.
+                    'peso' => ($ausentes[$empleado->id] ?? false) ? 0 : (int) ($empleado->categoria?->valor ?? 0),
                 ];
             });
 

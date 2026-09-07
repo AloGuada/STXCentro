@@ -115,9 +115,47 @@ describe('sueldo base por asistencia', function () {
 
         $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 0);
 
-        // 3 dias cubiertos x 7/6 = 3.5
-        expect($reparto['empleados'][0]['dias_pagados'])->toBe(3.5)
-            ->and($reparto['empleados'][0]['sueldo_base'])->toBe(1050.0);
+        // 2 dias cubiertos (asistencia + vacaciones) x 7/6 = 2.3333 -> $700.
+        // La incapacidad ya no cuenta: la paga el IMSS, no el destajo.
+        expect($reparto['empleados'][0]['dias_pagados'])->toEqualWithDelta(2.3333, 0.0001)
+            ->and($reparto['empleados'][0]['sueldo_base'])->toBe(700.0);
+    });
+
+    test('el incapacitado toda la semana no cobra base ni entra al reparto', function () {
+        // El caso de la nomina real de la semana 36: tres oficiales y uno con
+        // incapacidad de lunes a sabado. El sistema le contaba 7 dias y le
+        // daba una cuarta parte del excedente; en la nomina sale en cero.
+        $oficialA = empleadoCon($this->oficial, 6, 'Alonzo');
+        $oficialB = empleadoCon($this->oficial, 6, 'Ek Pech');
+        $incapacitado = GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => $this->grupo->id,
+            'nombre' => 'Quiroz',
+            'categoria_empleado_id' => $this->oficial->id,
+        ]);
+        marcarSemana($incapacitado, array_fill(0, 6, EstadoAsistencia::Incapacidad));
+
+        // Dos bases de 2100 = 4200; el grupo hizo 10200: excedente 6000.
+        $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 10200);
+        $porNombre = collect($reparto['empleados'])->keyBy('nombre');
+
+        expect($porNombre['Quiroz']['dias_pagados'])->toBe(0.0)
+            ->and($porNombre['Quiroz']['sueldo_base'])->toBe(0.0)
+            ->and($porNombre['Quiroz']['monto_destajo'])->toBe(0.0)
+            ->and($porNombre['Quiroz']['monto_asignado'])->toBe(0.0)
+            ->and($porNombre['Alonzo']['monto_destajo'])->toBe(3000.0)
+            ->and($porNombre['Ek Pech']['monto_destajo'])->toBe(3000.0)
+            ->and($reparto['total_bases'])->toBe(4200.0);
+    });
+
+    test('faltar toda la semana tambien deja fuera del reparto', function () {
+        empleadoCon($this->oficial, 6, 'Trabajo');
+        empleadoCon($this->oficial, 0, 'No vino');
+
+        $reparto = app(RepartoDelGrupo::class)->calcular($this->destajo, $this->grupo->fresh('empleados'), 5100);
+        $porNombre = collect($reparto['empleados'])->keyBy('nombre');
+
+        expect($porNombre['No vino']['monto_asignado'])->toBe(0.0)
+            ->and($porNombre['Trabajo']['monto_asignado'])->toBe(5100.0);
     });
 
     test('un solo no aplica deja la semana sin sueldo base', function () {
