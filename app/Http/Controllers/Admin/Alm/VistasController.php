@@ -35,21 +35,6 @@ class VistasController extends Controller
         return Inertia::render('admin/almacen/prestamos/create');
     }
 
-    public function conteos(): Response
-    {
-        return Inertia::render('admin/almacen/conteos/index');
-    }
-
-    public function conteoCreate(): Response
-    {
-        return Inertia::render('admin/almacen/conteos/create');
-    }
-
-    public function conteoShow(int $conteo): Response
-    {
-        return Inertia::render('admin/almacen/conteos/show', ['conteoId' => $conteo]);
-    }
-
     public function etiquetas(): Response
     {
         return Inertia::render('admin/almacen/etiquetas/index');

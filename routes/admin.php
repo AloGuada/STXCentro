@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
 use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
 use App\Http\Controllers\Admin\Alm\ArticuloController as AlmArticuloController;
 use App\Http\Controllers\Admin\Alm\AsignacionController as AlmAsignacionController;
+use App\Http\Controllers\Admin\Alm\ConteoController as AlmConteoController;
 use App\Http\Controllers\Admin\Alm\EntradaController as AlmEntradaController;
 use App\Http\Controllers\Admin\Alm\ExistenciaController as AlmExistenciaController;
 use App\Http\Controllers\Admin\Alm\KardexController as AlmKardexController;
@@ -452,15 +453,22 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereNumber('existencia')
             ->middleware('permission:alm.ubicaciones.editar')
             ->name('existencias.ubicacion');
-        Route::get('conteos', [AlmVistasController::class, 'conteos'])
+        // Inventarios ciclicos: el programa reparte el almacen en hojas por dia
+        // y cada hoja se imprime para caminarla. Capturar y cerrar (que genera
+        // el ajuste) es la siguiente rebanada.
+        Route::get('conteos', [AlmConteoController::class, 'index'])
             ->middleware('permission:alm.conteos.ver')
             ->name('conteos.index');
-        Route::get('conteos/create', [AlmVistasController::class, 'conteoCreate'])
+        Route::post('conteos/programas', [AlmConteoController::class, 'storePrograma'])
             ->middleware('permission:alm.conteos.crear')
-            ->name('conteos.create');
-        Route::get('conteos/{conteo}', [AlmVistasController::class, 'conteoShow'])
+            ->name('conteos.programas.store');
+        Route::get('conteos/{conteo}/pdf', [AlmConteoController::class, 'pdf'])
             ->whereNumber('conteo')
-            ->middleware('permission:alm.conteos.capturar')
+            ->middleware('permission:alm.conteos.ver')
+            ->name('conteos.pdf');
+        Route::get('conteos/{conteo}', [AlmConteoController::class, 'show'])
+            ->whereNumber('conteo')
+            ->middleware('permission:alm.conteos.ver')
             ->name('conteos.show');
         Route::get('etiquetas', [AlmVistasController::class, 'etiquetas'])
             ->middleware('permission:alm.etiquetas.ver')
