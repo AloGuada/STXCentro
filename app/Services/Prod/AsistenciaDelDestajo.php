@@ -170,24 +170,71 @@ class AsistenciaDelDestajo
      */
     public function diasPagadosPorEmpleado(Destajo $destajo): array
     {
-        return Asistencia::query()
-            ->where('destajo_id', $destajo->id)
-            ->get(['grupo_empleado_id', 'fecha', 'estado'])
-            // El domingo no cuenta aunque haya quedado capturado de antes: ya va
-            // prorrateado en los otros seis días.
-            ->reject(fn (Asistencia $a) => $a->fecha->dayOfWeekIso === 7)
-            ->groupBy('grupo_empleado_id')
+        return $this->marcasPorEmpleado($destajo)
             ->map(function (Collection $marcas): float {
                 if ($marcas->contains(fn (Asistencia $a) => $a->estado->anulaSueldoBase())) {
                     return 0.0;
                 }
 
-                $cubiertos = $marcas->sum(fn (Asistencia $a) => $a->estado->valorEnDias());
-
-                // Sin redondear: 5 días son 5.8333... y a $300 diarios eso da
-                // $1,750 exactos. Redondear aquí se comería un centavo.
-                return $cubiertos * self::FACTOR_SEPTIMO_DIA;
+                return $this->diasCubiertos($marcas);
             })
+            ->all();
+    }
+
+    /**
+     * Días trabajados de cada empleado, ya con el séptimo día prorrateado,
+     * SIN el candado de "no aplica". Es lo que pesa en el reparto del
+     * excedente: quien tiene "no aplica" no cobra base, pero sí trabajó y le
+     * toca destajo según los días que estuvo.
+     *
+     * @return array<int, float>
+     */
+    public function diasTrabajadosPorEmpleado(Destajo $destajo): array
+    {
+        return $this->marcasPorEmpleado($destajo)
+            ->map(fn (Collection $marcas): float => $this->diasCubiertos($marcas))
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, Asistencia>  $marcas
+     */
+    private function diasCubiertos(Collection $marcas): float
+    {
+        $cubiertos = $marcas->sum(fn (Asistencia $a) => $a->estado->valorEnDias());
+
+        // Sin redondear: 5 días son 5.8333... y a $300 diarios eso da
+        // $1,750 exactos. Redondear aquí se comería un centavo.
+        return $cubiertos * self::FACTOR_SEPTIMO_DIA;
+    }
+
+    /**
+     * Las marcas de la semana por empleado, sin el domingo: ya va prorrateado
+     * en los otros seis días aunque haya quedado capturado de antes.
+     *
+     * @return Collection<int, Collection<int, Asistencia>>
+     */
+    private function marcasPorEmpleado(Destajo $destajo): Collection
+    {
+        return Asistencia::query()
+            ->where('destajo_id', $destajo->id)
+            ->get(['grupo_empleado_id', 'fecha', 'estado'])
+            ->reject(fn (Asistencia $a) => $a->fecha->dayOfWeekIso === 7)
+            ->groupBy('grupo_empleado_id');
+    }
+
+    /**
+     * Empleados que esa semana no pisaron la línea: todos sus días marcados
+     * son falta o incapacidad. No aportaron al destajo del grupo y por eso no
+     * les toca parte del excedente; el sueldo base ya les salió en cero por
+     * los días. Quien tiene "no aplica" sí participa: cobra sólo destajo.
+     *
+     * @return array<int, bool>
+     */
+    public function ausentesTodaLaSemana(Destajo $destajo): array
+    {
+        return $this->marcasPorEmpleado($destajo)
+            ->map(fn (Collection $marcas): bool => $marcas->every(fn (Asistencia $a) => $a->estado->esAusencia()))
             ->all();
     }
 }

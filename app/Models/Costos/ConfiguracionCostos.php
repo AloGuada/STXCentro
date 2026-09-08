@@ -29,6 +29,7 @@ class ConfiguracionCostos extends Model
         'corte_dia',
         'corte_hora',
         'dia_comprobante_recepcion',
+        'tolerancia_recepcion',
         'gerente_compras_id',
     ];
 
@@ -44,6 +45,7 @@ class ConfiguracionCostos extends Model
             'corte_activo' => 'boolean',
             'corte_dia' => 'integer',
             'dia_comprobante_recepcion' => 'integer',
+            'tolerancia_recepcion' => 'float',
         ];
     }
 
@@ -85,6 +87,7 @@ class ConfiguracionCostos extends Model
             'corte_activo' => true,
             'corte_dia' => CarbonInterface::WEDNESDAY,
             'corte_hora' => '13:00',
+            'tolerancia_recepcion' => 0.01,
         ]);
     }
 

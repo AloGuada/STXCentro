@@ -11,7 +11,7 @@ import { FormattedDate } from '@/components/ui/formatted-date';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, SharedData } from '@/types';
-import type { CostosObraRubro, CostosSolicitudPago, CostosSolicitudPagoEstatus, Obra } from '@/types/models';
+import type { CostosObraRubro, CostosSolicitudPago, CostosSolicitudPagoEstatus, PresupuestoOption } from '@/types/models';
 import { SOLICITUD_PAGO_ESTATUS_COLORS, SOLICITUD_PAGO_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 
 type DocumentoPrevio = { label: string; url: string };
@@ -38,7 +38,7 @@ function calcularSobregiro(obraRubro?: CostosObraRubro): { monto: number; pct: n
 type Props = {
     solicitud: CostosSolicitudPago;
     documentosPrevios?: DocumentoPrevio[];
-    obras?: Obra[];
+    presupuestos?: PresupuestoOption[];
     obraRubros?: CostosObraRubro[];
 };
 
@@ -56,7 +56,7 @@ function getStepIndex(estatus: CostosSolicitudPagoEstatus): number {
     return steps.findIndex((s) => s.key === estatus);
 }
 
-export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [], obras = [], obraRubros = [] }: Props) {
+export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [], presupuestos = [], obraRubros = [] }: Props) {
     const { can } = useCan();
     // El operador del módulo ve el detalle completo; el solicitante que llega
     // por propiedad solo ve Datos y Documentos.
@@ -461,7 +461,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
                         open={showReasignarModal}
                         onClose={() => setShowReasignarModal(false)}
                         url={`/admin/costos/solicitudes-pago/${solicitud.id}/reasignar`}
-                        obras={obras}
+                        presupuestos={presupuestos}
                         obraRubros={obraRubros}
                         detallesActuales={solicitud.detalles ?? []}
                         totalBloqueado={solicitud.estatus === 'pagada'}
