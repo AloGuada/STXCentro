@@ -549,7 +549,7 @@ class FusionadorArticulos
         $articulos = collect([$sobreviviente])->merge($sobrantes)->keyBy('id');
 
         $existencias = Existencia::query()
-            ->with('almacen:id,clave,nombre')
+            ->with(['almacen:id,clave,nombre', 'ubicacion'])
             ->whereIn('articulo_id', $articulos->keys()->all())
             ->orderBy('almacen_id')
             ->orderBy('id')
@@ -557,23 +557,36 @@ class FusionadorArticulos
 
         return $existencias
             ->groupBy('almacen_id')
-            ->map(function (Collection $grupo, int $almacenId) use ($articulos): array {
+            ->map(function (Collection $grupo, int $almacenId) use ($articulos, $sobreviviente): array {
                 $antes = [];
+                $ubicaciones = [];
 
                 foreach ($grupo as $existencia) {
                     $codigo = (string) $articulos->get($existencia->articulo_id)?->codigo;
                     $antes[$codigo] = ($antes[$codigo] ?? 0) + (float) $existencia->cantidad;
+                    $ubicaciones[$codigo] = $existencia->ubicacion?->ruta();
                 }
 
                 $almacen = $grupo->first()->almacen;
+                $fusiona = $grupo->count() > 1;
+
+                // Un solo renglón por artículo y almacén: al sumar, sólo queda
+                // una ubicación. Se avisa cuando las dos existían y difieren,
+                // porque eso es material en dos lugares que el sistema ya no va
+                // a poder decir y alguien tiene que acomodar.
+                $distintas = collect($ubicaciones)->filter()->unique()->count() > 1;
+                $ubicacionQueQueda = $ubicaciones[(string) $sobreviviente->codigo] ?? collect($ubicaciones)->filter()->first();
 
                 return [
                     'almacen_id' => $almacenId,
                     'nombre' => $almacen?->nombre ?? (string) $almacenId,
                     'antes' => $antes,
+                    'ubicaciones' => $ubicaciones,
+                    'ubicacion_queda' => $ubicacionQueQueda,
+                    'ubicaciones_distintas' => $fusiona && $distintas,
                     'cantidad' => (float) $grupo->sum('cantidad'),
                     'valor' => (float) $grupo->sum('valor'),
-                    'fusiona' => $grupo->count() > 1,
+                    'fusiona' => $fusiona,
                 ];
             })
             ->values()

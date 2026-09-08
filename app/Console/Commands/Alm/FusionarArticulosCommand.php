@@ -97,14 +97,25 @@ class FusionarArticulosCommand extends Command
 
             if ($plan['almacenes'] !== []) {
                 $this->table(
-                    ['Almacén', 'Antes (por código)', 'Después', 'Valor'],
+                    ['Almacén', 'Antes (por código)', 'Ubicación', 'Después', 'Valor'],
                     array_map(fn (array $a): array => [
                         $a['nombre'],
                         collect($a['antes'])->map(fn (float $c, string $codigo): string => sprintf('%s %s', $codigo, $this->numero($c)))->implode(' + '),
+                        collect($a['ubicaciones'])->map(fn (?string $u, string $codigo): string => sprintf('%s: %s', $codigo, $u ?? '—'))->implode(' | '),
                         $this->numero($a['cantidad']).($a['fusiona'] ? '  (se suman)' : ''),
                         $this->numero($a['valor']),
                     ], $plan['almacenes']),
                 );
+
+                foreach ($plan['almacenes'] as $a) {
+                    if ($a['ubicaciones_distintas']) {
+                        $this->warn(sprintf(
+                            '  ⚠ %s: los dos renglones están en lugares distintos y sólo queda uno: "%s". El otro hay que acomodarlo físicamente o dejarlo anotado.',
+                            $a['nombre'],
+                            $a['ubicacion_queda'] ?? '—',
+                        ));
+                    }
+                }
             }
 
             $articulos += count($plan['sobrantes']);
