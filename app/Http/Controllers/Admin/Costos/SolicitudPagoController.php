@@ -29,6 +29,7 @@ use App\Models\User;
 use App\Services\Costos\ApartadoPresupuestal;
 use App\Services\Costos\ApprovalChainService;
 use App\Services\Costos\FirmasPdfBuilder;
+use App\Services\Costos\OpcionesPresupuestales;
 use App\Services\Costos\ReasignacionCentroCostos;
 use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -230,7 +231,7 @@ class SolicitudPagoController extends Controller
                 ->get(['id', 'razon_social', 'nombre_comercial'])
                 ->each->append('bloqueado_complemento'),
             'tipoSolicitudes' => TipoSolicitud::with('documentos')->orderBy('titulo')->get(),
-            'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
+            'presupuestos' => app(OpcionesPresupuestales::class)->presupuestos(),
             'obraRubros' => $this->obraRubrosParaSelector(),
             'usuarios' => \App\Models\Usuario::orderBy('name')->get(['id', 'name']),
         ]);
@@ -467,9 +468,7 @@ class SolicitudPagoController extends Controller
         return Inertia::render('admin/costos/solicitudes-pago/show', [
             'solicitud' => $solicitudPago,
             'documentosPrevios' => $this->documentosPrevios($solicitudPago),
-            'obras' => $puedeReasignar
-                ? Obra::orderBy('no')->get(['id', 'no', 'descripcion'])
-                : [],
+            'presupuestos' => $puedeReasignar ? app(OpcionesPresupuestales::class)->presupuestos() : [],
             'obraRubros' => $puedeReasignar ? $this->obraRubrosParaSelector() : [],
         ]);
     }
@@ -539,7 +538,7 @@ class SolicitudPagoController extends Controller
                 ->get(['id', 'razon_social', 'nombre_comercial'])
                 ->each->append('bloqueado_complemento'),
             'tipoSolicitudes' => TipoSolicitud::with('documentos')->orderBy('titulo')->get(),
-            'obras' => Obra::orderBy('no')->get(['id', 'no', 'descripcion']),
+            'presupuestos' => app(OpcionesPresupuestales::class)->presupuestos(),
             'obraRubros' => $this->obraRubrosParaSelector(),
             'usuarios' => \App\Models\Usuario::orderBy('name')->get(['id', 'name']),
         ]);

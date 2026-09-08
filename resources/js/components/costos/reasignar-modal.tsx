@@ -2,14 +2,14 @@ import { router } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import type { CostosObraRubro, CostosSolicitudPagoDetalle, Obra } from '@/types/models';
+import type { CostosObraRubro, CostosSolicitudPagoDetalle, PresupuestoOption } from '@/types/models';
 import { blankCentroCostoRow, type CentroCostoRow, DetallesCentroCostoGrid, filaCentroCostoTieneDatos } from './detalles-centro-costo-grid';
 
 type Props = {
     open: boolean;
     onClose: () => void;
     url: string;
-    obras: Obra[];
+    presupuestos: PresupuestoOption[];
     obraRubros: CostosObraRubro[];
     detallesActuales: CostosSolicitudPagoDetalle[];
     /**
@@ -23,7 +23,7 @@ type Props = {
 
 const fmtMoney = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
-export function ReasignarModal({ open, onClose, url, obras, obraRubros, detallesActuales, totalBloqueado = false, montoSolicitud }: Props) {
+export function ReasignarModal({ open, onClose, url, presupuestos, obraRubros, detallesActuales, totalBloqueado = false, montoSolicitud }: Props) {
     const [motivo, setMotivo] = useState('');
     const [detalles, setDetalles] = useState<CentroCostoRow[]>([]);
     const [processing, setProcessing] = useState(false);
@@ -35,7 +35,7 @@ export function ReasignarModal({ open, onClose, url, obras, obraRubros, detalles
             return;
         }
         const rows: CentroCostoRow[] = detallesActuales.map((d) => ({
-            obra_id: d.obra_rubro?.obra_id != null ? String(d.obra_rubro.obra_id) : '',
+            presupuesto_id: d.obra_rubro?.presupuesto_id != null ? String(d.obra_rubro.presupuesto_id) : '',
             obra_rubro_id: String(d.obra_rubro_id),
             monto: String(d.subtotal),
             concepto: d.concepto,
@@ -110,7 +110,7 @@ export function ReasignarModal({ open, onClose, url, obras, obraRubros, detalles
                     {totalBloqueado && ' La solicitud está pagada: la suma debe conservar el monto pagado.'}
                 </p>
 
-                <DetallesCentroCostoGrid obras={obras} obraRubros={obraRubros} detalles={detalles} onChange={setDetalles} disabled={processing} />
+                <DetallesCentroCostoGrid presupuestos={presupuestos} obraRubros={obraRubros} detalles={detalles} onChange={setDetalles} disabled={processing} />
 
                 {montoSolicitud != null && (
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
