@@ -34,7 +34,7 @@ import type {
     CostosObraRubro,
     CostosTipoSolicitud,
     Departamento,
-    Obra,
+    PresupuestoOption,
     Proveedor,
 } from '@/types/models';
 
@@ -68,7 +68,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 type DetalleForm = {
-    obra_id: string;
+    presupuesto_id: string;
     obra_rubro_id: string;
     concepto: string;
     cantidad: string;
@@ -80,7 +80,7 @@ type Props = {
     departamentos: Departamento[];
     proveedores: Proveedor[];
     tipoSolicitudes: CostosTipoSolicitud[];
-    obras: Obra[];
+    presupuestos: PresupuestoOption[];
     obraRubros: CostosObraRubro[];
     usuarios: { id: string; name: string }[];
 };
@@ -90,7 +90,7 @@ export default function SolicitudesPagoCreate({
     departamentos,
     proveedores,
     tipoSolicitudes,
-    obras,
+    presupuestos,
     obraRubros,
     usuarios,
 }: Props) {
@@ -165,7 +165,7 @@ export default function SolicitudesPagoCreate({
         setData('detalles', [
             ...data.detalles,
             {
-                obra_id: '',
+                presupuesto_id: '',
                 obra_rubro_id: '',
                 concepto: '',
                 cantidad: '1',
@@ -189,7 +189,7 @@ export default function SolicitudesPagoCreate({
     ) => {
         const updated = [...data.detalles];
         updated[index] = { ...updated[index], [field]: value };
-        if (field === 'obra_id') {
+        if (field === 'presupuesto_id') {
             updated[index].obra_rubro_id = '';
         }
         setData('detalles', updated);
@@ -272,8 +272,11 @@ export default function SolicitudesPagoCreate({
 
     const esCerrado = (or: CostosObraRubro) => or.presupuesto?.estatus === 'cerrado';
 
-    const obrasVisibles = obras.filter(
-        (o) => incluirCerradas || o.estatus !== 'cerrada',
+    // El presupuesto puede colgar de un proyecto, una obra o una partida; los
+    // centros de costos se filtran por presupuesto, no por obra, o los de
+    // proyecto y partida (sin obra_id) nunca aparecerían.
+    const presupuestosVisibles = presupuestos.filter(
+        (p) => incluirCerradas || !p.cerrado,
     );
 
     const formatMoney = (n: number) =>
@@ -816,7 +819,7 @@ export default function SolicitudesPagoCreate({
                                                         #
                                                     </th>
                                                     <th className="min-w-[180px]">
-                                                        Obra
+                                                        Presupuesto
                                                     </th>
                                                     <th className="min-w-[220px]">
                                                         Centro de Costos
@@ -854,26 +857,26 @@ export default function SolicitudesPagoCreate({
                                                                     <td>
                                                                         <SearchSelect
                                                                             value={
-                                                                                det.obra_id
+                                                                                det.presupuesto_id
                                                                             }
                                                                             onValueChange={(
                                                                                 v,
                                                                             ) =>
                                                                                 updateDetalle(
                                                                                     index,
-                                                                                    'obra_id',
+                                                                                    'presupuesto_id',
                                                                                     v,
                                                                                 )
                                                                             }
-                                                                            placeholder="Buscar obra..."
-                                                                            options={obrasVisibles.map(
+                                                                            placeholder="Buscar presupuesto..."
+                                                                            options={presupuestosVisibles.map(
                                                                                 (
-                                                                                    o,
+                                                                                    p,
                                                                                 ) => ({
                                                                                     value: String(
-                                                                                        o.id,
+                                                                                        p.id,
                                                                                     ),
-                                                                                    label: `${o.no} - ${o.descripcion}${o.estatus === 'cerrada' ? ' (Cerrada)' : ''}`,
+                                                                                    label: `${p.label}${p.cerrado ? ' (Cerrado)' : ''}`,
                                                                                 }),
                                                                             )}
                                                                         />
@@ -893,21 +896,21 @@ export default function SolicitudesPagoCreate({
                                                                                 )
                                                                             }
                                                                             placeholder={
-                                                                                det.obra_id
+                                                                                det.presupuesto_id
                                                                                     ? 'Buscar centro de costos...'
-                                                                                    : 'Seleccione obra primero'
+                                                                                    : 'Seleccione presupuesto primero'
                                                                             }
                                                                             disabled={
-                                                                                !det.obra_id
+                                                                                !det.presupuesto_id
                                                                             }
                                                                             options={obraRubros
                                                                                 .filter(
                                                                                     (
                                                                                         or,
                                                                                     ) =>
-                                                                                        or.obra_id ===
+                                                                                        or.presupuesto_id ===
                                                                                             Number(
-                                                                                                det.obra_id,
+                                                                                                det.presupuesto_id,
                                                                                             ) &&
                                                                                         (incluirCerradas ||
                                                                                             !esCerrado(

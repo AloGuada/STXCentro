@@ -1420,22 +1420,7 @@ class RequisicionController extends Controller
      */
     private function presupuestosOptions(): \Illuminate\Support\Collection
     {
-        return Presupuesto::with('presupuestable')
-            ->get()
-            ->map(function (Presupuesto $p) {
-                // OP y descripción internas del presupuesto; cada una cae a la
-                // de cobranza (número/descripción del presupuestable) si falta.
-                $partes = array_filter([$p->opMostrar(), $p->descripcionMostrar()]);
-                $label = implode(' - ', $partes);
-
-                return [
-                    'id' => $p->id,
-                    'label' => $label !== '' ? $label : $p->nombreMostrar(),
-                    'cerrado' => $p->estaCerrado(),
-                ];
-            })
-            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
-            ->values();
+        return app(\App\Services\Costos\OpcionesPresupuestales::class)->presupuestos();
     }
 
     /**

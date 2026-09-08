@@ -1,10 +1,10 @@
 import { AlertTriangleIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SearchSelect } from '@/components/ui/search-select';
-import type { CostosObraRubro, Obra } from '@/types/models';
+import type { CostosObraRubro, PresupuestoOption } from '@/types/models';
 
 export type CentroCostoRow = {
-    obra_id: string;
+    presupuesto_id: string;
     obra_rubro_id: string;
     monto: string;
     /** Se preserva del detalle original; la grilla no lo edita. */
@@ -12,18 +12,18 @@ export type CentroCostoRow = {
 };
 
 export const blankCentroCostoRow = (): CentroCostoRow => ({
-    obra_id: '',
+    presupuesto_id: '',
     obra_rubro_id: '',
     monto: '',
 });
 
 export const filaCentroCostoTieneDatos = (d: CentroCostoRow): boolean =>
-    Boolean(d.obra_id || d.obra_rubro_id || d.monto);
+    Boolean(d.presupuesto_id || d.obra_rubro_id || d.monto);
 
 const fmtMoney = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
 type Props = {
-    obras: Obra[];
+    presupuestos: PresupuestoOption[];
     obraRubros: CostosObraRubro[];
     detalles: CentroCostoRow[];
     onChange: (detalles: CentroCostoRow[]) => void;
@@ -31,13 +31,15 @@ type Props = {
 };
 
 /**
- * Grilla controlada obra → centro de costos → monto, con hint de disponible y
+ * Grilla controlada presupuesto → centro de costos → monto, con hint de disponible y
  * auto-append de una fila vacía al final. Reutilizable en formularios de captura
  * y en el modal de reasignación.
  */
-export function DetallesCentroCostoGrid({ obras, obraRubros, detalles, onChange, disabled = false }: Props) {
-    const rubrosDeObra = (obraId: string) =>
-        obraId ? obraRubros.filter((or) => or.obra_id === Number(obraId)) : [];
+export function DetallesCentroCostoGrid({ presupuestos, obraRubros, detalles, onChange, disabled = false }: Props) {
+    // Por presupuesto, no por obra: los centros de costos de un proyecto o
+    // de una partida no tienen obra_id y por obra nunca aparecerían.
+    const rubrosDe = (presupuestoId: string) =>
+        presupuestoId ? obraRubros.filter((or) => or.presupuesto_id === Number(presupuestoId)) : [];
 
     const getDisponible = (obraRubroId: string) => {
         const or = obraRubros.find((r) => r.id === Number(obraRubroId));
@@ -54,8 +56,8 @@ export function DetallesCentroCostoGrid({ obras, obraRubros, detalles, onChange,
     const updateDetalle = (index: number, field: keyof CentroCostoRow, value: string) => {
         const updated = [...detalles];
         updated[index] = { ...updated[index], [field]: value };
-        // Cambiar la obra invalida el centro de costos elegido.
-        if (field === 'obra_id') {
+        // Cambiar el presupuesto invalida el centro de costos elegido.
+        if (field === 'presupuesto_id') {
             updated[index].obra_rubro_id = '';
         }
         // Al usar la última fila, deja una vacía debajo para seguir capturando.
@@ -83,7 +85,7 @@ export function DetallesCentroCostoGrid({ obras, obraRubros, detalles, onChange,
                     <thead>
                         <tr>
                             <th className="w-8 text-center">#</th>
-                            <th className="min-w-[160px]">Obra</th>
+                            <th className="min-w-[160px]">Presupuesto</th>
                             <th className="min-w-[220px]">Centro de Costos</th>
                             <th className="w-40 text-right">Monto</th>
                             <th className="w-10"></th>
@@ -100,13 +102,13 @@ export function DetallesCentroCostoGrid({ obras, obraRubros, detalles, onChange,
                                     <td className="text-center text-base-content/50">{index + 1}</td>
                                     <td>
                                         <SearchSelect
-                                            value={det.obra_id}
-                                            onValueChange={(v) => updateDetalle(index, 'obra_id', v)}
-                                            placeholder="Buscar obra..."
+                                            value={det.presupuesto_id}
+                                            onValueChange={(v) => updateDetalle(index, 'presupuesto_id', v)}
+                                            placeholder="Buscar presupuesto..."
                                             disabled={disabled}
-                                            options={obras.map((o) => ({
-                                                value: String(o.id),
-                                                label: `${o.no} - ${o.descripcion}`,
+                                            options={presupuestos.map((p) => ({
+                                                value: String(p.id),
+                                                label: `${p.label}${p.cerrado ? ' (Cerrado)' : ''}`,
                                             }))}
                                         />
                                     </td>
@@ -114,9 +116,9 @@ export function DetallesCentroCostoGrid({ obras, obraRubros, detalles, onChange,
                                         <SearchSelect
                                             value={det.obra_rubro_id}
                                             onValueChange={(v) => updateDetalle(index, 'obra_rubro_id', v)}
-                                            placeholder={det.obra_id ? 'Buscar centro de costos...' : 'Seleccione obra primero'}
-                                            disabled={disabled || !det.obra_id}
-                                            options={rubrosDeObra(det.obra_id).map((or) => ({
+                                            placeholder={det.presupuesto_id ? 'Buscar centro de costos...' : 'Seleccione presupuesto primero'}
+                                            disabled={disabled || !det.presupuesto_id}
+                                            options={rubrosDe(det.presupuesto_id).map((or) => ({
                                                 value: String(or.id),
                                                 label: `${or.rubro?.codigo ?? ''} - ${or.rubro?.descripcion ?? ''}`,
                                                 danger: Number(or.presupuestado) - Number(or.acumulado) <= 0,
