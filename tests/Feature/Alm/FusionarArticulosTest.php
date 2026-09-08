@@ -306,12 +306,69 @@ describe('la comprobación aritmética', function () {
         // La puerta se prueba sola: un "antes" que no es el de la base tiene que
         // reventar, que es lo que pasaría si la fusión creara o perdiera saldo.
         $comprobar = new ReflectionMethod($fusionador, 'comprobar');
+        $foto = fn (array $almacenes): array => ['almacenes' => $almacenes, 'asignaciones' => []];
 
-        expect(fn () => $comprobar->invoke($fusionador, $planes[0], ['cantidad' => 999.0, 'valor' => 100.0]))
+        expect(fn () => $comprobar->invoke($fusionador, $planes[0], $foto([$almacen->id => ['cantidad' => 999.0, 'valor' => 100.0]])))
             ->toThrow(RuntimeException::class, 'no cuadra');
 
         $this->artisan('alm:fusionar-articulos', ['csv' => $csv, '--force' => true])->assertSuccessful();
 
         expect((float) DB::table('alm_existencias')->whereIn('articulo_id', [$s->id, $x->id])->sum('cantidad'))->toBe(5.0);
+    });
+
+    it('compara almacén por almacén: dos errores que se cancelan en el total no pasan', function () {
+        $almacenA = Almacen::factory()->create();
+        $almacenB = Almacen::factory()->create();
+        $s = Articulo::factory()->create(['codigo' => 'ART-00001']);
+        $x = Articulo::factory()->create(['codigo' => 'ART-00002']);
+        existenciaDe($s, $almacenA, 10, 5);
+        existenciaDe($x, $almacenB, 4, 5);
+
+        $csv = csvFusion([['g', 'ART-00001', 'SI'], ['g', 'ART-00002', '']]);
+        $fusionador = app(FusionadorArticulos::class);
+        $planes = $fusionador->planear($fusionador->gruposDesdeCsv($csv));
+        $comprobar = new ReflectionMethod($fusionador, 'comprobar');
+
+        // Mismo total (14 piezas, $70) pero repartido al revés entre A y B: la
+        // suma global lo daría por bueno y el almacén A tendría 6 de más.
+        $alReves = ['almacenes' => [
+            $almacenA->id => ['cantidad' => 4.0, 'valor' => 20.0],
+            $almacenB->id => ['cantidad' => 10.0, 'valor' => 50.0],
+        ], 'asignaciones' => []];
+
+        expect(fn () => $comprobar->invoke($fusionador, $planes[0], $alReves))
+            ->toThrow(RuntimeException::class, 'almacén');
+    });
+
+    it('compara las asignaciones por obra, no sólo el saldo', function () {
+        $almacen = Almacen::factory()->create();
+        $obra = Obra::factory()->create();
+        $otraObra = Obra::factory()->create();
+        $s = Articulo::factory()->create(['codigo' => 'ART-00001']);
+        $x = Articulo::factory()->create(['codigo' => 'ART-00002']);
+        $existenciaS = existenciaDe($s, $almacen, 10, 5);
+        $existenciaX = existenciaDe($x, $almacen, 4, 5);
+        Asignacion::factory()->de(3)->create(['existencia_id' => $existenciaS->id, 'obra_id' => $obra->id]);
+        Asignacion::factory()->de(4)->create(['existencia_id' => $existenciaX->id, 'obra_id' => $otraObra->id]);
+
+        $csv = csvFusion([['g', 'ART-00001', 'SI'], ['g', 'ART-00002', '']]);
+        $fusionador = app(FusionadorArticulos::class);
+        $planes = $fusionador->planear($fusionador->gruposDesdeCsv($csv));
+        $comprobar = new ReflectionMethod($fusionador, 'comprobar');
+
+        // Saldo del almacén intacto, pero las 7 piezas asignadas cargadas a la
+        // obra equivocada: también revienta.
+        $cambiadas = ['almacenes' => [$almacen->id => ['cantidad' => 14.0, 'valor' => 70.0]], 'asignaciones' => [
+            "{$almacen->id}/{$obra->id}" => ['cantidad' => 7.0, 'valor' => 0.0],
+        ]];
+
+        expect(fn () => $comprobar->invoke($fusionador, $planes[0], $cambiadas))
+            ->toThrow(RuntimeException::class, 'asignación');
+
+        // Y la fusión real sí pasa, con cada obra en su lugar.
+        $this->artisan('alm:fusionar-articulos', ['csv' => $csv, '--force' => true])->assertSuccessful();
+
+        expect((float) Asignacion::query()->where('existencia_id', $existenciaS->id)->where('obra_id', $obra->id)->value('cantidad'))->toBe(3.0)
+            ->and((float) Asignacion::query()->where('existencia_id', $existenciaS->id)->where('obra_id', $otraObra->id)->value('cantidad'))->toBe(4.0);
     });
 });

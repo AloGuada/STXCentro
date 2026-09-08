@@ -422,44 +422,91 @@ class FusionadorArticulos
     }
 
     /**
-     * La puerta: ni una pieza ni un peso de más o de menos en el grupo. Es
-     * aritmética, no criterio; si no da, la excepción revierte la transacción
-     * del llamador.
+     * La puerta: ni una pieza ni un peso de más o de menos en el grupo, **en
+     * ningún almacén ni en ninguna obra**. Es aritmética, no criterio; si no
+     * da, la excepción revierte la transacción del llamador.
+     *
+     * Se compara almacén por almacén y asignación por asignación, no el total
+     * del grupo: dos errores de signo contrario se cancelarían en la suma
+     * global y dejarían la existencia mal repartida sin que nadie lo viera.
+     * Además, después de fusionar no puede quedar renglón de ningún sobrante
+     * y el sobreviviente tiene a lo más uno por almacén.
      *
      * @param  Plan  $plan
-     * @param  array{cantidad: float, valor: float}  $antes
+     * @param  Foto  $antes
      */
     private function comprobar(array $plan, array $antes): void
     {
         $despues = $this->totalesDe($plan);
+        $grupo = $plan['grupo'];
 
-        if (abs($antes['cantidad'] - $despues['cantidad']) > self::EPSILON
-            || abs($antes['valor'] - $despues['valor']) > self::EPSILON) {
-            throw new RuntimeException(sprintf(
-                'Grupo "%s": el saldo no cuadra tras la fusión (cantidad %.4f → %.4f, valor %.4f → %.4f). Se revierte todo.',
-                $plan['grupo'],
-                $antes['cantidad'],
-                $despues['cantidad'],
-                $antes['valor'],
-                $despues['valor'],
-            ));
+        foreach (['almacenes' => 'almacén', 'asignaciones' => 'asignación almacén/obra'] as $nivel => $etiqueta) {
+            $claves = array_unique([...array_keys($antes[$nivel]), ...array_keys($despues[$nivel])]);
+
+            foreach ($claves as $clave) {
+                $a = $antes[$nivel][$clave] ?? ['cantidad' => 0.0, 'valor' => 0.0];
+                $d = $despues[$nivel][$clave] ?? ['cantidad' => 0.0, 'valor' => 0.0];
+
+                if (abs($a['cantidad'] - $d['cantidad']) > self::EPSILON || abs($a['valor'] - $d['valor']) > self::EPSILON) {
+                    throw new RuntimeException(sprintf(
+                        'Grupo "%s": el saldo no cuadra tras la fusión en %s %s (cantidad %.4f → %.4f, valor %.4f → %.4f). Se revierte todo.',
+                        $grupo, $etiqueta, $clave, $a['cantidad'], $d['cantidad'], $a['valor'], $d['valor'],
+                    ));
+                }
+            }
+        }
+
+        $idsSobrantes = $plan['sobrantes']->pluck('id')->all();
+        $huerfanas = DB::table('alm_existencias')->whereIn('articulo_id', $idsSobrantes)->count();
+
+        if ($huerfanas > 0) {
+            throw new RuntimeException("Grupo \"{$grupo}\": quedaron {$huerfanas} existencias apuntando a un sobrante. Se revierte todo.");
+        }
+
+        $repetidas = DB::table('alm_existencias')
+            ->where('articulo_id', $plan['sobreviviente']->id)
+            ->groupBy('almacen_id')
+            ->havingRaw('COUNT(*) > 1')
+            ->count();
+
+        if ($repetidas > 0) {
+            throw new RuntimeException("Grupo \"{$grupo}\": el sobreviviente quedó con más de una existencia en {$repetidas} almacén(es). Se revierte todo.");
         }
     }
 
     /**
+     * La foto del grupo: cantidad y valor por almacén, y cantidad asignada
+     * por (almacén, obra). El valor de la asignación no existe como columna;
+     * se lleva en cero para que las dos tablas se comparen con el mismo
+     * código.
+     *
+     * @phpstan-type Foto array{almacenes: array<int, array{cantidad: float, valor: float}>, asignaciones: array<string, array{cantidad: float, valor: float}>}
+     *
      * @param  Plan  $plan
-     * @return array{cantidad: float, valor: float}
+     * @return Foto
      */
     private function totalesDe(array $plan): array
     {
         $ids = [$plan['sobreviviente']->id, ...$plan['sobrantes']->pluck('id')->all()];
 
-        $fila = DB::table('alm_existencias')
+        $almacenes = DB::table('alm_existencias')
             ->whereIn('articulo_id', $ids)
-            ->selectRaw('COALESCE(SUM(cantidad), 0) AS cantidad, COALESCE(SUM(valor), 0) AS valor')
-            ->first();
+            ->groupBy('almacen_id')
+            ->selectRaw('almacen_id, COALESCE(SUM(cantidad), 0) AS cantidad, COALESCE(SUM(valor), 0) AS valor')
+            ->get()
+            ->mapWithKeys(fn ($f): array => [(int) $f->almacen_id => ['cantidad' => (float) $f->cantidad, 'valor' => (float) $f->valor]])
+            ->all();
 
-        return ['cantidad' => (float) $fila->cantidad, 'valor' => (float) $fila->valor];
+        $asignaciones = DB::table('alm_asignaciones as s')
+            ->join('alm_existencias as e', 'e.id', '=', 's.existencia_id')
+            ->whereIn('e.articulo_id', $ids)
+            ->groupBy('e.almacen_id', 's.obra_id')
+            ->selectRaw('e.almacen_id, s.obra_id, COALESCE(SUM(s.cantidad), 0) AS cantidad')
+            ->get()
+            ->mapWithKeys(fn ($f): array => ["{$f->almacen_id}/{$f->obra_id}" => ['cantidad' => (float) $f->cantidad, 'valor' => 0.0]])
+            ->all();
+
+        return ['almacenes' => $almacenes, 'asignaciones' => $asignaciones];
     }
 
     /**
