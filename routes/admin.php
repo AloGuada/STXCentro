@@ -453,9 +453,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereNumber('existencia')
             ->middleware('permission:alm.ubicaciones.editar')
             ->name('existencias.ubicacion');
-        // Inventarios ciclicos: el programa reparte el almacen en hojas por dia
-        // y cada hoja se imprime para caminarla. Capturar y cerrar (que genera
-        // el ajuste) es la siguiente rebanada.
+        // Inventarios ciclicos: el programa reparte el almacen en hojas por dia,
+        // cada hoja se imprime para caminarla, se captura lo contado y al cerrar
+        // genera el ajuste. Capturar y cerrar son permisos distintos: contar y
+        // autorizar la correccion no son lo mismo.
         Route::get('conteos', [AlmConteoController::class, 'index'])
             ->middleware('permission:alm.conteos.ver')
             ->name('conteos.index');
@@ -470,6 +471,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereNumber('conteo')
             ->middleware('permission:alm.conteos.ver')
             ->name('conteos.show');
+        Route::patch('conteos/{conteo}/captura', [AlmConteoController::class, 'capturar'])
+            ->whereNumber('conteo')
+            ->middleware('permission:alm.conteos.capturar')
+            ->name('conteos.capturar');
+        Route::post('conteos/{conteo}/cerrar', [AlmConteoController::class, 'cerrar'])
+            ->whereNumber('conteo')
+            ->middleware('permission:alm.conteos.cerrar')
+            ->name('conteos.cerrar');
         Route::get('etiquetas', [AlmVistasController::class, 'etiquetas'])
             ->middleware('permission:alm.etiquetas.ver')
             ->name('etiquetas.index');

@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Admin\Alm;
 
 use App\Enums\Alm\ConteoEstatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Alm\ConteoCapturaRequest;
+use App\Http\Requests\Admin\Alm\ConteoCierreRequest;
 use App\Http\Requests\Admin\Alm\ConteoProgramaStoreRequest;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Conteo;
 use App\Models\Alm\ConteoDetalle;
 use App\Models\Alm\ConteoPrograma;
 use App\Services\Alm\GeneradorProgramaConteo;
+use App\Services\Alm\RegistradorConteo;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -24,14 +27,18 @@ use InvalidArgumentException;
  * Inventarios cíclicos: contar un pedazo del almacén cada día en vez de parar
  * todo un fin de semana.
  *
- * Esta pantalla **programa y reparte**: el modal genera las hojas y el show
- * enseña e imprime la lista que toca ese día. La captura de lo contado y el
- * cierre que genera el ajuste son la siguiente rebanada; los renglones ya
- * tienen dónde guardarlo.
+ * Esta pantalla **programa, reparte, captura y cierra**: el modal genera las
+ * hojas, el show enseña e imprime la lista que toca ese día, recibe lo que se
+ * contó y, con todo contado, cierra generando el ajuste. El saldo del sistema
+ * se esconde hasta que la hoja está completa: un número a la vista es una
+ * respuesta sugerida.
  */
 class ConteoController extends Controller
 {
-    public function __construct(private readonly GeneradorProgramaConteo $generador) {}
+    public function __construct(
+        private readonly GeneradorProgramaConteo $generador,
+        private readonly RegistradorConteo $registrador,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -140,9 +147,20 @@ class ConteoController extends Controller
         return to_route('admin.alm.conteos.index', ['programa_id' => $programa->id])->with('success', $mensaje);
     }
 
+    /**
+     * El saldo del sistema sólo se enseña cuando ya no puede sugerir nada: con
+     * la hoja cerrada, o completa y a la vista de quien puede cerrarla, que es
+     * quien autoriza la corrección y necesita ver qué va a corregir.
+     */
     public function show(Request $request, Conteo $conteo): Response
     {
         abort_unless($conteo->almacen->esVisiblePara($request->user()), 403);
+
+        $user = $request->user();
+        $abierta = $conteo->estatus->abierto();
+        $puedeCerrar = $abierta && ($user?->can('alm.conteos.cerrar') ?? false);
+        $completa = ! $conteo->detalles()->whereNull('cantidad_contada')->exists();
+        $revelarSaldo = ! $abierta || ($completa && $puedeCerrar);
 
         $conteo->load([
             'almacen:id,clave,nombre',
@@ -169,8 +187,13 @@ class ConteoController extends Controller
                 'estatus' => $conteo->estatus->value,
                 'estatus_etiqueta' => $conteo->estatus->etiqueta(),
                 'vencido' => $conteo->vencido(),
+                'ajuste_id' => $conteo->ajuste?->id,
                 'ajuste_folio' => $conteo->ajuste?->folio,
                 'observaciones' => $conteo->observaciones,
+                'completa' => $completa,
+                'puede_capturar' => $abierta && ($user?->can('alm.conteos.capturar') ?? false),
+                'puede_cerrar' => $puedeCerrar,
+                'saldo_visible' => $revelarSaldo,
                 'renglones' => $conteo->detalles->map(fn (ConteoDetalle $d): array => [
                     'id' => $d->id,
                     'orden' => $d->orden,
@@ -180,11 +203,60 @@ class ConteoController extends Controller
                     'unidad' => $d->articulo?->unidad,
                     'clasificacion' => $d->articulo?->clasificacion_abc?->value,
                     'ubicacion' => $d->existencia?->ubicacion?->ruta(),
-                    'cantidad_sistema' => $d->cantidad_sistema === null ? null : (float) $d->cantidad_sistema,
+                    'cantidad_sistema' => $revelarSaldo && $d->cantidad_sistema !== null ? (float) $d->cantidad_sistema : null,
                     'cantidad_contada' => $d->cantidad_contada === null ? null : (float) $d->cantidad_contada,
+                    'observaciones' => $d->observaciones,
                 ])->values()->all(),
             ],
         ]);
+    }
+
+    /**
+     * Guarda lo contado. Se puede guardar a medias y volver: la hoja se camina
+     * en varias vueltas y el saldo se sella renglón por renglón al capturarlo.
+     */
+    public function capturar(ConteoCapturaRequest $request, Conteo $conteo): RedirectResponse
+    {
+        abort_unless($conteo->almacen->esVisiblePara($request->user()), 403);
+
+        try {
+            $this->registrador->capturar(
+                $conteo,
+                $request->validated('renglones'),
+                $request->user()?->getAuthIdentifier(),
+            );
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['renglones' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Captura guardada.');
+    }
+
+    /**
+     * Cierra la hoja y levanta el ajuste. Quien cierra autoriza la corrección:
+     * por eso es un permiso aparte de capturar.
+     */
+    public function cerrar(ConteoCierreRequest $request, Conteo $conteo): RedirectResponse
+    {
+        abort_unless($conteo->almacen->esVisiblePara($request->user()), 403);
+
+        try {
+            $conteo = $this->registrador->cerrar(
+                $conteo,
+                $request->user()->getAuthIdentifier(),
+                $request->input('observaciones'),
+            );
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['cierre' => $e->getMessage()]);
+        }
+
+        $ajuste = $conteo->ajuste;
+        $conDiferencia = $ajuste?->detalles()->get()->filter(fn ($d): bool => abs((float) $d->diferencia) > 0)->count() ?? 0;
+        $mensaje = $conDiferencia === 0
+            ? "Conteo {$conteo->folio} cerrado sin diferencias. Quedó el acta {$ajuste?->folio}."
+            : "Conteo {$conteo->folio} cerrado. El ajuste {$ajuste?->folio} corrigió {$conDiferencia} renglones.";
+
+        return back()->with('success', $mensaje);
     }
 
     /**
