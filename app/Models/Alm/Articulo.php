@@ -4,7 +4,10 @@ namespace App\Models\Alm;
 
 use App\Enums\Alm\ClasificacionAbc;
 use App\Enums\Alm\ProductoTipo;
+use App\Exceptions\Catalogo\ItemDuplicadoException;
+use App\Models\Concerns\CaraDeItem;
 use App\Models\Costos\Producto;
+use App\Models\Item;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,11 +19,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Lo que Almacén guarda: un artículo con su área, su clasificación y su lugar
  * en la bodega.
  *
- * Es el catálogo propio del módulo, y su relación con Compras es una referencia
- * anulable, no una identidad. Un artículo puede existir sin producto —material
- * real que todavía no tiene identidad de compra, típicamente el que entró por la
- * carga inicial de un almacén— y ligarlo después es llenar una columna que
- * también se puede volver a vaciar.
+ * Es la cara de Almacén del catálogo maestro (`Item`): la identidad —código,
+ * descripción, unidad— vive en el item, y aquí lo que sólo le importa a la
+ * bodega. `producto_id` es la cara de Compras de ese mismo item; puede ser null
+ * mientras Compras no haya comprado nunca ese insumo, pero ya no es algo que
+ * se "ligue" a mano: cuando el producto nace con la misma descripción, el
+ * maestro los junta.
  *
  * **Existir aquí es llevar kardex.** No hay bandera que lo diga: un servicio o
  * un flete simplemente no tiene artículo, y lo que Compras teclea al vuelo
@@ -31,6 +35,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Articulo extends Model
 {
+    use CaraDeItem {
+        resolverItemAlNacer as resolverItemPorDescripcion;
+    }
     use HasFactory;
 
     protected $table = 'alm_articulos';
@@ -39,6 +46,7 @@ class Articulo extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'item_id',
         'producto_id',
         'codigo',
         'codigo_barras',
@@ -55,6 +63,52 @@ class Articulo extends Model
         'activo',
         'creado_por',
     ];
+
+    protected static function nombreDeCara(): string
+    {
+        return 'articulo';
+    }
+
+    /**
+     * Cuando el artículo nace ya sabiendo su producto —la recepción de una
+     * orden, el alta manual— el item es el del producto y no hay nada que
+     * buscar. Cuando nace sin producto —la carga inicial de un almacén— se
+     * resuelve por descripción, y si el maestro ya tenía ese insumo con su
+     * producto, el artículo nace ligado a él: ésa es la liga que antes era
+     * manual y opcional.
+     */
+    protected function resolverItemAlNacer(): Item
+    {
+        if ($this->producto_id !== null) {
+            $item = Producto::query()->findOrFail($this->producto_id)->item()->firstOrFail();
+
+            if ($item->articulo()->exists()) {
+                throw new ItemDuplicadoException($item, 'el artículo');
+            }
+
+            // Si Almacén lo bautiza distinto de como lo tecleó Compras, manda
+            // Almacén: es quien tiene el material enfrente. Sube al maestro y
+            // de ahí baja al producto, para que siga habiendo un solo nombre.
+            $cambios = array_filter([
+                'descripcion' => trim((string) $this->descripcion),
+                'unidad' => $this->unidad,
+            ], fn ($valor, string $campo): bool => $valor !== null && $valor !== '' && $valor !== $item->{$campo}, ARRAY_FILTER_USE_BOTH);
+
+            if ($cambios !== []) {
+                $item->update($cambios);
+            }
+
+            $this->codigo ??= $item->codigo;
+
+            return $item;
+        }
+
+        $item = $this->resolverItemPorDescripcion();
+
+        $this->producto_id = $item->producto()->value('id');
+
+        return $item;
+    }
 
     /**
      * @return array<string, string>

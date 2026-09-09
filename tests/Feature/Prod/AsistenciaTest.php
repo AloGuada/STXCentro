@@ -239,12 +239,20 @@ describe('bloqueo del cierre', function () {
 });
 
 describe('estados de asistencia', function () {
-    test('asistencia, vacaciones e incapacidad cuentan como dia cubierto', function () {
+    test('asistencia y vacaciones cuentan como dia cubierto; incapacidad y falta no', function () {
+        // La incapacidad la paga el IMSS, no el destajo (correccion 2026-09-08).
         expect(EstadoAsistencia::Asistencia->valorEnDias())->toBe(1.0)
             ->and(EstadoAsistencia::Vacaciones->valorEnDias())->toBe(1.0)
-            ->and(EstadoAsistencia::Incapacidad->valorEnDias())->toBe(1.0)
+            ->and(EstadoAsistencia::Incapacidad->valorEnDias())->toBe(0.0)
             ->and(EstadoAsistencia::Falta->valorEnDias())->toBe(0.0)
             ->and(EstadoAsistencia::NoAplica->valorEnDias())->toBe(0.0);
+    });
+
+    test('falta e incapacidad son ausencias; vacaciones y no aplica no', function () {
+        expect(EstadoAsistencia::Falta->esAusencia())->toBeTrue()
+            ->and(EstadoAsistencia::Incapacidad->esAusencia())->toBeTrue()
+            ->and(EstadoAsistencia::Vacaciones->esAusencia())->toBeFalse()
+            ->and(EstadoAsistencia::NoAplica->esAusencia())->toBeFalse();
     });
 
     test('solo el no aplica anula el sueldo base de la semana', function () {

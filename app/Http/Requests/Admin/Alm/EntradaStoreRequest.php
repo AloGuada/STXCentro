@@ -83,8 +83,8 @@ class EntradaStoreRequest extends FormRequest
                 // nadie compró no tiene con qué documentarse.
                 Rule::exists('alm_articulos', 'id')->whereNotNull('producto_id'),
             ],
-            'detalles.*.cantidad_recibida' => ['required', 'numeric', 'gt:0'],
-            'detalles.*.precio_unitario' => [Rule::requiredIf(! $conOrden), 'nullable', 'numeric', 'min:0'],
+            'detalles.*.cantidad_recibida' => ['required', 'numeric', 'gt:0', 'decimal:0,4'],
+            'detalles.*.precio_unitario' => [Rule::requiredIf(! $conOrden), 'nullable', 'numeric', 'min:0', 'decimal:0,4'],
             'detalles.*.observaciones' => ['nullable', 'string', 'max:500'],
         ];
     }

@@ -13,6 +13,7 @@ use App\Models\Alm\Ubicacion;
 use App\Models\Usuario;
 use App\Services\Alm\GeneradorCodigoArticulo;
 use App\Services\Alm\RegistradorPiezas;
+use App\Services\Catalogo\CatalogoMaestro;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -107,6 +108,7 @@ abstract class CargaInicialActivosSeeder extends Seeder
         return DB::transaction(function () use ($almacen, $autoriza): array {
             $areas = Area::query()->pluck('id', 'descripcion');
             $generador = app(GeneradorCodigoArticulo::class);
+            $maestro = app(CatalogoMaestro::class);
             $registrador = app(RegistradorPiezas::class);
             $piezas = 0;
 
@@ -115,15 +117,24 @@ abstract class CargaInicialActivosSeeder extends Seeder
                     throw new RuntimeException("El área \"{$articulo['area']}\" no está en el catálogo; corre primero el seeder de catálogo.");
                 }
 
-                $codigo = $generador->siguiente();
+                // El maestro decide si esto es nuevo: el mismo modelo de
+                // esmeril en dos almacenes es un artículo con piezas en dos
+                // bodegas, no dos artículos.
+                $item = $maestro->buscarOCrear($articulo['descripcion'], $articulo['unidad'], null, $autoriza->getKey());
 
-                // Sin `producto_id`: el padron de un almacen nace suelto,
-                // igual que su inventario. Emparejar es despues.
-                $nuevo = Articulo::create([
+                if ($item->codigo === null) {
+                    $item->update(['codigo' => $generador->siguiente()]);
+                }
+
+                $codigo = $item->codigo;
+
+                $nuevo = $item->articulo()->first() ?? Articulo::create([
+                    'item_id' => $item->id,
+                    'producto_id' => $item->producto()->value('id'),
                     'codigo' => $codigo,
                     'codigo_barras' => $codigo,
-                    'descripcion' => $articulo['descripcion'],
-                    'unidad' => $articulo['unidad'],
+                    'descripcion' => $item->descripcion,
+                    'unidad' => $item->unidad,
                     'area_id' => $articulo['area'] === null ? null : $areas[$articulo['area']],
                     'clasificacion_abc' => $articulo['abc'],
                     'stock_minimo' => null,

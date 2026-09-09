@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin\Alm;
 
 use App\Enums\Alm\ClasificacionAbc;
 use App\Enums\Alm\ProductoTipo;
+use App\Rules\DescripcionUnicaEnCatalogo;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,7 +25,7 @@ class ArticuloStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'descripcion' => ['required', 'string', 'max:255'],
+            'descripcion' => ['required', 'string', 'max:255', $this->descripcionUnica()],
             'unidad' => ['required', 'string', 'max:20'],
             'idsteelex' => ['nullable', 'string', 'max:150'],
             'area_id' => ['nullable', 'integer', 'exists:alm_areas,id'],
@@ -36,6 +37,15 @@ class ArticuloStoreRequest extends FormRequest
             'stock_minimo' => ['nullable', 'numeric', 'min:0'],
             'imagen' => ['nullable', 'image', 'max:5120'],
         ];
+    }
+
+    /**
+     * En el alta sólo estorba el que ya tiene artículo; si el insumo existe
+     * como producto de Compras, el alta es su cara de Almacén y se liga sola.
+     */
+    protected function descripcionUnica(): DescripcionUnicaEnCatalogo
+    {
+        return DescripcionUnicaEnCatalogo::paraAlta('articulo');
     }
 
     /**

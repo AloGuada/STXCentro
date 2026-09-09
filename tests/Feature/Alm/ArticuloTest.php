@@ -155,10 +155,11 @@ describe('clasificacion', function () {
             ->and($producto->unidad)->toBe('PZA');
     });
 
-    it('editar el articulo no le cambia nada al producto de Compras', function () {
-        // Es la regla que se rompio con el seeder: Almacen no reescribe en
-        // silencio el renglon con el que se esta cotizando. Si acaban diciendo
-        // cosas distintas, eso es informacion para quien empareja.
+    it('editar el articulo renombra el insumo tambien en Compras', function () {
+        // Es un solo insumo con un solo nombre: la correccion sube al maestro
+        // y de ahi baja al producto con el que se esta cotizando. Antes cada
+        // lado guardaba su texto y que difirieran era "informacion"; en la
+        // practica era deriva.
         $producto = Producto::factory()->create(['descripcion' => 'DISCO CORTE', 'unidad' => 'PZA']);
         $articulo = Articulo::factory()->create([
             'producto_id' => $producto->id,
@@ -172,8 +173,9 @@ describe('clasificacion', function () {
         );
 
         expect($articulo->refresh()->descripcion)->toBe('Disco de corte 4 1/2 ultra fino')
-            ->and($producto->refresh()->descripcion)->toBe('DISCO CORTE')
-            ->and($producto->unidad)->toBe('PZA');
+            ->and($producto->refresh()->descripcion)->toBe('Disco de corte 4 1/2 ultra fino')
+            ->and($producto->unidad)->toBe('CTO')
+            ->and($articulo->item->descripcion)->toBe('Disco de corte 4 1/2 ultra fino');
     });
 
     it('guarda el area del catalogo', function () {

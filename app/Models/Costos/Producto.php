@@ -7,6 +7,7 @@ use App\Enums\Alm\ProductoTipo;
 use App\Models\Alm\Area;
 use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
+use App\Models\Concerns\CaraDeItem;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,17 +17,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * Producto del catálogo de Costos (código + descripción + unidad). Lo
- * administran Compras y Almacén; se referencia desde las partidas de
- * requisición/OC y acumula un histórico de precios desde las cotizaciones.
+ * La cara de Compras del catálogo maestro (`Item`): con la que se cotiza y se
+ * compra. Se referencia desde las partidas de requisición/OC y acumula un
+ * histórico de precios desde las cotizaciones. Código, descripción y unidad
+ * son copias del item; la identidad y la unicidad viven allá.
  *
  * @use HasFactory<\Database\Factories\Costos\ProductoFactory>
  */
 class Producto extends Model
 {
-    use HasFactory;
+    use CaraDeItem, HasFactory;
 
     protected $table = 'costos_productos';
+
+    protected static function nombreDeCara(): string
+    {
+        return 'producto';
+    }
 
     /**
      * En qué se mide y en qué se compra. Es una lista y no un catálogo con tabla
@@ -41,6 +48,7 @@ class Producto extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'item_id',
         'codigo',
         'codigo_barras',
         'descripcion',

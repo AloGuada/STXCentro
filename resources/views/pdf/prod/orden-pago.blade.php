@@ -31,6 +31,10 @@
         .text-right { text-align: right; }
         .text-center { text-align: center; }
         .total-row td { font-weight: bold; background-color: #f0f0f0; }
+        .obra-row td { font-weight: bold; background-color: #d9d9d9; text-transform: uppercase; }
+        .tipo-row td { font-weight: bold; background-color: #ececec; padding-left: 12px; }
+        .subtotal-row td { font-weight: bold; font-style: italic; background-color: #f7f7f7; }
+        .obra-total-row td { font-weight: bold; background-color: #e4e4e4; }
         .empty-cell { color: #666; font-style: italic; text-align: center; }
 
         .cols { width: 100%; }
@@ -95,16 +99,16 @@
         </tr>
     </table>
 
-    {{-- Piezas fabricadas --}}
+    {{-- Piezas fabricadas: por obra, y dentro de cada obra por tipo de pieza,
+         con el subtotal de cada tipo y el de la obra. Un renglon por marca. --}}
     <div class="section-title">Piezas fabricadas</div>
     <table class="grid">
         <thead>
             <tr>
-                <th style="width: 10%;">Marca</th>
-                <th style="width: 6%;">Etapa</th>
-                <th style="width: 9%;">Proceso</th>
+                <th style="width: 11%;">Marca</th>
+                <th style="width: 7%;">Etapa</th>
+                <th style="width: 13%;">Proceso</th>
                 <th>Descripción</th>
-                <th style="width: 12%;">Obra</th>
                 <th style="width: 6%;">Pzs</th>
                 <th style="width: 5%;">%</th>
                 <th style="width: 8%;">Largo (mm)</th>
@@ -115,29 +119,54 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($g['piezas'] as $p)
+            @forelse($g['grupos_piezas'] as $ob)
+            <tr class="obra-row">
+                <td colspan="11">OBRA: {{ $ob['obra'] }}</td>
+            </tr>
+            @foreach($ob['tipos'] as $t)
+            <tr class="tipo-row">
+                <td colspan="11">{{ strtoupper($t['tipo']) }}</td>
+            </tr>
+            @foreach($t['piezas'] as $p)
             <tr>
                 <td>{{ $p['marca'] }}</td>
                 <td>{{ $p['lote'] ?? '-' }}</td>
-                <td>{{ $p['proceso'] ?? '-' }}{{ $p['subproceso'] ? ' / '.$p['subproceso'] : '' }}</td>
+                <td>{{ $p['proceso'] ?: '-' }}</td>
                 <td>{{ $p['descripcion'] }}</td>
-                <td>{{ $p['obra'] }}</td>
                 <td class="text-right">{{ number_format($p['pzs']) }}</td>
-                <td class="text-right">{{ rtrim(rtrim(number_format($p['porcentaje'] ?? 100, 2), '0'), '.') }}%</td>
+                <td class="text-right">{{ $p['porcentaje'] !== null ? rtrim(rtrim(number_format($p['porcentaje'], 2), '0'), '.').'%' : '-' }}</td>
                 <td class="text-right">{{ $p['largo'] !== null ? number_format($p['largo']) : '-' }}</td>
                 <td class="text-right">{{ $p['peso_unitario'] !== null ? number_format($p['peso_unitario'], 3) : '-' }}</td>
                 <td class="text-right">{{ number_format($p['kilos'], 3) }}</td>
-                {{-- El renglon por subproceso cobra un precio fijo por pieza, no $/kg --}}
-                <td class="text-right">{{ number_format($p['precio_unitario'], ($p['unidad'] ?? 'kg') === 'kg' ? 4 : 2) }}</td>
+                {{-- Vacio cuando la marca paso por varios procesos con tarifas distintas. --}}
+                <td class="text-right">{{ $p['precio_unitario'] !== null ? number_format($p['precio_unitario'], ($p['unidad'] ?? 'kg') === 'kg' ? 4 : 2) : '-' }}</td>
                 <td class="text-right">{{ $mon($p['importe']) }}</td>
             </tr>
+            @endforeach
+            <tr class="subtotal-row">
+                <td colspan="4" class="text-right">Total {{ $t['tipo'] }}</td>
+                <td class="text-right">{{ number_format($t['pzs']) }}</td>
+                <td colspan="3"></td>
+                <td class="text-right">{{ number_format($t['kilos'], 3) }}</td>
+                <td></td>
+                <td class="text-right">{{ $mon($t['importe']) }}</td>
+            </tr>
+            @endforeach
+            <tr class="obra-total-row">
+                <td colspan="4" class="text-right">Total obra {{ $ob['obra'] }}</td>
+                <td class="text-right">{{ number_format($ob['pzs']) }}</td>
+                <td colspan="3"></td>
+                <td class="text-right">{{ number_format($ob['kilos'], 3) }}</td>
+                <td></td>
+                <td class="text-right">{{ $mon($ob['importe']) }}</td>
+            </tr>
             @empty
-            <tr><td colspan="12" class="empty-cell">Sin producción capturada</td></tr>
+            <tr><td colspan="11" class="empty-cell">Sin producción capturada</td></tr>
             @endforelse
         </tbody>
         <tfoot>
             <tr class="total-row">
-                <td colspan="9" class="text-right">TOTAL PRODUCCIÓN</td>
+                <td colspan="8" class="text-right">TOTAL PRODUCCIÓN</td>
                 <td class="text-right">{{ number_format($g['total_kilos'], 3) }}</td>
                 <td></td>
                 <td class="text-right">{{ $mon($g['total_produccion']) }}</td>
@@ -265,9 +294,9 @@
     </div>
 
     <p style="font-size: 9px; color: #555; margin: 0 0 8px;">
-        Cada trabajador cobra su sueldo base (días pagados × salario mínimo diario). El excedente del destajo
-        &mdash;lo que sobra después de cubrir todas las bases&mdash; se reparte según el valor de su categoría.
-        Si no hay excedente, cada quien conserva su base.
+        Cada trabajador cobra su nómina (días trabajados × salario mínimo diario). El saldo en efectivo
+        &mdash;lo que sobra del destajo después de cubrir todas las nóminas&mdash; se reparte según el valor de su
+        categoría prorrateado por los días trabajados. Si no hay excedente, cada quien conserva su nómina.
     </p>
 
     <table class="grid">
@@ -276,11 +305,12 @@
                 <th style="text-align: left;">Empleado</th>
                 <th style="width: 13%;">Categoría</th>
                 <th style="width: 7%;">Valor</th>
-                <th style="width: 7%;">Días</th>
-                <th style="width: 10%;">$/día</th>
-                <th style="width: 12%;">Sueldo base</th>
-                <th style="width: 12%;">Destajo</th>
-                <th style="width: 13%;">Total</th>
+                {{-- Mismos nombres que la nómina en Excel, para cotejar de un vistazo. --}}
+                <th style="width: 8%;">Días trabajados</th>
+                <th style="width: 9%;">$/día</th>
+                <th style="width: 12%;">Total nómina</th>
+                <th style="width: 12%;">Saldo en efectivo</th>
+                <th style="width: 13%;">Importe total</th>
             </tr>
         </thead>
         <tbody>
@@ -301,7 +331,9 @@
         </tbody>
         <tfoot>
             <tr class="total-row">
-                <td colspan="5" class="text-right">TOTALES</td>
+                <td colspan="3" class="text-right">TOTALES</td>
+                <td class="text-right">{{ rtrim(rtrim(number_format((float) collect($g['empleados'])->sum('dias_pagados'), 2, '.', ''), '0'), '.') }}</td>
+                <td></td>
                 <td class="text-right">{{ $mon($g['total_bases'] ?? 0) }}</td>
                 <td class="text-right">{{ $mon($g['total_destajo_repartido'] ?? 0) }}</td>
                 <td class="text-right">{{ $mon($g['total_final']) }}</td>

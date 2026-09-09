@@ -1,3 +1,6 @@
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { AlertTriangleIcon, InfoIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { CapturadorPartidas, PARTIDA_VACIA } from '@/components/alm/capturador-partidas';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
@@ -8,9 +11,6 @@ import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmAlmacenOpcion, AlmPartidaBorrador, AlmProductoOpcion } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { AlertTriangleIcon, InfoIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -369,7 +369,7 @@ function EntradaConOrden({
                                                 <td className="text-right">
                                                     <Input
                                                         type="number"
-                                                        step="0.01"
+                                                        step="0.0001"
                                                         min="0"
                                                         max={p.pendiente}
                                                         className="input-xs w-24 text-right"
@@ -381,7 +381,7 @@ function EntradaConOrden({
                                                 <td className="text-right">
                                                     <Input
                                                         type="number"
-                                                        step="0.01"
+                                                        step="0.0001"
                                                         min="0"
                                                         className="input-xs w-24 text-right"
                                                         disabled={p.pendiente <= 0}

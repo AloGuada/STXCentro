@@ -206,18 +206,21 @@ class RequisicionController extends Controller
 
     /**
      * Resuelve el producto del catálogo de una partida: usa el `producto_id`
-     * elegido o crea uno nuevo al vuelo con la descripción capturada.
+     * elegido, reutiliza el que ya se llama igual, o crea uno nuevo al vuelo con
+     * la descripción capturada.
      *
-     * No deduplica a propósito: se probó `firstOrCreate` por descripción y se
-     * descartó (2026-07-28). Compras crea libre y el comando
-     * `costos:limpiar-productos` barre después los que quedaron sin uso.
+     * Reutilizar en silencio es la misma regla que ya aplica el combobox de la
+     * pantalla: si lo tecleado coincide con un producto existente, se toma ése.
+     * Aquí se repite en el servidor con la comparación del maestro —sin
+     * mayúsculas, acentos ni dobles espacios— para que "Careta  facial" no
+     * estrene un segundo "CARETA FACIAL". Sustituye la decisión de 2026-07-28
+     * de no deduplicar: ya no hay dos catálogos que puedan desincronizarse, hay
+     * un maestro y esta es su puerta.
      *
-     * Lo que sí se cuida es el kardex. El catálogo lo comparten Compras y
-     * Almacén, y un producto tecleado al vuelo no lo clasificó nadie: sin
-     * código no hay forma de distinguirlo del que ya existía, y dos códigos
-     * para el mismo tornillo son dos saldos que nunca cuadran. Por eso nace
-     * fuera del inventario y sólo entra cuando Almacén lo clasifica desde la
-     * pantalla de Artículos.
+     * Si el nombre existe en el maestro pero sólo como artículo de Almacén
+     * —material que entró por la carga inicial y que Compras nunca ha
+     * comprado— el producto nace como su cara de Compras, ligado; ésa era la
+     * liga que antes se hacía a mano.
      *
      * @param  array<string, mixed>  $d
      */
@@ -225,6 +228,12 @@ class RequisicionController extends Controller
     {
         if (! empty($d['producto_id'])) {
             return \App\Models\Costos\Producto::findOrFail($d['producto_id']);
+        }
+
+        $existente = app(\App\Services\Catalogo\CatalogoMaestro::class)->buscar((string) $d['descripcion'])?->producto()->first();
+
+        if ($existente !== null) {
+            return $existente;
         }
 
         $codigo = trim((string) ($d['codigo_producto'] ?? '')) ?: null;
@@ -846,16 +855,26 @@ class RequisicionController extends Controller
                     // codigo_producto y tipo_fiscal se gestionan en el tab de
                     // cotización (Compras), no en la edición de la requisición:
                     // no se tocan aquí para no pisar lo capturado.
-                    RequisicionDetalle::where('id', $d['id'])
+                    $detalle = RequisicionDetalle::where('id', $d['id'])
                         ->where('requisicion_id', $requisicion->id)
-                        ->update([
-                            'descripcion' => $d['descripcion'],
-                            'unidad' => $d['unidad'] ?? 'pza',
-                            'cantidad' => $d['cantidad'],
-                            'obra_rubro_id' => $sinCentroCostos ? null : $d['obra_rubro_id'],
-                            'uso_cfdi_id' => $d['uso_cfdi_id'],
-                            'notas' => $d['notas'] ?? null,
-                        ]);
+                        ->first();
+
+                    if (! $detalle) {
+                        continue;
+                    }
+
+                    $cantidadAnterior = (float) $detalle->cantidad;
+
+                    $detalle->update([
+                        'descripcion' => $d['descripcion'],
+                        'unidad' => $d['unidad'] ?? 'pza',
+                        'cantidad' => $d['cantidad'],
+                        'obra_rubro_id' => $sinCentroCostos ? null : $d['obra_rubro_id'],
+                        'uso_cfdi_id' => $d['uso_cfdi_id'],
+                        'notas' => $d['notas'] ?? null,
+                    ]);
+
+                    $this->sincronizarSeleccionesConCantidad($detalle, $cantidadAnterior);
                 } else {
                     $requisicion->detalles()->create([
                         'descripcion' => $d['descripcion'],
@@ -882,6 +901,55 @@ class RequisicionController extends Controller
 
         return to_route('admin.costos.requisiciones.show', $requisicion)
             ->with('success', 'Requisición actualizada.');
+    }
+
+    /**
+     * Las selecciones del comparativo (cantidad adjudicada por proveedor) se
+     * capturan sobre la cantidad de la partida; si ésta cambia al editar la
+     * requisición, se reparten de nuevo para que el importe del comparativo y
+     * la OC sigan la cantidad nueva. Una sola selección toma la cantidad
+     * completa; un split conserva la proporción de cada proveedor.
+     */
+    private function sincronizarSeleccionesConCantidad(RequisicionDetalle $detalle, float $cantidadAnterior): void
+    {
+        $cantidadNueva = (float) $detalle->cantidad;
+
+        if (abs($cantidadNueva - $cantidadAnterior) < config('costos.epsilon_cantidad')) {
+            return;
+        }
+
+        $selecciones = $detalle->selecciones()->get();
+
+        if ($selecciones->isEmpty()) {
+            return;
+        }
+
+        if ($selecciones->count() === 1) {
+            $selecciones->first()->update(['cantidad' => $cantidadNueva]);
+
+            return;
+        }
+
+        $sumaAnterior = (float) $selecciones->sum('cantidad');
+
+        if ($sumaAnterior <= 0) {
+            return;
+        }
+
+        $asignado = 0.0;
+        $ultima = $selecciones->last();
+
+        foreach ($selecciones as $seleccion) {
+            if ($seleccion->is($ultima)) {
+                $seleccion->update(['cantidad' => round($cantidadNueva - $asignado, 2)]);
+
+                break;
+            }
+
+            $parte = round($cantidadNueva * ((float) $seleccion->cantidad / $sumaAnterior), 2);
+            $seleccion->update(['cantidad' => $parte]);
+            $asignado += $parte;
+        }
     }
 
     public function cancelar(CancelarRequest $request, Requisicion $requisicion): RedirectResponse
@@ -1420,22 +1488,7 @@ class RequisicionController extends Controller
      */
     private function presupuestosOptions(): \Illuminate\Support\Collection
     {
-        return Presupuesto::with('presupuestable')
-            ->get()
-            ->map(function (Presupuesto $p) {
-                // OP y descripción internas del presupuesto; cada una cae a la
-                // de cobranza (número/descripción del presupuestable) si falta.
-                $partes = array_filter([$p->opMostrar(), $p->descripcionMostrar()]);
-                $label = implode(' - ', $partes);
-
-                return [
-                    'id' => $p->id,
-                    'label' => $label !== '' ? $label : $p->nombreMostrar(),
-                    'cerrado' => $p->estaCerrado(),
-                ];
-            })
-            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
-            ->values();
+        return app(\App\Services\Costos\OpcionesPresupuestales::class)->presupuestos();
     }
 
     /**

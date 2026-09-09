@@ -267,7 +267,10 @@ describe('snapshot', function () {
 
         $grupos = app(GeneradorLiquidaciones::class)->ordenDePago($this->destajo->fresh());
 
-        expect($grupos[0]['piezas'][0]['subproceso'])->toBe('Armado')
+        // El paso se imprime dentro de la columna de proceso, con el nombre
+        // que tenia al pagar, no el de ahora.
+        expect($grupos[0]['piezas'][0]['proceso'])->toContain('Armado')
+            ->and($grupos[0]['piezas'][0]['proceso'])->not->toContain('v2')
             ->and($grupos[0]['piezas'][0]['precio_unitario'])->toBe(50.0)
             ->and($grupos[0]['piezas'][0]['unidad'])->toBe('pza')
             ->and($grupos[0]['total_produccion'])->toBe(50.0);
@@ -287,7 +290,7 @@ describe('snapshot', function () {
             ->and($despues[0]['piezas'][0]['pzs'])->toBe(3);
     });
 
-    test('la orden de pago separa los pasos aunque compartan marca y porcentaje', function () {
+    test('la orden de pago junta los pasos de la misma marca sin inventar un precio', function () {
         $pieza = $this->marca->piezas->take(1);
 
         capturarPiezas($pieza, $this->grupo, '2026-03-04', subproceso: $this->armado);
@@ -295,10 +298,15 @@ describe('snapshot', function () {
 
         $grupos = app(GeneradorLiquidaciones::class)->ordenDePago($this->destajo);
 
-        // Juntarlos sumaria $50 y $30 bajo un solo $/pza que no existe.
-        expect($grupos[0]['piezas'])->toHaveCount(2)
-            ->and(collect($grupos[0]['piezas'])->pluck('subproceso')->sort()->values()->all())
-            ->toBe(['Armado', 'Punteado']);
+        // Un renglon por marca (decision 2026-09-08). Los $50 y $30 se suman,
+        // pero no hay un $/pza unico que imprimir: la celda va vacia y la
+        // columna de proceso dice que fueron dos pasos.
+        expect($grupos[0]['piezas'])->toHaveCount(1)
+            ->and($grupos[0]['piezas'][0]['proceso'])->toContain('Armado')
+            ->and($grupos[0]['piezas'][0]['proceso'])->toContain('Punteado')
+            ->and($grupos[0]['piezas'][0]['precio_unitario'])->toBeNull()
+            ->and($grupos[0]['piezas'][0]['pzs'])->toBe(1)
+            ->and($grupos[0]['piezas'][0]['importe'])->toBe(80.0);
     });
 });
 

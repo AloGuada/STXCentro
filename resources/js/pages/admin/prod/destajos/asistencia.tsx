@@ -1,10 +1,10 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { ArrowLeftIcon, CheckCircle2Icon, Loader2Icon, SaveIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FormattedDate } from '@/components/ui/formatted-date';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeftIcon, CheckCircle2Icon, Loader2Icon, SaveIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
 
 type Empleado = { id: number; nombre: string; no_empleado: string | null; porcentaje: number };
 type Grupo = { id: number; descripcion: string; empleados: Empleado[] };
@@ -36,7 +36,8 @@ const META: Record<Estado, { letra: string; label: string; cls: string }> = {
 /** Cada día cubierto vale 7/6: el séptimo día va prorrateado en los seis de trabajo. */
 const FACTOR_SEPTIMO_DIA = 7 / 6;
 
-const PAGAN: Estado[] = ['asistencia', 'vacaciones', 'incapacidad'];
+/** Mismo criterio que EstadoAsistencia::valorEnDias(): la incapacidad la paga el IMSS, no el destajo. */
+const PAGAN: Estado[] = ['asistencia', 'vacaciones'];
 
 export default function DestajoAsistencia({ destajo, grupos, participantes, dias, marcas: guardadas }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -181,8 +182,9 @@ export default function DestajoAsistencia({ destajo, grupos, participantes, dias
                 </div>
 
                 <p className="text-base-content/60 mb-4 text-xs">
-                    Asistencia, vacaciones e incapacidad cuentan como día cubierto; la falta no. Cada día cubierto vale
-                    7/6 de día porque el séptimo día va prorrateado, así que la semana completa paga 7. Un solo{' '}
+                    Asistencia y vacaciones cuentan como día cubierto; la falta y la incapacidad no. Cada día cubierto
+                    vale 7/6 de día porque el séptimo día va prorrateado, así que la semana completa paga 7. Quien tiene
+                    toda la semana en falta o incapacidad tampoco entra al reparto del destajo. Un solo{' '}
                     <strong>No aplica</strong> deja al trabajador sin sueldo base esa semana: sólo cobra el destajo que
                     le toque. El domingo no se captura.
                 </p>
