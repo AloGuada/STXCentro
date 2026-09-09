@@ -130,14 +130,15 @@ class Existencia extends Model
     }
 
     /**
-     * Lo que cualquiera puede llevarse sin pedirle permiso a nadie.
+     * Lo que cualquiera puede llevarse sin pedirle permiso a nadie: ni lo que
+     * tiene dueño (asignado a una obra) ni lo que anda afuera en resguardo.
      *
      * Puede quedar negativo si alguien dejó la existencia bajo cero con un
      * ajuste: es una señal, no un caso que haya que maquillar con un `max(0)`.
      */
     public function libre(): float
     {
-        return (float) $this->cantidad - $this->asignado();
+        return (float) $this->cantidad - $this->asignado() - (float) $this->prestado;
     }
 
     /**

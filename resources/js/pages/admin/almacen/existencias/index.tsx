@@ -42,6 +42,8 @@ type ExistenciaFila = {
     se_controla_por_pieza: boolean;
     stock_minimo: number | null;
     cantidad: number;
+    /** Lo que anda afuera en resguardo. Sólo suma en los activos por cantidad. */
+    prestado: number;
     costo_promedio: number;
     valor: number;
     ubicacion_id: number | null;
@@ -361,6 +363,14 @@ export default function ExistenciasIndex({
                                                 <td className="text-right font-mono">
                                                     {/* Cinco pulidoras con tres prestadas no son
                                                         cinco pulidoras que entregar. */}
+                                                    {e.prestado > 0 && (
+                                                        <span
+                                                            className="text-base-content/50 block text-xs"
+                                                            title="En resguardo: siguen siendo del almacén, pero no están en el anaquel"
+                                                        >
+                                                            {cantidad(e.prestado)} en resguardo
+                                                        </span>
+                                                    )}
                                                     {e.piezas &&
                                                         e.piezas.prestadas + e.piezas.en_reparacion > 0 && (
                                                             <span

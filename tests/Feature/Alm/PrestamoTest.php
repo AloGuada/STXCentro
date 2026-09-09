@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\Alm\ActivoEstatus;
+use App\Enums\Alm\MovimientoTipo;
 use App\Enums\Alm\PrestamoEstatus;
+use App\Exceptions\Alm\ExistenciaInsuficienteException;
 use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Articulo;
@@ -10,6 +12,7 @@ use App\Models\Alm\Movimiento;
 use App\Models\Alm\Prestamo;
 use App\Models\Alm\PrestamoDetalle;
 use App\Models\User;
+use App\Services\Alm\AlmacenLedger;
 use App\Services\Alm\RegistradorPiezas;
 use App\Services\Alm\RegistradorPrestamos;
 use Spatie\Permission\Models\Permission;
@@ -177,6 +180,31 @@ describe('prestar', function () {
                 ['articulo_id' => $extension->id, 'cantidad' => 1],
             ]))
             ->assertForbidden();
+    });
+});
+
+describe('lo prestado no está en el anaquel', function () {
+    it('una salida no puede llevarse lo que anda en resguardo', function () {
+        ['almacen' => $almacen, 'extension' => $extension] = almacenConActivos();
+        $user = usuarioDePrestamos();
+        $ledger = app(AlmacenLedger::class);
+
+        app(RegistradorPrestamos::class)->prestar($almacen, ['responsable_id' => $user->id, 'fecha_salida' => today()->toDateString()], [
+            ['articulo_id' => $extension->id, 'cantidad' => 8],
+        ]);
+
+        // Hay 10, 8 afuera: sólo 2 en el anaquel.
+        expect(fn () => $ledger->registrarPorArticulo($almacen->id, $extension->id, MovimientoTipo::Salida, -5))
+            ->toThrow(ExistenciaInsuficienteException::class);
+
+        $ledger->registrarPorArticulo($almacen->id, $extension->id, MovimientoTipo::Salida, -2);
+
+        $existencia = Existencia::query()->where('articulo_id', $extension->id)->firstOrFail();
+
+        expect((float) $existencia->cantidad)->toBe(8.0)
+            ->and((float) $existencia->prestado)->toBe(8.0)
+            ->and($existencia->libre())->toBe(0.0)
+            ->and($existencia->disponibleParaPrestar())->toBe(0.0);
     });
 });
 

@@ -59,7 +59,11 @@ export default function DevolucionCreate({ responsables, usuarios, prestamoId }:
     const [devolvio, setDevolvio] = useState(inicial);
     const [retornos, setRetornos] = useState<Record<number, Retorno>>({});
 
-    const form = useForm<{ fecha: string; recibido_por: string; renglones: unknown[] }>({
+    const form = useForm<{
+        fecha: string;
+        recibido_por: string;
+        renglones: { detalle_id: number; cantidad: number | string; condicion_retorno: string | null; en_reparacion: boolean }[];
+    }>({
         fecha: hoy(),
         recibido_por: '',
         renglones: [],
