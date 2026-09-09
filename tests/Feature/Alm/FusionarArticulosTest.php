@@ -5,6 +5,7 @@ use App\Models\Alm\Almacen;
 use App\Models\Alm\Articulo;
 use App\Models\Alm\Asignacion;
 use App\Models\Alm\Existencia;
+use App\Models\Costos\Producto;
 use App\Models\Costos\ProductoPrecio;
 use App\Models\Item;
 use App\Models\Obra;
@@ -48,6 +49,36 @@ function existenciaDe(Articulo $articulo, Almacen $almacen, float $cantidad, flo
             'articulo_id' => $articulo->id,
             'producto_id' => $articulo->producto_id,
         ]);
+}
+
+/**
+ * Una cara con su propio item aunque ya exista otro con la misma descripción:
+ * es el estado que la fusión existe para retirar y que el alta normal ya no
+ * permite.
+ */
+function itemSuelto(string $codigo, string $descripcion): Item
+{
+    return Item::create(['codigo' => $codigo, 'descripcion' => $descripcion, 'unidad' => 'PZA', 'activo' => true]);
+}
+
+function articuloDuplicado(string $codigo, string $descripcion): Articulo
+{
+    return Articulo::factory()->sinLigar()->create([
+        'codigo' => $codigo,
+        'descripcion' => $descripcion,
+        'unidad' => 'PZA',
+        'item_id' => itemSuelto($codigo, $descripcion)->id,
+    ]);
+}
+
+function productoDuplicado(string $codigo, string $descripcion): Producto
+{
+    return Producto::factory()->create([
+        'codigo' => $codigo,
+        'descripcion' => $descripcion,
+        'unidad' => 'PZA',
+        'item_id' => itemSuelto($codigo, $descripcion)->id,
+    ]);
 }
 
 function movimientoDe(Existencia $existencia, float $cantidad): int
@@ -178,8 +209,52 @@ describe('la fusión', function () {
             ->and(Existencia::query()->whereKey($existenciaX->id)->exists())->toBeFalse()
             ->and((float) Asignacion::query()->where('existencia_id', $existenciaS->id)->where('obra_id', $obra->id)->value('cantidad'))->toBe(7.0)
             ->and((float) Asignacion::query()->where('existencia_id', $existenciaS->id)->where('obra_id', $otraObra->id)->value('cantidad'))->toBe(2.0)
-            ->and(Asignacion::query()->where('existencia_id', $existenciaX->id)->count())->toBe(0)
-            ->and(DB::table('alm_movimientos')->find($movimiento)->existencia_id)->toBe($existenciaS->id);
+            ->and(Asignacion::query()->where('existencia_id', $existenciaX->id)->count())->toBe(0);
+
+        // El kardex del sobrante se cuelga del renglón que queda con la nota de
+        // qué código venía, y la corrida se recalcula para terminar en el saldo
+        // de hoy: la existencia S tenía 10 sin movimiento, así que el +5 que
+        // venía de X ahora se lee 10 → 15 y no 0 → 5.
+        $mov = DB::table('alm_movimientos')->find($movimiento);
+
+        expect($mov->existencia_id)->toBe($existenciaS->id)
+            ->and($mov->articulo_id)->toBe($s->id)
+            ->and((float) $mov->saldo_antes)->toBe(10.0)
+            ->and((float) $mov->saldo_despues)->toBe(15.0)
+            ->and($mov->observaciones)->toContain('Era ART-00002');
+    });
+
+    it('al juntar dos kardex la corrida se recalcula en orden de fecha', function () {
+        $almacen = Almacen::factory()->create();
+        $s = Articulo::factory()->create(['codigo' => 'ART-00001']);
+        $x = Articulo::factory()->create(['codigo' => 'ART-00002']);
+        $existenciaS = existenciaDe($s, $almacen, 30, 10);
+        $existenciaX = existenciaDe($x, $almacen, 94, 10);
+
+        // Dos cadenas que se intercalan en el tiempo: S entra 36 el día 5,
+        // X entra 100 el día 12 y saca 6 el día 20; S saca 6 el día 25.
+        $m1 = movimientoDe($existenciaS, 36);
+        $m2 = movimientoDe($existenciaX, 100);
+        $m3 = movimientoDe($existenciaX, -6);
+        $m4 = movimientoDe($existenciaS, -6);
+        DB::table('alm_movimientos')->where('id', $m1)->update(['created_at' => '2026-08-05 10:00:00', 'saldo_antes' => 0, 'saldo_despues' => 36]);
+        DB::table('alm_movimientos')->where('id', $m2)->update(['created_at' => '2026-08-12 10:00:00', 'saldo_antes' => 0, 'saldo_despues' => 100]);
+        DB::table('alm_movimientos')->where('id', $m3)->update(['created_at' => '2026-08-20 10:00:00', 'saldo_antes' => 100, 'saldo_despues' => 94]);
+        DB::table('alm_movimientos')->where('id', $m4)->update(['created_at' => '2026-08-25 10:00:00', 'saldo_antes' => 36, 'saldo_despues' => 30]);
+
+        $csv = csvFusion([['g', 'ART-00001', 'SI'], ['g', 'ART-00002', '']]);
+
+        $this->artisan('alm:fusionar-articulos', ['csv' => $csv, '--force' => true])->assertSuccessful();
+
+        $corrida = DB::table('alm_movimientos')
+            ->where('existencia_id', $existenciaS->id)
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn ($m): array => [(float) $m->saldo_antes, (float) $m->saldo_despues])
+            ->all();
+
+        expect((float) $existenciaS->fresh()->cantidad)->toBe(124.0)
+            ->and($corrida)->toBe([[0.0, 36.0], [36.0, 136.0], [136.0, 130.0], [130.0, 124.0]]);
     });
 
     it('el sobreviviente sin producto adopta el del sobrante', function () {
@@ -289,6 +364,85 @@ describe('la fusión', function () {
         expect($a2->fresh()->fusionado_en_id)->toBe($a1->id)
             ->and($b2->fresh()->fusionado_en_id)->toBe($b1->id)
             ->and((float) DB::table('alm_existencias')->sum('cantidad'))->toBe(3.0);
+    });
+});
+
+describe('los grupos automáticos', function () {
+    it('exige el CSV o --auto, pero no ambos', function () {
+        $this->artisan('alm:fusionar-articulos')->assertFailed();
+        $this->artisan('alm:fusionar-articulos', ['csv' => 'x.csv', '--auto' => true])->assertFailed();
+    });
+
+    it('no hace nada cuando no hay descripciones repetidas', function () {
+        Articulo::factory()->sinLigar()->create(['descripcion' => 'Taladro magnético']);
+
+        $this->artisan('alm:fusionar-articulos', ['--auto' => true, '--force' => true])
+            ->expectsOutputToContain('nada que fusionar')
+            ->assertSuccessful();
+    });
+
+    it('agrupa por descripción repetida y se queda el código más bajo', function () {
+        $almacenA = Almacen::factory()->create();
+        $almacenB = Almacen::factory()->create();
+        $alto = articuloDuplicado('ART-00020', 'Careta facial');
+        $plural = articuloDuplicado('ART-00010', 'CARETAS FACIALES');
+        $otro = articuloDuplicado('ART-00030', 'careta  facial');
+        $exAlto = existenciaDe($alto, $almacenA, 3, 10);
+        $exOtro = existenciaDe($otro, $almacenB, 2, 10);
+
+        $this->artisan('alm:fusionar-articulos', ['--auto' => true, '--force' => true])
+            ->expectsOutputToContain('se queda   ART-00020')
+            ->assertSuccessful();
+
+        // "CARETAS FACIALES" no normaliza igual que "careta facial": es otro
+        // insumo para el maestro y no entra. Los dos "careta facial" sí, y se
+        // queda el de código más bajo aunque no sea el más bajo de la tabla.
+        expect($plural->fresh()->activo)->toBeTrue()
+            ->and($alto->fresh()->activo)->toBeTrue()
+            ->and($otro->fresh()->activo)->toBeFalse()
+            ->and($otro->fresh()->fusionado_en_id)->toBe($alto->id)
+            ->and($exOtro->fresh()->articulo_id)->toBe($alto->id)
+            ->and($exAlto->fresh()->articulo_id)->toBe($alto->id)
+            ->and(Item::query()->where('activo', true)->count())->toBe(2);
+    });
+
+    it('el artículo adopta el producto de Compras que se llama igual y no tiene artículo', function () {
+        $articulo = articuloDuplicado('ART-00810', 'Ácido muriático 1 Lt');
+        $producto = productoDuplicado('ART-00112', 'ACIDO MURIATICO 1 LT');
+        $itemProducto = $producto->item_id;
+        $precio = ProductoPrecio::factory()->create(['producto_id' => $producto->id]);
+
+        $this->artisan('alm:fusionar-articulos', ['--auto' => true, '--force' => true])
+            ->expectsOutputToContain('se adopta')
+            ->assertSuccessful();
+
+        expect($articulo->fresh()->producto_id)->toBe($producto->id)
+            ->and($producto->fresh()->activo)->toBeTrue()
+            ->and($producto->fresh()->item_id)->toBe($articulo->item_id)
+            ->and(Item::findOrFail($itemProducto)->activo)->toBeFalse()
+            ->and($precio->fresh()->producto_id)->toBe($producto->id)
+            ->and(Item::query()->where('activo', true)->count())->toBe(1);
+    });
+
+    it('fusiona entre sí los productos de Compras que no tienen artículo', function () {
+        $queda = productoDuplicado('ART-00405', 'ARGON INDUSTRIAL');
+        $sobra1 = productoDuplicado('ART-00406', 'Argon industrial');
+        $sobra2 = productoDuplicado('ART-00409', 'ARGON  INDUSTRIAL');
+        $precio = ProductoPrecio::factory()->create(['producto_id' => $sobra2->id]);
+
+        $this->artisan('alm:fusionar-articulos', ['--auto' => true, '--force' => true])
+            ->expectsOutputToContain('sólo productos de Compras')
+            ->expectsOutputToContain('2 productos desactivados')
+            ->assertSuccessful();
+
+        expect($queda->fresh()->activo)->toBeTrue()
+            ->and($sobra1->fresh()->activo)->toBeFalse()
+            ->and($sobra1->fresh()->fusionado_en_id)->toBe($queda->id)
+            ->and($sobra2->fresh()->fusionado_en_id)->toBe($queda->id)
+            ->and($precio->fresh()->producto_id)->toBe($queda->id)
+            ->and(Item::findOrFail($sobra1->item_id)->activo)->toBeFalse()
+            ->and(Item::findOrFail($queda->item_id)->activo)->toBeTrue()
+            ->and(Item::query()->where('activo', true)->count())->toBe(1);
     });
 });
 

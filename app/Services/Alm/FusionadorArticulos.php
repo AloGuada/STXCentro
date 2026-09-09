@@ -25,16 +25,26 @@ use RuntimeException;
  * `AlmacenLedger`". No es un movimiento: nada entra ni sale de ninguna bodega.
  * Es una fusión de identidades, y cuando dos renglones del mismo almacén se
  * vuelven uno, sus saldos se suman tal cual, sin asiento, porque un asiento
- * diría que hubo una entrada que nunca ocurrió. La comprobación aritmética del
- * final es lo que garantiza que no se creó ni se perdió nada.
+ * diría que hubo una entrada que nunca ocurrió. Sus kardex se vuelven uno
+ * también, y la corrida de saldos se recalcula en orden de fecha para que se
+ * lea como si siempre hubieran sido el mismo artículo y termine en el saldo
+ * real. La comprobación aritmética del final es lo que garantiza que no se
+ * creó ni se perdió nada.
  *
  * Se divide en `planear()` (sólo lee, y es lo que enseña el dry-run) y
  * `ejecutar()` (escribe, y espera correr dentro de una transacción del
  * llamador) para que ver qué pasaría y hacerlo sean el mismo código.
  *
- * @phpstan-type Grupo array{grupo: string, conservar: string, sobrantes: list<string>}
+ * Los grupos salen de un CSV revisado a mano o se arman solos
+ * (`gruposAutomaticos()`): items activos con la misma descripción
+ * normalizada, y se queda el código más bajo. Un grupo puede traer además
+ * productos de Compras que no tienen cara de Almacén (`productos`): el
+ * sobreviviente adopta uno y los demás se desactivan. Si el grupo es sólo de
+ * productos, no hay artículo que sobreviva y la fusión es entre productos.
+ *
+ * @phpstan-type Grupo array{grupo: string, conservar: ?string, sobrantes: list<string>, productos: list<int>}
  * @phpstan-type Almacen array{almacen_id: int, nombre: string, antes: array<string, float>, cantidad: float, valor: float, fusiona: bool}
- * @phpstan-type Plan array{grupo: string, sobreviviente: Articulo, sobrantes: Collection<int, Articulo>, producto_id: ?int, productos_a_desactivar: list<int>, almacenes: list<Almacen>}
+ * @phpstan-type Plan array{grupo: string, sobreviviente: ?Articulo, sobrantes: Collection<int, Articulo>, producto_id: ?int, productos_a_desactivar: list<int>, productos_sueltos: Collection<int, Producto>, almacenes: list<Almacen>}
  */
 class FusionadorArticulos
 {
@@ -105,7 +115,7 @@ class FusionadorArticulos
                 throw new InvalidArgumentException('Hay un renglón sin grupo o sin código.');
             }
 
-            $grupos[$grupo] ??= ['grupo' => $grupo, 'conservar' => null, 'sobrantes' => []];
+            $grupos[$grupo] ??= ['grupo' => $grupo, 'conservar' => null, 'sobrantes' => [], 'productos' => []];
 
             if ($conservar) {
                 if ($grupos[$grupo]['conservar'] !== null) {
@@ -134,6 +144,73 @@ class FusionadorArticulos
     }
 
     /**
+     * Arma los grupos solo: cada descripción normalizada que tenga más de un
+     * item activo es un grupo, y en él se queda el artículo de código más
+     * bajo. Los items del grupo que sólo tienen cara de Compras entran como
+     * `productos`, para que el sobreviviente los adopte o los desactive. Si
+     * ningún item del grupo tiene artículo, el grupo es sólo de productos y
+     * `conservar` va nulo.
+     *
+     * Es exactamente lo que la migración del unique de descripción cuenta como
+     * repetido, así que después de fusionar con estos grupos esa migración
+     * pasa.
+     *
+     * @return list<Grupo>
+     */
+    public function gruposAutomaticos(): array
+    {
+        $repetidas = Item::query()
+            ->where('activo', true)
+            ->select('descripcion_normalizada')
+            ->groupBy('descripcion_normalizada')
+            ->havingRaw('COUNT(*) > 1')
+            ->orderBy('descripcion_normalizada')
+            ->pluck('descripcion_normalizada');
+
+        if ($repetidas->isEmpty()) {
+            return [];
+        }
+
+        $items = Item::query()
+            ->where('activo', true)
+            ->whereIn('descripcion_normalizada', $repetidas->all())
+            ->with([
+                'articulo' => fn ($q) => $q->where('activo', true),
+                'producto' => fn ($q) => $q->where('activo', true),
+            ])
+            ->get()
+            ->groupBy('descripcion_normalizada');
+
+        $grupos = [];
+
+        foreach ($repetidas as $descripcion) {
+            /** @var Collection<int, Item> $delGrupo */
+            $delGrupo = $items->get($descripcion, collect());
+
+            $articulos = $delGrupo
+                ->map(fn (Item $i): ?Articulo => $i->articulo)
+                ->filter()
+                ->sortBy(fn (Articulo $a): string => (string) $a->codigo)
+                ->values();
+
+            $productosSueltos = $delGrupo
+                ->filter(fn (Item $i): bool => $i->articulo === null && $i->producto !== null)
+                ->map(fn (Item $i): int => (int) $i->producto->id)
+                ->values()
+                ->all();
+
+            $grupos[] = [
+                'grupo' => $descripcion,
+                'conservar' => $articulos->first()?->codigo === null ? null : strtoupper((string) $articulos->first()->codigo),
+                'sobrantes' => $articulos->slice(1)->map(fn (Articulo $a): string => strtoupper((string) $a->codigo))->values()->all(),
+                'productos' => $productosSueltos,
+            ];
+        }
+
+        return $grupos;
+    }
+
+    /**
      * Valida y calcula, sin escribir. Todo lo que puede reventar a la mitad se
      * detecta aquí, antes de tocar un solo renglón: códigos que no existen,
      * artículos repetidos entre grupos y series que chocarían.
@@ -144,12 +221,12 @@ class FusionadorArticulos
     public function planear(array $grupos): array
     {
         $codigos = collect($grupos)
-            ->flatMap(fn (array $g): array => [$g['conservar'], ...$g['sobrantes']]);
+            ->flatMap(fn (array $g): array => array_filter([$g['conservar'], ...$g['sobrantes']]));
 
         $repetidos = $codigos->duplicates();
 
         if ($repetidos->isNotEmpty()) {
-            throw new InvalidArgumentException('Estos códigos aparecen más de una vez en el CSV: '.$repetidos->unique()->implode(', ').'.');
+            throw new InvalidArgumentException('Estos códigos aparecen más de una vez en los grupos: '.$repetidos->unique()->implode(', ').'.');
         }
 
         $articulos = Articulo::query()
@@ -163,20 +240,46 @@ class FusionadorArticulos
             throw new InvalidArgumentException('Estos códigos no existen en alm_articulos: '.$faltantes->implode(', ').'.');
         }
 
+        $idsSueltos = collect($grupos)->flatMap(fn (array $g): array => $g['productos'] ?? []);
+
+        if ($idsSueltos->duplicates()->isNotEmpty()) {
+            throw new InvalidArgumentException('Estos productos aparecen en más de un grupo: #'.$idsSueltos->duplicates()->unique()->implode(', #').'.');
+        }
+
+        $sueltos = Producto::query()->whereIn('id', $idsSueltos->all())->get()->keyBy('id');
+
         $planes = [];
 
         foreach ($grupos as $grupo) {
+            $productosSueltos = collect($grupo['productos'] ?? [])
+                ->map(fn (int $id): Producto => $sueltos->get($id) ?? throw new InvalidArgumentException("Grupo \"{$grupo['grupo']}\": el producto #{$id} no existe."))
+                ->values();
+
+            $this->validarSueltos($grupo['grupo'], $productosSueltos);
+
+            if ($grupo['conservar'] === null) {
+                $planes[] = $this->planearProductos($grupo['grupo'], $productosSueltos);
+
+                continue;
+            }
+
             $sobreviviente = $articulos->get($grupo['conservar']);
             $sobrantes = collect($grupo['sobrantes'])->map(fn (string $c): Articulo => $articulos->get($c))->values();
 
+            if ($sobrantes->isEmpty() && $productosSueltos->isEmpty()) {
+                throw new InvalidArgumentException("Grupo \"{$grupo['grupo']}\": sólo tiene al sobreviviente; no hay nada que fusionar.");
+            }
+
             $this->validarSeries($grupo['grupo'], $sobreviviente, $sobrantes);
 
-            $productoId = $sobreviviente->producto_id
-                ?? $sobrantes->first(fn (Articulo $a): bool => $a->producto_id !== null)?->producto_id;
+            $candidatos = $this->productosCandidatos($sobrantes, $productosSueltos);
 
-            $productosADesactivar = $sobrantes
-                ->pluck('producto_id')
-                ->filter()
+            $productoId = $sobreviviente->producto_id === null
+                ? $candidatos->first()?->id
+                : (int) $sobreviviente->producto_id;
+
+            $productosADesactivar = $candidatos
+                ->pluck('id')
                 ->map(fn ($id): int => (int) $id)
                 ->reject(fn (int $id): bool => $id === (int) $productoId)
                 ->unique()
@@ -189,11 +292,98 @@ class FusionadorArticulos
                 'sobrantes' => $sobrantes,
                 'producto_id' => $productoId === null ? null : (int) $productoId,
                 'productos_a_desactivar' => $productosADesactivar,
+                'productos_sueltos' => $productosSueltos,
                 'almacenes' => $this->almacenesDe($sobreviviente, $sobrantes),
             ];
         }
 
         return $planes;
+    }
+
+    /**
+     * Los productos que el grupo trae para el sobreviviente, del código más
+     * bajo al más alto: los de los artículos sobrantes y los sueltos. El primero
+     * es el que se adopta cuando el sobreviviente no tenía.
+     *
+     * @param  Collection<int, Articulo>  $sobrantes
+     * @param  Collection<int, Producto>  $sueltos
+     * @return Collection<int, Producto>
+     */
+    private function productosCandidatos(Collection $sobrantes, Collection $sueltos): Collection
+    {
+        $idsDeSobrantes = $sobrantes->pluck('producto_id')->filter()->map(fn ($id): int => (int) $id)->all();
+
+        $deSobrantes = $idsDeSobrantes === []
+            ? collect()
+            : Producto::query()->whereIn('id', $idsDeSobrantes)->get();
+
+        return $deSobrantes
+            ->merge($sueltos)
+            ->unique('id')
+            ->sortBy(fn (Producto $p): string => (string) $p->codigo)
+            ->values();
+    }
+
+    /**
+     * Un grupo sin ningún artículo: se queda el producto de código más bajo y
+     * los demás se le reapuntan y se desactivan. No hay saldo que cuadrar
+     * porque, sin artículo, ninguno tiene existencias.
+     *
+     * @param  Collection<int, Producto>  $productos
+     * @return Plan
+     */
+    private function planearProductos(string $grupo, Collection $productos): array
+    {
+        if ($productos->count() < 2) {
+            throw new InvalidArgumentException("Grupo \"{$grupo}\": sin artículo y con menos de dos productos; no hay nada que fusionar.");
+        }
+
+        $ordenados = $productos->sortBy(fn (Producto $p): string => (string) $p->codigo)->values();
+        $sobreviviente = $ordenados->first();
+
+        return [
+            'grupo' => $grupo,
+            'sobreviviente' => null,
+            'sobrantes' => collect(),
+            'producto_id' => (int) $sobreviviente->id,
+            'productos_a_desactivar' => $ordenados->slice(1)->pluck('id')->map(fn ($id): int => (int) $id)->values()->all(),
+            'productos_sueltos' => $ordenados,
+            'almacenes' => [],
+        ];
+    }
+
+    /**
+     * Un producto "suelto" tiene que serlo de verdad: sin artículo (activo o
+     * no) que lo reclame, porque el unique de `alm_articulos(producto_id)` no
+     * dejaría que el sobreviviente lo adoptara; y sin renglón de Almacén que lo
+     * mencione, porque entonces sí habría saldo que cuadrar y ése es trabajo
+     * de la fusión por artículo.
+     *
+     * @param  Collection<int, Producto>  $productos
+     */
+    private function validarSueltos(string $grupo, Collection $productos): void
+    {
+        if ($productos->isEmpty()) {
+            return;
+        }
+
+        $ids = $productos->pluck('id')->all();
+
+        $conArticulo = Articulo::query()->whereIn('producto_id', $ids)->pluck('codigo');
+
+        if ($conArticulo->isNotEmpty()) {
+            throw new InvalidArgumentException(sprintf(
+                'Grupo "%s": los productos sueltos tienen artículo (%s); fusiónalos por artículo.',
+                $grupo,
+                $conArticulo->implode(', '),
+            ));
+        }
+
+        foreach ([...self::TABLAS_ALMACEN, 'alm_existencias'] as $tabla) {
+            if (DB::table($tabla)->whereIn('producto_id', $ids)->exists()) {
+                throw new InvalidArgumentException("Grupo \"{$grupo}\": un producto suelto tiene renglones en {$tabla}; no se puede fusionar sin artículo.");
+            }
+        }
     }
 
     /**
@@ -209,6 +399,13 @@ class FusionadorArticulos
         $resumen = ['articulos_desactivados' => 0, 'productos_desactivados' => 0, 'existencias_sumadas' => 0];
 
         foreach ($planes as $plan) {
+            if ($plan['sobreviviente'] === null) {
+                $this->fusionarProductos($plan);
+                $resumen['productos_desactivados'] += count($plan['productos_a_desactivar']);
+
+                continue;
+            }
+
             $antes = $this->totalesDe($plan);
 
             $resumen['existencias_sumadas'] += $this->fusionarGrupo($plan);
@@ -219,6 +416,51 @@ class FusionadorArticulos
         }
 
         return $resumen;
+    }
+
+    /**
+     * Fusión entre productos de Compras sin cara de Almacén: las partidas y el
+     * histórico de precios de los que sobran pasan al que se queda, los
+     * sobrantes se desactivan con su flecha y sus items también. Al final no
+     * puede quedar renglón de Compras apuntando a un sobrante.
+     *
+     * @param  Plan  $plan
+     */
+    private function fusionarProductos(array $plan): void
+    {
+        $productoId = $plan['producto_id'];
+        $sobrantes = $plan['productos_a_desactivar'];
+
+        foreach (self::TABLAS_COSTOS as $tabla) {
+            DB::table($tabla)->whereIn('producto_id', $sobrantes)->update(['producto_id' => $productoId]);
+        }
+
+        Producto::query()->whereIn('id', $sobrantes)->update([
+            'activo' => false,
+            'fusionado_en_id' => $productoId,
+        ]);
+
+        $itemSobreviviente = (int) Producto::query()->whereKey($productoId)->value('item_id');
+
+        $huerfanos = Producto::query()
+            ->whereIn('id', $sobrantes)
+            ->pluck('item_id')
+            ->map(fn ($id): int => (int) $id)
+            ->reject(fn (int $id): bool => $id === $itemSobreviviente)
+            ->unique()
+            ->values();
+
+        if ($huerfanos->isNotEmpty()) {
+            Item::query()->whereIn('id', $huerfanos)->update(['activo' => false]);
+        }
+
+        foreach (self::TABLAS_COSTOS as $tabla) {
+            $quedan = DB::table($tabla)->whereIn('producto_id', $sobrantes)->count();
+
+            if ($quedan > 0) {
+                throw new RuntimeException("Grupo \"{$plan['grupo']}\": quedaron {$quedan} renglones de {$tabla} apuntando a un producto sobrante. Se revierte todo.");
+            }
+        }
     }
 
     /**
@@ -254,7 +496,8 @@ class FusionadorArticulos
             }
         }
 
-        $sumadas = $this->fusionarExistencias($sobreviviente, $idsSobrantes, $productoId);
+        $existenciasSumadas = $this->fusionarExistencias($sobreviviente, $idsSobrantes, $productoId);
+        $sumadas = count($existenciasSumadas);
 
         // El resto de Almacén: kardex, detalles de documentos y piezas. Van
         // después de las existencias porque las que se sumaron ya cambiaron
@@ -283,6 +526,10 @@ class FusionadorArticulos
                     ->whereNull('producto_id')
                     ->update(['producto_id' => $productoId]);
             }
+        }
+
+        foreach ($existenciasSumadas as $existenciaId) {
+            $this->recalcularCorrida($existenciaId);
         }
 
         Articulo::query()->whereIn('id', $idsSobrantes)->update([
@@ -353,18 +600,20 @@ class FusionadorArticulos
      * dueño y ya. Donde el sobreviviente ya tiene la suya, se suman cantidad y
      * valor, el costo promedio se recalcula del cociente, la partición por obra
      * se consolida obra por obra y el kardex del sobrante se cuelga del renglón
-     * que queda antes de borrar el suyo.
+     * que queda —con una nota de qué código venía— antes de borrar el suyo.
      *
      * Se escribe con `forceFill` a propósito: es la excepción documentada
      * arriba, no un atajo.
      *
      * @param  list<int>  $idsSobrantes
+     * @return list<int> ids de las existencias del sobreviviente que recibieron el saldo de otra
      */
-    private function fusionarExistencias(Articulo $sobreviviente, array $idsSobrantes, ?int $productoId): int
+    private function fusionarExistencias(Articulo $sobreviviente, array $idsSobrantes, ?int $productoId): array
     {
-        $sumadas = 0;
+        $receptoras = [];
 
         $existenciasSobrantes = Existencia::query()
+            ->with('articulo:id,codigo')
             ->whereIn('articulo_id', $idsSobrantes)
             ->orderBy('id')
             ->get();
@@ -410,15 +659,77 @@ class FusionadorArticulos
                 $asignacion->delete();
             }
 
-            DB::table('alm_movimientos')
-                ->where('existencia_id', $existenciaSobrante->id)
-                ->update(['existencia_id' => $existenciaS->id]);
+            $this->colgarKardex($existenciaSobrante, $existenciaS);
 
             $existenciaSobrante->delete();
-            $sumadas++;
+            $receptoras[] = (int) $existenciaS->id;
         }
 
-        return $sumadas;
+        return array_values(array_unique($receptoras));
+    }
+
+    /**
+     * Los movimientos del sobrante pasan al renglón que se queda, cada uno con
+     * una nota de qué código venía: la corrida se recalcula después y el
+     * `saldo_despues` original deja de leerse, así que la nota es lo que
+     * conserva la procedencia.
+     */
+    private function colgarKardex(Existencia $origen, Existencia $destino): void
+    {
+        $nota = sprintf('Era %s (fusionado).', $origen->articulo?->codigo ?? ('existencia #'.$origen->id));
+
+        $movimientos = DB::table('alm_movimientos')
+            ->where('existencia_id', $origen->id)
+            ->get(['id', 'observaciones']);
+
+        foreach ($movimientos as $movimiento) {
+            $observaciones = trim((string) $movimiento->observaciones);
+
+            DB::table('alm_movimientos')->where('id', $movimiento->id)->update([
+                'existencia_id' => $destino->id,
+                'observaciones' => $observaciones === '' ? $nota : $observaciones.' · '.$nota,
+            ]);
+        }
+    }
+
+    /**
+     * Vuelve a correr el saldo del kardex de una existencia en orden de fecha,
+     * como si sus movimientos siempre hubieran sido de un solo artículo. El
+     * punto de partida es el saldo que la cadena no explica (existencia menos
+     * la suma de sus movimientos: cero en una cadena limpia, el saldo inicial
+     * en una que nació con carga), de modo que el último `saldo_despues` cae
+     * exactamente en la existencia de hoy. Sólo se tocan `saldo_antes` y
+     * `saldo_despues`; el costo de cada renglón es histórico y se respeta.
+     */
+    private function recalcularCorrida(int $existenciaId): void
+    {
+        $cantidadHoy = (float) DB::table('alm_existencias')->where('id', $existenciaId)->value('cantidad');
+
+        $movimientos = DB::table('alm_movimientos')
+            ->where('existencia_id', $existenciaId)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get(['id', 'cantidad', 'saldo_antes', 'saldo_despues']);
+
+        if ($movimientos->isEmpty()) {
+            return;
+        }
+
+        $corrida = $cantidadHoy - (float) $movimientos->sum(fn ($m): float => (float) $m->cantidad);
+
+        foreach ($movimientos as $movimiento) {
+            $antes = $corrida;
+            $corrida += (float) $movimiento->cantidad;
+
+            if (abs((float) $movimiento->saldo_antes - $antes) < self::EPSILON && abs((float) $movimiento->saldo_despues - $corrida) < self::EPSILON) {
+                continue;
+            }
+
+            DB::table('alm_movimientos')->where('id', $movimiento->id)->update([
+                'saldo_antes' => round($antes, 4),
+                'saldo_despues' => round($corrida, 4),
+            ]);
+        }
     }
 
     /**
@@ -429,8 +740,9 @@ class FusionadorArticulos
      * Se compara almacén por almacén y asignación por asignación, no el total
      * del grupo: dos errores de signo contrario se cancelarían en la suma
      * global y dejarían la existencia mal repartida sin que nadie lo viera.
-     * Además, después de fusionar no puede quedar renglón de ningún sobrante
-     * y el sobreviviente tiene a lo más uno por almacén.
+     * Además, después de fusionar no puede quedar renglón de ningún sobrante,
+     * el sobreviviente tiene a lo más uno por almacén y el kardex de cada uno
+     * de sus renglones termina en el saldo de hoy.
      *
      * @param  Plan  $plan
      * @param  Foto  $antes
@@ -463,14 +775,37 @@ class FusionadorArticulos
             throw new RuntimeException("Grupo \"{$grupo}\": quedaron {$huerfanas} existencias apuntando a un sobrante. Se revierte todo.");
         }
 
+        // Con `select`, no `count()`: el count envuelve el group by en una
+        // subconsulta `select *` que PostgreSQL rechaza (SQLite la deja pasar).
         $repetidas = DB::table('alm_existencias')
+            ->select('almacen_id')
             ->where('articulo_id', $plan['sobreviviente']->id)
             ->groupBy('almacen_id')
             ->havingRaw('COUNT(*) > 1')
+            ->get()
             ->count();
 
         if ($repetidas > 0) {
             throw new RuntimeException("Grupo \"{$grupo}\": el sobreviviente quedó con más de una existencia en {$repetidas} almacén(es). Se revierte todo.");
+        }
+
+        $existencias = DB::table('alm_existencias')
+            ->where('articulo_id', $plan['sobreviviente']->id)
+            ->get(['id', 'cantidad']);
+
+        foreach ($existencias as $existencia) {
+            $ultimo = DB::table('alm_movimientos')
+                ->where('existencia_id', $existencia->id)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->value('saldo_despues');
+
+            if ($ultimo !== null && abs((float) $ultimo - (float) $existencia->cantidad) > self::EPSILON) {
+                throw new RuntimeException(sprintf(
+                    'Grupo "%s": el kardex de la existencia #%d termina en %.4f y la existencia dice %.4f. Se revierte todo.',
+                    $grupo, $existencia->id, (float) $ultimo, (float) $existencia->cantidad,
+                ));
+            }
         }
     }
 

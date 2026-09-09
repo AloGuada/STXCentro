@@ -9,34 +9,48 @@ use InvalidArgumentException;
 use RuntimeException;
 
 /**
- * Junta los artículos duplicados que dice un CSV.
+ * Junta los artículos duplicados: los que dice un CSV o, con `--auto`, los que
+ * el maestro ve repetidos por descripción (se queda el código más bajo).
  *
- * El archivo lo arma y lo revisa una persona —qué códigos son el mismo insumo y
- * cuál se queda no es algo que se adivine por el texto—, y este comando lo
- * ejecuta. Sin `--force` sólo enseña lo que haría, código por código y
- * almacén por almacén, para que se compare contra la lista antes de la
- * ventana en que se corre de verdad.
+ * Sin `--force` sólo enseña lo que haría, código por código y almacén por
+ * almacén, para que se compare antes de la ventana en que se corre de verdad.
  *
  * Con `--force` todos los grupos van en **una** transacción: o se fusionan
- * todos o ninguno. Un CSV a medias es peor que no correrlo.
+ * todos o ninguno. Una fusión a medias es peor que no correrla.
  */
 class FusionarArticulosCommand extends Command
 {
     protected $signature = 'alm:fusionar-articulos
-        {csv : Ruta del CSV con columnas grupo, codigo, conservar (SI en el que se queda)}
+        {csv? : Ruta del CSV con columnas grupo, codigo, conservar (SI en el que se queda)}
+        {--auto : Arma los grupos solo: items activos con la misma descripción, se queda el código más bajo}
         {--force : Ejecuta la fusión; sin esta opción sólo se enseña el plan}';
 
-    protected $description = 'Fusiona artículos duplicados de Almacén según un CSV revisado a mano';
+    protected $description = 'Fusiona artículos y productos duplicados, según un CSV o por descripción repetida (--auto)';
 
     public function handle(FusionadorArticulos $fusionador): int
     {
+        $csv = $this->argument('csv');
+        $auto = (bool) $this->option('auto');
+
+        if (($csv === null) === (! $auto)) {
+            $this->error('Indica la ruta del CSV o usa --auto, pero no ambos.');
+
+            return self::FAILURE;
+        }
+
         try {
-            $grupos = $fusionador->gruposDesdeCsv((string) $this->argument('csv'));
+            $grupos = $auto ? $fusionador->gruposAutomaticos() : $fusionador->gruposDesdeCsv((string) $csv);
             $planes = $fusionador->planear($grupos);
         } catch (InvalidArgumentException $e) {
             $this->error($e->getMessage());
 
             return self::FAILURE;
+        }
+
+        if ($planes === []) {
+            $this->info('No hay descripciones repetidas entre los items activos; nada que fusionar.');
+
+            return self::SUCCESS;
         }
 
         $this->imprimirPlan($planes);
@@ -83,10 +97,39 @@ class FusionarArticulosCommand extends Command
 
             $this->newLine();
             $this->line(sprintf('<fg=cyan>%s</>', $plan['grupo']));
+
+            if ($s === null) {
+                $this->line('  sólo productos de Compras, sin artículo de Almacén:');
+
+                foreach ($plan['productos_sueltos'] as $p) {
+                    $this->line(sprintf(
+                        '  %s  %s  %s  (producto #%d)',
+                        (int) $p->id === $plan['producto_id'] ? 'se queda ' : 'se retira',
+                        $p->codigo,
+                        $p->descripcion,
+                        $p->id,
+                    ));
+                }
+
+                $productos += count($plan['productos_a_desactivar']);
+
+                continue;
+            }
+
             $this->line(sprintf('  se queda   %s  %s', $s->codigo, $s->descripcion));
 
             foreach ($plan['sobrantes'] as $x) {
                 $this->line(sprintf('  se retira  %s  %s', $x->codigo, $x->descripcion));
+            }
+
+            foreach ($plan['productos_sueltos'] as $p) {
+                $this->line(sprintf(
+                    '  %s  %s  %s  (sólo producto de Compras #%d)',
+                    (int) $p->id === $plan['producto_id'] ? 'se adopta ' : 'se retira ',
+                    $p->codigo,
+                    $p->descripcion,
+                    $p->id,
+                ));
             }
 
             $this->line(sprintf(
