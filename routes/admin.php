@@ -419,6 +419,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereNumber('activo')
             ->middleware('permission:alm.activos.editar')
             ->name('activos.baja');
+        // El activo sin serie no tiene pieza que retirar: se retiran N de su
+        // renglon de existencia.
+        Route::patch('activos/por-cantidad/{existencia}/baja', [AlmActivoController::class, 'bajaPorCantidad'])
+            ->whereNumber('existencia')
+            ->middleware('permission:alm.activos.editar')
+            ->name('activos.por-cantidad.baja');
         // Catalogo de articulos: es costos_productos visto desde Almacen, no una
         // tabla nueva. Sin destroy: un articulo con movimientos es parte del
         // historico del kardex, y se desactiva.

@@ -48,4 +48,14 @@ class ArticuloFactory extends Factory
             'se_controla_por_pieza' => true,
         ]);
     }
+
+    /** Activo sin serie: sale y regresa, pero se lleva como un solo renglón por cantidad. */
+    public function activoPorCantidad(): static
+    {
+        return $this->state(fn (): array => [
+            'tipo' => ProductoTipo::Activo,
+            'se_controla_por_pieza' => false,
+            'unidad' => 'PZA',
+        ]);
+    }
 }

@@ -7,8 +7,11 @@ use App\Enums\Alm\MovimientoTipo;
 use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Articulo;
+use App\Models\Alm\Existencia;
+use App\Models\Alm\Movimiento;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 /**
  * El único que crea, mueve o da de baja una pieza.
@@ -21,10 +24,69 @@ use Illuminate\Support\Str;
  *
  * El préstamo no pasa por aquí en lo que toca al saldo: cambia el estatus de la
  * pieza y nada más. Una pulidora prestada sigue siendo del almacén.
+ *
+ * También da de alta y de baja los activos **por cantidad** —los que el
+ * catálogo marca como activo sin control por pieza—. Ahí no hay padrón: el
+ * renglón de existencia es el registro, y el alta es un solo asiento por N.
  */
 class RegistradorPiezas
 {
     public function __construct(private readonly AlmacenLedger $ledger) {}
+
+    /**
+     * Alta de un activo sin serie: N unidades en un solo asiento. Es la misma
+     * entrada que haría una carga inicial, con el motivo dicho.
+     */
+    public function altaPorCantidad(
+        Articulo $articulo,
+        Almacen $almacen,
+        float $cantidad,
+        ?float $costo = null,
+        ?int $ubicacionId = null,
+        ?string $userId = null,
+        ?string $observaciones = null,
+    ): Movimiento {
+        if (! $articulo->esActivoPorCantidad()) {
+            throw new InvalidArgumentException("El artículo {$articulo->codigo} no es un activo por cantidad.");
+        }
+
+        return $this->ledger->registrarPorArticulo(
+            almacenId: $almacen->id,
+            articuloId: $articulo->id,
+            tipo: MovimientoTipo::Entrada,
+            cantidad: $cantidad,
+            costoUnitario: $costo !== null && $costo > 0 ? $costo : null,
+            referencia: 'Alta de activo',
+            ubicacionId: $ubicacionId,
+            observaciones: $observaciones === null || $observaciones === ''
+                ? 'Alta de activo por cantidad'
+                : "Alta de activo por cantidad · {$observaciones}",
+            userId: $userId,
+        );
+    }
+
+    /**
+     * Baja de N unidades de un activo sin serie. Descarga al costo promedio:
+     * sin serie no hay «esta pieza» que valga distinto de las demás.
+     */
+    public function bajaPorCantidad(Existencia $existencia, float $cantidad, string $motivo, ?string $userId = null): Movimiento
+    {
+        $articulo = $existencia->articulo;
+
+        if ($articulo === null || ! $articulo->esActivoPorCantidad()) {
+            throw new InvalidArgumentException('Ese renglón no es de un activo por cantidad.');
+        }
+
+        return $this->ledger->registrarPorArticulo(
+            almacenId: $existencia->almacen_id,
+            articuloId: $existencia->articulo_id,
+            tipo: MovimientoTipo::Salida,
+            cantidad: -abs($cantidad),
+            referencia: 'Baja de activo',
+            observaciones: "Baja de activo por cantidad · {$motivo}",
+            userId: $userId,
+        );
+    }
 
     /**
      * Da de alta varias piezas del mismo artículo de un golpe: así es como se
