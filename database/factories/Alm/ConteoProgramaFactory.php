@@ -21,11 +21,10 @@ class ConteoProgramaFactory extends Factory
         return [
             'almacen_id' => Almacen::factory(),
             'fecha_inicio' => today()->toDateString(),
+            'fecha_fin' => today()->addWeek()->toDateString(),
             'dias_semana' => [1, 2, 3, 4, 5],
-            'duracion_dias' => 7,
             'articulos_por_dia' => 10,
             'articulos_programados' => 0,
-            'articulos_sin_programar' => 0,
             'creado_por' => null,
         ];
     }

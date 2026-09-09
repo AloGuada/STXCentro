@@ -12,6 +12,8 @@ use App\Models\Alm\Movimiento;
 use App\Models\User;
 use App\Services\Alm\GeneradorProgramaConteo;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 
 /**
@@ -51,7 +53,7 @@ function hojaConSaldos(array $saldos): Conteo
         ]);
     }
 
-    $programa = app(GeneradorProgramaConteo::class)->generar($almacen, CarbonImmutable::today(), [1, 2, 3, 4, 5, 6, 7], 1, 50);
+    $programa = app(GeneradorProgramaConteo::class)->generar($almacen, CarbonImmutable::today(), [1, 2, 3, 4, 5, 6, 7], 50);
 
     return $programa->conteos->first()->load('detalles');
 }
@@ -245,6 +247,68 @@ describe('el cierre', function () {
 
         expect((float) Ajuste::firstOrFail()->detalles()->firstOrFail()->cantidad_sistema)->toBe(103.0)
             ->and((float) Existencia::query()->where('almacen_id', $hoja->almacen_id)->firstOrFail()->cantidad)->toBe(100.0);
+    });
+
+    it('guarda la hoja firmada si la suben al cerrar, y la enseña en la pantalla', function () {
+        Storage::fake('public');
+        $hoja = hojaConSaldos([10]);
+        $user = quienCuenta();
+
+        $this->actingAs($user)->patch(route('admin.alm.conteos.capturar', $hoja), capturaDe($hoja, [1 => 10]));
+
+        $this->actingAs($user)
+            ->post(route('admin.alm.conteos.cerrar', $hoja), [
+                'firmado' => UploadedFile::fake()->create('hoja-firmada.pdf', 120, 'application/pdf'),
+            ])
+            ->assertSessionHasNoErrors();
+
+        $hoja->refresh();
+
+        expect($hoja->firmado_path)->toStartWith('alm/conteos-firmados/')
+            ->and(Storage::disk('public')->exists($hoja->firmado_path))->toBeTrue();
+
+        $this->actingAs($user)
+            ->get(route('admin.alm.conteos.show', $hoja))
+            ->assertInertia(fn ($page) => $page->where('conteo.firmado_url', Storage::disk('public')->url($hoja->firmado_path)));
+    });
+
+    it('la hoja firmada es opcional y sólo acepta PDF o foto', function () {
+        Storage::fake('public');
+        $hoja = hojaConSaldos([10]);
+        $user = quienCuenta();
+
+        $this->actingAs($user)->patch(route('admin.alm.conteos.capturar', $hoja), capturaDe($hoja, [1 => 10]));
+
+        $this->actingAs($user)
+            ->post(route('admin.alm.conteos.cerrar', $hoja), [
+                'firmado' => UploadedFile::fake()->create('hoja.xlsx', 10, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+            ])
+            ->assertSessionHasErrors(['firmado']);
+
+        expect($hoja->refresh()->estatus)->toBe(ConteoEstatus::Contando)
+            ->and(Storage::disk('public')->allFiles())->toBe([]);
+
+        $this->actingAs($user)->post(route('admin.alm.conteos.cerrar', $hoja))->assertSessionHasNoErrors();
+
+        expect($hoja->refresh()->firmado_path)->toBeNull();
+    });
+
+    it('si el cierre se niega, el archivo subido no se queda en disco', function () {
+        Storage::fake('public');
+        $hoja = hojaConSaldos([10, 20]);
+        $user = quienCuenta();
+
+        // Sólo un renglón contado: el cierre se niega.
+        $this->actingAs($user)->patch(route('admin.alm.conteos.capturar', $hoja), capturaDe($hoja, [1 => 10]));
+
+        $this->actingAs($user)
+            ->post(route('admin.alm.conteos.cerrar', $hoja), [
+                'firmado' => UploadedFile::fake()->create('hoja-firmada.pdf', 50, 'application/pdf'),
+            ])
+            ->assertSessionHasErrors(['cierre']);
+
+        expect(Storage::disk('public')->allFiles())->toBe([])
+            ->and($hoja->refresh()->firmado_path)->toBeNull();
     });
 
     it('cerrar pide su propio permiso', function () {

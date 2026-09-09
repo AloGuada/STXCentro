@@ -19,6 +19,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
@@ -83,26 +84,18 @@ class ConteoController extends Controller
                 'id' => $p->id,
                 'almacen' => $p->almacen?->clave,
                 'fecha_inicio' => $p->fecha_inicio->toDateString(),
+                'fecha_fin' => $p->fecha_fin->toDateString(),
                 'dias_semana' => $p->dias_semana,
-                'duracion_dias' => $p->duracion_dias,
                 'articulos_por_dia' => $p->articulos_por_dia,
                 'articulos_programados' => $p->articulos_programados,
-                'articulos_sin_programar' => $p->articulos_sin_programar,
                 'hojas' => $p->conteos_count,
                 'cerradas' => $p->cerrados_count,
             ]);
-
-        $abiertos = Conteo::query()->whereIn('almacen_id', $visibles)->abiertos();
 
         return Inertia::render('admin/almacen/conteos/index', [
             'conteos' => $conteos,
             'programas' => $programas,
             'filters' => $request->only(['almacen_id', 'estatus', 'programa_id', 'search']),
-            'resumen' => [
-                'abiertos' => (clone $abiertos)->count(),
-                'vencidos' => (clone $abiertos)->whereDate('fecha_programada', '<', today())->count(),
-                'programados_hoy' => (clone $abiertos)->whereDate('fecha_programada', today())->count(),
-            ],
             'almacenes' => $this->almacenes($request),
             'estatus' => array_map(
                 fn (ConteoEstatus $e): array => ['value' => $e->value, 'label' => $e->etiqueta()],
@@ -112,9 +105,10 @@ class ConteoController extends Controller
     }
 
     /**
-     * Genera el programa: un lote de hojas, una por día de conteo. Las
-     * decisiones de reparto viven en el servicio; aquí sólo se valida que el
-     * almacén sea de quien lo pide y se traduce el resultado a un mensaje.
+     * Genera el programa: las hojas que hagan falta para cubrir el almacén,
+     * una por día de conteo. Las decisiones de reparto viven en el servicio;
+     * aquí sólo se valida que el almacén sea de quien lo pide y se traduce el
+     * resultado a un mensaje que dice cuándo se termina.
      */
     public function storePrograma(ConteoProgramaStoreRequest $request): RedirectResponse
     {
@@ -127,22 +121,17 @@ class ConteoController extends Controller
                 almacen: $almacen,
                 fechaInicio: CarbonImmutable::parse($request->string('fecha_inicio')->value()),
                 diasSemana: array_map('intval', $request->input('dias_semana', [])),
-                duracionDias: $request->integer('duracion_dias'),
                 articulosPorDia: $request->integer('articulos_por_dia'),
                 userId: $request->user()?->getAuthIdentifier(),
             );
         } catch (InvalidArgumentException $e) {
-            return back()->withErrors(['duracion_dias' => $e->getMessage()])->withInput();
+            return back()->withErrors(['almacen_id' => $e->getMessage()])->withInput();
         }
 
         $hojas = $programa->conteos->count();
-        $primera = $programa->conteos->first()?->fecha_programada->format('d/m/Y');
-        $ultima = $programa->conteos->last()?->fecha_programada->format('d/m/Y');
-        $mensaje = "Se generaron {$hojas} hojas para {$almacen->clave}, del {$primera} al {$ultima}, con {$programa->articulos_programados} artículos.";
-
-        if ($programa->articulos_sin_programar > 0) {
-            $mensaje .= " Quedaron {$programa->articulos_sin_programar} artículos sin programar: no cupieron en los días elegidos.";
-        }
+        $primera = $programa->fecha_inicio->format('d/m/Y');
+        $ultima = $programa->fecha_fin->format('d/m/Y');
+        $mensaje = "Se generaron {$hojas} hojas para {$almacen->clave} con {$programa->articulos_programados} artículos: empieza el {$primera} y termina el {$ultima}.";
 
         return to_route('admin.alm.conteos.index', ['programa_id' => $programa->id])->with('success', $mensaje);
     }
@@ -166,7 +155,7 @@ class ConteoController extends Controller
             'almacen:id,clave,nombre',
             'responsable:id,name',
             'ajuste:id,folio',
-            'programa:id,fecha_inicio,duracion_dias,articulos_por_dia',
+            'programa:id,fecha_inicio,fecha_fin,articulos_por_dia',
             'detalles.articulo:id,codigo,descripcion,unidad,clasificacion_abc',
             'detalles.existencia:id,ubicacion_id',
             'detalles.existencia.ubicacion',
@@ -190,6 +179,7 @@ class ConteoController extends Controller
                 'ajuste_id' => $conteo->ajuste?->id,
                 'ajuste_folio' => $conteo->ajuste?->folio,
                 'observaciones' => $conteo->observaciones,
+                'firmado_url' => $conteo->firmadoUrl(),
                 'completa' => $completa,
                 'puede_capturar' => $abierta && ($user?->can('alm.conteos.capturar') ?? false),
                 'puede_cerrar' => $puedeCerrar,
@@ -235,18 +225,30 @@ class ConteoController extends Controller
     /**
      * Cierra la hoja y levanta el ajuste. Quien cierra autoriza la corrección:
      * por eso es un permiso aparte de capturar.
+     *
+     * La hoja firmada se guarda antes de cerrar y se tira si el cierre se
+     * niega: un archivo huérfano en disco no le sirve a nadie.
      */
     public function cerrar(ConteoCierreRequest $request, Conteo $conteo): RedirectResponse
     {
         abort_unless($conteo->almacen->esVisiblePara($request->user()), 403);
+
+        $firmadoPath = $request->hasFile('firmado')
+            ? $request->file('firmado')->store('alm/conteos-firmados', 'public')
+            : null;
 
         try {
             $conteo = $this->registrador->cerrar(
                 $conteo,
                 $request->user()->getAuthIdentifier(),
                 $request->input('observaciones'),
+                $firmadoPath,
             );
         } catch (InvalidArgumentException $e) {
+            if ($firmadoPath !== null) {
+                Storage::disk('public')->delete($firmadoPath);
+            }
+
             return back()->withErrors(['cierre' => $e->getMessage()]);
         }
 

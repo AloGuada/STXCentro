@@ -29,6 +29,10 @@ return new class extends Migration
             $table->date('fecha_cierre')->nullable();
             $table->foreignId('ajuste_id')->nullable()->constrained('alm_ajustes')->nullOnDelete();
             $table->text('observaciones')->nullable();
+            // La hoja firmada, escaneada, si la subieron al cerrar. Opcional:
+            // el acta con valor contable es el ajuste; esto es el papel que la
+            // respalda.
+            $table->string('firmado_path')->nullable();
             $table->foreignUuid('creado_por')->nullable()->constrained('usuarios')->nullOnDelete();
             $table->timestamps();
 

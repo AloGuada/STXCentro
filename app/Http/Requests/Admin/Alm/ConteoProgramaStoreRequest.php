@@ -12,10 +12,9 @@ class ConteoProgramaStoreRequest extends FormRequest
     }
 
     /**
-     * Lo que se elige en el modal. Los días de la semana van en ISO (1 = lunes
-     * … 7 = domingo) y sin repetir; la duración se cuenta en días naturales
-     * desde la fecha de inicio, y sólo los que caigan en los días elegidos
-     * generan hoja.
+     * Lo que se elige en el modal: desde cuándo, qué días de la semana (ISO,
+     * 1 = lunes … 7 = domingo, sin repetir) y cuántos artículos por día. La
+     * duración no se pide: la calcula el sistema.
      *
      * @return array<string, mixed>
      */
@@ -26,7 +25,6 @@ class ConteoProgramaStoreRequest extends FormRequest
             'fecha_inicio' => ['required', 'date'],
             'dias_semana' => ['required', 'array', 'min:1', 'max:7'],
             'dias_semana.*' => ['required', 'integer', 'between:1,7', 'distinct'],
-            'duracion_dias' => ['required', 'integer', 'between:1,366'],
             'articulos_por_dia' => ['required', 'integer', 'between:1,500'],
         ];
     }
@@ -41,8 +39,6 @@ class ConteoProgramaStoreRequest extends FormRequest
             'fecha_inicio.required' => 'Indica desde qué día empieza el inventario.',
             'dias_semana.required' => 'Marca al menos un día de la semana.',
             'dias_semana.min' => 'Marca al menos un día de la semana.',
-            'duracion_dias.required' => 'Indica cuántos días dura el inventario.',
-            'duracion_dias.between' => 'La duración va de 1 a 366 días.',
             'articulos_por_dia.required' => 'Indica cuántos artículos se cuentan por día.',
             'articulos_por_dia.between' => 'Los artículos por día van de 1 a 500.',
         ];

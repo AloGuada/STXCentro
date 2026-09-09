@@ -78,7 +78,7 @@ class RegistradorConteo
      * evidencia de lo que se contó, no sólo de lo que descuadró. El ajuste
      * decide por su cuenta qué renglones llegan al kardex.
      */
-    public function cerrar(Conteo $conteo, string $userId, ?string $observaciones = null): Conteo
+    public function cerrar(Conteo $conteo, string $userId, ?string $observaciones = null, ?string $firmadoPath = null): Conteo
     {
         if (! $conteo->estatus->abierto()) {
             throw new InvalidArgumentException('Esta hoja ya está cerrada.');
@@ -95,7 +95,7 @@ class RegistradorConteo
             );
         }
 
-        return DB::transaction(function () use ($conteo, $detalles, $userId, $observaciones): Conteo {
+        return DB::transaction(function () use ($conteo, $detalles, $userId, $observaciones, $firmadoPath): Conteo {
             $nota = "Cierre del conteo {$conteo->folio}";
 
             $ajuste = $this->ajustes->registrar(
@@ -119,6 +119,7 @@ class RegistradorConteo
                 'fecha_cierre' => today(),
                 'ajuste_id' => $ajuste->id,
                 'observaciones' => $observaciones,
+                'firmado_path' => $firmadoPath,
                 'responsable_id' => $conteo->responsable_id ?? $userId,
             ])->save();
 

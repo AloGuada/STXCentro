@@ -39,6 +39,8 @@ type Conteo = {
     ajuste_id: number | null;
     ajuste_folio: string | null;
     observaciones: string | null;
+    /** La hoja firmada escaneada, si la subieron al cerrar. */
+    firmado_url: string | null;
     completa: boolean;
     puede_capturar: boolean;
     puede_cerrar: boolean;
@@ -97,7 +99,10 @@ export default function ConteoShow({ conteo }: Props) {
         ) as Captura,
     });
 
-    const cierre = useForm<{ observaciones: string; cierre?: string }>({ observaciones: '' });
+    const cierre = useForm<{ observaciones: string; firmado: File | null; cierre?: string }>({
+        observaciones: '',
+        firmado: null,
+    });
 
     const setRenglon = (id: number, campo: 'cantidad_contada' | 'observaciones', valor: string) =>
         captura.setData('renglones', {
@@ -387,6 +392,23 @@ export default function ConteoShow({ conteo }: Props) {
                                             onChange={(e) => cierre.setData('observaciones', e.target.value)}
                                         />
                                     </div>
+                                    <div>
+                                        <label className="label label-text" htmlFor="cierre-firmado">
+                                            Hoja firmada (opcional)
+                                        </label>
+                                        <input
+                                            id="cierre-firmado"
+                                            type="file"
+                                            accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                            className="file-input file-input-bordered file-input-sm w-full"
+                                            onChange={(e) => cierre.setData('firmado', e.target.files?.[0] ?? null)}
+                                        />
+                                        <p className="text-base-content/60 mt-1 text-xs">
+                                            El escaneo o la foto de la hoja con las firmas. PDF, JPG o PNG, hasta 10 MB.
+                                            El acta con valor contable es el ajuste; esto es el papel que lo respalda.
+                                        </p>
+                                        {cierre.errors.firmado && <p className="text-error text-sm">{cierre.errors.firmado}</p>}
+                                    </div>
                                     <div className="flex justify-end gap-2">
                                         <button type="button" className="btn btn-ghost" onClick={() => setConfirmando(false)}>
                                             Cancelar
@@ -427,6 +449,20 @@ export default function ConteoShow({ conteo }: Props) {
                             )}
                             , que es el que movió el saldo.
                             {conteo.observaciones && <span className="block text-sm">{conteo.observaciones}</span>}
+                            {conteo.firmado_url ? (
+                                <a
+                                    href={conteo.firmado_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="link mt-1 block text-sm"
+                                >
+                                    Ver la hoja firmada
+                                </a>
+                            ) : (
+                                <span className="text-base-content/60 block text-sm">
+                                    Se cerró sin subir la hoja firmada.
+                                </span>
+                            )}
                         </span>
                     </div>
                 )}

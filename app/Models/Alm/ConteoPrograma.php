@@ -11,9 +11,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Un programa de inventario: el lote de hojas que reparte un almacén en días.
  *
- * Guarda lo que se decidió en el modal y cuántos artículos alcanzaron a
- * entrar. Las hojas son lo que se cuenta; el programa sólo explica por qué
- * existen y permite ver de un vistazo cuánto del almacén cubre.
+ * Guarda lo que se decidió en el modal (desde cuándo, qué días, cuántos por
+ * día) y lo que el sistema calculó con eso: cuántos artículos entraron y en
+ * qué fecha se termina. Las hojas son lo que se cuenta; el programa sólo
+ * explica por qué existen.
  *
  * @use HasFactory<\Database\Factories\Alm\ConteoProgramaFactory>
  */
@@ -29,11 +30,10 @@ class ConteoPrograma extends Model
     protected $fillable = [
         'almacen_id',
         'fecha_inicio',
+        'fecha_fin',
         'dias_semana',
-        'duracion_dias',
         'articulos_por_dia',
         'articulos_programados',
-        'articulos_sin_programar',
         'creado_por',
     ];
 
@@ -44,11 +44,10 @@ class ConteoPrograma extends Model
     {
         return [
             'fecha_inicio' => 'date',
+            'fecha_fin' => 'date',
             'dias_semana' => 'array',
-            'duracion_dias' => 'integer',
             'articulos_por_dia' => 'integer',
             'articulos_programados' => 'integer',
-            'articulos_sin_programar' => 'integer',
         ];
     }
 

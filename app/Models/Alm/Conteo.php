@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * La hoja de conteo, folio `CIC`: qué artículos se cuentan en qué almacén y
@@ -44,6 +45,7 @@ class Conteo extends Model
         'fecha_cierre',
         'ajuste_id',
         'observaciones',
+        'firmado_path',
         'creado_por',
     ];
 
@@ -98,6 +100,12 @@ class Conteo extends Model
     public function ajuste(): BelongsTo
     {
         return $this->belongsTo(Ajuste::class);
+    }
+
+    /** Dónde abrir la hoja firmada, si la subieron al cerrar. */
+    public function firmadoUrl(): ?string
+    {
+        return $this->firmado_path === null ? null : Storage::disk('public')->url($this->firmado_path);
     }
 
     /** Se le pasó la fecha y sigue abierta. */

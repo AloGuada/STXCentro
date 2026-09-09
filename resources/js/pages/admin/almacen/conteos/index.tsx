@@ -45,11 +45,11 @@ type Programa = {
     id: number;
     almacen: string | null;
     fecha_inicio: string;
+    /** La puso el sistema: el día en que cae la última hoja. */
+    fecha_fin: string;
     dias_semana: number[];
-    duracion_dias: number;
     articulos_por_dia: number;
     articulos_programados: number;
-    articulos_sin_programar: number;
     hojas: number;
     cerradas: number;
 };
@@ -71,7 +71,6 @@ type Props = {
     };
     programas: Programa[];
     filters: { almacen_id?: string; estatus?: string; programa_id?: string; search?: string };
-    resumen: { abiertos: number; vencidos: number; programados_hoy: number };
     almacenes: AlmacenOpcion[];
     estatus: { value: string; label: string }[];
 };
@@ -96,36 +95,43 @@ const DIAS_SEMANA = [
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 
+const fechaLarga = (iso: string) =>
+    new Date(`${iso}T00:00:00`).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+
 /**
- * Misma cuenta que hace el servidor: cuántas fechas caen en los días elegidos
- * dentro de la duración. Se repite aquí para que el modal diga cuántas hojas
- * van a salir antes de generar nada.
+ * Misma cuenta que hace el servidor: recorre el calendario desde el inicio y
+ * se queda con los días marcados hasta juntar las hojas que hacen falta. La
+ * última fecha es cuándo se termina. Se repite aquí para que el modal lo diga
+ * antes de generar nada.
  */
-function diasDeConteo(inicio: string, dias: number[], duracion: number): number {
-    if (!inicio || dias.length === 0 || duracion < 1) return 0;
-    const base = new Date(`${inicio}T00:00:00`);
-    if (Number.isNaN(base.getTime())) return 0;
-    let total = 0;
-    for (let i = 0; i < duracion; i++) {
-        const fecha = new Date(base);
-        fecha.setDate(base.getDate() + i);
-        const iso = fecha.getDay() === 0 ? 7 : fecha.getDay();
-        if (dias.includes(iso)) total++;
+function fechasDeConteo(inicio: string, dias: number[], cuantas: number): string[] {
+    if (!inicio || dias.length === 0 || cuantas < 1) return [];
+    const cursor = new Date(`${inicio}T00:00:00`);
+    if (Number.isNaN(cursor.getTime())) return [];
+    const fechas: string[] = [];
+    while (fechas.length < cuantas) {
+        const iso = cursor.getDay() === 0 ? 7 : cursor.getDay();
+        if (dias.includes(iso)) {
+            fechas.push(
+                `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`,
+            );
+        }
+        cursor.setDate(cursor.getDate() + 1);
     }
-    return total;
+    return fechas;
 }
 
 /**
  * Inventario cíclico: contar un pedazo del almacén cada día en vez de parar
  * todo un fin de semana al año.
  *
- * El **programa** reparte el almacén: se elige cuántos artículos por día, qué
- * días de la semana y cuántos días, y de ahí salen las hojas, una por día de
- * conteo, con artículos al azar. Ninguna hoja mueve el saldo: al cerrar genera
- * un **ajuste**, que es el único documento al que el kardex le permite
- * corregir existencias.
+ * El **programa** reparte el almacén: se elige cuántos artículos por día y qué
+ * días de la semana, y el sistema dice cuántas hojas salen y en qué fecha se
+ * termina. Los artículos de cada hoja van al azar. Ninguna hoja mueve el
+ * saldo: al cerrar genera un **ajuste**, que es el único documento al que el
+ * kardex le permite corregir existencias.
  */
-export default function ConteosIndex({ conteos, programas, filters, resumen, almacenes, estatus }: Props) {
+export default function ConteosIndex({ conteos, programas, filters, almacenes, estatus }: Props) {
     const { flash } = usePage<{ flash: { success?: string } }>().props;
     const [abierto, setAbierto] = useState(false);
 
@@ -133,22 +139,28 @@ export default function ConteosIndex({ conteos, programas, filters, resumen, alm
         almacen_id: filters.almacen_id ?? '',
         fecha_inicio: hoy(),
         dias_semana: [1, 2, 3, 4, 5] as number[],
-        duracion_dias: 30,
         articulos_por_dia: 20,
     });
 
     const almacenElegido = almacenes.find((a) => String(a.id) === String(form.data.almacen_id));
 
-    // Lo que va a pasar, antes de que pase: cuántas hojas y si cabe todo.
+    // Lo que va a pasar, antes de que pase: cuántas hojas y cuándo se termina.
+    // La duración es una salida, no algo que se captura.
     const previa = useMemo(() => {
-        const dias = diasDeConteo(form.data.fecha_inicio, form.data.dias_semana, Number(form.data.duracion_dias));
         const articulos = almacenElegido?.articulos ?? 0;
         const porDia = Math.max(1, Number(form.data.articulos_por_dia) || 0);
-        const hojasNecesarias = Math.ceil(articulos / porDia);
-        const hojas = Math.min(dias, hojasNecesarias);
-        const programados = Math.min(articulos, hojas * porDia);
+        const hojas = Math.ceil(articulos / porDia);
+        const fechas = fechasDeConteo(form.data.fecha_inicio, form.data.dias_semana, hojas);
+        const fin = fechas.length > 0 ? fechas[fechas.length - 1] : null;
+        const diasNaturales =
+            fin === null
+                ? 0
+                : Math.round(
+                      (new Date(`${fin}T00:00:00`).getTime() - new Date(`${form.data.fecha_inicio}T00:00:00`).getTime()) /
+                          86_400_000,
+                  ) + 1;
 
-        return { dias, articulos, hojas, programados, sinProgramar: articulos - programados };
+        return { articulos, hojas, fin, diasNaturales };
     }, [form.data, almacenElegido]);
 
     const alternarDia = (valor: number, marcado: boolean) => {
@@ -179,8 +191,8 @@ export default function ConteosIndex({ conteos, programas, filters, resumen, alm
                     <div>
                         <h1 className="text-2xl font-semibold">Inventarios cíclicos</h1>
                         <p className="text-base-content/60 mt-1 text-sm">
-                            Se cuenta una parte del almacén cada día, sin parar la operación. El programa reparte los
-                            artículos al azar entre los días elegidos.
+                            Se cuenta una parte del almacén cada día, sin parar la operación. Tú dices cuántos
+                            artículos por día y qué días; el sistema los sortea y te dice cuándo terminas.
                         </p>
                     </div>
                     <Button variant="primary" onClick={() => setAbierto(true)}>
@@ -195,34 +207,6 @@ export default function ConteosIndex({ conteos, programas, filters, resumen, alm
                     </div>
                 )}
 
-                <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className="rounded-box border-base-300 border p-4">
-                        <p className="text-base-content/60 text-sm">Hojas abiertas</p>
-                        <p className="mt-1 text-3xl font-semibold">{resumen.abiertos}</p>
-                        <p className="text-base-content/60 mt-1 text-sm">{resumen.programados_hoy} tocan hoy.</p>
-                    </div>
-
-                    <div className="rounded-box border-base-300 border p-4">
-                        <p className="text-base-content/60 text-sm">Vencidas</p>
-                        <p className={`mt-1 text-3xl font-semibold ${resumen.vencidos > 0 ? 'text-error' : ''}`}>
-                            {resumen.vencidos}
-                        </p>
-                        <p className="text-base-content/60 mt-1 text-sm">
-                            {resumen.vencidos > 0 ? 'Se les pasó la fecha y nadie las ha contado.' : 'Todo al corriente.'}
-                        </p>
-                    </div>
-
-                    <div className="rounded-box border-base-300 border p-4">
-                        <p className="text-base-content/60 text-sm">Artículos contables</p>
-                        <p className="mt-1 text-3xl font-semibold">
-                            {almacenes.reduce((s, a) => s + a.articulos, 0)}
-                        </p>
-                        <p className="text-base-content/60 mt-1 text-sm">
-                            Renglones con existencia en tus almacenes. Lo que no lleva kardex no entra.
-                        </p>
-                    </div>
-                </div>
-
                 {programas.length > 0 && (
                     <div className="rounded-box border-base-300 mb-6 border">
                         <div className="border-base-300 flex items-center gap-2 border-b px-4 py-3">
@@ -234,12 +218,12 @@ export default function ConteosIndex({ conteos, programas, filters, resumen, alm
                                 <thead className="bg-base-200">
                                     <tr>
                                         <th>Almacén</th>
-                                        <th>Inicio</th>
+                                        <th>Del</th>
+                                        <th>Al</th>
                                         <th>Días</th>
                                         <th className="text-right">Por día</th>
                                         <th className="text-right">Hojas</th>
                                         <th className="text-right">Artículos</th>
-                                        <th className="text-right">Sin programar</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -248,12 +232,8 @@ export default function ConteosIndex({ conteos, programas, filters, resumen, alm
                                             <td>
                                                 <span className="badge badge-sm badge-ghost font-mono">{p.almacen}</span>
                                             </td>
-                                            <td className="font-mono text-xs">
-                                                {p.fecha_inicio}
-                                                <span className="text-base-content/50 block">
-                                                    {p.duracion_dias} días
-                                                </span>
-                                            </td>
+                                            <td className="font-mono text-xs">{p.fecha_inicio}</td>
+                                            <td className="font-mono text-xs">{p.fecha_fin}</td>
                                             <td className="text-xs">
                                                 {DIAS_SEMANA.filter((d) => p.dias_semana.includes(d.valor))
                                                     .map((d) => d.corto)
@@ -270,15 +250,6 @@ export default function ConteosIndex({ conteos, programas, filters, resumen, alm
                                                 </button>
                                             </td>
                                             <td className="text-right font-mono">{p.articulos_programados}</td>
-                                            <td className="text-right font-mono">
-                                                {p.articulos_sin_programar > 0 ? (
-                                                    <span className="text-warning font-semibold">
-                                                        {p.articulos_sin_programar}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-base-content/30">—</span>
-                                                )}
-                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -417,8 +388,8 @@ export default function ConteosIndex({ conteos, programas, filters, resumen, alm
                         <DialogHeader>
                             <DialogTitle>Programar inventario</DialogTitle>
                             <DialogDescription className="py-1 text-sm">
-                                Se genera una hoja por cada día de conteo, con los artículos del almacén repartidos al
-                                azar.
+                                Di cuántos artículos se cuentan por día y qué días. El sistema los sortea, arma una
+                                hoja por día hasta cubrir todo el almacén y te dice cuándo terminas.
                             </DialogDescription>
                         </DialogHeader>
 
@@ -467,23 +438,6 @@ export default function ConteosIndex({ conteos, programas, filters, resumen, alm
                                     onChange={(e) => form.setData('articulos_por_dia', Number(e.target.value))}
                                 />
                             </FormField>
-
-                            <FormField
-                                label="Duración (días naturales)"
-                                htmlFor="duracion_dias"
-                                required
-                                error={form.errors.duracion_dias}
-                                description="Sólo generan hoja los días marcados abajo."
-                            >
-                                <Input
-                                    id="duracion_dias"
-                                    type="number"
-                                    min={1}
-                                    max={366}
-                                    value={form.data.duracion_dias}
-                                    onChange={(e) => form.setData('duracion_dias', Number(e.target.value))}
-                                />
-                            </FormField>
                         </div>
 
                         <FormField
@@ -509,26 +463,23 @@ export default function ConteosIndex({ conteos, programas, filters, resumen, alm
 
                         <div className="bg-base-200 rounded-box mt-4 p-3 text-sm">
                             {!almacenElegido ? (
-                                <span className="text-base-content/60">Elige un almacén para ver cuántas hojas saldrían.</span>
-                            ) : previa.dias === 0 ? (
-                                <span className="text-error">
-                                    Con esos días y esa duración no cae ningún día de conteo.
+                                <span className="text-base-content/60">
+                                    Elige un almacén para ver cuántas hojas saldrían y cuándo terminas.
                                 </span>
+                            ) : previa.articulos === 0 ? (
+                                <span className="text-error">Este almacén no tiene artículos que contar.</span>
+                            ) : form.data.dias_semana.length === 0 ? (
+                                <span className="text-error">Marca al menos un día de la semana.</span>
+                            ) : previa.fin === null ? (
+                                <span className="text-error">Revisa la fecha de inicio.</span>
                             ) : (
                                 <>
-                                    <strong>{previa.hojas}</strong> hoja(s) en {previa.dias} día(s) de conteo, cubriendo{' '}
-                                    <strong>{previa.programados}</strong> de {previa.articulos} artículos.
-                                    {previa.sinProgramar > 0 && (
-                                        <span className="text-warning block">
-                                            Quedan {previa.sinProgramar} sin programar: sube los artículos por día,
-                                            alarga la duración o marca más días.
-                                        </span>
-                                    )}
-                                    {previa.dias > previa.hojas && (
-                                        <span className="text-base-content/60 block">
-                                            Sobran {previa.dias - previa.hojas} día(s): no se generan hojas vacías.
-                                        </span>
-                                    )}
+                                    <strong>{previa.hojas}</strong> hoja(s) para {previa.articulos} artículos. Termina
+                                    el <strong>{fechaLarga(previa.fin)}</strong>: {previa.diasNaturales} día(s)
+                                    naturales desde el inicio.
+                                    <span className="text-base-content/60 block">
+                                        Para acabar antes, sube los artículos por día o marca más días de la semana.
+                                    </span>
                                 </>
                             )}
                         </div>
