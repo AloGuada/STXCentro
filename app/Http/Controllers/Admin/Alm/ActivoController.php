@@ -253,6 +253,8 @@ class ActivoController extends Controller
                 'obra' => $e->almacen?->obra?->no,
                 'ubicacion' => $e->ubicacion?->ruta(),
                 'cantidad' => (float) $e->cantidad,
+                'prestado' => (float) $e->prestado,
+                'disponible' => $e->disponibleParaPrestar(),
                 'costo_promedio' => (float) $e->costo_promedio,
                 'valor' => (float) $e->valor,
             ])

@@ -6,10 +6,12 @@ use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
 use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
 use App\Http\Controllers\Admin\Alm\ArticuloController as AlmArticuloController;
 use App\Http\Controllers\Admin\Alm\AsignacionController as AlmAsignacionController;
+use App\Http\Controllers\Admin\Alm\DevolucionController as AlmDevolucionController;
 use App\Http\Controllers\Admin\Alm\EntradaController as AlmEntradaController;
 use App\Http\Controllers\Admin\Alm\ExistenciaController as AlmExistenciaController;
 use App\Http\Controllers\Admin\Alm\KardexController as AlmKardexController;
 use App\Http\Controllers\Admin\Alm\PedidoController as AlmPedidoController;
+use App\Http\Controllers\Admin\Alm\PrestamoController as AlmPrestamoController;
 use App\Http\Controllers\Admin\Alm\SalidaController as AlmSalidaController;
 use App\Http\Controllers\Admin\Alm\TransferenciaController as AlmTransferenciaController;
 use App\Http\Controllers\Admin\Alm\UbicacionController as AlmUbicacionController;
@@ -348,12 +350,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereNumber('transferencia')
             ->middleware('permission:alm.transferencias.enviar')
             ->name('transferencias.cancelar');
-        Route::get('devoluciones', [AlmVistasController::class, 'devoluciones'])
-            ->middleware('permission:alm.devoluciones.ver')
-            ->name('devoluciones.index');
-        Route::get('devoluciones/create', [AlmVistasController::class, 'devolucionCreate'])
-            ->middleware('permission:alm.devoluciones.crear')
-            ->name('devoluciones.create');
         // Ajustes: el unico documento que cambia la existencia sin material de
         // por medio. Sin edit/update/destroy, como todos los de almacen: un
         // ajuste equivocado se corrige con otro y los dos quedan en el kardex.
@@ -400,12 +396,28 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereNumber('pedido')
             ->middleware('permission:alm.pedidos.cancelar')
             ->name('pedidos.cancelar');
-        Route::get('prestamos', [AlmVistasController::class, 'prestamos'])
-            ->middleware('permission:alm.prestamos.ver')
-            ->name('prestamos.index');
-        Route::get('prestamos/create', [AlmVistasController::class, 'prestamoCreate'])
+        // Prestamos: el resguardo. No mueve saldo, cambia la custodia; por eso
+        // no tiene edit ni destroy: un resguardo se cierra devolviendo.
+        Route::get('prestamos/prestables/{almacen}', [AlmPrestamoController::class, 'prestables'])
+            ->whereNumber('almacen')
             ->middleware('permission:alm.prestamos.crear')
-            ->name('prestamos.create');
+            ->name('prestamos.prestables');
+        Route::get('prestamos/{prestamo}/pdf', [AlmPrestamoController::class, 'pdf'])
+            ->whereNumber('prestamo')
+            ->middleware('permission:alm.prestamos.ver')
+            ->name('prestamos.pdf');
+        Route::resource('prestamos', AlmPrestamoController::class)
+            ->only(['index', 'create', 'store', 'show'])
+            ->parameters(['prestamos' => 'prestamo'])
+            ->middlewareFor(['index', 'show'], 'permission:alm.prestamos.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.prestamos.crear');
+        // Devoluciones: el cierre de renglones de resguardo, venga del vale
+        // que venga. No mueve existencia.
+        Route::resource('devoluciones', AlmDevolucionController::class)
+            ->only(['index', 'create', 'store'])
+            ->parameters(['devoluciones' => 'devolucion'])
+            ->middlewareFor(['index'], 'permission:alm.devoluciones.ver')
+            ->middlewareFor(['create', 'store'], 'permission:alm.devoluciones.crear');
         // Activos: el padron de piezas con numero de serie. Sin show, la pieza
         // se corrige desde el modal de lapiz de su renglon. La baja va aparte
         // de la edicion porque descarga existencia.
