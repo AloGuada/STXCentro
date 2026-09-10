@@ -28,7 +28,8 @@ export function FasePrimera({
     muestreo: EstadoMuestreo;
     onMuestreo: (estado: EstadoMuestreo) => void;
 }) {
-    const [abierto, setAbierto] = useState(false);
+    // Abierto de entrada cuando se corrige una inspección que ya trae muestreo.
+    const [abierto, setAbierto] = useState(() => campos.v('p1_lote') !== '');
     const esPlaca = campos.v('p1_subtipo') === 'Placa';
 
     const nivel = (campos.v('p1_nivel') || 'II') as NivelMuestreo;

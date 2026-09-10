@@ -36,6 +36,7 @@ export function FaseSegunda({
     juntas,
     onJuntas,
     soldadores,
+    subetapaFija = false,
     onAviso,
     onRechazar,
 }: {
@@ -48,6 +49,8 @@ export function FaseSegunda({
     juntas: Junta[];
     onJuntas: (juntas: Junta[]) => void;
     soldadores: [string, string][];
+    /** Al corregir o reinspeccionar, la sub-etapa es parte de la identidad: no cambia. */
+    subetapaFija?: boolean;
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
     onRechazar: () => void;
 }) {
@@ -71,7 +74,7 @@ export function FaseSegunda({
                 <Campo label="Sub-etapa">
                     <Segmentado
                         value={subetapa}
-                        onChange={(valor) => campos.set('p2_subetapa', valor)}
+                        onChange={(valor) => !subetapaFija && campos.set('p2_subetapa', valor)}
                         opciones={[
                             { valor: 'Armado-Vestido', texto: 'Armado / Vestido' },
                             { valor: 'Soldado', texto: 'Soldado (producto terminado)' },

@@ -50,10 +50,13 @@ export function PiezaFisica({
     obraId,
     pieza,
     onPieza,
+    fija = false,
     onAviso,
 }: {
     obraId: string;
     pieza: PiezaResuelta | null;
+    /** Al corregir o reinspeccionar, la pieza es la de la inspección: no se cambia. */
+    fija?: boolean;
     onPieza: (pieza: PiezaResuelta | null) => void;
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
 }) {
@@ -111,9 +114,11 @@ export function PiezaFisica({
                             <div className="mt-0.5 text-xs text-base-content/60">{pieza.concepto.descripcion}</div>
                         )}
                     </div>
-                    <Boton tono="claro" onClick={() => onPieza(null)} className="btn-sm">
-                        Cambiar pieza
-                    </Boton>
+                    {!fija && (
+                        <Boton tono="claro" onClick={() => onPieza(null)} className="btn-sm">
+                            Cambiar pieza
+                        </Boton>
+                    )}
                 </div>
 
                 {pieza.inspecciones.length > 0 ? (

@@ -10,23 +10,36 @@
  * guardar, el servidor las vuelve a calcular y las suyas son las que valen.
  *
  * La pieza viene de Producción: en 1ª es una marca del catálogo vigente y su
- * consecutivo; en 2ª y pintura, la pieza física que se escanea por su QR.
+ * consecutivo; en 2ª y pintura, la pieza física que se escanea por su QR. Un
+ * lote de accesorios es otra cosa —cientos de unidades iguales por muestreo— y
+ * se guarda como una entrega de su lote.
+ *
+ * La misma pantalla sirve para corregir y reinspeccionar: llega con una
+ * `precarga` que arma el servidor, y entonces lo que identifica a la pieza
+ * (fase, obra, pieza, sub-etapa) queda fijo.
  *
  * No hay modo sin conexión: se trabaja contra el servidor como el resto del
- * mono. El lote de accesorios sigue siendo maqueta; llega con su rebanada.
+ * mono.
  */
 
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
+import type { NivelMuestreo } from '@/components/qal/captura/datos';
 import { useCampos, type Junta, type PiezaRechazada } from '@/components/qal/captura/estado';
 import { FasePrimera } from '@/components/qal/captura/fase-primera';
 import { FaseSegunda } from '@/components/qal/captura/fase-segunda';
 import { FaseTercera } from '@/components/qal/captura/fase-tercera';
-import type { Evidencia } from '@/components/qal/captura/fotos';
-import { LoteAccesorios } from '@/components/qal/captura/lote-accesorios';
+import type { Evidencia, FotoGuardada } from '@/components/qal/captura/fotos';
+import { LoteAccesorios, type LoteDeObra } from '@/components/qal/captura/lote-accesorios';
 import { MUESTREO_VACIO, type EstadoMuestreo } from '@/components/qal/captura/muestreo';
 import { PiezaFisica, type PiezaResuelta } from '@/components/qal/captura/pieza-fisica';
-import { ESPESOR_MEDICIONES_BASE, ESPESOR_MEDICIONES_MAX, hoyLocal, semanaIso } from '@/components/qal/captura/reglas';
+import {
+    ESPESOR_MEDICIONES_BASE,
+    ESPESOR_MEDICIONES_MAX,
+    hoyLocal,
+    planMuestreo,
+    semanaIso,
+} from '@/components/qal/captura/reglas';
 import { TecladoFolio } from '@/components/qal/captura/teclado-folio';
 import {
     AreaTexto,
@@ -64,20 +77,47 @@ type Catalogos = {
     tiposPieza: TipoPieza[];
     defectosSoldadura: Opcion[];
     defectosPintura: Opcion[];
+    defectosAccDimensional: Opcion[];
+    defectosAccBarrenos: Opcion[];
+    defectosAccLimpieza: Opcion[];
+};
+
+/** Lo que el servidor manda ya llenado para corregir o reinspeccionar. */
+type Precarga = {
+    modo: 'editar' | 'reinspeccionar' | 'nuevo';
+    titulo: string;
+    destino: { metodo: 'post' | 'put'; url: string };
+    modoCaptura: 'pieza' | 'acc';
+    campos: Record<string, string>;
+    pieza: PiezaResuelta | null;
+    marcaTexto: string;
+    juntas: Junta[];
+    lecturas: string[][] | null;
+    mediciones: number | null;
+    adherencia: boolean;
+    fotosGuardadas: FotoGuardada[];
+    defectosSoldadura: Record<string, number>;
+    defectosPintura: string[];
+    muestreo: EstadoMuestreo | null;
+    acc: {
+        conformes: number;
+        rechazadas: PiezaRechazada[];
+        disposicion: string;
+        origenId: number | null;
+        numero: number;
+    } | null;
 };
 
 type Props = {
     obras: { id: number; no: string | null; descripcion: string | null }[];
     obraId: number | null;
     marcas: Marca[];
+    lotes: LoteDeObra[];
     catalogos: Catalogos;
+    precarga: Precarga | null;
 };
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Calidad', href: '/admin/calidad/catalogos' },
-    { title: 'Captura de inspección', href: '/admin/calidad/formularios' },
-];
+type Cuerpo = NonNullable<Parameters<typeof router.post>[1]>;
 
 const FASES = [
     { valor: '1ª', titulo: '1ª', nota: 'Corte / habilitado' },
@@ -170,34 +210,47 @@ function tipoDeMarca(marca: string, tipos: TipoPieza[]): string {
 
 const aPares = (lista: Opcion[]): [string, string][] => lista.map((opcion) => [String(opcion.id), opcion.nombre]);
 
-export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Props) {
+/** Los ids de los defectos elegidos por nombre en una lista del catálogo. */
+const idsDe = (lista: Opcion[], nombres: string[]): number[] =>
+    nombres.map((nombre) => lista.find((defecto) => defecto.nombre === nombre)?.id).filter((id): id is number => id !== undefined);
+
+export default function CapturaCalidad({ obras, obraId, marcas, lotes, catalogos, precarga }: Props) {
     const { auth } = usePage<SharedData>().props;
 
     const iniciales = useMemo(
-        () => ({ fase: '2ª', fecha: hoyLocal(), cant: '1', p1_subtipo: 'Perfil', obra: obraId ? String(obraId) : '' }),
-        [obraId],
+        () => ({
+            fase: '2ª',
+            fecha: hoyLocal(),
+            cant: '1',
+            p1_subtipo: 'Perfil',
+            obra: obraId ? String(obraId) : '',
+            ...(precarga?.campos ?? {}),
+        }),
+        [obraId, precarga],
     );
     const [campos, reiniciarCampos] = useCampos(iniciales);
 
     const [pestana, setPestana] = useState<'capturar' | 'registros'>('capturar');
-    const [modo, setModo] = useState<'pieza' | 'acc'>('pieza');
+    const [modo, setModo] = useState<'pieza' | 'acc'>(precarga?.modoCaptura ?? 'pieza');
     const [tecladoFolio, setTecladoFolio] = useState(false);
     const [tipoDeducido, setTipoDeducido] = useState('');
-    const [marcaTexto, setMarcaTexto] = useState('');
-    const [pieza, setPieza] = useState<PiezaResuelta | null>(null);
+    const [marcaTexto, setMarcaTexto] = useState(precarga?.marcaTexto ?? '');
+    const [pieza, setPieza] = useState<PiezaResuelta | null>(precarga?.pieza ?? null);
 
-    const [muestreo, setMuestreo] = useState<EstadoMuestreo>(MUESTREO_VACIO);
-    const [juntas, setJuntas] = useState<Junta[]>([]);
-    const [defectosSoldadura, setDefectosSoldadura] = useState<Record<string, number>>({});
-    const [defectosPintura, setDefectosPintura] = useState<string[]>([]);
-    const [lecturas, setLecturas] = useState<string[][]>(lecturasVacias);
-    const [mediciones, setMediciones] = useState(ESPESOR_MEDICIONES_BASE);
-    const [adherencia, setAdherencia] = useState(false);
+    const [muestreo, setMuestreo] = useState<EstadoMuestreo>(precarga?.muestreo ?? MUESTREO_VACIO);
+    const [juntas, setJuntas] = useState<Junta[]>(precarga?.juntas ?? []);
+    const [defectosSoldadura, setDefectosSoldadura] = useState<Record<string, number>>(precarga?.defectosSoldadura ?? {});
+    const [defectosPintura, setDefectosPintura] = useState<string[]>(precarga?.defectosPintura ?? []);
+    const [lecturas, setLecturas] = useState<string[][]>(() => precarga?.lecturas ?? lecturasVacias());
+    const [mediciones, setMediciones] = useState(precarga?.mediciones ?? ESPESOR_MEDICIONES_BASE);
+    const [adherencia, setAdherencia] = useState(precarga?.adherencia ?? false);
     const [fotos, setFotos] = useState<Evidencia[]>([]);
+    const [fotosGuardadas, setFotosGuardadas] = useState<FotoGuardada[]>(precarga?.fotosGuardadas ?? []);
+    const [fotosQuitar, setFotosQuitar] = useState<number[]>([]);
 
-    const [conformes, setConformes] = useState(0);
-    const [rechazadas, setRechazadas] = useState<PiezaRechazada[]>([]);
-    const [disposicionAcc, setDisposicionAcc] = useState('');
+    const [conformes, setConformes] = useState(precarga?.acc?.conformes ?? 0);
+    const [rechazadas, setRechazadas] = useState<PiezaRechazada[]>(precarga?.acc?.rechazadas ?? []);
+    const [disposicionAcc, setDisposicionAcc] = useState(precarga?.acc?.disposicion ?? '');
 
     const [errores, setErrores] = useState<Record<string, string>>({});
     const [guardando, setGuardando] = useState(false);
@@ -210,6 +263,11 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
     const esAccesorios = esSegunda && modo === 'acc';
     const armado = campos.v('p2_subetapa') === 'Armado-Vestido';
     const soldado = esSegunda && campos.v('p2_subetapa') === 'Soldado';
+
+    // Al corregir o reinspeccionar, lo que identifica a la pieza no cambia: el
+    // folio y el número de inspección dependen de eso.
+    const conPrecarga = precarga !== null;
+    const piezaFija = conPrecarga && precarga.modoCaptura === 'pieza';
 
     const opcionesObras: [string, string][] = obras.map((obra) => [
         String(obra.id),
@@ -247,7 +305,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
         setTipoDeducido(`Deducido de la marca: ${descripcion}. Cámbialo si no es.`);
     };
 
-    /** Las marcas son de la obra: al cambiarla se piden las suyas al servidor. */
+    /** Marcas y lotes son de la obra: al cambiarla se piden los suyos al servidor. */
     const cambiarObra = (valor: string) => {
         campos.set('obra', valor);
         campos.limpiar(['concepto', 'kg', 'tipo']);
@@ -255,7 +313,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
         setTipoDeducido('');
         setPieza(null);
         if (valor) {
-            router.reload({ only: ['marcas', 'obraId'], data: { obra: valor } });
+            router.reload({ only: ['marcas', 'lotes', 'obraId'], data: { obra: valor } });
         }
     };
 
@@ -292,8 +350,11 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
         avisar(`Pieza ${resuelta.etiqueta}`, 'ok');
     };
 
-    /** El número que va a tocar; en 1ª lo sabe sólo el servidor. */
+    /** El número que va a tocar; en 1ª lo sabe sólo el servidor, y al corregir se conserva. */
     const numeroInspeccion = (() => {
+        if (precarga?.modo === 'editar') {
+            return 'se conserva';
+        }
         if (esPrimera || !pieza) {
             return 'auto';
         }
@@ -313,6 +374,8 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
         setMediciones(ESPESOR_MEDICIONES_BASE);
         setAdherencia(false);
         setFotos([]);
+        setFotosGuardadas([]);
+        setFotosQuitar([]);
         setConformes(0);
         setRechazadas([]);
         setDisposicionAcc('');
@@ -333,7 +396,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
         reiniciarSecciones();
     };
 
-    const construirDatos = () => {
+    const construirInspeccion = () => {
         const prefijo = PREFIJO_FASE[fase];
         const puntos = Object.fromEntries(
             Object.entries(campos.valores).filter(
@@ -420,12 +483,101 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
                       }
                     : null,
             fotos: esTercera && adherencia ? fotos.map((foto) => foto.archivo) : [],
+            fotos_quitar: fotosQuitar,
         };
+    };
+
+    /** Una entrega de accesorios: los datos de la marca y el muestreo de esta entrega. */
+    const construirSublote = () => ({
+        obra_id: campos.v('obra'),
+        fecha: campos.v('fecha'),
+        marca: campos.v('ac_marca'),
+        descripcion: vacioANulo(campos.v('ac_desc')),
+        total_unidades: campos.v('ac_total'),
+        kg_unitario: vacioANulo(campos.v('ac_kg')),
+        elementos_unitarios: vacioANulo(campos.v('ac_elem')),
+        unidades: campos.v('ac_unid'),
+        nivel: campos.v('ac_nivel') || 'II',
+        conformes,
+        rechazadas: rechazadas.map((unidad) => ({
+            defectos: [
+                ...idsDe(catalogos.defectosSoldadura, unidad.soldadura),
+                ...idsDe(catalogos.defectosAccDimensional, unidad.dimensional),
+                ...idsDe(catalogos.defectosAccBarrenos, unidad.barrenos),
+                ...(unidad.limpieza && catalogos.defectosAccLimpieza[0] ? [catalogos.defectosAccLimpieza[0].id] : []),
+            ],
+        })),
+        disposicion: vacioANulo(disposicionAcc),
+        linea: vacioANulo(campos.v('linea')),
+        modulo: vacioANulo(campos.v('modulo')),
+        responsable_id: vacioANulo(campos.v('responsable')),
+        soldador_id: vacioANulo(campos.v('soldador')),
+        observaciones: vacioANulo(campos.v('obs')),
+        sublote_origen_id: precarga?.acc?.origenId ?? null,
+    });
+
+    /**
+     * Corregir va como PUT, pero por POST con `_method`: un PUT multipart no
+     * trae los archivos, y la corrección de pintura puede traer fotos.
+     */
+    const enviar = (url: string, datos: Cuerpo) => {
+        setGuardando(true);
+        setErrores({});
+        router.post(url, datos, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: (pagina) => {
+                const mensaje = (pagina.props as { flash?: { success?: string | null } }).flash?.success;
+                siguientePieza();
+                avisar(mensaje ?? 'Guardado', 'ok');
+            },
+            onError: (fallas) => {
+                setErrores(fallas);
+                avisar(Object.values(fallas)[0] ?? 'Revisa el formulario', 'error');
+            },
+            onFinish: () => setGuardando(false),
+        });
+    };
+
+    const metodo = precarga?.destino.metodo === 'put' ? { _method: 'put' } : {};
+
+    const guardarSublote = () => {
+        if (!campos.v('obra')) {
+            avisar('Falta la obra', 'error');
+            return;
+        }
+        if (!campos.v('ac_marca').trim()) {
+            avisar('Falta la marca del accesorio', 'error');
+            return;
+        }
+        if (!campos.v('ac_total')) {
+            avisar('Falta el total de unidades de la marca', 'error');
+            return;
+        }
+        const unidades = parseInt(campos.v('ac_unid'), 10);
+        if (!unidades) {
+            avisar('Faltan las unidades de esta entrega', 'error');
+            return;
+        }
+
+        const plan = planMuestreo(unidades, (campos.v('ac_nivel') || 'II') as NivelMuestreo, unidades);
+        const vistas = conformes + rechazadas.length;
+        if (
+            plan &&
+            vistas < plan.muestra &&
+            !window.confirm(
+                `Sólo se inspeccionaron ${vistas} de las ${plan.muestra} de la muestra. El sublote queda en curso, sin veredicto.\n\n¿Guardar igual?`,
+            )
+        ) {
+            return;
+        }
+
+        enviar(precarga?.destino.url ?? '/admin/calidad/accesorios/sublotes', { ...construirSublote(), ...metodo });
     };
 
     const guardar = () => {
         if (esAccesorios) {
-            avisar('El lote de accesorios todavía no se guarda: llega en su propia rebanada', 'neutro');
+            guardarSublote();
             return;
         }
 
@@ -478,31 +630,21 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
             }
         }
 
-        setGuardando(true);
-        setErrores({});
-        router.post('/admin/calidad/inspecciones', construirDatos(), {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: (pagina) => {
-                const mensaje = (pagina.props as { flash?: { success?: string | null } }).flash?.success;
-                siguientePieza();
-                avisar(mensaje ?? 'Inspección guardada', 'ok');
-            },
-            onError: (fallas) => {
-                setErrores(fallas);
-                avisar(Object.values(fallas)[0] ?? 'Revisa el formulario', 'error');
-            },
-            onFinish: () => setGuardando(false),
-        });
+        enviar(precarga?.destino.url ?? '/admin/calidad/inspecciones', { ...construirInspeccion(), ...metodo });
     };
 
     const consecutivo = parseFloat(campos.v('consec'));
     const cantidad = parseFloat(campos.v('cant'));
     const consecutivoInvalido = !Number.isNaN(consecutivo) && !Number.isNaN(cantidad) && consecutivo > cantidad;
     const marcaSinCatalogo = esPrimera && marcaTexto.trim() !== '' && !campos.v('concepto');
+    const obraTexto = opcionesObras.find(([id]) => id === campos.v('obra'))?.[1] ?? '';
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={[
+            { title: 'Dashboard', href: '/dashboard' },
+            { title: 'Calidad', href: '/admin/calidad/catalogos' },
+            { title: 'Captura de inspección', href: '/admin/calidad/formularios' },
+        ] satisfies BreadcrumbItem[]}>
             <Head title="Calidad — Captura de inspección" />
 
             <div className="bg-base-200 text-base-content">
@@ -512,42 +654,76 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
                         <div className="text-xs opacity-85">Control de Calidad · {auth.user.name}</div>
                     </div>
 
-                    <div className="mb-[14px] flex gap-2">
-                        {(
-                            [
-                                ['capturar', 'Capturar'],
-                                ['registros', 'Registros'],
-                            ] as const
-                        ).map(([clave, texto]) => (
-                            <button
-                                key={clave}
-                                type="button"
-                                onClick={() => setPestana(clave)}
-                                className={`flex-1 rounded-[10px] p-3 text-[15px] font-bold ${
-                                    pestana === clave
-                                        ? 'bg-primary text-primary-content'
-                                        : 'border border-base-300 bg-base-100 text-base-content'
-                                }`}
+                    {precarga && (
+                        <div className="mb-[14px] rounded-xl border border-info/40 bg-info/10 px-4 py-3 text-sm">
+                            {precarga.titulo}{' '}
+                            <Link
+                                href={`/admin/calidad/formularios${campos.v('obra') ? `?obra=${campos.v('obra')}` : ''}`}
+                                className="link font-semibold"
                             >
-                                {texto}
-                            </button>
-                        ))}
-                    </div>
+                                Salir sin guardar
+                            </Link>
+                        </div>
+                    )}
+
+                    {!precarga && (
+                        <div className="mb-[14px] flex gap-2">
+                            {(
+                                [
+                                    ['capturar', 'Capturar'],
+                                    ['registros', 'Registros'],
+                                ] as const
+                            ).map(([clave, texto]) => (
+                                <button
+                                    key={clave}
+                                    type="button"
+                                    onClick={() => setPestana(clave)}
+                                    className={`flex-1 rounded-[10px] p-3 text-[15px] font-bold ${
+                                        pestana === clave
+                                            ? 'bg-primary text-primary-content'
+                                            : 'border border-base-300 bg-base-100 text-base-content'
+                                    }`}
+                                >
+                                    {texto}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {pestana === 'registros' ? (
                         <Tarjeta titulo="Registros">
                             <Pista className="mb-0">
-                                La consulta —lotes por marca, piezas en proceso, ficha con el historial de
-                                inspecciones— llega con la pantalla de Registros.
+                                Lo capturado se consulta en{' '}
+                                <Link href="/admin/calidad/registros" className="link">
+                                    Registros
+                                </Link>{' '}
+                                y el avance de cada lote de accesorios en{' '}
+                                <Link href="/admin/calidad/accesorios" className="link">
+                                    Accesorios
+                                </Link>
+                                . Desde ahí se corrige y se reinspecciona.
                             </Pista>
                         </Tarjeta>
                     ) : (
                         <>
                             <Tarjeta titulo="Transformación">
-                                <Pista>Elige la etapa. El formulario cambia según la transformación.</Pista>
-                                <SelectorFase value={fase} onChange={(valor) => campos.set('fase', valor)} opciones={FASES} />
+                                {conPrecarga ? (
+                                    <Pista className="mb-0">
+                                        <b>
+                                            {FASES.find((opcion) => opcion.valor === fase)?.titulo} ·{' '}
+                                            {FASES.find((opcion) => opcion.valor === fase)?.nota}
+                                            {esAccesorios && ' · lote de accesorios'}
+                                        </b>{' '}
+                                        — no cambia aquí: es parte de lo que se corrige o reinspecciona.
+                                    </Pista>
+                                ) : (
+                                    <>
+                                        <Pista>Elige la etapa. El formulario cambia según la transformación.</Pista>
+                                        <SelectorFase value={fase} onChange={(valor) => campos.set('fase', valor)} opciones={FASES} />
+                                    </>
+                                )}
 
-                                {esSegunda && (
+                                {esSegunda && !conPrecarga && (
                                     <div className="mt-4 border-t border-base-300 pt-[14px]">
                                         {/* Segunda decisión fundamental, y va aquí arriba porque cambia TODO el
                                             formulario: una pieza es una unidad concreta; un lote de accesorios son
@@ -627,7 +803,11 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
                                                     : undefined
                                             }
                                         >
-                                            <Selector value={campos.v('obra')} onChange={cambiarObra} opciones={opcionesObras} />
+                                            {conPrecarga ? (
+                                                <Texto value={obraTexto} readOnly />
+                                            ) : (
+                                                <Selector value={campos.v('obra')} onChange={cambiarObra} opciones={opcionesObras} />
+                                            )}
                                         </Campo>
                                         {esPrimera ? (
                                             <Campo label="Operador">
@@ -659,16 +839,33 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
                             </Tarjeta>
 
                             {esAccesorios ? (
-                                <LoteAccesorios
-                                    campos={campos}
-                                    conformes={conformes}
-                                    onConformes={setConformes}
-                                    rechazadas={rechazadas}
-                                    onRechazadas={setRechazadas}
-                                    disposicion={disposicionAcc}
-                                    onDisposicion={setDisposicionAcc}
-                                    onAviso={avisar}
-                                />
+                                <>
+                                    <LoteAccesorios
+                                        campos={campos}
+                                        conformes={conformes}
+                                        onConformes={setConformes}
+                                        rechazadas={rechazadas}
+                                        onRechazadas={setRechazadas}
+                                        disposicion={disposicionAcc}
+                                        onDisposicion={setDisposicionAcc}
+                                        familias={{
+                                            soldadura: catalogos.defectosSoldadura.map((defecto) => defecto.nombre),
+                                            dimensional: catalogos.defectosAccDimensional.map((defecto) => defecto.nombre),
+                                            barrenos: catalogos.defectosAccBarrenos.map((defecto) => defecto.nombre),
+                                        }}
+                                        lotes={lotes}
+                                        numero={precarga?.acc?.numero ?? 1}
+                                        marcaFija={conPrecarga}
+                                        onAviso={avisar}
+                                    />
+                                    <Tarjeta titulo="Observaciones">
+                                        <AreaTexto
+                                            value={campos.v('obs')}
+                                            onChange={(valor) => campos.set('obs', valor)}
+                                            placeholder="ej. 3 piezas con rebaba en el barreno"
+                                        />
+                                    </Tarjeta>
+                                </>
                             ) : (
                                 <>
                                     <Tarjeta titulo="Pieza">
@@ -678,6 +875,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
                                                     obraId={campos.v('obra')}
                                                     pieza={pieza}
                                                     onPieza={elegirPieza}
+                                                    fija={piezaFija}
                                                     onAviso={avisar}
                                                 />
                                             </div>
@@ -701,7 +899,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
                                                         value={marcaTexto}
                                                         onChange={(e) => elegirMarca(e.target.value)}
                                                         placeholder={campos.v('obra') ? 'Busca la marca…' : 'Elige primero la obra'}
-                                                        disabled={!campos.v('obra')}
+                                                        disabled={!campos.v('obra') || piezaFija}
                                                         className="input input-bordered w-full text-base"
                                                     />
                                                     <datalist id="qal-marcas">
@@ -765,6 +963,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
                                                             tipo="number"
                                                             value={campos.v('consec')}
                                                             onChange={(valor) => campos.set('consec', valor)}
+                                                            readOnly={piezaFija}
                                                             placeholder="ej. 2"
                                                         />
                                                     </Campo>
@@ -816,6 +1015,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
                                             juntas={juntas}
                                             onJuntas={setJuntas}
                                             soldadores={soldadores}
+                                            subetapaFija={piezaFija}
                                             onAviso={avisar}
                                             onRechazar={() => campos.set('status', 'Rechazado')}
                                         />
@@ -835,6 +1035,11 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
                                             onAdherencia={setAdherencia}
                                             fotos={fotos}
                                             onFotos={setFotos}
+                                            guardadas={fotosGuardadas}
+                                            onQuitarGuardada={(id) => {
+                                                setFotosGuardadas((previas) => previas.filter((foto) => foto.id !== id));
+                                                setFotosQuitar((previas) => [...previas, id]);
+                                            }}
                                             onAviso={avisar}
                                         />
                                     )}
@@ -876,19 +1081,19 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
                                                 />
                                             </Campo>
                                         </div>
-
-                                        {Object.keys(errores).length > 0 && (
-                                            <div className="mt-3 rounded-box bg-error/10 px-3 py-2 text-sm text-error">
-                                                <div className="font-semibold">No se guardó:</div>
-                                                <ul className="mt-1 list-disc pl-5">
-                                                    {Object.entries(errores).map(([clave, mensaje]) => (
-                                                        <li key={clave}>{mensaje}</li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
                                     </Tarjeta>
                                 </>
+                            )}
+
+                            {Object.keys(errores).length > 0 && (
+                                <div className="mb-3.5 rounded-box bg-error/10 px-3 py-2 text-sm text-error">
+                                    <div className="font-semibold">No se guardó:</div>
+                                    <ul className="mt-1 list-disc pl-5">
+                                        {Object.entries(errores).map(([clave, mensaje]) => (
+                                            <li key={clave}>{mensaje}</li>
+                                        ))}
+                                    </ul>
+                                </div>
                             )}
                         </>
                     )}
@@ -910,7 +1115,13 @@ export default function CapturaCalidad({ obras, obraId, marcas, catalogos }: Pro
                         disabled={guardando}
                         className="flex-1 rounded-[11px] bg-primary py-4 text-[17px] font-bold text-primary-content disabled:opacity-60"
                     >
-                        {guardando ? 'Guardando…' : 'Guardar registro'}
+                        {guardando
+                            ? 'Guardando…'
+                            : precarga?.modo === 'editar'
+                              ? 'Guardar corrección'
+                              : esAccesorios
+                                ? 'Guardar sublote'
+                                : 'Guardar registro'}
                     </button>
                 </div>
             )}

@@ -248,6 +248,14 @@ const navGroups: NavGroup[] = [
                         permission: 'qal.pnd.ver',
                     },
                     {
+                        // Cuanto de cada marca de accesorios llego y cuanto se
+                        // libero. La entrega se captura en Formularios.
+                        title: 'Accesorios',
+                        href: '/admin/calidad/accesorios',
+                        icon: Package,
+                        permission: 'qal.accesorios.ver',
+                    },
+                    {
                         // La base en crudo de lo que se captura en Formularios:
                         // aqui se consulta y se audita, alla se llena. Pasa a
                         // qal.registros.ver cuando lea de la base.

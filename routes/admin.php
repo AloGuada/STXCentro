@@ -109,6 +109,7 @@ use App\Http\Controllers\Admin\Prod\RegistroController as ProdRegistroController
 use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtraController;
 use App\Http\Controllers\Admin\Prod\UbicacionController as ProdUbicacionController;
 use App\Http\Controllers\Admin\ProveedorController;
+use App\Http\Controllers\Admin\Qal\AccesorioController as QalAccesorioController;
 use App\Http\Controllers\Admin\Qal\CatalogoController as QalCatalogoController;
 use App\Http\Controllers\Admin\Qal\DefectoController as QalDefectoController;
 use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
@@ -813,6 +814,33 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             Route::get('piezas/resolver', [QalPiezaController::class, 'resolver'])
                 ->name('piezas.resolver');
         });
+
+        // Lotes de accesorios: la entrega se captura en Formularios (modo
+        // lote); aquí se consulta el avance de cada marca y se decide qué
+        // hacer con lo detenido.
+        Route::prefix('accesorios')->name('accesorios.')->group(function () {
+            Route::get('/', [QalAccesorioController::class, 'index'])
+                ->middleware('permission:qal.accesorios.ver')
+                ->name('index');
+            Route::middleware('permission:qal.accesorios.crear')->group(function () {
+                Route::post('sublotes', [QalAccesorioController::class, 'store'])
+                    ->name('sublotes.store');
+                Route::get('lotes/{lote}/sublote', [QalAccesorioController::class, 'nuevoSublote'])
+                    ->name('lotes.sublote');
+                Route::get('sublotes/{sublote}/reinspeccionar', [QalAccesorioController::class, 'reinspeccionar'])
+                    ->name('sublotes.reinspeccionar');
+            });
+            Route::middleware('permission:qal.accesorios.editar')->group(function () {
+                Route::get('sublotes/{sublote}/edit', [QalAccesorioController::class, 'edit'])
+                    ->name('sublotes.edit');
+                Route::put('sublotes/{sublote}', [QalAccesorioController::class, 'update'])
+                    ->name('sublotes.update');
+            });
+            Route::delete('sublotes/{sublote}', [QalAccesorioController::class, 'destroy'])
+                ->middleware('permission:qal.accesorios.eliminar')
+                ->name('sublotes.destroy');
+        });
+
         // La base en crudo de lo que se captura en Formularios, asi que de
         // momento cuelga del mismo permiso. Es pantalla de auditoria —quien la
         // abre ve lo que capturo cualquier inspector— y cuando lea de la base

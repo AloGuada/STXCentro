@@ -6,10 +6,14 @@
  * controlan por muestreo. Por eso el formulario cambia entero: la pieza se
  * inspecciona al 100% y el lote se estima a partir de una muestra, y promediar
  * las dos cosas daría números que parecen buenos y no significan nada.
+ *
+ * Los datos de la marca son del lote entero y se heredan de la entrega
+ * anterior; el muestreo es de esta entrega. Las unidades rechazadas se
+ * clasifican con los defectos del catálogo, por familia.
  */
 
 import { useState } from 'react';
-import { DEFECTOS_ACC_BARRENOS, DEFECTOS_ACC_DIMENSIONAL, DEFECTOS_SOLDADURA, DISPOSICIONES, type NivelMuestreo } from './datos';
+import { DISPOSICIONES, type NivelMuestreo } from './datos';
 import { textoPiezaRechazada, type Campos, type PiezaRechazada } from './estado';
 import { planMuestreo, veredictoMuestreo } from './reglas';
 import { Boton, CajaVeredicto, Campo, Chips, Pista, Progreso, Rejilla, Selector, Tarjeta, Texto } from './ui';
@@ -22,6 +26,20 @@ const NIVELES: [string, string][] = [
 
 const RECHAZADA_VACIA: PiezaRechazada = { soldadura: [], dimensional: [], barrenos: [], limpieza: false };
 
+/** Un lote ya declarado en la obra: su marca hereda estos datos. */
+export type LoteDeObra = {
+    id: number;
+    marca: string;
+    descripcion: string | null;
+    total_unidades: number;
+    kg_unitario: string | null;
+    elementos_unitarios: number | null;
+    avance: { recibidas: number; sublotes: number };
+};
+
+/** Los nombres de defecto de cada familia, del catálogo. */
+export type FamiliasDeDefecto = { soldadura: string[]; dimensional: string[]; barrenos: string[] };
+
 export function LoteAccesorios({
     campos,
     conformes,
@@ -30,6 +48,10 @@ export function LoteAccesorios({
     onRechazadas,
     disposicion,
     onDisposicion,
+    familias,
+    lotes,
+    numero,
+    marcaFija,
     onAviso,
 }: {
     campos: Campos;
@@ -39,6 +61,12 @@ export function LoteAccesorios({
     onRechazadas: (rechazadas: PiezaRechazada[]) => void;
     disposicion: string;
     onDisposicion: (disposicion: string) => void;
+    familias: FamiliasDeDefecto;
+    lotes: LoteDeObra[];
+    /** Qué inspección de este sublote es: 2 o más en una reinspección. */
+    numero: number;
+    /** Al corregir o reinspeccionar, la marca no cambia: es la identidad del lote. */
+    marcaFija: boolean;
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
 }) {
     const [modal, setModal] = useState(false);
@@ -52,10 +80,29 @@ export function LoteAccesorios({
     const completa = plan ? vistas >= plan.muestra : false;
     const veredicto = veredictoMuestreo(plan, conformes, rechazadas.length, 'SUBLOTE');
 
+    const marca = campos.v('ac_marca').trim().toUpperCase();
+    const existente = lotes.find((lote) => lote.marca === marca);
+
+    /** Si la marca ya existe, sus datos se rellenan solos donde estén vacíos. */
+    const heredar = () => {
+        if (!existente) {
+            return;
+        }
+        const poner = (id: string, valor: string | number | null) => {
+            if (!campos.v(id) && valor !== null && valor !== '') {
+                campos.set(id, String(valor));
+            }
+        };
+        poner('ac_desc', existente.descripcion);
+        poner('ac_total', existente.total_unidades);
+        poner('ac_kg', existente.kg_unitario === null ? null : Number(existente.kg_unitario));
+        poner('ac_elem', existente.elementos_unitarios);
+    };
+
     const aceptarDefecto = () => {
         const algo = borrador.soldadura.length || borrador.dimensional.length || borrador.barrenos.length || borrador.limpieza;
         if (!algo) {
-            onAviso('Marca al menos una familia', 'error');
+            onAviso('Marca al menos un defecto', 'error');
             return;
         }
         onRechazadas([...rechazadas, borrador]);
@@ -68,11 +115,18 @@ export function LoteAccesorios({
             <Tarjeta titulo="Datos de la marca" etiqueta="lote completo">
                 <Pista>
                     Si la marca ya se registró antes, estos campos se rellenan solos. Los datos de arriba (obra,
-                    módulo, línea, responsable, soldador, fecha) son los de <b>esta entrega</b> y sí cambian.
+                    módulo, línea, responsable, fecha) son los de <b>esta entrega</b> y sí cambian.
                 </Pista>
                 <Rejilla cols={3}>
                     <Campo label="Marca del accesorio" req>
-                        <Texto value={campos.v('ac_marca')} onChange={(valor) => campos.set('ac_marca', valor)} placeholder="ej. ACC-123" mayusculas />
+                        <Texto
+                            value={campos.v('ac_marca')}
+                            onChange={(valor) => campos.set('ac_marca', valor)}
+                            onBlur={heredar}
+                            readOnly={marcaFija}
+                            placeholder="ej. ACC-123"
+                            mayusculas
+                        />
                     </Campo>
                     <Campo label="Descripción">
                         <Texto
@@ -91,6 +145,14 @@ export function LoteAccesorios({
                         <Texto tipo="number" value={campos.v('ac_elem')} onChange={(valor) => campos.set('ac_elem', valor)} placeholder="ej. 3" />
                     </Campo>
                 </Rejilla>
+
+                {existente && !marcaFija && (
+                    <p className="mt-3 rounded-[9px] bg-warning/10 px-[11px] py-[9px] text-xs">
+                        <b>Esta marca ya existe.</b> Van <b>{existente.avance.recibidas.toLocaleString('es-MX')}</b> de{' '}
+                        {existente.total_unidades.toLocaleString('es-MX')} unidades en {existente.avance.sublotes}{' '}
+                        sublote(s). Este sería el <b>sublote #{existente.avance.sublotes + 1}</b>.
+                    </p>
+                )}
             </Tarjeta>
 
             <Tarjeta titulo="Muestreo de este sublote (AQL 10)">
@@ -109,9 +171,16 @@ export function LoteAccesorios({
                         <Texto value={plan ? String(plan.muestra) : ''} readOnly placeholder="—" className="font-bold" />
                     </Campo>
                     <Campo label="# Inspección de este sublote">
-                        <Texto value="1" readOnly className="max-w-[170px]" />
+                        <Texto value={String(numero)} readOnly className="max-w-[170px]" />
                     </Campo>
                 </Rejilla>
+
+                {numero > 1 && (
+                    <Pista className="mt-2">
+                        🔄 <b>Reinspección</b> de un sublote que salió rechazado. El muestreo se hace de nuevo desde cero
+                        y al guardar se crea un registro <b>nuevo</b>: el anterior se conserva como historial.
+                    </Pista>
+                )}
 
                 {plan && (
                     <Pista className="mt-2">
@@ -233,19 +302,19 @@ export function LoteAccesorios({
 
                         <FamiliaDefecto
                             titulo="Fallo de soldadura"
-                            opciones={DEFECTOS_SOLDADURA}
+                            opciones={familias.soldadura}
                             valor={borrador.soldadura}
                             onChange={(soldadura) => setBorrador({ ...borrador, soldadura })}
                         />
                         <FamiliaDefecto
                             titulo="Fallo dimensional"
-                            opciones={DEFECTOS_ACC_DIMENSIONAL}
+                            opciones={familias.dimensional}
                             valor={borrador.dimensional}
                             onChange={(dimensional) => setBorrador({ ...borrador, dimensional })}
                         />
                         <FamiliaDefecto
                             titulo="Fallo de barrenos habilitados"
-                            opciones={DEFECTOS_ACC_BARRENOS}
+                            opciones={familias.barrenos}
                             valor={borrador.barrenos}
                             onChange={(barrenos) => setBorrador({ ...borrador, barrenos })}
                         />
@@ -275,7 +344,10 @@ export function LoteAccesorios({
     );
 }
 
-/** Familia de defecto del modal: se despliega al marcarla. */
+/**
+ * Familia de defecto del modal: se despliega al marcarla. Marcada sin elegir
+ * tipo entra como «Otro» cuando el catálogo lo tiene, en vez de perderse.
+ */
 function FamiliaDefecto({
     titulo,
     opciones,
@@ -288,6 +360,7 @@ function FamiliaDefecto({
     onChange: (valor: string[]) => void;
 }) {
     const [abierta, setAbierta] = useState(false);
+    const porDefecto = opciones.includes('Otro') ? ['Otro'] : [];
 
     return (
         <div className={`mb-[10px] rounded-[11px] border p-3 ${abierta ? 'border-warning/40 bg-warning/5' : 'border-base-300'}`}>
@@ -297,8 +370,7 @@ function FamiliaDefecto({
                     checked={abierta}
                     onChange={(e) => {
                         setAbierta(e.target.checked);
-                        // Familia marcada sin elegir tipo: entra como "Otro" en vez de perderse.
-                        onChange(e.target.checked ? (valor.length ? valor : ['Otro']) : []);
+                        onChange(e.target.checked ? (valor.length ? valor : porDefecto) : []);
                     }}
                     className="size-5"
                 />
@@ -306,7 +378,7 @@ function FamiliaDefecto({
             </label>
             {abierta && (
                 <div className="mt-[10px]">
-                    <Chips opciones={opciones} valor={valor} onChange={(seleccion) => onChange(seleccion.length ? seleccion : ['Otro'])} />
+                    <Chips opciones={opciones} valor={valor} onChange={(seleccion) => onChange(seleccion.length ? seleccion : porDefecto)} />
                 </div>
             )}
         </div>

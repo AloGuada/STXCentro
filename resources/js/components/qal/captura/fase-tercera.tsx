@@ -8,7 +8,7 @@
  */
 
 import type { Campos } from './estado';
-import { evidenciaDe, type Evidencia } from './fotos';
+import { evidenciaDe, type Evidencia, type FotoGuardada } from './fotos';
 import { ESPESOR_MEDICIONES_BASE, ESPESOR_MEDICIONES_MAX, resumirEspesores } from './reglas';
 import { Boton, Campo, Chips, Pista, Rejilla, Selector, Tarjeta, Texto } from './ui';
 
@@ -41,6 +41,8 @@ export function FaseTercera({
     onAdherencia,
     fotos,
     onFotos,
+    guardadas = [],
+    onQuitarGuardada,
     onAviso,
 }: {
     campos: Campos;
@@ -58,6 +60,9 @@ export function FaseTercera({
     onAdherencia: (abierta: boolean) => void;
     fotos: Evidencia[];
     onFotos: (fotos: Evidencia[]) => void;
+    /** Al corregir: la evidencia que ya estaba guardada. */
+    guardadas?: FotoGuardada[];
+    onQuitarGuardada?: (id: number) => void;
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
 }) {
     const resumen = resumirEspesores(lecturas, mediciones, campos.v('p3_req'));
@@ -356,6 +361,24 @@ export function FaseTercera({
                             </div>
 
                             <div className="mt-[11px] flex flex-wrap gap-[10px]">
+                                {guardadas.map((foto) => (
+                                    <div key={`guardada-${foto.id}`} className="relative">
+                                        {foto.esImagen ? (
+                                            <img src={foto.url} alt={foto.nombre} className="size-24 rounded-lg border border-base-300 object-cover" />
+                                        ) : (
+                                            <div className="flex size-24 items-center justify-center rounded-lg border border-base-300 bg-base-200 p-1 text-center text-[11px] break-all">
+                                                📄 {foto.nombre}
+                                            </div>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => onQuitarGuardada?.(foto.id)}
+                                            className="absolute -top-2 -right-2 size-6 rounded-full bg-error text-sm font-bold text-error-content"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ))}
                                 {fotos.map((foto, indice) => (
                                     <div key={indice} className="relative">
                                         {foto.url ? (
@@ -380,7 +403,9 @@ export function FaseTercera({
                                 ))}
                             </div>
                             <Pista className="mt-[6px]">
-                                {fotos.length ? `${fotos.length} archivo(s) adjunto(s).` : 'Sin evidencia adjunta.'}
+                                {fotos.length + guardadas.length
+                                    ? `${fotos.length + guardadas.length} archivo(s) adjunto(s).`
+                                    : 'Sin evidencia adjunta.'}
                             </Pista>
                         </div>
                     </div>

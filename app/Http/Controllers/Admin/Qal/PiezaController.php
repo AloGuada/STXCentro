@@ -4,8 +4,7 @@ namespace App\Http\Controllers\Admin\Qal;
 
 use App\Http\Controllers\Controller;
 use App\Models\Prod\Pieza;
-use App\Models\Qal\Inspeccion;
-use App\Models\Qal\TipoPieza;
+use App\Services\Qal\FichaDePieza;
 use App\Services\Qal\ResolutorDePiezas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +18,7 @@ use Illuminate\Http\Request;
  */
 class PiezaController extends Controller
 {
-    public function resolver(Request $request, ResolutorDePiezas $resolutor): JsonResponse
+    public function resolver(Request $request, ResolutorDePiezas $resolutor, FichaDePieza $fichas): JsonResponse
     {
         $candidatas = $resolutor->candidatas(
             (string) $request->query('codigo', ''),
@@ -41,39 +40,6 @@ class PiezaController extends Controller
             ], 409);
         }
 
-        return response()->json($this->ficha($candidatas->first()));
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function ficha(Pieza $pieza): array
-    {
-        $obraId = $pieza->catalogo->obra_id;
-
-        return [
-            'id' => $pieza->id,
-            'qr' => $pieza->qr,
-            'qs' => $pieza->qs,
-            'etiqueta' => $pieza->etiqueta(),
-            'obra_id' => $obraId,
-            'concepto' => [
-                'id' => $pieza->marca->id,
-                'marca' => $pieza->marca->marca,
-                'lote' => $pieza->marca->lote,
-                'descripcion' => $pieza->marca->descripcion,
-                'peso_unitario' => $pieza->marca->peso_unitario,
-            ],
-            'tipo_pieza_id' => TipoPieza::paraMarca((string) $pieza->marca->marca)?->id,
-            // Con esto la captura muestra el número de inspección que toca sin
-            // otra vuelta al servidor, y el inspector ve si la pieza ya se
-            // rechazó antes.
-            'inspecciones' => Inspeccion::query()
-                ->where('obra_id', $obraId)
-                ->where('qr', $pieza->qr)
-                ->orderBy('fecha')
-                ->orderBy('id')
-                ->get(['folio', 'fase', 'subetapa', 'numero_inspeccion', 'estatus', 'fecha']),
-        ];
+        return response()->json($fichas->de($candidatas->first()));
     }
 }

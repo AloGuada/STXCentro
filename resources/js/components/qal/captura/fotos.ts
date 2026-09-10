@@ -13,6 +13,9 @@ export type Evidencia = {
     url: string | null;
 };
 
+/** Evidencia ya guardada, al corregir una inspección. */
+export type FotoGuardada = { id: number; nombre: string; url: string; esImagen: boolean };
+
 const LADO_MAXIMO = 1600;
 const CALIDAD_JPEG = 0.8;
 

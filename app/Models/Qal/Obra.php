@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection as SupportCollection;
 
 /**
  * La obra vista desde Calidad: la extensión 1:1 de la obra del portal.
@@ -56,6 +57,30 @@ class Obra extends Model
         return static::query()->firstOrCreate([
             'obra_id' => $obra instanceof ObraDelPortal ? $obra->getKey() : $obra,
         ]);
+    }
+
+    /**
+     * Las obras de Calidad como opciones de un selector. La llave es la de la
+     * obra del portal, que es de donde cuelgan inspecciones y lotes.
+     *
+     * La captura sólo ofrece las activas; una consulta de auditoría también
+     * necesita las cerradas.
+     *
+     * @return SupportCollection<int, array{id: int, no: string|null, descripcion: string|null}>
+     */
+    public static function opcionesDeSelector(bool $soloActivas = true): SupportCollection
+    {
+        return static::query()
+            ->conDatosDeLaObra()
+            ->when($soloActivas, fn (Builder $consulta) => $consulta->where('obras.activa', true))
+            ->orderByDesc('obras.activa')
+            ->orderBy('obras.no')
+            ->get()
+            ->map(fn (self $obra): array => [
+                'id' => $obra->obra_id,
+                'no' => $obra->no,
+                'descripcion' => $obra->descripcion,
+            ]);
     }
 
     /**
