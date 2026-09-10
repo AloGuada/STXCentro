@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin\Alm;
 
-use App\Enums\Alm\ActivoEstatus;
 use App\Enums\Alm\ClasificacionAbc;
 use App\Enums\Alm\ProductoTipo;
 use App\Http\Controllers\Controller;
@@ -13,6 +12,7 @@ use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Ubicacion;
 use App\Models\Costos\Producto;
+use App\Services\Alm\DesactivadorArticulo;
 use App\Services\Alm\GeneradorCodigoArticulo;
 use App\Services\Catalogo\CatalogoMaestro;
 use Illuminate\Database\Eloquent\Builder;
@@ -160,48 +160,12 @@ class ArticuloController extends Controller
     }
 
     /**
-     * Apaga o prende el artículo, y con él su cara de Compras: es un solo item
-     * del maestro, y un producto que se sigue cotizando para un artículo que ya
-     * no existe sería material que se compra y no se puede recibir.
-     *
-     * Apagar se niega mientras haya saldo en algún almacén o piezas afuera: un
-     * artículo con existencia no desaparece, primero se ajusta o se retira. El
-     * historial del kardex se conserva siempre; lo inactivo sólo deja de salir
-     * en los buscadores, en el sorteo de conteos y en lo prestable.
+     * Apaga o prende el artículo. La regla vive en {@see DesactivadorArticulo}:
+     * aquí sólo se traduce a redirección y mensaje.
      */
-    public function toggle(Request $request, Articulo $articulo): RedirectResponse
+    public function toggle(Articulo $articulo, DesactivadorArticulo $desactivador): RedirectResponse
     {
-        if (! $articulo->activo) {
-            DB::transaction(function () use ($articulo): void {
-                $articulo->update(['activo' => true]);
-                $articulo->producto?->update(['activo' => true]);
-            });
-
-            return back()->with('success', "{$articulo->codigo} reactivado.");
-        }
-
-        $saldo = (float) $articulo->existencias()->sum('cantidad');
-
-        if (abs($saldo) > (float) config('costos.epsilon_cantidad')) {
-            return back()->withErrors([
-                'activo' => "No se puede desactivar: todavía hay {$saldo} {$articulo->unidad} en existencia. Ajusta o retira el saldo primero.",
-            ]);
-        }
-
-        $afuera = $articulo->piezas()->where('estatus', ActivoEstatus::Prestado)->count();
-
-        if ($afuera > 0) {
-            return back()->withErrors([
-                'activo' => "No se puede desactivar: hay {$afuera} pieza(s) afuera en resguardo. Recíbelas primero.",
-            ]);
-        }
-
-        DB::transaction(function () use ($articulo): void {
-            $articulo->update(['activo' => false]);
-            $articulo->producto?->update(['activo' => false]);
-        });
-
-        return back()->with('success', "{$articulo->codigo} desactivado. Sigue en el kardex, pero ya no se compra, se cuenta ni se presta.");
+        return back()->with('success', $desactivador->alternar($articulo));
     }
 
     public function edit(Articulo $articulo): Response

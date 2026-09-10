@@ -12,7 +12,7 @@ use Spatie\Permission\Models\Permission;
 /**
  * @param  list<string>  $permisos
  */
-function usuarioDeArticulos(array $permisos = ['ver', 'crear', 'editar']): User
+function usuarioDeArticulos(array $permisos = ['ver', 'crear', 'editar', 'desactivar']): User
 {
     $user = User::factory()->create();
 
@@ -254,12 +254,14 @@ describe('desactivar', function () {
             ->and($articulo->producto->refresh()->activo)->toBeTrue();
     });
 
-    it('pide el permiso de editar', function () {
+    it('pide su propio permiso: editar no alcanza', function () {
         $articulo = Articulo::factory()->create();
 
-        $this->actingAs(usuarioDeArticulos(['ver']))
+        $this->actingAs(usuarioDeArticulos(['ver', 'editar']))
             ->patch(route('admin.alm.articulos.toggle', $articulo))
             ->assertForbidden();
+
+        expect($articulo->refresh()->activo)->toBeTrue();
     });
 });
 

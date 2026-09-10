@@ -4,6 +4,7 @@ import { CodigoBarras } from '@/components/alm/codigo-barras';
 import { MiniaturaArticulo } from '@/components/alm/miniatura-articulo';
 import { ButtonLink } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
+import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmArticulo, AlmArticuloExistencia, AlmArticuloPrecio } from '@/types/models';
@@ -37,6 +38,7 @@ type Props = {
  */
 export default function ArticuloShow({ articulo, existencias, precios, ubicaciones }: Props) {
     const { flash, errors } = usePage<{ flash: { success?: string }; errors: { activo?: string } }>().props;
+    const { can } = useCan();
 
     const alternar = () => {
         const pregunta = articulo.activo
@@ -126,10 +128,12 @@ export default function ArticuloShow({ articulo, existencias, precios, ubicacion
                             <PencilIcon className="size-4" />
                             Editar
                         </ButtonLink>
-                        <button type="button" className="btn btn-outline" onClick={alternar}>
-                            {articulo.activo ? <PowerOffIcon className="size-4" /> : <PowerIcon className="size-4" />}
-                            {articulo.activo ? 'Desactivar' : 'Reactivar'}
-                        </button>
+                        {can('alm.articulos.desactivar') && (
+                            <button type="button" className="btn btn-outline" onClick={alternar}>
+                                {articulo.activo ? <PowerOffIcon className="size-4" /> : <PowerIcon className="size-4" />}
+                                {articulo.activo ? 'Desactivar' : 'Reactivar'}
+                            </button>
+                        )}
                         <ButtonLink href={`/admin/almacen/etiquetas?articulo=${articulo.id}`} variant="primary">
                             <TagIcon className="size-4" />
                             Imprimir etiquetas

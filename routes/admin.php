@@ -450,7 +450,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // vez. Se niega con saldo o con piezas afuera: primero se ajusta.
         Route::patch('articulos/{articulo}/toggle', [AlmArticuloController::class, 'toggle'])
             ->whereNumber('articulo')
-            ->middleware('permission:alm.articulos.editar')
+            ->middleware('permission:alm.articulos.desactivar')
             ->name('articulos.toggle');
 
         // Ubicaciones: una sola pantalla con el arbol y el alta. Sin destroy,
